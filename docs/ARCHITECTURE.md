@@ -119,6 +119,86 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpawnDirector` | Stage pacing, spawn positions | `step(dt, world)`; spawns off-screen on floors reachable from the player's platform |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING / DEAD / CLEARED) |
 
+### 4.4.1 Run setup (what `RunWorld` is built from)
+
+The sim never reads files. `RunScene` (presentation) builds a setup Dictionary from the asset cache and `res://data`:
+
+```gdscript
+var setup := {
+	"map_img": Dictionary,            # Map.wz/Map/Map1/104040000.img root (cache JSON)
+	"physics_img": Dictionary,        # Map.wz/Physics.img root
+	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader
+	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
+	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
+		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
+	"stage": "henesys_hg1",           # key in stages.json
+	"seed": 12345,
+	"view_size": Vector2(800, 600),   # logical view; RunWorld keeps a player-centred view rect for spawn logic
+}
+```
+
+Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd` loads the JSON files (outside sim).
+
+### 4.4.2 Pause protocol
+
+`RunWorld.state` is one of `PLAYING`, `CHOOSING_JOB`, `CHOOSING_UPGRADE`, `DEAD`, `CLEARED`. `step()` advances the
+world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
+first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
+`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`.
+The presentation layer shows the windows and calls back:
+
+| Call | Effect |
+|---|---|
+| `apply_job(job_id)` | advance (emits `job_changed`), then continue to the upgrade choice for that level |
+| `decline_job()` | stay, then continue to the upgrade choice |
+| `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else back to `PLAYING` |
+
+Level-up effects and their short pause before the window are presentation-only.
+
+### 4.4.3 Event schema
+
+`RunWorld.events` is an `Array` of Dictionaries appended during `step()` (and during the calls above) and cleared by
+the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot indices** (valid only for the frame);
+`mob_id`, `skill_id`, `item_id`, `job_id` are **original MapleStory ids**; `skill` is the survivor skill key from
+`skills.json`; visual fields are **WZ paths** into the asset cache.
+
+| type | fields |
+|---|---|
+| `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
+| `mob_spawned` | `mob`, `mob_id`, `pos`, `elite` |
+| `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
+| `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
+| `player_hit` | `damage` (int), `mp_absorbed` (int), `dir` (-1/1), `pos` |
+| `player_jump` | `pos` |
+| `player_died` | `pos` |
+| `pickup_spawned` | `pickup`, `item_id`, `pos` |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos` |
+| `level_up` | `level` |
+| `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
+| `job_changed` | `job_id`, `name` |
+| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill}]` |
+| `upgrade_applied` | `id`, `rank` |
+| `skill_learned` | `skill`, `skill_id` |
+| `burst` | `count` (a spawn burst started) |
+| `stage_cleared` | `time` |
+
+Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
+`state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
+`RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
+`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`invincible_t`, `action`, `action_t`, `dead`).
+
+### 4.4.4 Survivor data files (`game/data/survivor/`)
+
+| File | Contents |
+|---|---|
+| `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, visuals (WZ paths), sounds |
+| `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8) |
+| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites |
+| `balance.json` | EXP curve, player base stats and growth per job, invincibility, knockback, magnet, contact damage scale, mob speed factor |
+| `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
+| `jobs.json` | which canonical jobs are playable and what advancing grants |
+
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
 | Piece | Approach |
