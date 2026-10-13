@@ -1,0 +1,37 @@
+; Maple Survivors runtime (Godot 4.7). Art, audio and map data come from the player's own v83 WZ files through the
+; asset cache built by tools/wzimport; see docs/ARCHITECTURE.md and docs/ASSET_PIPELINE.md.
+
+config_version=5
+
+[application]
+
+config/name="Maple Survivors"
+config/description="A MapleStory v83 survival game. Runs fully offline from locally imported v83 assets."
+run/main_scene="res://scenes/main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="MapleSurvivors"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=800
+window/size/viewport_height=600
+window/size/window_width_override=1600
+window/size/window_height_override=1200
+window/stretch/mode="viewport"
+window/stretch/aspect="expand"
+window/stretch/scale_mode="integer"
+
+[gui]
+
+theme/default_font_antialiasing=0
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=0
+2d/snap/snap_2d_transforms_to_pixel=true
+2d/snap/snap_2d_vertices_to_pixel=true
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)

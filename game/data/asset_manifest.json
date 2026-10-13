@@ -1,0 +1,32 @@
+{
+	"format": 1,
+	"_doc": "What tools/wzimport exports into the asset cache. Entry semantics: docs/ASSET_PIPELINE.md section 4.",
+	"imgs": [
+		{"img": "Map.wz/Physics.img"},
+		{"img": "Map.wz/MapHelper.img", "paths": ["mark"]},
+		{"img": "Base.wz/zmap.img"},
+		{"img": "Base.wz/smap.img"},
+		{"img": "Effect.wz/BasicEff.img", "paths": ["NoRed0", "NoRed1", "NoCri0", "NoCri1", "NoBlue0", "NoBlue1", "NoViolet0", "NoViolet1", "LevelUp", "JobChanged"]},
+		{"img": "Effect.wz/Tomb.img"},
+		{"img": "UI.wz/StatusBar.img"},
+		{"img": "UI.wz/Basic.img"},
+		{"img": "UI.wz/UIWindow.img"},
+		{"img": "UI.wz/Login.img"},
+		{"img": "Skill.wz/000.img"},
+		{"img": "Skill.wz/200.img"},
+		{"img": "Skill.wz/210.img"},
+		{"img": "Sound.wz/Game.img"},
+		{"img": "Sound.wz/UI.img"},
+		{"img": "Sound.wz/BgmUI.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},
+		{"img": "String.wz/Map.img"},
+		{"img": "String.wz/Mob.img"},
+		{"img": "String.wz/Skill.img"},
+		{"img": "String.wz/Etc.img"},
+		{"img": "String.wz/Eqp.img"}
+	],
+	"maps": [104040000, 100010000, 101010100],
+	"mobs": [100100, 100101, 130101, 120100, 210100, 1210100, 1210101, 1210102, 1110100],
+	"character": [2000, 12000, 20000, 30030, 1040002, 1060002, 1072001, 1302000, 1372005],
+	"items": [4000019, 4000000, 4000016, 4000011, 4000010, 4000017, 4000002, 4000001, 4000012]
+}
