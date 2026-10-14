@@ -21,13 +21,14 @@ var skills := HudSkills.new()
 var system_messages := HudMessages.new()
 var potion_slot := HudPotionQuickslot.new()
 var buff_row := HudReservedSlot.new()
-var boss_bar := HudReservedSlot.new()
+var boss_bar := HudBossBar.new()
 
 func _ready() -> void:
 	layer = 10
 	font = make_font()
 	bold_font = make_font(700)
 	potion_slot.library = library
+	boss_bar.library = library
 	for w: HudWidget in [status, counters, skills, system_messages]:
 		w.library = library
 		add_child(w)
@@ -60,6 +61,11 @@ func store_state(ps: Dictionary, info: Dictionary) -> void:
 func push_message(text: String, color: Color = SYSTEM_YELLOW) -> void:
 	system_messages.push_message(text, color)
 
+
+## Shows an encounter notice without letting EXP messages evict it.
+func push_notice(key: String, text: String, life: float = MSG_LIFE) -> void:
+	system_messages.push_notice(key, text, life)
+
 ## Shows a collected EXP total.
 func show_exp(n: int) -> void:
 	system_messages.show_exp(n)
@@ -85,7 +91,7 @@ func _layout_slots() -> void:
 	buff_row.position = Vector2(view.x - 224, 42)
 	buff_row.size = Vector2(212, 40)
 	boss_bar.position = Vector2(floorf((view.x - 300) * 0.5), 42)
-	boss_bar.size = Vector2(300, 30)
+	boss_bar.size = Vector2(HudBossBar.BAR_WIDTH, HudBossBar.ROW_HEIGHT)
 
 ## Creates the common HUD and window system font.
 static func make_font(weight: int = 400) -> SystemFont:

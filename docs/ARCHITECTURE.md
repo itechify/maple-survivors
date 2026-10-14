@@ -347,9 +347,18 @@ What the tables above leave open; the class doc comments have the rest.
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations (skill hit, level-up, job change) and projectiles. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills` and `HudMessages` widgets. `RunScene` feeds each widget. Reserved Controls mark the potion quickslot at the bar's right, buff row below kills and boss bar below the timer. |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot` and `HudBossBar` widgets. `RunScene` feeds each widget. The buff row remains reserved below kills; live boss bars stack below the timer. |
 | Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. Title, stage select, results and import are scenes under `scenes/ui/`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
+
+`RunScene.boss_bars()` builds presentation-only snapshots from live encounter records and swarm HP, independently
+of the status/timer update signature. `HudBossBar.displayed()` exposes the same rows used by drawing, with original
+mob id, name, HP/max HP, ratio, icon and gauge paths. The bar uses `UI.wz/UIWindow.img/MobGage` backgrounds,
+`Mob/<id>` icons and `Gage/<hpTagColor>/0`, `Gage/<hpTagBgcolor>/1` strips. `mobs.json.boss_ui` supplies only missing
+presentation metadata; the cache is untouched. A dead boss is omitted immediately, including when others remain.
+`boss_warning` and `boss_spawned` map to keyed yellow encounter notices above the ordinary EXP queue (and above
+the low-MP cue), so EXP churn cannot evict them. Arrival replaces that boss's warning, plays the canonical
+`Effect.wz/BasicEff.img/Summoned` animation at its position, and requests an evidence screenshot when enabled.
 
 Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=viewport`,
 `aspect=expand`, `scale_mode=integer`, nearest filtering: on wider windows the player sees more of the map at the same

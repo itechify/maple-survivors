@@ -169,6 +169,90 @@ func test_events_become_visuals() -> void:
 	_assert_nothing_missing(scene, "events")
 
 
+func test_boss_warning_and_arrival_messages_survive_exp_message_pressure() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2101, {})
+	scene.handle_events([{"type": "boss_warning", "boss_index": 0, "mob_id": 2220000, "time": 297.0}])
+	for i in 12:
+		scene.hud.show_exp(i + 1)
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true("Mano will appear in 3 seconds!" in texts, "EXP churn cannot evict the boss warning")
+	var before := scene.fx.active_count()
+	scene.handle_events([{"type": "boss_spawned", "boss_index": 0, "mob": 0, "mob_id": 2220000,
+		"pos": scene.world.player.pos, "time": 300.0}])
+	var appeared := false
+	for message: Dictionary in scene.hud.messages():
+		if message.text == "Mano has appeared!":
+			appeared = true
+			assert_eq(message.color, Hud.SYSTEM_YELLOW)
+	assert_true(appeared, "yellow system arrival message")
+	assert_eq(scene.fx.active_count(), before + 1, "canonical respawn effect plays at the boss")
+	scene.hud.advance_messages(4.01)
+	assert_eq(scene.hud.messages().size(), 0, "encounter notices expire after their visible lifetime")
+	_assert_nothing_missing(scene, "boss messages")
+
+
+func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2102, {})
+	scene.world.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	var bar: Variant = scene.hud.boss_bar
+	assert_eq(bar.displayed().size(), 0, "no boss bar before arrival")
+	_frames(31)
+	var rows: Array = bar.displayed()
+	assert_eq(rows.size(), 1, "arrival creates its bar below the timer")
+	if rows.is_empty():
+		return
+	assert_eq(rows[0].name, "Mano")
+	assert_eq(rows[0].hp, 4000)
+	assert_eq(rows[0].max_hp, 4000)
+	assert_eq(rows[0].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/2220000")
+	assert_eq(rows[0].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[0].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	var slot := int(scene.world.bosses.records[0].slot)
+	scene.world.hit_mob(slot, {"damage_min": 2000.0, "damage_max": 2000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed()[0].hp, 2000, "fixed damage is visible in the bar on the next frame")
+	assert_eq(bar.displayed()[0].ratio, 0.5)
+	scene.world.hit_mob(slot, {"damage_min": 100000.0, "damage_max": 100000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed().size(), 0, "dead boss is hidden immediately")
+	_assert_nothing_missing(scene, "boss bar")
+
+
+func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2103, {})
+	scene.world.bosses = BossDirector.new([
+		{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0},
+		{"mob_id": 9400205, "time": 0.7, "hp_mult": 0.25},
+	])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	_frames(43)
+	var rows := scene.hud.boss_bar.displayed()
+	assert_eq(rows.size(), 2, "both surviving bosses remain visible")
+	if rows.size() != 2:
+		return
+	assert_eq(rows[0].mob_id, 2220000)
+	assert_eq(rows[1].name, "Blue Mushmom")
+	assert_eq(rows[1].max_hp, 50000)
+	assert_eq(rows[1].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/6130101", "Blue Mushmom borrows Mushmom's icon")
+	assert_eq(rows[1].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[1].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	assert_true(rows[0].icon is SpriteFrame and rows[1].icon is SpriteFrame)
+	_assert_nothing_missing(scene, "multiple boss bars")
+
+
 func test_cast_plays_the_action_stance_while_standing() -> void:
 	if not require_cache():
 		return
