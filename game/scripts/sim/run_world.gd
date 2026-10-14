@@ -186,7 +186,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	nav_jump = NavGraph.build(fhm, nav_opts.merged({"can_jump": true}))
 	_build_mob_kinds()
 	body_pad = ProjectileSystem.max_body_extent(mob_kinds)
-	swarm = MobSwarm.new(256, mob_kinds)
+	swarm = MobSwarm.new(256, mob_kinds, balance.get("mob_motion", {}))
 	swarm.fhm = fhm
 	mob_elite.resize(swarm.capacity())
 	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))

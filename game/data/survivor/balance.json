@@ -38,6 +38,8 @@
 	"magic_defense_k": 150,
 	"_mob_speed_factor": "mob move speed px/s = (speed stat + 100) x this x stage speed (MobKind.SPEED_SCALE is the same 0.625; a different value here rescales every mob)",
 	"mob_speed_factor": 0.625,
+	"_mob_motion": "tier C: flyer vertical bob amplitude in pixels and period in seconds; pursuit still uses canonical flySpeed through mob_speed_factor",
+	"mob_motion": {"fly_bob_px": 2, "fly_bob_period": 1.2},
 	"mp_regen": 2.0,
 	"hp_regen": 0.0,
 	"crit": {"chance": 0.0, "mult": 1.5},

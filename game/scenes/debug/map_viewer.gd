@@ -11,6 +11,7 @@ extends Node2D
 ##   --char=x,y          character position (dropped onto the floor below); default near the camera centre
 ##   --stance=<name>     fix the character's stance (default: walk/stand cycling); --facing=1 faces right
 ##   --gallery           a row of characters, one per stance, and a grid of mobs (one per state) at the camera
+##   --gallery-mobs=<ids> comma-separated original mob IDs for the gallery (e.g. 9300063,9300062,9300064,2300100)
 ##   --mobs=N            N animated mobs walking on the map's floors (performance check)
 ##   --perf=N            after a 60-frame warm-up, measure N frames and print frame-time stats, then quit
 ##   --vsync=off         disable vsync and the FPS cap
@@ -69,6 +70,7 @@ var _sync_frames := 0
 var _sync_bad := 0
 var _gallery: Array = []
 var _gallery_mobs: DebugSoA
+var _gallery_kind_ids := PackedInt32Array()
 var _elite := PackedByteArray()
 var _kind_names := PackedStringArray()
 
@@ -399,7 +401,12 @@ func _setup_gallery(c: Vector2) -> void:
 		a.play(GALLERY_STANCES[i])
 		_gallery.append(a)
 	# Mobs: one row per state (stand, move, hit1, die1), one column per mob, above the characters.
-	var n := DEMO_MOBS.size()
+	_gallery_kind_ids = PackedInt32Array(DEMO_MOBS)
+	if args.has("gallery-mobs"):
+		_gallery_kind_ids.clear()
+		for id: String in str(args["gallery-mobs"]).split(",", false):
+			_gallery_kind_ids.append(int(id))
+	var n := _gallery_kind_ids.size()
 	_gallery_mobs = DebugSoA.make(n * 4, {"kind": TYPE_PACKED_INT32_ARRAY, "x": TYPE_PACKED_FLOAT32_ARRAY,
 		"y": TYPE_PACKED_FLOAT32_ARRAY, "state": TYPE_PACKED_INT32_ARRAY, "state_t": TYPE_PACKED_FLOAT32_ARRAY,
 		"anim_t": TYPE_PACKED_FLOAT32_ARRAY, "facing": TYPE_PACKED_INT32_ARRAY, "alpha": TYPE_PACKED_FLOAT32_ARRAY})
@@ -412,7 +419,7 @@ func _setup_gallery(c: Vector2) -> void:
 	for row in 4:
 		for col in n:
 			var i := row * n + col
-			xs[i] = c.x - 330 + col * 80
+			xs[i] = c.x - (n - 1) * 40 + col * 80
 			ys[i] = base.y - 110 - (3 - row) * 75
 			kinds[i] = col
 			states[i] = [STAND, MOVE, HIT, DIE][row]
@@ -424,9 +431,6 @@ func _setup_gallery(c: Vector2) -> void:
 	_gallery_mobs.fields.state = states
 	_gallery_mobs.fields.alpha = alpha
 	_gallery_mobs.fields.facing = facing
-	if _kind_ids.is_empty():
-		for id: int in DEMO_MOBS:
-			_kind_ids.append(id)
 	var gm := MobRenderer.new()
 	gm.name = "GalleryMobs"
 	map.actor_layer(7).add_child(gm)
@@ -443,7 +447,7 @@ func _step_gallery(delta: float) -> void:
 		st[i] = 0.15 if states[i] == DIE else 0.0
 	_gallery_mobs.fields.state_t = st
 	_gallery_mobs.fields.anim_t = an
-	(get_meta("gallery_renderer") as MobRenderer).update_from(_gallery_mobs, _kind_ids)
+	(get_meta("gallery_renderer") as MobRenderer).update_from(_gallery_mobs, _gallery_kind_ids)
 
 
 # --- projectiles, numbers, effects ---------------------------------------------------------------------------

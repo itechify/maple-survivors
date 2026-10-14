@@ -88,7 +88,11 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 				if pos.distance_to(w.player.pos) < 200.0:
 					fail("spawned %s px from the player" % pos.distance_to(w.player.pos))
 				var f: int = w.swarm.fh[e.mob]
-				assert_true(f >= 0 and absf(w.fhm.y_at(f, pos.x) - pos.y) < 0.01, "standing on a floor")
+				var mob_kind: MobKind = w.mob_kinds[w.swarm.kind[e.mob]]
+				if mob_kind.flies:
+					assert_eq(f, -1, "flyers spawn in air")
+				else:
+					assert_true(f >= 0 and absf(w.fhm.y_at(f, pos.x) - pos.y) < 0.01, "standing on a floor")
 				if e.elite:
 					elites += 1
 					var mk: MobKind = w.mob_kinds[w.swarm.kind[e.mob]]
