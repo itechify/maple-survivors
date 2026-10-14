@@ -39,6 +39,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
+	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
@@ -107,6 +108,8 @@ var kind_of_id := {}
 var mob_elite := PackedByteArray()
 ## Per slot: schedule index for a boss, -1 for ordinary mobs.
 var mob_boss := PackedInt32Array()
+## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
+var mob_summon_owner := PackedInt32Array()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
@@ -118,6 +121,7 @@ var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
+var mob_skills: MobSkillRunner
 var bosses: BossDirector
 
 var events: Array = []
@@ -237,6 +241,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	upgrades = UpgradePool.from_data(data.get("upgrades", {}))
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
+	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
 	var kb: Dictionary = balance.get("knockback", {})
 	player = PlayerMotion.new(physics, {
 		"knockback_speed": float(kb.get("speed", 187.5)), "knockback_hop": float(kb.get("hop", 200.0)),
@@ -321,6 +326,7 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
+	player.speed_stat = roundi(player_speed_stat())
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
@@ -341,6 +347,7 @@ func step(dt: float, input: MoveInput) -> void:
 	_ctx.speed_mult = director.value_at("speed", time)
 	swarm.step(dt, _ctx)
 	bosses.step(self)
+	mob_skills.step(self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -476,7 +483,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
-	player.speed_stat = roundi(loadout.player_stat("speed", 100.0))
+	player.speed_stat = roundi(player_speed_stat())
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
 	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
@@ -486,6 +493,11 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
 	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD"), progression.level)
 	_write_player_state(0.0)
+
+
+## Upgraded movement speed composed with the current canonical-area slow.
+func player_speed_stat() -> float:
+	return loadout.player_stat("speed", 100.0) * mob_skills.speed_multiplier(time)
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -583,6 +595,7 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 	_sync_slots()
 	mob_elite[i] = 1 if elite else 0
 	mob_boss[i] = -1
+	mob_summon_owner[i] = -1
 	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite,
 		"relocated_from": -1})
 	return i
@@ -599,12 +612,14 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var mhp := swarm.max_hp[i]
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
+	var summon_owner := mob_summon_owner[i]
 	swarm.despawn(i)
 	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
 	swarm.hp[j] = hp
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
+	mob_summon_owner[j] = summon_owner
 	if boss_index >= 0:
 		bosses.records[boss_index].slot = j
 	emit("mob_spawned", {"mob": j, "mob_id": mob_kinds[k].id, "pos": Vector2(swarm.x[j], swarm.y[j]), "elite": elite,
@@ -747,6 +762,11 @@ func _tick_timers(dt: float) -> void:
 
 
 func _sync_slots() -> void:
+	if mob_summon_owner.size() < swarm.capacity():
+		var old := mob_summon_owner.size()
+		mob_summon_owner.resize(swarm.capacity())
+		for slot in range(old,mob_summon_owner.size()):
+			mob_summon_owner[slot] = -1
 	if mob_elite.size() < swarm.capacity():
 		mob_elite.resize(swarm.capacity())
 	if mob_boss.size() < swarm.capacity():
@@ -964,6 +984,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
+	player_state["slow"] = mob_skills.slow_state(time)
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

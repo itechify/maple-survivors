@@ -1,6 +1,7 @@
 {
 	"_doc": "Run-wide survivor tuning (docs/GAME_DESIGN.md sections 5, 6; docs/ARCHITECTURE.md 4.4.4). Everything here is tier C (ours / emulator-like) unless a note says otherwise; canonical WZ numbers are never copied here except where noted as a survivor choice of equipment.",
 	"exp_curve": {"a": 4, "b": 8, "c": 4.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 16, L7 256, L9 400, L29 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
+	"mob_skills": {"_doc": "Tier C: enabled boss kits; slow x retains x percent of upgraded speed; defense x adds flat defense.", "enabled_ids": [2220000], "summon_spacing": 24},
 	"exp_mult": 1.0,
 	"player": {
 		"_start": "Tier C: survivor starter stats, with the existing 50 HP / 5 MP and Three Snails rank 1.",
