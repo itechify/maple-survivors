@@ -8,6 +8,7 @@ const FLYERS := [9300063, 9300062, 9300064, 2300100]
 
 func _air_world() -> RunWorld:
 	var setup := RF.setup("quiet", 16, RF.quiet_data())
+	setup.data.balance.player.weapon_by_job = {"0": 0}  # Pursuit probes have no basic attack.
 	setup.map_img = RF.map_from_segments([{"x1": -100, "y1": 0, "x2": 100, "y2": 0}])
 	setup.map_img.info = {"VRLeft": -1000, "VRRight": 1000, "VRTop": -1000, "VRBottom": 500}
 	var img: Dictionary = setup.mob_imgs[100100]
@@ -107,6 +108,7 @@ func test_far_flyer_relocates_to_air_without_losing_hp() -> void:
 
 func _real_world() -> RunWorld:
 	var data := RF.quiet_data()
+	data.balance.player.weapon_by_job = {"0": 0}  # Observe flyer contact without an attacking camper.
 	var setup := RF.setup("quiet", 16, data)
 	var lib := AssetLibrary.get_default()
 	if not lib.has_img(DataRepo.map_img_path(104040000)):
