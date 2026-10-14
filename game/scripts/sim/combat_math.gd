@@ -38,6 +38,18 @@ static func magic_damage_range(int_stat: float, matk: float, spell_attack: float
 	return Vector2(minf(lo, hi), hi)
 
 
+## Physical swing bounds after level difference and PDD, minimum 1 (tier B: pre-Big-Bang formula compilation).
+static func basic_damage_range(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
+		player_level: int, mob_level: int, pdd: float) -> Vector2:
+	var k := 4.0 if weapon_id / 10000 == 130 else 3.2 if action.begins_with("stab") else 4.4
+	var hi := (str_stat * k + dex_stat) * watk / 100.0
+	var lo := (str_stat * k * 0.9 * 0.1 + dex_stat) * watk / 100.0
+	var level_factor := 1.0 - 0.01 * maxi(0, mob_level - player_level)
+	hi = maxf(1.0, hi * level_factor - 0.5 * pdd)
+	lo = maxf(1.0, lo * level_factor - 0.6 * pdd)
+	return Vector2(minf(lo, hi), hi)
+
+
 ## One uniform roll in [range.x, range.y].
 static func roll_range(r: Vector2, rng: RandomNumberGenerator) -> float:
 	return rng.randf_range(r.x, r.y) if r.y > r.x else r.x

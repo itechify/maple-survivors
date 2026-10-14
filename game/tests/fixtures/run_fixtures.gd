@@ -154,6 +154,8 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 		"physics_img": WF.physics_img_v83(),
 		"mob_imgs": mob_imgs(),
 		"skill_imgs": skill_imgs(),
+		"equipment_info": {1302000: {"incPAD": 17.0, "attackSpeed": 4.0},
+			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
 			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},

@@ -39,6 +39,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
+	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
@@ -49,6 +50,7 @@ const EVENT_FIELDS := {
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
 	"potion_used": ["kind", "item_id", "restored", "count"],
+	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -167,6 +169,9 @@ var _dead := false
 var _invincible_t := 0.0
 var _regen_elapsed := 0.0
 var _cast_action := ""
+var _action_airborne := false
+var basic: BasicAttack
+var basic_rng: RandomNumberGenerator
 var _cast_left := 0.0
 var _action := ""
 var _action_t := 0.0
@@ -186,6 +191,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	duration = float(stage.get("duration", 900.0))
 	seed_value = int(setup.get("seed", 0))
 	rng = _stream(1)
+	basic_rng = _stream(5)
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
@@ -224,6 +230,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	loadout.crit_chance = float(crit.get("chance", 0.0))
 	loadout.crit_mult = float(crit.get("mult", 1.5))
 	runner = SkillRunner.new()
+	basic = BasicAttack.new(setup.get("body_img", {}), setup.get("afterimage_imgs", {}))
 	progression = RunProgression.new(ExpCurve.from_data(balance.get("exp_curve", {})),
 		int(balance.get("max_level", 200)))
 	jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
@@ -268,6 +275,17 @@ func drink_potion(kind: String) -> bool:
 	_write_player_state(0.0)
 	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
 		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+	return true
+
+
+## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately.
+func upgrade_potion(kind: String, item_id: int) -> bool:
+	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
+	if not potions.upgrade(kind, item_id):
+		return false
+	_write_player_state(0.0)
+	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
+		"count": int(potions.stock[kind].count)})
 	return true
 
 
@@ -327,6 +345,7 @@ func step(dt: float, input: MoveInput) -> void:
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
 	runner.step(dt, self)
+	basic.step(dt, self)
 	projectiles.step(dt, swarm, mob_grid, events)
 	for m in projectiles.kills:
 		_on_kill(m)
@@ -465,7 +484,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
 		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
-	loadout.set_caster(float(_attributes.int), _job_value(pb.get("magic_attack", {}), 0.0), progression.level)
+	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD"), progression.level)
 	_write_player_state(0.0)
 
 
@@ -524,12 +543,35 @@ func face_toward(tx: float) -> void:
 		player.facing = 1 if tx > player.pos.x else -1
 
 
-## Starts the cast stance `action` for `seconds` (shown while the player stands still).
-func start_action(action: String, seconds: float) -> void:
+## Starts a stance for its frame time; airborne opts basic swings into the same visual without changing motion.
+func start_action(action: String, seconds: float, airborne: bool = false) -> void:
 	if action == "" or seconds <= 0.0:
 		return
 	_cast_action = action
 	_cast_left = seconds
+	_action_airborne = airborne
+
+
+## Canonical starter weapon selected by the current job's survivor-data rule.
+func weapon_id() -> int:
+	return int(_job_value(balance.get("player", {}).get("weapon_by_job", {}), 0))
+
+
+## The current weapon's canonical info node (empty when absent).
+func weapon_info() -> Dictionary:
+	var infos: Dictionary = setup.get("equipment_info", {})
+	return infos.get(weapon_id(), infos.get(str(weapon_id()), {}))
+
+
+## Live defense at a mob slot; later timed boss buffs can override this shared hit seam.
+func mob_defense(m: int, magic: bool) -> float:
+	var kind: MobKind = mob_kinds[swarm.kind[m]]
+	return float(kind.mdd if magic else kind.pdd)
+
+
+## Whether a physical hit may damage this slot; the weapon-immunity ticket supplies its timed state.
+func physical_hit_allowed(_m: int) -> bool:
+	return true
 
 
 ## Spawns a mob of kind index k on foothold fh at pos with max_hp x hp_mult; emits mob_spawned. Returns the slot.
@@ -574,9 +616,11 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 	if swarm.active[m] == 0:
 		return
+	if not bool(st.magic) and not physical_hit_allowed(m):
+		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), bool(st.magic),
-		float(mk.mdd), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult), rng)
+		mob_defense(m, true), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult), rng)
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -905,7 +949,8 @@ func _advance_queue() -> void:
 
 func _write_player_state(dt: float) -> void:
 	var a := "dead" if _dead else player.stance()
-	if not _dead and _cast_left > 0.0 and player.state == PlayerMotion.ST_STAND:
+	if not _dead and _cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
+			or (_action_airborne and player.state == PlayerMotion.ST_AIR)):
 		a = _cast_action
 	if a != _action:
 		_action = a

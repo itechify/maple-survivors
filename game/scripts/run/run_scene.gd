@@ -56,7 +56,6 @@ const SND_SKILL_USE := "Sound.wz/Skill.img/%07d/Use"
 const DEFAULT_ACTION := "swingO1"
 ## Weapon held per job branch (job id / 100): the Magician's Wooden Wand 1372005 (tier A: the item; GAME_DESIGN 11).
 ## Beginners hold nothing (GAME_DESIGN section 1, AvatarRenderer.DEFAULT_LOOK).
-const JOB_WEAPONS := {2: 1372005}
 const DEFAULT_NAME := "MapleHero"
 
 ## tier C (ours): seconds of the LevelUp effect before the upgrade window opens (about the pillar's peak; the whole
@@ -254,8 +253,7 @@ func _ready() -> void:
 			_next_shot = (floorf(world.time / _shot_every + 1e-6) + 1.0) * _shot_every
 	_build_presentation()
 	_warm_ui()
-	if int(world.player_state.job_id) != 0:
-		_apply_job_look(int(world.player_state.job_id))
+	_apply_job_look(int(world.player_state.job_id))
 	handle_events(world.drain_events())
 	_start_title()
 	_play_bgm()
@@ -474,7 +472,7 @@ func _warm_ui() -> void:
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in JOB_WEAPONS.values():
+	for wid: Variant in world.balance.player.get("weapon_by_job", {}).values():
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -558,6 +556,12 @@ func handle_events(events: Array) -> void:
 				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
 			"cast":
 				_on_cast(e)
+			"basic_attack":
+				if e.phase == "start":
+					_restart_action = true
+					_sound(String(e.sound))
+				else:
+					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
 			"mob_died":
@@ -646,10 +650,14 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## The character look for a job: the default look plus the job branch's weapon (JOB_WEAPONS).
+## The character look for a job: the default clothes plus the configured canonical weapon.
 func _apply_job_look(job_id: int) -> void:
-	@warning_ignore("integer_division")
-	var weapon := int(JOB_WEAPONS.get(job_id / 100, 0))
+	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
+	var weapon := int(weapons.get("0", 0))
+	for ancestor in world.jobs.lineage(job_id):
+		if weapons.has(str(ancestor)):
+			weapon = int(weapons[str(ancestor)])
+			break
 	var equips: Array = AvatarRenderer.DEFAULT_LOOK.equips.duplicate()
 	if weapon > 0:
 		equips.append(weapon)
@@ -901,7 +909,7 @@ func _update_player(delta: float) -> void:
 		if avatar.stance != "dead":
 			avatar.play("dead", true, false)
 	elif action != motion:
-		# The cast stance (the sim only reports it while the player stands still).
+		# Skill stance while standing; basic swing stance while standing or airborne.
 		var st := action if avatar.has_stance(action) else DEFAULT_ACTION
 		avatar.play(st, _restart_action or _shown_action != st, false)
 		_shown_action = st

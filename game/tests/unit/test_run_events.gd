@@ -7,9 +7,9 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound"]
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -35,7 +35,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k == "time" and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "hit_after", "interval"] and typeof(v) != TYPE_FLOAT:
 			fail("%s.time is not float" % type)
 	match type:
 		"job_advance_pending":
@@ -144,12 +144,20 @@ func test_every_event_matches_the_schema() -> void:
 	p.step(DT, MoveInput.make(false, false, true))
 	for e: Dictionary in p.drain_events():
 		_check(e, seen)
+	var basic_world := preload("res://tests/fixtures/basic_attack_fixtures.gd").world()
+	RF.put_mob(basic_world, 100100, 450, 190, 100)
+	for tick in 30:
+		basic_world.step(DT, MoveInput.new())
+	for event: Dictionary in basic_world.drain_events():
+		_check(event, seen)
 	# Guaranteed potion use and collection exercise the consumable schema regardless of random drop rolls.
 	var potion := RF.quiet_world()
 	potion.spawn_potion("mp", potion.player.pos - Vector2(0, 25), 2)
 	potion.step(DT, MoveInput.new())
 	potion.drink_potion("hp")
 	potion.drink_potion("mp")
+	potion.progression.level = 10
+	potion.upgrades.apply("orange_potion", potion)
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:

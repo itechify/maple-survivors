@@ -93,6 +93,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
+	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
@@ -603,6 +604,34 @@ func test_launcher_args() -> void:
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
 
 
+func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 83, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.mob_motion.push_px = 0
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 83, Vector2(800, 600),
+		func(path: String) -> Dictionary: return lib.img(path).root, lib.mob_root)
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.player.facing = 1
+	var target := w.player.pos + Vector2(50, 0)
+	w.mob_kinds[int(w.kind_of_id[100100])].move_speed = 0
+	w.spawn_mob(int(w.kind_of_id[100100]), target, w.player.fh, 100, false)
+	var before_sounds: int = scene.counters.sounds
+	_frames(40)
+	assert_true(String(scene.avatar.stance) in BasicAttack.ACTIONS, "the body plays the canonical swing/stab")
+	assert_true(scene.fx.active_count() >= 2, "afterimage and hit sparks are pooled effects")
+	assert_true(int(scene.counters.hit_fx) >= 1, "the swing hit emitted its spark")
+	assert_true(int(scene.counters.sounds) > before_sounds, "swing and monster-hit audio played")
+	_assert_nothing_missing(scene, "basic attack")
+
+
 func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
 	if not require_cache():
 		return
@@ -670,3 +699,53 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 		scene._unhandled_input(event)
 		scene.advance_frame(DT * 4)
 		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)
+
+
+func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 11, {})
+	scene.world.progression.level = 25
+	for example: Array in [["orange_potion", "hp", 2000001], ["white_potion", "hp", 2000002],
+			["mana_elixir", "mp", 2000006]]:
+		var before: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		scene.world.upgrades.apply(example[0], scene.world)
+		scene.advance_frame(0.0)
+		var after: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		assert_eq(after.item_id, example[2])
+		assert_eq(after.count, before.count)
+		assert_true(after.icon != null)
+		assert_ne(after.icon.region, before.icon.region, "a new canonical icon is displayed")
+	_assert_nothing_missing(scene, "potion tiers")
+
+
+func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> void:
+	if not require_cache():
+		return
+	var height_one := 0.0
+	for n in [1, 2]:
+		scene = _make("henesys_hg1", 11, {})
+		var w := scene.world
+		w.change_job(200)
+		w.progression.level = 20
+		var ids: Array = ["orange_potion", "mana_elixir"].slice(0, n)
+		w.upgrades = UpgradePool.from_data({"cards": w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id in ids)})
+		w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
+		_frames(1 + ceili(RunScene.WINDOW_DELAY / DT) + 2)
+		var lw := scene.window as LevelUpWindow
+		assert_true(lw != null)
+		if lw != null:
+			assert_eq(lw.cards.size(), n)
+			for i in n:
+				assert_true(lw.card_rect(i).has_area())
+			assert_eq(lw.card_rect(n), Rect2(), "no empty substitute row")
+			assert_false(lw.choose(n), "out-of-range choice cannot consume a card")
+			if n == 1:
+				height_one = lw.panel_size.y
+			else:
+				assert_true(lw.panel_size.y > height_one, "panel grows to hold the second card")
+			assert_true(lw.choose(0))
+			assert_eq(w.state, RunWorld.PLAYING)
+		_assert_nothing_missing(scene, "%d potion cards" % n)
+		scene.free()
+		scene = null

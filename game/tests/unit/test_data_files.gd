@@ -46,8 +46,7 @@ func test_skills_reference_canonical_ids() -> void:
 func test_cards_are_consistent() -> void:
 	var skills: Dictionary = data.skills.skills
 	var ids := {}
-	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "filler"]
-	var fillers := 0
+	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "potion_tier"]
 	for c: Dictionary in data.upgrades.cards:
 		assert_false(ids.has(c.id), "unique id %s" % c.id)
 		ids[c.id] = true
@@ -58,11 +57,15 @@ func test_cards_are_consistent() -> void:
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
 			assert_eq(int(c.max_rank), skills[c.skill].ranks.size() - 1, "%s: ranks 2..max" % c.id)
-		if c.kind == "filler":
-			fillers += 1
+		for effect: Dictionary in c.effects:
+			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
+		if c.kind == "potion_tier":
+			assert_true(c.potion_kind in ["hp", "mp"])
+			var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/asset_manifest.json"))
+			assert_has(manifest.items.map(func(id: Variant) -> int: return int(id)), int(c.item_id), "%s target is imported" % c.id)
+			assert_true(c.requires.potions.has(c.potion_kind), "tier requires its predecessor")
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
-	assert_true(fillers >= 3, "enough fillers for a full draw")
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
@@ -168,6 +171,8 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 	assert_eq(s.equipment_info[1040002].incPDD, 3.0, "canonical equipment info, untouched")
 	assert_true(s.equipment_info.has(1302000) and s.equipment_info.has(1372005), "both starter weapons")
 	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")
+	assert_eq(s.body_img.info.incPDD, 1.0, "body root reaches the sim untouched")
+	assert_eq(s.afterimage_imgs.swordOL.info.incPDD, 1.0, "afterimage root reaches the sim untouched")
 
 
 func test_monster_damage_has_no_hidden_balance_scales() -> void:

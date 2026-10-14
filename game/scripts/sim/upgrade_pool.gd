@@ -6,15 +6,13 @@ extends RefCounted
 ## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (the job is one of them or a
 ## descendant), `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned and a free slot of its kind; skill_rank / skill_mod need the skill owned (skill_rank also
-## below the skill's max rank). Fillers are never eligible; they fill a draw that has fewer eligible cards than
-## requested. A draw picks distinct cards by weight with the given RNG; when the run has a pending `guarantee`
+## below the skill's max rank). Potion tiers require a current item and level from data. A draw picks up to the
+## requested number of distinct eligible cards by weight with the given RNG; when the run has a pending `guarantee`
 ## ({kind, job}) the first card is drawn among the eligible cards of that kind whose requires.jobs lists that job,
 ## and the guarantee is consumed. Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
 ## RunWorld.power_dry counts those draws.
-
-const KIND_FILLER := "filler"
 
 var cards: Array = []
 ## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
@@ -47,16 +45,16 @@ func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
 
-## Ids of the non-filler cards eligible now, in data order.
+## Ids of the cards eligible now, in data order.
 func eligible(state: RunWorld) -> Array:
 	var out: Array = []
 	for c: Dictionary in cards:
-		if String(c.get("kind", "")) != KIND_FILLER and is_eligible(c, state):
+		if is_eligible(c, state):
 			out.append(String(c.id))
 	return out
 
 
-## Whether card `c` may be offered now (fillers: whether they are usable at all).
+## Whether card `c` may be offered now.
 func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var lo: Loadout = state.loadout
 	var id := String(c.get("id", ""))
@@ -82,6 +80,9 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 			return false
 	if state.progression.level < int(req.get("min_level", 0)):
 		return false
+	for potion_kind: String in req.get("potions", {}):
+		if int(state.potions.stock.get(potion_kind, {}).get("item_id", 0)) != int(req.potions[potion_kind]):
+			return false
 	var skill := String(c.get("skill", ""))
 	match String(c.get("kind", "")):
 		"skill_new":
@@ -96,7 +97,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	return true
 
 
-## Draws up to n distinct cards (fillers fill a short draw) and returns them as choice_pending cards (see
+## Draws up to n distinct eligible cards and returns them as choice_pending cards (see
 ## choice_card for the fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
@@ -122,15 +123,6 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 		var id := _weighted_pick(pool, rng)
 		picked.append(id)
 		pool.erase(id)
-	if picked.size() < n:
-		var fillers: Array = []
-		for c: Dictionary in cards:
-			if String(c.get("kind", "")) == KIND_FILLER and is_eligible(c, state):
-				fillers.append(String(c.id))
-		while picked.size() < n and not fillers.is_empty():
-			var id := _weighted_pick(fillers, rng)
-			picked.append(id)
-			fillers.erase(id)
 	var out: Array = []
 	var power := false
 	for id: String in picked:
@@ -205,16 +197,19 @@ static func _rank_step(c: Dictionary) -> int:
 	return maxi(1, n)
 
 
-## Applies card `id` to the run (learn / rank up / modifiers / heal), emits upgrade_applied (and skill_learned for
+## Applies card `id` to the run (learn / rank up / modifiers / potion tier), emits upgrade_applied (and skill_learned for
 ## skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld) -> int:
 	var c := card(id)
 	if c.is_empty():
 		return 0
+	var kind := String(c.get("kind", ""))
+	if kind == "potion_tier":
+		if not is_eligible(c, state) or not state.upgrade_potion(String(c.get("potion_kind", "")), int(c.get("item_id", 0))):
+			return 0
 	var lo: Loadout = state.loadout
 	var r := rank(id, state) + 1
 	lo.card_ranks[id] = r
-	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	if kind == "skill_new":
 		state.learn_skill(skill)
@@ -222,9 +217,7 @@ func apply(id: String, state: RunWorld) -> int:
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
 		var value := float(e.get("value", 0.0))
-		if op == "heal":
-			state.heal_fraction(stat, value)
-		elif kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
+		if kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
 			if stat == "rank":
 				lo.set_rank(skill, lo.rank(skill) + int(value))
 			else:

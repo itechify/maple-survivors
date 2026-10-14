@@ -136,6 +136,16 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 	if not (mob_skill is Dictionary) or mob_skill.is_empty():
 		missing.append(MOB_SKILL_IMG)
 		mob_skill = {}
+	var body: Dictionary = img_loader.call("Character.wz/00002000.img")
+	if body.is_empty():
+		missing.append("Character.wz/00002000.img")
+	var afterimages := {}
+	for name: String in ["swordOL", "mace"]:
+		var path := "Character.wz/Afterimage/%s.img" % name
+		var image: Dictionary = img_loader.call(path)
+		if image.is_empty():
+			missing.append(path)
+		afterimages[name] = image
 	var item_info := {}
 	var potion_img: Variant = img_loader.call(POTION_IMG)
 	for id in range(2000000, 2000007):
@@ -150,6 +160,8 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"mob_imgs": mob_imgs,
 		"skill_imgs": skill_imgs,
 		"equipment_info": equipment_info,
+		"body_img": body,
+		"afterimage_imgs": afterimages,
 		"mob_skill_img": mob_skill,
 		"item_info": item_info,
 		"data": data,
