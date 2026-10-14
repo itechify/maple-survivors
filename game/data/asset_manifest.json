@@ -24,7 +24,7 @@
 		{"img": "Sound.wz/Game.img"},
 		{"img": "Sound.wz/UI.img"},
 		{"img": "Sound.wz/BgmUI.img"},
-		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},
+		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "0001001", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},
 		{"img": "Map.wz/Effect.img", "paths": ["quest/party/clear"]},
 		{"img": "Sound.wz/Field.img", "paths": ["Party1"]},
 		{"img": "String.wz/Map.img"},

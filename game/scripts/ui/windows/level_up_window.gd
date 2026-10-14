@@ -146,12 +146,15 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var changes: Dictionary = card.get("skill_changes", {})
 	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-		"time": "Duration", "x": "MP absorption", "pdd": "Weapon DEF"}
+		"time": "Duration", "x": "HP / pulse" if card.get("skill", "") == "recovery" else "MP absorption",
+		"pdd": "Weapon DEF", "cooltime": "Cooldown"}
 	for field: String in labels:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
-		var suffix := "%" if field in ["mastery", "x"] else (" s" if field == "time" else "")
+		var suffix := " s" if field in ["time", "cooltime"] else ""
+		if field == "mastery" or (field == "x" and card.get("skill", "") != "recovery"):
+			suffix = "%"
 		lines.append("%s: %d%s → %d%s" % [labels[field], int(values.before), suffix, int(values.after), suffix])
 	return lines
 

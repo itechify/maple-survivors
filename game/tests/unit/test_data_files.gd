@@ -24,7 +24,7 @@ func test_load_all_has_every_file() -> void:
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
-		"magic_armor": 2001003}
+		"magic_armor": 2001003, "recovery": 1001}
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
@@ -59,6 +59,7 @@ func test_cards_are_consistent() -> void:
 			assert_eq(int(c.max_rank), skills[c.skill].ranks.size() - 1, "%s: ranks 2..max" % c.id)
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
+			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
 		if c.kind == "potion_tier":
 			assert_true(c.potion_kind in ["hp", "mp"])
 			var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/asset_manifest.json"))

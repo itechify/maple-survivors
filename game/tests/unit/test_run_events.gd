@@ -7,7 +7,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "amount"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect"]
 
@@ -67,7 +67,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -198,6 +198,13 @@ func test_every_event_matches_the_schema() -> void:
 	for tick in 60 * 112:
 		buff_world.step(DT, MoveInput.new())
 	for e: Dictionary in buff_world.drain_events():
+		_check(e, seen)
+	var recovery := RF.quiet_world(400, 13)
+	recovery.learn_skill("recovery")
+	recovery.take_hit(40, false, "", recovery.player.pos + Vector2(10, 0))
+	for tick in 60 * 30 + 1:
+		recovery.step(DT, MoveInput.new())
+	for e: Dictionary in recovery.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

@@ -178,6 +178,9 @@ func stats(key: String) -> Dictionary:
 		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
+		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
+		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
+		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 	}
 
 

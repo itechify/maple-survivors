@@ -4,6 +4,7 @@ extends RefCounted
 ## the next cast. Timers run independently of movement and casting gates, including on ropes.
 
 var active := {}
+var _periodic := {}
 
 
 ## Whether the named skill is currently active.
@@ -16,16 +17,30 @@ func start(skill: String, stats: Dictionary) -> void:
 	active[skill] = {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"icon": String(stats.icon), "remaining": float(stats.duration), "duration": float(stats.duration),
 		"effect_stat": String(stats.buff_stat), "value": float(stats.buff_value)}
+	if float(stats.pulse_interval) > 0:
+		_periodic[skill] = {"interval": float(stats.pulse_interval), "elapsed": 0.0}
 
 
-## Counts down active buffs and emits exactly one expiry per cast.
-func step(dt: float, events: Array) -> void:
+## Counts down buffs, emits periodic pulses before expiry, and returns HP healing due.
+func step(dt: float, events: Array) -> int:
+	var heal := 0
 	for skill: String in active.keys():
 		var buff: Dictionary = active[skill]
+		var elapsed := minf(dt, float(buff.remaining))
 		buff.remaining = maxf(0.0, float(buff.remaining) - dt)
+		if _periodic.has(skill):
+			var pulse: Dictionary = _periodic[skill]
+			pulse.elapsed = float(pulse.elapsed) + elapsed
+			while float(pulse.elapsed) >= float(pulse.interval) - 1e-6:
+				pulse.elapsed = maxf(0.0, float(pulse.elapsed) - float(pulse.interval))
+				var amount := int(buff.value)
+				heal += amount if buff.effect_stat == "hp" else 0
+				events.append({"type": "buff_pulse", "skill": skill, "skill_id": int(buff.skill_id), "amount": amount})
 		if float(buff.remaining) <= 1e-6:
 			active.erase(skill)
+			_periodic.erase(skill)
 			events.append({"type": "buff_expired", "skill": skill, "skill_id": int(buff.skill_id)})
+	return heal
 
 
 ## Sum of active canonical effects feeding a hit-rule stat (e.g. mp_guard or pdd).
