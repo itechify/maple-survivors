@@ -135,11 +135,12 @@ values before the swarm pass in brackets):
 | 6:00 | 6.0 (5.0) | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.95 (1.5) | 1.1 |
 | 9:00 | 9.4 (8.5) | 165 | + Green Mushroom 1 | 2.6 (2.0) | 1.18 |
 | 12:00 | 13.5 (13) | 240 | full pool (Green Mushroom 3) | 3.4 (2.6) | 1.28 |
-| 15:00 | 20 | 330 | clear | 5.5 (4.2) | 1.4 |
+| 15:00 | 20 | 330 | final boss | 5.5 (4.2) | 1.4 |
 
 The difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
 defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
-overhaul tuning ticket #27 must validate the new economy and update the pacing results.
+the overhaul's tuning and independent acceptance results are recorded separately below. The older tables remain
+historical evidence, including the removed Hill stage; they do not describe the current hit model.
 
 Two levers do different jobs: `max_alive` is the crowd a struggling player faces (the cap binds when kills fall
 behind), `rate` is what pressures a strong build (it only matters while the player kills faster than the cap refills),
@@ -163,10 +164,10 @@ The Hill East of Henesys was removed in the difficulty overhaul because its game
 Hunting Ground I. Its map and unused Ribbon Pig assets are no longer selected for import; old save records for
 retired stages are ignored.
 
-The Tree That Grew I uses the same rate, max alive and HP numbers with its own pool: Snails only until 2:00,
-since Slimes in the opening minute killed some runs before 1:00. It takes 0.85x EXP (its Lv 8 came at ~2:27, before
-the 2:30-3:45 window, and Lv 30 at ~10:20), and default spawn preferences. It was only roughly
-re-tuned (section 4.2, tuning seeds 1-24) and its stage card says "Not fully tuned yet" (`note`).
+The Tree That Grew I retains its own ground-only pool: Snails until 2:00, then the existing Slimes and mushrooms.
+It takes 0.85x EXP and uses the same rate/crowd caps with HP multipliers 0.8/1.0/1.7 at 2/4/6 minutes, then the
+unchanged 2.6/3.4/5.5 at 9/12/15 minutes. The early HP curve supports weak builds without changing canonical
+monster HP or redesigning the roster. It has no flyers, and its portals connect the playable branches.
 
 ### 4.1.1 New-system measurements
 
@@ -368,29 +369,33 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
-15:00. The current encounters use canonical movement, contact attack and art; the mushroom family also uses its
-jump slam. The other skill kits are separate tickets.
+15:00. The encounters use canonical movement, contact attack, art and enabled skill kits; the mushroom family
+also uses its jump slam. The Tree schedules Stumpy, King Slime and Dyle at the same arrival times.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
 survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
 
-Initial survivor settings and calibration examples (tier C, not measured build predictions):
+Survivor settings (tier C; canonical stats and attack timings/boxes remain unchanged):
 
-| Boss | Canonical HP | Survivor HP multiplier | Touch multiplier | Typical HP / W.DEF | Whole touch damage |
+| Boss | Canonical HP | Survivor HP | HP multiplier | Touch multiplier | Attack multiplier |
 |---|---|---|---|---|---|
-| Mano | 2,000 | 2.0 | 1.75 | 300 / 7 | 125–149 (42–50%) |
-| Mushmom | 20,000 | 0.6 | 1.66 | 550 / 47 | 224–274 (41–50%) |
-| Blue Mushmom | 200,000 | 0.25 | 0.96 | 800 / 47 | 334–398 (42–50%) |
+| Mano | 2,000 | 6,000 | 3.0 | 1.15 | — |
+| Mushmom | 20,000 | 8,000 | 0.4 | 0.85 | 0.55 |
+| Blue Mushmom | 200,000 | 16,000 | 0.08 | 0.49 | 0.74 |
+| Stumpy | 7,000 | 5,600 | 0.8 | 0.85 | 0.74 |
+| King Slime | 8,000 | 9,600 | 1.2 | 1.4 | 1.02 |
+| Dyle | 31,000 | 12,400 | 0.4 | 1.15 | — |
 
-The W.DEF 47 example includes the starter outfit and level-20 Magic Armor. Ticket #27 must validate actual HP pools,
-hit fractions and the 30/60/90 s fight-length targets after the economy and kits exist. `stage.bosses` stores these
-settings and the documented typical-stat inputs; `balance.bosses` stores warning time, placement and spawn reduction.
+Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
+`stage.bosses` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
+The target is typical whole-hit source medians of 40–50%, with individual-hit/build variation reported separately.
+Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are not zero-duration observations.
+`balance.bosses` stores warning time, placement and spawn reduction.
 
 While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
 Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
 (`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Clearing requires every scheduled boss dead;
-stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
-boss schedule arrives with its kit tickets.
+stages without a boss list retain their duration clear. Stage select states the applicable objective.
 
 If a living boss has no route or makes no progress toward the player for 5 s, it fades out over 300 ms, then
 relocates about 250 px away on the player's platform using the same placement policy. HP is preserved; it stands
@@ -428,15 +433,13 @@ the damage impact; neither timeline is retimed to conceal this canonical differe
 an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).
 
 Slam scaling is separate from touch scaling because both mushrooms' slam attack is 300 while their contact attack
-is 200 / 450. Mushmom `attack_dmg_mult = 1.03` yields 227–273 whole damage against typical HP 550 / W.DEF 47;
-Blue Mushmom `attack_dmg_mult = 1.48` yields 326–392 against HP 800 / W.DEF 47, both within 40–50%. These are tier-C
-calibration examples pending #27 build validation, preserving canonical attack values and existing touch scales.
+is 200 / 450. Mushmom and Blue Mushmom use separate attack scales 0.55/0.74 and contact scales 0.85/0.49,
+calibrated against actual training HP pools. No attack-local canonical value is changed to achieve those fractions.
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00. Initial tier-C
-calibration uses HP ×0.5 (3,500), touch ×1.2 (121–144 against typical HP300 / W.DEF7), and attack ×1.12
-(123–146 for canonical attack135). Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
+The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00.
+Stumpy uses HP ×0.8 (5,600), touch ×0.85 and attack ×0.74. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
 `r ×600/bulletSpeed` ms maximum flight (857.14 ms), hence 233.33 px/s over 200 px. This conversion and using r
@@ -451,18 +454,17 @@ reference resolver `MapSimulator.cs: ResolveMobSkillHealAmount`, not a verified 
 seed stream8 makes the amounts replayable without changing card, potion, reward or hit rolls. The original
 mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP restores at the application delay.
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
-was copied. These encounter multipliers remain initial estimates for #27 calibration.
+was copied. Encounter scaling is survivor data; all heal bounds, gates, intervals and effect timing stay canonical.
 
-King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Initial survivor HP ×1.5 gives 12,000; touch ×2.9
-and slam ×2.09 are separate estimates against typical HP 550/W.DEF 47 (about 219–275 and 220–272 respectively;
-the contact estimate is one HP below the exact 40% boundary and remains for #27 calibration). Its type 0 slam
+King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×1.2 gives 9,600; touch ×1.4
+and slam ×1.02 are separate training-calibrated scales. Its type 0 slam
 uses canonical attackAfter 900 ms, effectAfter 300 ms, 500×150 area and jumpAttack 1; grounded players in the area
 are hit only at impact, airborne players can dodge. Skill 200/2 waits 50 s, HP ≤50%, summons the original three
 210100 Slimes with summonEffect 3, and caps living encounter-owned summons at 15. Its eleven-entry info/revive
 list spawns eleven ordinary canonical Slimes on death, independently of that cast limit. Relocations preserve
 ownership and fresh slots reset it. King Slime lacks info/boss and hpTag colours in v83: the survivor no_flinch
 override and existing 1/5 MobGage colour override supply scheduled-boss behavior without modifying WZ facts.
-Dyle retains maxHP 31,000 (survivor ×1.5=46,500) and touch 190 (initial ×2.57≈325–398 versus HP 800/W.DEF 47).
+Dyle retains canonical maxHP 31,000 (survivor ×0.4=12,400) and touch 190 (survivor ×1.15).
 Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Canonical
 x 5,000/y 500 are interpreted as inclusive uniform 500–5,000 bounds (tier C, same reference interpretation as
 Stumpy), clamped at max HP. Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
@@ -488,9 +490,12 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills roll HP 2.5% and MP 18% independently; elites roll HP 25% and MP 65%. These choices and starter stock
+Normal kills roll HP 1.8% and MP 4% independently; elites roll HP 25% and MP 65%. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
-EXP cap/absorption path. The bot drinks below 50% HP or 30% MP, with thresholds in the same survivor data.
+EXP cap/absorption path. The bot drinks below 60% HP or 30% MP, with thresholds in the same survivor data.
+Potion-tier score 88 prioritizes a useful permanent supply upgrade over attack ranks/modifiers (maximum87),
+while learning a new attack remains score100. The fallback52 preserves callers without this design field.
+Only sensible choices use these scores; careless choices use their separate seeded card RNG.
 The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
 quantities per kind.
 
@@ -506,9 +511,9 @@ quantities per kind.
 - **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). At `pickup.max_active` (600), the EXP drop
   farthest from the player is absorbed into the new drop at the monster's death position. The combined EXP pops
   there with a fresh age, keeping the pool bounded and collection near recent kills; no EXP is lost.
-- **Survivor EXP curve:** `exp_to_next(L) = round(4 + 8·L + 4·L²)` (L1 = 16, close to the canonical 15; L7 = 256,
-  L9 = 400, L29 = 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30; before the swarm follow-up
-  round(4 + 12·L + 3·L²): 784 / 1431 / 31001). The quadratic term carries the late game: a strong build that levels
+- **Survivor EXP curve:** `exp_to_next(L) = round(4 + 8·L + 5.2·L²)` (L1 = 17, L7 = 315,
+  L9 = 497, L29 = 4609; 980 EXP to reach Lv 8, 1878 to Lv 10, 48082 to Lv 30). Historical curves and their
+  measurements remain in section4.2. The quadratic term carries the late game: a strong build that levels
   fast meets steeper levels, which keeps the spread between builds small. Measured
   pace: section 4.2. The canonical v83 table (`data/canonical/exp_table.json`) is kept for reference and display
   only.
@@ -753,7 +758,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .025/MP .18, elite HP .25/MP .65; drink below HP .5/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .018/MP .04, elite HP .25/MP .65; drink below HP .6/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
@@ -791,15 +796,15 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
-| Boss arrival and initial multipliers | Henesys 5/10/15 min; HP ×2/0.6/0.25; damage ×1.75/1.66/0.96 | C | survivor choices and documented calibration examples above |
+| Boss arrivals and scaling | both stages at 5/10/15 min; HP/contact/attack multipliers in §4.3 | C | survivor data calibrated on training runs; canonical base stats unchanged |
 | Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
-| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
-| Stumpy HP/contact/attack | ×0.5 / ×1.2 / ×1.12; attacks every8 s when eligible; Tree Branch EXP icon | C | survivor initial calibration; canonical stats/art A |
-| King Slime / Dyle HP and hit scaling | ×1.5 HP each; King touch×2.9/slam×2.09, Dyle touch×2.57; King8s cadence | C | survivor estimates, pending #27; canonical stats and attack delays A |
+| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.74; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Stumpy HP/contact/attack | ×0.8 / ×0.85 / ×0.74; attacks every8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
+| King Slime / Dyle HP and hit scaling | HP ×1.2/×0.4; King touch×1.4/slam×1.02, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
 | King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
 | Dyle heal / weapon immunity | uniform500–5,000 heal; timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; reference heal resolver prose |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
@@ -824,7 +829,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; no fillers, 0–3 eligible choices | C | owner choice; upgrades.json |
-| Bot potion tier score | 52 (above general defence, below attack ranks) | C | ours; BotInput.SCORE_POTION_TIER |
+| Bot potion tier score | 88 (above attack ranks/modifiers, below new attacks); fallback52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
