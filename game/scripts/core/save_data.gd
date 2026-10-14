@@ -5,7 +5,8 @@ extends RefCounted
 ##
 ## File: {"format": 1, "best": {stage_key: record}, "runs": {stage_key: int}} where a record is
 ## {time, duration, cleared, level, job_id, job_name, kills, damage_dealt, seed}. Loading a missing or broken file
-## gives an empty save (never an error); the file is written by record() / save_file() only.
+## gives an empty save (never an error); records for stages no longer offered are ignored. The file is written by
+## record() / save_file() only.
 ##
 ## Best result rule (tier C, ours): a clear beats a death; then the longer survival; then the higher level, more kills,
 ## more damage.
@@ -39,15 +40,18 @@ func load_file() -> void:
 	var parsed: Variant = json.data
 	if not (parsed is Dictionary) or int((parsed as Dictionary).get("format", 0)) != FORMAT:
 		return
+	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
+	var stages: Dictionary = stage_data.get("stages", {}) if stage_data is Dictionary else {}
 	var b: Variant = parsed.get("best", {})
 	if b is Dictionary:
 		for k: Variant in b:
-			if b[k] is Dictionary:
+			if stages.has(String(k)) and b[k] is Dictionary:
 				best[String(k)] = b[k]
 	var r: Variant = parsed.get("runs", {})
 	if r is Dictionary:
 		for k: Variant in r:
-			runs[String(k)] = int(r[k])
+			if stages.has(String(k)):
+				runs[String(k)] = int(r[k])
 
 
 ## Writes the file (creating its folder).
