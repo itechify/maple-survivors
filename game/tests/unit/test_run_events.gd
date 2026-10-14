@@ -7,7 +7,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind"]
 
@@ -150,6 +150,8 @@ func test_every_event_matches_the_schema() -> void:
 	potion.step(DT, MoveInput.new())
 	potion.drink_potion("hp")
 	potion.drink_potion("mp")
+	potion.progression.level = 10
+	potion.upgrades.apply("orange_potion", potion)
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:

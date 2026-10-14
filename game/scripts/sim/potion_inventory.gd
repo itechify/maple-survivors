@@ -33,6 +33,17 @@ func add(kind: String, count: int = 1) -> bool:
 	return true
 
 
+## Changes a kind's current canonical item while preserving stock; false for unavailable restore specs.
+func upgrade(kind: String, item_id: int) -> bool:
+	if not stock.has(kind) or int(stock[kind].item_id) == item_id:
+		return false
+	var item: Dictionary = item_info.get(item_id, item_info.get(str(item_id), {}))
+	if int(item.get("spec", {}).get(kind, 0)) <= 0:
+		return false
+	stock[kind].item_id = item_id
+	return true
+
+
 ## Consumes one potion and returns its canonical restore spec and remaining count, or {} when unavailable.
 func consume(kind: String) -> Dictionary:
 	if not stock.has(kind) or int(stock[kind].count) <= 0:
