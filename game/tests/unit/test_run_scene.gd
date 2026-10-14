@@ -93,6 +93,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
+	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
@@ -167,6 +168,90 @@ func test_events_become_visuals() -> void:
 		texts.append(m.text)
 	assert_true("+12 EXP" in texts, "one EXP message per frame (%s)" % [texts])
 	_assert_nothing_missing(scene, "events")
+
+
+func test_boss_warning_and_arrival_messages_survive_exp_message_pressure() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2101, {})
+	scene.handle_events([{"type": "boss_warning", "boss_index": 0, "mob_id": 2220000, "time": 297.0}])
+	for i in 12:
+		scene.hud.show_exp(i + 1)
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true("Mano will appear in 3 seconds!" in texts, "EXP churn cannot evict the boss warning")
+	var before := scene.fx.active_count()
+	scene.handle_events([{"type": "boss_spawned", "boss_index": 0, "mob": 0, "mob_id": 2220000,
+		"pos": scene.world.player.pos, "time": 300.0}])
+	var appeared := false
+	for message: Dictionary in scene.hud.messages():
+		if message.text == "Mano has appeared!":
+			appeared = true
+			assert_eq(message.color, Hud.SYSTEM_YELLOW)
+	assert_true(appeared, "yellow system arrival message")
+	assert_eq(scene.fx.active_count(), before + 1, "canonical respawn effect plays at the boss")
+	scene.hud.advance_messages(4.01)
+	assert_eq(scene.hud.messages().size(), 0, "encounter notices expire after their visible lifetime")
+	_assert_nothing_missing(scene, "boss messages")
+
+
+func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2102, {})
+	scene.world.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	var bar: Variant = scene.hud.boss_bar
+	assert_eq(bar.displayed().size(), 0, "no boss bar before arrival")
+	_frames(31)
+	var rows: Array = bar.displayed()
+	assert_eq(rows.size(), 1, "arrival creates its bar below the timer")
+	if rows.is_empty():
+		return
+	assert_eq(rows[0].name, "Mano")
+	assert_eq(rows[0].hp, 4000)
+	assert_eq(rows[0].max_hp, 4000)
+	assert_eq(rows[0].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/2220000")
+	assert_eq(rows[0].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[0].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	var slot := int(scene.world.bosses.records[0].slot)
+	scene.world.hit_mob(slot, {"damage_min": 2000.0, "damage_max": 2000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed()[0].hp, 2000, "fixed damage is visible in the bar on the next frame")
+	assert_eq(bar.displayed()[0].ratio, 0.5)
+	scene.world.hit_mob(slot, {"damage_min": 100000.0, "damage_max": 100000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed().size(), 0, "dead boss is hidden immediately")
+	_assert_nothing_missing(scene, "boss bar")
+
+
+func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2103, {})
+	scene.world.bosses = BossDirector.new([
+		{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0},
+		{"mob_id": 9400205, "time": 0.7, "hp_mult": 0.25},
+	])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	_frames(43)
+	var rows := scene.hud.boss_bar.displayed()
+	assert_eq(rows.size(), 2, "both surviving bosses remain visible")
+	if rows.size() != 2:
+		return
+	assert_eq(rows[0].mob_id, 2220000)
+	assert_eq(rows[1].name, "Blue Mushmom")
+	assert_eq(rows[1].max_hp, 50000)
+	assert_eq(rows[1].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/6130101", "Blue Mushmom borrows Mushmom's icon")
+	assert_eq(rows[1].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[1].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	assert_true(rows[0].icon is SpriteFrame and rows[1].icon is SpriteFrame)
+	_assert_nothing_missing(scene, "multiple boss bars")
 
 
 func test_cast_plays_the_action_stance_while_standing() -> void:
@@ -517,6 +602,34 @@ func test_launcher_args() -> void:
 	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
 	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
+
+
+func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 83, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.mob_motion.push_px = 0
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 83, Vector2(800, 600),
+		func(path: String) -> Dictionary: return lib.img(path).root, lib.mob_root)
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.player.facing = 1
+	var target := w.player.pos + Vector2(50, 0)
+	w.mob_kinds[int(w.kind_of_id[100100])].move_speed = 0
+	w.spawn_mob(int(w.kind_of_id[100100]), target, w.player.fh, 100, false)
+	var before_sounds: int = scene.counters.sounds
+	_frames(40)
+	assert_true(String(scene.avatar.stance) in BasicAttack.ACTIONS, "the body plays the canonical swing/stab")
+	assert_true(scene.fx.active_count() >= 2, "afterimage and hit sparks are pooled effects")
+	assert_true(int(scene.counters.hit_fx) >= 1, "the swing hit emitted its spark")
+	assert_true(int(scene.counters.sounds) > before_sounds, "swing and monster-hit audio played")
+	_assert_nothing_missing(scene, "basic attack")
 
 
 func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:

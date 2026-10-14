@@ -15,6 +15,10 @@
 		"2300100": {"name": "Stirge", "exp_item": 4000042},
 		"2220000": {"name": "Mano", "exp_item": 4000019},
 		"6130101": {"name": "Mushmom", "exp_item": 4000011},
-		"9400205": {"name": "Blue Mushmom", "exp_item": 4000011}
+		"9400205": {"name": "Blue Mushmom", "exp_item": 4000011,
+			"boss_ui": {"icon_id": 6130101, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
+				"_tier": "tier C: borrow Mushmom's canonical MobGage icon and hpTag colours; Blue Mushmom lacks them in v83"}},
+		"9300003": {"name": "King Slime", "boss_ui": {"hp_tag_color": 1, "hp_tag_bgcolor": 5,
+			"_tier": "tier C: supply standard boss hpTag colours missing from King Slime's v83 info; its MobGage icon is canonical"}}
 	}
 }

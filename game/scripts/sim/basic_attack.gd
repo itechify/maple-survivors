@@ -1,0 +1,127 @@
+class_name BasicAttack
+extends RefCounted
+## One player's automatic physical swing: canonical weapon interval, body-frame impact timing and afterimage box.
+## Starts only in a skill-free standing/airborne tick; pending swings complete without locking player movement.
+
+## tier B: the five standard one-handed swing/stab actions (pre-Big-Bang client descriptions).
+const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
+## tier C: starter Sword/Wand use afterimage variant 0 (both are below required level 10).
+const VARIANT := "0"
+
+var cooldown := 0.0
+var _body: Dictionary
+var _images: Dictionary
+var _pending := {}
+var _buffer := PackedInt32Array()
+
+
+func _init(body: Dictionary = {}, images: Dictionary = {}) -> void:
+	_body = body
+	_images = images
+	_buffer.resize(128)
+
+
+## Advances the existing swing, then starts one when its interval and the shared action gate allow it.
+func step(dt: float, world: RunWorld) -> void:
+	cooldown -= dt
+	if not _pending.is_empty():
+		_pending.left = float(_pending.left) - dt
+		if float(_pending.left) <= 1e-9:
+			_impact(world)
+			_pending = {}
+	if cooldown > 1e-9 or not _pending.is_empty() or not world.can_cast() or world.runner.fired_this_tick:
+		return
+	if world.player.state not in [PlayerMotion.ST_STAND, PlayerMotion.ST_AIR]:
+		return
+	var weapon := world.weapon_id()
+	var info := world.weapon_info()
+	if weapon == 0 or info.is_empty() or float(info.get("incPAD", 0)) <= 0:
+		return
+	var action: String = ACTIONS[world.basic_rng.randi_range(0, ACTIONS.size() - 1)]
+	var spec := _spec(info, action)
+	if spec.is_empty() or _nearest(world, spec.box, world.player.facing) < 0:
+		return
+	_pending = spec
+	_pending["weapon_id"] = weapon
+	_pending["action"] = action
+	_pending["facing"] = world.player.facing
+	_pending["str"] = int(world.player_state.str)
+	_pending["dex"] = int(world.player_state.dex)
+	_pending["level"] = int(world.player_state.level)
+	_pending["watk"] = float(info.incPAD)
+	_pending["left"] = float(spec.hit_after)
+	cooldown = maxf(cooldown, -dt) + float(spec.interval)
+	world.start_action(action, float(spec.action_time), true)
+	_emit(world, "start")
+
+
+func _spec(info: Dictionary, action: String) -> Dictionary:
+	var name := String(info.get("afterImage", ""))
+	var node: Dictionary = _images.get(name, {}).get(VARIANT, {}).get(action, {})
+	var body: Dictionary = _body.get(action, {})
+	if node.is_empty() or body.is_empty() or not node.has("lt") or not node.has("rb"):
+		return {}
+	var frame := 999
+	for key: String in node:
+		if key.is_valid_int():
+			frame = mini(frame, int(key))
+	if frame == 999:
+		return {}
+	var before := 0.0
+	var total := 0.0
+	for key: String in body:
+		if key.is_valid_int():
+			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
+			total += delay
+			if int(key) < frame:
+				before += delay
+	var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
+	var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
+	# tier B: v83 weapon-speed interval, quantized upward to 30 ms.
+	var interval := ceilf(800.0 * (10 + int(info.get("attackSpeed", 0))) / 16.0 / 30.0) * 0.03
+	# tier C: the normal swing/stab spark families matching the imported afterimage names.
+	var spark := ("sword" if name == "swordOL" else "mace") + ("2" if action.begins_with("stab") else "1")
+	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total, "interval": interval,
+		"afterimage": "Character.wz/Afterimage/%s.img/%s/%s/%d" % [name, VARIANT, action, frame],
+		"hit_visual": "Character.wz/Afterimage/hit.img/" + spark,
+		"sound": "Sound.wz/Weapon.img/%s/Attack" % String(info.get("sfx", ""))}
+
+
+func _nearest(world: RunWorld, relative: Rect2, facing: int) -> int:
+	var box := relative
+	if facing > 0:
+		box.position.x = -relative.end.x
+	box.position += world.player.pos
+	var count := world.mob_grid.query_rect(box.grow(world.body_pad), _buffer)
+	var best := -1
+	var distance := INF
+	for n in count:
+		var mob := _buffer[n]
+		if world.swarm.active[mob] == 0:
+			continue
+		var kind: MobKind = world.mob_kinds[world.swarm.kind[mob]]
+		if not box.intersects(kind.hitbox_at(world.swarm.x[mob], world.swarm.y[mob], world.swarm.facing[mob])):
+			continue
+		var d := world.mob_center(mob).distance_squared_to(world.cast_origin())
+		if d < distance or (d == distance and mob < best):
+			best = mob
+			distance = d
+	return best
+
+
+func _impact(world: RunWorld) -> void:
+	_emit(world, "impact")
+	var mob := _nearest(world, _pending.box, int(_pending.facing))
+	if mob < 0:
+		return
+	var kind: MobKind = world.mob_kinds[world.swarm.kind[mob]]
+	var damage := CombatMath.basic_damage_range(int(_pending.str), int(_pending.dex), float(_pending.watk),
+		int(_pending.weapon_id), String(_pending.action), int(_pending.level), kind.level, world.mob_defense(mob, false))
+	world.hit_mob(mob, {"skill": "basic_attack", "damage_min": damage.x, "damage_max": damage.y,
+		"magic": false, "crit": 0.0, "crit_mult": 1.0}, world.visual_index(String(_pending.hit_visual)))
+
+
+func _emit(world: RunWorld, phase: String) -> void:
+	world.emit("basic_attack", {"phase": phase, "weapon_id": int(_pending.weapon_id), "action": String(_pending.action),
+		"facing": int(_pending.facing), "pos": world.player.pos, "afterimage": String(_pending.afterimage),
+		"sound": String(_pending.sound), "hit_after": float(_pending.hit_after), "interval": float(_pending.interval)})
