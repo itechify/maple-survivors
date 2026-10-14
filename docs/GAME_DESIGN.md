@@ -376,6 +376,16 @@ Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pa
 stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
 boss schedule arrives with its kit tickets.
 
+Presentation uses the original `UIWindow.img/MobGage` icon frame, gauge borders and colour strips, centred below
+the timer; multiple surviving bosses keep separate rows. Names come from `String.wz`, HP comes from the swarm,
+and colour indices come from canonical `info/hpTagColor` and `info/hpTagBgcolor`. Blue Mushmom lacks a v83 icon and
+colour tags, so survivor `mobs.json.boss_ui` borrows Mushmom's icon and 1/5 colours (tier C). King Slime keeps its
+canonical icon but receives the missing 1/5 colour tags (tier C). No WZ metadata is modified.
+Warnings say "<name> will appear in 3 seconds!"; arrival replaces the warning with yellow "<name> has appeared!"
+and the original `BasicEff.img/Summoned` effect at the boss. Selecting this effect and positioning the notices is
+tier C; the effect frames, origins and 80 ms delays are tier A. Keyed notices sit above EXP and low-MP messages,
+expire after the warning lead or 4 s after arrival, and cannot be evicted by EXP pickup traffic.
+
 The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
 times and landed boss hits with whole damage, HP at impact and the damage/HP fraction. No survival/pacing claim
@@ -685,10 +695,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
-| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bar 300×30 centred at y=42 | C | ours, difficulty overhaul |
+| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
 | Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
+| Boss notices / respawn effect | keyed yellow notices above EXP and low-MP; warning lead / 4 s lifetime; BasicEff/Summoned at boss feet | C (selection/layout), A (art/timing) | ours; original v83 WZ |
+| Missing boss UI metadata | Blue Mushmom uses Mushmom icon and 1/5 colour tags; King Slime uses 1/5 tags with its own icon | C (override), A (borrowed art) | survivor mobs.json.boss_ui |
 | Mob draw layer | the foothold layer of the mob's current foothold, kept while it is airborne | C | ours |
 | View fit | default: Godot's 800×600 expand + integer scale (1920×1080 → 1066×600 at 1× with bars); opt-in `fill_window`: s = ⌊min(W/800, H/600)⌋, view = window / s (3440×1440 → 1720×720 at 2×, 1920×1080 → 1920×1080 at 1×); windows below 800×600 are scaled down, not cropped | C | ours |
 | Level-up window delay | the `LevelUp` effect plays 1.2 s (about its pillar's peak) on the character before the upgrade window opens; after a job advancement the next window waits for the whole `JobChanged` effect (~1.3 s; 1.3 s without the animation). Presentation only; the sim is already paused | C | ours |

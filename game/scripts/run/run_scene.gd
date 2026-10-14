@@ -544,6 +544,16 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"boss_warning":
+				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
+				var lead := float(world.bosses.rules.warning_time)
+				hud.push_notice("boss_%d" % int(e.boss_index), "%s will appear in %d seconds!" % [name, roundi(lead)], lead)
+				_event_shot("boss_warning_%d.png" % int(e.boss_index), 0.1)
+			"boss_spawned":
+				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
+				hud.push_notice("boss_%d" % int(e.boss_index), "%s has appeared!" % name)
+				fx.play("Effect.wz/BasicEff.img/Summoned", e.pos)
+				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
 			"cast":
 				_on_cast(e)
 			"basic_attack":
@@ -943,6 +953,8 @@ func _place_player_layer(layer: int) -> void:
 
 func _update_hud() -> void:
 	var ps := world.player_state
+	# The encounter widget tracks damage every frame, independently of the status/timer snapshot signature.
+	hud.boss_bar.update(ps, {"bosses": boss_bars()})
 	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
 		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
 		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
@@ -958,7 +970,25 @@ func _update_hud() -> void:
 	hud.system_messages.update(ps, info)
 	hud.potion_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
-	hud.boss_bar.update(ps, info)
+
+
+## Live encounter snapshots for the dedicated HUD bar; canonical hpTag values remain unchanged in the asset cache.
+func boss_bars() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for record: Dictionary in world.bosses.records:
+		var slot := int(record.slot)
+		if float(record.spawn_time) < 0.0 or bool(record.dead) or slot < 0 or world.swarm.active[slot] == 0:
+			continue
+		var id := int(record.mob_id)
+		var info: Dictionary = world.setup.mob_imgs[id].get("info", {})
+		var override: Dictionary = data.mobs.mobs.get(str(id), {}).get("boss_ui", {})
+		# tier C: standard 1/5 fallback for missing hpTag metadata; named exceptions live in survivor boss_ui data.
+		rows.append({"boss_index": int(record.boss_index), "mob": slot, "mob_id": id,
+			"name": library.string_name("Mob", id).strip_edges(), "hp": int(world.swarm.hp[slot]),
+			"max_hp": int(world.swarm.max_hp[slot]), "icon_id": int(override.get("icon_id", id)),
+			"hp_tag_color": int(override.get("hp_tag_color", info.get("hpTagColor", 1))),
+			"hp_tag_bgcolor": int(override.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))})
+	return rows
 
 
 ## Run time in seconds, snapped to 1 ms (900 ticks of 1/60 s sum to 899.9999...; the HUD and results show 15:00).
