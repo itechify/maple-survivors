@@ -32,6 +32,7 @@ const STANCES := {
 var library: AssetLibrary
 ## Mob ids whose images were not found.
 var missing: PackedInt32Array = []
+var _action_anims: Dictionary = {}
 
 var _pool: SpritePool
 ## mob id -> Array (indexed by state) of SpriteAnim or null.
@@ -83,7 +84,7 @@ static func update_slot_layers(swarm: Object, fh_layer: PackedInt32Array, layers
 ## Draws the swarm. `swarm` exposes the arrays above; `kind_ids[kind]` is the mob id. With `only_layer` >= 0 only the
 ## slots whose `slot_layers` entry equals it are drawn (see update_slot_layers()).
 func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1,
-		slot_layers: PackedInt32Array = PackedInt32Array()) -> void:
+		slot_layers: PackedInt32Array = PackedInt32Array(), action_state: Dictionary = {}) -> void:
 	_ensure_pool()
 	var states: PackedInt32Array = swarm.state
 	var kinds: PackedInt32Array = swarm.kind
@@ -93,6 +94,9 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 	var an_t: PackedFloat32Array = swarm.anim_t
 	var facing: PackedInt32Array = swarm.facing
 	var alpha: PackedFloat32Array = swarm.alpha
+	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
+	var action_times: PackedFloat32Array = action_state.get("times", PackedFloat32Array())
+	var action_facings: PackedInt32Array = action_state.get("facings", PackedInt32Array())
 	var n := states.size()
 	var filtered := only_layer >= 0
 	var nl := slot_layers.size()
@@ -113,11 +117,22 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 			_pool.hide(i)
 			continue
 		var anim: SpriteAnim = _flat[k * FREE + st]
+		var loop := st < HIT
+		var t := an_t[i] if loop else st_t[i]
+		var face := facing[i]
+		if st != DIE and i < actions.size() and actions[i] != "":
+			var path := _lib().mob_anim_img_path(kind_ids[k]) + "/" + actions[i]
+			if not _action_anims.has(path):
+				_action_anims[path] = _lib().find_anim(path)
+			var action: SpriteAnim = _action_anims[path]
+			if action != null:
+				anim = action
+				loop = false
+				t = float(action_times[i])
+				face = int(action_facings[i])
 		if anim == null:
 			_pool.hide(i)
 			continue
-		var loop := st < HIT
-		var t := an_t[i] if loop else st_t[i]
 		var f := anim.frames[anim.index_at(t, loop)]
 		var a := clampf(alpha[i], 0.0, 1.0)
 		if f.a0 != 1.0 or f.a1 != 1.0:
@@ -126,7 +141,7 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 		if i >= cap:
 			cap = i + 1
 			_pool.ensure(cap)
-		_pool.show(i, f, Vector2(roundf(xs[i]), roundf(ys[i])), facing[i] > 0, a)
+		_pool.show(i, f, Vector2(roundf(xs[i]), roundf(ys[i])), face > 0, a)
 	_pool.hide_from(n)
 
 

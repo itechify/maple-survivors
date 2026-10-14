@@ -877,8 +877,9 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 func _present(delta: float) -> void:
 	_update_player(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
+	var boss_actions := world.bosses.action_snapshot(world.swarm)
 	for i in mob_renderers.size():
-		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers)
+		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)

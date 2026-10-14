@@ -339,6 +339,7 @@ func step(dt: float, input: MoveInput) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
+	_ctx["boss_actions"] = bosses.prepare_actions(self)
 	swarm.step(dt, _ctx)
 	bosses.step(self)
 	director.step(dt, self)
