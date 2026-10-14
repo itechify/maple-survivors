@@ -15,7 +15,7 @@ extends SceneTree
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
 ##   bash scripts/balance.sh                       # henesys_hg1, the held-out seeds, in parallel
-##   bash scripts/balance.sh 7 11 --stage=hill_east_henesys
+##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
 ##

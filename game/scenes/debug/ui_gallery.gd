@@ -272,7 +272,7 @@ func _run_flow() -> void:
 		[9.0, _shot_to.bind(dir.path_join("flow_1_title.png"))],
 		[9.5, func() -> void: flow.goto_stage_select()],
 		[11.5, _shot_to.bind(dir.path_join("flow_2_stage_select.png"))],
-		[12.0, func() -> void: flow.start_run("hill_east_henesys", 11, {"autoplay": true, "window_autopick": 1.0,
+		[12.0, func() -> void: flow.start_run("tree_that_grew_1", 11, {"autoplay": true, "window_autopick": 1.0,
 			"speed": 4})],
 		[30.0, _shot_to.bind(dir.path_join("flow_3_run.png"))],
 		[30.5, func() -> void:
@@ -280,7 +280,7 @@ func _run_flow() -> void:
 			if run != null and run.has_method("build_summary"):
 				flow.finish_run(run.build_summary())],
 		[33.0, _shot_to.bind(dir.path_join("flow_4_results.png"))],
-		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("hill_east_henesys"))],
+		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("tree_that_grew_1"))],
 		[34.0, func() -> void:
 			var res := flow.current
 			if res != null and res.has_method("retry"):

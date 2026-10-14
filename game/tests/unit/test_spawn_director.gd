@@ -321,8 +321,7 @@ func test_prefer_route_brings_spawns_in_on_short_ways() -> void:
 
 
 func test_never_spawns_behind_a_wall_across_the_platform() -> void:
-	# The ground runs on under a solid block (walls at x 1000 and 1400 crossing it, as on 100010000 where the hill's
-	# faces bury a stretch of the ground chain): no spawn inside it.
+	# The ground runs on under a solid block (walls at x 1000 and 1400 crossing it): no spawn inside it.
 	var segs := [
 		{"x1": 0.0, "y1": 0.0, "x2": 1000.0, "y2": 0.0},
 		{"x1": 1000.0, "y1": 0.0, "x2": 1400.0, "y2": 0.0},

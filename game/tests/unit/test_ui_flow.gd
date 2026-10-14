@@ -5,6 +5,7 @@ extends TestCase
 
 var save_path := TestCase.test_dir("ui_flow_save.json")
 const RESULTS := preload("res://scenes/ui/results_screen.gd")
+const STAGE_SELECT := preload("res://scenes/ui/stage_select.gd")
 
 var _nodes: Array[Node] = []
 
@@ -33,6 +34,26 @@ static func summary(cleared: bool, time: float, level: int, kills: int, stage: S
 
 
 # --- SaveData ----------------------------------------------------------------------------------------------------
+
+func test_stage_select_ignores_retired_save_records() -> void:
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"format": 1,
+		"best": {"retired_stage": summary(true, 900, 40, 9000),
+			"henesys_hg1": summary(false, 300, 12, 400)},
+		"runs": {"retired_stage": 8, "henesys_hg1": 1}}))
+	f.close()
+	var s := SaveData.new(save_path)
+	assert_true(s.best_for("retired_stage").is_empty(), "retired best record is ignored")
+	assert_eq(s.runs_for("retired_stage"), 0, "retired run count is ignored")
+	assert_eq(int(s.best_for("henesys_hg1").kills), 400, "playable best remains")
+	assert_eq(s.runs_for("henesys_hg1"), 1)
+	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
+	assert_eq(offered.size(), 2)
+	assert_eq(String(offered[0].key), "henesys_hg1")
+	assert_eq(String(offered[1].key), "tree_that_grew_1")
+	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
+		"Best: Survived 05:00, Lv. 12, 400 kills")
+
 
 func test_save_data_round_trip() -> void:
 	var s := SaveData.new(save_path)

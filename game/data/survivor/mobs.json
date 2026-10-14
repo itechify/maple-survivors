@@ -7,7 +7,6 @@
 		"120100": {"name": "Shroom", "exp_item": 4000011},
 		"210100": {"name": "Slime", "exp_item": 4000010},
 		"1210100": {"name": "Pig", "exp_item": 4000017},
-		"1210101": {"name": "Ribbon Pig", "exp_item": 4000002},
 		"1210102": {"name": "Orange Mushroom", "exp_item": 4000001},
 		"1110100": {"name": "Green Mushroom", "exp_item": 4000012}
 	}

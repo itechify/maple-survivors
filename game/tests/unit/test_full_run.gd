@@ -261,7 +261,7 @@ func _short_run(w: RunWorld, label: String) -> void:
 
 
 func test_other_stages_synthetic() -> void:
-	for stage: String in ["hill_east_henesys", "tree_that_grew_1"]:
+	for stage: String in ["tree_that_grew_1"]:
 		_short_run(RunWorld.new(RF.setup(stage, 77)), stage)
 
 
@@ -269,7 +269,7 @@ func test_other_stages_real_maps() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	for stage: String in ["hill_east_henesys", "tree_that_grew_1"]:
+	for stage: String in ["tree_that_grew_1"]:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage, 77, Vector2(800, 600), _img, _mob, missing)
 		assert_true(missing.is_empty(), "%s: the cache has every img (%s)" % [stage, missing])
