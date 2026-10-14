@@ -416,9 +416,11 @@ Draw rules:
    before Lv 8 and fell behind for good).
 3. With fewer than three eligible cards, fillers fill the gap (e.g. "Elixir": heal 50% HP/MP).
 4. Applying a card takes effect immediately.
-5. The level-up window names the skill a card learns or levels in the notice's "raised your ___ skill by a level."
-   box and shows a skill_rank card as the skill's canonical level change ("Skill Lv. 2 → 3"); for other cards the
-   sentence is left out and the notice reads "LEVEL n".
+5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
+   sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
+   and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
+   WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
+   with the combat formula in section 6.1.
 
 General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Magnet +25% radius;
 for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000) (Magician skills in v83, and MP

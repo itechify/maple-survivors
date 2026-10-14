@@ -194,6 +194,35 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 5], "Energy Bolt rank 2 = canonical level 5")
 
 
+func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.loadout.add_skill("energy_bolt")
+	# Synthetic WZ levels make the expected preview independent of survivor damage tuning.
+	w.book.skill_node("energy_bolt")["level"]["1"] = {"mad": 20.0, "mastery": 1.0, "mpCon": 6.0}
+	w.book.skill_node("energy_bolt")["level"]["5"] = {"mad": 28.0, "mastery": 3.0, "mpCon": 9.0}
+	w.loadout.add_skill_mod("energy_bolt", "damage", "mul", 2.0)
+	var c := w.upgrades.choice_card("energy_bolt_rank", w)
+	assert_eq(c.get("skill_changes", {}), {
+		"mad": {"before": 20, "after": 28},
+		"mastery": {"before": 15, "after": 25},
+		"mpCon": {"before": 6, "after": 9},
+	}, "rank preview uses canonical levels, mastery percent, and unmodified MP cost")
+	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
+	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
+	assert_eq(w.upgrades.choice_card("max_hp", w).skill_changes, {}, "stat cards have no canonical skill values")
+
+
+func test_fixed_damage_rank_card_previews_only_fields_in_canonical_data() -> void:
+	var w := RF.quiet_world()
+	# Three Snails ranks automatically in this design; a synthetic rank card exercises fixed-damage support.
+	w.upgrades = UpgradePool.from_data({"cards": [{"id": "fixed_rank", "kind": "skill_rank", "skill": "three_snails",
+		"effects": [{"stat": "rank", "value": 1}]}]})
+	var c := w.upgrades.choice_card("fixed_rank", w)
+	assert_eq(c.skill_changes, {"mpCon": {"before": 3, "after": 5}, "fixdamage": {"before": 10, "after": 25}},
+		"canonical MP and fixed damage; no fabricated magic attack or mastery")
+
+
 func test_pity_offers_a_power_card_after_dry_draws() -> void:
 	var w := RF.quiet_world()
 	var cards: Array = []
