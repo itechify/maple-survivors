@@ -216,6 +216,13 @@ Bosses use `SpawnDirector.pick_player_platform` at the configured near-player di
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
 Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
 duration rule retained for stages without bosses; reward tickets can defer this seam while a bonus choice is pending.
+
+Boss attacks and skills share `BossDirector.can_act(index, now)` and
+`begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
+movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`, `times: PackedFloat32Array` and
+`facings: PackedInt32Array`. A nonempty stance holds grounded movement and facing (tier C); `MobRenderer` draws
+that canonical stance once at its elapsed sim time, including its original frame origins. Expiry or death clears
+the override. No per-boss Nodes or presentation clocks drive the action.
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
 remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
 ordinary alive targets still obey `hard_cap`.
