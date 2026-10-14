@@ -55,6 +55,7 @@ func run(filters: PackedStringArray) -> int:
 				skipped += 1
 				print("SKIP %s: %s" % [tc.current_test, tc.skipped])
 	guard.detach()
+	TestCase.remove_tree(TestCase.test_dir())
 	print("\n%d tests, %d failed, %d skipped, %d files (%d ms)" % [total, failed, skipped, files.size(),
 		Time.get_ticks_msec() - t0])
 	print("TESTS_PASSED" if failed == 0 else "TESTS_FAILED")

@@ -641,6 +641,123 @@ fn manifest_expansion_on_a_synthetic_map() {
     assert!(Manifest::parse(r#"{"format":2}"#).is_err());
 }
 
+/// A login-scene-like world: `UI.wz/MapLogin.img` is map-structured (backs, layer objs, BGM, map mark) and its
+/// dependencies live in Map.wz / Sound.wz like a normal map's.
+fn synthetic_login_world(dir: &Path) {
+    let login = write_img(
+        &[
+            p("info", sub(vec![p("bgm", W::Str("BgmUI/Title".into())), p("mapMark", W::Str("None".into()))])),
+            p("back", sub(vec![
+                p("0", sub(vec![p("bS", W::Str("login".into())), p("no", W::Int(11)), p("ani", W::Int(0))])),
+                p("1", sub(vec![p("bS", W::Str("login".into())), p("no", W::Int(0)), p("ani", W::Int(1))])),
+            ])),
+            p("life", sub(vec![])),
+            p("0", sub(vec![
+                p("info", sub(vec![])),
+                p("tile", sub(vec![])),
+                p("obj", sub(vec![p("0", sub(vec![
+                    p("oS", W::Str("login".into())),
+                    p("l0", W::Str("Title".into())),
+                    p("l1", W::Str("logo".into())),
+                    p("l2", W::Str("0".into())),
+                ]))])),
+            ])),
+            p("4", sub(vec![
+                p("info", sub(vec![])),
+                p("tile", sub(vec![])),
+                p("obj", sub(vec![p("0", sub(vec![
+                    p("oS", W::Str("login".into())),
+                    p("l0", W::Str("Title".into())),
+                    p("l1", W::Str("signboard".into())),
+                    p("l2", W::Str("0".into())),
+                ]))])),
+            ])),
+        ],
+        true,
+    );
+    let small = || canvas(2, 2, 1, solid4444(2, 2, (9, 9, 9, 15)), false, vec![]);
+    let back = write_img(
+        &[
+            p("back", sub(vec![p("11", small()), p("12", small())])),
+            p("ani", sub(vec![p("0", sub(vec![p("0", small())]))])),
+        ],
+        false,
+    );
+    let obj = write_img(
+        &[p("Title", sub(vec![
+            p("logo", sub(vec![p("0", sub(vec![p("0", small())]))])),
+            p("signboard", sub(vec![p("0", sub(vec![p("0", small())]))])),
+            p("effect", sub(vec![p("0", sub(vec![p("0", small())]))])),
+        ]))],
+        false,
+    );
+    let helper = write_img(&[p("portal", sub(vec![p("game", sub(vec![p("pv", small())]))])), p("mark", sub(vec![]))], false);
+    let mp3 = |d: u8| W::Sound(WSound { duration_ms: 1000, header: SoundHeader::Mp3 { channels: 2, rate: 44100 }, data: vec![0xFF, 0xFB, d] });
+    write_wz_root(
+        dir,
+        &[
+            ("UI.wz", vec![WEntry::Img("MapLogin.img".into(), login)]),
+            (
+                "Map.wz",
+                vec![
+                    WEntry::Img("MapHelper.img".into(), helper),
+                    WEntry::Dir("Back".into(), vec![WEntry::Img("login.img".into(), back)]),
+                    WEntry::Dir("Obj".into(), vec![WEntry::Img("login.img".into(), obj)]),
+                ],
+            ),
+            ("Sound.wz", vec![WEntry::Img("BgmUI.img".into(), write_img(&[p("Title", mp3(1)), p("WCSelect", mp3(2))], false))]),
+        ],
+    );
+}
+
+#[test]
+fn mapimgs_expand_like_maps() {
+    let dir = TempDir::new("mapimgs");
+    synthetic_login_world(dir.path());
+    let wz = WzRoot::new(dir.path());
+    let m = Manifest::parse(r#"{"format":1,"mapimgs":["UI.wz/MapLogin.img"]}"#).unwrap();
+    let plan = expand(&m, &wz);
+    let got: BTreeMap<&str, Option<Vec<String>>> = plan.imgs.iter().map(|(k, v)| (k.as_str(), v.output_paths())).collect();
+    let s = |v: &[&str]| Some(v.iter().map(|x| x.to_string()).collect::<Vec<_>>());
+    let expected: BTreeMap<&str, Option<Vec<String>>> = [
+        ("UI.wz/MapLogin.img", None),
+        ("Map.wz/Back/login.img", s(&["ani/0", "back/11"])),
+        ("Map.wz/Obj/login.img", s(&["Title/logo/0", "Title/signboard/0"])),
+        ("Map.wz/MapHelper.img", s(&["portal"])), // mapMark "None" = no mark
+        ("Sound.wz/BgmUI.img", s(&["Title"])),
+    ]
+    .into_iter()
+    .collect();
+    assert_eq!(got, expected);
+    assert_eq!(plan.errors, Vec::<String>::new());
+    assert!(plan.warnings.is_empty(), "{:?}", plan.warnings);
+
+    // a missing mapimg is an error naming it
+    let bad = Manifest::parse(r#"{"format":1,"mapimgs":["UI.wz/Nope.img"]}"#).unwrap();
+    let errs = expand(&bad, &wz).errors;
+    assert_eq!(errs.len(), 1);
+    assert!(errs[0].contains("mapimg UI.wz/Nope.img"), "{errs:?}");
+
+    // the import writes the scene and its dependencies (only the used back/obj sub-trees and the BGM)
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(&manifest, r#"{"format":1,"mapimgs":["UI.wz/MapLogin.img"]}"#).unwrap();
+    let out = dir.path().join("out");
+    let r = run_import(&ImportOptions { wz: dir.path().to_path_buf(), manifest, out: out.clone(), force: false }).unwrap();
+    assert!(r.errors.is_empty(), "{:?}", r.errors);
+    assert_eq!(r.written.len(), 5);
+    let scene = read_json(&out.join("UI.wz/MapLogin.img.json"));
+    assert_eq!(scene["info"]["bgm"], "BgmUI/Title");
+    assert_eq!(scene["back"]["0"]["bS"], "login");
+    let back = read_json(&out.join("Map.wz/Back/login.img.json"));
+    assert!(back["back"]["11"]["$canvas"].is_array());
+    assert!(back["back"].get("12").is_none());
+    let obj = read_json(&out.join("Map.wz/Obj/login.img.json"));
+    assert!(obj["Title"]["logo"]["0"]["0"]["$canvas"].is_array());
+    assert!(obj["Title"].get("effect").is_none());
+    assert!(out.join("Sound.wz/BgmUI.img/Title.mp3").is_file());
+    assert!(!out.join("Sound.wz/BgmUI.img/WCSelect.mp3").exists());
+}
+
 // ---------------------------------------------------------------- full import + incremental
 
 #[test]

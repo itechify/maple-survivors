@@ -190,6 +190,45 @@ func test_pickup_cap_merges_into_nearest() -> void:
 	assert_eq(pk.active_count(), 2)
 
 
+func test_pickup_lifetime_fades_and_expires() -> void:
+	var pk := PickupSystem.new(4, {"spread": 0.0, "lifetime": 2.0, "fade": 0.5})
+	var ev: Array = []
+	var i := pk.spawn(Vector2(500, 0), 7, 4000019)
+	var near := pk.spawn(Vector2(560, 0), 4, 4000019)
+	assert_eq(pk.alpha(i), 1.0, "fresh drop fully drawn")
+	var seen_fade := false
+	for t in 150:
+		# The player stands 100 px from `i` (outside the 90 px magnet) and 40 px from `near` (inside it).
+		pk.step(DT, Vector2(600, 0), 90.0, fhm, ev)
+		if pk.active[i] != 0 and pk.alpha(i) < 1.0 and pk.alpha(i) > 0.0:
+			seen_fade = true
+	assert_true(seen_fade, "fades out over its last 0.5 s")
+	assert_eq(pk.active[i], 0, "expired after 2 s on the ground")
+	assert_eq(pk.expired, 1)
+	assert_eq(pk.expired_exp, 7, "its EXP is lost")
+	assert_eq(pk.collected_exp, 4, "the drop inside the magnet was collected, never expired")
+	for e: Dictionary in ev:
+		assert_eq(int(e.exp), 4, "no event for the expired drop")
+	# Merging restarts the age (the merged EXP is not lost at once).
+	var q := PickupSystem.new(2, {"spread": 0.0, "lifetime": 2.0, "max_active": 1})
+	var a := q.spawn(Vector2(100, 0), 3, 1)
+	for t in 90:
+		q.step(DT, Vector2(2000, 0), 90.0, fhm, ev)
+	q.spawn(Vector2(120, 0), 5, 1)
+	assert_true(q.merged)
+	for t in 90:
+		q.step(DT, Vector2(2000, 0), 90.0, fhm, ev)
+	assert_eq(q.active[a], 1, "1.5 s after the merge it is still there")
+	assert_eq(q.exp[a], 8)
+	# lifetime 0 (the default): drops never expire.
+	var forever := PickupSystem.new(1, {"spread": 0.0})
+	var f := forever.spawn(Vector2(100, 0), 1, 1)
+	for t in 600:
+		forever.step(DT, Vector2(2000, 0), 90.0, fhm, ev)
+	assert_eq(forever.active[f], 1, "no lifetime: kept")
+	assert_eq(forever.alpha(f), 1.0)
+
+
 func assert_lt_check(v: float, lim: float, msg: String) -> void:
 	if not (v < lim):
 		fail("%s: %s is not < %s" % [msg, v, lim])

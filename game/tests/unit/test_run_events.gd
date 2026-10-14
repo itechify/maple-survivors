@@ -50,9 +50,10 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
 				ck.sort()
-				if ck != ["desc", "icon", "id", "kind", "max_rank", "name", "rank", "skill"]:
+				if ck != ["desc", "icon", "id", "kind", "max_rank", "name", "rank", "skill", "skill_level", "skill_level_next",
+						"skill_name"]:
 					fail("card fields %s" % [ck])
-				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT:
+				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT or typeof(c.skill_level) != TYPE_INT 						or typeof(c.skill_level_next) != TYPE_INT:
 					fail("card rank types %s" % [c])
 		"mob_hit":
 			if int(e.damage) < 1:

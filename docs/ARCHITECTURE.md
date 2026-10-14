@@ -76,8 +76,9 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 | Autoload | Script | Role |
 |---|---|---|
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
-| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, key bindings (rebound actions applied to the `InputMap`) |
+| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child (`goto_title`, `goto_stage_select`, `goto_import`, `start_run`, `finish_run` -> results + best result in `SaveData`), `--run=<stage>` command line |
 
 Everything else is owned by the scene that uses it.
 
@@ -116,8 +117,9 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
-| `SpawnDirector` | Stage pacing, spawn positions | `step(dt, world)`; spawns off-screen on floors reachable from the player's platform |
+| `SpawnDirector` | Stage pacing, spawn positions | `step(dt, world)`; spawns off-screen on floors reachable from the player's platform, preferring platforms at most `prefer_hops` NavGraph edges away |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING / DEAD / CLEARED) |
+| `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs to drops above, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
 
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
@@ -178,7 +180,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill}]` |
+| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next}]` |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -194,12 +196,12 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 
 | File | Contents |
 |---|---|
-| `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, visuals (WZ paths), sounds |
-| `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8) |
-| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites |
-| `balance.json` | EXP curve, player base stats and growth per job, invincibility, knockback, magnet, contact damage scale, mob speed factor |
+| `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
+| `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
+| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
+| `balance.json` | EXP curve, player base stats (incl. cast origin / `cast_forward`) and growth per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `prefer_hops`), contact damage scale, mob speed factor |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
-| `jobs.json` | which canonical jobs are playable and what advancing grants |
+| `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
 
 ### 4.4.5 World-movement details (`FootholdMap` ... `SpatialHash`)
 
@@ -236,12 +238,16 @@ What the tables above leave open; the class doc comments have the rest.
   slot, for name tags), `kills`, `damage_dealt`, `view`, `warnings`, `god` (tests/benchmarks only). `player_state` also
   has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer).
 - **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
-  with MP. `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited.
+  with MP. `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
+  `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
+  and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
+  level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
   The run's starting skill emits `skill_learned` before the first `step()`.
 - **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
   `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; past `max_active` drops `spawn()` merges into the
-  nearest drop and sets `merged` (no `pickup_spawned` then).
+  nearest drop and sets `merged` (no `pickup_spawned` then). With `lifetime` > 0 an uncollected drop expires silently
+  (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
 - **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
   `effects` op `add` sums, `mul` compounds per rank, `heal` restores a fraction of max HP/MP.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
@@ -258,7 +264,7 @@ What the tables above leave open; the class doc comments have the rest.
 | `FxRenderer` | Pooled one-shot WZ animations (skill hit, level-up, job change) and projectiles. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
 | `Hud` | `UI.wz/StatusBar.img` bar (800x71), gauges, `Basic.img/LevelNo` digits, timer, kill count, "+N EXP" system messages (`show_exp`). |
-| Windows | Level-up choice, job advancement, pause, results: built from `UI.wz` window frames and buttons, skill icons from `Skill.wz`, text from `String.wz`. |
+| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. Title, stage select, results and import are scenes under `scenes/ui/`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=viewport`,
@@ -289,22 +295,29 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
   swarms, static map layers recorded once.
 - Pools for projectiles, pickups, damage numbers and effects; no allocation in steady state.
 - `scripts/bench.sh` runs the sim headless at fixed mob counts and records µs/tick; `scripts/playtest.sh` records real
-  frame times in a window. Results go in `docs/IMPLEMENTATION_PLAN.md` "Performance log".
+  frame times in a window (`summary.json`: percentiles overall, per run minute and for frames with 100+/200+ mobs;
+  `--warp=<s>` fast-forwards the sim to the late game first). Results go in `docs/IMPLEMENTATION_PLAN.md`
+  "Performance log".
 - If GDScript becomes the bottleneck past ~1000 mobs, the mob/projectile inner loops move to a Rust GDExtension
   behind the same `MobSwarm`/`ProjectileSystem` API.
 
 ## 7. Offline guarantees
 
-- No networking API is used by the game or the importer; enforced by `tests/unit/test_offline.gd` (source scan of
-  `game/` for network classes) and the importer's `no_network_deps` test (Cargo.lock scan).
+- No networking API is used by the game or the importer; enforced by `tests/unit/test_offline.gd` (scan of every
+  script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings) and the
+  importer's `no_network_deps` (Cargo.lock scan) and `no_network_src` (`std::net`/socket types in its sources) tests.
 - The importer is a local process reading local files; the game launches it with `OS.execute_with_pipe`/`OS.create_process`.
 - Settings and saves are local files under the user data folder.
-- Verified by running the game with networking disabled (see `docs/IMPLEMENTATION_PLAN.md` acceptance checks).
+- Verified by process-level socket snapshots during a 15:00 playtest and of the exported build (0 TCP connections,
+  0 UDP endpoints, no child process other than the local importer; `docs/IMPLEMENTATION_PLAN.md` acceptance checks).
+  A run with the network adapter disabled has not been done.
 
 ## 8. Licensing and assets
 
-- Our code: original. Godot (MIT) notices ship with exports. Rust crates are permissive (MIT/Apache/Zlib); the list is
-  in `THIRD_PARTY_NOTICES.md`.
+- Our code: original. Godot (MIT) notices ship with exports: `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
+  engine's licence, its bundled components and their licence texts, from the engine itself), `WZIMPORT_LICENSES.txt`
+  (every crate's licence files) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
+  (MIT/Apache/Zlib); the list is in `THIRD_PARTY_NOTICES.md`.
 - Cosmic (AGPL-3.0) and the AGPL/GPL/MPL clients: facts and prose descriptions only, never code. Where a constant comes
   from them it is labelled with its tier and source in `docs/GAME_DESIGN.md`.
 - Nexon's assets: the player supplies their own v83 install; the cache lives in their user folder; nothing proprietary

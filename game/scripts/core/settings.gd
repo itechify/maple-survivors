@@ -3,7 +3,8 @@ extends Node
 ## Player settings stored in user://settings.cfg (autoload "Settings"; docs/ARCHITECTURE.md 4.2).
 ##
 ## Sections/keys: [assets] wz_root, cache_dir (read by AssetCachePaths too); [audio] master, bgm, sfx (linear 0..1);
-## [display] window_scale (0 = project default 1600x1200), fill_window (bool); [input] <action> = physical keycodes
+## [display] window_scale (0 = project default 1600x1200), fill_window (bool), max_fps (0 = the display's refresh rate,
+## -1 = uncapped, N = at most N frames/s; see apply_frame_cap); [input] <action> = physical keycodes
 ## (only rebound actions; the rest keep the project's input map). Loading never writes the file: it is saved only when
 ## a setter is called, so a missing file keeps every default (and never pins a cache_dir for other tools).
 ##
@@ -21,6 +22,10 @@ signal changed
 const PATH := "user://settings.cfg"
 ## The logical view the game is designed for (v83's 800x600; the project viewport size).
 const BASE_VIEW := Vector2i(800, 600)
+## Frame cap when the display's refresh rate is unknown, and the lowest cap a setting may ask for. The sim ticks at
+## 60 Hz whatever the frame rate; frames past the refresh rate are never shown, they only heat the machine.
+const FALLBACK_FPS := 144
+const MIN_FPS := 30
 
 var wz_root := ""
 var cache_dir := ""
@@ -30,6 +35,8 @@ var sfx_volume := 0.9
 var window_scale := 0
 ## Fill the window with more map instead of black bars (see the class doc; off = docs/ARCHITECTURE.md 4.5).
 var fill_window := false
+## Frame-rate cap: 0 = the display's refresh rate (FALLBACK_FPS when unknown), -1 = uncapped, N = N frames/s.
+var max_fps := 0
 ## Rebound actions: action name -> PackedInt32Array of physical keycodes (absent = the project's input map).
 var bindings: Dictionary = {}
 
@@ -46,6 +53,7 @@ func _init(p_path: String = PATH) -> void:
 func _ready() -> void:
 	apply_bindings()
 	apply_window_scale()
+	apply_frame_cap(max_fps)
 	var root := get_tree().root
 	# Deferred: applying a new content size from inside the size_changed emission gets overwritten by the rest of
 	# Godot's own viewport update for the resize (the blit rect stays at the old size, a non-integer stretch).
@@ -107,6 +115,7 @@ func load_settings() -> void:
 	sfx_volume = clampf(float(cfg.get_value("audio", "sfx", sfx_volume)), 0.0, 1.0)
 	window_scale = maxi(0, int(cfg.get_value("display", "window_scale", window_scale)))
 	fill_window = bool(cfg.get_value("display", "fill_window", fill_window))
+	max_fps = int(cfg.get_value("display", "max_fps", max_fps))
 	bindings = {}
 	if cfg.has_section("input"):
 		for action in cfg.get_section_keys("input"):
@@ -129,6 +138,7 @@ func save_settings() -> Error:
 	_put(cfg, "audio", "sfx", sfx_volume, 0.9)
 	_put(cfg, "display", "window_scale", window_scale, 0)
 	_put(cfg, "display", "fill_window", fill_window, false)
+	_put(cfg, "display", "max_fps", max_fps, 0)
 	if cfg.has_section("input"):
 		cfg.erase_section("input")
 	for action: String in bindings:
@@ -172,6 +182,39 @@ func set_fill_window(on: bool) -> void:
 	save_settings()
 	fit_viewport()
 	changed.emit()
+
+
+## Sets the frame-rate cap (0 = refresh rate, -1 = uncapped, N), applies it and saves.
+func set_max_fps(n: int) -> void:
+	max_fps = maxi(-1, n)
+	apply_frame_cap(max_fps)
+	save_settings()
+	changed.emit()
+
+
+## Engine.max_fps for a max_fps setting: 0 = the display's refresh rate rounded up (FALLBACK_FPS when it is unknown,
+## i.e. <= 0), -1 (any negative) = 0 (uncapped), else the setting (at least MIN_FPS).
+static func frame_cap(setting: int, refresh_rate: float) -> int:
+	if setting < 0:
+		return 0
+	if setting > 0:
+		return maxi(MIN_FPS, setting)
+	return ceili(refresh_rate) if refresh_rate >= float(MIN_FPS) else FALLBACK_FPS
+
+
+## Turns vsync on and caps the frame rate at frame_cap(setting, the current screen's refresh rate) - the cap holds even
+## where the driver ignores the swap interval (seen with GL Compatibility on Windows: 300-1300 fps with vsync "on").
+## `uncapped` (--vsync=off perf runs, setting -1) turns vsync off and removes the cap. No-op headless.
+static func apply_frame_cap(setting: int, uncapped: bool = false) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	if uncapped or setting < 0:
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+		Engine.max_fps = 0
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+	var screen := DisplayServer.window_get_current_screen()
+	Engine.max_fps = frame_cap(setting, DisplayServer.screen_get_refresh_rate(screen))
 
 
 ## Rebinds an action to physical keycodes (e.g. [KEY_ALT, KEY_SPACE]), applies it to the InputMap and saves.

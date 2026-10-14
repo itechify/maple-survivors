@@ -1,21 +1,30 @@
 extends TestCase
-## Headless full runs: 15 minutes at 60 Hz of stage henesys_hg1 with a simple kiting bot that always takes the first
-## card and the first available job. Once on the synthetic multi-platform map with synthetic mob/skill imgs, once on
-## the real 104040000 with the real mob/skill imgs read from the asset cache (FileAccess + JSON; SKIP without it).
+## Headless full runs: 15 minutes at 60 Hz of stage henesys_hg1 with the autoplay bot (BotInput: kiting, climbing to
+## drops above, the first available job and BotInput.pick_card_for's card). Once on the synthetic multi-platform map
+## with synthetic mob/skill imgs, once on the real 104040000 with the real mob/skill imgs read from the asset cache
+## (FileAccess + JSON; SKIP without it).
 ##
 ## Asserts: mobs spawn all run long and the alive count grows, Three Snails kills mobs, EXP is collected, level >= 8
-## and job 200 are reached before 15:00, and the run ends DEAD or CLEARED consistently.
+## and job 200 are reached before 15:00, and the run ends DEAD or CLEARED consistently. The real map also checks the
+## tuned pacing of docs/GAME_DESIGN.md 4.1 / 4.2 / 5 on PACING_SEEDS, the first two held-out seeds (never used for
+## tuning, taken in order rather than for their results; tuning used seeds 1-60 and 2026; scripts/balance.sh 101..130
+## shows the spread; 101 dies at 10:19, so 102, which clears, is what exercises the Lv 30 and late-crowd checks): Lv 8 at 2:30-3:45, Lv 10 at 3:00-5:30, Lv 30
+## not before 10:00, under Lv 50 at the end, a death (if any) not before 10:00, a crowd of 200+ alive in the last
+## minutes, mobs near the player and hits taken after 8:00.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const RUN_TICKS := 60 * 900
+## Held-out seeds of the real-map pacing check (the first two of 101-130).
+const PACING_SEEDS := [101, 102]
 
 
 ## Runs `w` to the end (or RUN_TICKS) and returns statistics.
 func _run(w: RunWorld) -> Dictionary:
 	var st := {
 		"spawn_minutes": PackedInt32Array(), "alive": PackedInt32Array(), "killers": {}, "exp": 0, "job_time": -1.0,
-		"lv8_time": -1.0, "levels": 0, "died": false, "cleared": false, "events": 0,
+		"lv8_time": -1.0, "lv10_time": -1.0, "lv30_time": -1.0, "levels": 0, "died": false, "cleared": false,
+		"events": 0, "hits_after_8": 0, "near_after_8": 0,
 	}
 	var spawn_minutes: PackedInt32Array = st.spawn_minutes
 	spawn_minutes.resize(16)
@@ -29,6 +38,8 @@ func _run(w: RunWorld) -> Dictionary:
 		w.step(DT, RF.bot_input(w, memo))
 		if t % 60 == 0:
 			alive.append(w.swarm.alive_count())
+			if w.time >= 480.0:
+				st.near_after_8 = int(st.near_after_8) + _near(w)
 		for e: Dictionary in w.drain_events():
 			st.events += 1
 			match String(e.type):
@@ -45,6 +56,13 @@ func _run(w: RunWorld) -> Dictionary:
 					st.levels += 1
 					if int(e.level) == 8:
 						st.lv8_time = w.time
+					elif int(e.level) == 10:
+						st.lv10_time = w.time
+					elif int(e.level) == 30:
+						st.lv30_time = w.time
+				"player_hit":
+					if w.time >= 480.0:
+						st.hits_after_8 = int(st.hits_after_8) + 1
 				"job_changed":
 					if int(e.job_id) == 200:
 						st.job_time = w.time
@@ -61,9 +79,9 @@ func _run(w: RunWorld) -> Dictionary:
 func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
 	var alive: PackedInt32Array = st.alive
 	var minutes := mini(int(w.time / 60.0), 15)
-	print("%s: %.0f s, %s, level %d, job %d, kills %d, EXP %d, lv8 at %.0f s, job 200 at %.0f s, killers %s, alive/min %s" % [
+	print("%s: %.0f s, %s, level %d, job %d, kills %d, EXP %d, lv8 at %.0f s, lv10 at %.0f s, lv30 at %.0f s, job 200 at %.0f s, hits after 8:00 %d, killers %s, alive/min %s" % [
 		label, w.time, w.state_name(), w.player_state.level, w.player_state.job_id, w.kills, st.exp, st.lv8_time,
-		st.job_time, st.killers, _per_minute(alive)])
+		st.lv10_time, st.lv30_time, st.job_time, st.hits_after_8, st.killers, _per_minute(alive)])
 	var spawn_minutes: PackedInt32Array = st.spawn_minutes
 	for m in minutes:
 		assert_true(spawn_minutes[m] > 0, "%s: mobs spawned in minute %d" % [label, m])
@@ -99,16 +117,40 @@ func test_full_run_real_map() -> void:
 	if not require_cache():
 		return
 	var data := DataRepo.load_all()
-	var missing := PackedStringArray()
-	var setup := DataRepo.build_setup(data, "henesys_hg1", 2026, Vector2(800, 600), _img, _mob, missing)
-	if not missing.is_empty():
-		skip("cache lacks %s" % [missing])
-		return
-	var w := RunWorld.new(setup)
-	assert_eq(w.fhm.count(), 181, "the real 104040000")
-	assert_eq(w.mob_kinds.size(), 8, "the henesys_hg1 pool")
-	assert_true(w.warnings.is_empty(), "%s" % [w.warnings])
-	_assert_run(w, _run(w), "104040000")
+	for pacing_seed: int in PACING_SEEDS:
+		var missing := PackedStringArray()
+		var setup := DataRepo.build_setup(data, "henesys_hg1", pacing_seed, Vector2(800, 600), _img, _mob, missing)
+		if not missing.is_empty():
+			skip("cache lacks %s" % [missing])
+			return
+		var w := RunWorld.new(setup)
+		assert_eq(w.fhm.count(), 181, "the real 104040000")
+		assert_eq(w.mob_kinds.size(), 8, "the henesys_hg1 pool")
+		assert_true(w.warnings.is_empty(), "%s" % [w.warnings])
+		var st := _run(w)
+		var label := "104040000 seed %d" % pacing_seed
+		_assert_run(w, st, label)
+		_assert_pacing(w, st, label)
+
+
+## The tuned pacing on the real map (docs/GAME_DESIGN.md 4.1, 5); windows with some slack for the bot.
+func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
+	assert_between(float(st.lv8_time), 150.0, 225.0, "%s: Lv 8 (Magician) between 2:30 and 3:45" % label)
+	assert_between(float(st.lv10_time), 180.0, 330.0, "%s: Lv 10 between 3:00 and 5:30" % label)
+	if float(st.lv30_time) > 0.0:
+		assert_true(float(st.lv30_time) >= 600.0, "%s: Lv 30 not before 10:00 (%.0f s)" % [label, float(st.lv30_time)])
+	assert_true(int(w.player_state.level) < 50, "%s: far below the old Lv 50+ at the end (%d)" % [label,
+		int(w.player_state.level)])
+	if w.state == RunWorld.DEAD:
+		assert_true(w.time >= 600.0, "%s: a death comes late in the run (%.0f s)" % [label, w.time])
+	var alive: PackedInt32Array = st.alive
+	if alive.size() > 840:
+		var late := 0
+		for i in range(780, alive.size()):
+			late = maxi(late, alive[i])
+		assert_true(late >= 200, "%s: a crowd of 200+ alive after 13:00 (%d)" % [label, late])
+	assert_true(int(st.near_after_8) > 0, "%s: mobs reach the player after 8:00" % label)
+	assert_true(int(st.hits_after_8) >= 5, "%s: the player takes hits after 8:00 (%d)" % [label, int(st.hits_after_8)])
 
 
 func _img(path: String) -> Dictionary:
@@ -130,6 +172,15 @@ func _mob(id: int) -> Dictionary:
 			linked["info"] = img.info
 			return linked
 	return img
+
+
+## Live mobs within 300 px horizontally and 150 px vertically of the player (balance_run.gd's engagement box).
+static func _near(w: RunWorld) -> int:
+	var n := 0
+	for i in w.swarm.capacity():
+		if w.swarm.active[i] != 0 and absf(w.swarm.x[i] - w.player.pos.x) <= 300.0 				and absf(w.swarm.y[i] - w.player.pos.y) <= 150.0:
+			n += 1
+	return n
 
 
 static func _mean(a: PackedInt32Array, from: int, to: int) -> float:

@@ -7,8 +7,10 @@ extends RefCounted
 ## the foothold box). A drop within `magnet_r` of the player's body centre (feet - CENTER_UP) is attracted for good: it
 ## flies at the player, accelerating from magnet_speed by magnet_acc, and is collected within collect_radius, which
 ## appends a `pickup_collected` event; step() returns the EXP collected this tick. Past `max_active` live drops a new
-## drop's EXP is merged into the nearest existing one (`merged` tells the caller no slot was added).
-## All motion constants are tier C (ours).
+## drop's EXP is merged into the nearest existing one (`merged` tells the caller no slot was added; the merged drop's
+## age restarts). With `lifetime` > 0 a drop that lies uncollected that long expires: it fades out over its last
+## `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop already flying to
+## the player never expires. All motion and lifetime constants are tier C (ours).
 
 const AIR := 0
 const REST := 1
@@ -25,6 +27,8 @@ const TUNING_DEFAULTS := {
 	"magnet_acc": 1400.0,  # tier C: acceleration toward the player
 	"collect_radius": 24.0,  # tier C: collected this close to the body centre
 	"max_active": 600,  # tier C: merge EXP into the nearest drop past this many
+	"lifetime": 0.0,  # tier C: seconds an uncollected drop lies before it expires (0 = never)
+	"fade": 1.5,  # tier C: the last seconds of the lifetime, fading out
 }
 
 var active := PackedByteArray()
@@ -36,6 +40,8 @@ var exp := PackedInt32Array()
 var item_id := PackedInt32Array()
 ## AIR / REST / MAGNET.
 var state := PackedByteArray()
+## Seconds since the drop appeared (or last took merged EXP).
+var age := PackedFloat32Array()
 
 var tuning: Dictionary
 var rng: RandomNumberGenerator
@@ -43,6 +49,9 @@ var rng: RandomNumberGenerator
 var merged := false
 ## Total EXP collected so far.
 var collected_exp := 0
+## Drops expired so far and the EXP they held.
+var expired := 0
+var expired_exp := 0
 
 var _free := PackedInt32Array()
 var _hi := 0
@@ -83,6 +92,7 @@ func spawn(pos: Vector2, p_exp: int, p_item_id: int) -> int:
 					best = i
 		if best >= 0:
 			exp[best] += p_exp
+			age[best] = 0.0
 			merged = true
 			return best
 	if _free.is_empty():
@@ -98,6 +108,7 @@ func spawn(pos: Vector2, p_exp: int, p_item_id: int) -> int:
 	exp[i] = p_exp
 	item_id[i] = p_item_id
 	state[i] = AIR
+	age[i] = 0.0
 	_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
@@ -114,7 +125,16 @@ func despawn(i: int) -> void:
 		_hi -= 1
 
 
-## Moves every drop by dt (pop/fall/land, magnet, collect). Returns the EXP collected this tick.
+## Draw alpha of drop i: 1, fading to 0 over the last `fade` seconds of its lifetime.
+func alpha(i: int) -> float:
+	var life := float(tuning.lifetime)
+	if life <= 0.0 or i < 0 or i >= capacity() or state[i] == MAGNET:
+		return 1.0
+	var f := float(tuning.fade)
+	return clampf((life - age[i]) / f, 0.0, 1.0) if f > 0.0 else 1.0
+
+
+## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
 func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
 	var got := 0
 	var grav := float(tuning.gravity)
@@ -123,6 +143,7 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 	var cr := float(tuning.collect_radius)
 	var cr2 := cr * cr
 	var mr2 := magnet_r * magnet_r
+	var life := float(tuning.lifetime)
 	var cx := player_pos.x
 	var cy := player_pos.y - CENTER_UP
 	var floor_y := INF
@@ -142,6 +163,13 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 		var dy := cy - py
 		var d2 := dx * dx + dy * dy
 		var st := state[i]
+		if st != MAGNET and life > 0.0:
+			age[i] += dt
+			if age[i] >= life and d2 > mr2:
+				expired += 1
+				expired_exp += exp[i]
+				despawn(i)
+				continue
 		if st != MAGNET and d2 <= mr2:
 			st = MAGNET
 			state[i] = MAGNET
@@ -195,7 +223,7 @@ func _grow(n: int) -> void:
 		return
 	for arr: Variant in [active, state]:
 		arr.resize(n)
-	for arr: Variant in [x, y, vx, vy]:
+	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
 	for arr: Variant in [exp, item_id]:
 		arr.resize(n)

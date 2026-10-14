@@ -57,6 +57,8 @@ const EVENT_FIELDS := {
 ## tier C defaults used when balance.json lacks a value.
 const DEFAULT_BODY := Rect2(-14, -58, 28, 58)
 const DEFAULT_CAST_HEIGHT := 30.0
+## Shots leave this far in front of the cast origin, toward their target (the hand, not the face). tier C: ours.
+const DEFAULT_CAST_FORWARD := 22.0
 const DEFAULT_VIEW := Vector2(800, 600)
 
 var setup: Dictionary
@@ -110,8 +112,10 @@ var visual_paths: Array = []
 ## Options / cards of the open window.
 var pending_jobs: Array = []
 var pending_cards: Array = []
-## The next card draw's guarantee ({kind, job}; {} = none), from the job just taken.
+## The next card draw's guarantee ({kind, job}; {power: true} = a power card; {} = none), from the job just taken.
 var guarantee := {}
+## Card draws in a row that offered no power card (UpgradePool pity).
+var power_dry := 0
 ## Setup problems the sim worked around (e.g. a pool mob without a mob img).
 var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
@@ -122,6 +126,7 @@ var mp_regen := 2.0
 var player_pdd := 0.0
 var body := DEFAULT_BODY
 var cast_height := DEFAULT_CAST_HEIGHT
+var cast_forward := DEFAULT_CAST_FORWARD
 ## Tests and benchmarks only: the player takes no touch damage.
 var god := false
 
@@ -308,7 +313,8 @@ func apply_choice(card_id: String) -> bool:
 	return true
 
 
-## Changes the job (stats, grants) and emits job_changed.
+## Changes the job (stats, grants: max_mp, skills learned at once, the next draw's guarantee) and emits job_changed
+## (then skill_learned for each granted skill).
 func change_job(job_id: int) -> void:
 	progression.job_id = job_id
 	var j := jobs.job(job_id)
@@ -319,6 +325,8 @@ func change_job(job_id: int) -> void:
 		guarantee = g.duplicate()
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
+	for key: Variant in grants.get("skills", []):
+		learn_skill(String(key))
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -374,9 +382,19 @@ func visual_index(path: String) -> int:
 	return i
 
 
-## Where shots start and targeting measures from: the player's body (feet - cast_height).
+## Where targeting measures from: the player's body (feet - cast_height). Shots start shot_origin().
 func cast_origin() -> Vector2:
 	return player.pos - Vector2(0.0, cast_height)
+
+
+## Where a shot flying toward `aim` starts: cast_forward px in front of the cast origin on the target's side (the
+## throwing hand, so the shell does not cover the face), level with it.
+func shot_origin(aim: Vector2) -> Vector2:
+	var o := cast_origin()
+	var side := signf(aim.x - o.x)
+	if side == 0.0:
+		side = float(player.facing)
+	return o + Vector2(side * cast_forward, 0.0)
 
 
 ## Centre of mob m's body box (where shots aim).
@@ -474,6 +492,7 @@ func _init_player() -> void:
 	if b is Array and b.size() == 4:
 		body = Rect2(float(b[0]), float(b[1]), float(b[2]), float(b[3]))
 	cast_height = float(pb.get("cast_height", DEFAULT_CAST_HEIGHT))
+	cast_forward = float(pb.get("cast_forward", DEFAULT_CAST_FORWARD))
 	player.place(_start_point(), fhm)
 	refresh_player_stats()
 	_hp = _max_hp
@@ -543,7 +562,7 @@ func _on_kill(m: int) -> void:
 	kills += 1
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var elite := mob_elite[m] != 0
-	var mult := float(balance.get("exp_mult", 1.0))
+	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
 	var e := roundi(mk.exp * mult)
@@ -607,11 +626,27 @@ func _on_level_up(level: int) -> void:
 	_base_hp += float(g.get("hp", 0.0))
 	_base_mp += float(g.get("mp", 0.0))
 	_int += float(g.get("int", 0.0))
+	_level_ranks(level)
 	refresh_player_stats()
 	var refill := float(balance.get("level_up_refill", 0.25))
 	_hp = minf(_max_hp, _hp + refill * _max_hp)
 	_mp = minf(_max_mp, _mp + refill * _max_mp)
 	emit("level_up", {"level": level})
+
+
+## Skills with `level_ranks` ({character level: rank}, skills.json) reach at least that rank at that level (like the
+## SP a v83 Beginner spends on Three Snails); cards may get there sooner.
+func _level_ranks(level: int) -> void:
+	for key: String in loadout.order:
+		var lr: Variant = book.def(key).get("level_ranks")
+		if not (lr is Dictionary):
+			continue
+		var want := 0
+		for k: Variant in lr:
+			if int(k) <= level:
+				want = maxi(want, int(lr[k]))
+		if want > loadout.rank(key):
+			loadout.set_rank(key, want)
 
 
 ## The entry of a per-job table (keys = job ids as strings) for the current job, else its nearest ancestor's.

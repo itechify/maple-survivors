@@ -15,7 +15,8 @@ PROJECT="$REPO/game"
 if [[ -n "${ISOLATE:-}" ]]; then
   DEST="$REPO/_scratch/godot_runs/$ISOLATE/game"
   mkdir -p "$DEST"
-  (cd "$PROJECT" && tar --exclude=./.godot -cf - .) | (cd "$DEST" && tar -xf -)
+  rm -rf "$DEST/export"  # the exported build (~110 MB) is never needed in a mirror
+  (cd "$PROJECT" && tar --exclude=./.godot --exclude=./export -cf - .) | (cd "$DEST" && tar -xf -)
   (cd "$DEST" && find . -type f ! -path './.godot/*' | while read -r f; do [[ -e "$PROJECT/$f" ]] || rm -f "$f"; done)
   PROJECT="$DEST"
 fi

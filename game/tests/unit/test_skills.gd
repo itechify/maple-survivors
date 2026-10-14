@@ -159,9 +159,13 @@ func test_runner_extra_shells_pick_different_targets() -> void:
 	w.step(DT, MoveInput.new())
 	var p := w.projectiles
 	var dirs: Array = []
+	var o := w.cast_origin()
 	for i in p.capacity():
 		if p.active[i] != 0:
 			dirs.append(signf(p.vx[i]))
+			# Each shell leaves from the hand on its target's side (cast_forward px in front of the body), not the face.
+			assert_near(p.x[i] - p.vx[i] * DT, o.x + signf(p.vx[i]) * w.cast_forward, 1.0, "shell start x")
+	assert_eq(w.cast_forward, 22.0, "balance.json player.cast_forward")
 	assert_eq(dirs.size(), 2, "two shells")
 	assert_true(1.0 in dirs and -1.0 in dirs, "one toward each mob, not both at the nearest: %s" % [dirs])
 	assert_ne(a, b)
@@ -169,7 +173,7 @@ func test_runner_extra_shells_pick_different_targets() -> void:
 
 func test_magic_claw_instant_two_hits() -> void:
 	var w := RF.quiet_world(200.0)
-	w.change_job(200)
+	RF.change_job_bare(w, 200)
 	w.learn_skill("magic_claw")
 	w.loadout.ranks.erase("three_snails")
 	w.loadout.order.erase("three_snails")
@@ -192,7 +196,7 @@ func test_magic_claw_instant_two_hits() -> void:
 	assert_eq(hits, 2, "attackCount 2 lines at once")
 	assert_eq(w.projectiles.active_count(), 0, "no projectile")
 	var out_of_range := RF.quiet_world(200.0)
-	out_of_range.change_job(200)
+	RF.change_job_bare(out_of_range, 200)
 	out_of_range.learn_skill("magic_claw")
 	out_of_range.loadout.ranks.erase("three_snails")
 	out_of_range.loadout.order.erase("three_snails")

@@ -5,7 +5,7 @@ extends RefCounted
 ## a `cast` event, the player's cast stance, then
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
 ##   nearest first (SpatialHash query); with fewer targets than shots the extra shots reuse targets in order, aimed a
-##   few px apart;
+##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## Stats come from Loadout.stats(), cached until Loadout.version changes.
@@ -107,11 +107,16 @@ func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int
 			var m := _tgt[k % n]
 			var reuse := floorf(float(k) / float(n))
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
-			var dir := (aim - origin).normalized()
+			var start := world.shot_origin(aim)
+			var dir := (aim - start).normalized()
+			if dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x):
+				# A target inside the reach of the hand: fly straight at it from the body instead.
+				start = origin
+				dir = (aim - origin).normalized()
 			if dir == Vector2.ZERO:
 				dir = Vector2(world.player.facing, 0.0)
 			world.projectiles.spawn({
-				"x": origin.x, "y": origin.y, "vx": dir.x * speed, "vy": dir.y * speed,
+				"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
 				"range": float(st.range), "radius": float(st.radius), "visual": vis, "hit_visual": hv,
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),

@@ -1,7 +1,8 @@
 class_name PickupRenderer
 extends Node2D
 ## Draws EXP drops from PickupSystem-like arrays (docs/ARCHITECTURE.md 4.4.3): `active x y item_id`, using the item's
-## Item.wz/<Type>/<id/10000>.img/<8-digit id>/info/iconRaw, with a gentle bob.
+## Item.wz/<Type>/<id/10000>.img/<8-digit id>/info/iconRaw, with a gentle bob; a source with an `alpha(i)` method
+## (PickupSystem: drops about to expire) fades them out.
 ##
 ## Anchor: the icon is centred on x with its bottom on y (the drop rests on the ground). The canvas origin of iconRaw is
 ## an inventory-slot anchor (e.g. (-4, 27)), so it is not used here (tier C, our choice). Bob: BOB_PX up and down over
@@ -33,6 +34,7 @@ func update_from(pickups: Object, dt: float) -> void:
 	var ys: PackedFloat32Array = pickups.y
 	var ids: PackedInt32Array = pickups.item_id
 	var n := active.size()
+	var fades := pickups.has_method("alpha")
 	_pool.ensure(n)
 	for i in n:
 		if active[i] == 0:
@@ -43,7 +45,7 @@ func update_from(pickups: Object, dt: float) -> void:
 			_pool.hide(i)
 			continue
 		var p := Vector2(roundf(xs[i]), roundf(ys[i]) + bob_offset(time, i))
-		_pool.show(i, f, p + anchor_offset(f), false)
+		_pool.show(i, f, p + anchor_offset(f), false, float(pickups.call("alpha", i)) if fades else 1.0)
 	_pool.hide_from(n)
 
 

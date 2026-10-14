@@ -26,13 +26,13 @@ func test_pacing_keyframes() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1"))
 	var d := w.director
 	assert_near(d.rate_at(0.0), 0.7, 1e-6)
-	assert_near(d.rate_at(60.0), 1.15, 1e-6, "halfway to the 2:00 keyframe")
-	assert_near(d.rate_at(120.0), 1.6, 1e-6)
+	assert_near(d.rate_at(60.0), 1.35, 1e-6, "halfway to the 2:00 keyframe")
+	assert_near(d.rate_at(120.0), 2.0, 1e-6)
 	assert_eq(d.max_alive_at(0.0), 15)
 	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
-	assert_near(d.value_at("hp", 180.0), 1.175, 1e-6)
-	assert_near(d.value_at("speed", 900.0), 1.3, 1e-6)
-	assert_near(d.rate_at(2000.0), 9.0, 1e-6, "held after the last keyframe")
+	assert_near(d.value_at("hp", 180.0), 1.225, 1e-6, "halfway between 1.15 and 1.3")
+	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
+	assert_near(d.rate_at(2000.0), 20.0, 1e-6, "held after the last keyframe")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
 	var snail := int(w.kind_of_id[100100])
 	var blue := int(w.kind_of_id[100101])
@@ -41,8 +41,8 @@ func test_pacing_keyframes() -> void:
 	var two: PackedInt32Array = d.pool_at(130.0).kinds
 	assert_true(int(w.kind_of_id[130101]) in two and int(w.kind_of_id[120100]) in two, "+ Red Snail, Shroom")
 	assert_false(snail in d.pool_at(400.0).kinds, "Snails phase out at 6:00")
-	assert_eq(d.burst_count_at(0.0), 20)
-	assert_eq(d.burst_count_at(450.0), 30)
+	assert_eq(d.burst_count_at(0.0), 10)
+	assert_eq(d.burst_count_at(450.0), 25, "halfway from 10 to 40")
 	assert_eq(d.burst_count_at(900.0), 40)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
@@ -93,11 +93,17 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 						"elite x8 HP")
 	assert_true(checked > 300, "plenty of spawns checked (%d)" % checked)
 	assert_true(per_minute[5] > per_minute[0] * 2, "spawning ramps up: %s" % [per_minute])
-	assert_true(alive_max[5] > alive_max[0] * 3, "alive count ramps up: %s" % [alive_max])
+	# The alive count is what the (god-mode) bot leaves alive, so it depends on its kill rate; the director's own ramp
+	# is what must grow.
+	assert_true(alive_max[5] > alive_max[0], "a bigger crowd in minute 6 than in minute 1: %s" % [alive_max])
+	for m in 6:
+		assert_true(w.director.max_alive_at(60.0 * (m + 1)) > w.director.max_alive_at(60.0 * m),
+			"max_alive grows every minute (%d)" % m)
+		assert_true(w.director.rate_at(60.0 * (m + 1)) > w.director.rate_at(60.0 * m), "spawn rate grows (%d)" % m)
 	assert_eq(bursts.size(), 4, "bursts at 1:30, 3:00, 4:30, 6:00: %s" % [bursts])
 	if bursts.size() == 4:
 		assert_near(bursts[0][0], 90.0, DT * 1.5)
-		assert_between(bursts[0][1], 20, 40)
+		assert_between(bursts[0][1], 10, 40)
 	assert_eq(elites, 5, "elites at 1:15, 2:15, 3:15, 4:15, 5:15")
 
 
@@ -146,3 +152,49 @@ func test_recycles_unreachable_off_screen_and_far_mobs() -> void:
 	for t in 60 * 4:
 		big.step(DT, MoveInput.new())
 	assert_eq(big.swarm.state[far], MobSwarm.FREE, "3800 px away: recycled")
+
+
+func test_prefer_hops_brings_spawns_near_and_stages_override_it() -> void:
+	# Stage "spawn" overrides balance.json "spawn".
+	var d := SpawnDirector.create({"spawn": {"prefer_hops": 0}}, {}, {"prefer_hops": 1, "band": 100.0})
+	assert_eq(int(d.params.prefer_hops), 0, "the stage's own value wins")
+	assert_eq(float(d.params.band), 100.0, "balance values the stage does not set stay")
+	# On the big synthetic multi-platform map (every platform is at most one edge from the start platform, so the test
+	# uses prefer_hops 0): spawns land on the player's own platform more often than with any reachable platform.
+	var share := {}
+	for prefer: int in [-1, 0]:
+		var w := RunWorld.new(RF.setup("henesys_hg1", 31))
+		w.director.params["prefer_hops"] = prefer
+		var near := 0
+		var total := 0
+		for i in 300:
+			var k := w.director.pick_kind(60.0, w.spawn_rng)
+			var p := w.director.pick_spawn(w, k)
+			if p.z < 0:
+				continue
+			total += 1
+			var mk: MobKind = w.mob_kinds[k]
+			var nav := w.nav_jump if mk.can_jump else w.nav
+			var h := nav.hops(w.fhm.platform_of(int(p.z)), w.player_platform())
+			if h == 0:
+				near += 1
+		share[prefer] = float(near) / maxf(1.0, total)
+	print("prefer_hops share on the player's platform: any %.2f, prefer 0 %.2f" % [share[-1], share[0]])
+	assert_true(float(share[0]) > float(share[-1]), "more spawns on the player's platform with prefer_hops 0 (%s)" % [share])
+
+
+func test_stage_exp_mult_scales_drops() -> void:
+	var data := RF.quiet_data()
+	data.stages.stages.quiet["exp_mult"] = 2.0
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 400.0)
+	var m := RF.put_mob(w, 100100, 430.0)
+	var got_exp := 0
+	for t in 240:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "mob_died" and int(e.mob) == m:
+				got_exp = int(e.exp)
+		if got_exp > 0:
+			break
+	assert_eq(got_exp, 2 * roundi(w.mob_kinds[w.kind_of_id[100100]].exp), "the stage's exp_mult doubles the Snail's EXP")

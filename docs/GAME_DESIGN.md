@@ -67,8 +67,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   for mobs with a `jump` animation (Slime, Pig, Orange Mushroom), jumping up to a platform within reach. Mobs never
   teleport or float. A mob that cannot reach the player wanders on its platform and is recycled once far off-screen.
 - **Spawning:** at points on floors outside the camera view (+48 px margin) but inside the map bounds, preferring
-  platforms that can reach the player's platform, never within 200 px of the player. New mobs fade in (regen) over
-  0.3 s (tier C).
+  platforms that can reach the player's platform, and among those the player's own platform or one a single drop or hop
+  away (`spawn.prefer_hops` = 1), so the crowd comes at the player instead of queueing on far platforms; never within
+  200 px of the player. New mobs fade in (regen) over 0.3 s (tier C).
 - **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
 - **Hit reaction:** a hit plays `hit1` and stuns for 0.24 s (tier C); damage ≥ `pushed` also pushes the mob 12 px
   away from the source (tier C).
@@ -78,20 +79,89 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
-time t by weight. Values interpolate linearly between keyframes. First stage, Henesys Hunting Ground I (104040000):
+time t by weight. Values interpolate linearly between keyframes. First stage, Henesys Hunting Ground I (104040000),
+tuned 2026-10-14 (section 4.2):
 
-| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
-|---|---|---|---|---|---|
-| 0:00 | 0.7 | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
-| 2:00 | 1.6 | 40 | + Red Snail 3, Shroom 3 | 1.1 | 1.0 |
-| 4:00 | 2.6 | 70 | + Slime 3 | 1.25 | 1.05 |
-| 6:00 | 3.5 | 110 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.5 | 1.1 |
-| 9:00 | 5 | 170 | + Green Mushroom 2 | 1.9 | 1.15 |
-| 12:00 | 7 | 250 | full pool | 2.5 | 1.25 |
-| 15:00 | 9 | 320 | clear | 3.0 | 1.3 |
+| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × | Touch damage × |
+|---|---|---|---|---|---|---|
+| 0:00 | 0.7 | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 | 1.0 |
+| 2:00 | 2.0 | 40 | + Red Snail 3, Shroom 3 | 1.15 | 1.0 | 1.0 |
+| 4:00 | 3.6 | 65 | + Slime 3 | 1.3 | 1.05 | 1.0 |
+| 6:00 | 5.0 | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.5 | 1.1 | 1.0 |
+| 9:00 | 8.5 | 165 | + Green Mushroom 1 | 2.0 | 1.18 | 1.1 |
+| 12:00 | 13 | 240 | full pool (Green Mushroom 3) | 2.6 | 1.28 | 1.2 |
+| 15:00 | 20 | 330 | clear | 4.2 | 1.4 | 1.5 |
 
-Bursts every 90 s spawn a ring of 20-40 mobs around the view. The roster deliberately goes beyond the map's own `life`
-list (Snail, Slime and Orange Mushroom are the classic trio); the original spawn list is shown in the stage info.
+Two levers do different jobs: `max_alive` is the crowd a struggling player faces (the cap binds when kills fall
+behind), `rate` is what pressures a strong build (it only matters while the player kills faster than the cap refills),
+so a strong build still ends up surrounded by 200-300 mobs late in the run. The 2026-10-14 pass lowered `max_alive`
+at 4:00-9:00 (weak builds were overrun there; strong builds never meet the cap) and raised the early `rate`. The pool
+also sets the EXP income: the 6:00 pool's Pigs and Orange Mushrooms give 15 EXP against 8 for a Red Snail, and a
+variant that kept the older mobs longer to spare weak builds starved the strong ones of levels (14 of 24 tuned-bot
+runs died instead of 3), so change pools and the EXP curve together. Bursts every 90 s spawn a ring of 10-40 mobs
+around the view (growing over the stage). The roster deliberately goes beyond the map's own `life` list (Snail, Slime and Orange Mushroom
+are the classic trio); the original spawn list is shown in the stage info. The Tree That Grew I uses the same numbers
+with its own pools (Snails only until 2:00: Slimes in the opening minute killed some runs before 1:00); The Hill East
+of Henesys keeps the earlier, gentler numbers (rate 0.7/1.6/2.6/3.5/5/7/9, max alive 15/40/70/110/170/250/320, HP
+1.0/1.1/1.25/1.5/1.9/2.5/3.0, speed up to 1.3, damage up to 1.3; on its terrain the henesys curve killed half the
+autoplay runs mid-game) with 1.2x EXP (`exp_mult`). Both use `spawn.prefer_hops` -1 (any reachable platform): on their
+smaller platforms, spawning next to the player killed runs in the first minutes. They were only roughly re-tuned
+(section 4.2) and their stage cards say "Not fully tuned yet" (`note`).
+
+### 4.2 Tuning record (`scripts/balance.sh`)
+
+Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
+`game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground, walks to EXP
+drops and climbs a ladder or rope to drops left on a platform above, and takes the first available job. Card
+policies: `bot` takes the card a sensible player would take (a new attack skill, then more shots / damage / pierce /
+rank for the current job's attack skills, then defence; `BotInput.pick_card_for`); `random` is a careless player who
+takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
+guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+**Seeds.** The 2026-10-14 pass was tuned on seeds 1-24 (variants compared on both policies) and is reported on the
+held-out seeds 101-130, which were never used for tuning; the earlier record (seeds 1-23 + 2026) had been tuned and
+reported on the same seeds, and it did not hold on fresh seeds (a review found 6 of 18 deaths on seeds 31-48). Keep
+tuning on 1-60 and reporting on 101-130; `test_full_run` checks the pacing on seed 101.
+
+Targets: Lv 8 (Magician) at 2:30-3:45, Lv 10 at 3:00-5:30, Lv 30 at ~12:00-15:00, a crowd of 200+ alive in the last
+minutes, hits taken regularly after 8:00, deaths of the sensible player late and on a minority of seeds; a careless
+player should reach the job advancement and usually get past 8:00.
+
+| henesys_hg1, held-out seeds 101-130 | Before (data of 2026-10-13) | After (this data) |
+|---|---|---|
+| Sensible player (`bot`): outcome | 22/30 cleared; deaths 9:33-14:12, 3 before 12:00 | 20/30 cleared; deaths 8:57-14:39, 4 before 12:00 (8:57, 10:19, 10:48, 11:33) |
+| Lv 8 / Lv 10 / Lv 30 (median) | 2:28-4:50 (2:59) / 3:52 / 10:23-13:31 (11:53), 24 reach Lv 30 | 2:26-4:54 (2:45) / 3:48 / 11:22-13:03 (12:03), 25 reach Lv 30 |
+| Level at 15:00 or death | 20-41, median 35 | 17-39, median 35.5 |
+| Alive at 4/8/12/14 min (median of the minute's mean) | 42 / 155 / 232 / 289 | 24 / 74 / 123 / 220 (max 156-330, median 311) |
+| Mobs near the player (300 x 150 px) at 4/8/12 min | 0.9 / 10.8 / 18.7 | 0.5 / 7.1 / 15.3 |
+| Hits before 6:00 / after 8:00 (median) | 2 (26 of 30 runs hit) / 18 | 1 (16 of 30 runs hit) / 23 |
+| EXP drops lying on the map at 4/8/12 min | 82 / 316 / 512 | 52 / 77 / 135 (14% of the EXP expires) |
+| Careless player (`random`) | 0/30 cleared; median death 7:31; 24/30 reach Lv 8; 13/30 live past 8:00; 9 die before 6:00 | 2/30 cleared; median death 8:57; 27/30 reach Lv 8; 18/30 live past 8:00; 3 die before 6:00 |
+| Hands off the keys from 5:00 (`bot` cards, seeds 101-112) | 1/12 survive; deaths 6:30-13:39, median 11:54 | 0/12 survive; deaths 6:34-12:28, median 9:40 |
+
+What changed (all data toggles, see sections 5, 7, 8, 9 and 11): Three Snails levels with the character
+(`level_ranks`), Energy Bolt comes with the Magician job (`grants.skills`), a power card is guaranteed after a draw
+without one (`pity.draws`), spawns prefer the player's platform and its neighbours (`spawn.prefer_hops`), drops expire
+(`pickup.lifetime`), the EXP curve is steeper (c 2.25 -> 3), and the keyframes of section 4.1 (lower `max_alive` at
+4:00-9:00, gentler HP growth, smaller early bursts, a faster early spawn rate).
+
+Reading: careless builds now usually reach the Magician and survive past 8:00, a build left alone from 5:00 dies about
+two minutes sooner (play matters more than before), and the sensible player's outcome is about the same as before
+(20 vs 22 clears of 30 is within the seed-to-seed spread). The price is a thinner mid-game
+crowd for a strong build (74 alive at 8:00 instead of 155); a larger share of it is near the player (10% and 12% of
+the alive mobs at 8:00 and 12:00, against 7% and 8%), the strong build takes more hits after 8:00, and the crowd still
+reaches 200-330 in the last minutes. Not reached: early pressure on a
+strong build. The kiting bot takes about one hit before 6:00 (14 of 30 runs none at all), fewer than before, because
+Three Snails is stronger early; a variant with higher 6:00-12:00 spawn rates (5.5/10/15) gave a bigger mid-game crowd
+(88 / 139 alive at 8 / 12 min on seeds 1-24) but more deaths (18 instead of 21 clears of 24) and Lv 30 at ~11:20, and
+was not taken. The bounds of a human player lie between the kiting bot and the hands-off run; how punishing the
+careless and early game should be is a design decision for the lead.
+
+Other stages (held-out seeds 101-112, `bot`), not tuned as carefully (their stage cards say so): The Tree That Grew I
+(henesys numbers with its own pools, no opening Slimes, `prefer_hops` -1 because spawning next to the player on its
+small platforms killed runs in the first minutes) clears 8/12, Lv 8 at ~2:36 and Lv 30 at ~10:47 (too fast), deaths
+at ~10:00 and one at 2:51. The Hill East of Henesys (gentler numbers, `prefer_hops` -1, `exp_mult` 1.2) clears 6/12,
+Lv 8 at ~3:06, Lv 30 reached on 5/12 (slow), deaths 10:41-14:58.
 
 ## 5. Experience and levels
 
@@ -102,9 +172,14 @@ list (Snail, Slime and Orange Mushroom are the classic trio); the original spawn
   4000012.
 - EXP value = the mob's canonical `exp` × 1.0 (× 5 for elites). Pickups within the magnet radius (90 px) fly to the
   player; collecting plays `Game.img/PickUpItem` and shows "+N EXP" in MapleStory's yellow system-message style.
-- **Survivor EXP curve:** `exp_to_next(L) = round(8 + 6·L + 0.6·L²)` (L1 = 15 like the canonical table; L7 = 79,
-  L29 = 687). Expected pace: Lv 8 at about 3:00, Lv 10 at 4:00, Lv 30 near 13:00-15:00. The canonical v83 table
-  (`data/canonical/exp_table.json`) is kept for reference and display only.
+- **Drops expire** like items left on a v83 map: an EXP drop nobody collects for 60 s fades out over its last 1.5 s
+  and is gone with its EXP (`pickup.lifetime` / `fade`, tier C). This keeps platforms the player never visits from
+  filling with shells (the tuned bot loses 10-25% of the EXP it could have had this way).
+- **Survivor EXP curve:** `exp_to_next(L) = round(4 + 12·L + 3·L²)` (L1 = 19, close to the canonical 15; L7 = 235,
+  L9 = 355, L29 = 2875; 784 EXP to reach Lv 8, 1431 to Lv 10, 31001 to Lv 30). The quadratic term carries the late
+  game: a strong build that levels fast meets steeper levels, which keeps the spread between builds small. Measured
+  pace: section 4.2. The canonical v83 table (`data/canonical/exp_table.json`) is kept for reference and display
+  only.
 - **Level up:** the game pauses, `Effect.wz/BasicEff.img/LevelUp` plays on the character with `Game.img/LevelUp`, then
   the upgrade window opens. Several level-ups in a row queue their windows.
 - **Stats per level** (tier C, emulator-like): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP; INT +5 per level
@@ -146,7 +221,7 @@ No skill costs MP in survivor mode (MP fuels Magic Guard instead).
 
 | Skill (id) | Job | Behaviour | Rank -> canonical level | Upgrades |
 |---|---|---|---|---|
-| Three Snails (1000) | Beginner | Throws a shell (`level/N/ball`) at the nearest mob within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Stronger Snails (+1 skill level, ×2), Rapid Snails (+25% speed, ×3) |
+| Three Snails (1000) | Beginner | Throws a shell (`level/N/ball`) at the nearest mob within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage; the skill reaches level 2 at character Lv 3 and level 3 at Lv 6 on its own (`level_ranks`: the SP a v83 Beginner puts into it), Stronger Snails gets there sooner | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Stronger Snails (+1 skill level, ×2), Rapid Snails (+25% speed, ×3) |
 | Energy Bolt (2001004) | Magician | `ball` projectile at the nearest mob every 0.9 s; 450 px/s; `hit/0` | rank r = level 1 + 4(r-1) (L1, L5, L9, L13, L17, L20) | Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | same mapping | Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
 | Magic Guard (2001002) | Magician | Passive damage-to-MP split (`x`%) | L1, L5, L10, L15, L20 | ranks only |
@@ -154,8 +229,9 @@ No skill costs MP in survivor mode (MP fuels Magic Guard instead).
 | Fire Arrow (2101004) | F/P Wizard | Phase 2 | | Additional Projectile, Piercing Flames, Burning, Rapid Casting, Larger Flames |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 
-Targeting: nearest living mob within range (spatial hash query), excluding mobs already targeted this cast when a skill
-fires several projectiles. Projectiles fly straight toward the target's position at cast time and expire at their range.
+Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
+when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
+target (`player.cast_forward`), level with the cast origin, so the shell never covers the face. Projectiles fly straight toward the target's position at cast time and expire at their range.
 Projectile speeds and ranges are tier C (no `speed` key exists in v83 `ball` nodes).
 
 Casting does not stop movement. When standing still the character plays the skill's `action` stance (or `swingO1`)
@@ -173,11 +249,23 @@ Draw rules:
 1. Eligible = requirements met and rank < max. `skill_new` needs the job (`requires.jobs`) and that the loadout has a
    free active-skill slot (6 actives, 6 passives).
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
+   **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
+   more shots or targets, damage, cooldown). When a draw offered no power card, the next draw starts with one
+   (`pity.draws` = 1), so a run's damage cannot stall on unlucky offers (a reviewed seed never saw Stronger Snails
+   before Lv 8 and fell behind for good).
 3. With fewer than three eligible cards, fillers fill the gap (e.g. "Elixir": heal 50% HP/MP).
 4. Applying a card takes effect immediately.
+5. The level-up window names the skill a card learns or levels in the notice's "raised your ___ skill by a level."
+   box and shows a skill_rank card as the skill's canonical level change ("Skill Lv. 2 → 3"); for other cards the
+   sentence is left out and the notice reads "LEVEL n".
 
-General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Improved Max MP
-Increase (2000001), Improved MP Recovery (2000000), Magnet +25% radius.
+General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Magnet +25% radius;
+for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000) (Magician skills in v83, and MP
+only matters once Magic Guard exists).
+
+Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
+1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
+waits for Energy Bolt (survivor rule), so the first Magician skill is always Energy Bolt.
 
 ## 9. Jobs
 
@@ -190,7 +278,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 - Level 8: Magician (playable). Warrior, Bowman, Thief, Pirate are shown with their requirement ("Lv. 10").
 - Level 10: the other four are shown as "not in this build". "Not now" keeps you a Beginner and asks again next level.
-- Advancing: job becomes 200, MP +120, and the next card draw guarantees one Magician skill card.
+- Advancing: job becomes 200, MP +120, Energy Bolt is learned at once (`grants.skills`: the first SP of a v83
+  Magician; a player who takes cards at random could otherwise stay a Magician without a Magician attack), and the
+  next card draw guarantees another Magician skill card (with the prerequisites of section 8: Magic Claw or Magic
+  Guard).
+- The JobChanged pillar and sound play on the character first; the level's upgrade window opens once the effect has
+  played (~1.3 s). A level-up window opens 1.2 s into the LevelUp effect.
 - Level 30: F/P Wizard (Phase 2), I/L Wizard and Cleric shown as not yet available.
 
 ## 10. Presentation
@@ -202,6 +295,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
+- Results: RETRY is the v83 mini-game's green button (`UIWindow.img/RpsGame/BtRetry`), Back the login book's banner.
+- Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
+  -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
 
@@ -236,13 +332,19 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP, 4 INT, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
-| Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet | C | ours |
+| Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
+| Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
+| Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
+| Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
+| Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
+| EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery +1 HP/s, MP Recovery +1 MP/s, Max MP +25, Magnet ×1.25) | C | ours |
-| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest | C | ours |
-| Spawn rings | within 320 px of the view, then 960 px, then the map within 1170 px of the player; 12 samples per ring for a platform that reaches the player before an unreachable spot | C | ours |
+| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest (its age restarts) | C | ours |
+| EXP drop lifetime | 60 s uncollected, the last 1.5 s fading out; a drop flying to the player never expires | C | ours (v83 drops also vanish; the time is ours) |
+| Spawn rings | within 320 px of the view, then 960 px, then the map within 1170 px of the player; 12 samples per ring, looking first for a platform at most 1 NavGraph edge from the player's (`prefer_hops`), then for any platform that reaches the player, before an unreachable spot | C | ours |
 | Mob recycling | silent, after 3 s farther than 1300 px, or on a platform that cannot reach the player and 320 px off-screen; never elites | C | ours |
 | Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15, then every 60 s | C | ours |
 | Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
@@ -260,6 +362,17 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
 | Mob draw layer | the foothold layer of the mob's current foothold, kept while it is airborne | C | ours |
 | View fit | default: Godot's 800×600 expand + integer scale (1920×1080 → 1066×600 at 1× with bars); opt-in `fill_window`: s = ⌊min(W/800, H/600)⌋, view = window / s (3440×1440 → 1720×720 at 2×, 1920×1080 → 1920×1080 at 1×); windows below 800×600 are scaled down, not cropped | C | ours |
+| Level-up window delay | the `LevelUp` effect plays 1.2 s (about its pillar's peak) on the character before the upgrade window opens; after a job advancement the next window waits for the whole `JobChanged` effect (~1.3 s; 1.3 s without the animation). Presentation only; the sim is already paused | C | ours |
+| Frame cap | vsync on, `Engine.max_fps` = the display's refresh rate rounded up (144 when unknown, at least 30) | C | ours |
+| Run end holds | results 2 s after the tombstone has landed; on a clear the party-quest `CLEAR` field effect (`Map.wz/Effect.img/quest/party/clear`, `Sound.wz/Field.img/Party1/Clear`) at the screen centre for 3.5 s | C | ours (art/sound A) |
+| Invincibility blink, hit face | the whole character (one CanvasGroup) alternates alpha 1.0 / 0.4 every 0.08 s while invincible; face `hit` for 1 s after a hit | C | ours |
+| Drop draw order | EXP drops are drawn after the mobs and the character of the character's foothold layer (never hidden in a crowd) | C | ours |
+| Run start title | street name + map name (String.wz) under the timer for 3.5 s, the last 1 s fading | C | ours |
+| Sound throttle | each sound path plays at most once per frame (a piercing shell through 20 mobs is one Damage sound) | C | ours |
+| Character name tag | the character name under the feet in the elite name-tag style | C | ours |
+| UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
+| UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
+| Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 
 ## 12. Later phases
 

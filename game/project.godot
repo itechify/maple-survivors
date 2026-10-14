@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 Settings="*res://scripts/core/settings.gd"
 Assets="*res://scripts/assets/asset_library.gd"
 Sfx="*res://scripts/audio/audio_service.gd"
+Flow="*res://scripts/core/scene_flow.gd"
 
 [display]
 

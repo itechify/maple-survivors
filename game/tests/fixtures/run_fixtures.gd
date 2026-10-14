@@ -178,98 +178,14 @@ static func _chain(segs: Array, pts: Array) -> void:
 		segs.append([pts[i], pts[i + 1]])
 
 
-## A simple deterministic kiting bot. It scores the danger on each side (mobs on about its level, closer = worse,
-## the map edge counts as a wall of mobs) and, when a mob is near, runs to the safer side, hopping over a mob right
-## ahead. With nothing near it walks to the nearest EXP drop that no mob stands in front of (down-jumping to one just
-## below), else back toward the middle of the map. `memo` keeps its state between ticks.
+## The kiting bot (BotInput.decide, game/scripts/sim/bot_input.gd); `memo` keeps its state between ticks.
 static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
-	var mi := MoveInput.new()
-	var s := w.swarm
-	var p := w.player.pos
-	var danger := [0.0, 0.0]
-	var nearest := [INF, INF]
-	for i in s.capacity():
-		if s.active[i] == 0:
-			continue
-		var dx := s.x[i] - p.x
-		var dy := s.y[i] - p.y
-		if dy < -140.0 or dy > 90.0 or absf(dx) > 450.0:
-			continue
-		var side := 0 if dx < 0.0 else 1
-		danger[side] += 1.0 / (absf(dx) + 30.0)
-		nearest[side] = minf(nearest[side], absf(dx))
-	danger[0] += 4.0 / (p.x - w.bounds.position.x + 10.0)
-	danger[1] += 4.0 / (w.bounds.end.x - p.x + 10.0)
-	var dir := 0
-	var down := false
-	if minf(nearest[0], nearest[1]) < 160.0:
-		dir = -1 if danger[0] < danger[1] else 1
-	else:
-		var best := INF
-		var pk := w.pickups
-		for i in pk.capacity():
-			if pk.active[i] == 0:
-				continue
-			var ddx := pk.x[i] - p.x
-			var ddy := pk.y[i] - p.y
-			var d := absf(ddx) + absf(ddy) * 2.0
-			if d >= best or d > 1200.0:
-				continue
-			if nearest[0 if ddx < 0.0 else 1] < absf(ddx):
-				continue
-			best = d
-			dir = 0 if absf(ddx) < 4.0 else (1 if ddx > 0.0 else -1)
-			down = ddy > 40.0 and absf(ddx) < 60.0
-		if best == INF:
-			var cx := w.bounds.get_center().x
-			if absf(cx - p.x) > 200.0:
-				dir = 1 if cx > p.x else -1
-	var flip: int = memo.get("flip", 1)
-	if int(memo.get("flip_t", 0)) > 0:
-		memo["flip_t"] = int(memo.flip_t) - 1
-		dir = flip
-		down = false
-	if dir != 0 and absf(p.x - float(memo.get("last_x", p.x))) < 0.2 and w.player.fh >= 0:
-		memo["stuck"] = int(memo.get("stuck", 0)) + 1
-		if int(memo.stuck) > 15:
-			memo["flip"] = -dir
-			memo["flip_t"] = 45
-			memo["stuck"] = 0
-			mi.jump_pressed = true
-	else:
-		memo["stuck"] = 0
-	memo["last_x"] = p.x
-	mi.left = dir < 0
-	mi.right = dir > 0
-	if w.player.fh >= 0:
-		if down and int(memo.get("down_cd", 0)) <= 0:
-			mi.down = true
-			mi.jump_pressed = true
-			memo["down_cd"] = 60
-		elif dir != 0:
-			var ahead: float = nearest[0 if dir < 0 else 1]
-			if ahead > 25.0 and ahead < 75.0:
-				mi.jump_pressed = true
-	memo["down_cd"] = int(memo.get("down_cd", 0)) - 1
-	mi.jump_held = mi.jump_pressed
-	return mi
+	return BotInput.decide(w, memo)
 
 
-## Resolves an open window like a player who always takes the first available job (else "Not now") and the first card.
+## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
 static func auto_choose(w: RunWorld) -> void:
-	var guard := 0
-	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
-		guard += 1
-		if w.state == RunWorld.CHOOSING_JOB:
-			var took := false
-			for o: Dictionary in w.pending_jobs:
-				if bool(o.available):
-					took = w.apply_job(int(o.job_id))
-					break
-			if not took:
-				w.decline_job()
-		else:
-			w.apply_choice(String(w.pending_cards[0].id))
+	BotInput.auto_choose(w)
 
 
 ## The real game data with an extra stage "quiet" (the henesys_hg1 pool, but no spawns, bursts or elites) so tests
@@ -293,6 +209,17 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	var w := RunWorld.new(setup("quiet", p_seed, quiet_data()))
 	place_player(w, x)
 	return w
+
+
+## Changes the job like RunWorld.change_job (MP, guarantee) but forgets the skills the job grants (jobs.json
+## grants.skills, e.g. the Magician's Energy Bolt), for tests of a Magician who has not learned them yet.
+static func change_job_bare(w: RunWorld, job_id: int) -> void:
+	w.change_job(job_id)
+	for key: Variant in w.jobs.job(job_id).get("grants", {}).get("skills", []):
+		w.loadout.ranks.erase(String(key))
+		w.loadout.order.erase(String(key))
+	w.loadout.version += 1
+	w.refresh_player_stats()
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.

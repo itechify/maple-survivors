@@ -5,7 +5,8 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "rank", "max_rank", "skill"]
+const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "rank", "max_rank", "skill", "skill_name", "skill_level",
+	"skill_level_next"]
 const JOB_OPTION_KEYS := ["job_id", "name", "available", "reason"]
 
 
@@ -38,23 +39,29 @@ func _sorted(a: Array) -> Array:
 	return c
 
 
+## The tuned curve of balance.json (docs/GAME_DESIGN.md 5): round(4 + 12 L + 3 L^2).
 func test_exp_curve_values() -> void:
 	var c := ExpCurve.from_data(DataRepo.load_all().balance.exp_curve)
-	assert_eq(c.exp_to_next(1), 15, "L1 like the canonical table")
-	assert_eq(c.exp_to_next(7), 79)
-	assert_eq(c.exp_to_next(29), 687)
-	assert_eq(c.exp_to_next(2), 22, "round(8 + 12 + 2.4)")
-	assert_eq(c.total_to(8), 15 + 22 + 31 + 42 + 53 + 66 + 79, "EXP from 1 to 8")
-	assert_eq(ExpCurve.new().exp_to_next(29), 687, "defaults = the design curve")
+	assert_eq(c.exp_to_next(1), 19, "4 + 12 + 3")
+	assert_eq(c.exp_to_next(2), 40, "4 + 24 + 12")
+	assert_eq(c.exp_to_next(7), 235, "4 + 84 + 147")
+	assert_eq(c.exp_to_next(29), 2875, "4 + 348 + 2523")
+	assert_eq(c.total_to(8), 19 + 40 + 67 + 100 + 139 + 184 + 235, "EXP from 1 to 8 (784)")
+	assert_eq(c.total_to(10), 1431, "EXP from 1 to 10")
+	assert_eq(c.total_to(30), 31001, "EXP from 1 to 30")
+	assert_eq(ExpCurve.new().exp_to_next(29), 2875, "defaults = the design curve")
+	assert_eq(ExpCurve.new().total_to(8), c.total_to(8), "defaults = the design curve")
 
 
 func test_run_progression_queue() -> void:
-	var p := RunProgression.new(ExpCurve.new())
-	assert_eq(p.add_exp(14), 0)
+	var curve := ExpCurve.new()
+	var p := RunProgression.new(curve)
+	var l1 := curve.exp_to_next(1)
+	assert_eq(p.add_exp(l1 - 1), 0)
 	assert_eq(p.level, 1)
-	assert_eq(p.add_exp(1), 1, "15 -> level 2")
+	assert_eq(p.add_exp(1), 1, "exp_to_next(1) -> level 2")
 	assert_eq(p.exp, 0)
-	assert_eq(p.add_exp(22 + 31 + 5), 2, "two more levels at once")
+	assert_eq(p.add_exp(curve.exp_to_next(2) + curve.exp_to_next(3) + 5), 2, "two more levels at once")
 	assert_eq(p.level, 4)
 	assert_eq(p.exp, 5)
 	assert_eq(p.queue, PackedInt32Array([2, 3, 4]))
@@ -106,7 +113,7 @@ func test_job_tree_options() -> void:
 func test_pause_protocol_single_level() -> void:
 	var w := RF.quiet_world()
 	w.drain_events()
-	_give_exp(w, 15)
+	_give_exp(w, w.progression.curve.exp_to_next(1))
 	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
 	assert_eq(w.state_name(), "CHOOSING_UPGRADE")
 	var ev := w.drain_events()
@@ -153,7 +160,7 @@ func test_pause_protocol_single_level() -> void:
 func test_level_queue_opens_one_window_per_level() -> void:
 	var w := RF.quiet_world()
 	w.drain_events()
-	_give_exp(w, 15 + 22 + 31)
+	_give_exp(w, w.progression.curve.total_to(4))
 	var ev := w.drain_events()
 	assert_eq(_of_type(ev, "level_up").size(), 3, "all three level_up events at once")
 	assert_eq(w.player_state.level, 4)
@@ -169,7 +176,7 @@ func test_level_queue_opens_one_window_per_level() -> void:
 func test_job_advancement_decline_then_accept() -> void:
 	var w := RF.quiet_world()
 	w.drain_events()
-	_give_exp(w, 308)
+	_give_exp(w, w.progression.curve.total_to(8))
 	assert_eq(w.player_state.level, 8)
 	var guard := 0
 	while w.state == RunWorld.CHOOSING_UPGRADE and guard < 20:
@@ -193,7 +200,7 @@ func test_job_advancement_decline_then_accept() -> void:
 	w.apply_choice(String(w.pending_cards[0].id))
 	assert_eq(w.state, RunWorld.PLAYING)
 	assert_eq(w.player_state.job_id, 0, "still a Beginner")
-	_give_exp(w, 94)  # exp_to_next(8) = round(8 + 48 + 38.4)
+	_give_exp(w, w.progression.curve.exp_to_next(8))
 	assert_eq(w.player_state.level, 9)
 	assert_eq(w.state, RunWorld.CHOOSING_JOB, "asked again at the next level")
 	var mp_before: int = w.player_state.max_mp
@@ -219,7 +226,7 @@ func test_guarantee_holds_for_many_seeds() -> void:
 	for seed_i in 8:
 		var w := RF.quiet_world(400.0, 100 + seed_i)
 		w.change_job(200)
-		_give_exp(w, 15)
+		_give_exp(w, w.progression.curve.exp_to_next(1))
 		var ok := false
 		for c: Dictionary in w.pending_cards:
 			if c.kind == "skill_new" and int(w.book.def(String(c.skill)).get("job", -1)) == 200:
@@ -262,7 +269,7 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 
 func test_knockback_and_magic_guard_split() -> void:
 	var w := RF.quiet_world(400.0)
-	w.change_job(200)
+	RF.change_job_bare(w, 200)
 	w.learn_skill("magic_guard")
 	w.heal_fraction("mp", 1.0)
 	w.drain_events()
@@ -300,3 +307,48 @@ func test_stage_clear() -> void:
 	if sc.size() == 1:
 		assert_near(sc[0].time, 2.0, DT)
 	assert_near(w.time, 2.0, DT, "stopped at the duration")
+
+
+func test_level_ranks_raise_a_skill_with_the_character_level() -> void:
+	# skills.json: Three Snails reaches skill level 2 at Lv 3 and 3 at Lv 6 (the v83 Beginner SP).
+	assert_eq(DataRepo.load_all().skills.skills.three_snails.level_ranks, {"3": 2.0, "6": 3.0})
+	var w := RF.quiet_world(400.0)
+	assert_eq(w.loadout.rank("three_snails"), 1, "rank 1 at level 1")
+	var ranks := {}
+	for target in [3, 6]:
+		_give_exp(w, w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level)
+			- w.progression.exp)
+		var guard := 0
+		while w.state != RunWorld.PLAYING and guard < 32:
+			guard += 1
+			if w.state == RunWorld.CHOOSING_JOB:
+				w.decline_job()
+				continue
+			# Never the Stronger Snails card: the rank must come from the level alone.
+			var pick := ""
+			for c: Dictionary in w.pending_cards:
+				if String(c.id) != "three_snails_rank":
+					pick = String(c.id)
+					break
+			w.apply_choice(pick)
+		ranks[target] = w.loadout.rank("three_snails")
+		assert_eq(int(w.player_state.level), target, "reached level %d" % target)
+	assert_eq(ranks.get(3), 2, "level 3: Three Snails rank 2 (skill level 2)")
+	assert_eq(ranks.get(6), 3, "level 6: rank 3 (skill level 3, the max)")
+
+
+func test_job_grants_skills() -> void:
+	# jobs.json: advancing to Magician teaches Energy Bolt (the first SP of a v83 Magician).
+	assert_eq(DataRepo.load_all().jobs_survivor.jobs["200"].grants.skills, ["energy_bolt"])
+	var w := RF.quiet_world(400.0)
+	w.drain_events()
+	w.change_job(200)
+	var ev := w.drain_events()
+	assert_true(w.loadout.has("energy_bolt"), "advancing teaches Energy Bolt")
+	assert_eq(w.loadout.rank("energy_bolt"), 1)
+	var learned := _of_type(ev, "skill_learned")
+	assert_eq(learned.size(), 1, "one skill_learned")
+	if learned.size() == 1:
+		assert_eq(learned[0].skill, "energy_bolt")
+	assert_eq(String(_of_type(ev, "job_changed")[0].type), "job_changed", "job_changed comes first")
+	assert_true(ev.find(_of_type(ev, "job_changed")[0]) < ev.find(learned[0]), "then skill_learned")

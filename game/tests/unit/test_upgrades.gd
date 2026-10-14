@@ -17,9 +17,10 @@ func test_beginner_eligibility() -> void:
 	var w := RF.quiet_world()
 	var el := w.upgrades.eligible(w)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce", "three_snails_rank",
-			"three_snails_speed", "max_hp", "nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery",
-			"magnet"]:
+			"three_snails_speed", "max_hp", "nimble_feet", "recovery", "magnet"]:
 		assert_has(el, id, "Beginner card")
+	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
+		assert_false(id in el, "%s: a Magician skill (2000001 / 2000000), not for a Beginner" % id)
 	for id: String in JOB_SKILL_CARDS:
 		assert_false(id in el, "%s never before the job" % id)
 	for id: String in ["energy_bolt_count", "magic_claw_targets", "energy_bolt_rank"]:
@@ -30,10 +31,24 @@ func test_beginner_eligibility() -> void:
 
 func test_magician_eligibility_and_mods_after_owning() -> void:
 	var w := RF.quiet_world()
-	w.change_job(200)
+	RF.change_job_bare(w, 200)
 	var el := w.upgrades.eligible(w)
-	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new"]:
-		assert_has(el, id, "Magician skill card")
+	assert_has(el, "energy_bolt_new", "the first Magician skill")
+	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
+		assert_has(el, id, "Magician MP card")
+	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3 (rank 2 = level 5); Magic
+	# Guard waits for Energy Bolt too (survivor rule: the first Magician skill is an attack).
+	for id: String in ["magic_claw_new", "magic_guard_new", "magic_armor_new"]:
+		assert_false(id in el, "%s needs Energy Bolt first" % id)
+	w.upgrades.apply("energy_bolt_new", w)
+	el = w.upgrades.eligible(w)
+	assert_has(el, "magic_claw_new", "Magic Claw after Energy Bolt")
+	assert_has(el, "magic_guard_new", "Magic Guard after Energy Bolt")
+	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard rank 2")
+	w.upgrades.apply("magic_guard_new", w)
+	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard rank 1 is not enough")
+	w.upgrades.apply("magic_guard_rank", w)
+	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard rank 2 (level 5) opens Magic Armor")
 	assert_false("fire_arrow_new" in el, "Fire Arrow needs 210")
 	assert_false("magic_claw_cooldown" in el, "Quick Claw only once Magic Claw is owned")
 	w.upgrades.apply("magic_claw_new", w)
@@ -64,15 +79,17 @@ func test_maxed_cards_disappear() -> void:
 func test_slot_limit_blocks_new_skills() -> void:
 	var w := RF.quiet_world()
 	w.change_job(200)
-	w.book.slots["active"] = 1
+	w.loadout.add_skill("energy_bolt")
+	w.book.slots["active"] = 2
 	var el := w.upgrades.eligible(w)
-	assert_false("energy_bolt_new" in el, "one active slot, Three Snails holds it")
-	assert_false("magic_claw_new" in el)
+	assert_false("magic_claw_new" in el, "two active slots, Three Snails and Energy Bolt hold them")
 	assert_has(el, "magic_guard_new", "passive slots are separate")
 
 
 func test_draws_are_distinct_seeded_and_weighted() -> void:
 	var w := RF.quiet_world()
+	# Plain weighted draws: the pity rule (its own test) would make a draw depend on the draws before it.
+	w.upgrades.pity_draws = 0
 	var first: Array = []
 	var counts := {}
 	for d in 400:
@@ -159,3 +176,57 @@ func test_applying_general_cards() -> void:
 			learned = e.skill == "energy_bolt" and e.skill_id == 2001004
 	assert_true(learned, "skill_new emits skill_learned")
 	assert_eq(w.upgrades.apply("no_such_card", w), 0)
+
+
+func test_choice_cards_carry_the_skill_level_change() -> void:
+	var w := RF.quiet_world()
+	# Stronger Snails (+1 rank of Three Snails, ranks 1-3 = levels 1-3): the card's own rank is not the skill's level.
+	var c := w.upgrades.choice_card("three_snails_rank", w)
+	assert_eq(c.skill_name, "Three Snails", "the skill's name")
+	assert_eq(int(c.rank), 1, "the card's first rank")
+	assert_eq(int(c.skill_level), 1, "Three Snails is level 1 now")
+	assert_eq(int(c.skill_level_next), 2, "and level 2 once the card is taken")
+	w.upgrades.apply("three_snails_rank", w)
+	c = w.upgrades.choice_card("three_snails_rank", w)
+	assert_eq(int(c.rank), 2, "the card's second (last) rank")
+	assert_eq([int(c.skill_level), int(c.skill_level_next)], [2, 3], "the second card takes the shell to level 3")
+	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level_next), 0, "a mod keeps the level")
+	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level), 2, "the mod's skill level is shown")
+	assert_eq(String(w.upgrades.choice_card("max_hp", w).skill_name), "", "no skill")
+	RF.change_job_bare(w, 200)
+	c = w.upgrades.choice_card("energy_bolt_new", w)
+	assert_eq([int(c.skill_level), int(c.skill_level_next)], [0, 1], "learning Energy Bolt: level 1")
+	w.upgrades.apply("energy_bolt_new", w)
+	c = w.upgrades.choice_card("energy_bolt_rank", w)
+	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 5], "Energy Bolt rank 2 = canonical level 5")
+
+
+func test_pity_offers_a_power_card_after_dry_draws() -> void:
+	var w := RF.quiet_world()
+	var cards: Array = []
+	for id: String in ["a", "b", "c", "d", "e"]:
+		cards.append({"id": id, "kind": "stat", "name": id, "max_rank": 0, "weight": 1, "effects": []})
+	# A power card so rare that only the pity rule will offer it.
+	cards.append({"id": "pow", "kind": "skill_mod", "skill": "three_snails", "power": true, "name": "Power",
+		"max_rank": 0, "weight": 0.000001, "effects": []})
+	w.upgrades = UpgradePool.from_data({"pity": {"draws": 2}, "cards": cards})
+	assert_eq(w.upgrades.pity_draws, 2)
+	var rng := _rng(5)
+	for d in 2:
+		var ids: Array = []
+		for c: Dictionary in w.upgrades.roll_choices(w, rng, 3):
+			ids.append(c.id)
+		assert_false("pow" in ids, "draw %d: no power card by chance (%s)" % [d, ids])
+	assert_eq(w.power_dry, 2, "two dry draws counted")
+	var third := w.upgrades.roll_choices(w, rng, 3)
+	assert_eq(String(third[0].id), "pow", "after two dry draws the power card comes first")
+	assert_eq(w.power_dry, 0, "reset by a draw with a power card")
+	# Without pity the rare card stays rare.
+	var v := RF.quiet_world()
+	v.upgrades = UpgradePool.from_data({"cards": cards})
+	var rng2 := _rng(5)
+	for d in 6:
+		for c: Dictionary in v.upgrades.roll_choices(v, rng2, 3):
+			assert_ne(String(c.id), "pow", "no pity: not offered")
+	assert_eq(UpgradePool.is_power(w.upgrades.card("pow")), true)
+	assert_eq(UpgradePool.is_power(w.upgrades.card("a")), false)

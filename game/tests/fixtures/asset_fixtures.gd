@@ -6,7 +6,6 @@ extends RefCounted
 ## the rest is transparent.
 
 const COLORS := [Color(1, 0, 0), Color(0, 1, 0), Color(0, 0, 1), Color(1, 1, 0)]
-const ROOT := "user://_test_cache/assets"
 const PAGE := "Test.wz/Sprite.img.0.png"
 ## A synthetic map (id 777) whose backs/tiles/objs live in testBack/testTile/testObj.
 const MAP_ID := 777
@@ -57,7 +56,9 @@ static func mob_img() -> Dictionary:
 
 
 ## Writes the cache (idempotent) and returns its root path.
-static func write_cache(root: String = ROOT) -> String:
+static func write_cache(root: String = "") -> String:
+	if root == "":
+		root = TestCase.test_dir("assets")
 	_mkdir(root.path_join("Test.wz"))
 	_mkdir(root.path_join("String.wz"))
 	_mkdir(root.path_join("Sound.wz/Test.img"))

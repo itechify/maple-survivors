@@ -9,6 +9,9 @@ extends RefCounted
 ## Tests that need the imported v83 asset cache call `require_cache()` first and return early when it is absent; the
 ## runner reports them as SKIP (they pass, but prove nothing without the cache).
 
+## Root of the scratch files tests write to the user data dir.
+const TEST_ROOT := "user://_test_cache"
+
 var failures: PackedStringArray = []
 var skipped := ""
 var current_test := ""
@@ -29,6 +32,27 @@ func fail(msg: String) -> void:
 ## Marks the test as skipped (reported, not failed).
 func skip(reason: String) -> void:
 	skipped = reason
+
+
+## A scratch path private to this Godot process: user://_test_cache/<pid>[/sub]. Every test run shares the user data
+## dir (also isolated ISOLATE mirrors and other agents' runs), so fixtures never use a fixed path there; the runner
+## deletes the folder when it finishes.
+static func test_dir(sub: String = "") -> String:
+	var d := TEST_ROOT.path_join(str(OS.get_process_id()))
+	return d.path_join(sub) if sub != "" else d
+
+
+## Deletes a folder of the user data dir with everything in it (test scratch cleanup).
+static func remove_tree(path: String) -> void:
+	var abs_path := ProjectSettings.globalize_path(path)
+	var dir := DirAccess.open(abs_path)
+	if dir == null:
+		return
+	for d in dir.get_directories():
+		remove_tree(abs_path.path_join(d))
+	for f in dir.get_files():
+		DirAccess.remove_absolute(abs_path.path_join(f))
+	DirAccess.remove_absolute(abs_path)
 
 
 ## True when the asset cache is available; otherwise marks the test skipped. Usage:

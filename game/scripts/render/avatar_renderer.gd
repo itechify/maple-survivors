@@ -52,6 +52,7 @@ var _zorder: Dictionary = {}
 var _delays: PackedFloat32Array = []
 var _expression := "default"
 var _expr_time := 0.0
+var _expr_hold := 0.0
 var _blink_in := 3.0
 var _rng := RandomNumberGenerator.new()
 var _parts: Array = []
@@ -108,6 +109,23 @@ func play(p_stance: String, restart: bool = false, loop: bool = true) -> void:
 	queue_redraw()
 
 
+## Shows face expression `expr` ("hit", "smile", ... in the face img) from its first frame for at least `seconds` (its
+## own frame time when longer), then returns to default (with blinks). An expression the face lacks is ignored.
+func set_expression(expr: String, seconds: float = 0.0) -> void:
+	if _face == null or not (_face.root.get(expr) is Dictionary):
+		return
+	_expression = expr
+	_expr_time = 0.0
+	_expr_hold = seconds
+	_dirty = true
+	queue_redraw()
+
+
+## The face expression shown now ("default", "blink", or one set by set_expression()).
+func current_expression() -> String:
+	return _expression
+
+
 ## Faces left (-1) or right (1).
 func set_facing(dir: int) -> void:
 	var f := 1 if dir > 0 else -1
@@ -134,9 +152,10 @@ func advance(dt: float) -> void:
 		var total := 0.0
 		for d in expression_delays(_expression):
 			total += d
-		if _expr_time >= total:
+		if _expr_time >= maxf(total, _expr_hold):
 			_expression = "default"
 			_expr_time = 0.0
+			_expr_hold = 0.0
 			_blink_in = _rng.randf_range(BLINK_MIN, BLINK_MAX)
 			_dirty = true
 	if _dirty:

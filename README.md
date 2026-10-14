@@ -16,10 +16,36 @@ needs no server, account or internet connection.
    ```bash
    bash scripts/import.sh "C:/path/to/MapleStory"
    ```
+   Or skip this step: without a cache the game opens its import screen, where you pick the folder and it runs the
+   same importer locally.
 3. Play (Godot 4.7.2 is downloaded on first use by `scripts/godot.sh`, outside the repo):
    ```bash
    bash scripts/run.sh
    ```
+   Title -> Start -> pick a stage -> survive 15:00. Death or a clear shows the results; Retry or go back to the stage
+   select. Your best result per stage is kept in `%APPDATA%/MapleSurvivors/save.json`.
+4. Optional: `bash scripts/export.sh` builds a stand-alone Windows game in `game/export/` (`MapleSurvivors.exe` with
+   `wzimport.exe` beside it; needs the Godot 4.7.2 export templates).
+
+## Controls
+
+| Action | Keys |
+|---|---|
+| Move | Left / Right arrows (or A / D) |
+| Jump | Left Alt (or Space, C) |
+| Climb a ladder or rope | Up / Down next to it (or W / S) |
+| Drop through a platform | Down + Jump |
+| Pick an upgrade / job | Mouse, 1 / 2 / 3, or Up / Down + Enter |
+| Pause (Resume / Quit to stage select) | Esc |
+| Performance overlay | F3 |
+
+Skills cast on their own; you choose where to stand, what to pick up and which upgrades to take.
+
+## For developers
+
+`bash scripts/test.sh` runs the unit tests, `bash scripts/playtest.sh` plays a scripted run with screenshots and
+frame-time statistics into `evidence/`, and `bash scripts/balance.sh` reports the pacing over several seeds. See
+[`AGENTS.md`](AGENTS.md).
 
 ## Docs
 

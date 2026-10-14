@@ -14,7 +14,7 @@ changing gameplay.
 | `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. |
 | `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache. |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
-| `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `bench.sh`. |
+| `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh`. |
 | `docs/` | Architecture, research evidence (`docs/research/`), pipeline, design, plan. |
 
 ## Hard rules
@@ -62,10 +62,57 @@ changing gameplay.
 
 ```bash
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
-bash scripts/run.sh                                   # play
+bash scripts/run.sh                                   # play (title -> stage select -> run -> results)
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
+bash scripts/balance.sh                               # headless pacing report over several seeds
+bash scripts/export.sh                                # Windows build -> game/export/ (+ wzimport.exe and the licence
+                                                      # notices beside it)
 ```
+
+### Playtests (`scripts/playtest.sh`)
+
+Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
+(`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k> --shots=<abs dir> --shot-every=<s> --quit-after=<s>
+--perf`), waits for it to quit and prints `summary.json`. Defaults: henesys_hg1, seed 2026, speed 4 (sim ticks per
+60 Hz frame, via `Engine.time_scale`), the full 15:00, a screenshot every 60 s of run time, output in
+`evidence/playtest/<stage>_s<seed>_x<speed>_<time>/` (or `--out=<dir>`).
+
+```bash
+bash scripts/playtest.sh                                       # 15:00 at x4 (~4 min wall time)
+bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in real time
+bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
+                                                               # then 3 real-time minutes with 200+ mobs, uncapped
+bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
+```
+
+The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
+so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz screen), not how fast a frame is;
+`frame_work_us` and `sim_us_per_tick` are uncapped either way. Use `--vsync=off` for performance numbers.
+`summary.json` holds the run summary (what Flow.finish_run gets), `frame_ms` p50/p95/p99/max over the whole run,
+`frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
+(frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
+`max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
+`t<s>.png`, `levelup_N`, `job_N`, `hit_first`, `death_*`, `clear`, `final.png`. F3 toggles the perf overlay in
+any run. Look at the screenshots; numbers alone do not show a broken sprite.
+
+The whole menu flow with injected keyboard/mouse input (title, stage select, a run steered with the arrow keys, the
+level-up / job / pause windows, death, results, retry, quit) is `game/scenes/debug/flow_driver.tscn`:
+`bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
+(scenarios `full`, `clear`, `import`; see the script header).
+
+### Balance (`scripts/balance.sh`)
+
+`bash scripts/balance.sh [seeds | a..b] [--stage=<key>] [--policy=bot|random|first]` plays whole runs headless on the
+real map (one Godot process per seed, at most `JOBS` (12) at once; ~1 min for 12 seeds) with the kiting bot and a card
+policy (`bot`: BotInput.pick_card_for, the sensible player; `random`: a careless player taking a random card of the
+three; `first`: always the first card, which always takes guaranteed cards), and prints when each run reached
+Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits before 6:00 and after 8:00, EXP drops on
+the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
+(default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
+be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
+2026); report on the held-out seeds 101..130 (the default is 101..106) and never tune on them. Tuning targets and the
+last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
 
 ## Git
 

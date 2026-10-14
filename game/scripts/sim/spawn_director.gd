@@ -13,7 +13,10 @@ extends RefCounted
 ## least `min_player_dist` from the player, searched in three rings: within `band` px of the view, within 3 x band, and
 ## anywhere within 0.9 x recycle_dist of the player. A point whose platform can reach the player's platform (NavGraph
 ## of that mob's movement class) is preferred: each ring gets `attempts` samples looking for one, and only when no ring
-## has one does the first valid unreachable point of the two inner rings serve. Recycling (MobSwarm.despawn, silent,
+## has one does the first valid unreachable point of the two inner rings serve. With `prefer_hops` >= 0 a ring's
+## samples first look for a platform at most that many NavGraph edges from the player's (0 = the player's own platform,
+## 1 = one drop or hop away), so the crowd comes at the player instead of queueing on far platforms; the ring's first
+## reachable point serves when none is that close. Recycling (MobSwarm.despawn, silent,
 ## elites excepted): a live mob farther than `recycle_dist` from the player, or one standing on a platform that cannot
 ## reach the player's and outside the view grown by `band`, for `recycle_time` s in a row (GAME_DESIGN 4: a mob that
 ## cannot reach the player is recycled once far off-screen).
@@ -25,6 +28,7 @@ const DEFAULT_SPAWN := {
 	"attempts": 12,  # tier C: ours, samples per ring
 	"recycle_dist": 1300.0,  # tier C: ours
 	"recycle_time": 3.0,  # tier C: ours
+	"prefer_hops": -1,  # tier C: ours, -1 = any reachable platform will do
 }
 
 var stage: Dictionary
@@ -50,7 +54,8 @@ var _ring_key: Array = [Vector3(-1, 0, 0), Vector3(-1, 0, 0), Vector3(-1, 0, 0)]
 
 
 ## Builds the director for a stages.json stage. `kind_index` maps mob id -> RunWorld.mob_kinds index; pool entries
-## without a kind are dropped. `spawn_params` overrides DEFAULT_SPAWN (balance.json `spawn`).
+## without a kind are dropped. `spawn_params` overrides DEFAULT_SPAWN (balance.json `spawn`), and the stage's own
+## `spawn` overrides both (e.g. prefer_hops per map).
 static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Dictionary = {}) -> SpawnDirector:
 	var d := SpawnDirector.new()
 	d.stage = p_stage
@@ -60,6 +65,11 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 	for k: String in spawn_params:
 		if d.params.has(k):
 			d.params[k] = spawn_params[k]
+	var own: Variant = p_stage.get("spawn", {})
+	if own is Dictionary:
+		for k: String in own:
+			if d.params.has(k):
+				d.params[k] = own[k]
 	for kf: Dictionary in p_stage.get("keyframes", []):
 		var kinds := PackedInt32Array()
 		var weights := PackedFloat32Array()
@@ -189,12 +199,14 @@ func pick_spawn(world: RunWorld, k: int) -> Vector3:
 	var min_d2 := float(params.min_player_dist) * float(params.min_player_dist)
 	var far2 := float(params.recycle_dist) * float(params.recycle_dist) * 0.81
 	var tries := int(params.attempts)
+	var prefer := int(params.get("prefer_hops", -1))
 	var fallback := Vector3(0, 0, -1)
 	for ring in 3:
 		var pieces := _ring(world, ring)
 		var fhs: PackedInt32Array = pieces[0]
 		if fhs.is_empty():
 			continue
+		var reach := Vector3(0, 0, -1)
 		for attempt in tries:
 			var p := _sample(world.fhm, pieces, rng)
 			var pos := Vector2(p.x, p.y)
@@ -203,10 +215,18 @@ func pick_spawn(world: RunWorld, k: int) -> Vector3:
 			var d2 := pos.distance_squared_to(world.player.pos)
 			if d2 < min_d2 or (ring == 2 and d2 > far2):
 				continue
-			if nav == null or target_p < 0 or nav.reachable(world.fhm.platform_of(int(p.z)), target_p):
+			if nav == null or target_p < 0:
 				return p
-			if fallback.z < 0 and ring < 2:
+			var h := nav.hops(world.fhm.platform_of(int(p.z)), target_p)
+			if h >= 0:
+				if prefer < 0 or h <= prefer:
+					return p
+				if reach.z < 0:
+					reach = p
+			elif fallback.z < 0 and ring < 2:
 				fallback = p
+		if reach.z >= 0:
+			return reach
 	return fallback
 
 

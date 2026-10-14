@@ -1,5 +1,5 @@
 {
-	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks[r-1] = canonical skill level at survivor rank r. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat: what the canonical field feeds (mp_guard = Magic Guard x%, pdd = Magic Armor pdd).",
+	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks[r-1] = canonical skill level at survivor rank r. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat: what the canonical field feeds (mp_guard = Magic Guard x%, pdd = Magic Armor pdd). level_ranks {character level: rank}: the skill reaches at least that survivor rank at that character level (the SP a v83 Beginner spends on Three Snails; cards can get there sooner).",
 	"slots": {"active": 6, "passive": 6},
 	"skills": {
 		"three_snails": {
@@ -9,6 +9,7 @@
 			"damage": "fixed",
 			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,
 			"ranks": [1, 2, 3],
+			"level_ranks": {"3": 2, "6": 3},
 			"action": "swingO1", "action_time": 0.8,
 			"ball": "Skill.wz/000.img/skill/0001000/level/{level}/ball",
 			"hit": "Skill.wz/000.img/skill/0001000/level/{level}/hit/0",

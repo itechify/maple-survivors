@@ -9,17 +9,25 @@ extends RefCounted
 ## below the skill's max rank). Fillers are never eligible; they fill a draw that has fewer eligible cards than
 ## requested. A draw picks distinct cards by weight with the given RNG; when the run has a pending `guarantee`
 ## ({kind, job}) the first card is drawn among the eligible cards of that kind whose requires.jobs lists that job,
-## and the guarantee is consumed.
+## and the guarantee is consumed. Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
+## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
+## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
+## RunWorld.power_dry counts those draws.
 
 const KIND_FILLER := "filler"
 
 var cards: Array = []
+## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
+var pity_draws := 0
 var _by_id := {}
 
 
 ## Builds the pool from the upgrades.json root ({"cards": [...]}).
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()
+	var pity: Variant = root.get("pity", {})
+	if pity is Dictionary:
+		p.pity_draws = maxi(0, int(pity.get("draws", 0)))
 	for c: Dictionary in root.get("cards", []):
 		var id := String(c.get("id", ""))
 		if id == "" or p._by_id.has(id):
@@ -88,18 +96,23 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	return true
 
 
-## Draws up to n distinct cards (fillers fill a short draw) and returns them as choice_pending cards:
-## {id, kind, name, desc, icon, rank (the rank the card gives when taken), max_rank, skill}.
+## Draws up to n distinct cards (fillers fill a short draw) and returns them as choice_pending cards (see
+## choice_card for the fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
 	var picked: Array = []
 	var g: Dictionary = state.guarantee
+	if g.is_empty() and pity_draws > 0 and state.power_dry >= pity_draws:
+		g = {"power": true}
 	if not g.is_empty():
 		state.guarantee = {}
 		var gpool: Array = []
 		for id: String in pool:
 			var c := card(id)
-			if String(c.get("kind", "")) == String(g.get("kind", "")) and _lists_job(c, int(g.get("job", -1))):
+			if bool(g.get("power", false)):
+				if is_power(c):
+					gpool.append(id)
+			elif String(c.get("kind", "")) == String(g.get("kind", "")) and _lists_job(c, int(g.get("job", -1))):
 				gpool.append(id)
 		var gid := _weighted_pick(gpool, rng)
 		if gid != "":
@@ -119,27 +132,64 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 			picked.append(id)
 			fillers.erase(id)
 	var out: Array = []
+	var power := false
 	for id: String in picked:
 		out.append(choice_card(id, state))
+		power = power or is_power(card(id))
+	state.power_dry = 0 if power else state.power_dry + 1
 	return out
 
 
-## The choice_pending entry of card `id` for the current run.
+## True for a card flagged `"power": true` (it raises an attack skill's damage output).
+static func is_power(c: Dictionary) -> bool:
+	return bool(c.get("power", false))
+
+
+## The choice_pending entry of card `id` for the current run: {id, kind, name, desc, icon, rank (the card's rank once
+## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
+## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
+## does not change the level: skill_new and skill_rank cards only)}.
 func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var c := card(id)
 	var desc := String(c.get("desc", ""))
 	if c.has("value"):
 		desc = desc.replace("{value}", _fmt(c.value))
+	var kind := String(c.get("kind", ""))
+	var skill := String(c.get("skill", ""))
+	var skill_name := ""
+	var level := 0
+	var level_next := 0
+	var lo: Loadout = state.loadout
+	if skill != "" and lo.book.has(skill):
+		skill_name = String(lo.book.def(skill).get("name", skill))
+		var r := lo.rank(skill) if lo.has(skill) else 0
+		level = lo.book.canonical_level(skill, r) if r > 0 else 0
+		if kind == "skill_new":
+			level_next = lo.book.canonical_level(skill, 1)
+		elif kind == "skill_rank" and r > 0:
+			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
 	return {
 		"id": id,
-		"kind": String(c.get("kind", "")),
+		"kind": kind,
 		"name": String(c.get("name", id)),
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
 		"rank": rank(id, state) + 1,
 		"max_rank": int(c.get("max_rank", 1)),
-		"skill": String(c.get("skill", "")),
+		"skill": skill,
+		"skill_name": skill_name,
+		"skill_level": level,
+		"skill_level_next": level_next,
 	}
+
+
+## Survivor ranks a skill_rank card adds (the sum of its "rank" effects, at least 1).
+static func _rank_step(c: Dictionary) -> int:
+	var n := 0
+	for e: Dictionary in c.get("effects", []):
+		if String(e.get("stat", "")) == "rank":
+			n += int(e.get("value", 0))
+	return maxi(1, n)
 
 
 ## Applies card `id` to the run (learn / rank up / modifiers / heal), emits upgrade_applied (and skill_learned for

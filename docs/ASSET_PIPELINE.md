@@ -8,7 +8,7 @@ loads. This document is the contract between the two.
 
 A GMS v83 install, i.e. the `.wz` files from the official v83 installer `MapleGlobal-v83-setup.exe`
 (Feb 2010, `Wizet` PKG1 archives, encrypted version `0x00AC`). These files are needed:
-`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Skill.wz Sound.wz String.wz UI.wz`.
+`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz`.
 
 **How to get them.** Install with the official installer, or extract them without running it: the installer is a
 Nexon Game Manager stub followed by a two-volume CAB set. On the dev machine this worked:
@@ -76,6 +76,7 @@ The manifest says what to import. The importer expands convenience entries into 
     {"img": "Effect.wz/BasicEff.img", "paths": ["NoRed0", "NoRed1", "LevelUp"]}
   ],
   "maps": [104040000],
+  "mapimgs": ["UI.wz/MapLogin.img"],
   "mobs": [100100, 210100, 1210102],
   "character": [2000, 12000, 20000, 30030, 1040002, 1060002, 1072001, 1302000],
   "items": [4000019]
@@ -85,7 +86,8 @@ The manifest says what to import. The importer expands convenience entries into 
 | Entry | Expands to |
 |---|---|
 | `imgs[]` | the img; `paths` limits the output to those child sub-trees (the whole img is still parsed so UOLs resolve) |
-| `maps[]` (9-digit id) | `Map.wz/Map/Map<d>/<id>.img` (d = first digit of the zero-padded id) + every `Map.wz/Back/<bS>.img` (sub-paths `back/<no>` or `ani/<no>` used), `Map.wz/Tile/<tS>.img`, `Map.wz/Obj/<oS>.img` (sub-paths `<l0>/<l1>/<l2>` used), the BGM `Sound.wz/<Bgm..>.img/<name>`, `Map.wz/MapHelper.img/mark/<mapMark>`, and every mob in `life` (as a `mobs[]` entry) |
+| `maps[]` (9-digit id) | `Map.wz/Map/Map<d>/<id>.img` (d = first digit of the zero-padded id) + every `Map.wz/Back/<bS>.img` (sub-paths `back/<no>` or `ani/<no>` used), `Map.wz/Tile/<tS>.img`, `Map.wz/Obj/<oS>.img` (sub-paths `<l0>/<l1>/<l2>` used), the BGM `Sound.wz/<Bgm..>.img/<name>`, `Map.wz/MapHelper.img/mark/<mapMark>` (not for `"None"`, v83's "no mark"), and every mob in `life` (as a `mobs[]` entry) |
+| `mapimgs[]` (full WZ path) | a map-structured img outside `Map.wz/Map` (the v83 login scene `UI.wz/MapLogin.img`: `back`, layers `0`-`7` with `obj`/`tile`, `info/bgm`): the whole img plus exactly the dependencies a `maps[]` entry gets (backs, tiles, objs, BGM, map mark, life mobs). A missing img is an error |
 | `mobs[]` | `Mob.wz/<7-digit>.img` + its `info/link` target(s) + `Sound.wz/Mob.img/<7-digit>` |
 | `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon |
 | `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash) |

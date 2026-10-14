@@ -1,0 +1,81 @@
+extends TestCase
+## BotInput (game/scripts/sim/bot_input.gd), the autoplay bot of RunScene, the full-run tests and scripts/balance.sh:
+## the sensible card choice (pick_card_for), the first-card policy, and climbing a ladder to EXP drops left on a
+## platform above (synthetic map of run_fixtures.gd, no spawns).
+
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const DT := 1.0 / 60.0
+
+
+func _cards(w: RunWorld, ids: Array) -> Array:
+	var out: Array = []
+	for id: String in ids:
+		out.append(w.upgrades.choice_card(id, w))
+	return out
+
+
+func test_pick_card_for_prefers_attack_skills() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	var cards := _cards(w, ["max_hp", "magnet", "energy_bolt_new"])
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_new", "a new attack skill first")
+	assert_eq(BotInput.pick_card(cards), "max_hp", "the first-card policy takes the first")
+	w.upgrades.apply("energy_bolt_new", w)
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "magnet", "energy_bolt_count"])),
+		"energy_bolt_count", "more bolts before pierce")
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_count", "energy_bolt_count"])), "energy_bolt_count",
+		"the current job's skill before the Beginner's")
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "max_hp", "improved_max_mp"])), "max_hp",
+		"defence before the rest")
+	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
+
+
+func test_auto_choose_policies() -> void:
+	var w := RF.quiet_world()
+	w.pickups.spawn(w.player.pos, w.progression.curve.exp_to_next(1), 4000019)
+	for i in 120:
+		if w.state != RunWorld.PLAYING:
+			break
+		w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "a level-up window")
+	var expected := BotInput.pick_card_for(w, w.pending_cards)
+	assert_eq(BotInput.auto_choose(w), 1, "one choice made")
+	assert_eq(int(w.loadout.card_ranks.get(expected, 0)), 1, "the sensible card was applied (%s)" % expected)
+
+
+func test_climbs_a_ladder_to_drops_above() -> void:
+	var w := RF.quiet_world(1400.0)
+	assert_eq(w.player.pos.y, 200.0, "on the ground")
+	# Drops on the platform above the ladder at x 1200 (ground 200 -> platform ~80), out of magnet reach.
+	for i in 5:
+		w.pickups.spawn(Vector2(1230.0 + i * 8.0, 70.0), 2, 4000019)
+	var memo := {}
+	var grabbed := false
+	var up_top := false
+	for t in 60 * 12:
+		w.step(DT, BotInput.decide(w, memo))
+		w.drain_events()
+		if w.player.ladder >= 0:
+			grabbed = true
+		if grabbed and w.player.fh >= 0 and w.player.pos.y < 100.0:
+			up_top = true
+		if up_top and w.pickups.active_count() == 0:
+			break
+	assert_true(grabbed, "walked to the ladder and grabbed it")
+	assert_true(up_top, "climbed off the top onto the platform (y %.0f)" % w.player.pos.y)
+	assert_eq(w.pickups.active_count(), 0, "collected the drops up there")
+	assert_eq(w.progression.exp, 10, "their EXP")
+
+
+func test_a_few_drops_above_do_not_start_a_climb() -> void:
+	var w := RF.quiet_world(400.0)
+	# Three drops above (fewer than CLIMB_MIN_DROPS): the bot stays on the ground and does not grab a ladder.
+	for i in BotInput.CLIMB_MIN_DROPS - 1:
+		w.pickups.spawn(Vector2(-700.0 + i * 10.0, 70.0), 1, 4000019)
+	var memo := {}
+	for t in 60 * 5:
+		w.step(DT, BotInput.decide(w, memo))
+		assert_true(w.player.ladder < 0, "no climb for a few drops")
+		if w.player.ladder >= 0:
+			break
+	assert_true(w.player.pos.y >= 190.0, "still on the ground")

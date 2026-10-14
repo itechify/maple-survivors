@@ -5,6 +5,9 @@
 //! a whole-img request wins; otherwise the union of sub-paths is exported, and a path that has another
 //! requested path as a prefix is absorbed by it. Missing imgs named directly by the manifest are errors;
 //! missing derived dependencies (a back, a mob sound, a link target) are warnings.
+//!
+//! `mapimgs` names map-structured imgs outside `Map.wz/Map` (the login scene `UI.wz/MapLogin.img`): they
+//! are exported whole and their backs, tiles, objs, BGM, map mark and life are expanded exactly like a map's.
 
 use crate::property::Node;
 use crate::wzroot::WzRoot;
@@ -18,6 +21,8 @@ pub struct Manifest {
     pub format: u32,
     pub imgs: Vec<ImgSpec>,
     pub maps: Vec<u64>,
+    /// Map-structured imgs by full WZ path (`UI.wz/MapLogin.img`), expanded like `maps`.
+    pub mapimgs: Vec<String>,
     pub mobs: Vec<u64>,
     pub character: Vec<u64>,
     pub items: Vec<u64>,
@@ -160,20 +165,24 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     }
 
     let mut mob_queue: Vec<(u32, String)> = m.mobs.iter().map(|id| (*id as u32, String::new())).collect();
-    if !m.maps.is_empty() {
+    if !m.maps.is_empty() || !m.mapimgs.is_empty() {
         plan.add_path("Map.wz/MapHelper.img", "portal", false);
     }
-    for &id in &m.maps {
-        let img_path = map_img_path(id);
+    let map_jobs = m
+        .maps
+        .iter()
+        .map(|&id| (map_img_path(id), format!("map {id}")))
+        .chain(m.mapimgs.iter().map(|p| (p.trim_matches('/').to_string(), format!("mapimg {}", p.trim_matches('/')))));
+    for (img_path, label) in map_jobs {
         let img = match wz.load_img(&img_path) {
             Ok(img) => img,
             Err(e) => {
-                plan.errors.push(format!("manifest map {id}: {e}"));
+                plan.errors.push(format!("manifest {label}: {e}"));
                 continue;
             }
         };
         plan.add_whole(&img_path);
-        expand_map(&img.root, id, wz, &mut plan, &mut mob_queue);
+        expand_map(&img.root, &label, wz, &mut plan, &mut mob_queue);
     }
 
     // A mob named by the manifest is an error when missing, even if a map's life reached it first.
@@ -221,10 +230,12 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     plan
 }
 
-fn expand_map(root: &Node, id: u64, wz: &WzRoot, plan: &mut Plan, mobs: &mut Vec<(u32, String)>) {
+/// Adds the dependencies of a map-structured img root (backs, tiles, objs, BGM, map mark, life mobs); `label`
+/// ("map 104040000", "mapimg UI.wz/MapLogin.img") prefixes warnings.
+fn expand_map(root: &Node, label: &str, wz: &WzRoot, plan: &mut Plan, mobs: &mut Vec<(u32, String)>) {
     let add_dep = |plan: &mut Plan, img: String, sub: Option<String>, what: String| {
         if !wz.img_exists(&img) {
-            plan.warnings.push(format!("map {id}: {what}: {img} not found"));
+            plan.warnings.push(format!("{label}: {what}: {img} not found"));
             return;
         }
         match sub {
@@ -250,7 +261,7 @@ fn expand_map(root: &Node, id: u64, wz: &WzRoot, plan: &mut Plan, mobs: &mut Vec
                 let (Some(os), Some(l0), Some(l1), Some(l2)) =
                     (str_at(o, "oS"), str_at(o, "l0"), str_at(o, "l1"), str_at(o, "l2"))
                 else {
-                    plan.warnings.push(format!("map {id}: layer {layer} obj {} lacks oS/l0/l1/l2", o.name));
+                    plan.warnings.push(format!("{label}: layer {layer} obj {} lacks oS/l0/l1/l2", o.name));
                     continue;
                 };
                 add_dep(plan, format!("Map.wz/Obj/{os}.img"), Some(format!("{l0}/{l1}/{l2}")), format!("layer {layer} obj {}", o.name));
@@ -260,17 +271,18 @@ fn expand_map(root: &Node, id: u64, wz: &WzRoot, plan: &mut Plan, mobs: &mut Vec
     if let Some(bgm) = str_at(root, "info/bgm") {
         match bgm.split_once('/') {
             Some((img, name)) => add_dep(plan, format!("Sound.wz/{img}.img"), Some(name.to_string()), "bgm".into()),
-            None => plan.warnings.push(format!("map {id}: bgm {bgm:?} is not <img>/<name>")),
+            None => plan.warnings.push(format!("{label}: bgm {bgm:?} is not <img>/<name>")),
         }
     }
-    if let Some(mark) = str_at(root, "info/mapMark") {
+    // "None" is how v83 says "no mark" (UI.wz/MapLogin.img and many fields); there is no mark/None canvas.
+    if let Some(mark) = str_at(root, "info/mapMark").filter(|m| m != "None") {
         plan.add_path("Map.wz/MapHelper.img", &format!("mark/{mark}"), false);
     }
     if let Some(life) = root.child("life") {
         for l in &life.children {
             if str_at(l, "type").as_deref() == Some("m") {
                 if let Some(mid) = l.at("id").and_then(|n| n.as_i64()) {
-                    mobs.push((mid as u32, format!("life of map {id}")));
+                    mobs.push((mid as u32, format!("life of {label}")));
                 }
             }
         }
