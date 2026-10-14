@@ -8,6 +8,10 @@
 		"210100": {"name": "Slime", "exp_item": 4000010},
 		"1210100": {"name": "Pig", "exp_item": 4000017},
 		"1210102": {"name": "Orange Mushroom", "exp_item": 4000001},
-		"1110100": {"name": "Green Mushroom", "exp_item": 4000012}
+		"1110100": {"name": "Green Mushroom", "exp_item": 4000012},
+		"9300063": {"name": "Stirge", "exp_item": 4000042},
+		"9300062": {"name": "Flyeye", "exp_item": 4000076},
+		"9300064": {"name": "Goblin Fire", "exp_item": 4000081, "_exp_item": "tier C: Firebomb Flame as the EXP pickup icon; not a canonical drop-table claim"},
+		"2300100": {"name": "Stirge", "exp_item": 4000042}
 	}
 }

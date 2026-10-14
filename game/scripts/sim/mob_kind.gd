@@ -6,7 +6,8 @@ extends RefCounted
 ## Overrides read (all optional): `name` (String.wz name, looked up outside the sim), `hp_mult`, `speed_mult`,
 ## `can_jump` (bool), `exp_item` (EXP pickup item id), `hit_time` (s).
 
-## Move speed in px/s = (speed stat + 100) x this. tier C: HeavenClient's terminal mob speed.
+## Move speed in px/s = (speed stat + 100) x this. tier C: HeavenClient's terminal mob speed;
+## using the same conversion for canonical flySpeed is our tier C interpretation.
 const SPEED_SCALE := 0.625
 ## Hit stun. tier C: HeavenClient (30 ticks x 8 ms).
 const DEFAULT_HIT_TIME := 0.24

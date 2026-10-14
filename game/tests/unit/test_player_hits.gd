@@ -102,7 +102,7 @@ func test_landed_hit_still_grants_invincibility() -> void:
 	assert_between(w.take_hit(20.0, false, "", w.player.pos - Vector2(10, 0)), 17, 20)
 	assert_eq(w.player_state.invincible_t, 1.5)
 	assert_true(w.player.vel.x > 0.0, "the landed hit pushes away from the source")
-	var hp := w.player_state.hp
+	var hp := int(w.player_state.hp)
 	w.drain_events()
 	assert_eq(w.take_hit(82.0, false, "", w.player.pos), 0, "a second hit is rejected during invincibility")
 	assert_eq(w.player_state.hp, hp)

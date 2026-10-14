@@ -102,6 +102,16 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 - **Hit reaction:** only a hit reaching the monster's canonical `pushed` value plays `hit1`, stuns for 0.24 s and
   pushes it 12 px away from the source (tier C timings/distance, tier A threshold). Weaker hits leave its movement
   and animation state unchanged.
+- **Flyers:** mobs with a `fly` stance steer directly toward the player through footholds, walls and ceilings,
+  inside the map bounds. Speed = (`flySpeed` + 100) × `mob_speed_factor` × the stage speed multiplier (tier C
+  conversion, canonical `flySpeed` unchanged). A 2 px bob over 1.2 s (`balance.mob_motion`) is independent of the
+  pursuit and never accumulates drift. Flyers fade in before moving or hurting the player and spawn at off-screen
+  air points without needing a floor or a route. They use their own canonical contact attack, never ranged attacks,
+  and their canonical HP receives the same stage HP multiplier as ground mobs. `fly`, `hit1`, and `die1` use the
+  original WZ frames; dying flyers stay in the air until their animation ends.
+  Henesys Hunting Ground I adds PQ Stirge 9300063 (Lv 6) at 3:00, Flyeye 9300062 (Lv 8) at 5:00, Goblin Fire 9300064
+  (Lv 11) at 8:00, and regular Stirge 2300100 (Lv 20) at 11:00, each at weight 1; earlier flyers remain in the pool.
+  The added arrival keyframes interpolate the existing pacing values. The Tree That Grew I has no flyers.
 - **Death:** `die1` plays with its WZ delays and alpha fades (`a0/a1`), the death sound plays, and the mob drops EXP.
 - **Elites:** periodically one mob of the current pool spawns with ×8 HP, ×5 EXP and an explicit ×1.5 mitigated
   hit multiplier (`elites.damage_mult`), drawn with a name tag. All three multipliers are survivor data (tier C).
@@ -343,6 +353,8 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   4000000, Red Snail -> Red Snail Shell 4000016, Shroom -> Mushroom Spore 4000011, Slime -> Slime Bubble 4000010,
   Pig -> Pig's Head 4000017, Orange Mushroom -> Orange Mushroom Cap 4000001, Green Mushroom -> Green Mushroom Cap
   4000012.
+- Flyer EXP icons: Stirges use Stirge Wing 4000042, Flyeye uses Fly-Eye Wing 4000076, and Goblin Fire uses
+  Firebomb Flame 4000081 as a tier C visual choice (not a claim about a canonical drop table).
 - EXP value = the mob's canonical `exp` × 1.0 (× 5 for elites). Pickups within the magnet radius (90 px) fly to the
   player; collecting plays `Game.img/PickUpItem` and shows "+N EXP" in MapleStory's yellow system-message style.
 - **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). Past `pickup.max_active` (600) a new
@@ -406,6 +418,12 @@ stack upward one line per number: 30 px above a normal number, 36 px above a (ta
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank** maps to a canonical skill level, so ranking up a skill visibly changes it the way the original did.
 No skill costs MP in survivor mode (MP fuels Magic Guard instead).
+
+While hanging on a rope or ladder, no new auto-action casts: skills, basic attacks and buff casting share
+`RunWorld.can_cast()`. Cooldowns continue, so a ready skill fires on the first eligible tick after leaving the
+rope or ladder. Already-launched projectiles, active buffs and passives keep applying. This is the owner-selected
+climbing rule; tier C. The seeded camper probe parks on a rope at 1:00 and reports new casts and skill kills after
+existing shots finish separately from carry-over projectile kills.
 
 | Skill (id) | Job | Behaviour | Rank -> canonical level | Upgrades |
 |---|---|---|---|---|
@@ -503,6 +521,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Climb speed | 100 px/s | C | ours (HeavenClient uses 125) |
 | Ladder grab/exit | Up: hands 50 px above the feet within 10 px of x; Down: 10 px below the feet; 0.25 s re-grab delay; exit jump vx = max walk speed, vy = jumpSpeed/1.5; `uf=1` top exit onto a floor within 24 px above / 4 px below the top | C | ours / HeavenClient exit jump |
 | Same-map portal activation and arrival | feet x ±25, y −100…+25; arrive 30 px above target with zero velocity; global cooldown 384 ms; camera snaps, no sound or transition | C | owner choice; `balance.json.portals` |
+| Autoplay portal choice | approach a same-map entrance when its walk plus arrival-to-drop distance is less than going directly (horizontal distance + 2 × vertical); with a mob within 160 px, an entrance within 250 px can instead lead to less nearby mob danger. Reach entrance ledges through existing jump-graph edges; hold Up in the activation box and during the entrance hop | C | ours; uses the bot's existing drop, danger and alignment rules |
 | Down-jump reach | a floor within 600 px below | C | HeavenClient |
 | Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
@@ -536,6 +555,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
+| Climbing cast gate | no new skills, basic attacks or buffs while on a rope/ladder; cooldowns and existing effects continue | C | owner choice |
+| Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
+| Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
