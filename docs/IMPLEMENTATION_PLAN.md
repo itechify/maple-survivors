@@ -17,9 +17,10 @@ Work packages, in dependency order. A and B run in parallel; C needs A's cache; 
 | D (open item, resolved) | The import screen must find `wzimport` both in dev (`tools/wzimport/target/release/`) and in an export (next to the game exe); exports must bundle it | `ImportScreen.importer_candidates()` tries the exe folder first, then the dev build; `scripts/export.sh` copies `wzimport.exe` beside `MapleSurvivors.exe`. Verified: a dev import from the import screen into an empty cache; the exported build opens the import screen without a cache (an import was not driven from the export) |
 | **E. Verification** | Offline test, perf benchmark (`bench.sh`), scripted playtest with screenshots (`playtest.sh`), adversarial review against the brief | Evidence recorded below |
 
-### Acceptance checks (from the brief)
+### Historical Phase 1 acceptance checks (before the difficulty overhaul)
 
-Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
+The following results describe the earlier economy and timer-based clear, not the current spec #1 balance. New
+acceptance evidence is recorded separately below. Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
 `game/scenes/debug/flow_driver.tscn` playing the real game with injected keyboard and mouse input.
 
 | Check | How it is verified | Result (2026-10-13, integration) |
@@ -44,9 +45,9 @@ Henesys Hunting Ground II), more mobs (Green Mushroom, Horny Mushroom, Stumps), 
 
 ## Phase 3: expanded survivor systems
 
-Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, bosses (Mushmom, King Slime,
-Mano), elite waves and modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting
-configurations, persistent progression and achievements (local save file).
+Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, additional bosses, elite wave
+modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting configurations,
+persistent progression and achievements (local save file).
 
 ## Performance log
 

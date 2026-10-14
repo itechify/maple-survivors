@@ -458,7 +458,7 @@ cast counts and Guard coverage are not separate recorded metrics. Monster balls 
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
 The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
 to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
-ID. These are final scores, including preference relative to job bonuses; an unlisted card retains its existing
+ID. These replace the final score, with no job bonus added; an unlisted card retains its existing
 scoring path. Random policy selects uniformly among offered cards with its own seeded RNG and never reads either
 score setting. Both knobs are tier C survivor tuning.
 
