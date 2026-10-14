@@ -118,3 +118,17 @@ last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
 
 Commit meaningful milestones on the working branch with clear messages. Do not commit `_scratch/`, `evidence/`,
 `assets-cache/` or anything listed in `.gitignore`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues on `itechify/maple-survivors` (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
