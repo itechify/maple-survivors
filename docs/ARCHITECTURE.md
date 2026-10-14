@@ -183,7 +183,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next}]` |
+| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |

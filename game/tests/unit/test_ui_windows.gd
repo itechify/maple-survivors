@@ -176,14 +176,15 @@ func test_level_up_rank_text() -> void:
 		"skill_level_next": 5}), "Skill Lv. 1 → 5")
 
 
-func test_level_up_notice_names_only_skills() -> void:
-	var bolt := {"kind": "skill_rank", "skill": "energy_bolt", "name": "Overcharged Bolt", "skill_name": "Energy Bolt"}
-	assert_true(LevelUpWindow.names_a_skill(bolt), "a skill level-up fits the sentence")
-	assert_eq(LevelUpWindow.notice_name(bolt), "Energy Bolt", "the box names the skill, not the card")
-	assert_true(LevelUpWindow.names_a_skill({"kind": "skill_new", "skill": "magic_claw", "name": "Magic Claw"}))
-	for kind: String in ["skill_mod", "stat", "passive", "filler"]:
-		assert_false(LevelUpWindow.names_a_skill({"kind": kind, "skill": "three_snails" if kind == "skill_mod" else "",
-			"name": "x"}), "%s: no 'raised your ___ skill' sentence" % kind)
+func test_level_up_card_details_show_canonical_rank_changes() -> void:
+	var card := {"kind": "skill_rank", "desc": "Rank up Energy Bolt.", "skill_changes": {
+		"mad": {"before": 20, "after": 28}, "mastery": {"before": 15, "after": 25},
+		"mpCon": {"before": 6, "after": 9}, "fixdamage": {"before": 10, "after": 25}}}
+	assert_eq(LevelUpWindow.change_lines(card), PackedStringArray([
+		"Magic ATT: 20 → 28", "Mastery: 15% → 25%", "MP cost: 6 → 9", "Damage: 10 → 25"]),
+		"all canonical changes have a readable label and before/after values")
+	assert_eq(LevelUpWindow.change_lines({"kind": "stat", "desc": "Speed +6."}), PackedStringArray(),
+		"ordinary cards have no fabricated skill values")
 
 
 # --- JobAdvanceWindow --------------------------------------------------------------------------------------------

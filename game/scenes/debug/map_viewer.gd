@@ -23,7 +23,7 @@ extends Node2D
 ##   --messages          fixed sample of HUD "+N EXP" system messages (demo mode also shows elite name tags)
 ##   --quit=N            quit after N frames
 
-const DEMO_MOBS := [100100, 100101, 130101, 120100, 210100, 1210100, 1210101, 1210102, 1110100]
+const DEMO_MOBS := [100100, 100101, 130101, 120100, 210100, 1210100, 1210102, 1110100]
 const GALLERY_STANCES := ["stand1", "walk1", "jump", "alert", "prone", "ladder", "rope", "swingO1", "shoot1", "dead"]
 const DEMO_ITEMS := [4000019, 4000000, 4000016, 4000011, 4000010, 4000017, 4000001, 4000012]
 const SNAIL_BALL := "Skill.wz/000.img/skill/0001000/level/%d/ball"

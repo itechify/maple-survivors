@@ -127,20 +127,15 @@ Orange Mushrooms give 15 EXP against 8 for a Red Snail, and a variant that kept 
 builds starved the strong ones of levels (14 of 24 tuned-bot runs died instead of 3), so change pools and the EXP
 curve together. Bursts every 90 s spawn a ring of 10-40 mobs around the view (growing over the stage). The roster
 deliberately goes beyond the map's own `life` list (Snail, Slime and Orange Mushroom are the classic trio); the
-original spawn list is shown in the stage info. The Tree That Grew I and The Hill East of Henesys use the same rate,
-max alive, HP and damage numbers with their own pools and speeds (Tree: Snails only until 2:00, since Slimes in the
-opening minute killed some runs before 1:00; Hill: speed up to 1.3). Before the swarm pass the Hill kept gentler
-numbers (rate up to 9, HP up to 3.0, 1.2x EXP) because the henesys curve killed half the autoplay runs there
-mid-game. Its ground runs on under the hill block, behind the hill's faces, and spawns could land on that buried
-floor, where the mobs never arrived and their drops could not be picked up (the runs lost 39% of the stage's EXP to
-expiry). Spawns now skip buried floor (and any point whose way runs into one of the faces), and with the swarm changes
-the henesys curve no longer kills Hill runs on the tuning seeds. Since the follow-up the Hill takes 1.0x EXP
-(`exp_mult`; 1.1 left Lv 30 at ~11:00) and touch damage 0.25-0.375 (half of henesys at 0:00-9:00, less after: the
-Hill's crowd presses harder, 48-77% engaged, and with henesys damage 15 of 24 tuning runs died); the Tree takes
-0.85x EXP (its Lv 8 came at ~2:27, before the 2:30-3:45 window, and Lv 30 at ~10:20) and the henesys damage. The Hill
-keeps `spawn.prefer_route` -1 (any point that reaches the player; it had `prefer_hops` -1: on its smaller
-platforms, spawning next to the player killed runs in the first minutes); the Tree takes the default. They were only
-roughly re-tuned (section 4.2, tuning seeds 1-24) and their stage cards say "Not fully tuned yet" (`note`).
+original spawn list is shown in the stage info. Stage select offers Henesys Hunting Ground I and The Tree That Grew I.
+The Hill East of Henesys was removed in the difficulty overhaul because its gameplay was too similar to Henesys
+Hunting Ground I. Its map and unused Ribbon Pig assets are no longer selected for import; old save records for
+retired stages are ignored.
+
+The Tree That Grew I uses the same rate, max alive, HP and damage numbers with its own pool: Snails only until 2:00,
+since Slimes in the opening minute killed some runs before 1:00. It takes 0.85x EXP (its Lv 8 came at ~2:27, before
+the 2:30-3:45 window, and Lv 30 at ~10:20), the henesys damage and default spawn preferences. It was only roughly
+re-tuned (section 4.2, tuning seeds 1-24) and its stage card says "Not fully tuned yet" (`note`).
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
@@ -416,9 +411,11 @@ Draw rules:
    before Lv 8 and fell behind for good).
 3. With fewer than three eligible cards, fillers fill the gap (e.g. "Elixir": heal 50% HP/MP).
 4. Applying a card takes effect immediately.
-5. The level-up window names the skill a card learns or levels in the notice's "raised your ___ skill by a level."
-   box and shows a skill_rank card as the skill's canonical level change ("Skill Lv. 2 → 3"); for other cards the
-   sentence is left out and the notice reads "LEVEL n".
+5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
+   sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
+   and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
+   WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
+   with the combat formula in section 6.1.
 
 General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Magnet +25% radius;
 for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000) (Magician skills in v83, and MP

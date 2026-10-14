@@ -8,7 +8,7 @@
 #   bash scripts/balance.sh 101..130                       # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 101..112       # the careless player (random cards)
 #   bash scripts/balance.sh --idle-after=300 101..106      # hands off the keys from 5:00 (cards still chosen)
-#   bash scripts/balance.sh --stage=hill_east_henesys 1 2  # another stage
+#   bash scripts/balance.sh --stage=tree_that_grew_1 1 2  # another stage
 #   ISOLATE=<name> bash scripts/balance.sh                 # private mirror (_scratch/godot_runs/<name>/game), like test.sh
 #   PATCH=/abs/variant.json bash scripts/balance.sh         # deep-merge a JSON patch into the data first (try a tuning
 #                                                          # variant without editing game/data; see balance_run.gd)

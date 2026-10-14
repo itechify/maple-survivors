@@ -74,7 +74,9 @@ func test_stages_mobs_and_manifest() -> void:
 	var mobs: Dictionary = data.mobs.mobs
 	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
-	var want_maps := {"henesys_hg1": 104040000, "hill_east_henesys": 100010000, "tree_that_grew_1": 101010100}
+	var want_maps := {"henesys_hg1": 104040000, "tree_that_grew_1": 101010100}
+	assert_eq(stages.keys(), want_maps.keys(), "only the two distinct stages are offered")
+	assert_eq(manifest.maps, [104040000.0, 101010100.0], "only playable maps are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)
 		assert_eq(int(stages[key].map_id), want_maps[key])
@@ -96,7 +98,7 @@ func test_stages_mobs_and_manifest() -> void:
 	assert_eq(float(hg.elites.hp_mult), 8.0)
 	assert_eq(float(hg.elites.exp_mult), 5.0)
 	var items := {100100: 4000019, 100101: 4000000, 130101: 4000016, 120100: 4000011, 210100: 4000010,
-		1210100: 4000017, 1210101: 4000002, 1210102: 4000001, 1110100: 4000012}
+		1210100: 4000017, 1210102: 4000001, 1110100: 4000012}
 	for id: int in items:
 		assert_eq(int(mobs[str(id)].exp_item), items[id], "EXP item of %d" % id)
 
