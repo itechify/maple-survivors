@@ -126,7 +126,7 @@ func despawn(i: int) -> void:
 
 
 ## Moves every shot by dt, resolves hits against `swarm` through `grid` (rebuilt this tick from swarm.x/y/active),
-## appends mob_hit events and fills `kills`.
+## appends mob_hit events and fills `kills`. Optional live_mdd is the per-slot defense at this impact tick.
 func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds

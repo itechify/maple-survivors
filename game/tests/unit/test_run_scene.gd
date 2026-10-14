@@ -770,6 +770,9 @@ func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> voi
 func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() -> void:
 	if not require_cache():
 		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	sfx.library = lib
 	scene = _make("henesys_hg1",22,{})
 	var data := scene.data.duplicate(true)
 	data.balance.player.skills = []
@@ -797,6 +800,7 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	_frames(840)
 	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
 	_assert_nothing_missing(scene,"Mano slow")
+	sfx.library = previous_library
 
 
 func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:

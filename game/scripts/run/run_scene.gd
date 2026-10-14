@@ -623,7 +623,7 @@ func _on_boss_skill(e: Dictionary) -> void:
 			fx.stop(_slow_fx)
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
-	_sound(SND_MOB % [int(e.mob_id),String(e.action).capitalize()])
+	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
 
 
 func _on_cast(e: Dictionary) -> void:
