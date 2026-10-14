@@ -151,12 +151,25 @@ func value_at(field: String, t: float) -> float:
 			var span := float(b.t) - float(a.t)
 			var f := (t - float(a.t)) / span if span > 0.0 else 1.0
 			return lerpf(float(a[field]), float(b[field]), f)
-	return float(keyframes[keyframes.size() - 1][field])
+	var last: Dictionary = keyframes[keyframes.size() - 1]
+	var slope_mult := float(stage.get("post_duration_slope", 0.0))
+	if slope_mult > 0.0 and keyframes.size() >= 2:
+		var previous: Dictionary = keyframes[keyframes.size() - 2]
+		var span := float(last.t) - float(previous.t)
+		if span > 0.0:
+			var slope := (float(last[field]) - float(previous[field])) / span
+			return maxf(0.0, float(last[field]) + slope * (t - float(last.t)) * slope_mult)
+	return float(last[field])
 
 
 ## Spawns per second at t.
 func rate_at(t: float) -> float:
 	return value_at("rate", t)
+
+
+## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
+func effective_rate(world: RunWorld) -> float:
+	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()
 
 
 ## Alive target at t (rounded).
@@ -207,9 +220,9 @@ func step(dt: float, world: RunWorld) -> void:
 	var t := world.time
 	var swarm := world.swarm
 	_recycle(dt, world)
-	var cap := max_alive_at(t)
+	var cap := mini(max_alive_at(t), hard_cap)
 	var alive := swarm.alive_count()
-	_acc += rate_at(t) * dt
+	_acc += effective_rate(world) * dt
 	while _acc >= 1.0 and alive < cap:
 		_acc -= 1.0
 		if _spawn_one(world, t, false):
@@ -220,7 +233,8 @@ func step(dt: float, world: RunWorld) -> void:
 		_acc = minf(_acc, 1.0)
 	if t >= next_burst:
 		next_burst += float(stage.bursts.every)
-		var n := mini(burst_count_at(t), maxi(0, hard_cap - swarm.alive_count()))
+		var count := roundi(burst_count_at(t) * world.bosses.normal_spawn_multiplier())
+		var n := mini(count, maxi(0, hard_cap - swarm.alive_count()))
 		bursts += 1
 		world.emit("burst", {"count": n})
 		for k in n:
@@ -599,7 +613,7 @@ func _recycle(dt: float, world: RunWorld) -> void:
 	if absf(world.player.vel.x) > 1.0:
 		side = 1 if world.player.vel.x > 0.0 else -1
 	for i in s.capacity():
-		if s.active[i] == 0 or world.mob_elite[i] != 0:
+		if s.active[i] == 0 or world.mob_elite[i] != 0 or world.mob_boss[i] >= 0:
 			_far_t[i] = 0.0
 			_stall_t[i] = 0.0
 			_best_len[i] = INF

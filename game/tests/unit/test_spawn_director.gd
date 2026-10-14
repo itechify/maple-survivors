@@ -35,7 +35,7 @@ func test_pacing_keyframes() -> void:
 	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
 	assert_near(d.value_at("hp", 180.0), 1.225, 1e-6, "halfway between 1.15 and 1.3")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
-	assert_near(d.rate_at(2000.0), 20.0, 1e-6, "held after the last keyframe")
+	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
 	var snail := int(w.kind_of_id[100100])
 	var blue := int(w.kind_of_id[100101])
@@ -79,6 +79,8 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 			if e.type == "burst":
 				bursts.append([w.time, e.count])
 			elif e.type == "mob_spawned":
+				if w.mob_boss[int(e.mob)] >= 0:
+					continue # Boss arrivals deliberately use the visible, near-player placement rule.
 				checked += 1
 				per_minute[minute] += 1
 				var pos: Vector2 = e.pos

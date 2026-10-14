@@ -31,6 +31,7 @@ PROJECT="$REPO/game"
 STAGE="henesys_hg1"
 POLICY="bot"
 EXTRA_IDLE=""
+EXTRA_CAP=""
 SEEDS=()
 for a in "$@"; do
   case "$a" in
@@ -38,6 +39,7 @@ for a in "$@"; do
     --policy=*) POLICY="${a#--policy=}" ;;
     --first-card) POLICY="first" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
+    --cap=*) EXTRA_CAP="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
   esac
@@ -61,6 +63,7 @@ mkdir -p "$OUT"
 EXTRA=()
 [[ -n "${PATCH:-}" ]] && EXTRA+=(--patch="$(cygpath -m "$PATCH" 2>/dev/null || echo "$PATCH")")
 [[ -n "$EXTRA_IDLE" ]] && EXTRA+=("$EXTRA_IDLE")
+[[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
 MAXJ="${JOBS:-12}"
 PIDS=()
 for s in "${SEEDS[@]}"; do
@@ -118,7 +121,9 @@ awk '
   }
   {
     runs++
-    if ($14 == "CLEARED") cleared++; else { died++; deaths = deaths " " $15 }
+    if ($14 == "CLEARED") cleared++
+    else if ($14 == "TIMEOUT") timed_out++
+    else { died++; deaths = deaths " " $15 }
     if ((t = sec($2)) >= 0) { a8[++n8] = t; if (t >= 150 && t <= 225) in8++ }
     if ((t = sec($3)) >= 0) a10[++n10] = t
     if ((t = sec($5)) >= 0) { a30[++n30] = t; if (t >= 720) in30++ }
@@ -139,7 +144,7 @@ awk '
   END {
     if (runs == 0) exit
     for (i = 1; i <= nl; i++) for (j = i + 1; j <= nl; j++) if (lv[j] < lv[i]) { t = lv[i]; lv[i] = lv[j]; lv[j] = t }
-    printf "SUMMARY %d runs: %d cleared, %d died%s\n", runs, cleared, died, (died ? " (at" deaths ")" : "")
+    printf "SUMMARY %d runs: %d cleared, %d died%s, %d timed out\n", runs, cleared, died, (died ? " (at" deaths ")" : ""), timed_out
     printf "  Lv 8 %s, %d in 2:30-3:45\n", stat(a8, n8), in8
     printf "  Lv 10 %s\n", stat(a10, n10)
     printf "  Lv 30 %s, %d at 12:00 or later\n", stat(a30, n30), in30

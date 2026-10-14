@@ -401,6 +401,7 @@ func test_stage_clear_finishes_with_summary() -> void:
 	scene = _make("henesys_hg1", 4, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	w.duration = 2.0
+	w.bosses = BossDirector.new() # This fixture exercises the duration fallback and clear presentation.
 	_frames(150)
 	assert_eq(w.state, RunWorld.CLEARED, "cleared at the shortened duration")
 	assert_true(scene.notice_fx.active_count() == 1, "the CLEAR field effect shows")

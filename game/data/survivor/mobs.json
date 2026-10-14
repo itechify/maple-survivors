@@ -12,6 +12,9 @@
 		"9300063": {"name": "Stirge", "exp_item": 4000042},
 		"9300062": {"name": "Flyeye", "exp_item": 4000076},
 		"9300064": {"name": "Goblin Fire", "exp_item": 4000081, "_exp_item": "tier C: Firebomb Flame as the EXP pickup icon; not a canonical drop-table claim"},
-		"2300100": {"name": "Stirge", "exp_item": 4000042}
+		"2300100": {"name": "Stirge", "exp_item": 4000042},
+		"2220000": {"name": "Mano", "exp_item": 4000019},
+		"6130101": {"name": "Mushmom", "exp_item": 4000011},
+		"9400205": {"name": "Blue Mushmom", "exp_item": 4000011}
 	}
 }
