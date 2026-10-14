@@ -44,6 +44,8 @@ const SENTENCE_BANDS := [[105.0, 126.0, [Vector2(13, 82), Vector2(144, 202)]], [
 const BLANK_X := 14.0
 ## Choice rows inside the panel's inner fill (x 12..202).
 const ROWS_TOP := 166.0
+## tier C: reward title plus instruction above the same canonical card rows.
+const BONUS_ROWS_TOP := 52.0
 const ROW_X := 12.0
 const ROW_W := 191.0
 const ROW_H := 35.0
@@ -58,6 +60,8 @@ const BLOCK_GAP := 6.0
 var cards: Array = []
 ## The level shown in the notice.
 var level := 0
+## Boss rewards use the same card-choice interface without the gained-level notice.
+var bonus := false
 ## Index of the focused card (-1 = none).
 var focus := -1
 
@@ -73,9 +77,10 @@ func _init() -> void:
 
 
 ## Opens the window with the cards of a choice_pending event and the new level.
-func open(p_cards: Array, p_level: int) -> void:
+func open(p_cards: Array, p_level: int, p_bonus: bool = false) -> void:
 	cards = p_cards.duplicate(true)
 	level = p_level
+	bonus = p_bonus
 	focus = 0 if not cards.is_empty() else -1
 	_build_layout()
 	_show_window()
@@ -184,7 +189,7 @@ func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
 
 func _build_layout() -> void:
 	_blocks.clear()
-	var y := ROWS_TOP
+	var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
 	for c: Variant in cards:
 		var card: Dictionary = c if c is Dictionary else {}
 		var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 4.0, MapleText.SMALL)
@@ -197,17 +202,36 @@ func _build_layout() -> void:
 		_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h),
 			"desc": desc, "changes": changes})
 		y += h + BLOCK_GAP
-	var height := maxf(ART_SIZE.y, y - BLOCK_GAP + 4.0 + BOTTOM_H - 8.0)
+	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus else ART_SIZE.y
+	var height := maxf(minimum, y - BLOCK_GAP + 4.0 + BOTTOM_H - 8.0)
 	panel_size = Vector2(ART_SIZE.x, ceilf(height))
 
 
 func _draw_panel(ci: Control) -> void:
-	_draw_art_without_sentence(ci, UiArt.frame(ART))
-	_draw_level(ci)
+	if bonus:
+		_draw_bonus_art(ci, UiArt.frame(ART))
+	else:
+		_draw_art_without_sentence(ci, UiArt.frame(ART))
+		_draw_level(ci)
 	var row0 := UiArt.frame(ROW)
 	var row1 := UiArt.frame(ROW_FOCUS)
 	for i in mini(cards.size(), _blocks.size()):
 		_draw_card(ci, i, cards[i], row1 if i == focus else row0)
+
+
+func _draw_bonus_art(ci: Control, f: SpriteFrame) -> void:
+	if f != null:
+		var bottom_y := MID_Y + MID_H
+		var bottom_h := f.region.size.y - bottom_y
+		var end := panel_size.y - bottom_h
+		var y := 0.0
+		while y < end:
+			var h := minf(MID_H, end - y)
+			UiArt.blit_part(ci, f, Rect2(0, MID_Y, f.region.size.x, h), Vector2(0, y))
+			y += h
+		UiArt.blit_part(ci, f, Rect2(0, bottom_y, f.region.size.x, bottom_h), Vector2(0, end))
+	MapleText.draw_centered(ci, 0, 12, panel_size.x, "Boss Reward", MapleText.WHITE, MapleText.SIZE, true)
+	MapleText.draw_centered(ci, 0, 30, panel_size.x, "Choose an upgrade", MapleText.WHITE, MapleText.SMALL)
 
 
 ## The window art like TiledFrame.draw_v_slices, with the notice sentence's words (SENTENCE_BANDS) replaced by the

@@ -174,7 +174,10 @@ The presentation layer shows the windows and calls back:
 | `decline_job()` | stay, then continue to the upgrade choice |
 | `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else back to `PLAYING` |
 
-Level-up effects and their short pause before the window are presentation-only.
+Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
+`CHOOSING_UPGRADE` with `RunWorld.choice_bonus` and `pending_bonus_choices`; they take priority over the level queue.
+`apply_choice` consumes a bonus without changing the level or queue. Empty bonus draws proceed without a window.
+The bonus window uses a "Boss Reward" title and omits the gained-level notice.
 
 ### 4.4.3 Event schema
 
@@ -202,7 +205,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
+| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -211,13 +214,16 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
 | `boss_attack` | `boss_index`, `mob`, `mob_id`, `attack` (canonical stance, e.g. attack1), `phase` (`start` / `effect` / `impact`), `pos` (captured feet), `facing`, `area` (Rect2, captured world-space range), `time` (event tick), `impact_time` (absolute planned sim time), `effect`, `sound` (WZ paths, effect may be empty). Start holds the stance and plays sound; effect phase starts art; impact tests the current player position/grounded state. |
+| `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
+
 
 `RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, spawn_time, death_time,
-dead}`. Times are -1 before arrival/death. `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
+dead, teleports}`. Times are -1 before arrival/death. Pursuit bookkeeping also holds `stall`, `best_distance`,
+`anchor`, `fading`, `fade_left`. `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
 Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
 Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
-duration rule retained for stages without bosses; reward tickets can defer this seam while a bonus choice is pending.
+duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
 
 Boss attacks and skills share `BossDirector.can_act(index, now)` and
 `begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
@@ -232,6 +238,16 @@ seconds). It reads attack-local PADamage/MADamage rather than contact attack and
 `source_kind = attack`. `attack_dmg_mult` is separate from contact `dmg_mult`; `attack_interval` is a survivor
 start-to-start cadence because these attack nodes contain no interval. A canonical `jumpAttack` flag opts into
 the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack frames/metadata remain as cached.
+
+`BossDirector.step(world, dt)` tracks route progress after movement: no route or no progress for 5 s starts fade-out,
+then `relocate_mob` places the living boss about 250 px away on the player's platform, preserving HP and encounter
+identity. `MobSwarm.fading_out` suspends movement/regen while the director drives alpha; arrival restarts normal
+regen fade-in, harmless until opaque. Placement retries while no player platform point exists.
+`balance.bosses` supplies stall/progress/fade/placement tuning. `rewards` defaults may be overridden by each entry:
+`exp_mult`, `exp_drops`, `spread`, `potion_spread`, `potions` hp/mp counts, `bonus_choices`. The total is rounded
+canonical boss EXP × reward multiplier, split with integer remainders conserved. Scheduled bosses bypass ordinary
+EXP and random potion drops; bundles use the current stock item. Reward scattering has its own seeded RNG stream.
+
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
 remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
 ordinary alive targets still obey `hard_cap`.

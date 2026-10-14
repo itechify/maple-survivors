@@ -598,7 +598,7 @@ func handle_events(events: Array) -> void:
 			"job_changed":
 				_on_job_changed(int(e.job_id))
 			"choice_pending":
-				_pending_window = {"kind": "cards", "cards": e.cards}
+				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -762,7 +762,7 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level)
+			lw.open(req.cards, level, bool(req.get("bonus", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the

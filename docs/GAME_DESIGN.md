@@ -377,6 +377,19 @@ Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pa
 stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
 boss schedule arrives with its kit tickets.
 
+If a living boss has no route or makes no progress toward the player for 5 s, it fades out over 300 ms, then
+relocates about 250 px away on the player's platform using the same placement policy. HP is preserved; it stands
+still and cannot touch during fade-out or the normal 300 ms arrival fade. Progress means closing the route distance
+by at least 1 px through its own movement; a boss already at the player does not relocate.
+
+Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
+(initially ×5), split into 12 drops with no remainder lost, spread ±120 px. HP/MP bundles hold 3/6 potions of the
+stock's current tier, separated by ±30 px. Ordinary random potion rolls do not add to these bundles. Each death
+also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
+consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
+header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
+reward defaults for tuning.
+
 Presentation uses the original `UIWindow.img/MobGage` icon frame, gauge borders and colour strips, centred below
 the timer; multiple surviving bosses keep separate rows. Names come from `String.wz`, HP comes from the swarm,
 and colour indices come from canonical `info/hpTagColor` and `info/hpTagBgcolor`. Blue Mushmom lacks a v83 icon and
@@ -669,6 +682,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
 | Boss arrival and initial multipliers | Henesys 5/10/15 min; HP ×2/0.6/0.25; damage ×1.75/1.66/0.96 | C | survivor choices and documented calibration examples above |
 | Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
+| Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
+| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
+| Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
