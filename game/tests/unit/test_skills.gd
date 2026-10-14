@@ -73,14 +73,14 @@ func test_three_snails_upgrades() -> void:
 	assert_eq(w.loadout.stats("three_snails").pierce, 1, "Piercing Shells +1")
 	up.apply("three_snails_speed", w)
 	assert_near(w.loadout.stats("three_snails").speed, 500.0, 1e-3, "Rapid Snails +25%")
-	up.apply("three_snails_rank", w)
+	w.loadout.set_rank("three_snails", 2)  # what level_ranks does at character Lv 3
 	var st := w.loadout.stats("three_snails")
-	assert_eq(st.rank, 2, "Stronger Snails: rank 2")
+	assert_eq(st.rank, 2, "rank 2")
 	assert_eq(st.level, 2, "-> canonical level 2")
 	assert_near(st.damage_min, 25.0, 1e-6, "-> fixdamage 25")
 	assert_eq(st.ball, "Skill.wz/000.img/skill/0001000/level/2/ball", "-> the level-2 shell")
 	assert_eq(st.hit, "Skill.wz/000.img/skill/0001000/level/2/hit/0")
-	up.apply("three_snails_rank", w)
+	w.loadout.set_rank("three_snails", 3)  # character Lv 6
 	st = w.loadout.stats("three_snails")
 	assert_eq(st.level, 3)
 	assert_near(st.damage_max, 40.0, 1e-6, "rank 3 -> fixdamage 40")

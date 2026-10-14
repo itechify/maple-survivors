@@ -16,7 +16,7 @@ func _rng(s: int) -> RandomNumberGenerator:
 func test_beginner_eligibility() -> void:
 	var w := RF.quiet_world()
 	var el := w.upgrades.eligible(w)
-	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce", "three_snails_rank",
+	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "max_hp", "nimble_feet", "recovery", "magnet"]:
 		assert_has(el, id, "Beginner card")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
@@ -70,10 +70,8 @@ func test_maxed_cards_disappear() -> void:
 		assert_eq(w.upgrades.apply("three_snails_count", w), i + 1, "new rank")
 	assert_false("three_snails_count" in w.upgrades.eligible(w), "Additional Shell x4 is the max")
 	assert_eq(w.loadout.stats("three_snails").count, 5)
-	w.upgrades.apply("three_snails_rank", w)
-	w.upgrades.apply("three_snails_rank", w)
-	assert_false("three_snails_rank" in w.upgrades.eligible(w), "Three Snails is at its max rank 3")
-	assert_eq(w.loadout.rank("three_snails"), 3)
+	# Three Snails levels with the character (skills.json level_ranks), so it has no rank card to max out.
+	assert_false("three_snails_rank" in w.upgrades.eligible(w), "no Stronger Snails card")
 
 
 func test_slot_limit_blocks_new_skills() -> void:
@@ -180,16 +178,11 @@ func test_applying_general_cards() -> void:
 
 func test_choice_cards_carry_the_skill_level_change() -> void:
 	var w := RF.quiet_world()
-	# Stronger Snails (+1 rank of Three Snails, ranks 1-3 = levels 1-3): the card's own rank is not the skill's level.
-	var c := w.upgrades.choice_card("three_snails_rank", w)
+	# A mod card names its skill and shows the skill's current level without changing it.
+	var c := w.upgrades.choice_card("three_snails_count", w)
 	assert_eq(c.skill_name, "Three Snails", "the skill's name")
-	assert_eq(int(c.rank), 1, "the card's first rank")
 	assert_eq(int(c.skill_level), 1, "Three Snails is level 1 now")
-	assert_eq(int(c.skill_level_next), 2, "and level 2 once the card is taken")
-	w.upgrades.apply("three_snails_rank", w)
-	c = w.upgrades.choice_card("three_snails_rank", w)
-	assert_eq(int(c.rank), 2, "the card's second (last) rank")
-	assert_eq([int(c.skill_level), int(c.skill_level_next)], [2, 3], "the second card takes the shell to level 3")
+	w.loadout.set_rank("three_snails", 2)
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level_next), 0, "a mod keeps the level")
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level), 2, "the mod's skill level is shown")
 	assert_eq(String(w.upgrades.choice_card("max_hp", w).skill_name), "", "no skill")

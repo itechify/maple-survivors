@@ -168,18 +168,18 @@ func test_level_up_rank_text() -> void:
 	assert_eq(LevelUpWindow.rank_text({"kind": "skill_mod", "rank": 2, "max_rank": 4}), "Lv. 1 → 2")
 	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 5, "max_rank": 5}), "Lv. 4 → 5  MAX")
 	assert_eq(LevelUpWindow.rank_text({"kind": "filler", "rank": 3, "max_rank": 0}), "")
-	# skill_rank cards show the skill's canonical level change, not the card's own rank (Stronger Snails: the second
-	# card takes Three Snails from level 2 to 3; Energy Bolt rank 2 is level 5).
-	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 2, "max_rank": 2, "skill_level": 2,
-		"skill_level_next": 3}), "Skill Lv. 2 → 3  MAX")
+	# skill_rank cards show the skill's canonical level change, not the card's own rank (Magic Guard's last
+	# card takes it from level 15 to 20; Energy Bolt rank 2 is level 5).
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 4, "max_rank": 4, "skill_level": 15,
+		"skill_level_next": 20}), "Skill Lv. 15 → 20  MAX")
 	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 1, "max_rank": 5, "skill_level": 1,
 		"skill_level_next": 5}), "Skill Lv. 1 → 5")
 
 
 func test_level_up_notice_names_only_skills() -> void:
-	var snails := {"kind": "skill_rank", "skill": "three_snails", "name": "Stronger Snails", "skill_name": "Three Snails"}
-	assert_true(LevelUpWindow.names_a_skill(snails), "a skill level-up fits the sentence")
-	assert_eq(LevelUpWindow.notice_name(snails), "Three Snails", "the box names the skill, not the card")
+	var bolt := {"kind": "skill_rank", "skill": "energy_bolt", "name": "Overcharged Bolt", "skill_name": "Energy Bolt"}
+	assert_true(LevelUpWindow.names_a_skill(bolt), "a skill level-up fits the sentence")
+	assert_eq(LevelUpWindow.notice_name(bolt), "Energy Bolt", "the box names the skill, not the card")
 	assert_true(LevelUpWindow.names_a_skill({"kind": "skill_new", "skill": "magic_claw", "name": "Magic Claw"}))
 	for kind: String in ["skill_mod", "stat", "passive", "filler"]:
 		assert_false(LevelUpWindow.names_a_skill({"kind": kind, "skill": "three_snails" if kind == "skill_mod" else "",

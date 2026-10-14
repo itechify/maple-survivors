@@ -63,7 +63,7 @@ func test_cards_are_consistent() -> void:
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	assert_true(fillers >= 3, "enough fillers for a full draw")
-	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce", "three_snails_rank",
+	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
 		assert_true(ids.has(id), "card %s" % id)

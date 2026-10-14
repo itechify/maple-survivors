@@ -6,7 +6,7 @@ extends Node2D
 ##
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
-##   levelup_rank    Stronger Snails (Three Snails level 2 -> 3), Magic Claw (new), Nimble Feet (--focus=2: the notice
+##   levelup_rank    Energy Bolt rank (skill level 13 -> 17), Magic Claw (new), Nimble Feet (--focus=2: the notice
 ##                   without its "raised your ___ skill" sentence)
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
@@ -44,9 +44,10 @@ const MISSING_CARDS := [
 		"icon": "Item.wz/Consume/0200.img/02000004/info/icon", "rank": 1, "max_rank": 0},
 ]
 const RANK_CARDS := [
-	{"id": "three_snails_rank", "kind": "skill_rank", "skill": "three_snails", "name": "Stronger Snails",
-		"desc": "Three Snails +1 skill level: a heavier shell.", "icon": "Skill.wz/000.img/skill/0001000/icon",
-		"rank": 2, "max_rank": 2, "skill_name": "Three Snails", "skill_level": 2, "skill_level_next": 3},
+	{"id": "energy_bolt_rank", "kind": "skill_rank", "skill": "energy_bolt", "name": "Energy Bolt",
+		"desc": "Energy Bolt +1 rank: higher skill level, more magic attack and mastery.",
+		"icon": "Skill.wz/200.img/skill/2001004/icon", "rank": 4, "max_rank": 5, "skill_name": "Energy Bolt",
+		"skill_level": 13, "skill_level_next": 17},
 	{"id": "magic_claw_new", "kind": "skill_new", "skill": "magic_claw", "name": "Magic Claw",
 		"desc": "Learn Magic Claw: rakes the nearest monster twice.", "icon": "Skill.wz/200.img/skill/2001005/icon",
 		"rank": 1, "max_rank": 1, "skill_name": "Magic Claw", "skill_level": 0, "skill_level_next": 1},

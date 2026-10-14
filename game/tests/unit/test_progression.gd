@@ -324,13 +324,11 @@ func test_level_ranks_raise_a_skill_with_the_character_level() -> void:
 			if w.state == RunWorld.CHOOSING_JOB:
 				w.decline_job()
 				continue
-			# Never the Stronger Snails card: the rank must come from the level alone.
-			var pick := ""
+			# No card raises Three Snails: the rank comes from the character level alone.
 			for c: Dictionary in w.pending_cards:
-				if String(c.id) != "three_snails_rank":
-					pick = String(c.id)
-					break
-			w.apply_choice(pick)
+				assert_ne(String(c.get("kind", "")) + ":" + String(c.get("skill", "")), "skill_rank:three_snails",
+					"no Three Snails rank card is offered")
+			w.apply_choice(String(w.pending_cards[0].id))
 		ranks[target] = w.loadout.rank("three_snails")
 		assert_eq(int(w.player_state.level), target, "reached level %d" % target)
 	assert_eq(ranks.get(3), 2, "level 3: Three Snails rank 2 (skill level 2)")

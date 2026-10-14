@@ -145,7 +145,7 @@ static func names_a_skill(card: Dictionary) -> bool:
 	return String(card.get("kind", "")) in SENTENCE_KINDS and String(card.get("skill", "")) != ""
 
 
-## The name the notice's skill box shows for `card`: the skill's name (Stronger Snails raises Three Snails).
+## The name the notice's skill box shows for `card`: the skill's name (a rank card such as Energy Bolt +1 rank names Energy Bolt).
 static func notice_name(card: Dictionary) -> String:
 	var s := String(card.get("skill_name", ""))
 	return s if s != "" else String(card.get("name", ""))
