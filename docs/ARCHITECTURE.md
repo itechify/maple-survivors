@@ -134,6 +134,14 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
 
+Player projectile hit exclusion uses `MobSwarm.identity`, a packed 64-bit logical identity independent of the
+reusable slot index and canonical mob-kind ID. Each fresh `MobSwarm.spawn` receives the next run-local identity;
+pool growth preserves existing identities. `RunWorld.relocate_mob` retains the original logical identity while
+moving its state. ProjectileSystem's packed 64-bit already-hit list remembers these identities, so a relocated
+mob cannot be hit twice by the same shot, while an unrelated fresh mob reusing its slot remains hittable.
+Events, spatial hashes, kill lists and other per-slot state still use slot indices; event schemas do not change.
+This is engine bookkeeping (tier C), with no per-entity allocations and no balance/stat changes.
+
 ### 4.4.1 Run setup (what `RunWorld` is built from)
 
 The sim never reads files. `RunScene` (presentation) builds a setup Dictionary from the asset cache and `res://data`:

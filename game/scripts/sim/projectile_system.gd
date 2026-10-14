@@ -7,6 +7,7 @@ extends RefCounted
 ## is tested against the body boxes (MobKind.hitbox_at grown by the shot radius) of live mobs near it, found through
 ## the SpatialHash (mob feet points; the query is padded by the largest body box). Mobs are hit in the order the
 ## segment enters them; a shot hits each mob at most once (per-shot already-hit list) and dies after 1 + pierce hits.
+## The list stores logical identities, so relocation retains exclusion and a fresh occupant of a reused slot does not.
 ## Each hit rolls its damage (`dmg_min`..`dmg_max`, mob MDD when `magic`, crit) with `rng`, applies it through
 ## MobSwarm.apply_hit (pushed along the shot's direction), appends a `mob_hit` event, and records killed mob slots in
 ## `kills` for RunWorld (mob_died, EXP drop). `paths` is RunWorld.visual_paths (the `visual` and hit-visual indices
@@ -39,8 +40,8 @@ var crit_mult := PackedFloat32Array()
 ## Hits left before the shot dies (1 + pierce at spawn).
 var hits_left := PackedInt32Array()
 var hit_count := PackedInt32Array()
-## MAX_HITS mob slots per shot.
-var hit_list := PackedInt32Array()
+## MAX_HITS logical mob identities per shot; slot reuse must not inherit a previous occupant's hit exclusion.
+var hit_list := PackedInt64Array()
 var hit_visual := PackedInt32Array()
 var skill := PackedInt32Array()
 
@@ -151,7 +152,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 		var base := i * MAX_HITS
 		for c in n:
 			var m := _buf[c]
-			if swarm.active[m] == 0 or _already_hit(base, hit_count[i], m):
+			if swarm.active[m] == 0 or _already_hit(base, hit_count[i], swarm.identity[m]):
 				continue
 			var mk: MobKind = kinds[swarm.kind[m]]
 			var box := mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).grow(rad)
@@ -223,7 +224,7 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: flo
 
 func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray) -> void:
 	if hit_count[i] < MAX_HITS:
-		hit_list[i * MAX_HITS + hit_count[i]] = m
+		hit_list[i * MAX_HITS + hit_count[i]] = swarm.identity[m]
 		hit_count[i] += 1
 	hits_left[i] -= 1
 	# tier C: immune contact consumes a shell/pierce hit, without a damage roll or mob_hit event.
@@ -246,9 +247,9 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		kills.append(m)
 
 
-func _already_hit(base: int, n: int, m: int) -> bool:
+func _already_hit(base: int, n: int, identity: int) -> bool:
 	for k in n:
-		if hit_list[base + k] == m:
+		if hit_list[base + k] == identity:
 			return true
 	return false
 
