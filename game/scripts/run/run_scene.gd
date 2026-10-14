@@ -574,13 +574,14 @@ func handle_events(events: Array) -> void:
 			"boss_skill":
 				_on_boss_skill(e)
 			"mob_projectile_spawned":
-				_event_shot("mob_projectile.png", 0.25) # tier C: capture the first part of the flight.
+				_event_shot("mob_projectile.png", 0.55) # tier C: capture the ball clearly separated from its caster.
 			"mob_projectile_hit":
 				if String(e.hit) != "":
 					fx.play(String(e.hit), e.pos, int(e.facing) > 0)
 			"mob_healed":
-				hud.push_notice("heal_%d" % int(e.mob), "%s recovered %d HP" % [library.string_name("Mob", int(e.mob_id)).strip_edges(), int(e.amount)])
-				_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
+				if world.mob_boss[int(e.mob)] >= 0:
+					hud.push_notice("heal_%d" % int(e.mob), "%s recovered %d HP" % [library.string_name("Mob", int(e.mob_id)).strip_edges(), int(e.amount)])
+					_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
 			"basic_attack":
 				if e.phase == "start":
 					_restart_action = true

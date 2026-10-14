@@ -66,6 +66,8 @@ const MOB_INFO := {
 	# Boss reference facts from the owner's v83 dumps; all frames remain synthetic snail-like art.
 	2220000: {"level": 20, "maxHP": 2000, "exp": 120, "PADamage": 90, "PDDamage": 20,
 		"MDDamage": 30, "speed": -40, "acc": 60, "boss": 1, "pushed": 1},
+	3220000: {"level": 35, "maxHP": 7000, "exp": 405, "PADamage": 125, "PDDamage": 50,
+		"MDDamage": 70, "speed": -60, "acc": 80, "boss": 1, "pushed": 1},
 	6130101: {"level": 60, "maxHP": 20000, "exp": 1200, "PADamage": 200, "PDDamage": 320,
 		"MDDamage": 320, "speed": 5, "acc": 150, "boss": 1, "pushed": 1000},
 	9400205: {"level": 90, "maxHP": 200000, "exp": 10000, "PADamage": 450, "PDDamage": 810,
