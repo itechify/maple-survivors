@@ -481,3 +481,56 @@ fn real_import_of_stumpy_projectile_heal_and_sounds() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_king_slime_dyle_kits_bars_and_sounds() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    for id in [9300003, 6220000] {
+        assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)));
+    }
+    assert!(source["imgs"].as_array().unwrap().iter().any(|v| v["img"] == "Effect.wz/Summon.img" && v["paths"].as_array().unwrap().contains(&serde_json::json!("3"))));
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-tree-bosses-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format":1,"mobs":[9300003,6220000],
+        "imgs":[{"img":"Skill.wz/MobSkill.img"},{"img":"Effect.wz/Summon.img","paths":["3"]},
+        {"img":"UI.wz/UIWindow.img","paths":["MobGage"]}]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert!(result.unresolved_uols.is_empty(), "{:?}", result.unresolved_uols);
+    let read = |p: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap() };
+    let king = read("Mob.wz/9300003.img.json");
+    assert_eq!(king["info"]["maxHP"],8000); assert!(king["info"].get("boss").is_none());
+    assert_eq!(king["attack1"]["info"]["attackAfter"],900); assert_eq!(king["attack1"]["info"]["jumpAttack"],1);
+    assert_eq!(king["attack1"]["info"]["PADamage"],165);
+    assert_eq!(king["info"]["revive"].as_object().unwrap().len(),11);
+    assert!(king["info"]["revive"].as_object().unwrap().values().all(|v| *v == 210100));
+    let dyle = read("Mob.wz/6220000.img.json");
+    assert_eq!(dyle["info"]["maxHP"],31000); assert_eq!(dyle["info"]["boss"],1);
+    let skills = read("Skill.wz/MobSkill.img.json");
+    let summon = &skills["200"]["level"]["2"];
+    assert_eq!(summon["interval"],50); assert_eq!(summon["hp"],50); assert_eq!(summon["limit"],15);
+    assert_eq!(summon["summonEffect"],3);
+    for i in 0..3 { assert_eq!(summon[i.to_string()],210100); }
+    let heal = &skills["114"]["level"]["17"];
+    assert_eq!(heal["x"],5000); assert_eq!(heal["y"],500); assert_eq!(heal["hp"],90); assert_eq!(heal["interval"],20);
+    let immunity = &skills["140"]["level"]["8"];
+    assert_eq!(immunity["interval"],30); assert_eq!(immunity["time"],5); assert_eq!(immunity["hp"],80);
+    assert_eq!(immunity["mob"]["repeat"],1); assert_eq!(immunity["mob"]["pos"],2);
+    assert_eq!(immunity["mob"]["0"]["origin"]["$v"],serde_json::json!([17,44]));
+    assert!(immunity["mob"]["0"]["$canvas"].is_array());
+    let summon_art = read("Effect.wz/Summon.img.json");
+    assert!(summon_art["3"]["0"]["$canvas"].is_array());
+    let ui = read("UI.wz/UIWindow.img.json");
+    for id in ["9300003","6220000"] { assert!(ui["MobGage"]["Mob"][id]["$canvas"].is_array()); }
+    let sounds = read("Sound.wz/Mob.img.json");
+    for (id, actions) in [("9300003",vec!["Attack1","Skill1","Damage","Die"]), ("6220000",vec!["Skill1","Damage","Die"])] {
+        for action in actions {
+            let path = sounds[id][action]["$sound"].as_str().unwrap();
+            assert!(std::fs::metadata(out.join(path)).unwrap().len() > 0,"{id}/{action}");
+        }
+    }
+    std::fs::remove_dir_all(tmp).unwrap();
+}

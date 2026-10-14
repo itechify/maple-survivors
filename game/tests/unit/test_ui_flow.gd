@@ -58,7 +58,7 @@ func test_stage_select_ignores_retired_save_records() -> void:
 func test_stage_select_objective_matches_the_clear_rule() -> void:
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
 	assert_eq(offered[0].objective, "Defeat all 3 bosses to clear.")
-	assert_eq(offered[1].objective, "Defeat the boss to clear.")
+	assert_eq(offered[1].objective, "Defeat all 3 bosses to clear.")
 	var fallback := DataRepo.load_all()
 	fallback.stages.stages.tree_that_grew_1.erase("bosses")
 	assert_eq(STAGE_SELECT.load_stages(fallback)[1].objective, "Survive 15:00 to clear the stage.")

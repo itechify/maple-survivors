@@ -889,6 +889,81 @@ func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 
 
 
+func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 25, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.bosses.teleport_stall = 10000.0
+	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	data.stages.stages.tree_that_grew_1.bursts = {}
+	data.stages.stages.tree_that_grew_1.elites = {}
+	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
+	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 25, Vector2(800,600), func(p:String)->Dictionary:return lib.img(p).root, lib.mob_root)
+	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
+	setup.mob_imgs[6220000].info.skill = {"0": {"skill":140,"level":8,"action":1,"effectAfter":0}}
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	_frames(1)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min":10000.0,"damage_max":10000.0,"magic":false,"crit":0.0,"crit_mult":1.5,"skill":"three_snails"}, -1)
+	_frames(1800)
+	assert_true(scene.has_method("mob_status_effects"), "mob status art exposes its detached draw model")
+	if not scene.has_method("mob_status_effects"):
+		return
+	var displayed: Array = scene.call("mob_status_effects")
+	assert_eq(displayed.size(), 1)
+	if displayed.size() == 1:
+		assert_eq(displayed[0].visual, "Skill.wz/MobSkill.img/140/level/8/mob")
+		assert_eq(displayed[0].mob, slot)
+		assert_true(displayed[0].visible)
+	var pos := Vector2(w.swarm.x[slot] + 100, w.swarm.y[slot])
+	var moved := w.relocate_mob(slot, pos, w.swarm.fh[slot])
+	_frames(1)
+	displayed = scene.call("mob_status_effects")
+	assert_eq(displayed[0].mob, moved)
+	assert_near((displayed[0].pos as Vector2).x, w.swarm.x[moved], 0.01)
+	_frames(300)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 0)
+	_frames(1500)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 1, "second canonical interval recasts")
+	w.hit_mob(moved, {"damage_min":100000.0,"damage_max":100000.0,"magic":true,"crit":0.0,"crit_mult":1.5,"skill":"energy_bolt"}, -1)
+	_frames(1)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 0, "death hides a still-timed icon")
+	_assert_nothing_missing(scene, "Dyle immunity")
+
+
+func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 2521, {})
+	var w := scene.world
+	w.god = true
+	w.loadout.order.clear()
+	w.loadout.ranks.clear()
+	w.bosses = BossDirector.new([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
+	_frames(1)
+	var rows := scene.hud.boss_bar.displayed()
+	assert_eq(rows.size(), 2)
+	if rows.size() != 2:
+		return
+	assert_eq(rows[0].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/9300003")
+	assert_eq(rows[0].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[0].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	assert_eq(rows[1].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/6220000")
+	assert_true(rows[0].icon != null and rows[1].icon != null)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min":100000.0,"damage_max":100000.0,"magic":true,"crit":0.0,"crit_mult":1.5,"skill":"energy_bolt"}, -1)
+	_frames(1)
+	assert_eq(scene.hud.boss_bar.displayed().size(), 1)
+	assert_eq(w.mob_skills.summoned_alive(w, 0), 11)
+	_assert_nothing_missing(scene, "Tree bosses and revive")
+
+
 func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> void:
 	if not require_cache():
 		return

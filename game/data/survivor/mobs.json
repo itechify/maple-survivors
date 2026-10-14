@@ -19,7 +19,11 @@
 		"9400205": {"name": "Blue Mushmom", "exp_item": 4000011,
 			"boss_ui": {"icon_id": 6130101, "hp_tag_color": 1, "hp_tag_bgcolor": 5,
 				"_tier": "tier C: borrow Mushmom's canonical MobGage icon and hpTag colours; Blue Mushmom lacks them in v83"}},
-		"9300003": {"name": "King Slime", "boss_ui": {"hp_tag_color": 1, "hp_tag_bgcolor": 5,
+		"6220000": {"name": "Dyle", "exp_item": 4000003,
+			"_exp_item": "tier C: existing Tree Branch EXP icon for this stage boss, not a canonical drop-table claim"},
+		"9300003": {"name": "King Slime", "exp_item": 4000010, "no_flinch": true,
+			"_no_flinch": "tier C: scheduled boss never flinches; canonical info/boss is absent and remains untouched",
+			"boss_ui": {"hp_tag_color": 1, "hp_tag_bgcolor": 5,
 			"_tier": "tier C: supply standard boss hpTag colours missing from King Slime's v83 info; its MobGage icon is canonical"}}
 	}
 }

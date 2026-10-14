@@ -73,6 +73,10 @@ const MOB_INFO := {
 		"MDDamage": 320, "speed": 5, "acc": 150, "boss": 1, "pushed": 1000},
 	9400205: {"level": 90, "maxHP": 200000, "exp": 10000, "PADamage": 450, "PDDamage": 810,
 		"MDDamage": 520, "speed": -20, "acc": 220, "boss": 1, "pushed": 1000},
+	9300003: {"level": 40, "maxHP": 8000, "exp": 800, "PADamage": 130, "PDDamage": 160,
+		"MDDamage": 160, "speed": -20, "acc": 140, "pushed": 300},
+	6220000: {"level": 65, "maxHP": 31000, "exp": 810, "PADamage": 190, "PDDamage": 190,
+		"MDDamage": 220, "speed": -30, "acc": 150, "boss": 1, "pushed": 1500},
 }
 
 

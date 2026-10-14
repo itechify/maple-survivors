@@ -196,7 +196,7 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		active[i] = 0
 		_alive -= 1
 		return true
-	if mk != null and (mk.boss or dmg < mk.pushed):
+	if mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed):
 		return false
 	state[i] = HIT
 	state_t[i] = 0.0

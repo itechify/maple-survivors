@@ -126,8 +126,9 @@ func despawn(i: int) -> void:
 
 
 ## Moves every shot by dt, resolves hits against `swarm` through `grid` (rebuilt this tick from swarm.x/y/active),
-## appends mob_hit events and fills `kills`. Optional live_mdd is the per-slot defense at this impact tick.
-func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array()) -> void:
+## appends mob_hit events and fills `kills`. Optional defense/immunity arrays describe this impact tick.
+func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array(),
+		physical_allowed: PackedByteArray = PackedByteArray()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
@@ -166,7 +167,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			_hit(i, m, swarm, events, live_mdd)
+			_hit(i, m, swarm, events, live_mdd, physical_allowed)
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -220,7 +221,14 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: flo
 	return Vector2i(maxi(1, roundi(dmg)), 1 if is_crit else 0)
 
 
-func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array) -> void:
+func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray) -> void:
+	if hit_count[i] < MAX_HITS:
+		hit_list[i * MAX_HITS + hit_count[i]] = m
+		hit_count[i] += 1
+	hits_left[i] -= 1
+	# tier C: immune contact consumes a shell/pierce hit, without a damage roll or mob_hit event.
+	if magic[i] == 0 and m < physical_allowed.size() and physical_allowed[m] == 0:
+		return
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd)
 	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
@@ -236,10 +244,6 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	dealt += roll.x
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
-	if hit_count[i] < MAX_HITS:
-		hit_list[i * MAX_HITS + hit_count[i]] = m
-		hit_count[i] += 1
-	hits_left[i] -= 1
 
 
 func _already_hit(base: int, n: int, m: int) -> bool:

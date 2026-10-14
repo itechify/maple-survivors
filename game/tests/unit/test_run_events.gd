@@ -52,6 +52,11 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		for slot: Variant in e.targets:
 			assert_true(slot is int,"boss skill target slot type")
 	match type:
+		"mob_revives_spawned":
+			assert_true(e.revives is Array)
+			for child: Dictionary in e.revives:
+				assert_eq(child.keys(), ["mob", "mob_id"])
+				assert_true(child.mob is int and child.mob_id is int)
 		"job_advance_pending":
 			for o: Dictionary in e.options:
 				var ok: Array = o.keys()
@@ -175,6 +180,14 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in heal.drain_events():
 		_check(event, seen)
 	# A same-map warp for portal_used (the synthetic hunting ground otherwise has only spawn points).
+	var king := RunWorld.new(preload("res://tests/fixtures/tree_boss_fixtures.gd").setup(9300003, []))
+	king.god = true
+	for tick in 60:
+		king.step(DT, MoveInput.new())
+	king.hit_mob(int(king.bosses.records[0].slot), {"damage_min": 100000.0, "damage_max": 100000.0,
+		"magic": true, "crit": 0.0, "crit_mult": 1.5, "skill": "energy_bolt"}, -1)
+	for event: Dictionary in king.drain_events():
+		_check(event, seen)
 	var p_setup := RF.setup("quiet", 17, RF.quiet_data())
 	p_setup.map_img.portal = {
 		"0": {"pn": "source", "pt": 1, "x": 400, "y": 200, "tm": 999999999, "tn": "destination"},

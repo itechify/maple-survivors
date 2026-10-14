@@ -156,6 +156,7 @@ var _window_open_t := 0.0
 var _window_auto := 0.0
 var _restart_action := false
 var _slow_fx := -1
+var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
@@ -582,6 +583,8 @@ func handle_events(events: Array) -> void:
 				if world.mob_boss[int(e.mob)] >= 0:
 					hud.push_notice("heal_%d" % int(e.mob), "%s recovered %d HP" % [library.string_name("Mob", int(e.mob_id)).strip_edges(), int(e.amount)])
 					_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
+			"mob_revives_spawned":
+				_event_shot("king_slime_split.png", 0.15) # tier C: capture canonical death art with its living offspring.
 			"basic_attack":
 				if e.phase == "start":
 					_restart_action = true
@@ -623,6 +626,8 @@ func handle_events(events: Array) -> void:
 
 func _on_boss_skill(e: Dictionary) -> void:
 	var source := int(e.mob)
+	if int(e.skill_id) == 140:
+		_event_shot("dyle_immunity.png", 0.15)
 	if String(e.effect) != "":
 		# tier C: heal mob0 pos0 uses feet; MobSkill pos3 effect art uses the canonical body-box center.
 		var effect_pos: Vector2 = e.pos if int(e.skill_id) == 114 else world.mob_center(source)
@@ -923,6 +928,7 @@ func _present(delta: float) -> void:
 	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
 		fx.stop(_slow_fx)
 		_slow_fx = -1
+	_update_mob_status_effects()
 	_update_player(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var boss_actions := world.bosses.action_snapshot(world.swarm)
@@ -938,6 +944,41 @@ func _present(delta: float) -> void:
 		notice_layer.get_node("NoticeText").queue_redraw()
 	elif _clear_text:
 		notice_layer.get_node("NoticeText").queue_redraw()
+
+
+## Detached draw model for live boss status icons; original animations/origins remain in the asset cache.
+func mob_status_effects() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for record: Dictionary in world.bosses.records:
+		var slot := int(record.slot)
+		if slot < 0 or world.swarm.active[slot] == 0:
+			continue
+		var status := world.mob_skills.immunity_state(slot, world.time)
+		if status.is_empty():
+			continue
+		var kind: MobKind = world.mob_kinds[world.swarm.kind[slot]]
+		# tier C: MobSkill pos2 is anchored at the mob body top; WZ origin supplies the gap above it.
+		var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot] + kind.hitbox.position.y)
+		out.append({"boss_index": int(record.boss_index), "mob": slot, "visual": String(status.visual),
+			"pos": pos, "visible": _immunity_fx.has(int(record.boss_index))})
+	return out
+
+
+func _update_mob_status_effects() -> void:
+	var seen := {}
+	for status: Dictionary in mob_status_effects():
+		var index := int(status.boss_index)
+		seen[index] = true
+		if not _immunity_fx.has(index):
+			var slot := fx.play_repeating(String(status.visual), status.pos, INF)
+			if slot >= 0:
+				_immunity_fx[index] = slot
+		if _immunity_fx.has(index):
+			fx.place(int(_immunity_fx[index]), status.pos)
+	for index: int in _immunity_fx.keys():
+		if not seen.has(index):
+			fx.stop(int(_immunity_fx[index]))
+			_immunity_fx.erase(index)
 
 
 func _update_player(delta: float) -> void:

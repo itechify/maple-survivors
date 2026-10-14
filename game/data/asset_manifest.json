@@ -2,7 +2,7 @@
 	"format": 1,
 	"_doc": "What tools/wzimport exports into the asset cache. Entry semantics: docs/ASSET_PIPELINE.md section 4.",
 	"imgs": [
-		{"img": "Effect.wz/Summon.img", "paths": ["1"]},
+		{"img": "Effect.wz/Summon.img", "paths": ["1", "3"]},
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
@@ -44,7 +44,7 @@
 	],
 	"maps": [104040000, 101010100],
 	"mapimgs": ["UI.wz/MapLogin.img"],
-	"mobs": [100100, 100101, 130101, 120100, 210100, 1210100, 1210102, 1110100, 9300063, 9300062, 9300064, 2300100, 2220000, 3220000, 6130101, 9400205],
+	"mobs": [100100, 100101, 130101, 120100, 210100, 1210100, 1210102, 1110100, 9300063, 9300062, 9300064, 2300100, 2220000, 3220000, 6130101, 9400205, 9300003, 6220000],
 	"character": [2000, 12000, 20000, 30030, 1040002, 1060002, 1072001, 1302000, 1372005],
 	"items": [4000019, 4000000, 4000016, 4000011, 4000010, 4000017, 4000001, 4000012, 4000003, 4000042, 4000076, 4000081, 2000000, 2000001, 2000002, 2000003, 2000004, 2000005, 2000006]
 }

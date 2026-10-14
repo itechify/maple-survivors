@@ -1,7 +1,7 @@
 {
 	"_doc": "Run-wide survivor tuning (docs/GAME_DESIGN.md sections 5, 6; docs/ARCHITECTURE.md 4.4.4). Everything here is tier C (ours / emulator-like) unless a note says otherwise; canonical WZ numbers are never copied here except where noted as a survivor choice of equipment.",
 	"exp_curve": {"a": 4, "b": 8, "c": 4.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 16, L7 256, L9 400, L29 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
-	"mob_skills": {"_doc": "Tier C: enabled boss kits; slow x retains x percent of upgraded speed; defense x adds flat defense; heal x/y are inclusive random bounds.", "enabled_ids": [2220000, 3220000], "summon_spacing": 24},
+	"mob_skills": {"_doc": "Tier C: enabled boss kits; slow x retains x percent of upgraded speed; defense x adds flat defense; heal x/y are inclusive random bounds;140 is timed self weapon immunity.", "enabled_ids": [2220000, 3220000, 9300003, 6220000], "summon_spacing": 24},
 	"mob_projectiles": {"radius": 8, "_tier": "tier C: swept body contact radius when the canonical ball has no lt/rb"},
 	"exp_mult": 1.0,
 	"player": {
