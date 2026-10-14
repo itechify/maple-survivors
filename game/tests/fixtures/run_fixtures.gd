@@ -46,7 +46,7 @@ static func skill_imgs() -> Dictionary:
 	return {"000": b000, "200": b200, "210": b210}
 
 
-## Canonical info rows of the stage mobs (cosmic-data.md section 6; Ribbon Pig is a synthetic stand-in).
+## Canonical info rows of the stage mobs (cosmic-data.md section 6).
 const MOB_INFO := {
 	100100: {"level": 1, "maxHP": 8, "exp": 3, "PADamage": 12, "PDDamage": 0, "MDDamage": 0, "speed": -65},
 	100101: {"level": 2, "maxHP": 15, "exp": 4, "PADamage": 17, "PDDamage": 0, "MDDamage": 0, "speed": -50},
@@ -55,8 +55,6 @@ const MOB_INFO := {
 	210100: {"level": 6, "maxHP": 50, "exp": 10, "PADamage": 32, "PDDamage": 5, "MDDamage": 10, "speed": -20,
 		"jump": true},
 	1210100: {"level": 7, "maxHP": 75, "exp": 15, "PADamage": 37, "PDDamage": 5, "MDDamage": 20, "speed": 0,
-		"jump": true},
-	1210101: {"level": 10, "maxHP": 120, "exp": 20, "PADamage": 45, "PDDamage": 10, "MDDamage": 20, "speed": 0,
 		"jump": true},
 	1210102: {"level": 8, "maxHP": 80, "exp": 15, "PADamage": 42, "PDDamage": 0, "MDDamage": 10, "speed": 0,
 		"jump": true},
