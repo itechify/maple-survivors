@@ -454,8 +454,13 @@ policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance secti
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
 per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
 TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,
-cast counts and Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
+offensive cast counts and aggregated Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
+`buff_casts` is an additive harness diagnostic: event-observation time, skill/key ID, canonical level/duration,
+and effect stat/value copied from the public cast snapshot. Normal runs drain after each fixed step, so this is
+that cast tick; already-pending setup events are observed at the next drain. It adds no RNG calls or gameplay
+changes. Earlier records lacking this field are unavailable observations, not zero casts. Hit MP absorption may
+be clipped by available MP, so it is not a substitute for the canonical active effect or a coverage measure.
 The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
 to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
 ID. These replace the final score, with no job bonus added; an unlisted card retains its existing
