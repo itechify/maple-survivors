@@ -1,0 +1,42 @@
+class_name PlayerBuffs
+extends RefCounted
+## Pure timed player-buff state. Casts snapshot canonical duration/effect at their skill level; rank changes affect
+## the next cast. Timers run independently of movement and casting gates, including on ropes.
+
+var active := {}
+
+
+## Whether the named skill is currently active.
+func has(skill: String) -> bool:
+	return active.has(skill)
+
+
+## Starts a resolved buff and snapshots the data needed by hit rules and the HUD.
+func start(skill: String, stats: Dictionary) -> void:
+	active[skill] = {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
+		"icon": String(stats.icon), "remaining": float(stats.duration), "duration": float(stats.duration),
+		"effect_stat": String(stats.buff_stat), "value": float(stats.buff_value)}
+
+
+## Counts down active buffs and emits exactly one expiry per cast.
+func step(dt: float, events: Array) -> void:
+	for skill: String in active.keys():
+		var buff: Dictionary = active[skill]
+		buff.remaining = maxf(0.0, float(buff.remaining) - dt)
+		if float(buff.remaining) <= 1e-6:
+			active.erase(skill)
+			events.append({"type": "buff_expired", "skill": skill, "skill_id": int(buff.skill_id)})
+
+
+## Sum of active canonical effects feeding a hit-rule stat (e.g. mp_guard or pdd).
+func effect_total(stat: String) -> float:
+	var total := 0.0
+	for buff: Dictionary in active.values():
+		if buff.effect_stat == stat:
+			total += float(buff.value)
+	return total
+
+
+## Detached presentation snapshot, in cast order.
+func snapshot() -> Array:
+	return active.values().duplicate(true)

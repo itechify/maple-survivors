@@ -67,7 +67,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -182,6 +182,22 @@ func test_every_event_matches_the_schema() -> void:
 	potion.progression.level = 10
 	potion.upgrades.apply("orange_potion", potion)
 	for e: Dictionary in potion.drain_events():
+		_check(e, seen)
+	var buff_setup := RF.setup("quiet", 12, RF.quiet_data())
+	buff_setup.data.balance.player.skills = []
+	buff_setup.data.balance.regen.mp = 0
+	var buff_world := RunWorld.new(buff_setup)
+	buff_world.change_job(200)
+	buff_world.loadout.ranks.erase("energy_bolt")
+	buff_world.loadout.order.erase("energy_bolt")
+	buff_world.learn_skill("magic_guard")
+	buff_world.learn_skill("magic_armor")
+	for tick in 2:
+		buff_world.step(DT, MoveInput.new())
+	buff_world.spend_mp(int(buff_world.player_state.mp))
+	for tick in 60 * 112:
+		buff_world.step(DT, MoveInput.new())
+	for e: Dictionary in buff_world.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

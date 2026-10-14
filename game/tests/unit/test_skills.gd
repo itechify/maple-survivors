@@ -37,7 +37,7 @@ func test_skill_book_levels_and_paths() -> void:
 	assert_eq(b.visual("magic_claw", "hit", 1, 12), "Skill.wz/200.img/skill/2001005/CharLevel/10/hit/0")
 	assert_eq(b.visual("magic_claw", "effect", 1, 27), "Skill.wz/200.img/skill/2001005/CharLevel/25/effect")
 	assert_true(b.is_active("magic_claw"))
-	assert_false(b.is_active("magic_guard"))
+	assert_true(b.is_active("magic_guard"), "timed buff participates in auto-casting")
 
 
 func test_three_snails_base_stats() -> void:
@@ -114,13 +114,13 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_eq(mc.attack_count, 2, "canonical attackCount")
 	assert_near(mc.range, 260.0, 1e-6)
 	var mg := w.loadout.stats("magic_guard")
-	assert_eq(mg.passive_stat, "mp_guard")
-	assert_near(mg.passive_value, 11.0, 1e-6, "Magic Guard L1 x = 11")
-	assert_near(w.loadout.passive_total("mp_guard"), 11.0, 1e-6)
+	assert_eq(mg.buff_stat, "mp_guard")
+	assert_near(mg.buff_value, 11.0, 1e-6, "Magic Guard L1 x = 11")
+	assert_near(w.loadout.passive_total("mp_guard"), 0.0, 1e-6, "no permanent split")
 	w.loadout.set_rank("magic_guard", 5)
-	assert_near(w.loadout.passive_total("mp_guard"), 80.0, 1e-6, "rank 5 = level 20: x = 80")
-	assert_near(w.loadout.passive_total("pdd"), 2.0, 1e-6, "Magic Armor L1 pdd = 2")
-	assert_near(w.player_pdd, 2.0, 1e-6, "feeds the player's defence")
+	assert_near(w.loadout.stats("magic_guard").buff_value, 80.0, 1e-6, "rank 5 = level 20: x = 80")
+	assert_near(w.loadout.stats("magic_armor").buff_value, 2.0, 1e-6, "Magic Armor L1 pdd = 2")
+	assert_near(w.player_pdd, 0.0, 1e-6, "no permanent defence")
 
 
 func test_runner_fires_only_with_target_in_range() -> void:

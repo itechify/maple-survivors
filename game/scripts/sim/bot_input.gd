@@ -334,7 +334,7 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
 	var sd := w.book.def(key)
-	var attack := String(sd.get("kind", "")) != "passive"
+	var attack := String(sd.get("kind", "")) in ["projectile", "instant"]
 	var sj := int(sd.get("job", -1))
 	var pj := w.progression.job_id
 	var bonus := SCORE_JOB_BONUS if sj == pj or (sj > 0 and w.jobs.is_descendant(pj, sj)) else 0.0

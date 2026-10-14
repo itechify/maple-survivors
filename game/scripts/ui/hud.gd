@@ -20,7 +20,7 @@ var counters := HudCounters.new()
 var skills := HudSkills.new()
 var system_messages := HudMessages.new()
 var potion_slot := HudPotionQuickslot.new()
-var buff_row := HudReservedSlot.new()
+var buff_row := HudBuffRow.new()
 var boss_bar := HudBossBar.new()
 
 func _ready() -> void:
@@ -28,6 +28,7 @@ func _ready() -> void:
 	font = make_font()
 	bold_font = make_font(700)
 	potion_slot.library = library
+	buff_row.library = library
 	boss_bar.library = library
 	for w: HudWidget in [status, counters, skills, system_messages]:
 		w.library = library
@@ -89,7 +90,7 @@ func _layout_slots() -> void:
 	potion_slot.position = bar_origin(view) + Vector2(571, 8)
 	potion_slot.size = Vector2(221, 59)
 	buff_row.position = Vector2(view.x - 224, 42)
-	buff_row.size = Vector2(212, 40)
+	buff_row.size = Vector2(212, 44)
 	boss_bar.position = Vector2(floorf((view.x - 300) * 0.5), 42)
 	boss_bar.size = Vector2(HudBossBar.BAR_WIDTH, HudBossBar.ROW_HEIGHT)
 

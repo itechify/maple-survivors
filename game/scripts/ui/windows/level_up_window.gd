@@ -145,12 +145,13 @@ static func rank_text(card: Dictionary) -> String:
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var changes: Dictionary = card.get("skill_changes", {})
-	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage"}
+	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
+		"time": "Duration", "x": "MP absorption", "pdd": "Weapon DEF"}
 	for field: String in labels:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
-		var suffix := "%" if field == "mastery" else ""
+		var suffix := "%" if field in ["mastery", "x"] else (" s" if field == "time" else "")
 		lines.append("%s: %d%s → %d%s" % [labels[field], int(values.before), suffix, int(values.after), suffix])
 	return lines
 
