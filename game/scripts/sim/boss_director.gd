@@ -29,7 +29,8 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 ## Whether this living, spawned boss can begin an attack or skill at the supplied sim time.
 func can_act(index: int, now: float) -> bool:
 	return index >= 0 and index < records.size() and float(records[index].spawn_time) >= 0.0 \
-		and not bool(records[index].dead) and now >= float(_actions[index].until) - 1e-6
+		and not bool(records[index].dead) and not bool(records[index].get("fading", false)) \
+		and now >= float(_actions[index].until) - 1e-6
 
 
 ## Holds a canonical stance and facing for its duration; attacks and skills use the same action gate.
@@ -134,6 +135,11 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 			"pos": Vector2(point.x, point.y), "time": world.time})
 		return
 	if s.alpha[slot] < 1.0:
+		return
+	if not can_act(index, world.time):
+		# tier C: an intentional windup/skill stance is not a failed pursuit attempt.
+		record.stall = 0.0
+		record.anchor = Vector2(s.x[slot], s.y[slot])
 		return
 	var distance := float(s.route_len[slot])
 	var pos := Vector2(s.x[slot], s.y[slot])

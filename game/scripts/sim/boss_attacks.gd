@@ -13,7 +13,8 @@ func step(world: RunWorld) -> void:
 	for index: int in _pending.keys():
 		var pending: Dictionary = _pending[index]
 		var slot := int(pending.mob)
-		if bool(world.bosses.records[index].dead) or world.swarm.active[slot] == 0:
+		if bool(world.bosses.records[index].dead) or bool(world.bosses.records[index].get("fading", false)) \
+				or world.swarm.active[slot] == 0:
 			_pending.erase(index)
 			continue
 		_service(pending, world)

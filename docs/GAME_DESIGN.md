@@ -406,6 +406,8 @@ its captured ground anchor/facing during the 1.85 s stance (tier C anchoring); t
 original frame origins. The range mirrors with facing. A player body inside the captured area at impact takes the
 physical hit through `take_hit`; when `jumpAttack` is set, being airborne at that moment avoids it (lore, tier C).
 Leaving the area during the windup also avoids it. A boss killed before impact cannot finish the attack.
+An intentional attack/skill stance resets pursuit stall rather than causing a teleport; a fading boss cannot
+begin another action (tier C action/teleport coordination).
 Windup art, sound and effect use original timings. The effect's ground-wave frames begin at 1.10 s, 50 ms after
 the damage impact; neither timeline is retimed to conceal this canonical difference. Selected attacks repeat at
 an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).

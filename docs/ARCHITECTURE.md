@@ -231,6 +231,7 @@ movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`
 `facings: PackedInt32Array`. A nonempty stance holds grounded movement and facing (tier C); `MobRenderer` draws
 that canonical stance once at its elapsed sim time, including its original frame origins. Expiry or death clears
 the override. No per-boss Nodes or presentation clocks drive the action.
+An intentional action hold resets the pursuit-stall clock; a fading boss cannot start another action.
 
 `stage.bosses[].attacks` selects canonical attack stances. `BossAttacks` handles `info/type = 0`, capturing area and
 facing at windup, starting art at `effectAfter`, and resolving damage at `attackAfter` (milliseconds converted to
