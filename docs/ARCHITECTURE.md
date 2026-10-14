@@ -82,6 +82,10 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 
 Everything else is owned by the scene that uses it.
 
+Auto-actions share `RunWorld.can_cast()`: it rejects paused/dead runs and `PlayerMotion.ST_LADDER` (ropes and
+ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
+independent of new casting. A ready skill can cast on the tick movement leaves the climbing state.
+
 ### 4.3 Simulation / presentation split
 
 A run is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s

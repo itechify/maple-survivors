@@ -694,9 +694,9 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	return dmg
 
 
-## Whether auto-actions may cast now. Climbing keeps its current behavior until the climbing-rule ticket.
+## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
 func can_cast() -> bool:
-	return state == PLAYING and not _dead
+	return state == PLAYING and not _dead and player.state != PlayerMotion.ST_LADDER
 
 
 func _gain_exp(n: int) -> void:
