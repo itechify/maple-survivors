@@ -29,6 +29,8 @@
 	"level_up_refill": 0.25,
 	"invincible_time": 1.5,
 	"knockback": {"speed": 187.5, "hop": 200, "lock": 0.3},
+	"_portals": "Same-map portals only: activation box relative to the portal point, lift above arrival before falling, global cooldown in seconds. Tier C: owner choice; source and destination points stay canonical.",
+	"portals": {"reach_x": 25, "reach_above": 100, "reach_below": 25, "arrival_lift": 30, "cooldown": 0.384},
 	"magnet_radius": 90,
 	"collect_radius": 24,
 	"touch_damage": {"scale": 0.55, "roll_min": 0.85, "roll_max": 1.0, "pdd_factor": 0.6},

@@ -3,7 +3,7 @@ extends RefCounted
 ## One survivor run (docs/ARCHITECTURE.md 4.3, 4.4, 4.4.1-4.4.3): built from a setup Dictionary, advanced by fixed
 ## 1/60 s step() calls, reporting what happened through `events`. Pure: no nodes, input, time, files or autoloads.
 ##
-## Per PLAYING tick: player movement (PlayerMotion) -> view rect -> invincibility/regen/cast-stance timers -> mobs
+## Per PLAYING tick: same-map portal activation or player movement (PlayerMotion) -> view rect -> timers -> mobs
 ## (MobSwarm, target = the player) -> SpawnDirector (recycling, spawns, bursts, elites) -> SpatialHash rebuild ->
 ## SkillRunner (casts, instant hits, new shots) -> ProjectileSystem (hits; kills become mob_died + an EXP drop) ->
 ## PickupSystem (magnet, collect -> EXP) -> touch damage -> EXP/level-ups. Then: death -> DEAD (player_died); the
@@ -42,6 +42,7 @@ const EVENT_FIELDS := {
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"player_hit": ["damage", "mp_absorbed", "dir", "pos"],
 	"player_jump": ["pos"],
+	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
 	"pickup_spawned": ["pickup", "item_id", "pos"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos"],
@@ -82,6 +83,7 @@ var physics: PhysicsConstants
 var fhm: FootholdMap
 var bounds := Rect2()
 var ladders: LadderSet
+var portals: PortalSet
 var nav: NavGraph
 var nav_jump: NavGraph
 var player: PlayerMotion
@@ -178,6 +180,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	fhm = FootholdMap.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
 	ladders = LadderSet.from_wz(map_img)
+	portals = PortalSet.from_wz(map_img, int(stage.get("map_id", 0)), balance.get("portals", {}))
 	var nav_opts := {"gravity": physics.gravity_acc, "fall_speed": physics.fall_speed, "jump_speed": physics.jump_speed}
 	nav = NavGraph.build(fhm, nav_opts.merged({"can_jump": false}))
 	nav_jump = NavGraph.build(fhm, nav_opts.merged({"can_jump": true}))
@@ -243,7 +246,13 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
-	var flags := player.step(dt, input, fhm, ladders, bounds)
+	var warp := portals.step(dt, player.pos, input.up)
+	var flags := 0
+	if warp.is_empty():
+		flags = player.step(dt, input, fhm, ladders, bounds)
+	else:
+		player.place(warp.pos, fhm)
+		emit("portal_used", warp)
 	if flags & PlayerMotion.EV_JUMP:
 		emit("player_jump", {"pos": player.pos})
 	update_view()

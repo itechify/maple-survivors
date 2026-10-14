@@ -8,20 +8,22 @@ extends Node2D
 ## Obj sprites come from Map.wz/Obj/<oS>.img/<l0>/<l1>/<l2> (several frames animate with their delays, one canvas is
 ## static), tiles from Map.wz/Tile/<tS>.img/<u>/<no> with tS from the layer's info. Sprites are drawn at pos - origin,
 ## mirrored around pos when f = 1. Static runs are recorded once; only animated sprites and backgrounds redraw.
-## Visible portals (pt 2) use MapHelper.img/portal/game/pv.
+## Visible portals (pt 2) use MapHelper.img/portal/game/pv; hidden portals (pt 10) loop ph/default/portalContinue.
 ##
 ## The camera is read every frame from `camera` (any Camera2D) when set, else from set_view().
 
 const LAYER_COUNT := 8
 const PORTAL_ANIM := "Map.wz/MapHelper.img/portal/game/pv"
-## Visible portal type.
+const HIDDEN_PORTAL_ANIM := "Map.wz/MapHelper.img/portal/game/ph/default/portalContinue"
+## tier A: visible and hidden portal types in the original WZ data.
 const PT_VISIBLE := 2
+const PT_HIDDEN := 10
 
 ## Asset source; defaults to the "Assets" autoload.
 var library: AssetLibrary
 ## Camera to follow for backgrounds (optional; see set_view()).
 var camera: Camera2D
-## Draw pt 2 portals.
+## Draw visible exits and hidden-portal sparkles.
 var show_portals := true
 
 ## Loaded map.
@@ -222,7 +224,7 @@ func layer_items(root: Dictionary, layer: int) -> Array:
 	return objs + tiles
 
 
-## Visible (pt 2) portals as animated sprites.
+## Visible (pt 2) portals and hidden (pt 10) sparkles as animated sprites; other types have no portal sprite.
 func portal_items(root: Dictionary) -> Array:
 	var out: Array = []
 	var portal: Variant = root.get("portal", {})
@@ -230,12 +232,13 @@ func portal_items(root: Dictionary) -> Array:
 		return out
 	for k in SpriteAnim.frame_keys(portal):
 		var p: Variant = portal[k]
-		if p is Dictionary and int(p.get("pt", -1)) == PT_VISIBLE:
-			var a := _anim(PORTAL_ANIM)
+		if p is Dictionary and int(p.get("pt", -1)) in [PT_VISIBLE, PT_HIDDEN]:
+			var path := HIDDEN_PORTAL_ANIM if int(p.pt) == PT_HIDDEN else PORTAL_ANIM
+			var a := _anim(path)
 			if a == null:
-				break
+				continue
 			out.append({"anim": a, "pos": Vector2(float(p.get("x", 0)), float(p.get("y", 0))), "flip": false,
-				"kind": "portal", "z": 0, "index": int(k), "path": PORTAL_ANIM})
+				"kind": "portal", "z": 0, "index": int(k), "path": path})
 	return out
 
 
