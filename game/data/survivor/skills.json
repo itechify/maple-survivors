@@ -7,6 +7,7 @@
 			"name": "Three Snails", "desc": "Hurls snail shells at the nearest monster.",
 			"icon": "Skill.wz/000.img/skill/0001000/icon",
 			"damage": "fixed",
+			"mp_cost_override": 0,
 			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,
 			"ranks": [1, 2, 3],
 			"level_ranks": {"3": 2, "6": 3},
@@ -74,6 +75,14 @@
 			"ball": "", "hit": "", "effect": "",
 			"rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2001003/Use", "hit": ""}
+		},
+		"improved_mp_recovery": {
+			"skill_id": 2000000, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
+			"name": "Improved MP Recovery", "desc": "Adds character-level-scaled MP recovery every 10 seconds.",
+			"icon": "Skill.wz/200.img/skill/2000000/icon",
+			"damage": "none", "ranks": [1, 4, 8, 12, 16],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
 		},
 		"fire_arrow": {
 			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",

@@ -367,7 +367,8 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
-  Max HP/MP are currently refilled by 25% on level up; overhaul ticket #9 removes healing from level-ups.
+  Level-ups raise the maxima without restoring current HP or MP (`level_up_refill` = 0); explicit maximum-pool
+  upgrade cards still grant their stated increase.
 - **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
   active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
@@ -392,7 +393,11 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 - On hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
 - **Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
-- HP regenerates slowly (Recovery upgrade); MP regenerates 2/s (+Improved MP Recovery).
+- Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
+  maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
+  Interval, amounts and divisor live in `balance.regen`. Recovery temporarily adds +10 HP per pulse per card rank;
+  its timed-buff ticket will replace that interim rule. Pulses continue on ropes and ladders; paused ticks do not
+  advance the timer, and partial pulse intervals survive skill/card changes.
 
 ### 6.3 Damage numbers
 
@@ -404,7 +409,12 @@ stack upward one line per number: 30 px above a normal number, 36 px above a (ta
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank** maps to a canonical skill level, so ranking up a skill visibly changes it the way the original did.
-No skill costs MP in survivor mode (MP fuels Magic Guard instead).
+Job skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
+uses the survivor `mp_cost_override` of 0 (tier C, owner choice). Each tick casts at most one skill, oldest-ready
+first; learned order breaks a tie. A ready skill without a target or sufficient MP waits without restarting its
+cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
+per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting
+can resume (tier C presentation). No MP is charged while climbing or when no target exists.
 
 While hanging on a rope or ladder, no new auto-action casts: skills, basic attacks and buff casting share
 `RunWorld.can_cast()`. Cooldowns continue, so a ready skill fires on the first eligible tick after leaving the
@@ -454,9 +464,10 @@ Draw rules:
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
 
-General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Magnet +25% radius;
-for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000) (Magician skills in v83, and MP
-only matters once Magic Guard exists).
+General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, interim Recovery (1001) +10 HP per pulse,
+Magnet +25% radius; for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
+The latter is an owned canonical passive skill, learned at level 1 and ranked through levels 4 / 8 / 12 / 16,
+adding the level-scaled pulse bonus in section 6.2.
 
 Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
 1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
@@ -549,7 +560,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
-| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery +1 HP/s, MP Recovery +1 MP/s, Max MP +25, Magnet ×1.25) | C | ours |
+| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, interim Recovery +10 HP/pulse, MP Recovery ranks 1/4/8/12/16, Max MP +25, Magnet ×1.25) | C (rank mapping/tuning); A (canonical levels) | ours; original WZ |
+| Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
+| Level-up pools / casting order / low-MP cue | no level-up healing or implicit current-pool gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |
 | EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest (its age restarts) | C | ours |
 | EXP drop lifetime | never expires (`pickup.lifetime` 0); past 600 drops new EXP merges into the nearest drop | C | owner decision 2026-10-14 |
 | Spawn rings | first the floors beside the view (within 160 px of its sides, `band`, and 48 px of its height, `band_y`), then within 480 px of the view, then the map within 1170 px of the player; 12 samples per ring, looking first for a point whose way to the player is at most half the view width + 48 + 160 px (`prefer_route`, 608 px on an 800 px view: no longer than the walk in from the ring's outer edge), then for any point that reaches the player, before an unreachable spot; never where a wall that crosses a platform stands anywhere on the way to the player (followed edge by edge onto the player's platform) | C | ours |

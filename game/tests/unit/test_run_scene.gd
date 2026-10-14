@@ -326,6 +326,24 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 	_assert_nothing_missing(scene, "job effect")
 
 
+func test_low_mp_cue_tracks_the_waiting_skill_and_clears_after_restoration() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 9, {})
+	var world := scene.world
+	world.god = true
+	world.change_job(200)
+	world.spend_mp(int(world.player_state.mp))
+	world.spawn_mob(int(world.kind_of_id[100100]), world.player.pos + Vector2(-80, 0), world.player.fh, 1000, false)
+	_frames(4)
+	assert_true(bool(world.player_state.mp_short), "a targeted skill waits for MP")
+	assert_true(scene.hud.low_mp_visible(), "the scene displays the persistent low-MP cue")
+	world.heal_fraction("mp", 1.0)
+	_frames(1)
+	assert_false(scene.hud.low_mp_visible(), "the cue disappears when the ready skill casts")
+	_assert_nothing_missing(scene, "low MP cue")
+
+
 func test_pause_holds_the_run() -> void:
 	if not require_cache():
 		return

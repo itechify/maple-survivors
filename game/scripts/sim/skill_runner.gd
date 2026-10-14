@@ -8,6 +8,8 @@ extends RefCounted
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
+## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
+## ready and signals its waiting episode once; a later affordable skill may cast instead.
 ## Stats come from Loadout.stats(), cached until Loadout.version changes.
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
@@ -18,12 +20,15 @@ var cooldowns := {}
 var casts := 0
 ## True if any skill cast during the latest step (cleared even when casting is blocked).
 var fired_this_tick := false
+## True while a ready, targeted skill is waiting for MP this tick (persistent presentation cue).
+var waiting_mp := false
 
 var _stats := {}
 var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat32Array()
+var _shortages := {}
 
 
 func _init() -> void:
@@ -40,7 +45,7 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 	return _stats[key]
 
 
-## Advances cooldowns and fires every ready skill that has a target.
+## Advances cooldowns and fires the oldest affordable ready skill with a target.
 func step(dt: float, world: RunWorld) -> void:
 	tick_cooldowns(dt, world)
 	if world.can_cast():
@@ -50,30 +55,42 @@ func step(dt: float, world: RunWorld) -> void:
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
+	waiting_mp = false
 	for key: String in world.loadout.order:
 		if world.loadout.book.is_active(key):
 			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
 
 
-## Fires ready skills with targets, preserving the existing cooldown carry and loadout order.
+## Fires one affordable skill, oldest-ready first; learned order breaks ties. Short MP never restarts cooldowns.
 func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
+	var ready: Array[String] = []
 	for key: String in lo.order:
-		if not lo.book.is_active(key):
-			continue
+		if lo.book.is_active(key) and float(cooldowns.get(key, 0.0)) <= 0.0:
+			ready.append(key)
+	ready.sort_custom(func(a: String, b: String) -> bool:
+		var ca := float(cooldowns.get(a, 0.0))
+		var cb := float(cooldowns.get(b, 0.0))
+		return ca < cb if ca != cb else lo.order.find(a) < lo.order.find(b))
+	for key: String in ready:
 		var cd := float(cooldowns.get(key, 0.0))
-		if cd > 0.0:
-			cooldowns[key] = cd
-			continue
-		cd = maxf(cd, -dt)
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var n := _find_targets(world, origin, float(st.range), int(st.count))
 		if n == 0:
-			cooldowns[key] = cd
+			_shortages.erase(key)
 			continue
-		cooldowns[key] = cd + float(st.cooldown)
+		if not world.spend_mp(int(st.mp_cost)):
+			waiting_mp = true
+			if not _shortages.has(key):
+				world.emit("mp_short", {"skill": key, "skill_id": int(st.skill_id), "required_mp": int(st.mp_cost),
+					"mp": int(world.player_state.mp)})
+			_shortages[key] = true
+			continue
+		_shortages.erase(key)
+		cooldowns[key] = maxf(cd, -dt) + float(st.cooldown)
 		_fire(world, key, st, origin, n)
+		break
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
