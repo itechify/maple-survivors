@@ -135,6 +135,11 @@ func test_build_setup_and_paths() -> void:
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
+		if p == "Item.wz/Consume/0200.img":
+			var items := {}
+			for id in range(2000000, 2000007):
+				items["%08d" % id] = {"spec": {"hp": 50.0}}
+			return items
 		return {"info": {}} if p.begins_with("Character.wz/") else {"stub": p}
 	var mob_loader := func(id: int) -> Dictionary: return {} if id == 1110100 else {"info": {"id": id}}
 	var missing := PackedStringArray()
@@ -171,3 +176,21 @@ func test_monster_damage_has_no_hidden_balance_scales() -> void:
 		for keyframe: Dictionary in data.stages.stages[stage].keyframes:
 			assert_false(keyframe.has("damage"), "%s damage belongs to the monster, not run time" % stage)
 		assert_true(float(data.stages.stages[stage].elites.damage_mult) > 1.0, "explicit elite danger")
+
+
+func test_setup_carries_canonical_potion_specs() -> void:
+	var loader := func(path: String) -> Dictionary:
+		if path == "Item.wz/Consume/0200.img":
+			var items := {}
+			for id in range(2000000, 2000007):
+				items["%08d" % id] = {"spec": {"hp": 50.0}, "info": {"price": 25.0}}
+			return items
+		return {"info": {}}
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 10, Vector2(800, 600), loader,
+		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
+	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
+		"canonical potion spec reaches the pure simulation")
+	assert_eq(setup.get("item_info", {}).size(), 7, "all requested potion entries are retained")
+	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	for id in range(2000000, 2000007):
+		assert_true(float(id) in manifest.items, "potion %d imported" % id)

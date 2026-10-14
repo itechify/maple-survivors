@@ -147,6 +147,9 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 		"physics_img": WF.physics_img_v83(),
 		"mob_imgs": mob_imgs(),
 		"skill_imgs": skill_imgs(),
+		# Synthetic item nodes with independently verified v83 restore amounts.
+		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
+			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
 		"seed": p_seed,
@@ -198,6 +201,8 @@ static func auto_choose(w: RunWorld) -> void:
 ## can place every mob themselves.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
+	# Isolated combat/physics tests opt into potion rolls explicitly when they need them.
+	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var stages: Dictionary = data.stages.stages
 	var pool := {}
 	for id: int in MOB_INFO:

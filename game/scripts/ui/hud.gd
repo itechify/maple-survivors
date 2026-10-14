@@ -19,7 +19,7 @@ var status := HudStatusBar.new()
 var counters := HudCounters.new()
 var skills := HudSkills.new()
 var system_messages := HudMessages.new()
-var potion_slot := HudReservedSlot.new()
+var potion_slot := HudPotionQuickslot.new()
 var buff_row := HudReservedSlot.new()
 var boss_bar := HudReservedSlot.new()
 
@@ -27,6 +27,7 @@ func _ready() -> void:
 	layer = 10
 	font = make_font()
 	bold_font = make_font(700)
+	potion_slot.library = library
 	for w: HudWidget in [status, counters, skills, system_messages]:
 		w.library = library
 		add_child(w)

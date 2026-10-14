@@ -23,6 +23,7 @@ const FILES := {
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
+const POTION_IMG := "Item.wz/Consume/0200.img"
 ## tier C: starter loadout selection, matching AvatarRenderer.DEFAULT_LOOK and the two starting weapons.
 const STARTER_EQUIPMENT := {
 	1040002: "Character.wz/Coat/01040002.img", 1060002: "Character.wz/Pants/01060002.img",
@@ -130,6 +131,14 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 	if not (mob_skill is Dictionary) or mob_skill.is_empty():
 		missing.append(MOB_SKILL_IMG)
 		mob_skill = {}
+	var item_info := {}
+	var potion_img: Variant = img_loader.call(POTION_IMG)
+	for id in range(2000000, 2000007):
+		var key := "%08d" % id
+		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
+			item_info[id] = potion_img[key]
+		else:
+			missing.append(POTION_IMG + "/" + key)
 	return {
 		"map_img": map_img,
 		"physics_img": physics,
@@ -137,6 +146,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"skill_imgs": skill_imgs,
 		"equipment_info": equipment_info,
 		"mob_skill_img": mob_skill,
+		"item_info": item_info,
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,
