@@ -3,8 +3,15 @@
 	"exp_curve": {"a": 4, "b": 8, "c": 4.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 16, L7 256, L9 400, L29 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
 	"exp_mult": 1.0,
 	"player": {
-		"_start": "Level 1 Beginner with 50 HP / 5 MP / 4 INT (the v83 new-character minimums) and Three Snails rank 1.",
-		"hp": 50, "mp": 5, "int": 4, "pdd": 0,
+		"_start": "Tier C: survivor starter stats, with the existing 50 HP / 5 MP and Three Snails rank 1.",
+		"hp": 50, "mp": 5,
+		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
+		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
+		"ap_per_level": 5,
+		"ap_stat": {"0": "str", "200": "int"},
+		"_equipment": "Tier C: the worn starter outfit and weapon per job branch. Defense and avoid come unchanged from canonical equipment info in the asset cache.",
+		"equipment": [1040002, 1060002, 1072001],
+		"weapon_by_job": {"0": 1302000, "200": 1372005},
 		"skills": ["three_snails"],
 		"_magic_attack": "Total magic attack (weapon) per job. 200: the Wooden Wand 1372005 (Character.wz incMAD 23, reqLevel 8) a new Magician holds.",
 		"magic_attack": {"0": 0, "200": 23},
@@ -15,8 +22,9 @@
 		"cast_forward": 22
 	},
 	"growth": {
-		"0": {"hp": 14, "mp": 10, "int": 5},
-		"200": {"hp": 12, "mp": 22, "int": 5}
+		"0": {"hp": 14, "mp": 10},
+		"_int_mp": "Tier B: Magician MP growth adds floor(INT / 10), using INT before spending that level's AP.",
+		"200": {"hp": 12, "mp": 22, "int_mp_divisor": 10}
 	},
 	"level_up_refill": 0.25,
 	"invincible_time": 1.5,

@@ -19,7 +19,8 @@ extends RefCounted
 ## whole hit (the number shown), `mp_absorbed` the part Magic Guard paid with MP. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
 ##
-## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, int, invincible_t, action,
+## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
+## avoid, invincible_t, action,
 ## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
@@ -60,6 +61,9 @@ const DEFAULT_CAST_HEIGHT := 30.0
 ## Shots leave this far in front of the cast origin, toward their target (the hand, not the face). tier C: ours.
 const DEFAULT_CAST_FORWARD := 22.0
 const DEFAULT_VIEW := Vector2(800, 600)
+## tier B: pre-Big-Bang avoidability formula, Exoot 2009 (refs/research/v83-mechanics/notes.md).
+const AVOID_DEX_FACTOR := 0.25
+const AVOID_LUK_FACTOR := 0.5
 
 var setup: Dictionary
 var data: Dictionary
@@ -124,6 +128,8 @@ var magnet_r := 90.0
 var hp_regen := 0.0
 var mp_regen := 2.0
 var player_pdd := 0.0
+var player_mdd := 0.0
+var player_avoid := 0.0
 var body := DEFAULT_BODY
 var cast_height := DEFAULT_CAST_HEIGHT
 var cast_forward := DEFAULT_CAST_FORWARD
@@ -137,7 +143,10 @@ var _max_mp := 0
 var _base_hp := 50.0
 var _base_mp := 5.0
 var _job_mp := 0.0
-var _int := 4.0
+## tier C: defaults match the survivor starter selection; balance.player.stats overrides each attribute.
+var _base_stats := {"str": 12, "dex": 5, "int": 4, "luk": 4}
+var _attributes := {}
+var _earned_ap := 0
 var _dead := false
 var _invincible_t := 0.0
 var _cast_action := ""
@@ -350,6 +359,11 @@ func heal_fraction(stat: String, fraction: float) -> void:
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
 ## modifiers. A higher max also raises the current value by the difference.
 func refresh_player_stats() -> void:
+	var pb: Dictionary = balance.get("player", {})
+	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
+	for stat: String in _base_stats:
+		_attributes[stat] = roundi(loadout.player_stat(stat, float(_base_stats[stat])
+			+ (_earned_ap if stat == primary else 0)))
 	var old_hp := _max_hp
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
@@ -364,9 +378,11 @@ func refresh_player_stats() -> void:
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
 	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 2.0)))
-	var pb: Dictionary = balance.get("player", {})
-	player_pdd = loadout.player_stat("pdd", float(pb.get("pdd", 0.0))) + loadout.passive_total("pdd")
-	loadout.set_caster(_int, _job_value(pb.get("magic_attack", {}), 0.0), progression.level)
+	player_pdd = loadout.player_stat("pdd", _equipment_total("incPDD")) + loadout.passive_total("pdd")
+	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
+	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
+		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
+	loadout.set_caster(float(_attributes.int), _job_value(pb.get("magic_attack", {}), 0.0), progression.level)
 	_write_player_state(0.0)
 
 
@@ -517,7 +533,9 @@ func _init_player() -> void:
 	var pb: Dictionary = balance.get("player", {})
 	_base_hp = float(pb.get("hp", 50.0))
 	_base_mp = float(pb.get("mp", 5.0))
-	_int = float(pb.get("int", 4.0))
+	var starting: Dictionary = pb.get("stats", {})
+	for stat: String in _base_stats:
+		_base_stats[stat] = int(starting.get(stat, _base_stats[stat]))
 	var b: Variant = pb.get("body")
 	if b is Array and b.size() == 4:
 		body = Rect2(float(b[0]), float(b[1]), float(b[2]), float(b[3]))
@@ -631,7 +649,7 @@ func _player_hit(m: int, mk: MobKind) -> void:
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
 func hit_defense() -> Dictionary:
-	return {"pdd": player_pdd, "mdd": 0.0, "resistance": {}}
+	return {"pdd": player_pdd, "mdd": player_mdd, "resistance": {}}
 
 
 ## Magic Guard's current percentage; overridable by the timed-buff rules.
@@ -683,7 +701,10 @@ func _on_level_up(level: int) -> void:
 	var g: Dictionary = _job_value(balance.get("growth", {}), {})
 	_base_hp += float(g.get("hp", 0.0))
 	_base_mp += float(g.get("mp", 0.0))
-	_int += float(g.get("int", 0.0))
+	var divisor := float(g.get("int_mp_divisor", 0.0))
+	if divisor > 0.0:
+		_base_mp += floorf(float(_attributes.int) / divisor)
+	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	refresh_player_stats()
 	var refill := float(balance.get("level_up_refill", 0.25))
@@ -715,6 +736,20 @@ func _job_value(table: Variant, fallback: Variant) -> Variant:
 		if table.has(str(j)):
 			return table[str(j)]
 	return table.get("0", fallback)
+
+
+func _equipment_total(field: String) -> float:
+	var infos: Dictionary = setup.get("equipment_info", {})
+	var pb: Dictionary = balance.get("player", {})
+	var ids: Array = pb.get("equipment", []).duplicate()
+	var weapon := int(_job_value(pb.get("weapon_by_job", {}), 0))
+	if weapon > 0 and not (weapon in ids):
+		ids.append(weapon)
+	var total := 0.0
+	for id: Variant in ids:
+		var info: Dictionary = infos.get(int(id), infos.get(str(int(id)), {}))
+		total += float(info.get(field, 0.0))
+	return total
 
 
 func _advance_queue() -> void:
@@ -756,7 +791,11 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
-	player_state["int"] = roundi(_int)
+	for stat: String in _attributes:
+		player_state[stat] = _attributes[stat]
+	player_state["pdd"] = player_pdd
+	player_state["mdd"] = player_mdd
+	player_state["avoid"] = player_avoid
 	player_state["invincible_t"] = _invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t

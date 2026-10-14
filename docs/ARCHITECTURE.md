@@ -193,6 +193,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
 `RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `invincible_t`, `action`, `action_t`, `dead`).
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
@@ -202,7 +203,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
 | `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
-| `balance.json` | EXP curve, player base stats (incl. cast origin / `cast_forward`) and growth per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor |
+| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
 

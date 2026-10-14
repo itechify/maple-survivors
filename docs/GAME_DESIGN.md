@@ -338,8 +338,16 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   only.
 - **Level up:** the game pauses, `Effect.wz/BasicEff.img/LevelUp` plays on the character with `Game.img/LevelUp`, then
   the upgrade window opens. Several level-ups in a row queue their windows.
-- **Stats per level** (tier C, emulator-like): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP; INT +5 per level
-  (auto-assigned). Max HP/MP are refilled by 25% on level up.
+- **Attributes and AP** (tier C, survivor choices): start at STR 12, DEX 5, INT 4, LUK 4, with 5 AP per level.
+  Beginners assign AP to STR. On advancement the AP earned above those base stats moves to the new job's primary
+  stat (INT for Magician); subsequent AP goes there too. The job's nearest configured ancestor supplies the rule.
+  All starting values, AP gains and primary-stat choices are in `balance.json/player`.
+- **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
+  `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
+  Max HP/MP are currently refilled by 25% on level up; overhaul ticket #9 removes healing from level-ups.
+- **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
+  active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
+  Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
 
 ## 6. Combat
 
@@ -494,7 +502,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Touch damage | §6.2 | C | ours |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
-| Player start | 50 HP, 5 MP, 4 INT, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
+| Player start | 50 HP, 5 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
+| Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |
+| INT MP growth | Magician adds floor(INT / 10) to base growth, before assigning the new level's AP | B | pre-Big-Bang formula compilations, refs/research/v83-mechanics |
+| Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
