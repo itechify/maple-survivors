@@ -6,8 +6,7 @@ extends Node2D
 ##
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
-##   levelup_rank    Energy Bolt rank (skill level 13 -> 17), Magic Claw (new), Nimble Feet (--focus=2: the notice
-##                   without its "raised your ___ skill" sentence)
+##   levelup_rank    canonical Energy Bolt and Magic Claw ranks (13 -> 17), plus Nimble Feet
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
@@ -42,18 +41,6 @@ const MISSING_CARDS := [
 		"icon": "", "rank": 3, "max_rank": 5},
 	{"id": "elixir", "kind": "filler", "skill": "", "name": "Elixir", "desc": "Recover 50% of max HP and MP.",
 		"icon": "Item.wz/Consume/0200.img/02000004/info/icon", "rank": 1, "max_rank": 0},
-]
-const RANK_CARDS := [
-	{"id": "energy_bolt_rank", "kind": "skill_rank", "skill": "energy_bolt", "name": "Energy Bolt",
-		"desc": "Energy Bolt +1 rank: higher skill level, more magic attack and mastery.",
-		"icon": "Skill.wz/200.img/skill/2001004/icon", "rank": 4, "max_rank": 5, "skill_name": "Energy Bolt",
-		"skill_level": 13, "skill_level_next": 17},
-	{"id": "magic_claw_new", "kind": "skill_new", "skill": "magic_claw", "name": "Magic Claw",
-		"desc": "Learn Magic Claw: rakes the nearest monster twice.", "icon": "Skill.wz/200.img/skill/2001005/icon",
-		"rank": 1, "max_rank": 1, "skill_name": "Magic Claw", "skill_level": 0, "skill_level_next": 1},
-	{"id": "nimble_feet", "kind": "passive", "skill": "", "name": "Nimble Feet", "desc": "Speed +6.",
-		"icon": "Skill.wz/000.img/skill/0001002/icon", "rank": 1, "max_rank": 5, "skill_name": "", "skill_level": 0,
-		"skill_level_next": 0},
 ]
 const JOB8 := [
 	{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
@@ -190,7 +177,7 @@ func _show_window(which: String) -> void:
 			if which == "levelup_missing":
 				cards = MISSING_CARDS
 			elif which == "levelup_rank":
-				cards = RANK_CARDS
+				cards = _rank_cards()
 			w.open(cards, 8)
 			w.card_chosen.connect(func(id: String) -> void: print("ui_gallery: card_chosen ", id))
 			window = w
@@ -223,6 +210,23 @@ func _show_window(which: String) -> void:
 			window = w
 		_:
 			push_error("ui_gallery: unknown --window=%s" % which)
+
+
+func _rank_cards() -> Array:
+	var imgs := {}
+	var lib := UiArt.lib()
+	if lib != null:
+		for book: String in ["000", "200"]:
+			var img := lib.img(DataRepo.skill_img_path(book))
+			if img != null:
+				imgs[book] = img.root
+	# The real choice-card boundary supplies the preview; no hard-coded WZ values in the gallery.
+	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
+	for skill: String in ["energy_bolt", "magic_claw"]:
+		world.loadout.add_skill(skill)
+		world.loadout.set_rank(skill, 4)
+	return [world.upgrades.choice_card("energy_bolt_rank", world),
+		world.upgrades.choice_card("magic_claw_rank", world), world.upgrades.choice_card("nimble_feet", world)]
 
 
 func _spawn_point(map: MapRenderer) -> Vector2:

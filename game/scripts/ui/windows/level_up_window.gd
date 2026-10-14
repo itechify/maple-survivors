@@ -4,21 +4,20 @@ extends MapleWindow
 ##
 ## Art: the v83 skill-up notice UIWindow.img/SkillUp/backgrd ("You've gained a Level!" with the slime, snail and
 ## orange mushroom) is the window; its uniform rows 169-179 are repeated to grow the panel for the choices. The level
-## goes into the notice's level box (Basic.img/LevelNo digits). When the focused card learns or levels a skill
-## (skill_new, skill_rank) the skill's name goes into the "raised your ___ skill by a level." box; for any other card
-## that sentence would be wrong, so its words ("BY REACHING", ", YOU HAVE" and the two lines below) are covered with
-## the panel's own blank fill and the notice reads "LEVEL n". Each choice is a skill-window row (UIWindow.img/Skill/
-## skill0, skill1 when focused, widened to the panel) with the card icon in the slot (UIWindow.img/IconBase/0 when the
+## goes into the notice's level box (Basic.img/LevelNo digits). The baked-in skill-raising sentence is always
+## replaced with the panel's own blank fill, so the notice reads "LEVEL n". Each choice is a skill-window row
+## (UIWindow.img/Skill/skill0, skill1 when focused, widened to the panel) with the card icon in the slot
+## (UIWindow.img/IconBase/0 when the
 ## card has no icon or the icon is missing), the name, the rank (rank_text: "NEW", "Lv. 1 → 2", the skill's canonical
 ## level change "Skill Lv. 2 → 3" for skill_rank cards, "MAX" at the last rank), the key (Basic.img/ItemNo digit) and
-## the description below.
+## the description and canonical before/after values below.
 ##
 ## Input: 1/2/3 (choice_1..3) pick a card; Up/Down move the focus, Enter picks it; the mouse highlights and clicks.
 ## `card_chosen` is emitted at once when a card is picked (then the window fades out); a new open() during the fade
 ## (queued level-ups) restarts the window with the new cards.
 ##
 ##   win.open(cards, level)   # cards exactly as in the choice_pending event: {id, kind, name, desc, icon, rank,
-##                            # max_rank, skill, skill_name, skill_level, skill_level_next}
+##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -35,17 +34,14 @@ const TOP_H := 169.0
 const MID_Y := 169.0
 const MID_H := 11.0
 const BOTTOM_H := 21.0
-## The notice's level box and skill-name box.
+## The notice's level box.
 const LEVEL_BOX := Rect2(116, 108, 27, 17)
-const NAME_BOX := Rect2(85, 129, 98, 17)
 ## The notice sentence (measured from the v83 canvas): per band of art rows [y0, y1), the x ranges [x0, x1) covered
-## when the focused card raises no skill - "BY REACHING " and ", YOU HAVE" around the level box, then the whole
+## for every card - "BY REACHING " and ", YOU HAVE" around the level box, then the whole
 ## "RAISED YOUR [ ]" / "SKILL BY A LEVEL." lines. Column BLANK_X is plain panel fill in every one of those rows (the
 ## fill is a vertical gradient, so each covered row is painted with its own row's fill colour).
 const SENTENCE_BANDS := [[105.0, 126.0, [Vector2(13, 82), Vector2(144, 202)]], [126.0, 164.0, [Vector2(13, 202)]]]
 const BLANK_X := 14.0
-## Card kinds whose skill the notice sentence names.
-const SENTENCE_KINDS := ["skill_new", "skill_rank"]
 ## Choice rows inside the panel's inner fill (x 12..202).
 const ROWS_TOP := 166.0
 const ROW_X := 12.0
@@ -66,7 +62,7 @@ var level := 0
 var focus := -1
 
 ## Per card: {"row": Rect2 (panel-local row art), "block": Rect2 (row + description, the mouse target),
-## "desc": PackedStringArray}.
+## "desc", "changes": PackedStringArray}.
 var _blocks: Array[Dictionary] = []
 
 
@@ -140,15 +136,18 @@ static func rank_text(card: Dictionary) -> String:
 	return s
 
 
-## True when the notice's "raised your ___ skill by a level." sentence fits card `card` (it learns or levels a skill).
-static func names_a_skill(card: Dictionary) -> bool:
-	return String(card.get("kind", "")) in SENTENCE_KINDS and String(card.get("skill", "")) != ""
-
-
-## The name the notice's skill box shows for `card`: the skill's name (a rank card such as Energy Bolt +1 rank names Energy Bolt).
-static func notice_name(card: Dictionary) -> String:
-	var s := String(card.get("skill_name", ""))
-	return s if s != "" else String(card.get("name", ""))
+## Readable canonical before/after lines of a rank card (mastery is already converted to percent in card data).
+static func change_lines(card: Dictionary) -> PackedStringArray:
+	var lines := PackedStringArray()
+	var changes: Dictionary = card.get("skill_changes", {})
+	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage"}
+	for field: String in labels:
+		if not changes.has(field):
+			continue
+		var values: Dictionary = changes[field]
+		var suffix := "%" if field == "mastery" else ""
+		lines.append("%s: %d%s → %d%s" % [labels[field], int(values.before), suffix, int(values.after), suffix])
+	return lines
 
 
 func handle_input(event: InputEvent) -> bool:
@@ -193,27 +192,18 @@ func _build_layout() -> void:
 			desc = desc.slice(0, DESC_MAX_LINES)
 			desc[DESC_MAX_LINES - 1] = MapleText.ellipsize(desc[DESC_MAX_LINES - 1] + " ...", ROW_W - 4.0,
 				MapleText.SMALL)
-		var h := ROW_H + 3.0 + desc.size() * DESC_LINE
-		_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h), "desc": desc})
+		var changes := change_lines(card)
+		var h := ROW_H + 3.0 + (desc.size() + changes.size()) * DESC_LINE
+		_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h),
+			"desc": desc, "changes": changes})
 		y += h + BLOCK_GAP
 	var height := maxf(ART_SIZE.y, y - BLOCK_GAP + 4.0 + BOTTOM_H - 8.0)
 	panel_size = Vector2(ART_SIZE.x, ceilf(height))
 
 
 func _draw_panel(ci: Control) -> void:
-	var focused: Dictionary = cards[focus] if focus >= 0 and focus < cards.size() and cards[focus] is Dictionary else {}
-	var sentence := not focused.is_empty() and names_a_skill(focused)
-	if sentence or focused.is_empty():
-		TiledFrame.draw_v_slices(ci, Vector2.ZERO, UiArt.frame(ART), TOP_H, MID_Y, MID_H, panel_size.y)
-	else:
-		_draw_art_without_sentence(ci, UiArt.frame(ART))
+	_draw_art_without_sentence(ci, UiArt.frame(ART))
 	_draw_level(ci)
-	if sentence:
-		var full := notice_name(focused)
-		var bold := MapleText.width(full, MapleText.SMALL, true) <= NAME_BOX.size.x - 4.0
-		var nm := MapleText.ellipsize(full, NAME_BOX.size.x - 4.0, MapleText.SMALL, bold)
-		MapleText.draw_centered(ci, NAME_BOX.position.x, NAME_BOX.position.y + 2.0, NAME_BOX.size.x, nm,
-			MapleText.WHITE, MapleText.SMALL, bold)
 	var row0 := UiArt.frame(ROW)
 	var row1 := UiArt.frame(ROW_FOCUS)
 	for i in mini(cards.size(), _blocks.size()):
@@ -297,6 +287,10 @@ func _draw_card(ci: Control, i: int, card: Dictionary, row_art: SpriteFrame) -> 
 	MapleText.draw(ci, Vector2(tx, p.y + 19.0), rt, rank_col, MapleText.SMALL, rt == "NEW")
 	var y := r.end.y + 3.0
 	for line: String in b.desc:
+		MapleText.draw(ci, Vector2(p.x + 2.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+			MapleText.PANEL_SHADOW, true)
+		y += DESC_LINE
+	for line: String in b.changes:
 		MapleText.draw(ci, Vector2(p.x + 2.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE

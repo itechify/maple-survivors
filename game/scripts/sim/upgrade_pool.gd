@@ -148,7 +148,8 @@ static func is_power(c: Dictionary) -> bool:
 ## The choice_pending entry of card `id` for the current run: {id, kind, name, desc, icon, rank (the card's rank once
 ## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
-## does not change the level: skill_new and skill_rank cards only)}.
+## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
+## {before, after}; mastery is a percent, all other values are the original WZ numbers)}.
 func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var c := card(id)
 	var desc := String(c.get("desc", ""))
@@ -159,6 +160,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var skill_name := ""
 	var level := 0
 	var level_next := 0
+	var changes := {}
 	var lo: Loadout = state.loadout
 	if skill != "" and lo.book.has(skill):
 		skill_name = String(lo.book.def(skill).get("name", skill))
@@ -168,6 +170,16 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 			level_next = lo.book.canonical_level(skill, 1)
 		elif kind == "skill_rank" and r > 0:
 			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
+			var before := lo.book.level_node(skill, level)
+			var after := lo.book.level_node(skill, level_next)
+			for field: String in ["mad", "mastery", "mpCon", "fixdamage"]:
+				if before.has(field) and after.has(field):
+					var a := int(lo.book.canonical(skill, level, field))
+					var b := int(lo.book.canonical(skill, level_next, field))
+					if field == "mastery":
+						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
+						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
+					changes[field] = {"before": a, "after": b}
 	return {
 		"id": id,
 		"kind": kind,
@@ -180,6 +192,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 		"skill_name": skill_name,
 		"skill_level": level,
 		"skill_level_next": level_next,
+		"skill_changes": changes,
 	}
 
 

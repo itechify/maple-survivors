@@ -50,11 +50,19 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
 				ck.sort()
-				if ck != ["desc", "icon", "id", "kind", "max_rank", "name", "rank", "skill", "skill_level", "skill_level_next",
+				if ck != ["desc", "icon", "id", "kind", "max_rank", "name", "rank", "skill", "skill_changes", "skill_level", "skill_level_next",
 						"skill_name"]:
 					fail("card fields %s" % [ck])
 				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT or typeof(c.skill_level) != TYPE_INT 						or typeof(c.skill_level_next) != TYPE_INT:
 					fail("card rank types %s" % [c])
+				elif not (c.skill_changes is Dictionary):
+					fail("card skill_changes is not a Dictionary")
+				else:
+					for field: String in c.skill_changes:
+						var change: Dictionary = c.skill_changes[field]
+						if not field in ["mad", "mastery", "mpCon", "fixdamage"] or change.size() != 2 \
+								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
+							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
 			if int(e.damage) < 1:
 				fail("damage below 1")
