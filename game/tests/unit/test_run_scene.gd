@@ -72,6 +72,12 @@ func _assert_nothing_missing(s: RunScene, label: String) -> void:
 
 
 func _assert_hud_matches(s: RunScene) -> void:
+	assert_eq(s.hud.status.player_state, s.world.player_state, "status widget fed by the run scene")
+	assert_eq(s.hud.counters.run_info.kills, s.world.kills, "counter widget fed by the run scene")
+	assert_eq(s.hud.skills.run_info.skills, s.run_info().skills, "skill widget fed by the run scene")
+	assert_eq(s.hud.potion_slot.get_parent(), s.hud, "quickslot has its own widget")
+	assert_eq(s.hud.buff_row.get_parent(), s.hud, "buffs have their own widget")
+	assert_eq(s.hud.boss_bar.get_parent(), s.hud, "boss bar has its own widget")
 	var ps := s.world.player_state
 	for k: String in ["hp", "mp", "max_hp", "max_mp", "exp", "level", "job_id"]:
 		assert_eq(int(s.hud.player_state.get(k, -1)), int(ps[k]), "HUD %s" % k)

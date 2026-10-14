@@ -634,14 +634,35 @@ func _touch() -> void:
 
 
 func _player_hit(m: int, mk: MobKind) -> void:
-	var td: Dictionary = balance.get("touch_damage", {})
-	var dmg := CombatMath.touch_damage(float(mk.pad), rng.randf(), director.value_at("damage", time), player_pdd,
-		float(td.get("scale", CombatMath.TOUCH_SCALE)), float(td.get("roll_min", CombatMath.TOUCH_ROLL_MIN)),
-		float(td.get("roll_max", CombatMath.TOUCH_ROLL_MAX)), float(td.get("pdd_factor", CombatMath.TOUCH_PDD_FACTOR)))
-	var split := CombatMath.magic_guard_split(dmg, loadout.passive_total("mp_guard"), floori(_mp))
+	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]),
+		{"mob": m, "mob_id": mk.id, "elite": mob_elite[m] != 0})
+
+
+## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
+func hit_defense() -> Dictionary:
+	return {"pdd": player_pdd, "mdd": 0.0, "resistance": {}}
+
+
+## Magic Guard's current percentage; overridable by the timed-buff rules.
+func magic_guard_ratio() -> float:
+	return loadout.passive_total("mp_guard")
+
+
+## Damage scaling for this hit source. The prefactor preserves the existing stage multiplier.
+func hit_source_multiplier(_source: Dictionary) -> float:
+	return director.value_at("damage", time)
+
+
+## Applies one monster hit through defense, Magic Guard, invincibility, knockback and death; returns whole damage.
+func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
+	if _dead or god or _invincible_t > 0.0:
+		return 0
+	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
+		hit_source_multiplier(source), balance.get("touch_damage", {}))
+	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
-	var dir := 1 if player.pos.x >= swarm.x[m] else -1
+	var dir := 1 if player.pos.x >= source_pos.x else -1
 	emit("player_hit", {"damage": dmg, "mp_absorbed": split.y, "dir": dir, "pos": player.pos})
 	_invincible_t = float(balance.get("invincible_time", 1.5))
 	if _hp <= 0.0:
@@ -651,6 +672,13 @@ func _player_hit(m: int, mk: MobKind) -> void:
 		emit("player_died", {"pos": player.pos})
 	else:
 		player.knockback(dir)
+	_write_player_state(0.0)
+	return dmg
+
+
+## Whether auto-actions may cast now. Climbing keeps its current behavior until the climbing-rule ticket.
+func can_cast() -> bool:
+	return state == PLAYING and not _dead
 
 
 func _gain_exp(n: int) -> void:

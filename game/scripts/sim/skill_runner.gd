@@ -16,6 +16,8 @@ const REUSE_SPREAD := 8.0
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
 var casts := 0
+## True if any skill cast during the latest step (cleared even when casting is blocked).
+var fired_this_tick := false
 
 var _stats := {}
 var _version := -1
@@ -40,11 +42,26 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 
 ## Advances cooldowns and fires every ready skill that has a target.
 func step(dt: float, world: RunWorld) -> void:
+	tick_cooldowns(dt, world)
+	if world.can_cast():
+		cast_ready(dt, world)
+
+
+## Counts down every active skill, including while casting is blocked.
+func tick_cooldowns(dt: float, world: RunWorld) -> void:
+	fired_this_tick = false
+	for key: String in world.loadout.order:
+		if world.loadout.book.is_active(key):
+			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
+
+
+## Fires ready skills with targets, preserving the existing cooldown carry and loadout order.
+func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
 			continue
-		var cd := float(cooldowns.get(key, 0.0)) - dt
+		var cd := float(cooldowns.get(key, 0.0))
 		if cd > 0.0:
 			cooldowns[key] = cd
 			continue
@@ -90,6 +107,7 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 
 func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int) -> void:
 	casts += 1
+	fired_this_tick = true
 	var first := world.mob_center(_tgt[0])
 	world.face_toward(first.x)
 	var level := int(st.level)
