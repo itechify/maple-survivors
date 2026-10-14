@@ -1,6 +1,6 @@
 extends TestCase
 ## UpgradePool (docs/GAME_DESIGN.md section 8): eligibility (job gates, mods only for owned skills, maxed cards,
-## slots), seeded weighted draws without duplicates, fillers when short, and what applying a card does.
+## slots), seeded weighted draws without duplicates, sparse draws when short, and what applying a card does.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
@@ -25,8 +25,8 @@ func test_beginner_eligibility() -> void:
 		assert_false(id in el, "%s never before the job" % id)
 	for id: String in ["energy_bolt_count", "magic_claw_targets", "energy_bolt_rank"]:
 		assert_false(id in el, "%s: no mods for a skill not owned" % id)
-	for id: String in ["elixir", "power_elixir", "white_potion"]:
-		assert_false(id in el, "fillers are not in the normal pool")
+	for id: String in ["orange_potion", "white_potion", "mana_elixir"]:
+		assert_false(id in el, "potion cards wait for their level gate")
 
 
 func test_magician_eligibility_and_mods_after_owning() -> void:
@@ -110,41 +110,29 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 		"weight 3 > weight 2: %s" % [counts])
 
 
-func test_fillers_fill_a_short_draw() -> void:
+func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 	var w := RF.quiet_world()
 	# Max out everything a Beginner can take.
 	for c: Dictionary in w.upgrades.cards:
-		if c.kind == "filler":
-			continue
 		var guard := 0
 		while w.upgrades.is_eligible(c, w) and guard < 10:
 			w.upgrades.apply(String(c.id), w)
 			guard += 1
 	assert_eq(w.upgrades.eligible(w).size(), 0, "nothing left")
 	var cards := w.upgrades.roll_choices(w, _rng(5), 3)
-	assert_eq(cards.size(), 3, "three fillers")
-	var ids: Array = []
-	for c: Dictionary in cards:
-		assert_eq(c.kind, "filler")
-		assert_false(c.id in ids, "distinct fillers")
-		ids.append(c.id)
-		assert_eq(c.max_rank, 0, "unlimited")
-	# Exactly one real card left: it is drawn, fillers fill the rest.
+	assert_eq(cards.size(), 0, "no cards remain")
+	# Exactly one card left: offer it alone.
 	var w2 := RF.quiet_world()
 	for c: Dictionary in w2.upgrades.cards:
-		if c.kind == "filler" or c.id == "magnet":
+		if c.id == "magnet":
 			continue
 		var guard := 0
 		while w2.upgrades.is_eligible(c, w2) and guard < 10:
 			w2.upgrades.apply(String(c.id), w2)
 			guard += 1
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
-	assert_eq(mixed.size(), 3)
-	var kinds: Array = []
-	for c: Dictionary in mixed:
-		kinds.append(c.id if c.kind != "filler" else "filler")
-	assert_has(kinds, "magnet")
-	assert_eq(kinds.count("filler"), 2)
+	assert_eq(mixed.size(), 1)
+	assert_eq(mixed[0].id, "magnet")
 
 
 func test_applying_general_cards() -> void:

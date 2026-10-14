@@ -49,6 +49,7 @@ const EVENT_FIELDS := {
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
 	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
 	"potion_used": ["kind", "item_id", "restored", "count"],
+	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -253,6 +254,17 @@ func drink_potion(kind: String) -> bool:
 	_write_player_state(0.0)
 	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
 		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+	return true
+
+
+## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately.
+func upgrade_potion(kind: String, item_id: int) -> bool:
+	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
+	if not potions.upgrade(kind, item_id):
+		return false
+	_write_player_state(0.0)
+	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
+		"count": int(potions.stock[kind].count)})
 	return true
 
 

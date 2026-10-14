@@ -158,7 +158,9 @@ Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd`
 `RunWorld.state` is one of `PLAYING`, `CHOOSING_JOB`, `CHOOSING_UPGRADE`, `DEAD`, `CLEARED`. `step()` advances the
 world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
 first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
-`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`.
+`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`
+when at least one card is eligible. Draws return at most three cards; an empty draw consumes that queued level
+without opening a window.
 The presentation layer shows the windows and calls back:
 
 | Call | Effect |
@@ -190,6 +192,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
 | `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
+| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
@@ -318,7 +321,11 @@ What the tables above leave open; the class doc comments have the rest.
   placements before ordinary ring fallback; flyers retain off-screen air sampling. Every new mob fades in and deals
   no touch damage until alpha is 1.
 - **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
-  `effects` op `add` sums, `mul` compounds per rank, `heal` restores a fraction of max HP/MP.
+  `effects` op `add` sums and `mul` compounds per rank. No card heals by percentage and no filler cards are injected.
+  A `potion_tier` card has `potion_kind`, target `item_id`, `requires.min_level` and `requires.potions` mapping its kind
+  to the required current item ID. This survivor data defines the whole ladder. Applying an eligible one-time tier
+  calls `RunWorld.upgrade_potion(kind, item_id)` and preserves stock; the event and refreshed player state update the
+  quickslot immediately. Future `spawn_potion` calls use the current ID, including boss bundles.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
   advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
 
