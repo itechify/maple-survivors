@@ -88,6 +88,21 @@ func test_no_boss_stage_keeps_duration_clear() -> void:
 	assert_near(w.time, 1.0, DT)
 
 
+func test_scheduled_boss_arrives_on_time_even_when_ordinary_swarm_is_capped() -> void:
+	var setup := _setup([0.5])
+	setup.data.stages.stages.quiet.hard_cap = 2
+	var w := RunWorld.new(setup)
+	w.god = true
+	for i in 2:
+		w.spawn_mob(int(w.kind_of_id[100100]), Vector2(-500.0 - i * 50.0, 0.0), -1, 1.0, false)
+	assert_eq(w.swarm.alive_count(), w.director.hard_cap)
+	for tick in 30:
+		w.step(DT, MoveInput.new())
+	assert_eq(w.bosses.live_count(), 1, "scheduled arrivals bypass the ordinary crowd cap")
+	assert_near(float(w.bosses.records[0].spawn_time), 0.5, DT)
+	assert_eq(w.swarm.alive_count(), 3, "ordinary cap never consumes the scheduled boss slot")
+
+
 func test_boss_takes_damage_without_stun_or_push() -> void:
 	var w := RunWorld.new(_setup([0.5]))
 	w.god = true

@@ -68,7 +68,7 @@ static func skill_img_path(book: String) -> String:
 	return "Skill.wz/%s.img" % book
 
 
-## Every mob id used by any keyframe pool of the stage, ascending.
+## Every stage pool, boss, summon and revive mob id, ascending.
 static func stage_mob_ids(data: Dictionary, stage_key: String) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
