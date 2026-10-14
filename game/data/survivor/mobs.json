@@ -1,0 +1,14 @@
+{
+	"_doc": "Per-mob survivor overrides (docs/ARCHITECTURE.md 4.4.4), keyed by the original mob id. exp_item: the signature Etc item dropped as the EXP pickup (docs/GAME_DESIGN.md section 5). Optional: hp_mult, speed_mult (on top of balance.mob_speed_factor), can_jump (bool), hit_time (s). name is an English fallback; the game shows String.wz/Mob.img names. Canonical stats come from Mob.wz and are never edited here.",
+	"mobs": {
+		"100100": {"name": "Snail", "exp_item": 4000019},
+		"100101": {"name": "Blue Snail", "exp_item": 4000000},
+		"130101": {"name": "Red Snail", "exp_item": 4000016},
+		"120100": {"name": "Shroom", "exp_item": 4000011},
+		"210100": {"name": "Slime", "exp_item": 4000010},
+		"1210100": {"name": "Pig", "exp_item": 4000017},
+		"1210101": {"name": "Ribbon Pig", "exp_item": 4000002},
+		"1210102": {"name": "Orange Mushroom", "exp_item": 4000001},
+		"1110100": {"name": "Green Mushroom", "exp_item": 4000012}
+	}
+}

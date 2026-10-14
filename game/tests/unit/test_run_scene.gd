@@ -1,0 +1,475 @@
+extends TestCase
+## RunScene (game/scripts/run/run_scene.gd) against the real asset cache (SKIP without it): the scene is added to the
+## test's SceneTree with a private AssetLibrary and advanced by calling advance_frame(1/60) directly (one sim tick per
+## call). Checks that sim events become visuals (damage numbers, hit effects, sounds, EXP messages, level-up/job
+## effects, the wand look, tombstone, stage clear), that the renderers draw exactly the sim's live state, that the HUD
+## shows player_state, that D2's windows (LevelUpWindow, JobAdvanceWindow, PauseMenu) open over the run and their
+## answers (keys through handle_input, signals) drive the sim, that autopick resolves choices without windows, and that
+## nothing is missing from the cache. The launcher's argument parsing needs no cache.
+
+const DT := 1.0 / 60.0
+
+var lib: AssetLibrary
+var scene: RunScene
+var finished: Array = []
+
+
+func before_each() -> void:
+	lib = AssetLibrary.new()
+	lib.open()
+	finished = []
+
+
+func after_each() -> void:
+	if scene != null and is_instance_valid(scene):
+		scene.free()
+	scene = null
+	lib.free()
+
+
+func _make(stage: String, p_seed: int, options: Dictionary) -> RunScene:
+	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
+	s.library = lib
+	var o := options.duplicate()
+	o["use_flow"] = false
+	s.configure(stage, p_seed, o)
+	s.run_finished.connect(func(summary: Dictionary) -> void: finished.append(summary))
+	# The runner executes tests inside its own _ready, while the root is still busy adding children: add the scene
+	# under the runner (the current scene) instead.
+	var tree := Engine.get_main_loop() as SceneTree
+	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
+	return s
+
+
+func _frames(n: int) -> void:
+	for i in n:
+		scene.advance_frame(DT)
+
+
+## Live slots plus dying ones (MobRenderer draws STAND..DIE).
+func _drawn_mob_slots(w: RunWorld) -> int:
+	var n := 0
+	for i in w.swarm.capacity():
+		if w.swarm.state[i] <= MobRenderer.DIE:
+			n += 1
+	return n
+
+
+func _mob_visible(s: RunScene) -> int:
+	var n := 0
+	for mr in s.mob_renderers:
+		n += mr.visible_count()
+	return n
+
+
+func _assert_nothing_missing(s: RunScene, label: String) -> void:
+	assert_eq(lib.missing.size(), 0, "%s: library misses %s" % [label, lib.missing])
+	assert_eq(s.map.missing.size(), 0, "%s: map misses %s" % [label, s.map.missing])
+	assert_eq(s.avatar.missing.size(), 0, "%s: avatar misses %s" % [label, s.avatar.missing])
+	for mr in s.mob_renderers:
+		assert_eq(mr.missing.size(), 0, "%s: mob renderer misses %s" % [label, mr.missing])
+	assert_eq(s.setup_missing.size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
+
+
+func _assert_hud_matches(s: RunScene) -> void:
+	var ps := s.world.player_state
+	for k: String in ["hp", "mp", "max_hp", "max_mp", "exp", "level", "job_id"]:
+		assert_eq(int(s.hud.player_state.get(k, -1)), int(ps[k]), "HUD %s" % k)
+	assert_eq(int(s.hud.run_info.kills), s.world.kills, "HUD kills")
+	assert_eq(int(s.hud.run_info.exp_next), int(ps.exp_next), "HUD exp_next")
+	assert_eq(int(s.hud.run_info.time), int(s.run_time()), "HUD time (the run time snapped to 1 ms)")
+	assert_eq((s.hud.run_info.skills as Array).size(), s.world.loadout.order.size(), "HUD skill icons")
+	assert_eq(String(s.hud.run_info.job_name), s.world.jobs.name_of(int(ps.job_id)), "HUD job name")
+
+
+func test_autoplay_two_minutes_draws_the_sim() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
+	assert_eq(scene.error, "", "scene started")
+	var w := scene.world
+	assert_true(w != null, "world built")
+	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
+	assert_true(scene.mob_renderers.size() >= 1, "a mob renderer per floor layer")
+	var max_numbers := 0
+	var max_fx := 0
+	var max_shots := 0
+	var mismatches := 0
+	var stances := {}
+	for i in 60 * 120:
+		scene.advance_frame(DT)
+		max_numbers = maxi(max_numbers, scene.numbers.active_count())
+		max_fx = maxi(max_fx, scene.fx.active_count())
+		max_shots = maxi(max_shots, scene.shots.visible_count())
+		stances[scene.avatar.stance] = true
+		if i % 30 == 0:
+			if _mob_visible(scene) != _drawn_mob_slots(w):
+				mismatches += 1
+			assert_eq(scene.shots.visible_count(), w.projectiles.active_count(), "shots drawn == in flight")
+			assert_eq(scene.drops.visible_count(), w.pickups.active_count(), "drops drawn == active")
+		if w.state == RunWorld.DEAD:
+			break
+	print("run_scene autoplay: %.0f s %s Lv %d kills %d counters %s stances %s" % [w.time, w.state_name(),
+		w.player_state.level, w.kills, scene.counters, stances.keys()])
+	assert_eq(mismatches, 0, "mobs drawn == live + dying slots every check")
+	assert_true(w.kills > 10, "Three Snails killed mobs (%d)" % w.kills)
+	assert_true(int(scene.counters.numbers) >= w.kills, "a damage number per hit at least")
+	assert_true(int(scene.counters.hit_fx) > 0, "hit effects played")
+	assert_true(int(scene.counters.sounds) > 0, "sounds played")
+	assert_true(int(scene.counters.exp_messages) > 0, "EXP messages shown")
+	assert_true(max_numbers > 0 and max_fx > 0 and max_shots > 0, "numbers %d fx %d shots %d on screen" % [
+		max_numbers, max_fx, max_shots])
+	assert_true(int(w.player_state.level) >= 3, "levelled up (%d)" % int(w.player_state.level))
+	assert_true(int(scene.counters.autopicks) >= int(w.player_state.level) - 1, "every level-up resolved")
+	assert_true(stances.has("walk1") and stances.has("stand1"), "walk and stand shown (%s)" % [stances.keys()])
+	assert_true(stances.has("swingO1"), "the cast stance was shown (%s)" % [stances.keys()])
+	assert_true(scene.hud.messages().size() >= 0)
+	_assert_hud_matches(scene)
+	_assert_nothing_missing(scene, "autoplay")
+
+
+func test_events_become_visuals() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 3, {})
+	var w := scene.world
+	_frames(2)
+	var p := w.player.pos
+	var f := w.fhm.find_below(p.x + 60.0, p.y - 5.0)
+	var slot := w.spawn_mob(int(w.kind_of_id[100100]), Vector2(p.x + 60.0, w.fhm.y_at(f, p.x + 60.0)), f, 1.0, false)
+	w.drain_events()
+	var n0 := scene.numbers.active_count()
+	var fx0 := scene.fx.active_count()
+	scene.handle_events([{"type": "mob_hit", "mob": slot, "mob_id": 100100, "damage": 12, "crit": false,
+		"pos": Vector2(p.x + 60.0, p.y - 30.0), "hit_visual": "Skill.wz/000.img/skill/0001000/level/1/hit/0",
+		"skill": "three_snails"}])
+	assert_eq(scene.numbers.active_count(), n0 + 1, "damage number")
+	assert_eq(scene.fx.active_count(), fx0 + 1, "hit effect")
+	scene.handle_events([{"type": "player_hit", "damage": 7, "mp_absorbed": 0, "dir": 1, "pos": p}])
+	assert_eq(scene.numbers.active_count(), n0 + 2, "taken number")
+	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
+	scene.handle_events([{"type": "level_up", "level": 2}])
+	assert_eq(scene.fx.active_count(), fx0 + 2, "LevelUp effect")
+	scene.handle_events([{"type": "job_changed", "job_id": 200, "name": "Magician"}])
+	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the Wooden Wand")
+	assert_true(scene.fx_back.active_count() >= 1, "JobChanged (z < 0) plays behind the character")
+	scene.handle_events([{"type": "pickup_collected", "pickup": 0, "item_id": 4000019, "exp": 5, "pos": p},
+		{"type": "pickup_collected", "pickup": 1, "item_id": 4000019, "exp": 7, "pos": p}])
+	scene.advance_frame(DT)
+	var texts: Array = []
+	for m: Dictionary in scene.hud.messages():
+		texts.append(m.text)
+	assert_true("+12 EXP" in texts, "one EXP message per frame (%s)" % [texts])
+	_assert_nothing_missing(scene, "events")
+
+
+func test_cast_plays_the_action_stance_while_standing() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 5, {})
+	var w := scene.world
+	_frames(30)
+	assert_eq(w.player.state, PlayerMotion.ST_STAND, "standing at the start")
+	var p := w.player.pos
+	var f := w.fhm.find_below(p.x - 150.0, p.y - 5.0)
+	w.spawn_mob(int(w.kind_of_id[100100]), Vector2(p.x - 150.0, w.fhm.y_at(f, p.x - 150.0)), f, 50.0, false)
+	var cast_seen := false
+	for i in 120:
+		scene.advance_frame(DT)
+		if scene.avatar.stance == "swingO1":
+			cast_seen = true
+			break
+	assert_true(cast_seen, "Three Snails' swingO1 shown while standing")
+	assert_eq(scene.avatar.facing, -1, "turned toward the mob on the left")
+	_assert_nothing_missing(scene, "cast")
+
+
+func test_level_up_opens_the_window() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 11, {})
+	var w := scene.world
+	_frames(2)
+	w.pickups.spawn(w.player.pos, 20, 4000019)
+	var ticks := 0
+	while int(w.player_state.level) < 2 and ticks < 120:
+		scene.advance_frame(DT)
+		ticks += 1
+	assert_eq(int(w.player_state.level), 2, "the drop levelled the player up")
+	assert_true(scene.window == null, "the window waits for the LevelUp effect")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the sim waits for the choice")
+	_frames(int(RunScene.WINDOW_DELAY / DT) + 2)
+	var lw := scene.window as LevelUpWindow
+	assert_true(lw != null, "the LevelUpWindow opened")
+	assert_eq(int(scene.counters.autopicks), 0, "no autopick without the option")
+	if lw != null:
+		assert_eq(lw.get_parent(), scene.windows_layer, "hosted in the windows layer")
+		assert_eq(scene.windows_layer.layer, 10)
+		assert_eq(lw.cards.size(), w.pending_cards.size(), "the window shows the sim's cards")
+		assert_eq(lw.level, 2, "for level 2")
+		var t := w.time
+		_frames(10)
+		assert_eq(w.time, t, "no ticks while the window is open")
+		# Key "2" picks the second card (the key path the player uses).
+		var second := String(w.pending_cards[1].id)
+		var key := InputEventKey.new()
+		key.pressed = true
+		key.keycode = KEY_2
+		key.physical_keycode = KEY_2
+		assert_true(lw.handle_input(key), "the window took the key")
+		assert_true(scene.window == null, "closed after the choice")
+		assert_eq(int(w.loadout.card_ranks.get(second, 0)), 1, "the second card (%s) was applied" % second)
+	assert_eq(w.state, RunWorld.PLAYING, "playing again")
+	var t_after := w.time
+	_frames(2)
+	assert_true(w.time > t_after, "ticking again")
+	_assert_nothing_missing(scene, "level up")
+
+
+func test_job_window_reaches_magician() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 12, {"window_autopick": 0.05})
+	var w := scene.world
+	_frames(2)
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	var guard := 0
+	while (int(w.player_state.job_id) != 200 or w.state != RunWorld.PLAYING) and guard < 60 * 30:
+		scene.advance_frame(DT)
+		guard += 1
+	assert_eq(int(w.player_state.job_id), 200, "the Magician advancement was taken (level %d)" % int(w.player_state.level))
+	assert_true(1372005 in scene.avatar.look.equips, "wand look")
+	assert_true(int(scene.counters.windows) >= int(w.player_state.level), "one window per level + the job window")
+	assert_eq(int(scene.counters.autopicks), 0, "every choice went through a window")
+	_assert_nothing_missing(scene, "job")
+
+
+func test_job_window_select_and_decline() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 14, {})
+	var w := scene.world
+	_frames(2)
+	# Exactly enough EXP for level 8 (the Magician advancement level).
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	var guard := 0
+	while scene.window == null and guard < 60 * 10:
+		scene.advance_frame(DT)
+		guard += 1
+		var lw0 := scene.window as LevelUpWindow
+		if lw0 != null:
+			lw0.choose(0)
+	var jw := scene.window as JobAdvanceWindow
+	# Levels 2-7 were answered above; the job window comes first at level 8.
+	guard = 0
+	while jw == null and guard < 60 * 10:
+		scene.advance_frame(DT)
+		guard += 1
+		var lw := scene.window as LevelUpWindow
+		if lw != null:
+			lw.choose(0)
+		jw = scene.window as JobAdvanceWindow
+	assert_true(jw != null, "the JobAdvanceWindow opened (level %d)" % int(w.player_state.level))
+	if jw == null:
+		return
+	assert_eq(jw.level, 8, "at level 8")
+	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the sim waits for the job choice")
+	# "Not now." keeps the Beginner and continues to the level-8 upgrade window.
+	assert_true(jw.any_available(), "Magician is available")
+	jw.decline()
+	assert_eq(int(w.player_state.job_id), 0, "still a Beginner")
+	_frames(int(RunScene.WINDOW_DELAY / DT) + 2)
+	assert_true(scene.window is LevelUpWindow, "the level-8 upgrade window follows the decline")
+	_assert_nothing_missing(scene, "job decline")
+
+
+func test_job_change_effect_plays_before_the_next_window() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 15, {})
+	var w := scene.world
+	_frames(2)
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	var jw: JobAdvanceWindow = null
+	var guard := 0
+	while jw == null and guard < 60 * 20:
+		scene.advance_frame(DT)
+		guard += 1
+		var lw := scene.window as LevelUpWindow
+		if lw != null:
+			lw.choose(0)
+		jw = scene.window as JobAdvanceWindow
+	assert_true(jw != null, "the JobAdvanceWindow opened (level %d)" % int(w.player_state.level))
+	if jw == null:
+		return
+	var anim := lib.find_anim(RunScene.FX_JOB_CHANGED)
+	assert_true(anim != null and anim.total > 0.5, "the JobChanged effect is in the cache")
+	var total := anim.total if anim != null else RunScene.JOB_WINDOW_DELAY
+	# The player takes Magician: the sim already waits in the level-8 card choice, but the window must not cover the
+	# JobChanged pillar while it plays.
+	jw.job_chosen.emit(200)
+	assert_eq(int(w.player_state.job_id), 200, "Magician taken")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the level-8 card choice is pending in the sim")
+	var held := 0
+	while scene.window == null and held < 600:
+		scene.advance_frame(DT)
+		held += 1
+	assert_true(scene.window is LevelUpWindow, "the level-8 upgrade window follows")
+	assert_between(held * DT, total - 2.0 * DT, total + 3.0 * DT,
+		"the window waited for the %.2f s JobChanged effect (%d frames)" % [total, held])
+	_assert_nothing_missing(scene, "job effect")
+
+
+func test_pause_holds_the_run() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 13, {"autoplay": true, "autopick": true})
+	var w := scene.world
+	_frames(30)
+	var t := w.time
+	scene.open_pause()
+	assert_true(scene.paused)
+	assert_eq(scene.world_root.process_mode, Node.PROCESS_MODE_DISABLED, "world animations frozen")
+	_frames(30)
+	assert_eq(w.time, t, "no ticks while paused")
+	var pm := scene.window as PauseMenu
+	assert_true(pm != null, "the PauseMenu opened")
+	if pm == null:
+		return
+	# Esc in the menu resumes (the key path the player uses).
+	var esc := InputEventKey.new()
+	esc.pressed = true
+	esc.keycode = KEY_ESCAPE
+	esc.physical_keycode = KEY_ESCAPE
+	assert_true(pm.handle_input(esc), "the menu took Esc")
+	assert_false(scene.paused)
+	_frames(30)
+	assert_true(w.time > t, "running again")
+	scene.open_pause()
+	pm = scene.window as PauseMenu
+	assert_true(pm != null and pm.activate(1), "Quit to stage select")
+	assert_eq(finished.size(), 1, "quitting ends the run (without Flow: run_finished)")
+	_assert_nothing_missing(scene, "pause")
+
+
+func test_stage_clear_finishes_with_summary() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 4, {"autoplay": true, "autopick": true})
+	var w := scene.world
+	w.duration = 2.0
+	_frames(150)
+	assert_eq(w.state, RunWorld.CLEARED, "cleared at the shortened duration")
+	assert_true(scene.notice_fx.active_count() == 1, "the CLEAR field effect shows")
+	assert_eq(finished.size(), 0, "the notice holds before the results")
+	_frames(int(RunScene.CLEAR_HOLD / DT) + 5)
+	assert_eq(finished.size(), 1, "run_finished emitted once")
+	if finished.size() == 1:
+		var s: Dictionary = finished[0]
+		for k: String in ["stage", "map_id", "map_name", "street_name", "time", "duration", "cleared", "level", "job_id",
+				"job_name", "kills", "damage_dealt", "skills", "seed"]:
+			assert_true(s.has(k), "summary has %s" % k)
+		assert_eq(bool(s.cleared), true)
+		assert_eq(int(s.map_id), 104040000)
+		assert_eq(String(s.map_name), lib.string_name("Map", 104040000))
+		assert_eq(int(s.seed), 4)
+		var sk: Array = s.skills
+		assert_true(sk.size() >= 1 and String(sk[0].key) == "three_snails", "owned skills %s" % [sk])
+	_assert_nothing_missing(scene, "clear")
+
+
+func test_death_shows_tombstone_then_finishes() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 9, {})
+	var w := scene.world
+	_frames(2)
+	var p := w.player.pos
+	for dx: float in [-20.0, 0.0, 20.0, -40.0, 40.0]:
+		var f := w.fhm.find_below(p.x + dx, p.y - 5.0)
+		w.spawn_mob(int(w.kind_of_id[1110100]), Vector2(p.x + dx, w.fhm.y_at(f, p.x + dx)), f, 50.0, false)
+	var ticks := 0
+	while w.state != RunWorld.DEAD and ticks < 60 * 60:
+		scene.advance_frame(DT)
+		ticks += 1
+	assert_eq(w.state, RunWorld.DEAD, "the Green Mushrooms killed the player")
+	scene.advance_frame(DT)
+	assert_eq(scene.avatar.stance, "dead", "dead stance")
+	assert_true(scene.fx.active_count() >= 1, "tombstone playing")
+	assert_eq(finished.size(), 0, "results wait for the tombstone")
+	var fall := lib.find_anim(FxRenderer.TOMB_FALL)
+	_frames(int((fall.total + RunScene.DEATH_HOLD) / DT) + 5)
+	assert_eq(finished.size(), 1, "run_finished after the tombstone + hold")
+	if finished.size() == 1:
+		assert_eq(bool(finished[0].cleared), false)
+	_assert_nothing_missing(scene, "death")
+
+
+func test_climbing_animates_only_while_moving() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 21, {})
+	var w := scene.world
+	_frames(2)
+	# The ladder/rope whose bottom is closest above a floor: stand under it and hold Up.
+	var best := -1
+	var feet := Vector2.ZERO
+	for i in w.ladders.x.size():
+		var f := w.fhm.find_below(w.ladders.x[i], w.ladders.y2[i] - 2.0)
+		if f < 0:
+			continue
+		var fy := w.fhm.y_at(f, w.ladders.x[i])
+		if fy - w.ladders.y2[i] < 40.0:
+			best = i
+			feet = Vector2(w.ladders.x[i], fy)
+			break
+	assert_true(best >= 0, "a ladder reachable from a floor")
+	if best < 0:
+		return
+	w.player.place(feet, w.fhm)
+	Input.action_press("move_up")
+	_frames(20)
+	Input.action_release("move_up")
+	var climb := "ladder" if w.ladders.is_ladder[best] != 0 else "rope"
+	assert_eq(w.player.state, PlayerMotion.ST_LADDER, "grabbed")
+	assert_eq(scene.avatar.stance, climb, "climb stance")
+	var t := scene.avatar.stance_time
+	_frames(20)
+	assert_eq(scene.avatar.stance_time, t, "the climb animation holds while not moving")
+	_assert_nothing_missing(scene, "ladder")
+
+
+func test_warp_fast_forwards_before_the_first_frame() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2026, {"autoplay": true, "autopick": true, "warp": 200.0, "shots_dir": "",
+		"shot_every": 30.0})
+	var w := scene.world
+	assert_true(w.time >= 200.0 - 1e-6, "the sim is at 3:20 before any frame (%.1f)" % w.time)
+	assert_eq(w.state, RunWorld.PLAYING)
+	assert_eq(int(w.player_state.job_id), 200, "the bot became a Magician on the way")
+	assert_true(1372005 in scene.avatar.look.equips, "the presentation starts with the wand look")
+	_frames(30)
+	assert_eq(_mob_visible(scene), _drawn_mob_slots(w), "the renderers draw the warped swarm")
+	assert_near(float(scene.perf_summary().get("warped_to")), w.time - 30.0 * DT, 1e-6, "perf_summary records the warp")
+	_assert_hud_matches(scene)
+	_assert_nothing_missing(scene, "warp")
+
+
+func test_launcher_args() -> void:
+	var args := RunLauncher.parse_args(PackedStringArray(["--run=henesys_hg1", "--seed=7", "--autoplay", "--autopick",
+		"--speed=4", "--shots=C:\\tmp\\shots", "--shot-every=30", "--quit-after=900", "--perf", "ignored"]))
+	assert_true(RunLauncher.has_run_args(args))
+	assert_eq(RunLauncher.stage_from_args(args), "henesys_hg1")
+	var o := RunLauncher.options_from_args(args)
+	assert_eq(o.autoplay, true)
+	assert_eq(o.autopick, true)
+	assert_eq(int(o.speed), 4)
+	assert_eq(String(o.shots_dir), "C:/tmp/shots")
+	assert_near(float(o.shot_every), 30.0)
+	assert_near(float(o.quit_after), 900.0)
+	assert_eq(o.perf, true)
+	assert_eq(int(args.seed), 7)
+	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
+	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
+	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))

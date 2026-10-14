@@ -1,0 +1,93 @@
+{
+	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks[r-1] = canonical skill level at survivor rank r. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat: what the canonical field feeds (mp_guard = Magic Guard x%, pdd = Magic Armor pdd). level_ranks {character level: rank}: the skill reaches at least that survivor rank at that character level (the SP a v83 Beginner spends on Three Snails; cards can get there sooner).",
+	"slots": {"active": 6, "passive": 6},
+	"skills": {
+		"three_snails": {
+			"skill_id": 1000, "book": "000", "job": 0, "kind": "projectile", "slot": "active",
+			"name": "Three Snails", "desc": "Hurls snail shells at the nearest monster.",
+			"icon": "Skill.wz/000.img/skill/0001000/icon",
+			"damage": "fixed",
+			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,
+			"ranks": [1, 2, 3],
+			"level_ranks": {"3": 2, "6": 3},
+			"action": "swingO1", "action_time": 0.8,
+			"ball": "Skill.wz/000.img/skill/0001000/level/{level}/ball",
+			"hit": "Skill.wz/000.img/skill/0001000/level/{level}/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/0001000/Use", "hit": ""}
+		},
+		"energy_bolt": {
+			"skill_id": 2001004, "book": "200", "job": 200, "kind": "projectile", "slot": "active",
+			"name": "Energy Bolt", "desc": "Fires a bolt of energy at the nearest monster.",
+			"icon": "Skill.wz/200.img/skill/2001004/icon",
+			"damage": "magic",
+			"cooldown": 0.9, "range": 450, "speed": 450, "count": 1, "pierce": 0, "radius": 14,
+			"ranks": [1, 5, 9, 13, 17, 20],
+			"action": "swingO1", "action_time": 0.8,
+			"ball": "Skill.wz/200.img/skill/2001004/ball",
+			"hit": "Skill.wz/200.img/skill/2001004/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2001004/Use", "hit": ""}
+		},
+		"magic_claw": {
+			"skill_id": 2001005, "book": "200", "job": 200, "kind": "instant", "slot": "active",
+			"name": "Magic Claw", "desc": "Rakes the nearest monster twice with a magic claw.",
+			"icon": "Skill.wz/200.img/skill/2001005/icon",
+			"damage": "magic",
+			"cooldown": 1.25, "range": 260, "count": 1, "pierce": 0,
+			"ranks": [1, 5, 9, 13, 17, 20],
+			"action": "swingO1", "action_time": 0.8,
+			"ball": "",
+			"hit": "Skill.wz/200.img/skill/2001005/hit/0",
+			"effect": "Skill.wz/200.img/skill/2001005/effect",
+			"char_level": {
+				"thresholds": [10, 15, 20, 25],
+				"hit": "Skill.wz/200.img/skill/2001005/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/200.img/skill/2001005/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2001005/Use", "hit": ""}
+		},
+		"magic_guard": {
+			"skill_id": 2001002, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
+			"name": "Magic Guard", "desc": "Part of the damage you take is paid with MP instead of HP.",
+			"icon": "Skill.wz/200.img/skill/2001002/icon",
+			"damage": "none",
+			"passive": {"stat": "mp_guard", "field": "x"},
+			"ranks": [1, 5, 10, 15, 20],
+			"action": "", "action_time": 0.0,
+			"ball": "", "hit": "",
+			"effect": "Skill.wz/200.img/skill/2001002/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2001002/Use", "hit": ""}
+		},
+		"magic_armor": {
+			"skill_id": 2001003, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
+			"name": "Magic Armor", "desc": "Magic hardens your armor: higher weapon defence against touch damage.",
+			"icon": "Skill.wz/200.img/skill/2001003/icon",
+			"damage": "none",
+			"passive": {"stat": "pdd", "field": "pdd"},
+			"ranks": [1, 5, 10, 15, 20],
+			"action": "", "action_time": 0.0,
+			"ball": "", "hit": "", "effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2001003/Use", "hit": ""}
+		},
+		"fire_arrow": {
+			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
+			"name": "Fire Arrow", "desc": "Phase 2. Shoots a flaming arrow at the nearest monster.",
+			"icon": "Skill.wz/210.img/skill/2101004/icon",
+			"damage": "magic",
+			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
+			"ranks": [1, 5, 10, 15, 20, 25, 30],
+			"action": "shoot1", "action_time": 0.8,
+			"ball": "Skill.wz/210.img/skill/2101004/ball",
+			"hit": "Skill.wz/210.img/skill/2101004/hit/0",
+			"effect": "Skill.wz/210.img/skill/2101004/effect",
+			"rotate": true,
+			"sounds": {"use": "Sound.wz/Skill.img/2101004/Use", "hit": ""}
+		}
+	}
+}

@@ -1,0 +1,232 @@
+class_name PickupSystem
+extends RefCounted
+## EXP drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
+##
+## A drop pops up (vy = -pop_speed, a small sideways drift from `rng`), falls with gravity up to fall_speed and lands
+## on the first floor below it (FootholdMap.find_landing; a drop with nothing below stops where it is once it is below
+## the foothold box). A drop within `magnet_r` of the player's body centre (feet - CENTER_UP) is attracted for good: it
+## flies at the player, accelerating from magnet_speed by magnet_acc, and is collected within collect_radius, which
+## appends a `pickup_collected` event; step() returns the EXP collected this tick. Past `max_active` live drops a new
+## drop's EXP is merged into the nearest existing one (`merged` tells the caller no slot was added; the merged drop's
+## age restarts). With `lifetime` > 0 a drop that lies uncollected that long expires: it fades out over its last
+## `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop already flying to
+## the player never expires. All motion and lifetime constants are tier C (ours).
+
+const AIR := 0
+const REST := 1
+const MAGNET := 2
+## The player's body centre is this far above the feet. tier C: ours.
+const CENTER_UP := 25.0
+
+const TUNING_DEFAULTS := {
+	"pop_speed": 260.0,  # tier C: initial upward speed of a drop (apex ~17 px)
+	"spread": 40.0,  # tier C: max sideways speed of the pop
+	"gravity": 2000.0,  # tier A: Physics.img gravityAcc
+	"fall_speed": 670.0,  # tier A: Physics.img fallSpeed
+	"magnet_speed": 220.0,  # tier C: start speed toward the player
+	"magnet_acc": 1400.0,  # tier C: acceleration toward the player
+	"collect_radius": 24.0,  # tier C: collected this close to the body centre
+	"max_active": 600,  # tier C: merge EXP into the nearest drop past this many
+	"lifetime": 0.0,  # tier C: seconds an uncollected drop lies before it expires (0 = never)
+	"fade": 1.5,  # tier C: the last seconds of the lifetime, fading out
+}
+
+var active := PackedByteArray()
+var x := PackedFloat32Array()
+var y := PackedFloat32Array()
+var vx := PackedFloat32Array()
+var vy := PackedFloat32Array()
+var exp := PackedInt32Array()
+var item_id := PackedInt32Array()
+## AIR / REST / MAGNET.
+var state := PackedByteArray()
+## Seconds since the drop appeared (or last took merged EXP).
+var age := PackedFloat32Array()
+
+var tuning: Dictionary
+var rng: RandomNumberGenerator
+## True when the last spawn() merged into an existing drop instead of adding one.
+var merged := false
+## Total EXP collected so far.
+var collected_exp := 0
+## Drops expired so far and the EXP they held.
+var expired := 0
+var expired_exp := 0
+
+var _free := PackedInt32Array()
+var _hi := 0
+var _count := 0
+
+
+func _init(capacity: int = 64, p_tuning: Dictionary = {}, p_rng: RandomNumberGenerator = null) -> void:
+	tuning = TUNING_DEFAULTS.duplicate()
+	for k: String in p_tuning:
+		if tuning.has(k):
+			tuning[k] = p_tuning[k]
+	rng = p_rng if p_rng != null else RandomNumberGenerator.new()
+	_grow(maxi(1, capacity))
+
+
+## Number of slots (iterate and skip inactive).
+func capacity() -> int:
+	return active.size()
+
+
+## Number of live drops.
+func active_count() -> int:
+	return _count
+
+
+## Drops `p_exp` EXP shown as item `p_item_id` at pos (it pops up from there). Returns the slot (the merged-into slot
+## when at max_active, with `merged` set).
+func spawn(pos: Vector2, p_exp: int, p_item_id: int) -> int:
+	merged = false
+	if _count >= int(tuning.max_active):
+		var best := -1
+		var best_d := INF
+		for i in _hi:
+			if active[i] != 0:
+				var d := Vector2(x[i] - pos.x, y[i] - pos.y).length_squared()
+				if d < best_d:
+					best_d = d
+					best = i
+		if best >= 0:
+			exp[best] += p_exp
+			age[best] = 0.0
+			merged = true
+			return best
+	if _free.is_empty():
+		_grow(capacity() * 2)
+	var i := _free[_free.size() - 1]
+	_free.resize(_free.size() - 1)
+	active[i] = 1
+	x[i] = pos.x
+	y[i] = pos.y
+	var spread := float(tuning.spread)
+	vx[i] = rng.randf_range(-spread, spread) if spread > 0.0 else 0.0
+	vy[i] = -float(tuning.pop_speed)
+	exp[i] = p_exp
+	item_id[i] = p_item_id
+	state[i] = AIR
+	age[i] = 0.0
+	_count += 1
+	_hi = maxi(_hi, i + 1)
+	return i
+
+
+## Removes drop i without collecting it.
+func despawn(i: int) -> void:
+	if i < 0 or i >= capacity() or active[i] == 0:
+		return
+	active[i] = 0
+	_count -= 1
+	_free.append(i)
+	while _hi > 0 and active[_hi - 1] == 0:
+		_hi -= 1
+
+
+## Draw alpha of drop i: 1, fading to 0 over the last `fade` seconds of its lifetime.
+func alpha(i: int) -> float:
+	var life := float(tuning.lifetime)
+	if life <= 0.0 or i < 0 or i >= capacity() or state[i] == MAGNET:
+		return 1.0
+	var f := float(tuning.fade)
+	return clampf((life - age[i]) / f, 0.0, 1.0) if f > 0.0 else 1.0
+
+
+## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
+func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
+	var got := 0
+	var grav := float(tuning.gravity)
+	var fall := float(tuning.fall_speed)
+	var acc := float(tuning.magnet_acc)
+	var cr := float(tuning.collect_radius)
+	var cr2 := cr * cr
+	var mr2 := magnet_r * magnet_r
+	var life := float(tuning.lifetime)
+	var cx := player_pos.x
+	var cy := player_pos.y - CENTER_UP
+	var floor_y := INF
+	var lo_x := -INF
+	var hi_x := INF
+	if fhm != null and fhm.count() > 0:
+		var fb := fhm.bounds()
+		floor_y = fb.end.y
+		lo_x = fb.position.x
+		hi_x = fb.end.x
+	for i in _hi:
+		if active[i] == 0:
+			continue
+		var px := x[i]
+		var py := y[i]
+		var dx := cx - px
+		var dy := cy - py
+		var d2 := dx * dx + dy * dy
+		var st := state[i]
+		if st != MAGNET and life > 0.0:
+			age[i] += dt
+			if age[i] >= life and d2 > mr2:
+				expired += 1
+				expired_exp += exp[i]
+				despawn(i)
+				continue
+		if st != MAGNET and d2 <= mr2:
+			st = MAGNET
+			state[i] = MAGNET
+			vx[i] = float(tuning.magnet_speed)  # vx holds the magnet speed while attracted
+		if st == MAGNET:
+			var spd := vx[i] + acc * dt
+			vx[i] = spd
+			var d := sqrt(d2)
+			var s := spd * dt
+			if d <= s + cr:
+				px = cx
+				py = cy
+			else:
+				px += dx / d * s
+				py += dy / d * s
+			x[i] = px
+			y[i] = py
+			d2 = (cx - px) * (cx - px) + (cy - py) * (cy - py)
+		elif st == AIR:
+			var vy0 := vy[i]
+			var vy1 := minf(vy0 + grav * dt, fall)
+			vy[i] = vy1
+			var nx := clampf(px + vx[i] * dt, lo_x, hi_x)
+			var ny := py + (vy0 + vy1) * 0.5 * dt
+			if ny > py and fhm != null:
+				var g := fhm.find_landing(px, py, nx, ny)
+				if g >= 0:
+					ny = fhm.y_at(g, nx)
+					state[i] = REST
+					vx[i] = 0.0
+					vy[i] = 0.0
+			if ny > floor_y + 100.0:
+				state[i] = REST  # nothing below: stop rather than fall forever
+				vx[i] = 0.0
+				vy[i] = 0.0
+			x[i] = nx
+			y[i] = ny
+			d2 = (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny)
+		if d2 <= cr2:
+			got += exp[i]
+			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
+				"pos": Vector2(x[i], y[i])})
+			despawn(i)
+	collected_exp += got
+	return got
+
+
+func _grow(n: int) -> void:
+	var old := capacity()
+	if n <= old:
+		return
+	for arr: Variant in [active, state]:
+		arr.resize(n)
+	for arr: Variant in [x, y, vx, vy, age]:
+		arr.resize(n)
+	for arr: Variant in [exp, item_id]:
+		arr.resize(n)
+	for i in range(n - 1, old - 1, -1):
+		active[i] = 0
+		_free.append(i)

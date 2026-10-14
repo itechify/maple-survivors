@@ -1,0 +1,26 @@
+# Proprietary MapleStory data must never be committed: original WZ archives, executables, and anything extracted
+# from them (the asset cache, decoded PNG/MP3, screenshots of the running game).
+*.wz
+*.exe
+*.dll
+/assets-cache/
+/evidence/
+
+# Godot
+game/.godot/
+game/export/
+*.import
+*.translation
+
+# Rust importer
+tools/wzimport/target/
+
+# Scratch space for agents and local experiments
+/_scratch/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/

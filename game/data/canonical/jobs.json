@@ -1,0 +1,52 @@
+{
+	"_source": "Canonical GMS v83 Explorer job tree. Job ids, advancement levels and first-job stat gates are facts recorded in Cosmic (src/main/java/client/Job.java:25-63, scripts/npc/1032001.js:126, 1022000.js:126, 1012100.js:125, 1052001.js:127, 1090000.js:175, scripting/AbstractPlayerInteraction.java:1149-1192; AGPL-3.0 project, facts only). Names are the GMS English job names. book = the Skill.wz img / String.wz Skill.img key holding that job's skills and bookName.",
+	"jobs": [
+		{"id": 0, "name": "Beginner", "parent": -1, "tier": 0, "level": 1, "book": "000"},
+
+		{"id": 100, "name": "Warrior", "parent": 0, "tier": 1, "level": 10, "stat_req": {"STR": 35}, "book": "100"},
+		{"id": 110, "name": "Fighter", "parent": 100, "tier": 2, "level": 30, "book": "110"},
+		{"id": 111, "name": "Crusader", "parent": 110, "tier": 3, "level": 70, "book": "111"},
+		{"id": 112, "name": "Hero", "parent": 111, "tier": 4, "level": 120, "book": "112"},
+		{"id": 120, "name": "Page", "parent": 100, "tier": 2, "level": 30, "book": "120"},
+		{"id": 121, "name": "White Knight", "parent": 120, "tier": 3, "level": 70, "book": "121"},
+		{"id": 122, "name": "Paladin", "parent": 121, "tier": 4, "level": 120, "book": "122"},
+		{"id": 130, "name": "Spearman", "parent": 100, "tier": 2, "level": 30, "book": "130"},
+		{"id": 131, "name": "Dragon Knight", "parent": 130, "tier": 3, "level": 70, "book": "131"},
+		{"id": 132, "name": "Dark Knight", "parent": 131, "tier": 4, "level": 120, "book": "132"},
+
+		{"id": 200, "name": "Magician", "parent": 0, "tier": 1, "level": 8, "stat_req": {"INT": 20}, "book": "200"},
+		{"id": 210, "name": "Wizard (Fire, Poison)", "parent": 200, "tier": 2, "level": 30, "book": "210"},
+		{"id": 211, "name": "Mage (Fire, Poison)", "parent": 210, "tier": 3, "level": 70, "book": "211"},
+		{"id": 212, "name": "Arch Mage (Fire, Poison)", "parent": 211, "tier": 4, "level": 120, "book": "212"},
+		{"id": 220, "name": "Wizard (Ice, Lightning)", "parent": 200, "tier": 2, "level": 30, "book": "220"},
+		{"id": 221, "name": "Mage (Ice, Lightning)", "parent": 220, "tier": 3, "level": 70, "book": "221"},
+		{"id": 222, "name": "Arch Mage (Ice, Lightning)", "parent": 221, "tier": 4, "level": 120, "book": "222"},
+		{"id": 230, "name": "Cleric", "parent": 200, "tier": 2, "level": 30, "book": "230"},
+		{"id": 231, "name": "Priest", "parent": 230, "tier": 3, "level": 70, "book": "231"},
+		{"id": 232, "name": "Bishop", "parent": 231, "tier": 4, "level": 120, "book": "232"},
+
+		{"id": 300, "name": "Bowman", "parent": 0, "tier": 1, "level": 10, "stat_req": {"DEX": 25}, "book": "300"},
+		{"id": 310, "name": "Hunter", "parent": 300, "tier": 2, "level": 30, "book": "310"},
+		{"id": 311, "name": "Ranger", "parent": 310, "tier": 3, "level": 70, "book": "311"},
+		{"id": 312, "name": "Bowmaster", "parent": 311, "tier": 4, "level": 120, "book": "312"},
+		{"id": 320, "name": "Crossbowman", "parent": 300, "tier": 2, "level": 30, "book": "320"},
+		{"id": 321, "name": "Sniper", "parent": 320, "tier": 3, "level": 70, "book": "321"},
+		{"id": 322, "name": "Marksman", "parent": 321, "tier": 4, "level": 120, "book": "322"},
+
+		{"id": 400, "name": "Thief", "parent": 0, "tier": 1, "level": 10, "stat_req": {"DEX": 25}, "book": "400"},
+		{"id": 410, "name": "Assassin", "parent": 400, "tier": 2, "level": 30, "book": "410"},
+		{"id": 411, "name": "Hermit", "parent": 410, "tier": 3, "level": 70, "book": "411"},
+		{"id": 412, "name": "Night Lord", "parent": 411, "tier": 4, "level": 120, "book": "412"},
+		{"id": 420, "name": "Bandit", "parent": 400, "tier": 2, "level": 30, "book": "420"},
+		{"id": 421, "name": "Chief Bandit", "parent": 420, "tier": 3, "level": 70, "book": "421"},
+		{"id": 422, "name": "Shadower", "parent": 421, "tier": 4, "level": 120, "book": "422"},
+
+		{"id": 500, "name": "Pirate", "parent": 0, "tier": 1, "level": 10, "stat_req": {"DEX": 20}, "book": "500"},
+		{"id": 510, "name": "Brawler", "parent": 500, "tier": 2, "level": 30, "book": "510"},
+		{"id": 511, "name": "Marauder", "parent": 510, "tier": 3, "level": 70, "book": "511"},
+		{"id": 512, "name": "Buccaneer", "parent": 511, "tier": 4, "level": 120, "book": "512"},
+		{"id": 520, "name": "Gunslinger", "parent": 500, "tier": 2, "level": 30, "book": "520"},
+		{"id": 521, "name": "Outlaw", "parent": 520, "tier": 3, "level": 70, "book": "521"},
+		{"id": 522, "name": "Corsair", "parent": 521, "tier": 4, "level": 120, "book": "522"}
+	]
+}
