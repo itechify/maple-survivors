@@ -23,6 +23,8 @@ extends RefCounted
 ## platform above whose near end drops it next to the player), so the crowd comes at the player instead of queueing on a
 ## long platform that leads away from it; the ring's first reachable point serves when none is that direct.
 ## pick_spawn(world, k, side) with side -1/1 also prefers points on that side of the player (ahead of it).
+## Flyers sample air in off-screen strips of the same rings inside map bounds, ignoring floors and NavGraph.
+## Their spawn point has foothold -1; all kinds return foothold -2 when no valid point exists.
 ##
 ## The view grown by `margin` (the rect spawns stay out of) is grown by `trail_margin` more on the side the player moves
 ## away from (horizontal speed > 1 px/s): the camera lags behind a running player (CameraRig: 125 px/s / 6 per s + its

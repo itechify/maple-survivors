@@ -88,6 +88,16 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
 - **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Flyers:** mobs with a `fly` stance steer directly toward the player through footholds, walls and ceilings,
+  inside the map bounds. Speed = (`flySpeed` + 100) × `mob_speed_factor` × the stage speed multiplier (tier C
+  conversion, canonical `flySpeed` unchanged). A 2 px bob over 1.2 s (`balance.mob_motion`) is independent of the
+  pursuit and never accumulates drift. Flyers fade in before moving or hurting the player and spawn at off-screen
+  air points without needing a floor or a route. They use their own canonical contact attack, never ranged attacks,
+  and their canonical HP receives the same stage HP multiplier as ground mobs. `fly`, `hit1`, and `die1` use the
+  original WZ frames; dying flyers stay in the air until their animation ends.
+  Henesys Hunting Ground I adds PQ Stirge 9300063 (Lv 6) at 3:00, Flyeye 9300062 (Lv 8) at 5:00, Goblin Fire 9300064
+  (Lv 11) at 8:00, and regular Stirge 2300100 (Lv 20) at 11:00, each at weight 1; earlier flyers remain in the pool.
+  The added arrival keyframes interpolate the existing pacing values. The Tree That Grew I has no flyers.
 - **Hit reaction:** a hit plays `hit1` and stuns for 0.24 s (tier C); damage ≥ `pushed` also pushes the mob 12 px
   away from the source (tier C).
 - **Death:** `die1` plays with its WZ delays and alpha fades (`a0/a1`), the death sound plays, and the mob drops EXP.
@@ -326,6 +336,8 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   4000000, Red Snail -> Red Snail Shell 4000016, Shroom -> Mushroom Spore 4000011, Slime -> Slime Bubble 4000010,
   Pig -> Pig's Head 4000017, Orange Mushroom -> Orange Mushroom Cap 4000001, Green Mushroom -> Green Mushroom Cap
   4000012.
+- Flyer EXP icons: Stirges use Stirge Wing 4000042, Flyeye uses Fly-Eye Wing 4000076, and Goblin Fire uses
+  Firebomb Flame 4000081 as a tier C visual choice (not a claim about a canonical drop table).
 - EXP value = the mob's canonical `exp` × 1.0 (× 5 for elites). Pickups within the magnet radius (90 px) fly to the
   player; collecting plays `Game.img/PickUpItem` and shows "+N EXP" in MapleStory's yellow system-message style.
 - **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). Past `pickup.max_active` (600) a new
@@ -497,6 +509,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player start | 50 HP, 5 MP, 4 INT, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
+| Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
+| Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
