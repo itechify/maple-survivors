@@ -151,7 +151,7 @@ func test_events_become_visuals() -> void:
 		"skill": "three_snails"}])
 	assert_eq(scene.numbers.active_count(), n0 + 1, "damage number")
 	assert_eq(scene.fx.active_count(), fx0 + 1, "hit effect")
-	scene.handle_events([{"type": "player_hit", "damage": 7, "mp_absorbed": 0, "dir": 1, "pos": p}])
+	scene.handle_events([{"type": "player_hit", "damage": 7, "mp_absorbed": 0, "miss": false, "dir": 1, "pos": p}])
 	assert_eq(scene.numbers.active_count(), n0 + 2, "taken number")
 	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
 	scene.handle_events([{"type": "level_up", "level": 2}])
@@ -188,6 +188,25 @@ func test_cast_plays_the_action_stance_while_standing() -> void:
 	assert_true(cast_seen, "Three Snails' swingO1 shown while standing")
 	assert_eq(scene.avatar.facing, -1, "turned toward the mob on the left")
 	_assert_nothing_missing(scene, "cast")
+
+
+func test_player_miss_uses_violet_art_without_hit_expression() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 616, {})
+	_frames(2)
+	var w := scene.world
+	w.loadout.add_player_mod("avoid", "add", 1000.0)
+	w.refresh_player_stats()
+	w.drain_events()
+	var numbers := scene.numbers.active_count()
+	var expression := scene.avatar.current_expression()
+	w.take_hit(82.0, false, "", w.player.pos + Vector2(10, 0), {"accuracy": 42})
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.numbers.active_count(), numbers + 1, "a MISS is rendered")
+	assert_eq(scene.avatar.current_expression(), expression, "a miss does not hurt the avatar")
+	assert_true(lib.find("Effect.wz/BasicEff.img/NoViolet0/Miss") != null, "the violet MISS glyph is canonical")
+	_assert_nothing_missing(scene, "player miss")
 
 
 func test_level_up_opens_the_window() -> void:

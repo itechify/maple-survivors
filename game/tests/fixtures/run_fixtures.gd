@@ -204,7 +204,7 @@ static func quiet_data() -> Dictionary:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
 		"map_id": 0, "name": "quiet", "duration": 900.0, "hard_cap": 400,
-		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "damage": 1.0, "pool": pool}],
+		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}
 	return data

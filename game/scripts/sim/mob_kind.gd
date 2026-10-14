@@ -44,7 +44,7 @@ var hitbox := DEFAULT_HITBOX
 ## Seconds of the death animation (sum of die1 delays) and of the hit stun.
 var die_time := DEFAULT_DIE_TIME
 var hit_time := DEFAULT_HIT_TIME
-## Damage at or above this pushes the mob back.
+## Canonical damage threshold for hit stun and push.
 var pushed := 1
 var body_attack := false
 var undead := false
