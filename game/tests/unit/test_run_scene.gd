@@ -254,6 +254,23 @@ func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() ->
 	_assert_nothing_missing(scene, "multiple boss bars")
 
 
+func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2303, {})
+	var pos := scene.world.player.pos + Vector2(180, 0)
+	var effect := "Mob.wz/6130101.img/attack1/info/effect"
+	var sounds := int(scene.counters.sounds)
+	var effects := scene.fx.active_count()
+	scene.handle_events([{"type": "boss_attack", "phase": "start", "boss_index": 1,
+		"sound": "Sound.wz/Mob.img/6130101/Attack1"},
+		{"type": "boss_attack", "phase": "effect", "boss_index": 1,
+		"effect": effect, "pos": pos, "facing": -1}])
+	assert_eq(scene.counters.sounds, sounds + 1)
+	assert_eq(scene.fx.active_count(), effects + 1)
+	_assert_nothing_missing(scene, "mushroom slam")
+
+
 func test_cast_plays_the_action_stance_while_standing() -> void:
 	if not require_cache():
 		return

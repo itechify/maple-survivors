@@ -9,7 +9,8 @@ const DT := 1.0 / 60.0
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind"]
+
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -29,13 +30,15 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		var v: Variant = e[k]
 		if k == "pos" and not (v is Vector2):
 			fail("%s.pos is %s" % [type, type_string(typeof(v))])
+		elif k == "area" and not (v is Rect2):
+			fail("%s.area is not Rect2" % type)
 		elif k in INT_FIELDS and typeof(v) != TYPE_INT:
 			fail("%s.%s is %s, not int" % [type, k, type_string(typeof(v))])
 		elif k in BOOL_FIELDS and typeof(v) != TYPE_BOOL:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k in ["time", "hit_after", "interval", "duration"] and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "hit_after", "interval", "impact_time", "duration"] and typeof(v) != TYPE_FLOAT:
 			fail("%s.time is not float" % type)
 	match type:
 		"job_advance_pending":
@@ -138,6 +141,12 @@ func test_every_event_matches_the_schema() -> void:
 	b.step(DT, MoveInput.new())
 	for e: Dictionary in b.drain_events():
 		_check(e, seen)
+	var slam := RunWorld.new(preload("res://tests/fixtures/boss_attack_fixtures.gd").setup())
+	slam.god = true
+	for tick in 180:
+		slam.step(DT, MoveInput.new())
+	for event: Dictionary in slam.drain_events():
+		_check(event, seen)
 	# A same-map warp for portal_used (the synthetic hunting ground otherwise has only spawn points).
 	var p_setup := RF.setup("quiet", 17, RF.quiet_data())
 	p_setup.map_img.portal = {

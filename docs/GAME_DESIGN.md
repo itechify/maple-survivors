@@ -353,7 +353,8 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
-15:00. The current encounters use canonical movement, contact attack and art; their skill kits are separate tickets.
+15:00. The current encounters use canonical movement, contact attack and art; the mushroom family also uses its
+jump slam. The other skill kits are separate tickets.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
 survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
@@ -398,6 +399,25 @@ Warnings say "<name> will appear in 3 seconds!"; arrival replaces the warning wi
 and the original `BasicEff.img/Summoned` effect at the boss. Selecting this effect and positioning the notices is
 tier C; the effect frames, origins and 80 ms delays are tier A. Keyed notices sit above EXP and low-MP messages,
 expire after the warning lead or 4 s after arrival, and cannot be evicted by EXP pickup traffic.
+
+Mushmom and Blue Mushmom select their canonical `attack1` type-0 jumping attack: attack-local PADamage 300,
+500×150 range (-250,-150) through (250,0), impact at `attackAfter = 1050 ms`, and `effectAfter = 0`. The boss holds
+its captured ground anchor/facing during the 1.85 s stance (tier C anchoring); the apparent jump comes from the
+original frame origins. The range mirrors with facing. A player body inside the captured area at impact takes the
+physical hit through `take_hit`; when `jumpAttack` is set, being airborne at that moment avoids it (lore, tier C).
+Leaving the area during the windup also avoids it. A boss killed before impact cannot finish the attack.
+An intentional attack/skill stance resets pursuit stall rather than causing a teleport; a fading boss cannot
+begin another action (tier C action/teleport coordination).
+Windup art, sound and effect use original timings. The effect's ground-wave frames begin at 1.10 s, 50 ms after
+the damage impact; neither timeline is retimed to conceal this canonical difference. Selected attacks repeat at
+an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).
+
+Slam scaling is separate from touch scaling because both mushrooms' slam attack is 300 while their contact attack
+is 200 / 450. Mushmom `attack_dmg_mult = 1.03` yields 227–273 whole damage against typical HP 550 / W.DEF 47;
+Blue Mushmom `attack_dmg_mult = 1.48` yields 326–392 against HP 800 / W.DEF 47, both within 40–50%. These are tier-C
+calibration examples pending #27 build validation, preserving canonical attack values and existing touch scales.
+The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
+The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
 The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
@@ -676,6 +696,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
+| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
 | Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |

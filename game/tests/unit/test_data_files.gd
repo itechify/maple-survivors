@@ -106,6 +106,15 @@ func test_stages_mobs_and_manifest() -> void:
 		assert_eq(int(mobs[str(id)].exp_item), items[id], "EXP item of %d" % id)
 
 
+func test_henesys_boss_order_and_slam_data() -> void:
+	var entries: Array = data.stages.stages.henesys_hg1.bosses
+	assert_eq(entries.map(func(e: Dictionary) -> int: return int(e.mob_id)), [2220000, 6130101, 9400205])
+	assert_eq(entries.map(func(e: Dictionary) -> int: return int(e.time)), [300, 600, 900])
+	assert_eq(entries[1].attacks, ["attack1"])
+	assert_eq(entries[2].attacks, ["attack1"])
+	assert_eq(data.mobs.mobs["9400205"].boss_ui.icon_id, 6130101)
+
+
 func test_jobs_and_balance() -> void:
 	var tree := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for k: String in data.jobs_survivor.jobs:
