@@ -45,8 +45,9 @@ const EVENT_FIELDS := {
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
-	"pickup_spawned": ["pickup", "item_id", "pos"],
-	"pickup_collected": ["pickup", "item_id", "exp", "pos"],
+	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
+	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
+	"potion_used": ["kind", "item_id", "restored", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -79,6 +80,7 @@ var rng: RandomNumberGenerator
 var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
+var potion_rng: RandomNumberGenerator
 
 var physics: PhysicsConstants
 var fhm: FootholdMap
@@ -98,6 +100,7 @@ var mob_elite := PackedByteArray()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
+var potions: PotionInventory
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
@@ -175,6 +178,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
+	potion_rng = _stream(5)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
@@ -200,6 +204,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	pk["gravity"] = physics.gravity_acc
 	pk["fall_speed"] = physics.fall_speed
 	pickups = PickupSystem.new(128, pk, drop_rng)
+	potions = PotionInventory.new(balance.get("potions", {}), setup.get("item_info", {}))
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
 	var crit: Dictionary = balance.get("crit", {})
@@ -228,6 +233,36 @@ func state_name() -> String:
 	return STATE_NAMES[state]
 
 
+## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
+func drink_potion(kind: String) -> bool:
+	if state != PLAYING or _dead:
+		return false
+	var sip := potions.consume(kind)
+	if sip.is_empty():
+		return false
+	var before := int(player_state[kind])
+	if kind == "hp":
+		_hp = minf(_max_hp, _hp + int(sip.amount))
+	else:
+		_mp = minf(_max_mp, _mp + int(sip.amount))
+	_write_player_state(0.0)
+	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
+		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+	return true
+
+
+## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
+func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
+	if not potions.stock.has(kind):
+		return -1
+	var id := int(potions.stock[kind].item_id)
+	var slot := pickups.spawn_potion(pos, count, id, kind)
+	if slot >= 0:
+		emit("pickup_spawned", {"pickup": slot, "item_id": id, "pos": pos,
+			"kind": "potion", "potion_kind": kind, "count": count})
+	return slot
+
+
 ## Returns the pending events and clears the list (what the presentation does every frame).
 func drain_events() -> Array:
 	var out := events
@@ -247,6 +282,10 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
+	if input.drink_hp:
+		drink_potion("hp")
+	if input.drink_mp:
+		drink_potion("mp")
 	var warp := portals.step(dt, player.pos, input.up)
 	var flags := 0
 	if warp.is_empty():
@@ -271,6 +310,8 @@ func step(dt: float, input: MoveInput) -> void:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
 	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
+	for kind: String in pickups.collected_potions:
+		potions.add(kind, int(pickups.collected_potions[kind]))
 	_touch()
 	if got > 0 and not _dead:
 		_gain_exp(got)
@@ -626,10 +667,15 @@ func _on_kill(m: int) -> void:
 	var e := roundi(mk.exp * mult)
 	var pos := Vector2(swarm.x[m], swarm.y[m])
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
-	if e <= 0:
-		return
-	var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
-	emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos})
+	if e > 0:
+		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
+		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
+			"kind": "exp", "potion_kind": "", "count": 0})
+	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
+	for kind: String in ["hp", "mp"]:
+		var chance := float(chances.get(kind, 0.0))
+		if chance > 0.0 and potion_rng.randf() < chance:
+			spawn_potion(kind, pos)
 
 
 func _touch() -> void:
@@ -816,3 +862,4 @@ func _write_player_state(dt: float) -> void:
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
 	player_state["dead"] = _dead
+	player_state["potions"] = potions.snapshot()

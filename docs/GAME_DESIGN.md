@@ -352,6 +352,16 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 
 ## 5. Experience and levels
 
+Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
+with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
+End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
+Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
+Normal kills roll HP 2.5% and MP 18% independently; elites roll HP 25% and MP 65%. These choices and starter stock
+are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
+EXP cap/absorption path. The bot drinks below 50% HP or 30% MP, with thresholds in the same survivor data.
+The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
+quantities per kind.
+
 - Mobs drop their **signature Etc item** as an EXP pickup (icon from `Item.wz/Etc/0400.img/<id>/info/iconRaw`), with
   the classic drop pop (`Sound.wz/Game.img/DropItem`). Snail -> Snail Shell 4000019, Blue Snail -> Blue Snail Shell
   4000000, Red Snail -> Red Snail Shell 4000016, Shroom -> Mushroom Spore 4000011, Slime -> Slime Bubble 4000010,
@@ -520,6 +530,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Constant | Value | Tier | Source |
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
+| Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .025/MP .18, elite HP .25/MP .65; drink below HP .5/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |

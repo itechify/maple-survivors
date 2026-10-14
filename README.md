@@ -35,6 +35,8 @@ needs no server, account or internet connection.
 | Jump | Left Alt (or Space, C) |
 | Climb a ladder or rope | Up / Down next to it (or W / S) |
 | Drop through a platform | Down + Jump |
+| Drink HP potion | Delete (or Q) |
+| Drink MP potion | End (or E) |
 | Pick an upgrade / job | Mouse, 1 / 2 / 3, or Up / Down + Enter |
 | Pause (Resume / Quit to stage select) | Esc |
 | Performance overlay | F3 |

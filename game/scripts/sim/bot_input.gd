@@ -46,6 +46,10 @@ const SCORE_FILLER_LOW_HP := 60.0
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var mi := MoveInput.new()
+	var thresholds: Dictionary = w.balance.get("potions", {}).get("bot", {})
+	var ps := w.player_state
+	mi.drink_hp = int(ps.potions.hp.count) > 0 and float(ps.hp) < float(ps.max_hp) * float(thresholds.get("hp_threshold", 0.0))
+	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0))
 	var s := w.swarm
 	var p := w.player.pos
 	# Keep Up held during the small hop onto a portal's entrance ledge.

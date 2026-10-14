@@ -44,6 +44,13 @@
 	"crit": {"chance": 0.0, "mult": 1.5},
 	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drop cap (the farthest from the player is absorbed into a fresh drop at each new kill), lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 0, "fade": 1.5},
+	"_potions": "Tier C: starter stock, independent HP/MP drop chances per monster (higher for elites), and bot drink thresholds. Restore amounts come from each current item's canonical spec.",
+	"potions": {
+		"hp": {"item_id": 2000000, "start": 5},
+		"mp": {"item_id": 2000003, "start": 0},
+		"drops": {"normal": {"hp": 0.025, "mp": 0.18}, "elite": {"hp": 0.25, "mp": 0.65}},
+		"bot": {"hp_threshold": 0.5, "mp_threshold": 0.3}
+	},
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
 	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},
 	"max_level": 200
