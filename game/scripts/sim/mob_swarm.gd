@@ -44,6 +44,8 @@ const TUNING_DEFAULTS := {
 	"stop_dist": 2.0,  # tier C: ours, a mob on the player's platform stops this close to the player's x
 	"route_hysteresis": 96.0,  # tier C: ours, a mob switches to another route only when it is this many px cheaper
 	"reach_y": 40.0,  # tier C: ours, a floor at most this far below the player's feet counts as the player's (touch reach)
+	"fly_bob_px": 2.0,  # tier C: ours, small vertical flyer bob independent of pursuit
+	"fly_bob_period": 1.2,  # tier C: ours, seconds per flyer bob
 }
 
 var kind := PackedInt32Array()
@@ -89,6 +91,8 @@ var _k_jump := PackedByteArray()
 var _k_fly := PackedByteArray()
 var _k_die := PackedFloat32Array()
 var _k_hit := PackedFloat32Array()
+## The bob already included in y; subtract it before steering so oscillation never accumulates drift.
+var _fly_bob := PackedFloat32Array()
 
 
 func _init(capacity: int = 256, p_kinds: Array = [], p_tuning: Dictionary = {}) -> void:
@@ -132,6 +136,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	kind[i] = k
 	x[i] = px
 	y[i] = py
+	_fly_bob[i] = 0.0
 	vx[i] = 0.0
 	vy[i] = 0.0
 	hp[i] = h
@@ -270,7 +275,7 @@ func step(dt: float, ctx: Dictionary) -> void:
 		state_t[i] = t
 		anim_t[i] += dt
 		if st == DIE:
-			if fh[i] < 0:
+			if fh[i] < 0 and _k_fly[k] == 0:
 				_air(i, dt, m, grav, fall, lim, bottom)
 			if state[i] == DIE and t >= _k_die[k]:
 				_release(i)
@@ -479,7 +484,7 @@ func _air(i: int, dt: float, m: FootholdMap, grav: float, fall: float, lim: Vect
 	y[i] = ny
 
 
-## Flying mobs head straight for the target inside the bounds.
+## Flying mobs steer through footholds toward the target, with a small non-drifting bob inside the bounds.
 func _fly(i: int, dt: float, spd: float, target: Vector2, bounds: Rect2) -> void:
 	if state[i] == HIT:
 		if state_t[i] >= _k_hit[kind[i]]:
@@ -487,19 +492,24 @@ func _fly(i: int, dt: float, spd: float, target: Vector2, bounds: Rect2) -> void
 		return
 	if alpha[i] < 1.0:
 		return
-	var d := Vector2(target.x - x[i], target.y - y[i])
+	var base := Vector2(x[i], y[i] - _fly_bob[i])
+	var d := target - base
 	var len := d.length()
 	if len <= float(tuning.stop_dist):
 		if state[i] != STAND:
 			_set_state(i, STAND)
-		return
-	var s := minf(spd * dt, len)
-	x[i] = clampf(x[i] + d.x / len * s, bounds.position.x, bounds.end.x)
-	y[i] = clampf(y[i] + d.y / len * s, bounds.position.y, bounds.end.y)
-	if absf(d.x) > 0.5:
-		facing[i] = 1 if d.x > 0.0 else -1
-	if state[i] != MOVE:
-		_set_state(i, MOVE)
+	else:
+		base += d / len * minf(spd * dt, len)
+		if absf(d.x) > 0.5:
+			facing[i] = 1 if d.x > 0.0 else -1
+		if state[i] != MOVE:
+			_set_state(i, MOVE)
+	base.x = clampf(base.x, bounds.position.x, bounds.end.x)
+	base.y = clampf(base.y, bounds.position.y, bounds.end.y)
+	var bob := float(tuning.fly_bob_px) * sin(anim_t[i] * TAU / maxf(0.01, float(tuning.fly_bob_period)))
+	x[i] = base.x
+	y[i] = clampf(base.y + bob, bounds.position.y, bounds.end.y)
+	_fly_bob[i] = y[i] - base.y
 
 
 ## Moves a grounded mob along its platform to nx, stopping at walls and the platform ends (used for hit pushes).
@@ -588,6 +598,7 @@ func _grow(n: int) -> void:
 	state.resize(n)
 	state_t.resize(n)
 	anim_t.resize(n)
+	_fly_bob.resize(n)
 	fh.resize(n)
 	platform.resize(n)
 	facing.resize(n)

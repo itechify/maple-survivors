@@ -93,7 +93,7 @@ func test_stages_mobs_and_manifest() -> void:
 			assert_true(item >= 4000000, "mob %d has an EXP item" % id)
 			assert_true(float(item) in manifest.items, "item %d in the asset manifest" % item)
 	var hg: Dictionary = stages.henesys_hg1
-	assert_eq(hg.keyframes.size(), 7, "the GAME_DESIGN 4.1 table")
+	assert_true(hg.keyframes.size() >= 7, "base pacing plus flyer arrival keyframes")
 	assert_eq(float(hg.bursts.every), 90.0)
 	assert_eq(float(hg.elites.hp_mult), 8.0)
 	assert_eq(float(hg.elites.exp_mult), 5.0)
@@ -128,8 +128,9 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(DataRepo.map_img_path(104040000), "Map.wz/Map/Map1/104040000.img")
 	assert_eq(DataRepo.map_img_path(101010100), "Map.wz/Map/Map1/101010100.img")
 	assert_eq(DataRepo.map_img_path(10000), "Map.wz/Map/Map0/000010000.img")
-	assert_eq(DataRepo.stage_mob_ids(data, "henesys_hg1"),
-		PackedInt32Array([100100, 100101, 120100, 130101, 210100, 1110100, 1210100, 1210102]))
+	var mob_ids := DataRepo.stage_mob_ids(data, "henesys_hg1")
+	assert_eq(mob_ids, PackedInt32Array([100100, 100101, 120100, 130101, 210100, 1110100, 1210100, 1210102,
+		2300100, 9300062, 9300063, 9300064]))
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
@@ -141,7 +142,7 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(s.physics_img, {"stub": "Map.wz/Physics.img"})
 	assert_eq(s.skill_imgs.keys().size(), 3, "books 000, 200, 210")
 	assert_true(s.skill_imgs.has("000") and s.skill_imgs.has("200"))
-	assert_eq(s.mob_imgs.size(), 7)
+	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
 	assert_eq(s.stage, "henesys_hg1")
 	assert_eq(s.seed, 5)

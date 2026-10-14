@@ -219,3 +219,44 @@ fn real_import_of_a_small_manifest() {
     assert_eq!(checked, 16);
     let _ = std::fs::remove_dir_all(&tmp);
 }
+
+#[test]
+fn real_import_of_henesys_flyers_and_sounds() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let flyers = [9300063_u32, 9300062, 9300064, 2300100];
+    for id in flyers {
+        assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
+    }
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-flyers-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "mobs": flyers})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let read_json = |p: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap()
+    };
+    let sounds = read_json("Sound.wz/Mob.img.json");
+    for (id, level, hp, pad) in [(9300063, 6, 60, 22), (9300062, 8, 80, 25), (9300064, 11, 155, 35), (2300100, 20, 300, 85)] {
+        let mob = read_json(&format!("Mob.wz/{id:07}.img.json"));
+        assert_eq!(mob["info"]["level"], level);
+        assert_eq!(mob["info"]["maxHP"], hp);
+        assert_eq!(mob["info"]["PADamage"], pad);
+        assert_eq!(mob["info"]["bodyAttack"], 1);
+        assert!(mob["info"]["flySpeed"].is_number());
+        assert!(mob.get("attack1").is_none(), "{id} has only touch damage");
+        for stance in ["fly", "hit1", "die1"] {
+            let region = mob[stance]["0"]["$canvas"].as_array().unwrap_or_else(|| panic!("{id}/{stance}"));
+            assert!(region[3].as_u64().unwrap() > 0 && region[4].as_u64().unwrap() > 0);
+            let page = mob["$pages"][region[0].as_u64().unwrap() as usize].as_str().unwrap();
+            assert!(out.join(page).is_file(), "{id}/{stance} page");
+        }
+        for action in ["Damage", "Die"] {
+            let path = sounds[format!("{id:07}")][action]["$sound"].as_str().unwrap_or_else(|| panic!("{id}/{action}"));
+            assert!(std::fs::metadata(out.join(path)).unwrap().len() > 0, "{id}/{action} audio");
+        }
+    }
+    std::fs::remove_dir_all(tmp).unwrap();
+}
