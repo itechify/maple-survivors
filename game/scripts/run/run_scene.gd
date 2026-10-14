@@ -959,6 +959,9 @@ func _update_hud() -> void:
 		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
 		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
 		int(bool(ps.get("mp_short", false)))])
+	for buff: Dictionary in ps.buffs:
+		sig.append(int(buff.skill_id))
+		sig.append(ceili(float(buff.remaining)))
 	if sig == _hud_sig:
 		return
 	_hud_sig = sig

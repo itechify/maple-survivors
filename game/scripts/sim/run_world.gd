@@ -39,6 +39,8 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
+	"buff_cast": ["skill", "skill_id", "level", "duration"],
+	"buff_expired": ["skill", "skill_id"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
@@ -116,6 +118,7 @@ var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
 var potions: PotionInventory
+var buffs := PlayerBuffs.new()
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
@@ -308,6 +311,14 @@ func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
 			"kind": "potion", "potion_kind": kind, "count": count})
 	return slot
 
+
+
+## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
+func start_buff(skill: String, stats: Dictionary) -> void:
+	buffs.start(skill, stats)
+	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
+		"duration": float(stats.duration)})
+	_write_player_state(0.0)
 
 
 ## Returns the pending events and clears the list (what the presentation does every frame).
@@ -747,6 +758,7 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
+	buffs.step(dt, events)
 	_invincible_t = maxf(0.0, _invincible_t - dt)
 	_cast_left = maxf(0.0, _cast_left - dt)
 	if not _dead:
@@ -847,12 +859,12 @@ func _player_hit(m: int, mk: MobKind) -> void:
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
 func hit_defense() -> Dictionary:
-	return {"pdd": player_pdd, "mdd": player_mdd, "resistance": {}}
+	return {"pdd": player_pdd + buffs.effect_total("pdd"), "mdd": player_mdd + buffs.effect_total("mdd"), "resistance": {}}
 
 
 ## Magic Guard's current percentage; overridable by the timed-buff rules.
 func magic_guard_ratio() -> float:
-	return loadout.passive_total("mp_guard")
+	return buffs.effect_total("mp_guard")
 
 
 ## Only explicit source scaling: elites use stage.elites.damage_mult; boss sources may pass dmg_mult.
@@ -1008,6 +1020,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
 	player_state["mp"] = floori(_mp)
 	player_state["mp_short"] = runner.waiting_mp
+	player_state["buffs"] = buffs.snapshot()
 	player_state["max_hp"] = _max_hp
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp

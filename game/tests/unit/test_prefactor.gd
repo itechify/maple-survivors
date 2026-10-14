@@ -10,11 +10,12 @@ func test_shared_hit_uses_current_formula_and_guard() -> void:
 	w.god = false
 	w.change_job(200)
 	w.learn_skill("magic_guard")
+	w.step(DT, MoveInput.new())
 	var before: Dictionary = w.player_state.duplicate()
 	var expected_rng := RandomNumberGenerator.new()
 	expected_rng.state = w.rng.state
 	var expected := CombatMath.monster_damage(30.0, expected_rng.randf(), w.player_pdd)
-	var split := CombatMath.magic_guard_split(expected, w.loadout.passive_total("mp_guard"), int(before.mp))
+	var split := CombatMath.magic_guard_split(expected, w.magic_guard_ratio(), int(before.mp))
 	w.drain_events()
 	w.take_hit(30.0, false, "", w.player.pos - Vector2(10, 0))
 	assert_eq(int(w.player_state.hp), int(before.hp) - split.x)

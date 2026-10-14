@@ -125,7 +125,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## defence, after damage multipliers), magic (bool: mob MDD applies), attack_count, crit, crit_mult, cooldown, range,
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value (canonical value of the passive's field, e.g. Magic Guard x / Magic Armor pdd).
+## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
 func stats(key: String) -> Dictionary:
 	var d := book.def(key)
 	var r := maxi(1, rank(key))
@@ -144,6 +144,7 @@ func stats(key: String) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
+	var buff: Dictionary = d.get("buff", {})
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -173,6 +174,10 @@ func stats(key: String) -> Dictionary:
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": book.canonical(key, lv, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0,
+		"icon": String(d.get("icon", "")),
+		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
+		"buff_stat": String(buff.get("stat", "")),
+		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 	}
 
 
