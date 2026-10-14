@@ -366,3 +366,41 @@ fn real_import_of_potion_icons_and_restore_specs() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_mano_skill_tables_and_summon_effect() {
+    let Some(root) = wz_root() else { return };
+    let manifest: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    assert!(manifest["imgs"].as_array().unwrap().iter().any(|v| v["img"] == "Effect.wz/Summon.img" && v["paths"].as_array().unwrap().contains(&serde_json::json!("1"))));
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-mano-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let input = tmp.join("manifest.json");
+    std::fs::write(&input, serde_json::to_vec(&serde_json::json!({"format":1,"imgs":[{"img":"Skill.wz/MobSkill.img"},{"img":"Effect.wz/Summon.img","paths":["1"]}],"mobs":[2220000]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest: input, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let read = |p: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap() };
+    let table = read("Skill.wz/MobSkill.img.json");
+    let slow = &table["126"]["level"]["7"];
+    assert_eq!(slow["interval"],15); assert_eq!(slow["time"],15); assert_eq!(slow["x"],80);
+    assert_eq!(slow["lt"]["$v"],serde_json::json!([-300,-120]));
+    assert_eq!(slow["rb"]["$v"],serde_json::json!([300,120]));
+    assert_eq!(slow["affected"]["repeat"],1);
+    let summon = &table["200"]["level"]["78"];
+    assert_eq!(summon["interval"],10); assert_eq!(summon["hp"],90); assert_eq!(summon["limit"],30); assert_eq!(summon["summonEffect"],1);
+    for (index,id) in [100100,100100,100101,100101,130101,130101].into_iter().enumerate() { assert_eq!(summon[index.to_string()],id); }
+    for id in ["112","113"] {
+        let buff = &table[id]["level"]["1"];
+        assert_eq!(buff["interval"],10); assert_eq!(buff["time"],30); assert_eq!(buff["x"],85);
+        assert_eq!(buff["lt"]["$v"],serde_json::json!([-300,-200])); assert_eq!(buff["rb"]["$v"],serde_json::json!([300,200]));
+    }
+    let effect = read("Effect.wz/Summon.img.json");
+    assert_eq!(effect["1"].as_object().unwrap().len(),4);
+    let region = effect["1"]["0"]["$canvas"].as_array().unwrap();
+    assert_eq!(region[3..],[48,55]);
+    assert!(out.join(effect["$pages"][region[0].as_u64().unwrap() as usize].as_str().unwrap()).is_file());
+    let boss = read("Mob.wz/2220000.img.json");
+    assert_eq!(boss["info"]["skill"]["0"]["skill"],126);
+    assert_eq!(boss["skill1"]["0"]["delay"],150);
+    std::fs::remove_dir_all(tmp).unwrap();
+}

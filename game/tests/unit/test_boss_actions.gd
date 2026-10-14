@@ -44,3 +44,4 @@ func test_an_authored_action_hold_does_not_count_as_failed_pursuit_for_teleport(
 		w.step(DT, MoveInput.new())
 	assert_eq(w.bosses.records[0].teleports, 0, "a windup is deliberate standing, not a pursuit stall")
 	assert_false(w.bosses.records[0].fading)
+

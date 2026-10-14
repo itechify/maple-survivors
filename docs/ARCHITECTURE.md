@@ -119,6 +119,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
+| `MobSkillRunner` | Scheduled canonical mob skills and timed per-slot defense/slow | `step(world)`, `defense_bonus(slot, magic, time)`, `slow_state(time)`, `summoned_alive(world, encounter)`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing |
 | `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
@@ -189,6 +190,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
+| `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned); emitted when the canonical skill applies |
 | `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per targeted skill's waiting episode |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
@@ -225,6 +227,7 @@ and are exempt from ordinary recycling. Relocation preserves the schedule index 
 Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
 duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
 
+
 Boss attacks and skills share `BossDirector.can_act(index, now)` and
 `begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
 movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`, `times: PackedFloat32Array` and
@@ -248,6 +251,7 @@ regen fade-in, harmless until opaque. Placement retries while no player platform
 `exp_mult`, `exp_drops`, `spread`, `potion_spread`, `potions` hp/mp counts, `bonus_choices`. The total is rounded
 canonical boss EXP × reward multiplier, split with integer remainders conserved. Scheduled bosses bypass ordinary
 EXP and random potion drops; bundles use the current stock item. Reward scattering has its own seeded RNG stream.
+
 
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
 remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
@@ -470,3 +474,12 @@ The canonical `equipment_info` supplies physical `incPAD`, magic `incMAD`, weapo
 `RunWorld.weapon_id()` selects the configured job weapon; `mob_defense(slot, magic)` reads live slot defense, and
 `physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
 new skills retain standing-only action presentation. Neither action changes movement or locks it.
+
+MobSkillRunner keeps defense amounts/expiry in packed per-slot arrays. New spawns reset status and
+`mob_summon_owner` (encounter index, -1 for ordinary mobs); relocation transfers both status and summon ownership.
+Only active owned slots count toward the canonical summon limit. `mob_defense(slot, magic)` combines immutable
+kind defense with its live timed bonus. ProjectileSystem.step accepts an optional packed per-slot MDD snapshot,
+so projectile damage resolves the defense present at impact; basic and instant hits read the same live seam.
+`player_speed_stat()` composes upgrade speed with the timed slow. `player_state.slow` is `{skill_id: int,
+remaining: float, multiplier: float, visual: String}` while active, otherwise `{}`. The presentation repeats slow
+art in a pooled slot until the sim state expires; window pauses cannot consume its duration.

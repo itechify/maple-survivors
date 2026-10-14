@@ -23,6 +23,7 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 			"warned": false, "spawn_time": -1.0, "death_time": -1.0, "dead": false,
 			"stall": 0.0, "best_distance": INF, "anchor": Vector2.ZERO, "fading": false, "fade_left": 0.0,
 			"teleports": 0})
+
 		_actions.append({"action": "", "start": 0.0, "until": 0.0, "facing": -1})
 
 
@@ -31,6 +32,7 @@ func can_act(index: int, now: float) -> bool:
 	return index >= 0 and index < records.size() and float(records[index].spawn_time) >= 0.0 \
 		and not bool(records[index].dead) and not bool(records[index].get("fading", false)) \
 		and now >= float(_actions[index].until) - 1e-6
+
 
 
 ## Holds a canonical stance and facing for its duration; attacks and skills use the same action gate.
@@ -65,6 +67,7 @@ func action_snapshot(swarm: MobSwarm) -> Dictionary:
 		times[slot] = maxf(0.0, _now - float(_actions[index].start))
 		facings[slot] = int(_actions[index].facing)
 	return {"actions": actions, "times": times, "facings": facings}
+
 
 
 
