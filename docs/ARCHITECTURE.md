@@ -111,7 +111,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
-| `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id)`, `step(dt, player_pos, magnet_r, fhm, events)` |
+| `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `step(dt, player_pos, magnet_r, fhm, events)` |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(int_stat, matk, spell_attack, mastery)`, `touch_damage(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, cooldown, count, pierce, speed, range, size...) |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts ready skills; `tick_cooldowns` and `cast_ready` are separate entry points, and `fired_this_tick` reports any cast |
@@ -279,9 +279,17 @@ What the tables above leave open; the class doc comments have the rest.
   The run's starting skill emits `skill_learned` before the first `step()`.
 - **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
   `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
-- **`PickupSystem`:** `step()` returns the EXP collected this tick; past `max_active` drops `spawn()` merges into the
-  nearest drop and sets `merged` (no `pickup_spawned` then). With `lifetime` > 0 an uncollected drop expires silently
+- **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest
+  from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
+  the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
   (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
+- **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,
+  preferred_distance := -1, allow_visible := false, side := 0) -> Vector3` returns (x, y, foothold), or z=-2 when no
+  point is possible. It samples the current platform while avoiding walls and nearby points; normal placement is
+  visible only when `player_platform_visible(world)` sees the whole platform inside the logical view. A preferred
+  distance and visible override support boss relocations. `spawn.platform_share` (0.35) selects this path for ground
+  placements before ordinary ring fallback; flyers retain off-screen air sampling. Every new mob fades in and deals
+  no touch damage until alpha is 1.
 - **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
   `effects` op `add` sums, `mul` compounds per rank, `heal` restores a fraction of max HP/MP.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first

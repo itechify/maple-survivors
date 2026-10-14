@@ -178,13 +178,14 @@ func test_pickup_magnet_and_collect() -> void:
 	assert_eq(pk.collected_exp, 12)
 
 
-func test_pickup_cap_merges_into_nearest() -> void:
+func test_pickup_cap_absorbs_farthest_at_new_position() -> void:
 	var pk := PickupSystem.new(2, {"max_active": 2, "spread": 0.0})
 	var a := pk.spawn(Vector2(100, 0), 3, 1)
 	var b := pk.spawn(Vector2(900, 0), 4, 1)
 	var c := pk.spawn(Vector2(850, 0), 10, 1)
 	assert_true(pk.merged, "third drop merged")
-	assert_eq(c, b, "into the nearest")
+	assert_eq(c, b, "reuses the slot farthest from the default player point (0, 0)")
+	assert_eq(Vector2(pk.x[c], pk.y[c]), Vector2(850, 0), "new drop remains at the new kill")
 	assert_eq(pk.exp[b], 14)
 	assert_eq(pk.exp[a], 3)
 	assert_eq(pk.active_count(), 2)

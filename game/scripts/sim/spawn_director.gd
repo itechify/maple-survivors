@@ -25,6 +25,8 @@ extends RefCounted
 ## pick_spawn(world, k, side) with side -1/1 also prefers points on that side of the player (ahead of it).
 ## Flyers sample air in off-screen strips of the same rings inside map bounds, ignoring floors and NavGraph.
 ## Their spawn point has foothold -1; all kinds return foothold -2 when no valid point exists.
+## A platform_share of ground placements first targets the player's floor, at least platform_min_dist away. When
+## the entire platform fits in view these points may be visible; otherwise its off-screen portions are used.
 ##
 ## The view grown by `margin` (the rect spawns stay out of) is grown by `trail_margin` more on the side the player moves
 ## away from (horizontal speed > 1 px/s): the camera lags behind a running player (CameraRig: 125 px/s / 6 per s + its
@@ -54,6 +56,8 @@ const DEFAULT_SPAWN := {
 	"stall_time": 0.0,  # tier C: ours, s without coming closer before an off-screen mob is relocated; 0 = never
 	"stall_progress": 1.0,  # tier C: ours, px of route a mob must gain (and walk) to count as coming closer
 	"trail_margin": 0.0,  # tier C: ours, extra margin on the side the player moves away from (camera lag); 0 = none
+	"platform_share": 0.35,  # tier C: owner choice, share of ground placements that target the player's platform
+	"platform_min_dist": 150.0,  # tier C: owner choice, minimum separation of a player-platform spawn
 }
 ## Edges of a spawn point's way that _walled() follows looking for a wall across a platform (a bound; each edge of the
 ## way is strictly cheaper than the one before, so the way has no cycle).
@@ -234,6 +238,10 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 	var mk: MobKind = world.mob_kinds[k]
 	if mk.flies:
 		return _pick_air_spawn(world, side)
+	if float(params.platform_share) > 0.0 and rng.randf() < float(params.platform_share):
+		var on_platform := pick_player_platform(world, -1.0, -1.0, false, side)
+		if on_platform.z >= 0:
+			return on_platform
 	var nav := world.nav_jump if mk.can_jump else world.nav
 	var target_p := world.player_platform()
 	var px := world.player.pos.x
@@ -288,6 +296,95 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 		if reach.z >= 0:
 			return reach
 	return fallback
+
+
+## True when every floor of the player's current platform fits inside the logical view.
+func player_platform_visible(world: RunWorld) -> bool:
+	var p := world.player_platform()
+	if p < 0:
+		return false
+	var m := world.fhm
+	return m.plat_x1[p] >= world.view.position.x and m.plat_x2[p] <= world.view.end.x \
+		and m.plat_y_min[p] >= world.view.position.y and m.plat_y_max[p] <= world.view.end.y
+
+
+## Places on the player's platform (z=-2 when impossible). A preferred distance supports boss relocations;
+## allow_visible permits them in view even on a long platform. Normal spawns are visible only on a fully visible floor.
+func pick_player_platform(world: RunWorld, min_distance := -1.0, preferred_distance := -1.0,
+		allow_visible := false, side := 0) -> Vector3:
+	var p := world.player_platform()
+	if p < 0:
+		return Vector3(0, 0, -2)
+	var m := world.fhm
+	var visible := allow_visible or player_platform_visible(world)
+	var distance := float(params.platform_min_dist) if min_distance < 0.0 else min_distance
+	var fhs := PackedInt32Array()
+	var aa := PackedFloat32Array()
+	var bb := PackedFloat32Array()
+	var cum := PackedFloat32Array()
+	var total := 0.0
+	var px := world.player.pos.x
+	for f in m.count():
+		if m.platform_of(f) != p:
+			continue
+		var a := maxf(m.x1[f], world.bounds.position.x)
+		var b := minf(m.x2[f], world.bounds.end.x)
+		var parts: Array = [Vector2(a, minf(b, px - distance)), Vector2(maxf(a, px + distance), b)]
+		for part: Vector2 in parts:
+			if part.y <= part.x:
+				continue
+			var ranges: Array = [part] if visible else _outside_rect(m, f, part, screen_rect(world))
+			for r: Vector2 in ranges:
+				if r.y <= r.x:
+					continue
+				total += r.y - r.x
+				fhs.append(f)
+				aa.append(r.x)
+				bb.append(r.y)
+				cum.append(total)
+	if fhs.is_empty():
+		return Vector3(0, 0, -2)
+	if preferred_distance >= distance:
+		var points: Array[Vector3] = []
+		for i in fhs.size():
+			for direction: int in [-1, 1]:
+				var x := px + direction * preferred_distance
+				var pos := Vector2(x, m.y_at(fhs[i], x))
+				if x >= aa[i] and x <= bb[i] and (side == 0 or direction == side) \
+						and world.bounds.has_point(pos) and not m.walk_blocked(p, px, x):
+					points.append(Vector3(pos.x, pos.y, fhs[i]))
+		if not points.is_empty():
+			return points[world.spawn_rng.randi_range(0, points.size() - 1)]
+	var fallback := Vector3(0, 0, -2)
+	for attempt in int(params.attempts):
+		var point := _sample(m, [fhs, aa, bb, cum], world.spawn_rng)
+		if not world.bounds.has_point(Vector2(point.x, point.y)) or m.walk_blocked(p, px, point.x):
+			continue
+		if not visible and screen_rect(world).has_point(Vector2(point.x, point.y)):
+			continue
+		if side == 0 or (point.x - px) * side > 0.0:
+			return point
+		fallback = point
+	return fallback
+
+
+static func _outside_rect(m: FootholdMap, f: int, part: Vector2, rect: Rect2) -> Array:
+	var a := maxf(part.x, rect.position.x)
+	var b := minf(part.y, rect.end.x)
+	if a >= b:
+		return [part]
+	var slope := (m.y2[f] - m.y1[f]) / (m.x2[f] - m.x1[f])
+	if slope == 0.0:
+		if m.y1[f] < rect.position.y or m.y1[f] > rect.end.y:
+			return [part]
+	else:
+		var top := m.x1[f] + (rect.position.y - m.y1[f]) / slope
+		var bottom := m.x1[f] + (rect.end.y - m.y1[f]) / slope
+		a = maxf(a, minf(top, bottom))
+		b = minf(b, maxf(top, bottom))
+	if a >= b:
+		return [part]
+	return [Vector2(part.x, a), Vector2(b, part.y)]
 
 
 ## Flyers can reach any air point, so sample the off-screen strips directly without footholds or NavGraph.
@@ -399,7 +496,7 @@ func _spawn_one(world: RunWorld, t: float, elite: bool) -> bool:
 	return true
 
 
-## The rect spawns and relocations stay out of, which counts as on screen: the view grown by `margin`, and by
+## The rect ordinary ring placements stay out of: the view grown by `margin`, and by
 ## `trail_margin` more on the side the player moves away from (see the class doc).
 func screen_rect(world: RunWorld) -> Rect2:
 	var r := world.view.grow(float(params.margin))
