@@ -76,3 +76,15 @@ static func magic_guard_split(damage: int, x_pct: float, mp: int) -> Vector2i:
 	var to_mp := floori(damage * x_pct / 100.0)
 	var mp_loss := mini(to_mp, maxi(mp, 0))
 	return Vector2i(damage - mp_loss, mp_loss)
+
+
+## Shared monster-hit calculation. Defense holds pdd/mdd and optional resistance by element; the legacy tuning
+## remains intact until the combat overhaul replaces the formula.
+static func monster_hit(attack: float, magic: bool, element: String, defense: Dictionary,
+		rng: RandomNumberGenerator, multiplier: float = 1.0, tuning: Dictionary = {}) -> int:
+	var def := float(defense.get("mdd" if magic else "pdd", 0.0))
+	var damage := touch_damage(attack, rng.randf(), multiplier, def,
+		float(tuning.get("scale", TOUCH_SCALE)), float(tuning.get("roll_min", TOUCH_ROLL_MIN)),
+		float(tuning.get("roll_max", TOUCH_ROLL_MAX)), float(tuning.get("pdd_factor", TOUCH_PDD_FACTOR)))
+	var resistance := float(defense.get("resistance", {}).get(element, 0.0)) if element != "" else 0.0
+	return maxi(1, roundi(damage * (1.0 - resistance / 100.0)))
