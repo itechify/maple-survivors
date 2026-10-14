@@ -30,6 +30,20 @@ func test_pick_card_for_prefers_attack_skills() -> void:
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
 
+func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback() -> void:
+	var w := RF.quiet_world()
+	w.balance.erase("bot")
+	w.change_job(200)
+	var cards := _cards(w, ["magic_guard_new", "energy_bolt_rank"])
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "without overrides the existing offense preference remains")
+	w.balance["bot"] = {"card_scores": {"magic_guard_new": 70.0}}
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "70 is the final score: no additional current-job bonus")
+	w.balance.bot.card_scores.magic_guard_new = 90.0
+	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_new", "survivor data can prioritize a useful defense card")
+	w.balance.bot.card_scores.erase("magic_guard_new")
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
+
+
 func test_auto_choose_policies() -> void:
 	var w := RF.quiet_world()
 	w.pickups.spawn(w.player.pos, w.progression.curve.exp_to_next(1), 4000019)

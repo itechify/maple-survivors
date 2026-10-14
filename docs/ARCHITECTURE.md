@@ -456,9 +456,11 @@ per-run MP-short ticks, and camper activation/arrival. A later affordable skill 
 TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,
 cast counts and Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
-The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, with the
-legacy tier-C score 52 when absent. This changes sensible choices only; the random harness policy uses its own
-seeded card RNG and does not consult card scores.
+The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
+to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
+ID. These are final scores, including preference relative to job bonuses; an unlisted card retains its existing
+scoring path. Random policy selects uniformly among offered cards with its own seeded RNG and never reads either
+score setting. Both knobs are tier C survivor tuning.
 
 | Piece | Approach |
 |---|---|
