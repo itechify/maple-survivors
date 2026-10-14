@@ -33,7 +33,6 @@
 	"portals": {"reach_x": 25, "reach_above": 100, "reach_below": 25, "arrival_lift": 30, "cooldown": 0.384},
 	"magnet_radius": 90,
 	"collect_radius": 24,
-	"touch_damage": {"scale": 0.55, "roll_min": 0.85, "roll_max": 1.0, "pdd_factor": 0.6},
 	"_magic_defense": "magic damage x (1 - MDD / (MDD + k))",
 	"magic_defense_k": 150,
 	"_mob_speed_factor": "mob move speed px/s = (speed stat + 100) x this x stage speed (MobKind.SPEED_SCALE is the same 0.625; a different value here rescales every mob)",
@@ -45,9 +44,9 @@
 	"mp_regen": 0.0,
 	"hp_regen": 0.0,
 	"crit": {"chance": 0.0, "mult": 1.5},
-	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drops before new EXP merges into the nearest, lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
+	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drop cap (the farthest from the player is absorbed into a fresh drop at each new kill), lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 0, "fade": 1.5},
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
-	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32},
+	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},
 	"max_level": 200
 }

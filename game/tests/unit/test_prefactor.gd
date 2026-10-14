@@ -1,11 +1,11 @@
 extends TestCase
-## Shared run seams preserve the existing hit and auto-cast behavior before the difficulty overhaul.
+## Shared run seams route the current combat formula and auto-casting through the public boundaries.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func test_shared_hit_uses_existing_formula_and_guard() -> void:
+func test_shared_hit_uses_current_formula_and_guard() -> void:
 	var w := RF.quiet_world()
 	w.god = false
 	w.change_job(200)
@@ -13,8 +13,7 @@ func test_shared_hit_uses_existing_formula_and_guard() -> void:
 	var before: Dictionary = w.player_state.duplicate()
 	var expected_rng := RandomNumberGenerator.new()
 	expected_rng.state = w.rng.state
-	var expected := CombatMath.touch_damage(30.0, expected_rng.randf(),
-		w.director.value_at("damage", w.time), w.player_pdd)
+	var expected := CombatMath.monster_damage(30.0, expected_rng.randf(), w.player_pdd)
 	var split := CombatMath.magic_guard_split(expected, w.loadout.passive_total("mp_guard"), int(before.mp))
 	w.drain_events()
 	w.take_hit(30.0, false, "", w.player.pos - Vector2(10, 0))
@@ -30,7 +29,7 @@ func test_shared_hit_uses_existing_formula_and_guard() -> void:
 
 func test_cast_tick_signal_and_cooldowns() -> void:
 	var w := RF.quiet_world()
-	assert_true(w.can_cast(), "the prefactor keeps climbing casts allowed until ticket #8")
+	assert_true(w.can_cast(), "standing is a valid cast state")
 	w.step(DT, MoveInput.new())
 	assert_false(w.runner.fired_this_tick, "no target")
 	var p := w.player.pos + Vector2(70, 0)

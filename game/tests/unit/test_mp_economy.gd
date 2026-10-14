@@ -162,7 +162,7 @@ func test_unaffordable_skill_allows_a_later_free_skill_to_fire() -> void:
 func test_recovery_card_adds_hp_to_the_next_pulse() -> void:
 	var world := _mage()
 	world.god = false
-	world.take_hit(80, false, "", world.player.pos + Vector2(100, 0))
+	world.take_hit(30, false, "", world.player.pos + Vector2(100, 0))
 	world.god = true
 	var hp: int = world.player_state.hp
 	world.upgrades.apply("recovery", world)

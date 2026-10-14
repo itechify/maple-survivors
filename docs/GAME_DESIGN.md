@@ -83,7 +83,11 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   player who paces), and a straight-up hop takes off where the way goes on. A walker below a player standing on a low
   step (at most 40 px up, within touch) walks under the player; jumpers hop onto the step. Mobs never teleport
   visibly or float. A mob that cannot reach the player wanders on its platform.
-- **Spawning:** at points on floors outside the camera view (+48 px margin, and 32 px more on the side a moving
+- **Player-platform spawns:** 35% of ground spawn attempts target the player's platform (`spawn.platform_share`),
+  at least 150 px away (`spawn.platform_min_dist`). If the whole platform fits in view, these mobs can appear visibly
+  with the existing 0.3 s regen fade and remain harmless until fully opaque. If it extends past the view, placements
+  stay on its off-screen portions. When that platform has no valid point, the ordinary rings serve instead.
+- **Other spawning:** at points on floors outside the camera view (+48 px margin, and 32 px more on the side a moving
   player runs away from, where the camera lags behind it) but inside the map bounds, first on the floors beside the
   view (within 160 px of its sides and 48 px of its height), so the crowd walks in from the screen edges; preferring
   points whose way to the player is no longer than the walk in from 160 px beyond the view's side
@@ -99,6 +103,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
 - **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Hit reaction:** only a hit reaching the monster's canonical `pushed` value plays `hit1`, stuns for 0.24 s and
+  pushes it 12 px away from the source (tier C timings/distance, tier A threshold). Weaker hits leave its movement
+  and animation state unchanged.
 - **Flyers:** mobs with a `fly` stance steer directly toward the player through footholds, walls and ceilings,
   inside the map bounds. Speed = (`flySpeed` + 100) × `mob_speed_factor` × the stage speed multiplier (tier C
   conversion, canonical `flySpeed` unchanged). A 2 px bob over 1.2 s (`balance.mob_motion`) is independent of the
@@ -109,10 +116,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   Henesys Hunting Ground I adds PQ Stirge 9300063 (Lv 6) at 3:00, Flyeye 9300062 (Lv 8) at 5:00, Goblin Fire 9300064
   (Lv 11) at 8:00, and regular Stirge 2300100 (Lv 20) at 11:00, each at weight 1; earlier flyers remain in the pool.
   The added arrival keyframes interpolate the existing pacing values. The Tree That Grew I has no flyers.
-- **Hit reaction:** a hit plays `hit1` and stuns for 0.24 s (tier C); damage ≥ `pushed` also pushes the mob 12 px
-  away from the source (tier C).
 - **Death:** `die1` plays with its WZ delays and alpha fades (`a0/a1`), the death sound plays, and the mob drops EXP.
-- **Elites:** periodically one mob of the current pool spawns with ×8 HP and ×5 EXP, drawn with a name tag.
+- **Elites:** periodically one mob of the current pool spawns with ×8 HP, ×5 EXP and an explicit ×1.5 mitigated
+  hit multiplier (`elites.damage_mult`), drawn with a name tag. All three multipliers are survivor data (tier C).
 
 ### 4.1 Pacing (`stages.json`)
 
@@ -121,15 +127,19 @@ time t by weight. Values interpolate linearly between keyframes. First stage, He
 tuned 2026-10-14 and re-tuned the same day for the swarm pass and its follow-up (section 4.2, "Swarm pass"; the
 values before the swarm pass in brackets):
 
-| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × | Touch damage × |
-|---|---|---|---|---|---|---|
-| 0:00 | 0.6 (0.7) | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 | 0.35 (1.0) |
-| 2:00 | 1.7 (2.0) | 40 | + Red Snail 3, Shroom 3 | 1.15 | 1.0 | 0.35 (1.0) |
-| 4:00 | 3.1 (3.6) | 65 | + Slime 3 | 1.3 | 1.05 | 0.35 (1.0) |
-| 6:00 | 6.0 (5.0) | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.95 (1.5) | 1.1 | 0.35 (1.0) |
-| 9:00 | 9.4 (8.5) | 165 | + Green Mushroom 1 | 2.6 (2.0) | 1.18 | 0.385 (1.1) |
-| 12:00 | 13.5 (13) | 240 | full pool (Green Mushroom 3) | 3.4 (2.6) | 1.28 | 0.42 (1.2) |
-| 15:00 | 20 | 330 | clear | 5.5 (4.2) | 1.4 | 0.525 (1.5) |
+| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
+|---|---|---|---|---|---|
+| 0:00 | 0.6 (0.7) | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
+| 2:00 | 1.7 (2.0) | 40 | + Red Snail 3, Shroom 3 | 1.15 | 1.0 |
+| 4:00 | 3.1 (3.6) | 65 | + Slime 3 | 1.3 | 1.05 |
+| 6:00 | 6.0 (5.0) | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.95 (1.5) | 1.1 |
+| 9:00 | 9.4 (8.5) | 165 | + Green Mushroom 1 | 2.6 (2.0) | 1.18 |
+| 12:00 | 13.5 (13) | 240 | full pool (Green Mushroom 3) | 3.4 (2.6) | 1.28 |
+| 15:00 | 20 | 330 | clear | 5.5 (4.2) | 1.4 |
+
+The difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
+defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
+overhaul tuning ticket #27 must validate the new economy and update the pacing results.
 
 Two levers do different jobs: `max_alive` is the crowd a struggling player faces (the cap binds when kills fall
 behind), `rate` is what pressures a strong build (it only matters while the player kills faster than the cap refills),
@@ -153,9 +163,9 @@ The Hill East of Henesys was removed in the difficulty overhaul because its game
 Hunting Ground I. Its map and unused Ribbon Pig assets are no longer selected for import; old save records for
 retired stages are ignored.
 
-The Tree That Grew I uses the same rate, max alive, HP and damage numbers with its own pool: Snails only until 2:00,
+The Tree That Grew I uses the same rate, max alive and HP numbers with its own pool: Snails only until 2:00,
 since Slimes in the opening minute killed some runs before 1:00. It takes 0.85x EXP (its Lv 8 came at ~2:27, before
-the 2:30-3:45 window, and Lv 30 at ~10:20), the henesys damage and default spawn preferences. It was only roughly
+the 2:30-3:45 window, and Lv 30 at ~10:20), and default spawn preferences. It was only roughly
 re-tuned (section 4.2, tuning seeds 1-24) and its stage card says "Not fully tuned yet" (`note`).
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
@@ -351,8 +361,9 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   Firebomb Flame 4000081 as a tier C visual choice (not a claim about a canonical drop table).
 - EXP value = the mob's canonical `exp` × 1.0 (× 5 for elites). Pickups within the magnet radius (90 px) fly to the
   player; collecting plays `Game.img/PickUpItem` and shows "+N EXP" in MapleStory's yellow system-message style.
-- **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). Past `pickup.max_active` (600) a new
-  drop merges into the nearest one, so the map cannot fill without bound. (Expiry after 60 s was tried and removed.)
+- **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). At `pickup.max_active` (600), the EXP drop
+  farthest from the player is absorbed into the new drop at the monster's death position. The combined EXP pops
+  there with a fresh age, keeping the pool bounded and collection near recent kills; no EXP is lost.
 - **Survivor EXP curve:** `exp_to_next(L) = round(4 + 8·L + 4·L²)` (L1 = 16, close to the canonical 15; L7 = 256,
   L9 = 400, L29 = 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30; before the swarm follow-up
   round(4 + 12·L + 3·L²): 784 / 1431 / 31001). The quadratic term carries the late game: a strong build that levels
@@ -389,8 +400,15 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 
 ### 6.2 Damage to the player
 
-- **Touch damage** = max(1, round(PAD × 0.55 × rand[0.85, 1.0] × stage_damage_mult - PDD_player × 0.6)) (tier C).
-- On hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
+- **Monster hits** (tier C, the owner's chosen formula, unverified for v83): roll uniformly from 85% to 100% of
+  the source monster's PAD (MAD for magic attacks), then subtract `floor(0.75 × player defense)` (W.DEF for physical,
+  M.DEF for magic). Apply `(1 − elemental resistance/100)`, then explicit elite/boss damage multipliers, round once
+  to the nearest integer and enforce minimum 1. There is no hidden scale or time-based damage multiplier.
+  Orange Mushroom PAD 42 versus W.DEF 7 yields 31–37; Green Mushroom PAD 82 yields 65–77, or 35–47 at W.DEF 47.
+- **Avoid** (tier B−): miss probability is `clamp(21.6 × player avoid / monster accuracy / 100, 0, 1)`; zero/missing
+  accuracy disables the roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
+  MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
+- On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
 - **Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
@@ -541,7 +559,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
 | Invincibility after hit | 1.5 s | C | ours |
 | Magic damage formula | §6.1 | C | community formula |
-| Touch damage | §6.2 | C | ours |
+| Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
+| Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
+| Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
+| First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
@@ -563,8 +584,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, interim Recovery +10 HP/pulse, MP Recovery ranks 1/4/8/12/16, Max MP +25, Magnet ×1.25) | C (rank mapping/tuning); A (canonical levels) | ours; original WZ |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
 | Level-up pools / casting order / low-MP cue | no level-up healing or implicit current-pool gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |
-| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest (its age restarts) | C | ours |
-| EXP drop lifetime | never expires (`pickup.lifetime` 0); past 600 drops new EXP merges into the nearest drop | C | owner decision 2026-10-14 |
+| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); at 600 drops the farthest from the player is absorbed into a fresh drop at the new kill | C | ours |
+| EXP drop lifetime | never expires (`pickup.lifetime` 0); capped absorption resets the new drop's age and conserves EXP | C | owner decision 2026-10-14 |
+| Player-platform spawns | 35% of ground placements, at least 150 px away; visible only when the whole platform fits in view, otherwise on off-screen portions; normal regen fade and harmlessness | C | owner choice, `balance.json.spawn` |
 | Spawn rings | first the floors beside the view (within 160 px of its sides, `band`, and 48 px of its height, `band_y`), then within 480 px of the view, then the map within 1170 px of the player; 12 samples per ring, looking first for a point whose way to the player is at most half the view width + 48 + 160 px (`prefer_route`, 608 px on an 800 px view: no longer than the walk in from the ring's outer edge), then for any point that reaches the player, before an unreachable spot; never where a wall that crosses a platform stands anywhere on the way to the player (followed edge by edge onto the player's platform) | C | ours |
 | Spawn trail margin | spawns stay 32 px further out (`trail_margin`) on the side a moving player (horizontal speed > 1 px/s) runs away from: the camera lags about 125 / 6 + 8 = 29 px behind a running player (smoothing 6/s, 8 px dead zone) | C | ours |
 | Mob relocation | silent, never on screen (only from outside the view + 48 + 32 px on every side: the camera can lag either way) and never elites: a mob that has not come 1 px closer along its way while itself moving 1 px for 3 s (`stall_time`, `stall_progress`; a mob standing still on screen keeps counting and is moved once off screen), or that is farther than 1300 px or cannot reach the player 160 px off-screen for 3 s, is moved to a fresh spawn point, preferring the side the player is moving toward (its horizontal speed > 1 px/s), with its HP; only when no point is found is it recycled (removed) | C | ours |

@@ -58,6 +58,7 @@ func test_pacing_keyframes() -> void:
 
 func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1", 99))
+	w.director.params.platform_share = 0.0  # This test exercises the off-screen ring rule; platform placement is separate.
 	w.god = true
 	var memo := {}
 	var per_minute := PackedInt32Array()
@@ -309,6 +310,7 @@ func test_prefer_route_brings_spawns_in_on_short_ways() -> void:
 		var w := RunWorld.new(s)
 		RF.place_player(w, 1500.0, -5.0)
 		w.director.params["prefer_route"] = prefer
+		w.director.params["platform_share"] = 0.0
 		w.director.params["band_y"] = -1.0
 		var budget := w.view.size.x * 0.5 + 48.0 + 160.0
 		worst[prefer] = 0.0

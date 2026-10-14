@@ -7,9 +7,9 @@ extends RefCounted
 ## the foothold box). A drop within `magnet_r` of the player's body centre (feet - CENTER_UP) is attracted for good: it
 ## flies at the player, accelerating from magnet_speed by magnet_acc, and is collected within collect_radius, which
 ## appends a `pickup_collected` event; step() returns the EXP collected this tick. Past `max_active` live drops a new
-## drop's EXP is merged into the nearest existing one (`merged` tells the caller no slot was added; the merged drop's
-## age restarts). With `lifetime` > 0 a drop that lies uncollected that long expires: it fades out over its last
-## `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop already flying to
+## drop absorbs the EXP drop farthest from the player and replaces it at the new death position (`merged` reports
+## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
+## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
 ## the player never expires. All motion and lifetime constants are tier C (ours).
 
 const AIR := 0
@@ -26,7 +26,7 @@ const TUNING_DEFAULTS := {
 	"magnet_speed": 220.0,  # tier C: start speed toward the player
 	"magnet_acc": 1400.0,  # tier C: acceleration toward the player
 	"collect_radius": 24.0,  # tier C: collected this close to the body centre
-	"max_active": 600,  # tier C: merge EXP into the nearest drop past this many
+	"max_active": 600,  # tier C: absorb the farthest EXP drop into each new drop past this many
 	"lifetime": 0.0,  # tier C: seconds an uncollected drop lies before it expires (0 = never)
 	"fade": 1.5,  # tier C: the last seconds of the lifetime, fading out
 }
@@ -45,7 +45,7 @@ var age := PackedFloat32Array()
 
 var tuning: Dictionary
 var rng: RandomNumberGenerator
-## True when the last spawn() merged into an existing drop instead of adding one.
+## True when the last spawn() absorbed an old drop; the returned slot still holds a fresh drop at the new position.
 var merged := false
 ## Total EXP collected so far.
 var collected_exp := 0
@@ -77,24 +77,22 @@ func active_count() -> int:
 	return _count
 
 
-## Drops `p_exp` EXP shown as item `p_item_id` at pos (it pops up from there). Returns the slot (the merged-into slot
-## when at max_active, with `merged` set).
-func spawn(pos: Vector2, p_exp: int, p_item_id: int) -> int:
+## Drops EXP at pos, absorbing the farthest old drop relative to player_pos when capped; returns the fresh drop's slot.
+func spawn(pos: Vector2, p_exp: int, p_item_id: int, player_pos: Vector2 = Vector2.ZERO) -> int:
 	merged = false
 	if _count >= int(tuning.max_active):
 		var best := -1
-		var best_d := INF
+		var best_d := -1.0
 		for i in _hi:
 			if active[i] != 0:
-				var d := Vector2(x[i] - pos.x, y[i] - pos.y).length_squared()
-				if d < best_d:
+				var d := Vector2(x[i] - player_pos.x, y[i] - player_pos.y).length_squared()
+				if d > best_d:
 					best_d = d
 					best = i
 		if best >= 0:
-			exp[best] += p_exp
-			age[best] = 0.0
+			p_exp += exp[best]
+			despawn(best)
 			merged = true
-			return best
 	if _free.is_empty():
 		_grow(capacity() * 2)
 	var i := _free[_free.size() - 1]
