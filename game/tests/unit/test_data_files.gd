@@ -115,7 +115,6 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.magnet_radius), 90.0)
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
-	assert_eq(float(b.touch_damage.scale), 0.55)
 	assert_eq(float(b.mp_regen), 2.0)
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
@@ -162,3 +161,11 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 	assert_eq(s.equipment_info[1040002].incPDD, 3.0, "canonical equipment info, untouched")
 	assert_true(s.equipment_info.has(1302000) and s.equipment_info.has(1372005), "both starter weapons")
 	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")
+
+
+func test_monster_damage_has_no_hidden_balance_scales() -> void:
+	assert_false(data.balance.has("touch_damage"), "the owner-provided formula replaces hidden touch tuning")
+	for stage: String in data.stages.stages:
+		for keyframe: Dictionary in data.stages.stages[stage].keyframes:
+			assert_false(keyframe.has("damage"), "%s damage belongs to the monster, not run time" % stage)
+		assert_true(float(data.stages.stages[stage].elites.damage_mult) > 1.0, "explicit elite danger")

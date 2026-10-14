@@ -176,6 +176,7 @@ var _shot_queue := PackedStringArray()
 var _quit_after_capture := false
 var _timed_shots: Array = []
 var _hit_shot_taken := false
+var _miss_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -591,6 +592,13 @@ func _on_mob_hit(e: Dictionary) -> void:
 
 func _on_player_hit(e: Dictionary) -> void:
 	var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
+	if bool(e.get("miss", false)):
+		numbers.spawn_miss(head, DamageNumbers.TAKEN, PLAYER_KEY)
+		counters.numbers += 1
+		if not _miss_shot_taken:
+			_miss_shot_taken = true
+			_event_shot("miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
+		return
 	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
 	counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)

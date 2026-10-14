@@ -99,6 +99,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
 - **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Hit reaction:** only a hit reaching the monster's canonical `pushed` value plays `hit1`, stuns for 0.24 s and
+  pushes it 12 px away from the source (tier C timings/distance, tier A threshold). Weaker hits leave its movement
+  and animation state unchanged.
 - **Flyers:** mobs with a `fly` stance steer directly toward the player through footholds, walls and ceilings,
   inside the map bounds. Speed = (`flySpeed` + 100) × `mob_speed_factor` × the stage speed multiplier (tier C
   conversion, canonical `flySpeed` unchanged). A 2 px bob over 1.2 s (`balance.mob_motion`) is independent of the
@@ -109,10 +112,9 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   Henesys Hunting Ground I adds PQ Stirge 9300063 (Lv 6) at 3:00, Flyeye 9300062 (Lv 8) at 5:00, Goblin Fire 9300064
   (Lv 11) at 8:00, and regular Stirge 2300100 (Lv 20) at 11:00, each at weight 1; earlier flyers remain in the pool.
   The added arrival keyframes interpolate the existing pacing values. The Tree That Grew I has no flyers.
-- **Hit reaction:** a hit plays `hit1` and stuns for 0.24 s (tier C); damage ≥ `pushed` also pushes the mob 12 px
-  away from the source (tier C).
 - **Death:** `die1` plays with its WZ delays and alpha fades (`a0/a1`), the death sound plays, and the mob drops EXP.
-- **Elites:** periodically one mob of the current pool spawns with ×8 HP and ×5 EXP, drawn with a name tag.
+- **Elites:** periodically one mob of the current pool spawns with ×8 HP, ×5 EXP and an explicit ×1.5 mitigated
+  hit multiplier (`elites.damage_mult`), drawn with a name tag. All three multipliers are survivor data (tier C).
 
 ### 4.1 Pacing (`stages.json`)
 
@@ -121,15 +123,19 @@ time t by weight. Values interpolate linearly between keyframes. First stage, He
 tuned 2026-10-14 and re-tuned the same day for the swarm pass and its follow-up (section 4.2, "Swarm pass"; the
 values before the swarm pass in brackets):
 
-| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × | Touch damage × |
-|---|---|---|---|---|---|---|
-| 0:00 | 0.6 (0.7) | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 | 0.35 (1.0) |
-| 2:00 | 1.7 (2.0) | 40 | + Red Snail 3, Shroom 3 | 1.15 | 1.0 | 0.35 (1.0) |
-| 4:00 | 3.1 (3.6) | 65 | + Slime 3 | 1.3 | 1.05 | 0.35 (1.0) |
-| 6:00 | 6.0 (5.0) | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.95 (1.5) | 1.1 | 0.35 (1.0) |
-| 9:00 | 9.4 (8.5) | 165 | + Green Mushroom 1 | 2.6 (2.0) | 1.18 | 0.385 (1.1) |
-| 12:00 | 13.5 (13) | 240 | full pool (Green Mushroom 3) | 3.4 (2.6) | 1.28 | 0.42 (1.2) |
-| 15:00 | 20 | 330 | clear | 5.5 (4.2) | 1.4 | 0.525 (1.5) |
+| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
+|---|---|---|---|---|---|
+| 0:00 | 0.6 (0.7) | 15 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
+| 2:00 | 1.7 (2.0) | 40 | + Red Snail 3, Shroom 3 | 1.15 | 1.0 |
+| 4:00 | 3.1 (3.6) | 65 | + Slime 3 | 1.3 | 1.05 |
+| 6:00 | 6.0 (5.0) | 100 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.95 (1.5) | 1.1 |
+| 9:00 | 9.4 (8.5) | 165 | + Green Mushroom 1 | 2.6 (2.0) | 1.18 |
+| 12:00 | 13.5 (13) | 240 | full pool (Green Mushroom 3) | 3.4 (2.6) | 1.28 |
+| 15:00 | 20 | 330 | clear | 5.5 (4.2) | 1.4 |
+
+The difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
+defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
+overhaul tuning ticket #27 must validate the new economy and update the pacing results.
 
 Two levers do different jobs: `max_alive` is the crowd a struggling player faces (the cap binds when kills fall
 behind), `rate` is what pressures a strong build (it only matters while the player kills faster than the cap refills),
@@ -153,9 +159,9 @@ The Hill East of Henesys was removed in the difficulty overhaul because its game
 Hunting Ground I. Its map and unused Ribbon Pig assets are no longer selected for import; old save records for
 retired stages are ignored.
 
-The Tree That Grew I uses the same rate, max alive, HP and damage numbers with its own pool: Snails only until 2:00,
+The Tree That Grew I uses the same rate, max alive and HP numbers with its own pool: Snails only until 2:00,
 since Slimes in the opening minute killed some runs before 1:00. It takes 0.85x EXP (its Lv 8 came at ~2:27, before
-the 2:30-3:45 window, and Lv 30 at ~10:20), the henesys damage and default spawn preferences. It was only roughly
+the 2:30-3:45 window, and Lv 30 at ~10:20), and default spawn preferences. It was only roughly
 re-tuned (section 4.2, tuning seeds 1-24) and its stage card says "Not fully tuned yet" (`note`).
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
@@ -388,8 +394,15 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 
 ### 6.2 Damage to the player
 
-- **Touch damage** = max(1, round(PAD × 0.55 × rand[0.85, 1.0] × stage_damage_mult - PDD_player × 0.6)) (tier C).
-- On hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
+- **Monster hits** (tier C, the owner's chosen formula, unverified for v83): roll uniformly from 85% to 100% of
+  the source monster's PAD (MAD for magic attacks), then subtract `floor(0.75 × player defense)` (W.DEF for physical,
+  M.DEF for magic). Apply `(1 − elemental resistance/100)`, then explicit elite/boss damage multipliers, round once
+  to the nearest integer and enforce minimum 1. There is no hidden scale or time-based damage multiplier.
+  Orange Mushroom PAD 42 versus W.DEF 7 yields 31–37; Green Mushroom PAD 82 yields 65–77, or 35–47 at W.DEF 47.
+- **Avoid** (tier B−): miss probability is `clamp(21.6 × player avoid / monster accuracy / 100, 0, 1)`; zero/missing
+  accuracy disables the roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
+  MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
+- On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
 - **Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - HP regenerates slowly (Recovery upgrade); MP regenerates 2/s (+Improved MP Recovery).
@@ -530,7 +543,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
 | Invincibility after hit | 1.5 s | C | ours |
 | Magic damage formula | §6.1 | C | community formula |
-| Touch damage | §6.2 | C | ours |
+| Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
+| Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
+| Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
+| First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
