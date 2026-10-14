@@ -225,11 +225,13 @@ func step(dt: float, world: RunWorld) -> void:
 			elites += 1
 
 
-## A spawn point for kind `k`: Vector3(x, y, foothold), or Vector3(0, 0, -1) when there is none (see the class comment).
+## A spawn point for kind `k`: Vector3(x, y, foothold), with foothold -1 for flyers; z=-2 when none is found.
 ## side -1/1: prefer points on that side of the player (a direct point on the other side still beats an indirect one).
 func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 	var rng := world.spawn_rng
 	var mk: MobKind = world.mob_kinds[k]
+	if mk.flies:
+		return _pick_air_spawn(world, side)
 	var nav := world.nav_jump if mk.can_jump else world.nav
 	var target_p := world.player_platform()
 	var px := world.player.pos.x
@@ -242,7 +244,7 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 		route_max = world.view.size.x * 0.5 + float(params.margin) + float(params.prefer_route)
 	if nav != null and target_p >= 0:
 		nav.prepare_target(target_p, px, -1 if mk.can_jump else world.player_low_platform())
-	var fallback := Vector3(0, 0, -1)
+	var fallback := Vector3(0, 0, -2)
 	for ring in 3:
 		var pieces := _ring(world, ring)
 		var fhs: PackedInt32Array = pieces[0]
@@ -283,6 +285,51 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 			return direct
 		if reach.z >= 0:
 			return reach
+	return fallback
+
+
+## Flyers can reach any air point, so sample the off-screen strips directly without footholds or NavGraph.
+func _pick_air_spawn(world: RunWorld, side: int) -> Vector3:
+	var inner := screen_rect(world)
+	var distance := float(params.min_player_dist)
+	var far := float(params.recycle_dist) * 0.9
+	var fallback := Vector3(0, 0, -2)
+	for ring in 3:
+		var band := float(params.band) * (1.0 if ring == 0 else 3.0)
+		var outer := inner.grow(band).intersection(world.bounds) if ring < 2 else world.bounds
+		if not outer.has_area():
+			continue
+		var left := clampf(inner.position.x, outer.position.x, outer.end.x)
+		var right := clampf(inner.end.x, outer.position.x, outer.end.x)
+		var top := clampf(inner.position.y, outer.position.y, outer.end.y)
+		var bottom := clampf(inner.end.y, outer.position.y, outer.end.y)
+		var strips := [Rect2(outer.position, Vector2(left - outer.position.x, outer.size.y)),
+			Rect2(Vector2(right, outer.position.y), Vector2(outer.end.x - right, outer.size.y)),
+			Rect2(Vector2(left, outer.position.y), Vector2(right - left, top - outer.position.y)),
+			Rect2(Vector2(left, bottom), Vector2(right - left, outer.end.y - bottom))]
+		var area := 0.0
+		for strip: Rect2 in strips:
+			area += strip.get_area()
+		if area <= 0.0:
+			continue
+		for attempt in int(params.attempts):
+			var choice := world.spawn_rng.randf() * area
+			for strip: Rect2 in strips:
+				choice -= strip.get_area()
+				if choice >= 0.0 or not strip.has_area():
+					continue
+				var pos := Vector2(world.spawn_rng.randf_range(strip.position.x, strip.end.x),
+					world.spawn_rng.randf_range(strip.position.y, strip.end.y))
+				var d := pos.distance_to(world.player.pos)
+				if inner.has_point(pos) or not world.bounds.has_point(pos) or d < distance or (ring == 2 and d > far):
+					break
+				var p := Vector3(pos.x, pos.y, -1)
+				if side == 0 or (pos.x - world.player.pos.x) * side > 0.0:
+					return p
+				fallback = p
+				break
+		if fallback.z == -1:
+			return fallback
 	return fallback
 
 
@@ -334,7 +381,7 @@ func _spawn_one(world: RunWorld, t: float, elite: bool) -> bool:
 	if k < 0:
 		return false
 	var p := pick_spawn(world, k)
-	if p.z < 0:
+	if p.z < -1:
 		return false
 	var hp_mult := value_at("hp", t)
 	if elite:
@@ -489,7 +536,7 @@ func _recycle(dt: float, world: RunWorld) -> void:
 		if not move:
 			continue
 		var at := pick_spawn(world, s.kind[i], side)
-		var j := world.relocate_mob(i, Vector2(at.x, at.y), int(at.z)) if at.z >= 0 else -1
+		var j := world.relocate_mob(i, Vector2(at.x, at.y), int(at.z)) if at.z >= -1 else -1
 		if j < 0:
 			s.despawn(i)
 			recycled += 1

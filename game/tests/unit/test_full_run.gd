@@ -145,7 +145,7 @@ func test_full_run_real_map() -> void:
 			return
 		var w := RunWorld.new(setup)
 		assert_eq(w.fhm.count(), 181, "the real 104040000")
-		assert_eq(w.mob_kinds.size(), 8, "the henesys_hg1 pool")
+		assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(data, "henesys_hg1").size(), "every stage pool kind")
 		assert_true(w.warnings.is_empty(), "%s" % [w.warnings])
 		var st := _run(w)
 		var label := "104040000 seed %d" % pacing_seed

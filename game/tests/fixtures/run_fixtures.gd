@@ -59,6 +59,10 @@ const MOB_INFO := {
 	1210102: {"level": 8, "maxHP": 80, "exp": 15, "PADamage": 42, "PDDamage": 0, "MDDamage": 10, "speed": 0,
 		"jump": true},
 	1110100: {"level": 15, "maxHP": 250, "exp": 26, "PADamage": 82, "PDDamage": 12, "MDDamage": 40, "speed": -20},
+	9300063: {"level": 6, "maxHP": 60, "exp": 22, "PADamage": 22, "PDDamage": 5, "MDDamage": 20, "flySpeed": -28},
+	9300062: {"level": 8, "maxHP": 80, "exp": 10, "PADamage": 25, "PDDamage": 5, "MDDamage": 30, "flySpeed": -30},
+	9300064: {"level": 11, "maxHP": 155, "exp": 22, "PADamage": 35, "PDDamage": 10, "MDDamage": 40, "flySpeed": -50},
+	2300100: {"level": 20, "maxHP": 300, "exp": 33, "PADamage": 85, "PDDamage": 20, "MDDamage": 20, "flySpeed": 5},
 }
 
 
@@ -72,6 +76,10 @@ static func mob_img(id: int) -> Dictionary:
 			i[k] = float(info[k])
 	if not bool(info.get("jump", false)):
 		img.erase("jump")
+	if info.has("flySpeed"):
+		img.fly = img.move
+		img.erase("move")
+		img.erase("stand")
 	return img
 
 
