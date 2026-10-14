@@ -9,10 +9,10 @@
 			"_bosses": "Tier C: survivor arrival times and separate HP/contact/attack multipliers, calibrated on training runs 1..60 and 2026. Canonical stats, attack boxes and timing remain in Mob.wz; typical_hp/pdd are illustrative build inputs, not runtime scaling.",
 			"bosses": [
 				{"time": 300, "mob_id": 2220000, "summon_ids": [100100, 100101, 130101], "rewards": {"potions":{"mp":6,"hp":6}}, "hp_mult": 1.8, "dmg_mult": 1.15, "typical_hp": 196, "typical_pdd": 7},
-				{"time": 600, "mob_id": 6130101, "hp_mult": 0.24, "dmg_mult": 0.85, "typical_hp": 340, "typical_pdd": 7,
+				{"time": 600, "mob_id": 6130101, "rewards": {"potions":{"hp":1,"mp":6}}, "hp_mult": 0.24, "dmg_mult": 0.85, "typical_hp": 340, "typical_pdd": 7,
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.55,
 					"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"},
-				{"time": 900, "mob_id": 9400205, "hp_mult": 0.035, "dmg_mult": 0.48, "typical_hp": 448, "typical_pdd": 7,
+				{"time": 900, "mob_id": 9400205, "hp_mult": 0.045, "dmg_mult": 0.48, "typical_hp": 448, "typical_pdd": 7,
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.7,
 					"_attacks": "tier C: contact450 and slam300 receive separate survivor scales calibrated against actual training buildHP; canonical attack values unchanged"}
 
@@ -57,13 +57,13 @@
 				"typical_hp": 208, "typical_pdd": 7, "attacks": ["attack1", "attack2"],
 				"attack_interval": 8.0, "attack_dmg_mult": 0.74,
 				"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"},
-				{"time": 600, "mob_id": 9300003, "hp_mult": 0.8, "dmg_mult": 1.3,
+				{"time": 600, "mob_id": 9300003, "rewards": {"potions":{"hp":1,"mp":6}}, "hp_mult": 0.8, "dmg_mult": 1.3,
 					"typical_hp": 340, "typical_pdd": 7, "attacks": ["attack1"], "attack_interval": 8.0,
 					"attack_dmg_mult": 1.02, "summon_ids": [210100], "revive_ids": [210100],
-					"_tier": "tier C: 9600 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"},
-				{"time": 900, "mob_id": 6220000, "hp_mult": 0.18, "dmg_mult": 1.15,
+					"_tier": "tier C: 6400 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"},
+				{"time": 900, "mob_id": 6220000, "hp_mult": 0.22, "dmg_mult": 1.15,
 					"typical_hp": 424, "typical_pdd": 7,
-					"_tier": "tier C: 5580 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"}],
+					"_tier": "tier C: 6820 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"}],
 			"post_duration_slope": 0.25,
 			"keyframes": [
 				{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 0.8, "speed": 1.0, "normal_hp_drop_chance": 0.02,
