@@ -75,11 +75,11 @@ bash scripts/export.sh                                # Windows build -> game/ex
 Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
 (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k> --shots=<abs dir> --shot-every=<s> --quit-after=<s>
 --perf`), waits for it to quit and prints `summary.json`. Defaults: henesys_hg1, seed 2026, speed 4 (sim ticks per
-60 Hz frame, via `Engine.time_scale`), the full 15:00, a screenshot every 60 s of run time, output in
+60 Hz frame, via `Engine.time_scale`), up to 30:00 so the final boss can finish, a screenshot every 60 s of run time, output in
 `evidence/playtest/<stage>_s<seed>_x<speed>_<time>/` (or `--out=<dir>`).
 
 ```bash
-bash scripts/playtest.sh                                       # 15:00 at x4 (~4 min wall time)
+bash scripts/playtest.sh                                       # through the finale at x4; death/clear ends earlier
 bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in real time
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
@@ -111,7 +111,9 @@ Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits b
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
-2026); report on the held-out seeds 101..130 (the default is 101..106) and never tune on them. Tuning targets and the
+2026); the default is training seeds 1..6. Freeze the candidate before explicitly reporting on held-out seeds
+101..130; never tune on them. Full `test.sh` includes held-out 101/102, so use focused filters excluding `full_run`
+while selecting tuning data and run the entire suite after freeze. Tuning targets and the
 last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
@@ -125,8 +127,12 @@ automatically; an explicitly incompatible `--stage` is rejected. For example:
 
 Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
 `dead|alive|not_spawned` status), `potions_collected` / `potions_used` totals for `hp` and `mp`,
-`mp_short_seconds` (fixed ticks with the oldest ready skill waiting for MP), and `boss_hits` (whole hit damage,
+`mp_short_seconds` (fixed ticks with an eligible ready skill failing affordability during the cast scan), and `boss_hits` (whole hit damage,
 max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
+An affordable later skill may still cast in a tick counted as MP-short; eligible targetless buffs can wait too.
+`--minutes` in playtests is an absolute simulation-time limit, including `--warp`; the default 30:00 is a safety cap.
+A 15:00 limit stops just as the third boss arrives. Claim a clear only from CLEARED with every scheduled boss dead
+and the final reward choice finished.
 `camper` records activation/arrival times, arrival success and portal names. At the cap a living run is
 `TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
 

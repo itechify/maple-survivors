@@ -97,6 +97,18 @@ func test_bot_values_potion_tiers_above_general_defence_cards() -> void:
 		assert_true(BotInput.card_score(w, cards[1]) > BotInput.card_score(w, cards[0]))
 
 
+func test_bot_potion_tier_priority_uses_survivor_data_with_legacy_fallback() -> void:
+	var w := RF.quiet_world(400, 27)
+	RF.change_job_bare(w, 200)
+	w.loadout.add_skill("energy_bolt")
+	w.progression.level = 10
+	var cards := [w.upgrades.choice_card("energy_bolt_rank", w), w.upgrades.choice_card("orange_potion", w)]
+	w.balance.potions.bot.erase("tier_score")
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "missing tuning preserves the legacy policy")
+	w.balance.potions.bot["tier_score"] = 90.0
+	assert_eq(BotInput.pick_card_for(w, cards), "orange_potion", "design data can prioritize permanent potion supply")
+
+
 func test_first_and_random_balance_policies_can_take_both_potion_tiers() -> void:
 	for policy: String in ["first", "random"]:
 		var taken := {"orange_potion": 0, "mana_elixir": 0}

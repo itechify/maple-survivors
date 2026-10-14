@@ -3,14 +3,14 @@
 # climbs and picks cards; no windows open), saves screenshots + summary.json into an evidence folder, quits, and prints
 # the summary (outcome, levels per minute, frame-time percentiles, max alive mobs, missing assets).
 #
-#   bash scripts/playtest.sh                                  # henesys_hg1, seed 2026, speed 4, the full 15:00
+#   bash scripts/playtest.sh                                  # henesys_hg1, seed 2026, speed 4, through the boss finale
 #   bash scripts/playtest.sh --seed=7 --speed=1 --minutes=3   # 3 minutes in real time
 #   bash scripts/playtest.sh --warp=600 --minutes=13 --speed=1 --vsync=off   # fast-forward to 10:00 (nothing drawn),
 #                                                             # then 3 real-time minutes with 200+ mobs, uncapped FPS
 #   bash scripts/playtest.sh --stage=tree_that_grew_1 --out=evidence/mytest
 #
 # Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
-# per 60 Hz frame (4), --minutes=<m> run time to stop at (15; a death or clear ends earlier), --shot-every=<s> run
+# per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
 # --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # Anything else is passed to the game unchanged. Screenshots of the running game stay in evidence/ (gitignored).
@@ -25,7 +25,7 @@ REPO="$(cd "$(dirname "$0")/.." && pwd)"
 STAGE="henesys_hg1"
 SEED="2026"
 SPEED="4"
-MINUTES="15"
+MINUTES="30"
 SHOT_EVERY="60"
 OUT=""
 AUTOPICK="--autopick"

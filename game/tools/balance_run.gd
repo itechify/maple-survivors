@@ -15,7 +15,7 @@ extends SceneTree
 ## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
-##   bash scripts/balance.sh                       # henesys_hg1, the held-out seeds, in parallel
+##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
@@ -91,7 +91,7 @@ func _init() -> void:
 			return
 		stage = CAMPER.STAGES[policy]
 	if seeds.is_empty():
-		seeds = [101]
+		seeds = [1] # tier C: training default; held-out runs are explicit after candidate freeze.
 	var data := DataRepo.load_all()
 	if patch_file != "":
 		var patch: Variant = JSON.parse_string(FileAccess.get_file_as_string(patch_file))
