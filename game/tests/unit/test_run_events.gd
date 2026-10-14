@@ -7,9 +7,9 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "required_mp", "mp", "weapon_id"]
-const BOOL_FIELDS := ["crit", "elite", "miss"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "phase", "afterimage", "sound"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id"]
+const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound"]
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -78,6 +78,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 
 func test_every_event_matches_the_schema() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1", 4242))
+	w.god = true # Schema coverage uses a living run; separate seeded full runs test actual survival.
 	var seen := {}
 	var memo := {}
 	var declined := false
@@ -96,6 +97,7 @@ func test_every_event_matches_the_schema() -> void:
 			_check(e, seen)
 	if w.state == RunWorld.PLAYING:
 		w.duration = w.time
+		w.bosses = BossDirector.new() # The clear event's schema is independent of the boss clear gate.
 		w.step(DT, MoveInput.new())
 		for e: Dictionary in w.drain_events():
 			_check(e, seen)
@@ -116,6 +118,21 @@ func test_every_event_matches_the_schema() -> void:
 	m.take_hit(82.0, false, "", m.player.pos, {"accuracy": 42})
 	for e: Dictionary in m.drain_events():
 		_check(e, seen)
+	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
+	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
+	boss_setup.data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
+	var b := RunWorld.new(boss_setup)
+	b.god = true
+	for tick in 35:
+		b.step(DT, MoveInput.new())
+	var slot := int(b.bosses.records[0].slot)
+	b.god = false
+	b.take_hit(12.0, false, "", b.player.pos, {"mob": slot, "mob_id": 100100, "boss": true})
+	b.hit_mob(slot, {"damage_min": 999.0, "damage_max": 999.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	b.step(DT, MoveInput.new())
+	for e: Dictionary in b.drain_events():
+		_check(e, seen)
 	# A same-map warp for portal_used (the synthetic hunting ground otherwise has only spawn points).
 	var p_setup := RF.setup("quiet", 17, RF.quiet_data())
 	p_setup.map_img.portal = {
@@ -133,6 +150,16 @@ func test_every_event_matches_the_schema() -> void:
 		basic_world.step(DT, MoveInput.new())
 	for event: Dictionary in basic_world.drain_events():
 		_check(event, seen)
+	# Guaranteed potion use and collection exercise the consumable schema regardless of random drop rolls.
+	var potion := RF.quiet_world()
+	potion.spawn_potion("mp", potion.player.pos - Vector2(0, 25), 2)
+	potion.step(DT, MoveInput.new())
+	potion.drink_potion("hp")
+	potion.drink_potion("mp")
+	potion.progression.level = 10
+	potion.upgrades.apply("orange_potion", potion)
+	for e: Dictionary in potion.drain_events():
+		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

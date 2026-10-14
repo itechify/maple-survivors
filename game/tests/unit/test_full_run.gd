@@ -1,5 +1,6 @@
 extends TestCase
-## Headless full runs: 15 minutes at 60 Hz of stage henesys_hg1 with the autoplay bot (BotInput: kiting, climbing to
+## Headless full runs: fixed ticks until death/clear or the configured cap, including boss finales past 15 minutes.
+## Stage henesys_hg1 uses the autoplay bot (BotInput: kiting, climbing to
 ## drops above, the first available job and BotInput.pick_card_for's card). Once on the synthetic multi-platform map
 ## with synthetic mob/skill imgs, once on the real 104040000 with the real mob/skill imgs read from the asset cache
 ## (FileAccess + JSON; SKIP without it).
@@ -18,7 +19,6 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const RUN_TICKS := 60 * 900
 ## Held-out seeds of the real-map pacing check (the first two of 101-130).
 const PACING_SEEDS := [101, 102]
 ## Difficulty-overhaul tuning ticket #27 re-enables pacing after validating the new economy on held-out seeds.
@@ -33,7 +33,7 @@ func test_pacing_temporarily_disabled_for_overhaul() -> void:
 	assert_false(CHECK_PACING, "ticket #27 must re-enable and replace this guard after tuning the overhaul")
 
 
-## Runs `w` to the end (or RUN_TICKS) and returns statistics.
+## Runs `w` to the end (or balance.run_time_cap) and returns statistics.
 func _run(w: RunWorld) -> Dictionary:
 	var st := {
 		"spawn_minutes": PackedInt32Array(), "alive": PackedInt32Array(), "killers": {}, "exp": 0, "job_time": -1.0,
@@ -41,11 +41,12 @@ func _run(w: RunWorld) -> Dictionary:
 		"events": 0, "hits_after_8": 0, "near_after_8": 0, "engaged_6_12": 0, "alive_6_12": 0,
 	}
 	var spawn_minutes: PackedInt32Array = st.spawn_minutes
-	spawn_minutes.resize(16)
+	var cap := float(w.balance.get("run_time_cap", 1800.0)) # tier C: harness fallback, configured in balance.
+	spawn_minutes.resize(ceili(cap / 60.0) + 1)
 	var alive: PackedInt32Array = st.alive
 	var last_skill := {}
 	var memo := {}
-	for t in RUN_TICKS:
+	for t in ceili(cap / DT):
 		RF.auto_choose(w)
 		if w.state != RunWorld.PLAYING:
 			break
@@ -61,7 +62,7 @@ func _run(w: RunWorld) -> Dictionary:
 			st.events += 1
 			match String(e.type):
 				"mob_spawned":
-					spawn_minutes[mini(int(w.time / 60.0), 15)] += 1
+					spawn_minutes[mini(int(w.time / 60.0), spawn_minutes.size() - 1)] += 1
 				"mob_hit":
 					last_skill[e.mob] = e.skill
 				"mob_died":
@@ -121,7 +122,11 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
 		assert_eq(w.player_state.hp, 0)
 	else:
 		assert_true(st.cleared and not st.died, "%s: CLEARED with stage_cleared" % label)
-		assert_near(w.time, 900.0, DT, "%s: the full duration" % label)
+		if w.bosses.has_bosses():
+			assert_true(w.time >= w.duration - DT, "%s: the finale can continue past the timer" % label)
+			assert_true(w.bosses.all_dead(), "%s: every scheduled boss is dead" % label)
+		else:
+			assert_near(w.time, w.duration, DT, "%s: the full duration" % label)
 		assert_false(w.player_state.dead)
 	assert_eq(w.swarm.lost_count, 0, "%s: no mob fell out of the world" % label)
 	if CHECK_PACING and int(st.alive_6_12) > 0:

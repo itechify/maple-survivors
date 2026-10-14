@@ -55,6 +55,13 @@ func test_stage_select_ignores_retired_save_records() -> void:
 		"Best: Survived 05:00, Lv. 12, 400 kills")
 
 
+func test_stage_select_objective_matches_the_clear_rule() -> void:
+	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
+	assert_eq(offered[0].objective, "Defeat all 3 bosses to clear.")
+	assert_eq(offered[1].objective, "Survive 15:00 to clear the stage.")
+	assert_false(2220000 in offered[0].mobs, "bosses do not enlarge the ordinary monster roster grid")
+
+
 func test_save_data_round_trip() -> void:
 	var s := SaveData.new(save_path)
 	assert_true(s.best.is_empty(), "missing file -> empty save")

@@ -38,14 +38,17 @@ const SCORE_MOD_OTHER := 25.0
 const SCORE_JOB_BONUS := 12.0
 const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0, "magnet": 22.0, "max_mp": 16.0,
 	"mp_regen": 16.0}
-const SCORE_FILLER := 5.0
-## A filler that heals is worth this much more while HP is below half.
-const SCORE_FILLER_LOW_HP := 60.0
+## tier C: permanent potion tier improvement is preferred to a general defence card, below attack ranks.
+const SCORE_POTION_TIER := 52.0
 
 
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var mi := MoveInput.new()
+	var thresholds: Dictionary = w.balance.get("potions", {}).get("bot", {})
+	var ps := w.player_state
+	mi.drink_hp = int(ps.potions.hp.count) > 0 and float(ps.hp) < float(ps.max_hp) * float(thresholds.get("hp_threshold", 0.0))
+	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0))
 	var s := w.swarm
 	var p := w.player.pos
 	# Keep Up held during the small hop onto a portal's entrance ledge.
@@ -325,9 +328,8 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var kind := String(d.get("kind", ""))
 	var effects: Array = d.get("effects", [])
 	var stat := String(effects[0].get("stat", "")) if not effects.is_empty() and effects[0] is Dictionary else ""
-	if kind == "filler":
-		var low := float(w.player_state.hp) < 0.5 * float(w.player_state.max_hp)
-		return SCORE_FILLER + (SCORE_FILLER_LOW_HP if low and stat == "hp" else 0.0)
+	if kind == "potion_tier":
+		return SCORE_POTION_TIER
 	var key := String(d.get("skill", ""))
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))

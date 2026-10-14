@@ -48,6 +48,8 @@ var hit_time := DEFAULT_HIT_TIME
 var pushed := 1
 var body_attack := false
 var undead := false
+## Canonical info/boss: bosses never enter hit stun or receive push.
+var boss := false
 var elem_attr := ""
 ## Survivor EXP pickup item id (0 = none set).
 var exp_item := 0
@@ -73,6 +75,7 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.pushed = int(info.get("pushed", 1))
 	k.body_attack = int(info.get("bodyAttack", 0)) != 0
 	k.undead = int(info.get("undead", 0)) != 0
+	k.boss = int(info.get("boss", 0)) != 0
 	k.elem_attr = String(info.get("elemAttr", ""))
 	k.flies = mob_img.get("fly") is Dictionary
 	k.can_jump = bool(overrides.get("can_jump", mob_img.get("jump") is Dictionary))

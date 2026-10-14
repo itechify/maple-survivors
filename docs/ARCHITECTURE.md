@@ -108,14 +108,15 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
-| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held` |
+| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp` (drink flags are presses) |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
-| `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack elem_attr` |
+| `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
-| `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `step(dt, player_pos, magnet_r, fhm, events)` |
+| `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
+| `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
 | `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances |
@@ -124,6 +125,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
+| `BossDirector` | Scheduled warnings, arrivals, deaths and completion | `step(world)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING / DEAD / CLEARED) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
 
@@ -142,6 +144,7 @@ var setup := {
 	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
 	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots
 	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
+	"item_info": {2000000: Dictionary, 2000003: Dictionary}, # canonical Consume item nodes (info icons + spec)
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
@@ -159,7 +162,9 @@ Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd`
 `RunWorld.state` is one of `PLAYING`, `CHOOSING_JOB`, `CHOOSING_UPGRADE`, `DEAD`, `CLEARED`. `step()` advances the
 world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
 first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
-`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`.
+`job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`
+when at least one card is eligible. Draws return at most three cards; an empty draw consumes that queued level
+without opening a window.
 The presentation layer shows the windows and calls back:
 
 | Call | Effect |
@@ -185,12 +190,14 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
-| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool; a miss has zero damage/MP loss and no knockback/invincibility), `dir` (-1/1), `pos` |
+| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time; used with whole damage for encounter metrics). A miss spends no HP/MP and gives no knockback/invincibility. |
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos` |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos` |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
+| `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
+| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
@@ -199,6 +206,19 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
 | `stage_cleared` | `time` |
+| `boss_warning` | `boss_index` (schedule index), `mob_id`, `time` (warning tick) |
+| `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
+| `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
+
+`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, spawn_time, death_time,
+dead}`. Times are -1 before arrival/death. `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
+Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
+and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
+Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
+duration rule retained for stages without bosses; reward tickets can defer this seam while a bonus choice is pending.
+The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
+remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
+ordinary alive targets still obey `hard_cap`.
 
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
@@ -213,7 +233,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 |---|---|
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
-| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
+| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope` |
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
@@ -288,7 +308,8 @@ What the tables above leave open; the class doc comments have the rest.
 - **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
   with MP. `player_hit.miss` renders the violet MISS and produces no hit expression or invincibility blink.
   `RunWorld.take_hit` takes attack, magic flag, element, source position and optional source fields `accuracy`,
-  `elite`, `dmg_mult`. Only explicit elite/source multipliers scale damage; time keyframes never do.
+  `elite`, `dmg_mult`, `mob`, `mob_id`, `boss`. Only explicit elite/source multipliers scale damage; time keyframes
+  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool.
   `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
@@ -300,6 +321,17 @@ What the tables above leave open; the class doc comments have the rest.
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
   (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
+  Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
+  Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
+  `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
+- **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
+  `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
+  `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
+  `drink_potion(kind) -> bool` consumes one and restores `spec.hp` or `spec.mp`, clamped to max. Empty stock is inert.
+  Drink presses run before movement and casting, including on ropes; no cooldown applies.
+  `balance.potions` selects starter IDs/counts, independent normal/elite per-kind drop chances and bot thresholds.
+  `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
+  current canonical item icons, counts and keys.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,
   preferred_distance := -1, allow_visible := false, side := 0) -> Vector3` returns (x, y, foothold), or z=-2 when no
   point is possible. It samples the current platform while avoiding walls and nearby points; normal placement is
@@ -308,7 +340,11 @@ What the tables above leave open; the class doc comments have the rest.
   placements before ordinary ring fallback; flyers retain off-screen air sampling. Every new mob fades in and deals
   no touch damage until alpha is 1.
 - **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
-  `effects` op `add` sums, `mul` compounds per rank, `heal` restores a fraction of max HP/MP.
+  `effects` op `add` sums and `mul` compounds per rank. No card heals by percentage and no filler cards are injected.
+  A `potion_tier` card has `potion_kind`, target `item_id`, `requires.min_level` and `requires.potions` mapping its kind
+  to the required current item ID. This survivor data defines the whole ladder. Applying an eligible one-time tier
+  calls `RunWorld.upgrade_potion(kind, item_id)` and preserves stock; the event and refreshed player state update the
+  quickslot immediately. Future `spawn_potion` calls use the current ID, including boss bundles.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
   advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
 

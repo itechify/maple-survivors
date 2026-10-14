@@ -46,8 +46,7 @@ func test_skills_reference_canonical_ids() -> void:
 func test_cards_are_consistent() -> void:
 	var skills: Dictionary = data.skills.skills
 	var ids := {}
-	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "filler"]
-	var fillers := 0
+	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "potion_tier"]
 	for c: Dictionary in data.upgrades.cards:
 		assert_false(ids.has(c.id), "unique id %s" % c.id)
 		ids[c.id] = true
@@ -58,11 +57,15 @@ func test_cards_are_consistent() -> void:
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
 			assert_eq(int(c.max_rank), skills[c.skill].ranks.size() - 1, "%s: ranks 2..max" % c.id)
-		if c.kind == "filler":
-			fillers += 1
+		for effect: Dictionary in c.effects:
+			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
+		if c.kind == "potion_tier":
+			assert_true(c.potion_kind in ["hp", "mp"])
+			var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/asset_manifest.json"))
+			assert_has(manifest.items.map(func(id: Variant) -> int: return int(id)), int(c.item_id), "%s target is imported" % c.id)
+			assert_true(c.requires.potions.has(c.potion_kind), "tier requires its predecessor")
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
-	assert_true(fillers >= 3, "enough fillers for a full draw")
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
@@ -131,10 +134,15 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(DataRepo.map_img_path(10000), "Map.wz/Map/Map0/000010000.img")
 	var mob_ids := DataRepo.stage_mob_ids(data, "henesys_hg1")
 	assert_eq(mob_ids, PackedInt32Array([100100, 100101, 120100, 130101, 210100, 1110100, 1210100, 1210102,
-		2300100, 9300062, 9300063, 9300064]))
+		2220000, 2300100, 6130101, 9300062, 9300063, 9300064, 9400205]))
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
+		if p == "Item.wz/Consume/0200.img":
+			var items := {}
+			for id in range(2000000, 2000007):
+				items["%08d" % id] = {"spec": {"hp": 50.0}}
+			return items
 		return {"info": {}} if p.begins_with("Character.wz/") else {"stub": p}
 	var mob_loader := func(id: int) -> Dictionary: return {} if id == 1110100 else {"info": {"id": id}}
 	var missing := PackedStringArray()
@@ -173,3 +181,21 @@ func test_monster_damage_has_no_hidden_balance_scales() -> void:
 		for keyframe: Dictionary in data.stages.stages[stage].keyframes:
 			assert_false(keyframe.has("damage"), "%s damage belongs to the monster, not run time" % stage)
 		assert_true(float(data.stages.stages[stage].elites.damage_mult) > 1.0, "explicit elite danger")
+
+
+func test_setup_carries_canonical_potion_specs() -> void:
+	var loader := func(path: String) -> Dictionary:
+		if path == "Item.wz/Consume/0200.img":
+			var items := {}
+			for id in range(2000000, 2000007):
+				items["%08d" % id] = {"spec": {"hp": 50.0}, "info": {"price": 25.0}}
+			return items
+		return {"info": {}}
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 10, Vector2(800, 600), loader,
+		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
+	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
+		"canonical potion spec reaches the pure simulation")
+	assert_eq(setup.get("item_info", {}).size(), 7, "all requested potion entries are retained")
+	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	for id in range(2000000, 2000007):
+		assert_true(float(id) in manifest.items, "potion %d imported" % id)

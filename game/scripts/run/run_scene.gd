@@ -136,6 +136,8 @@ var _autopick := false
 var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
+var _drink_hp_latch := false
+var _drink_mp_latch := false
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -282,6 +284,13 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
+	if not _autoplay and not event.is_echo():
+		if event.is_action_pressed("drink_hp"):
+			_drink_hp_latch = true
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("drink_mp"):
+			_drink_mp_latch = true
+			get_viewport().set_input_as_handled()
 	var key := event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F3:
 		_perf_on = not _perf_on
@@ -328,6 +337,8 @@ func advance_frame(delta: float) -> void:
 	else:
 		_acc = 0.0
 		_jump_latch = false
+		_drink_hp_latch = false
+		_drink_mp_latch = false
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	_auto_resolve_window(delta)
@@ -513,6 +524,11 @@ func _read_input(first_tick: bool) -> MoveInput:
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
+	if first_tick:
+		mi.drink_hp = _drink_hp_latch
+		mi.drink_mp = _drink_mp_latch
+		_drink_hp_latch = false
+		_drink_mp_latch = false
 	return mi
 
 
@@ -929,6 +945,7 @@ func _update_hud() -> void:
 	var ps := world.player_state
 	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
 		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
+		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
 		int(bool(ps.get("mp_short", false)))])
 	if sig == _hud_sig:
 		return
@@ -1057,6 +1074,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"sim_us_per_tick": float(_sim_us) / maxf(1.0, _sim_ticks), "ticks": _sim_ticks, "max_alive": _max_alive,
 		"level_by_minute": Array(_level_by_minute), "job_id": int(world.player_state.job_id), "kills": world.kills,
 		"state": world.state_name(), "time": world.time, "speed": _speed, "counters": counters.duplicate(),
+		"potions_collected": world.potions.collected.duplicate(), "potions_used": world.potions.used.duplicate(),
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}

@@ -4,10 +4,10 @@ extends RefCounted
 ## 1/60 s step() calls, reporting what happened through `events`. Pure: no nodes, input, time, files or autoloads.
 ##
 ## Per PLAYING tick: same-map portal activation or player movement (PlayerMotion) -> view rect -> timers -> mobs
-## (MobSwarm, target = the player) -> SpawnDirector (recycling, spawns, bursts, elites) -> SpatialHash rebuild ->
+## (MobSwarm, target = the player) -> BossDirector (warnings/arrivals) -> SpawnDirector (normal spawns) -> hash ->
 ## SkillRunner (casts, instant hits, new shots) -> ProjectileSystem (hits; kills become mob_died + an EXP drop) ->
 ## PickupSystem (magnet, collect -> EXP) -> touch damage -> EXP/level-ups. Then: death -> DEAD (player_died); the
-## stage duration reached -> CLEARED (stage_cleared); else queued level-ups open their windows.
+## every scheduled boss dead (or duration reached in a stage without bosses) -> CLEARED; else queued level-ups open.
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
@@ -43,12 +43,14 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
-	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos"],
+	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
-	"pickup_spawned": ["pickup", "item_id", "pos"],
-	"pickup_collected": ["pickup", "item_id", "exp", "pos"],
+	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
+	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
+	"potion_used": ["kind", "item_id", "restored", "count"],
+	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -57,6 +59,9 @@ const EVENT_FIELDS := {
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
 	"stage_cleared": ["time"],
+	"boss_warning": ["boss_index", "mob_id", "time"],
+	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
+	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 }
 
 ## tier C defaults used when balance.json lacks a value.
@@ -83,6 +88,7 @@ var rng: RandomNumberGenerator
 var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
+var potion_rng: RandomNumberGenerator
 
 var physics: PhysicsConstants
 var fhm: FootholdMap
@@ -99,9 +105,12 @@ var mob_kinds: Array = []
 var kind_of_id := {}
 ## Per mob slot: 1 when the mob in it spawned as an elite.
 var mob_elite := PackedByteArray()
+## Per slot: schedule index for a boss, -1 for ordinary mobs.
+var mob_boss := PackedInt32Array()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
+var potions: PotionInventory
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
@@ -109,6 +118,7 @@ var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
+var bosses: BossDirector
 
 var events: Array = []
 var time := 0.0
@@ -185,6 +195,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
+	potion_rng = _stream(5)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
@@ -200,6 +211,8 @@ func _init(p_setup: Dictionary = {}) -> void:
 	swarm = MobSwarm.new(256, mob_kinds, balance.get("mob_motion", {}))
 	swarm.fhm = fhm
 	mob_elite.resize(swarm.capacity())
+	mob_boss.resize(swarm.capacity())
+	mob_boss.fill(-1)
 	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))
 	projectiles = ProjectileSystem.new(64, rng)
 	projectiles.paths = visual_paths
@@ -210,6 +223,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	pk["gravity"] = physics.gravity_acc
 	pk["fall_speed"] = physics.fall_speed
 	pickups = PickupSystem.new(128, pk, drop_rng)
+	potions = PotionInventory.new(balance.get("potions", {}), setup.get("item_info", {}))
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
 	var crit: Dictionary = balance.get("crit", {})
@@ -222,6 +236,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 	upgrades = UpgradePool.from_data(data.get("upgrades", {}))
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
+	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
 	var kb: Dictionary = balance.get("knockback", {})
 	player = PlayerMotion.new(physics, {
 		"knockback_speed": float(kb.get("speed", 187.5)), "knockback_hop": float(kb.get("hop", 200.0)),
@@ -237,6 +252,54 @@ func _init(p_setup: Dictionary = {}) -> void:
 ## Name of the current state ("PLAYING", ...).
 func state_name() -> String:
 	return STATE_NAMES[state]
+
+
+## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
+## Reward/choice tickets may defer this decision until their pending rewards have been answered.
+func can_clear() -> bool:
+	return bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
+
+
+## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
+func drink_potion(kind: String) -> bool:
+	if state != PLAYING or _dead:
+		return false
+	var sip := potions.consume(kind)
+	if sip.is_empty():
+		return false
+	var before := int(player_state[kind])
+	if kind == "hp":
+		_hp = minf(_max_hp, _hp + int(sip.amount))
+	else:
+		_mp = minf(_max_mp, _mp + int(sip.amount))
+	_write_player_state(0.0)
+	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
+		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+	return true
+
+
+## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately.
+func upgrade_potion(kind: String, item_id: int) -> bool:
+	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
+	if not potions.upgrade(kind, item_id):
+		return false
+	_write_player_state(0.0)
+	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
+		"count": int(potions.stock[kind].count)})
+	return true
+
+
+## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
+func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
+	if not potions.stock.has(kind):
+		return -1
+	var id := int(potions.stock[kind].item_id)
+	var slot := pickups.spawn_potion(pos, count, id, kind)
+	if slot >= 0:
+		emit("pickup_spawned", {"pickup": slot, "item_id": id, "pos": pos,
+			"kind": "potion", "potion_kind": kind, "count": count})
+	return slot
+
 
 
 ## Returns the pending events and clears the list (what the presentation does every frame).
@@ -258,6 +321,10 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
+	if input.drink_hp:
+		drink_potion("hp")
+	if input.drink_mp:
+		drink_potion("mp")
 	var warp := portals.step(dt, player.pos, input.up)
 	var flags := 0
 	if warp.is_empty():
@@ -273,6 +340,7 @@ func step(dt: float, input: MoveInput) -> void:
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
 	swarm.step(dt, _ctx)
+	bosses.step(self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -283,13 +351,15 @@ func step(dt: float, input: MoveInput) -> void:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
 	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
+	for kind: String in pickups.collected_potions:
+		potions.add(kind, int(pickups.collected_potions[kind]))
 	_touch()
 	if got > 0 and not _dead:
 		_gain_exp(got)
 	_write_player_state(dt)
 	if _dead:
 		return
-	if time >= duration - 1e-6:
+	if can_clear():
 		state = CLEARED
 		emit("stage_cleared", {"time": time})
 		return
@@ -512,6 +582,7 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 	var i := swarm.spawn(k, pos.x, pos.y, fh, maxi(1, roundi(mk.max_hp * hp_mult)))
 	_sync_slots()
 	mob_elite[i] = 1 if elite else 0
+	mob_boss[i] = -1
 	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite,
 		"relocated_from": -1})
 	return i
@@ -527,11 +598,15 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var hp := swarm.hp[i]
 	var mhp := swarm.max_hp[i]
 	var elite := mob_elite[i] != 0
+	var boss_index := mob_boss[i]
 	swarm.despawn(i)
 	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
 	swarm.hp[j] = hp
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
+	mob_boss[j] = boss_index
+	if boss_index >= 0:
+		bosses.records[boss_index].slot = j
 	emit("mob_spawned", {"mob": j, "mob_id": mob_kinds[k].id, "pos": Vector2(swarm.x[j], swarm.y[j]), "elite": elite,
 		"relocated_from": i})
 	return j
@@ -574,6 +649,11 @@ func _build_mob_kinds() -> void:
 			var id := int(key)
 			if not (id in ids):
 				ids.append(id)
+	for boss: Dictionary in stage.get("bosses", []):
+		var extra: Array = [int(boss.mob_id)] + boss.get("summon_ids", []) + boss.get("revive_ids", [])
+		for id: Variant in extra:
+			if not (int(id) in ids):
+				ids.append(int(id))
 	ids.sort()
 	for id in ids:
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
@@ -669,6 +749,11 @@ func _tick_timers(dt: float) -> void:
 func _sync_slots() -> void:
 	if mob_elite.size() < swarm.capacity():
 		mob_elite.resize(swarm.capacity())
+	if mob_boss.size() < swarm.capacity():
+		var old_size := mob_boss.size()
+		mob_boss.resize(swarm.capacity())
+		for index in range(old_size, mob_boss.size()):
+			mob_boss[index] = -1
 
 
 func _on_kill(m: int) -> void:
@@ -680,11 +765,18 @@ func _on_kill(m: int) -> void:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
 	var e := roundi(mk.exp * mult)
 	var pos := Vector2(swarm.x[m], swarm.y[m])
+	if mob_boss[m] >= 0:
+		bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
-	if e <= 0:
-		return
-	var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
-	emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos})
+	if e > 0:
+		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
+		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
+			"kind": "exp", "potion_kind": "", "count": 0})
+	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
+	for kind: String in ["hp", "mp"]:
+		var chance := float(chances.get(kind, 0.0))
+		if chance > 0.0 and potion_rng.randf() < chance:
+			spawn_potion(kind, pos)
 
 
 func _touch() -> void:
@@ -707,8 +799,12 @@ func _touch() -> void:
 
 
 func _player_hit(m: int, mk: MobKind) -> void:
-	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]),
-		{"mob": m, "mob_id": mk.id, "accuracy": mk.acc, "elite": mob_elite[m] != 0})
+	var boss_index := mob_boss[m]
+	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0}
+	if boss_index >= 0:
+		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
+	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
@@ -730,20 +826,20 @@ func hit_source_multiplier(source: Dictionary) -> float:
 
 
 ## Applies one monster hit through avoid, defense, Magic Guard and hit reaction; returns whole damage (0 on miss).
-## Source fields: accuracy (canonical acc), elite (stage damage multiplier), dmg_mult (explicit boss/attack scaling).
+## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	if _dead or god or _invincible_t > 0.0:
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid, float(source.get("accuracy", 0.0)), rng):
-		emit("player_hit", {"damage": 0, "mp_absorbed": 0, "miss": true, "dir": dir, "pos": player.pos})
+		_emit_player_hit(0, 0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
 		hit_source_multiplier(source))
 	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
-	emit("player_hit", {"damage": dmg, "mp_absorbed": split.y, "miss": false, "dir": dir, "pos": player.pos})
+	_emit_player_hit(dmg, split.y, false, dir, source)
 	_invincible_t = float(balance.get("invincible_time", 1.5))
 	if _hp <= 0.0:
 		_hp = 0.0
@@ -754,6 +850,12 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		player.knockback(dir)
 	_write_player_state(0.0)
 	return dmg
+
+
+func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, source: Dictionary) -> void:
+	emit("player_hit", {"damage": damage, "mp_absorbed": mp_absorbed, "miss": miss, "dir": dir,
+		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp})
 
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
@@ -873,3 +975,4 @@ func _write_player_state(dt: float) -> void:
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
 	player_state["dead"] = _dead
+	player_state["potions"] = potions.snapshot()

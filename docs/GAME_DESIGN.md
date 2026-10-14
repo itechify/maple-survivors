@@ -350,7 +350,48 @@ long platform above the ground (mobs walking to its near drop, one mid-fall at 1
 and 14:00; they are on their way in, not queueing. On the Hill the crowd presses the player along its own floor from
 5:00 (a row of snails on a small platform above, mobs dropping in at the screen edge).
 
+### 4.3 Boss encounter lifecycle (difficulty overhaul)
+
+Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
+15:00. The current encounters use canonical movement, contact attack and art; their skill kits are separate tickets.
+Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
+250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
+survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
+
+Initial survivor settings and calibration examples (tier C, not measured build predictions):
+
+| Boss | Canonical HP | Survivor HP multiplier | Touch multiplier | Typical HP / W.DEF | Whole touch damage |
+|---|---|---|---|---|---|
+| Mano | 2,000 | 2.0 | 1.75 | 300 / 7 | 125–149 (42–50%) |
+| Mushmom | 20,000 | 0.6 | 1.66 | 550 / 47 | 224–274 (41–50%) |
+| Blue Mushmom | 200,000 | 0.25 | 0.96 | 800 / 47 | 334–398 (42–50%) |
+
+The W.DEF 47 example includes the starter outfit and level-20 Magic Armor. Ticket #27 must validate actual HP pools,
+hit fractions and the 30/60/90 s fight-length targets after the economy and kits exist. `stage.bosses` stores these
+settings and the documented typical-stat inputs; `balance.bosses` stores warning time, placement and spawn reduction.
+
+While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
+Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
+(`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Clearing requires every scheduled boss dead;
+stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
+boss schedule arrives with its kit tickets.
+
+The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
+An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
+times and landed boss hits with whole damage, HP at impact and the damage/HP fraction. No survival/pacing claim
+follows from the calibration table alone.
+
 ## 5. Experience and levels
+
+Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
+with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
+End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
+Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
+Normal kills roll HP 2.5% and MP 18% independently; elites roll HP 25% and MP 65%. These choices and starter stock
+are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
+EXP cap/absorption path. The bot drinks below 50% HP or 30% MP, with thresholds in the same survivor data.
+The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
+quantities per kind.
 
 - Mobs drop their **signature Etc item** as an EXP pickup (icon from `Item.wz/Etc/0400.img/<id>/info/iconRaw`), with
   the classic drop pop (`Sound.wz/Game.img/DropItem`). Snail -> Snail Shell 4000019, Blue Snail -> Blue Snail Shell
@@ -484,7 +525,7 @@ for its frame time; while moving it keeps walking.
 ## 8. Upgrades
 
 `data/survivor/upgrades.json`. Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
-`stat`, `filler`), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
+`stat`, `potion_tier`), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
 
@@ -497,7 +538,8 @@ Draw rules:
    more shots or targets, damage, cooldown). When a draw offered no power card, the next draw starts with one
    (`pity.draws` = 1), so a run's damage cannot stall on unlucky offers (a reviewed seed never saw an attack card
    before Lv 8 and fell behind for good).
-3. With fewer than three eligible cards, fillers fill the gap (e.g. "Elixir": heal 50% HP/MP).
+3. With fewer than three eligible cards, offer only those cards. With none, continue without a choice window.
+   Percentage-heal fillers (Elixir, Power Elixir, the former White Potion card) are removed.
 4. Applying a card takes effect immediately.
 5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
    sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
@@ -509,6 +551,13 @@ General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, interim
 Magnet +25% radius; for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
 The latter is an owned canonical passive skill, learned at level 1 and ranked through levels 4 / 8 / 12 / 16,
 adding the level-scaled pulse bonus in section 6.2.
+
+Potion tiers are one-time cards: HP Red (2000000) → Orange (2000001) from Lv 10 → White (2000002) from Lv 25;
+MP Blue (2000003) → Mana Elixir (2000006) from Lv 20. Each requires its previous item, preserves the entire stock
+count and changes all future drops of that kind. The current item drives canonical restoration and the HUD icon.
+The ladders, level gates and weights are tier C entries in `upgrades.json` (`potion_kind`, `item_id`,
+`requires.potions`, `requires.min_level`); no canonical item value is changed. The sensible bot scores tier cards
+52, above general defence and below attack ranks; first/random policies can offer and take them normally.
 
 Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
 1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
@@ -554,6 +603,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Constant | Value | Tier | Source |
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
+| Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .025/MP .18, elite HP .25/MP .65; drink below HP .5/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
@@ -587,6 +639,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
+| Boss arrival and initial multipliers | Henesys 5/10/15 min; HP ×2/0.6/0.25; damage ×1.75/1.66/0.96 | C | survivor choices and documented calibration examples above |
+| Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
+| Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
+| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
@@ -602,6 +658,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
+| Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; no fillers, 0–3 eligible choices | C | owner choice; upgrades.json |
+| Bot potion tier score | 52 (above general defence, below attack ranks) | C | ours; BotInput.SCORE_POTION_TIER |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
