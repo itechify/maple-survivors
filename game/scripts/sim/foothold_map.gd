@@ -53,6 +53,8 @@ var plat_y_min := PackedFloat32Array()
 var plat_y_max := PackedFloat32Array()
 var plat_open_left := PackedByteArray()
 var plat_open_right := PackedByteArray()
+## Per platform: 1 when any of its floors has floor_wall set (walk_blocked can only be true there).
+var plat_wall := PackedByteArray()
 
 var _bounds := Rect2()
 var _gx0 := 0.0
@@ -226,6 +228,35 @@ func platform_fh_at(p: int, x: float) -> int:
 		if platform[i] == p and x >= x1[i] and x <= x2[i]:
 			return i
 	return NONE
+
+
+## True when a wall stands across platform p's surface between xa and xb, so a walker going from one to the other stops
+## at it (platforms do not split at such walls; on 100010000 the hill's faces cross the ground chain, burying a stretch
+## of it). Follows the chain from the foothold under min(xa, xb).
+func walk_blocked(p: int, xa: float, xb: float) -> bool:
+	if p < 0 or p >= plat_wall.size() or plat_wall[p] == 0:
+		return false
+	var lo := minf(xa, xb)
+	var hi := maxf(xa, xb)
+	var f := platform_fh_at(p, lo)
+	var guard := 0
+	while f >= 0 and guard < 4096:
+		guard += 1
+		if floor_wall[f] != 0:
+			var a := maxf(lo, x1[f])
+			var b := minf(hi, x2[f])
+			if b > a:
+				var ya := y_at(f, a)
+				var yb := y_at(f, b)
+				if wall_hit(a, ya, b, yb) >= 0 or wall_hit(b, yb, a, ya) >= 0:
+					return true
+		if x2[f] >= hi:
+			break
+		var g := next[f]
+		if g < 0 or not is_floor(g):
+			break
+		f = g
+	return false
 
 
 ## The first floor at or below (x, y): the spanning floor with the smallest surface y >= y. Skips foothold `ignore`
@@ -539,6 +570,11 @@ func _build_floor_walls() -> void:
 				if maxf(y1[w], y2[w]) < lo or minf(y1[w], y2[w]) > hi:
 					continue
 				floor_wall[i] = 1
+	plat_wall.resize(plat_x1.size())
+	plat_wall.fill(0)
+	for i in n:
+		if floor_wall[i] != 0 and platform[i] >= 0:
+			plat_wall[platform[i]] = 1
 
 
 ## True when a wall at the end point (x, y) rises above the feet (it would stop a walker heading `dir`).

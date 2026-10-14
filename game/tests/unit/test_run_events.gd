@@ -7,7 +7,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from"]
 const BOOL_FIELDS := ["crit", "elite"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id"]
 

@@ -476,3 +476,80 @@ func test_jumper_hops_onto_a_solid_block_from_beside_it() -> void:
 		top = minf(top, s.y[b])
 	assert_between(top, -40.0, -39.9, "stopped at the underside (y -40)")
 	assert_eq(s.platform[b], m.platform_of(0), "back on the ground")
+
+
+func test_mob_on_a_long_platform_takes_the_near_exit() -> void:
+	# WF.long_platform_segments, player at x 2300 on the ground: a walker at x 1800 on the 1900 px platform walks right
+	# to its near end (not 1700 px left to the one-edge drop), drops onto the step, then the ground, and reaches the
+	# player.
+	var lm := FootholdMap.from_segments(WF.long_platform_segments())
+	var s := MobSwarm.new(4, kinds)
+	var ctx := _ctx(lm, Vector2(2300, 0), 0)
+	var i := s.spawn(0, 1800.0, -300.0, 1)
+	var min_x := INF
+	var arrived := -1
+	for t in 60 * 20:
+		s.step(DT, ctx)
+		min_x = minf(min_x, s.x[i])
+		if s.platform[i] == lm.platform_of(0) and absf(s.x[i] - 2300.0) <= 2.0:
+			arrived = t
+			break
+	assert_true(min_x >= 1799.0, "never walked toward the far end (min x %s)" % min_x)
+	assert_true(arrived > 0, "reached the player")
+	assert_true(s.route_len[i] < 5.0, "nothing left of its way (%s)" % s.route_len[i])
+	assert_eq(s.lost_count, 0)
+
+
+func test_route_hysteresis_keeps_a_mob_from_turning_back_and_forth() -> void:
+	# The player paces 60 px back and forth under the long platform where its two ends cost about the same for a mob at
+	# x 990 (one end 60 px cheaper, then the other): with hysteresis it picks one end and keeps walking to it; without,
+	# it turns with every step of the player.
+	var lm := FootholdMap.from_segments(WF.long_platform_segments())
+	for hyst: float in [96.0, 0.0]:
+		var s := MobSwarm.new(4, kinds, {"route_hysteresis": hyst})
+		var ctx := _ctx(lm, Vector2(1100, 0), 0)
+		var i := s.spawn(0, 990.0, -300.0, 1)
+		var turns := 0
+		var last := 0
+		for t in 60 * 6:
+			ctx.target = Vector2(1100.0 if (t / 10) % 2 == 0 else 1160.0, 0.0)
+			var x0 := s.x[i]
+			s.step(DT, ctx)
+			if s.platform[i] != lm.platform_of(1):
+				break
+			var dx := s.x[i] - x0
+			var d := 0 if absf(dx) < 0.01 else (1 if dx > 0.0 else -1)
+			if d != 0 and last != 0 and d != last:
+				turns += 1
+			if d != 0:
+				last = d
+		if hyst > 0.0:
+			assert_true(turns <= 1, "with hysteresis: at most one turn (%d)" % turns)
+		else:
+			assert_true(turns >= 3, "without it the mob dithers (%d turns), so the test shows something" % turns)
+
+
+func test_walkers_reach_a_player_on_a_low_step_from_below() -> void:
+	# WF.low_step_segments: the player on the 30 px step K. A walker on the ground cannot get onto K but can touch the
+	# player from right below it (reach_y): it walks under the player. With reach_y off it has no way and patrols. A
+	# jumper hops onto K.
+	var lm := FootholdMap.from_segments(WF.low_step_segments())
+	var kf := lm.find_below(500.0, -40.0)
+	assert_eq(lm.platform_of(kf), lm.platform_of(1))
+	assert_eq(MobSwarm.low_platform(lm, Vector2(500, -30), lm.platform_of(1), 40.0), lm.platform_of(0))
+	assert_eq(MobSwarm.low_platform(lm, Vector2(500, -30), lm.platform_of(1), 20.0), -1, "30 px is beyond 20")
+	var s := MobSwarm.new(4, kinds)
+	var ctx := _ctx(lm, Vector2(500, -30), kf)
+	var walker := s.spawn(0, 900.0, 0.0, 0)
+	var jumper := s.spawn(1, 100.0, 0.0, 0)
+	for t in 60 * 12:
+		s.step(DT, ctx)
+	assert_near(s.x[walker], 500.0, 2.0 + 1e-3, "the walker stands under the player")
+	assert_eq(s.platform[walker], lm.platform_of(0))
+	assert_eq(s.platform[jumper], lm.platform_of(1), "the jumper hopped onto the step")
+	assert_near(s.x[jumper], 500.0, 2.0 + 1e-3)
+	var off := MobSwarm.new(4, kinds, {"reach_y": -1.0})
+	var w2 := off.spawn(0, 900.0, 0.0, 0)
+	for t in 60 * 12:
+		off.step(DT, ctx)
+	assert_eq(off.route_len[w2], INF, "reach_y off: no way to the player")

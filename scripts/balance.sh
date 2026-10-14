@@ -19,8 +19,11 @@
 # seeds 101..130, never used for tuning; keep it that way (tune on 1..60, check on 101..130).
 #
 # Prints a table (time of Lv 8/10/20/30, level at 4/8/12 min, alive mobs at 4/8/12 min, mobs near the player at
-# 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended) and a summary
-# line, and writes every run's full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json.
+# 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended; then, in %, the
+# swarm engagement at 6/9/12 min (live mobs within 400 x 200 px of the player over the minute centred there, see
+# balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
+# mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
+# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
@@ -75,8 +78,9 @@ done
 
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
-printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %s\n' seed Lv8 Lv10 Lv20 Lv30 "lv@4/8/12" \
-  "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end
+printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %s\n' seed Lv8 Lv10 Lv20 \
+  Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
+  "recyc/reloc"
 for s in "${SEEDS[@]}"; do
   f="$OUT/${STAGE}_${POLICY}_${s}.json"
   [[ -s "$f" ]] || continue
@@ -87,14 +91,19 @@ for s in "${SEEDS[@]}"; do
     function mmss(t) { t = int(t); return sprintf("%d:%02d", int(t / 60), t % 60) }
     function r0(x) { return (x == "") ? "-" : sprintf("%d", x + 0.5) }
     function v(x) { return (x == "") ? "-" : x }
+    function pc(x) { return (x == "" || x + 0 < 0) ? "-" : sprintf("%d", x * 100 + 0.5) }
     {
       split(arr("level_by_min"), L, ","); split(arr("alive_by_min"), A, ","); k = split(arr("hits_by_min"), H, ",")
       split(arr("near_by_min"), N, ","); split(arr("drops_by_min"), D, ",")
+      split(arr("eng_by_min"), G, ","); split(arr("stale_by_min"), S, ",")
+      sp = field("spawned") + 0; rc = field("recycled") + 0; rl = field("relocated") + 0
       h = 0; for (i = 9; i <= k; i++) h += H[i]
       e = 0; for (i = 1; i <= 6 && i <= k; i++) e += H[i]
-      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %s %s\n", seed, reach(8), reach(10), reach(20),
-        reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12], r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]),
-        field("kills"), field("level"), field("state"), mmss(field("time"))
+      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %s\n", seed, reach(8),
+        reach(10), reach(20), reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12],
+        r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]), field("kills"), field("level"), field("state"),
+        mmss(field("time")), pc(G[6]) "/" pc(G[9]) "/" pc(G[12]), pc(S[6]) "/" pc(S[9]) "/" pc(S[12]),
+        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-")
     }' "$f"
 done | tee "$OUT/.table"
 # Summary: runs, clears, deaths (times), and min / median / max of the milestone times and the final level.
@@ -114,6 +123,18 @@ awk '
     if ((t = sec($3)) >= 0) a10[++n10] = t
     if ((t = sec($5)) >= 0) { a30[++n30] = t; if (t >= 720) in30++ }
     lv[++nl] = $13
+    split($16, g, "/"); split($17, q, "/"); split($18, rr, "/")
+    for (k = 1; k <= 3; k++) { if (g[k] != "-") eg[k, ++neg[k]] = g[k] + 0; if (q[k] != "-") sg[k, ++nsg[k]] = q[k] + 0 }
+    if (rr[1] != "-") { rcy[++nrc] = rr[1] + 0; rlc[nrc] = rr[2] + 0 }
+  }
+  function med(v, n,   i, j, t) {
+    if (n == 0) return "-"
+    for (i = 1; i <= n; i++) for (j = i + 1; j <= n; j++) if (v[j] < v[i]) { t = v[i]; v[i] = v[j]; v[j] = t }
+    return sprintf("%s-%s (median %s)", v[1], v[n], (n % 2) ? v[(n + 1) / 2] : (v[n / 2] + v[n / 2 + 1]) / 2)
+  }
+  function col(arr, k, n,   i, v) {
+    for (i = 1; i <= n; i++) v[i] = arr[k, i]
+    return med(v, n)
   }
   END {
     if (runs == 0) exit
@@ -123,5 +144,11 @@ awk '
     printf "  Lv 10 %s\n", stat(a10, n10)
     printf "  Lv 30 %s, %d at 12:00 or later\n", stat(a30, n30), in30
     printf "  final level %d-%d (median %s)\n", lv[1], lv[nl], (nl % 2) ? lv[(nl + 1) / 2] : (lv[nl / 2] + lv[nl / 2 + 1]) / 2
+    printf "  engagement %% (400 x 200 px) at 6:00 %s, 9:00 %s, 12:00 %s\n", col(eg, 1, neg[1]), col(eg, 2, neg[2]),
+      col(eg, 3, neg[3])
+    printf "  stale %% (20 s+ outside) at 6:00 %s, 9:00 %s, 12:00 %s\n", col(sg, 1, nsg[1]), col(sg, 2, nsg[2]),
+      col(sg, 3, nsg[3])
+    for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
+    printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
   }' "$OUT/.table"
 exit "$STATUS"

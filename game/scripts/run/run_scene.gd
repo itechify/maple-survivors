@@ -910,7 +910,7 @@ func _place_player_layer(layer: int) -> void:
 func _update_hud() -> void:
 	var ps := world.player_state
 	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
-		int(ps.exp_next), int(ps.level), int(ps.job_id), int(world.time), world.kills, world.loadout.version])
+		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version])
 	if sig == _hud_sig:
 		return
 	_hud_sig = sig

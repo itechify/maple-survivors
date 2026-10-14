@@ -36,7 +36,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
-	"mob_spawned": ["mob", "mob_id", "pos", "elite"],
+	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"player_hit": ["damage", "mp_absorbed", "dir", "pos"],
@@ -410,6 +410,15 @@ func player_platform() -> int:
 	return fhm.platform_of(fhm.find_below(player.pos.x, player.pos.y))
 
 
+## The floor right below a player standing on a low step, which walkers also count as the player's
+## (MobSwarm.low_platform, reach_y); -1 when there is none.
+func player_low_platform() -> int:
+	var tp := player_platform()
+	if tp < 0:
+		return -1
+	return MobSwarm.low_platform(fhm, player.pos, tp, float(swarm.tuning.reach_y))
+
+
 ## Turns a standing player toward x (casting at a target); a walking player keeps facing its way.
 func face_toward(tx: float) -> void:
 	if player.state == PlayerMotion.ST_STAND and absf(tx - player.pos.x) > 0.5:
@@ -432,8 +441,29 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 	var i := swarm.spawn(k, pos.x, pos.y, fh, maxi(1, roundi(mk.max_hp * hp_mult)))
 	_sync_slots()
 	mob_elite[i] = 1 if elite else 0
-	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite})
+	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite,
+		"relocated_from": -1})
 	return i
+
+
+## Moves live mob i to pos on foothold fh like a new spawn (SpawnDirector relocation): the slot is freed and the same
+## kind spawned there with the mob's HP and max HP (and elite flag), fading in; emits mob_spawned with relocated_from =
+## i (new spawns have -1). Returns the new slot (-1 when i is not a live mob).
+func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
+	if i < 0 or i >= swarm.capacity() or swarm.active[i] == 0:
+		return -1
+	var k := swarm.kind[i]
+	var hp := swarm.hp[i]
+	var mhp := swarm.max_hp[i]
+	var elite := mob_elite[i] != 0
+	swarm.despawn(i)
+	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
+	swarm.hp[j] = hp
+	_sync_slots()
+	mob_elite[j] = 1 if elite else 0
+	emit("mob_spawned", {"mob": j, "mob_id": mob_kinds[k].id, "pos": Vector2(swarm.x[j], swarm.y[j]), "elite": elite,
+		"relocated_from": i})
+	return j
 
 
 ## One instant damage line of skill stats `st` on mob m (Magic Claw); hv = hit visual index. Kills drop EXP.

@@ -3,9 +3,16 @@ extends SceneTree
 ## map with the kiting autoplay bot (BotInput.decide: kiting, walking and climbing to drops) and a card policy, and
 ## prints when the run reached each level milestone, the alive mobs, levels and hits taken per minute (alive = the mean
 ## over the minute, so burst spikes do not dominate), the mean number of mobs near the player (within NEAR_X px
-## horizontally and NEAR_Y px vertically), the mean EXP drops lying on the map, mobs recycled per minute, the lowest HP
-## fraction per minute, EXP lost to expired drops, and how it ended. Needs the asset cache (the real map and mob/skill
-## imgs).
+## horizontally and NEAR_Y px vertically), the swarm engagement (below), the mean EXP drops lying on the map, mobs
+## recycled and relocated per minute, the lowest HP fraction per minute, EXP lost to expired drops, and how it ended.
+## Needs the asset cache (the real map and mob/skill imgs).
+##
+## Engagement (docs/GAME_DESIGN.md 4.2): `eng_by_min[m-1]` is the share of the live mobs within ENG_X px horizontally
+## and ENG_Y px vertically of the player's feet over the minute centred on m:00 (sum of engaged mobs / sum of live mobs
+## over every tick of [m:00 - 30 s, m:00 + 30 s), the last window cut at the run's end); `stale_by_min` is the share,
+## over the same windows, of live mobs that have been outside that box for STALE_S s or more in a row (since their
+## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
+## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
 ##   bash scripts/balance.sh                       # henesys_hg1, the held-out seeds, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=hill_east_henesys
@@ -30,6 +37,10 @@ const MILESTONES := [8, 10, 20, 30, 40, 50]
 ## "Near the player" box for the engagement metric (px from the player's feet).
 const NEAR_X := 300.0
 const NEAR_Y := 150.0
+## Engagement box and the "stale" age (see the class doc).
+const ENG_X := 400.0
+const ENG_Y := 200.0
+const STALE_S := 20.0
 const POLICIES := ["bot", "random", "first"]
 
 
@@ -130,6 +141,17 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var exp_total := 0
 	var recycled_min: Array = []
 	var hp_min: Array = []
+	# Engagement: 30 s buckets of engaged / stale / live mob-ticks, and per slot the last time inside the box.
+	var eng_b := PackedInt64Array()
+	var stale_b := PackedInt64Array()
+	var live_b := PackedInt64Array()
+	var nb := int(ceil(w.duration / 30.0)) + 2
+	eng_b.resize(nb)
+	stale_b.resize(nb)
+	live_b.resize(nb)
+	var seen := PackedFloat32Array()
+	var relocated0 := 0
+	var relocated_min: Array = []
 	var alive_sum := 0
 	var near_sum := 0
 	var drops_sum := 0
@@ -153,6 +175,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		var a := w.swarm.alive_count()
 		alive_sum += a
 		near_sum += _near(w)
+		var bk := mini(int(w.time / 30.0), nb - 1)
+		var ec := _engaged(w, seen)
+		eng_b[bk] += ec.x
+		stale_b[bk] += ec.y
+		live_b[bk] += a
 		drops_sum += w.pickups.active_count()
 		alive_n += 1
 		hp_low = minf(hp_low, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
@@ -163,6 +190,13 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		for e: Dictionary in w.drain_events():
 			match String(e.type):
+				"mob_spawned":
+					# A relocated mob is the same mob: it keeps the time it was last inside the box.
+					var ms := int(e.mob)
+					var from := int(e.get("relocated_from", -1))
+					if seen.size() <= maxi(ms, from):
+						seen.resize(w.swarm.capacity())
+					seen[ms] = seen[from] if from >= 0 else w.time
 				"player_hit":
 					hits += 1
 					taken += int(e.damage)
@@ -186,6 +220,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			alive_n = 0
 			recycled_min.append(w.director.recycled - recycled0)
 			recycled0 = w.director.recycled
+			relocated_min.append(w.director.relocated - relocated0)
+			relocated0 = w.director.relocated
 			hp_min.append(snappedf(hp_low, 0.01))
 			hp_low = 1.0
 			level_min.append(int(w.player_state.level))
@@ -196,6 +232,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			hits = 0
 			taken = 0
 	choose(w, policy, rng, cards_taken)
+	var eng_min: Array = []
+	var stale_min: Array = []
+	for m in range(1, int(w.duration / 60.0) + 1):
+		var lv := live_b[2 * m - 1] + live_b[2 * m]
+		eng_min.append(snappedf(float(eng_b[2 * m - 1] + eng_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
+		stale_min.append(snappedf(float(stale_b[2 * m - 1] + stale_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
 	var skills := {}
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
@@ -206,7 +248,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
-		"spawned": w.director.spawned, "recycled": w.director.recycled,
+		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
+		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
 	}
@@ -221,6 +264,26 @@ static func _near(w: RunWorld) -> int:
 		if s.active[i] != 0 and absf(s.x[i] - p.x) <= NEAR_X and absf(s.y[i] - p.y) <= NEAR_Y:
 			n += 1
 	return n
+
+
+## Vector2i(engaged, stale): live mobs inside the ENG_X x ENG_Y box around the player's feet, and live mobs outside it
+## for STALE_S s or more (seen[slot] = the last time the mob in that slot was inside the box or spawned; updated here).
+static func _engaged(w: RunWorld, seen: PackedFloat32Array) -> Vector2i:
+	var s := w.swarm
+	var p := w.player.pos
+	if seen.size() < s.capacity():
+		seen.resize(s.capacity())
+	var eng := 0
+	var stale := 0
+	for i in s.capacity():
+		if s.active[i] == 0:
+			continue
+		if absf(s.x[i] - p.x) <= ENG_X and absf(s.y[i] - p.y) <= ENG_Y:
+			eng += 1
+			seen[i] = w.time
+		elif w.time - seen[i] >= STALE_S:
+			stale += 1
+	return Vector2i(eng, stale)
 
 
 ## Merges `patch` into `into`: Dictionaries key by key (recursively); an Array of Dictionaries onto an Array of the
@@ -254,8 +317,9 @@ static func describe(r: Dictionary) -> String:
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
 		"  EXP collected %d, expired %d (%d drops)" % [int(r.exp_collected), int(r.expired_exp), int(r.expired_drops)]])
-	for k: String in ["alive_by_min", "near_by_min", "drops_by_min", "level_by_min", "hits_by_min", "low_hp_by_min",
-			"exp_by_min", "kills_by_min", "recycled_by_min"]:
+	for k: String in ["alive_by_min", "near_by_min", "eng_by_min", "stale_by_min", "drops_by_min", "level_by_min",
+			"hits_by_min", "low_hp_by_min",
+			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
 		lines.append("  %-16s %s" % [k, r.get(k, [])])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
 	return "\n".join(lines)

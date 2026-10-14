@@ -15,6 +15,25 @@ static func tiers_segments() -> Array:
 	]
 
 
+## Fewest edges vs shortest way (the shape of 104040000's long platform over the ground): ground G (0..3000, y=0), a
+## long platform U (100..2000, y=-300) whose left end drops straight onto G (1 edge) and whose right end drops onto a
+## step S (1980..2200, y=-150) that drops onto G (2 edges). Returns segments for from_segments.
+static func long_platform_segments() -> Array:
+	return [
+		{"x1": 0.0, "y1": 0.0, "x2": 3000.0, "y2": 0.0},
+		{"x1": 100.0, "y1": -300.0, "x2": 2000.0, "y2": -300.0},
+		{"x1": 1980.0, "y1": -150.0, "x2": 2200.0, "y2": -150.0},
+	]
+
+
+## A low step: ground G (0..1000, y=0) and a floating step K (400..600, y=-30) just above it.
+static func low_step_segments() -> Array:
+	return [
+		{"x1": 0.0, "y1": 0.0, "x2": 1000.0, "y2": 0.0},
+		{"x1": 400.0, "y1": -30.0, "x2": 600.0, "y2": -30.0},
+	]
+
+
 ## A cliff: lower floor L (0..200, y=0), a wall rising at x=200 to y=-50, upper floor U (200..500, y=-50).
 ## L's right end is blocked by the wall; U's left end is open (the wall hangs below it).
 static func cliff_segments() -> Array:

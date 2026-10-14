@@ -1,6 +1,6 @@
 {
 	"_doc": "Run-wide survivor tuning (docs/GAME_DESIGN.md sections 5, 6; docs/ARCHITECTURE.md 4.4.4). Everything here is tier C (ours / emulator-like) unless a note says otherwise; canonical WZ numbers are never copied here except where noted as a survivor choice of equipment.",
-	"exp_curve": {"a": 4, "b": 12, "c": 3.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 19, L7 235, L9 355, L29 2875; 784 EXP to reach Lv 8, 1431 to Lv 10, 31001 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
+	"exp_curve": {"a": 4, "b": 8, "c": 4.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 16, L7 256, L9 400, L29 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
 	"exp_mult": 1.0,
 	"player": {
 		"_start": "Level 1 Beginner with 50 HP / 5 MP / 4 INT (the v83 new-character minimums) and Three Snails rank 1.",
@@ -33,7 +33,7 @@
 	"crit": {"chance": 0.0, "mult": 1.5},
 	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drops before new EXP merges into the nearest, lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 60, "fade": 1.5},
-	"_spawn": "SpawnDirector: margin outside the view, band of the first spawn ring, min distance to the player, samples per ring, recycle distance (px) and time (s), prefer_hops (a ring first looks for a platform at most this many NavGraph edges from the player's; -1 = any reachable one).",
-	"spawn": {"margin": 48, "band": 320, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_hops": 1},
+	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
+	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32},
 	"max_level": 200
 }

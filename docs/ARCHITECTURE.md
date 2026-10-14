@@ -100,14 +100,14 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | Class | Responsibility | Key API |
 |---|---|---|
 | `PhysicsConstants` | Map.wz/Physics.img values | `static from_wz(physics_img: Dictionary)`, `static v83_defaults()`, fields `walk_force`, `walk_speed`, `walk_drag`, `slip_force`, `slip_speed`, `float_drag1`, `float_drag2`, `float_coefficient`, `swim_*`, `fly_*`, `gravity_acc`, `fall_speed`, `jump_speed`, `max_friction`, `min_friction`, `fly_jump_dec` |
-| `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
+| `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), `walk_blocked(p, xa, xb) -> bool` (a wall stands across p between the two), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held` |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
-| `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)` |
+| `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat move_speed can_jump hitbox die_time hit_time pushed body_attack elem_attr` |
-| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity)`, `spawn(kind, x, y, fh, hp) -> int`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t` |
+| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
 | `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id)`, `step(dt, player_pos, magnet_r, fhm, events)` |
@@ -117,7 +117,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
-| `SpawnDirector` | Stage pacing, spawn positions | `step(dt, world)`; spawns off-screen on floors reachable from the player's platform, preferring platforms at most `prefer_hops` NavGraph edges away |
+| `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3`, `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); spawns off-screen, first on the floors beside the view, preferring points whose way to the player (NavGraph travel cost) is at most `prefer_route` px longer than the walk in from the view's side, never where a wall across a platform stands anywhere on the way; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING / DEAD / CLEARED) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs to drops above, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
 
@@ -169,7 +169,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
-| `mob_spawned` | `mob`, `mob_id`, `pos`, `elite` |
+| `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `dir` (-1/1), `pos` |
@@ -199,7 +199,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
 | `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
-| `balance.json` | EXP curve, player base stats (incl. cast origin / `cast_forward`) and growth per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `prefer_hops`), contact damage scale, mob speed factor |
+| `balance.json` | EXP curve, player base stats (incl. cast origin / `cast_forward`) and growth per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
 
@@ -221,7 +221,18 @@ What the table above leaves open; the class doc comments have the rest.
 - **`NavGraph`:** `edge(e)` also has `lo`/`hi` (takeoff range) and `vx`. A drop lands on its `to_p` at every mob speed
   (`NavGraph.drop_landing` replays MobSwarm's step-off; this holds when MapBounds contains the foothold box and
   `step` runs at the graph's `dt`, 1/60). Jump arcs are checked against walls and ceilings when the graph is built.
-  A wall standing inside a platform (not at its ends) is not modelled: mobs stop at it, the graph routes past it.
+  A wall standing inside a platform (not at its ends) is not modelled: mobs stop at it, the graph routes past it;
+  SpawnDirector never spawns (or relocates a mob) where such a wall stands anywhere on the point's way to the player
+  (`FootholdMap.walk_blocked` on each platform of the way, following `best_edge` onto the player's platform, where the
+  last stretch ends at the player's x; on 100010000 the hill's faces cross the ground chain, so a mob dropping onto the
+  ground outside the faces would walk into one while the player is between them). A mob stopped at such a wall (it
+  has not moved `stall_progress` px) keeps counting toward `stall_time` even on screen and is relocated as soon as it
+  is off screen; the player walking up to it shortens its way but is not its progress. Mobs steer by the travel-cost field, not by `route()`: `prepare_target(to_p, tx, also_p)` prices
+  every edge from its `take` x to the point (to_p, tx) (walks in px + `edge_cost` per drop/hop, the final walk to tx
+  included; a straight-up hop's `take` is the point of its range nearest to where the route goes on, and the mob takes
+  off there); it is rebuilt when to_p/also_p change or tx moves `target_step` px. MobSwarm keeps a chosen edge until
+  another is `route_hysteresis` px cheaper and writes the remaining cost to `route_len`; `also_p` is the floor right
+  below a player on a low step (`MobSwarm.low_platform`, `reach_y`), where walkers count as arrived.
 - **`PlayerMotion`:** `place(pos, fhm)` stands the player on a floor only when one is within 1 px below `pos`, else the
   player falls; to start standing at a spawn portal, place at `fhm.y_at(fhm.find_below(x, y), x)`. `step()` returns
   `EV_JUMP 1`, `EV_LAND 2`, `EV_DOWN_JUMP 4`, `EV_GRAB 8`, `EV_LADDER_EXIT 16`, `EV_WALK_OFF 32`, `EV_WALL 64`,
@@ -234,9 +245,14 @@ What the tables above leave open; the class doc comments have the rest.
 - **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives
   the canonical id. Canonical numbers are read per level from `setup.skill_imgs[book].skill[<7-digit id>].level`.
 - **`RunWorld` extras:** `drain_events()` (returns and clears `events`), `emit(type, fields)`, `state_name()`,
-  `pending_jobs` / `pending_cards` (the open window), `spawn_mob(kind, pos, fh, hp_mult, elite)`, `mob_elite` (per
+  `pending_jobs` / `pending_cards` (the open window), `spawn_mob(kind, pos, fh, hp_mult, elite)`,
+  `relocate_mob(i, pos, fh) -> int` (SpawnDirector relocation: frees the slot and spawns the same kind at pos with the
+  mob's HP, max HP and elite flag, fading in, and emits `mob_spawned` with `relocated_from` = i; returns the new slot,
+  which is usually the same one), `player_platform()`, `player_low_platform()` (the floor right below a player on a low step), `mob_elite` (per
   slot, for name tags), `kills`, `damage_dealt`, `view`, `warnings`, `god` (tests/benchmarks only). `player_state` also
-  has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer).
+  has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer). A relocated mob's
+  `mob_spawned` carries the usual fields; the presentation treats it like a new mob (its slot may be the one it had);
+  tools that follow a mob across relocations (`balance_run.gd`'s stale share) use `relocated_from`.
 - **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
   with MP. `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)

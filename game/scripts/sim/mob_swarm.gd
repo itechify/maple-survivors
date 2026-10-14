@@ -3,7 +3,13 @@ extends RefCounted
 ## Every mob of a run as struct-of-arrays with a free list (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 4).
 ##
 ## Ground mobs walk along footholds toward the player: on the player's platform straight at the player's x, elsewhere
-## along the NavGraph route (walk to the edge's takeoff, then step off it for a "drop" or hop for a "jump"). A drop
+## along the cheapest NavGraph route to the player's point (NavGraph.prepare_target's travel-cost field: walk to the
+## edge's takeoff, then step off it for a "drop" or hop for a "jump"). A mob keeps the edge it chose until another is
+## `route_hysteresis` px cheaper (so it does not turn back and forth under a moving player) and reports what is left of
+## its way in `route_len` (px; SpawnDirector relocates off-screen mobs that stop closing in). A player standing on a
+## low step (at most `reach_y` px above the floor right below it, low_platform()) is within touch of that floor too:
+## walkers on it walk to the player's x like mobs on the player's own platform, and walkers' routes may end there
+## (jumpers hop onto the step instead). A drop
 ## is the same for every mob whatever its walk speed: from the platform end it drifts at the edge's `vx` until
 ## NavGraph `drop_probe` px past the end, then falls straight down, which is exactly the trajectory
 ## NavGraph.drop_landing used to pick the edge's target, so a drop edge always lands where the graph says. Walls stop
@@ -36,6 +42,8 @@ const TUNING_DEFAULTS := {
 	"regen_time": 0.3,  # tier C: fade-in time of a new mob (HeavenClient fades at a similar rate)
 	"push_px": 12.0,  # tier C: how far a hit with damage >= pushed slides the mob
 	"stop_dist": 2.0,  # tier C: ours, a mob on the player's platform stops this close to the player's x
+	"route_hysteresis": 96.0,  # tier C: ours, a mob switches to another route only when it is this many px cheaper
+	"reach_y": 40.0,  # tier C: ours, a floor at most this far below the player's feet counts as the player's (touch reach)
 }
 
 var kind := PackedInt32Array()
@@ -58,6 +66,9 @@ var facing := PackedInt32Array()
 var alpha := PackedFloat32Array()
 ## 1 while the mob is alive (not DIE/FREE): the mask for SpatialHash.rebuild and targeting.
 var active := PackedByteArray()
+## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
+## route's (NavGraph.route_cost); INF = no way there (or not computed yet). Kept while airborne.
+var route_len := PackedFloat32Array()
 
 var kinds: Array = []
 var fhm: FootholdMap
@@ -71,6 +82,8 @@ var _hi := 0
 var _pending := false
 ## x where a drop's step-off drift ends (INF = not drifting).
 var _stop_x := PackedFloat32Array()
+## The NavGraph edge the mob is heading for (-1 = none yet; reset on landing).
+var _route_e := PackedInt32Array()
 var _k_speed := PackedFloat32Array()
 var _k_jump := PackedByteArray()
 var _k_fly := PackedByteArray()
@@ -85,6 +98,15 @@ func _init(capacity: int = 256, p_kinds: Array = [], p_tuning: Dictionary = {}) 
 		if tuning.has(k):
 			tuning[k] = p_tuning[k]
 	_grow(maxi(1, capacity))
+
+
+## The platform of the floor right below the player's feet other than its own platform tp, when that floor is at most
+## reach_y px below them (the player stands on a low step walkers on that floor can touch it from); -1 otherwise.
+static func low_platform(m: FootholdMap, target: Vector2, tp: int, reach_y: float) -> int:
+	var f := m.find_below(target.x, target.y + 0.5, -1, tp)
+	if f < 0 or m.y_at(f, target.x) - target.y > reach_y:
+		return -1
+	return m.platform_of(f)
 
 
 ## Number of slots (live, dying and free); iterate 0..capacity()-1 and skip FREE.
@@ -123,6 +145,8 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	alpha[i] = 0.0
 	active[i] = 1
 	_stop_x[i] = INF
+	_route_e[i] = -1
+	route_len[i] = INF
 	_alive += 1
 	_hi = maxi(_hi, i + 1)
 	if f >= 0:
@@ -210,27 +234,33 @@ func step(dt: float, ctx: Dictionary) -> void:
 	var px1 := m.plat_x1
 	var px2 := m.plat_x2
 	var fwall := m.floor_wall
-	# Route candidates toward the target platform for both movement classes (see NavGraph.prepare_target).
+	# Travel-cost fields toward the player's point for both movement classes (see NavGraph.prepare_target).
 	var cs_w := PackedInt32Array()
 	var ce_w := PackedInt32Array()
-	var lo_w := PackedFloat32Array()
-	var hi_w := PackedFloat32Array()
+	var co_w := PackedFloat32Array()
+	var tk_w := PackedFloat32Array()
 	var cs_j := PackedInt32Array()
 	var ce_j := PackedInt32Array()
-	var lo_j := PackedFloat32Array()
-	var hi_j := PackedFloat32Array()
+	var co_j := PackedFloat32Array()
+	var tk_j := PackedFloat32Array()
+	var ef_w := PackedInt32Array()
+	var ef_j := PackedInt32Array()
+	var lowp := low_platform(m, target, tp, float(tuning.reach_y)) if tp >= 0 else -1
 	if nav_w != null and tp >= 0:
-		nav_w.prepare_target(tp)
+		nav_w.prepare_target(tp, tx, lowp)
 		cs_w = nav_w.cand_start
 		ce_w = nav_w.cand_edges
-		lo_w = nav_w.e_lo
-		hi_w = nav_w.e_hi
+		co_w = nav_w.cost
+		tk_w = nav_w.take
+		ef_w = nav_w.e_from
 	if nav_j != null and tp >= 0:
-		nav_j.prepare_target(tp)
+		nav_j.prepare_target(tp, tx)
 		cs_j = nav_j.cand_start
 		ce_j = nav_j.cand_edges
-		lo_j = nav_j.e_lo
-		hi_j = nav_j.e_hi
+		co_j = nav_j.cost
+		tk_j = nav_j.take
+		ef_j = nav_j.e_from
+	var hyst := float(tuning.route_hysteresis)
 	for i in _hi:
 		var st := state[i]
 		if st == FREE:
@@ -249,6 +279,7 @@ func step(dt: float, ctx: Dictionary) -> void:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
 		if _k_fly[k] != 0:
 			_fly(i, dt, _k_speed[k] * smult, target, bounds)
+			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
 			continue
 		var f := fh[i]
 		if f < 0:
@@ -268,8 +299,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 		var spd := _k_speed[k] * smult
 		var want := 0
 		var wander := false
-		if p == tp:
+		if p == tp or (p == lowp and _k_jump[k] == 0):
 			var d := clampf(tx, px1[p], px2[p]) - cx
+			route_len[i] = absf(tx - cx)
 			if d > stop:
 				want = 1
 			elif d < -stop:
@@ -279,20 +311,36 @@ func step(dt: float, ctx: Dictionary) -> void:
 			var cs := cs_j if jumper else cs_w
 			var e := -1
 			var take := cx
+			var best_d := INF
 			if p >= 0 and p + 1 < cs.size():
-				# Nearest takeoff among the first edges of the shortest routes (NavGraph.route_near, inlined).
+				# The cheapest walk to an edge's take + its cost (NavGraph.best_edge, inlined; a straight-up hop takes
+				# off at its take, the point of its range that suits the route on); the edge chosen before stays unless
+				# this one is route_hysteresis px cheaper.
 				var ce := ce_j if jumper else ce_w
-				var elo := lo_j if jumper else lo_w
-				var ehi := hi_j if jumper else hi_w
-				var best_d := INF
+				var co := co_j if jumper else co_w
+				var etk := tk_j if jumper else tk_w
 				for c in range(cs[p], cs[p + 1]):
 					var ec := ce[c]
-					var tk := clampf(cx, elo[ec], ehi[ec])
-					var dd := absf(tk - cx)
+					var tk := etk[ec]
+					var dd := absf(tk - cx) + co[ec]
 					if dd < best_d:
 						best_d = dd
 						e = ec
 						take = tk
+				var r := _route_e[i]
+				# r is still a candidate when it leaves p and still reaches the target (cand_edges of p: exactly
+				# those out-edges of p with a finite cost).
+				if r >= 0 and r != e and e >= 0 and r < co.size() and co[r] < INF \
+						and (ef_j if jumper else ef_w)[r] == p:
+					var tk := etk[r]
+					var dd := absf(tk - cx) + co[r]
+					if dd <= best_d + hyst:
+						best_d = dd
+						e = r
+						take = tk
+				if r != e:
+					_route_e[i] = e
+			route_len[i] = best_d
 			if e < 0:
 				wander = true
 				want = facing[i]
@@ -415,6 +463,7 @@ func _air(i: int, dt: float, m: FootholdMap, grav: float, fall: float, lim: Vect
 			vx[i] = 0.0
 			vy[i] = 0.0
 			_stop_x[i] = INF
+			_route_e[i] = -1
 			fh[i] = g
 			platform[i] = m.platform[g]
 			if state[i] == JUMP:
@@ -545,10 +594,14 @@ func _grow(n: int) -> void:
 	alpha.resize(n)
 	active.resize(n)
 	_stop_x.resize(n)
+	_route_e.resize(n)
+	route_len.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		state[i] = FREE
 		active[i] = 0
 		_stop_x[i] = INF
+		_route_e[i] = -1
+		route_len[i] = INF
 		fh[i] = -1
 		platform[i] = -1
 		facing[i] = -1

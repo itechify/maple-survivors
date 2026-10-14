@@ -186,3 +186,53 @@ func test_ceiling_blocks_straight_up_hops() -> void:
 	var d2 := NavGraph.build(open, {"can_jump": true}).edge(NavGraph.build(open, {"can_jump": true}).route(0, 1))
 	assert_near(d2.vx, 0.0)
 	assert_true(d2.hi > d2.lo)
+
+
+func test_cost_field_takes_the_near_exit_over_fewer_edges() -> void:
+	# WF.long_platform_segments: U's left end drops onto the ground G (1 edge), its right end onto the step S, which
+	# drops onto G (2 edges). From x 1800 on U with the player at x 2300 on G, the fewest-edges route walks 1700 px to
+	# the left end; the travel-cost field takes the right end (200 px) and S.
+	var lm := FootholdMap.from_segments(WF.long_platform_segments())
+	var g := lm.platform_of(0)
+	var u := lm.platform_of(1)
+	var st := lm.platform_of(2)
+	var nav := NavGraph.build(lm, {"can_jump": false})
+	assert_near(nav.edge(nav.route_near(u, g, 1800.0)).x_from, 100.0, 1e-4, "fewest edges: the far left end")
+	assert_eq(nav.hops(u, g), 1)
+	nav.prepare_target(g, 2300.0)
+	var e := nav.best_edge(u, 1800.0)
+	assert_true(e >= 0)
+	assert_eq(nav.e_to[e], st, "onto the step")
+	assert_near(nav.e_x_from[e], 2000.0, 1e-4, "the near right end")
+	# 200 px to the end, a drop (40 + 4 px), 196 px across S, a drop (40 + 4), 96 px to the player.
+	assert_near(nav.route_cost(u, 1800.0), 200.0 + 44.0 + 196.0 + 44.0 + 96.0, 0.01)
+	assert_near(nav.route_cost(g, 2000.0), 300.0, 1e-4, "on the target platform: the walk to the player")
+	assert_eq(nav.best_edge(g, 2000.0), -1)
+	# With the player far left, the left end is the way.
+	nav.prepare_target(g, 50.0)
+	assert_near(nav.e_x_from[nav.best_edge(u, 1800.0)], 100.0, 1e-4, "player at x 50: the left end")
+	# A second arrival platform (the floor under a player on a low step) is priced like the target.
+	nav.prepare_target(st, 2100.0, g)
+	assert_near(nav.route_cost(g, 500.0), 1600.0, 1e-4, "also_p: the walk to the player's x")
+	assert_eq(nav.best_edge(g, 500.0), -1)
+	var rm := FootholdMap.from_segments([{"x1": 0.0, "y1": 0.0, "x2": 100.0, "y2": 0.0},
+		{"x1": 400.0, "y1": 0.0, "x2": 500.0, "y2": 0.0}])
+	var none := NavGraph.build(rm, {"can_jump": false})
+	none.prepare_target(rm.platform_of(1), 450.0)
+	assert_eq(none.route_cost(rm.platform_of(0), 50.0), INF, "no way: INF")
+
+
+func test_straight_up_hops_take_off_where_the_route_goes_on() -> void:
+	# Tiers, jumper, player at x 550 on T: G -> M2 is a straight-up range (708..992) and M2 -> T one too (708..742).
+	# The field prices G -> M2 from 708, right under M2 -> T, so a mob hops up there instead of at the near end of the
+	# range and then walking back on M2 (or dropping off M2's far end again).
+	var nav := NavGraph.build(m, {"can_jump": true})
+	nav.prepare_target(t_, 550.0)
+	var up := nav.best_edge(g_, 1100.0)
+	assert_eq(nav.e_to[up], m2)
+	assert_near(nav.take[up], 708.0, 1e-3, "takes off under the next hop")
+	var top := nav.best_edge(m2, 708.0)
+	assert_eq(nav.e_to[top], t_)
+	assert_near(nav.take[top], 708.0, 1e-3)
+	# 392 px to 708, two hops (40 each), 158 px on T.
+	assert_near(nav.route_cost(g_, 1100.0), 392.0 + 40.0 + 40.0 + 158.0, 0.01)

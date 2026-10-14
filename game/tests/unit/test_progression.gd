@@ -39,17 +39,17 @@ func _sorted(a: Array) -> Array:
 	return c
 
 
-## The tuned curve of balance.json (docs/GAME_DESIGN.md 5): round(4 + 12 L + 3 L^2).
+## The tuned curve of balance.json (docs/GAME_DESIGN.md 5): round(4 + 8 L + 4 L^2).
 func test_exp_curve_values() -> void:
 	var c := ExpCurve.from_data(DataRepo.load_all().balance.exp_curve)
-	assert_eq(c.exp_to_next(1), 19, "4 + 12 + 3")
-	assert_eq(c.exp_to_next(2), 40, "4 + 24 + 12")
-	assert_eq(c.exp_to_next(7), 235, "4 + 84 + 147")
-	assert_eq(c.exp_to_next(29), 2875, "4 + 348 + 2523")
-	assert_eq(c.total_to(8), 19 + 40 + 67 + 100 + 139 + 184 + 235, "EXP from 1 to 8 (784)")
-	assert_eq(c.total_to(10), 1431, "EXP from 1 to 10")
-	assert_eq(c.total_to(30), 31001, "EXP from 1 to 30")
-	assert_eq(ExpCurve.new().exp_to_next(29), 2875, "defaults = the design curve")
+	assert_eq(c.exp_to_next(1), 16, "4 + 8 + 4")
+	assert_eq(c.exp_to_next(2), 36, "4 + 16 + 16")
+	assert_eq(c.exp_to_next(7), 256, "4 + 56 + 196")
+	assert_eq(c.exp_to_next(29), 3600, "4 + 232 + 3364")
+	assert_eq(c.total_to(8), 16 + 36 + 64 + 100 + 144 + 196 + 256, "EXP from 1 to 8 (812)")
+	assert_eq(c.total_to(10), 1536, "EXP from 1 to 10")
+	assert_eq(c.total_to(30), 37816, "EXP from 1 to 30")
+	assert_eq(ExpCurve.new().exp_to_next(29), 3600, "defaults = the design curve")
 	assert_eq(ExpCurve.new().total_to(8), c.total_to(8), "defaults = the design curve")
 
 

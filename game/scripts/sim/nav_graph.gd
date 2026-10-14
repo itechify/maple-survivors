@@ -16,7 +16,18 @@ extends RefCounted
 ##   point with a horizontal speed `vx` that lands `margin` px inside the target and clears any wall or ceiling on
 ##   the way (the arc is checked against FootholdMap).
 ##
-## route() reads a next-hop table built by BFS (fewest edges) from every platform; P is small (23 on 104040000).
+## route() / hops() / reachable() read a next-hop table built by BFS (fewest edges) from every platform; P is small
+## (23 on 104040000). Mobs do not steer by edge count, though: fewest edges can mean the far end of a long platform
+## (on 104040000 the 1518 px platform above the ground drops onto the ground only at its left end; its right end drops
+## onto a step one edge further, right next to the ground's right half). prepare_target(to_p, tx) builds a travel-cost
+## field toward a target point instead: cost[e] is the px-equivalent cost of taking edge e from take[e] and going on to
+## (to_p, tx) the cheapest way, i.e. the edge's air cost (`edge_cost` + its horizontal travel), the walks on every
+## later platform from a landing to the next takeoff, and the walk on to_p from the last landing to tx (a straight-up
+## hop takes off, and lands, at the point of its range nearest to where the route goes on). route_cost(p, x) /
+## best_edge(p, x) add the walk from x to an edge's take and take the minimum; MobSwarm (which walks to take[e] and
+## takes off there) and SpawnDirector use them.
+## The field is rebuilt (a queue-based shortest-path pass over the edges, against the reverse transitions built once)
+## when the target platform changes or tx moves `target_step` px.
 ## Defaults in DEFAULTS, overridable through `opts`. `gravity`, `fall_speed` and `jump_speed` must match the
 ## PhysicsConstants given to MobSwarm.step (RunWorld builds both graphs from the same Physics.img values).
 
@@ -38,6 +49,8 @@ const DEFAULTS := {
 	"sample_step": 4.0,  # tier C: x sampling when searching overlapping jump ranges
 	"gap_inset": 1.0,  # tier C: ours, a gap jump's first takeoff candidate is this far inside the platform end
 	"gap_step": 4.0,  # tier C: ours, takeoff candidates step back by this much until the arc clears walls
+	"edge_cost": 40.0,  # tier C: ours, px of walking a drop or hop is worth in the travel-cost field (~ a fall's time)
+	"target_step": 16.0,  # tier C: ours, the cost field is rebuilt when the target x moves this far
 }
 
 var opts: Dictionary
@@ -58,10 +71,24 @@ var _out_edges := PackedInt32Array()
 var _next := PackedInt32Array()
 ## Hop count for (from * node_count + to), -1 = unreachable.
 var _dist := PackedInt32Array()
-## Candidate first edges per platform for the target given to prepare_target() (CSR).
+## Travel-cost field for the target given to prepare_target(): per edge, the cost (px) from its takeoff to the target
+## point (INF = the target cannot be reached that way) and the takeoff x it is priced from (`take`: x_from for edges
+## with one takeoff point; for a straight-up hop's range the point of [lo, hi] nearest to where the route goes on from
+## its landing, which is the takeoff point), and per platform the edges with a finite cost (CSR:
+## cand_edges[cand_start[p] .. cand_start[p + 1]); none on the target platform itself).
+var cost := PackedFloat32Array()
+var take := PackedFloat32Array()
 var cand_start := PackedInt32Array()
 var cand_edges := PackedInt32Array()
 var _cand_target := -2
+var _cand_also := -1
+var _cand_tx := NAN
+## Per edge: its air cost (edge_cost + horizontal travel).
+var _air := PackedFloat32Array()
+## Reverse transitions (CSR): the edges landing on edge f's source platform are _in_edges[_in_start[f] ..
+## _in_start[f + 1]).
+var _in_start := PackedInt32Array()
+var _in_edges := PackedInt32Array()
 
 
 ## Builds the graph for one movement class (walkers: `{"can_jump": false}`, jumpers: `{"can_jump": true}`).
@@ -108,26 +135,108 @@ func route_near(from_p: int, to_p: int, x: float) -> int:
 	return best
 
 
-## Fills cand_start/cand_edges for target platform to_p: the candidate first edges of platform p (those route_near
-## chooses from) are cand_edges[cand_start[p] .. cand_start[p + 1]). Cached until the target changes.
-func prepare_target(to_p: int) -> void:
-	if to_p == _cand_target and cand_start.size() == node_count + 1:
-		return
+## Builds the travel-cost field toward the point (to_p, tx) (see the class doc): `cost` per edge and the candidate
+## edges per platform. tx = NAN prices only the arrival on to_p (no final walk). also_p (>= 0, != to_p) is a second
+## platform that counts as arrived, priced like to_p (MobSwarm: the floor right below a player standing on a low step,
+## from where a mob touches it). Kept while the target platforms are the same and tx is within `target_step` px of the
+## x it was built for.
+func prepare_target(to_p: int, tx: float = NAN, also_p: int = -1) -> void:
+	if also_p == to_p:
+		also_p = -1
+	if to_p == _cand_target and also_p == _cand_also and cand_start.size() == node_count + 1:
+		if (is_nan(tx) and is_nan(_cand_tx)) or absf(tx - _cand_tx) < float(opts.target_step):
+			return
 	_cand_target = to_p
+	_cand_also = also_p
+	_cand_tx = tx
 	var n := node_count
+	var ne := e_kind.size()
+	cost.resize(ne)
+	cost.fill(INF)
+	take = e_x_from.duplicate()
 	cand_start.resize(n + 1)
 	cand_edges.resize(0)
+	if to_p >= 0 and to_p < n and ne > 0:
+		# Shortest paths over the edges toward the target (queue-based label correcting: a few passes on these small
+		# graphs). An edge landing on to_p ends there (its cost is its air cost + the walk to tx); routes never pass
+		# through to_p (by the triangle inequality, leaving it and coming back is never cheaper than walking on it). A
+		# straight-up hop lands where it took off, so it is priced from the point of its range nearest to where the
+		# route goes on (tx, or the next edge's takeoff) and that point becomes its `take`.
+		var queue := PackedInt32Array()
+		var inq := PackedByteArray()
+		inq.resize(ne)
+		inq.fill(0)
+		for g in ne:
+			if e_to[g] == to_p or (also_p >= 0 and e_to[g] == also_p):
+				var land := e_x_to[g]
+				if e_lo[g] < e_hi[g] and not is_nan(tx):
+					land = clampf(tx, e_lo[g], e_hi[g])
+					take[g] = land
+				cost[g] = _air[g] + (0.0 if is_nan(tx) else absf(land - tx))
+				queue.append(g)
+				inq[g] = 1
+		var head := 0
+		while head < queue.size():
+			var f := queue[head]
+			head += 1
+			inq[f] = 0
+			var cf := cost[f]
+			var tf := take[f]
+			for k in range(_in_start[f], _in_start[f + 1]):
+				var g := _in_edges[k]
+				if e_to[g] == to_p or e_to[g] == also_p:
+					continue
+				var ranged := e_lo[g] < e_hi[g]
+				var land := clampf(tf, e_lo[g], e_hi[g]) if ranged else e_x_to[g]
+				var c := _air[g] + absf(land - tf) + cf
+				if c < cost[g] - 0.001:
+					cost[g] = c
+					if ranged:
+						take[g] = land
+					if inq[g] == 0:
+						inq[g] = 1
+						queue.append(g)
 	for p in n:
 		cand_start[p] = cand_edges.size()
-		if to_p < 0 or to_p >= n or p == to_p or _dist[p * n + to_p] < 0:
+		if p == to_p or p == also_p:
 			continue
-		var need := _dist[p * n + to_p] - 1
 		for k in range(_out_start[p], _out_start[p + 1]):
 			var c := _out_edges[k]
-			var w := e_to[c]
-			if (_dist[w * n + to_p] if w != to_p else 0) == need:
+			if cost[c] < INF:
 				cand_edges.append(c)
 	cand_start[n] = cand_edges.size()
+
+
+## Travel cost (px) from x on platform p to the point given to prepare_target() (|x - tx| on the target platform or
+## also_p, 0 when it was given no x); INF when the target cannot be reached from p.
+func route_cost(p: int, x: float) -> float:
+	if p < 0 or p >= node_count or _cand_target < 0:
+		return INF
+	if p == _cand_target or p == _cand_also:
+		return 0.0 if is_nan(_cand_tx) else absf(x - _cand_tx)
+	var best := INF
+	for k in range(cand_start[p], cand_start[p + 1]):
+		var c := cand_edges[k]
+		var d := absf(x - take[c]) + cost[c]
+		if d < best:
+			best = d
+	return best
+
+
+## The edge a mob at x on platform p takes toward the point given to prepare_target() (the cheapest walk to its
+## `take` + its cost; ties go to the lower edge index), or -1 (on the target platform or also_p, or no way there).
+func best_edge(p: int, x: float) -> int:
+	if p < 0 or p >= node_count or p == _cand_target or p == _cand_also or _cand_target < 0:
+		return -1
+	var best := -1
+	var best_d := INF
+	for k in range(cand_start[p], cand_start[p + 1]):
+		var c := cand_edges[k]
+		var d := absf(x - take[c]) + cost[c]
+		if d < best_d:
+			best_d = d
+			best = c
+	return best
 
 
 ## Number of edges on the shortest route from a to b (0 when a == b, -1 when unreachable).
@@ -244,6 +353,7 @@ func _build(fhm: FootholdMap) -> void:
 					_try_jump(fhm, a, b)
 	_build_csr()
 	_build_next_hops()
+	_build_transitions()
 
 
 func _try_jump(fhm: FootholdMap, a: int, b: int) -> void:
@@ -371,6 +481,23 @@ func _build_csr() -> void:
 	for e in e_kind.size():
 		_out_edges[cur[e_from[e]]] = e
 		cur[e_from[e]] += 1
+
+
+## Air costs and the reverse transitions of the cost field: for each edge f, the edges g landing on f's source platform.
+func _build_transitions() -> void:
+	var ne := e_kind.size()
+	_air.resize(ne)
+	for e in ne:
+		_air[e] = float(opts.edge_cost) + absf(e_x_to[e] - e_x_from[e])
+	_in_start.resize(ne + 1)
+	_in_edges.resize(0)
+	for f in ne:
+		_in_start[f] = _in_edges.size()
+		var q := e_from[f]
+		for g in ne:
+			if e_to[g] == q:
+				_in_edges.append(g)
+	_in_start[ne] = _in_edges.size()
 
 
 ## BFS from every source over outgoing edges; the first edge of the BFS tree path is the next hop.

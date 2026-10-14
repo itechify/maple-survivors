@@ -77,7 +77,7 @@ func _assert_hud_matches(s: RunScene) -> void:
 		assert_eq(int(s.hud.player_state.get(k, -1)), int(ps[k]), "HUD %s" % k)
 	assert_eq(int(s.hud.run_info.kills), s.world.kills, "HUD kills")
 	assert_eq(int(s.hud.run_info.exp_next), int(ps.exp_next), "HUD exp_next")
-	assert_eq(int(s.hud.run_info.time), int(s.world.time), "HUD time")
+	assert_eq(int(s.hud.run_info.time), int(s.run_time()), "HUD time (the run time snapped to 1 ms)")
 	assert_eq((s.hud.run_info.skills as Array).size(), s.world.loadout.order.size(), "HUD skill icons")
 	assert_eq(String(s.hud.run_info.job_name), s.world.jobs.name_of(int(ps.job_id)), "HUD job name")
 
