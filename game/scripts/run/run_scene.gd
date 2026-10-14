@@ -154,6 +154,7 @@ var _window_req: Dictionary = {}
 var _window_open_t := 0.0
 var _window_auto := 0.0
 var _restart_action := false
+var _slow_fx := -1
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
@@ -566,6 +567,8 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
 			"cast":
 				_on_cast(e)
+			"boss_skill":
+				_on_boss_skill(e)
 			"basic_attack":
 				if e.phase == "start":
 					_restart_action = true
@@ -603,6 +606,24 @@ func handle_events(events: Array) -> void:
 				_on_player_died(e.pos)
 			"stage_cleared":
 				_on_stage_cleared()
+
+
+func _on_boss_skill(e: Dictionary) -> void:
+	var source := int(e.mob)
+	if String(e.effect) != "":
+		# tier C: MobSkill pos3 effect art anchored to the canonical body-box center.
+		fx.play(String(e.effect),world.mob_center(source),int(e.facing)>0)
+	for slot: int in e.targets:
+		if String(e.summon_effect) != "":
+			fx.play(String(e.summon_effect),Vector2(world.swarm.x[slot],world.swarm.y[slot]))
+		elif slot != source:
+			fx.play("Skill.wz/MobSkill.img/%d/level/%d/mob0" % [int(e.skill_id),int(e.level)],world.mob_center(slot))
+	if String(e.player_effect) != "":
+		if _slow_fx >= 0:
+			fx.stop(_slow_fx)
+		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
+		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
 
 
 func _on_cast(e: Dictionary) -> void:
@@ -885,6 +906,9 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 # --- presentation --------------------------------------------------------------------------------------------
 
 func _present(delta: float) -> void:
+	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
+		fx.stop(_slow_fx)
+		_slow_fx = -1
 	_update_player(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var boss_actions := world.bosses.action_snapshot(world.swarm)

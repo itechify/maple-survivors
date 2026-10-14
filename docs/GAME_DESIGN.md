@@ -530,6 +530,37 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
 Digit advance overlaps per v95 RE (tier B); 400 ms hold, then 600 ms fade while rising 30 px. Multiple hits on one mob
 stack upward one line per number: 30 px above a normal number, 36 px above a (taller) critical one.
 
+### 6.4 Mano's canonical kit
+
+Mano 2220000 reads its original info/skill list and MobSkill levels, with no copied canonical tuning in survivor data.
+The first use waits one full interval after spawn. HP above the canonical hp percentage holds a ready skill until the
+first eligible tick; an omitted hp means 100% (tier C default). Respawn fade blocks new skills until fully visible.
+One skill at a time plays skill1 for its canonical 1.5 seconds, holding its grounded position/facing through the shared
+BossDirector action gate (tier C scheduling). Colliding readiness uses the original info/skill order. effectAfter is
+zero for all four Mano entries, so statuses apply when the action starts. WZ intervals, durations, bounds and frames
+are tier A; the interpretations below are tier C where stated.
+
+| Skill / level | Interval | HP gate | Effect |
+|---|---|---|---|
+| Slow 126 / 7 | 15 s | omitted ? 100% | 15 s; rectangle (-300,-120)..(300,120) from boss feet; x80 retains 80% upgraded speed (tier C owner choice), refreshes rather than stacks |
+| Summon 200 / 78 | 10 s | 90% | 2 Snails 100100, 2 Blue Snails 100101, 2 Red Snails 130101; at most 30 living summons belonging to that encounter |
+| Weapon defense 112 / 1 | 10 s | omitted ? 100% | 30 s; rectangle (-300,-200)..(300,200); x85 adds 85 W.DEF to living mob feet inside, including Mano (tier C arithmetic) |
+| Magic defense 113 / 1 | 10 s | omitted ? 100% | Same area/duration; x85 adds 85 M.DEF (tier C arithmetic) |
+
+Defense refreshes without stacking; Mano's canonical PDD20/MDD30 stay unchanged in the shared kind. Basic attacks,
+instant magic and in-flight projectiles all use the slot's current defense at impact. Status survives relocation and
+is reset when a new mob reuses a slot. Summon ownership uses the stable encounter index, survives ordinary relocation,
+and counts only living slots, so dying/recycled summons free capacity and an unrelated slot occupant cannot count.
+Full lists use the canonical order; a nearly full limit takes only remaining places. Summons use their unscaled canonical
+HP and fade in normally. Survivor spacing is 24 px symmetrically on Mano's platform, clamped to its span (tier C).
+
+Slow affected art is repeat-marked in WZ and loops while its sim status is active. Defense uses the original effect/mob0
+art, and each summoned snail plays Effect.wz/Summon.img/1 selected by summonEffect1. Choosing that effect family and
+placing pos1 at the player body top / pos3 at a mob's body center are tier C interpretations; art, origins and delays
+remain canonical. No Summon.img sound1 exists, so summons use Mano's canonical Skill1 sound. All effects use pooled
+canvas items. Evidence facts: original v83 Mob.wz/2220000 and Skill.wz/MobSkill.img; local research/stage-bosses/out/
+bosses_2220000.json confirms the same fields. The real-import test checks the canonical rows and the summon art.
+
 ## 7. Skills (auto-cast)
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
@@ -684,6 +715,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Damage number timing | 400 ms hold + 600 ms fade, 30 px rise | B | v95 RE (Harepacker docs) |
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
 | Invincibility after hit | 1.5 s | C | ours |
+| Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
+| Mano skill scheduling / summons | first use after interval, one canonical stance at a time; omitted hp100%; 24 px symmetric spawn spacing | C (policy/spacing), A (intervals/list/limit/art) | ours; original v83 WZ |
+| MobSkill effect anchors / summon family | affected pos1 at body top, effect pos3 at mob center; summonEffect1 selects Effect.wz/Summon.img/1 | C (mapping/placement), A (art/origins/delays) | ours; original v83 WZ |
 | Basic physical damage / interval | ?6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
 | Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
 | Magic damage formula | §6.1 | C | community formula |

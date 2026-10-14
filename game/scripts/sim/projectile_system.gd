@@ -126,8 +126,8 @@ func despawn(i: int) -> void:
 
 
 ## Moves every shot by dt, resolves hits against `swarm` through `grid` (rebuilt this tick from swarm.x/y/active),
-## appends mob_hit events and fills `kills`.
-func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array) -> void:
+## appends mob_hit events and fills `kills`. Optional live_mdd is the per-slot defense at this impact tick.
+func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
@@ -166,7 +166,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array) -> void:
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			_hit(i, m, swarm, events)
+			_hit(i, m, swarm, events, live_mdd)
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -220,9 +220,10 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: flo
 	return Vector2i(maxi(1, roundi(dmg)), 1 if is_crit else 0)
 
 
-func _hit(i: int, m: int, swarm: MobSwarm, events: Array) -> void:
+func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array) -> void:
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
-	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, float(mk.mdd), magic_defense_k, crit[i],
+	var defense := float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd)
+	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
 		crit_mult[i], rng)
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
