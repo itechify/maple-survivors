@@ -28,6 +28,7 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Move | Left / Right arrows (also A / D) |
 | Jump | Left Alt (also Space, C) |
 | Climb ladder/rope | Up / Down near a ladder (W / S) |
+| Use a same-map portal | Hold Up in its entrance (also W) |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
@@ -51,6 +52,16 @@ client's `CVecCtrl` (NoLifeStory `physics.cpp` description, tier B), re-implemen
 - **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls.
 - **Ladders/ropes:** Up/Down within 10 px of a ladder's x grabs it; climb speed 100 px/s (tier C); Jump + direction
   leaves it; `uf=1` lets you climb off the top.
+- **Same-map portals:** hold Up with the feet inside x ±25, y −100…+25 around the canonical portal point. The player
+  arrives instantly and silently 30 px above the target and falls to its floor; velocity resets and the camera snaps.
+  A global 384 ms cooldown prevents repeated warps. These values are tier C and live in `balance.json.portals`.
+  Links resolve the source's `tn` to a destination `pn` when `tm` is this map's id or 999999999. Other-map exits stay
+  drawn and inert; Up still grabs ladders when no portal activates. Monsters do not use portals.
+  The Tree That Grew I's left hollows go up00 → up01 → up02 → up03 (floors P3, P4, P7); its right hollows go
+  dw00 → dw01 → dw02 → dw03 (P4, P3, then the right ground chain P2). The left ground chain is P1. These platform
+  indices describe the imported v83 geometry used by the real-map test. up03 exits to Tree II and is inert.
+  Type-10 hidden portals loop the original MapHelper `ph/default/portalContinue` sparkle art; type-1 portals remain
+  visually marked only by map hollows.
 - **Map edges:** the player cannot leave the foothold span horizontally (walls at the outermost foothold x).
 - **Fixed step:** the sim ticks at 60 Hz; the player integrates in 2 sub-steps per tick (≈8.3 ms).
 
@@ -350,8 +361,16 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   only.
 - **Level up:** the game pauses, `Effect.wz/BasicEff.img/LevelUp` plays on the character with `Game.img/LevelUp`, then
   the upgrade window opens. Several level-ups in a row queue their windows.
-- **Stats per level** (tier C, emulator-like): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP; INT +5 per level
-  (auto-assigned). Max HP/MP are refilled by 25% on level up.
+- **Attributes and AP** (tier C, survivor choices): start at STR 12, DEX 5, INT 4, LUK 4, with 5 AP per level.
+  Beginners assign AP to STR. On advancement the AP earned above those base stats moves to the new job's primary
+  stat (INT for Magician); subsequent AP goes there too. The job's nearest configured ancestor supplies the rule.
+  All starting values, AP gains and primary-stat choices are in `balance.json/player`.
+- **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
+  `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
+  Max HP/MP are currently refilled by 25% on level up; overhaul ticket #9 removes healing from level-ups.
+- **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
+  active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
+  Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
 
 ## 6. Combat
 
@@ -482,6 +501,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
 | Climb speed | 100 px/s | C | ours (HeavenClient uses 125) |
 | Ladder grab/exit | Up: hands 50 px above the feet within 10 px of x; Down: 10 px below the feet; 0.25 s re-grab delay; exit jump vx = max walk speed, vy = jumpSpeed/1.5; `uf=1` top exit onto a floor within 24 px above / 4 px below the top | C | ours / HeavenClient exit jump |
+| Same-map portal activation and arrival | feet x ±25, y −100…+25; arrive 30 px above target with zero velocity; global cooldown 384 ms; camera snaps, no sound or transition | C | owner choice; `balance.json.portals` |
 | Down-jump reach | a floor within 600 px below | C | HeavenClient |
 | Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
@@ -506,7 +526,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Touch damage | §6.2 | C | ours |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
-| Player start | 50 HP, 5 MP, 4 INT, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
+| Player start | 50 HP, 5 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
+| Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |
+| INT MP growth | Magician adds floor(INT / 10) to base growth, before assigning the new level's AP | B | pre-Big-Bang formula compilations, refs/research/v83-mechanics |
+| Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |

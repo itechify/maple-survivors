@@ -103,6 +103,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), `walk_blocked(p, xa, xb) -> bool` (a wall stands across p between the two), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
+| `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
 | `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held` |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
@@ -177,6 +178,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `dir` (-1/1), `pos` |
 | `player_jump` | `pos` |
+| `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
 | `pickup_spawned` | `pickup`, `item_id`, `pos` |
 | `pickup_collected` | `pickup`, `item_id`, `exp`, `pos` |
@@ -193,6 +195,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
 `RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `invincible_t`, `action`, `action_t`, `dead`).
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
@@ -202,9 +205,16 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
 | `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
-| `balance.json` | EXP curve, player base stats (incl. cast origin / `cast_forward`) and growth per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
+| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
+
+`RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
+places the player at the destination minus the configured lift, resets velocity/ladder/down-jump state, and emits
+`portal_used`; regular movement resumes on the next tick. The global portal cooldown advances only while PLAYING.
+`RunScene` snaps the camera on that event without a sound or transition effect. Other-map exits are inert. Monsters
+keep using `NavGraph` and never activate portals. `MapRenderer` draws type-2 exits with `portal/game/pv` and type-10
+hidden sparkles with `portal/game/ph/default/portalContinue`; the Tree's type-1 hollows have no portal sprite.
 
 ### 4.4.5 World-movement details (`FootholdMap` ... `SpatialHash`)
 
