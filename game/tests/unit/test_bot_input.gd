@@ -40,7 +40,13 @@ func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback()
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "70 is the final score: no additional current-job bonus")
 	w.balance.bot.card_scores.magic_guard_new = 90.0
 	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_new", "survivor data can prioritize a useful defense card")
-	w.balance.bot.card_scores.erase("magic_guard_new")
+	w.learn_skill("magic_guard")
+	cards = _cards(w, ["magic_guard_rank", "energy_bolt_rank"])
+	w.balance.bot.card_scores.magic_guard_rank = 70.0
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a rank override also receives no job bonus")
+	w.balance.bot.card_scores.magic_guard_rank = 90.0
+	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_rank")
+	w.balance.bot.card_scores.erase("magic_guard_rank")
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
 
 

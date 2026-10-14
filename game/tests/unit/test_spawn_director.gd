@@ -33,7 +33,7 @@ func test_pacing_keyframes() -> void:
 	assert_near(d.rate_at(120.0), 1.7, 1e-6)
 	assert_eq(d.max_alive_at(0.0), 15)
 	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
-	assert_near(d.value_at("hp", 180.0), 1.225, 1e-6, "halfway between 1.15 and 1.3")
+	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between the 4:00 HP 1.0 and 5:00 HP 1.25")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
 	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds

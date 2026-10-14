@@ -105,9 +105,9 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 	for c: Dictionary in w.upgrades.roll_choices(w, _rng(1000), 3):
 		again.append(c.id)
 	assert_eq(again, first, "same seed, same draw")
-	# Weight 3 cards come up more often than weight 2 ones.
+	# The more heavily weighted shell-count card appears more often than the piercing card.
 	assert_true(int(counts.get("three_snails_count", 0)) > int(counts.get("three_snails_pierce", 0)),
-		"weight 3 > weight 2: %s" % [counts])
+		"shell-count frequency > piercing frequency: %s" % [counts])
 
 
 func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
