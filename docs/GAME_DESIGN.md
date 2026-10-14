@@ -651,6 +651,9 @@ Targeting: nearest living mob within range (spatial hash query) of the body, exc
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
 target (`player.cast_forward`), level with the cast origin, so the shell never covers the face. Projectiles fly straight toward the target's position at cast time and expire at their range.
 Projectile speeds and ranges are tier C (no `speed` key exists in v83 `ball` nodes).
+A piercing projectile can hit each logical mob once. Moving that mob through relocation does not grant a second
+hit; a fresh mob using the same pool slot can still be hit. Run-local packed 64-bit spawn identities implement
+this bookkeeping rule without changing canonical mob IDs, damage, pierce counts or flight tuning (tier C).
 
 Casting does not stop movement. When standing still the character plays the skill's `action` stance (or `swingO1`)
 for its frame time; while moving it keeps walking.
@@ -808,6 +811,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
+| Projectile hit exclusion identity | packed 64-bit run-local spawn identity; fresh spawns differ, relocation preserves it | C | our pool bookkeeping; no canonical or balance values changed |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
 | Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |

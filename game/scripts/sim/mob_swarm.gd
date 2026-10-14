@@ -51,6 +51,9 @@ const TUNING_DEFAULTS := {
 }
 
 var kind := PackedInt32Array()
+## Logical mob identity in a packed 64-bit array, independent of its reusable slot and canonical kind ID.
+## tier C: run-local monotonic spawn bookkeeping; RunWorld retains identity when relocating the same entity.
+var identity := PackedInt64Array()
 var x := PackedFloat32Array()
 var y := PackedFloat32Array()
 var vx := PackedFloat32Array()
@@ -84,6 +87,7 @@ var lost_count := 0
 
 var _free := PackedInt32Array()
 var _alive := 0
+var _next_identity := 0
 var _hi := 0
 var _pending := false
 ## x where a drop's step-off drift ends (INF = not drifting).
@@ -134,6 +138,8 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 		_grow(capacity() * 2)
 	var i := _free[_free.size() - 1]
 	_free.resize(_free.size() - 1)
+	_next_identity += 1
+	identity[i] = _next_identity
 	var h := p_hp
 	if h <= 0:
 		h = kinds[k].max_hp if k >= 0 and k < kinds.size() else 1
@@ -613,6 +619,7 @@ func _grow(n: int) -> void:
 	hp.resize(n)
 	max_hp.resize(n)
 	state.resize(n)
+	identity.resize(n)
 	state_t.resize(n)
 	anim_t.resize(n)
 	_fly_bob.resize(n)
