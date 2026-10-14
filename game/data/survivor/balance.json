@@ -52,8 +52,8 @@
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
 		"drops": {"normal": {"hp": 0.012, "mp": 0.06}, "elite": {"hp": 0.15, "mp": 0.65}},
-		"_bot": "Tier C: drink below 70% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
-		"bot": {"hp_threshold": 0.7, "mp_threshold": 0.3, "tier_score": 112}
+		"_bot": "Tier C: drink below 80% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
+		"bot": {"hp_threshold": 0.8, "mp_threshold": 0.3, "tier_score": 112}
 	},
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
 	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},
