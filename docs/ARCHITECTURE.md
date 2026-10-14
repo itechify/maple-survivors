@@ -426,6 +426,9 @@ What the tables above leave open; the class doc comments have the rest.
   `drink_potion(kind) -> bool` consumes one and restores `spec.hp` or `spec.mp`, clamped to max. Empty stock is inert.
   Drink presses run before movement and casting, including on ropes; no cooldown applies.
   `balance.potions` selects starter IDs/counts, independent normal/elite per-kind drop chances and bot thresholds.
+  Stage keyframes may override ordinary HP rolls with `normal_hp_drop_chance`. Each endpoint uses the global normal
+  HP chance when missing, clamps to [0, 1], and interpolates linearly in run time; outside the frame range the nearest
+  endpoint holds (no post-duration spawn ramp). Elite and MP chances remain global; boss bundles bypass these rolls.
   `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
   current canonical item icons, counts and keys.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,

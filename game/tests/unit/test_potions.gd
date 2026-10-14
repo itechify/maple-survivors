@@ -93,6 +93,61 @@ func test_seeded_normal_and_elite_kills_follow_potion_drop_chances() -> void:
 	print("  Potion drops / 500 kills: normal %s; elite %s" % [measured.normal, measured.elite])
 
 
+func _drop_profile_world(frames: Array, global_hp: float = 0.0) -> RunWorld:
+	var data := RF.quiet_data()
+	data.stages.stages.quiet.keyframes = frames
+	data.balance.potions.drops = {"normal": {"hp": global_hp, "mp": 1.0}, "elite": {"hp": 1.0, "mp": 1.0}}
+	return RunWorld.new(RF.setup("quiet", 27, data))
+
+
+func _kill_drop_counts(w: RunWorld, elite := false) -> Dictionary:
+	var counts := {"hp": 0, "mp": 0}
+	for i in 400:
+		var f := w.fhm.find_below(-900, 190)
+		var slot := w.spawn_mob(int(w.kind_of_id[100100]), Vector2(-900, w.fhm.y_at(f, -900)), f, 1.0, elite)
+		w.hit_mob(slot, {"damage_min": 1000.0, "damage_max": 1000.0, "magic": false, "crit": 0.0,
+			"crit_mult": 1.5, "skill": "three_snails"}, -1)
+		for e: Dictionary in w.drain_events():
+			if e.type == "pickup_spawned" and e.get("kind") == "potion":
+				counts[e.potion_kind] += int(e.count)
+	return counts
+
+
+func test_stage_normal_hp_drop_chance_interpolates_without_changing_mp_or_elites() -> void:
+	var frames := [{"t": 0, "pool": {"100100": 1}, "normal_hp_drop_chance": 0.0},
+		{"t": 10, "pool": {"100100": 1}, "normal_hp_drop_chance": 1.0}]
+	var start := _drop_profile_world(frames)
+	assert_eq(_kill_drop_counts(start), {"hp": 0, "mp": 400})
+	var middle := _drop_profile_world(frames)
+	for tick in 300:
+		middle.step(DT, MoveInput.new())
+	var counts := _kill_drop_counts(middle)
+	assert_near(float(counts.hp) / 400.0, 0.5, 0.06, "halfway between zero and one gives a half-share of normal HP drops")
+	assert_eq(counts.mp, 400, "MP still uses its global normal chance")
+	assert_eq(_kill_drop_counts(_drop_profile_world(frames), true), {"hp": 400, "mp": 400},
+		"elite chances ignore the ordinary HP curve")
+
+
+func test_missing_hp_curve_endpoints_use_global_chance_and_probabilities_hold_clamped() -> void:
+	var missing := _drop_profile_world([{"t": 0, "pool": {"100100": 1}}], 0.35)
+	assert_near(float(_kill_drop_counts(missing).hp) / 400.0, 0.35, 0.06,
+		"an existing stage without the optional field retains its global HP chance")
+	var partial := _drop_profile_world([
+		{"t": 0, "pool": {"100100": 1}, "normal_hp_drop_chance": 0.0},
+		{"t": 10, "pool": {"100100": 1}}], 1.0)
+	for tick in 300:
+		partial.step(DT, MoveInput.new())
+	assert_near(float(_kill_drop_counts(partial).hp) / 400.0, 0.5, 0.06,
+		"a missing individual endpoint falls back before interpolation")
+	var clipped := _drop_profile_world([
+		{"t": 0, "pool": {"100100": 1}, "normal_hp_drop_chance": 2.0},
+		{"t": 10, "pool": {"100100": 1}, "normal_hp_drop_chance": -1.0}])
+	assert_eq(_kill_drop_counts(clipped).hp, 400, "chance above one clips to one")
+	for tick in 900:
+		clipped.step(DT, MoveInput.new())
+	assert_eq(_kill_drop_counts(clipped).hp, 0, "negative chance clips to zero and holds beyond the last frame")
+
+
 func test_drink_press_works_while_climbing_and_empty_stock_does_nothing() -> void:
 	var w := _world()
 	w.player.place(Vector2(-100, 200), w.fhm)

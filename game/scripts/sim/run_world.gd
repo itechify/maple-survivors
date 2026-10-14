@@ -865,6 +865,8 @@ func _on_kill(m: int) -> void:
 	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
 	for kind: String in ["hp", "mp"]:
 		var chance := float(chances.get(kind, 0.0))
+		if kind == "hp" and not elite:
+			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
 

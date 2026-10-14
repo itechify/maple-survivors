@@ -885,3 +885,5 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 Phase 2: Fire/Poison Wizard (Fire Arrow, Poison Breath with DoT), more maps (The Tree That Grew I for Slimes,
 Henesys Hunting Ground II), more mobs. Phase 3: other Explorer paths, 3rd/4th job, bosses (Mushmom, King Slime),
 elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
+
+The optional stage-keyframe normal_hp_drop_chance is tier C survivor supply tuning: clamp each endpoint to [0,1], interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance for missing endpoints. Elite HP, all MP rolls and fixed boss bundles keep their existing settings. This curve is independent of card policy.
