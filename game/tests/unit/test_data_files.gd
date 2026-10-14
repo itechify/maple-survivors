@@ -119,7 +119,9 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.mp_regen), 2.0)
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
-	assert_eq(float(b.growth["200"].int), 5.0)
+	assert_eq(int(b.player.ap_per_level), 5)
+	assert_eq(b.player.ap_stat, {"0": "str", "200": "int"})
+	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
 
 
 func test_build_setup_and_paths() -> void:
