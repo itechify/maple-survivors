@@ -28,6 +28,7 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Move | Left / Right arrows (also A / D) |
 | Jump | Left Alt (also Space, C) |
 | Climb ladder/rope | Up / Down near a ladder (W / S) |
+| Use a same-map portal | Hold Up in its entrance (also W) |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
@@ -51,6 +52,16 @@ client's `CVecCtrl` (NoLifeStory `physics.cpp` description, tier B), re-implemen
 - **Landing:** vy clamped to 162.5 px/s on contact; walking off an edge falls; vertical footholds are walls.
 - **Ladders/ropes:** Up/Down within 10 px of a ladder's x grabs it; climb speed 100 px/s (tier C); Jump + direction
   leaves it; `uf=1` lets you climb off the top.
+- **Same-map portals:** hold Up with the feet inside x ±25, y −100…+25 around the canonical portal point. The player
+  arrives instantly and silently 30 px above the target and falls to its floor; velocity resets and the camera snaps.
+  A global 384 ms cooldown prevents repeated warps. These values are tier C and live in `balance.json.portals`.
+  Links resolve the source's `tn` to a destination `pn` when `tm` is this map's id or 999999999. Other-map exits stay
+  drawn and inert; Up still grabs ladders when no portal activates. Monsters do not use portals.
+  The Tree That Grew I's left hollows go up00 → up01 → up02 → up03 (floors P3, P4, P7); its right hollows go
+  dw00 → dw01 → dw02 → dw03 (P4, P3, then the right ground chain P2). The left ground chain is P1. These platform
+  indices describe the imported v83 geometry used by the real-map test. up03 exits to Tree II and is inert.
+  Type-10 hidden portals loop the original MapHelper `ph/default/portalContinue` sparkle art; type-1 portals remain
+  visually marked only by map hollows.
 - **Map edges:** the player cannot leave the foothold span horizontally (walls at the outermost foothold x).
 - **Fixed step:** the sim ticks at 60 Hz; the player integrates in 2 sub-steps per tick (≈8.3 ms).
 
@@ -465,6 +476,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
 | Climb speed | 100 px/s | C | ours (HeavenClient uses 125) |
 | Ladder grab/exit | Up: hands 50 px above the feet within 10 px of x; Down: 10 px below the feet; 0.25 s re-grab delay; exit jump vx = max walk speed, vy = jumpSpeed/1.5; `uf=1` top exit onto a floor within 24 px above / 4 px below the top | C | ours / HeavenClient exit jump |
+| Same-map portal activation and arrival | feet x ±25, y −100…+25; arrive 30 px above target with zero velocity; global cooldown 384 ms; camera snaps, no sound or transition | C | owner choice; `balance.json.portals` |
 | Down-jump reach | a floor within 600 px below | C | HeavenClient |
 | Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
 | Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |

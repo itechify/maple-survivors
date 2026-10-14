@@ -473,3 +473,27 @@ func test_launcher_args() -> void:
 	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
 	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
+
+
+func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 17, {})
+	var w := scene.world
+	w.player.place(Vector2(-1355, 2021), w.fhm)
+	scene.advance_frame(0.0)
+	scene.cam.snap_to(w.player.pos)
+	scene.cam.update_camera(DT)
+	var sounds := int(scene.counters.sounds)
+	var effects := scene.fx.active_count() + scene.fx_back.active_count()
+	w.step(DT, MoveInput.make(false, false, true))
+	scene.handle_events(w.drain_events())
+	scene.advance_frame(0.0)
+	scene.cam.update_camera(DT)
+	assert_eq(scene.player_group.position, Vector2(-1338, 1592), "player drawn immediately at up01 minus 30 px")
+	var view := scene.cam.view_rect()
+	assert_near((scene.player_group.position.y - view.position.y) / view.size.y, 0.58, 1.0 / view.size.y,
+		"camera immediately places arrival feet at the normal 58 percent anchor")
+	assert_eq(int(scene.counters.sounds), sounds, "same-map warp is silent")
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), effects, "no transition effect")
+	_assert_nothing_missing(scene, "portal")

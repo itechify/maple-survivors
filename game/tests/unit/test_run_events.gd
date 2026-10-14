@@ -9,7 +9,7 @@ const DT := 1.0 / 60.0
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "facing", "relocated_from"]
 const BOOL_FIELDS := ["crit", "elite"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target"]
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -94,6 +94,17 @@ func test_every_event_matches_the_schema() -> void:
 		if d.state == RunWorld.DEAD:
 			break
 	for e: Dictionary in d.drain_events():
+		_check(e, seen)
+	# A same-map warp for portal_used (the synthetic hunting ground otherwise has only spawn points).
+	var p_setup := RF.setup("quiet", 17, RF.quiet_data())
+	p_setup.map_img.portal = {
+		"0": {"pn": "source", "pt": 1, "x": 400, "y": 200, "tm": 999999999, "tn": "destination"},
+		"1": {"pn": "destination", "pt": 1, "x": 800, "y": 80, "tm": 999999999, "tn": ""},
+	}
+	var p := RunWorld.new(p_setup)
+	p.player.place(Vector2(400, 200), p.fhm)
+	p.step(DT, MoveInput.make(false, false, true))
+	for e: Dictionary in p.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])

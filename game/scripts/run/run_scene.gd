@@ -539,6 +539,8 @@ func handle_events(events: Array) -> void:
 				_on_player_hit(e)
 			"player_jump":
 				_sound(SND_JUMP)
+			"portal_used":
+				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
 			"pickup_collected":
