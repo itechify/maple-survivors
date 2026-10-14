@@ -665,3 +665,33 @@ func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> voi
 		_assert_nothing_missing(scene, "%d potion cards" % n)
 		scene.free()
 		scene = null
+
+func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1",22,{})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.stages.stages.henesys_hg1.bosses = [{"mob_id":2220000,"time":0.0}]
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data,"henesys_hg1",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root,lib.mob_root)
+	setup.mob_imgs[2220000] = setup.mob_imgs[2220000].duplicate(true)
+	setup.mob_imgs[2220000].info.skill = {"0":{"skill":126.0,"level":7.0,"action":1.0,"effectAfter":0.0}}
+	setup.mob_imgs[2220000].info.speed = -100.0
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	_frames(901)
+	var slot := int(w.bosses.records[0].slot)
+	assert_eq(w.player.speed_stat,80)
+	assert_eq(w.bosses.action_snapshot(w.swarm).actions[slot],"skill1","canonical boss skill stance")
+	assert_true(scene.fx.active_count() >= 1,"slow affected animation plays")
+	w.swarm.despawn(slot)
+	_frames(60)
+	scene.fx.advance(1.0)
+	assert_true(scene.fx.active_count() >= 1,"repeat-marked slow art outlives its single 350ms cycle")
+	_frames(840)
+	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
+	_assert_nothing_missing(scene,"Mano slow")

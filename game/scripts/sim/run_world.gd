@@ -39,7 +39,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
-	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets"],
+	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
@@ -110,6 +110,7 @@ var mob_elite := PackedByteArray()
 var mob_boss := PackedInt32Array()
 ## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
 var mob_summon_owner := PackedInt32Array()
+var _live_mdd := PackedFloat32Array()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
@@ -354,7 +355,11 @@ func step(dt: float, input: MoveInput) -> void:
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
 	runner.step(dt, self)
 	basic.step(dt, self)
-	projectiles.step(dt, swarm, mob_grid, events)
+	_live_mdd.resize(swarm.capacity())
+	for slot in swarm.capacity():
+		if swarm.active[slot] != 0:
+			_live_mdd[slot] = mob_defense(slot,true)
+	projectiles.step(dt, swarm, mob_grid, events, _live_mdd)
 	for m in projectiles.kills:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
@@ -579,7 +584,7 @@ func weapon_info() -> Dictionary:
 ## Live defense at a mob slot; later timed boss buffs can override this shared hit seam.
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
-	return float(kind.mdd if magic else kind.pdd)
+	return float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
 
 
 ## Whether a physical hit may damage this slot; the weapon-immunity ticket supplies its timed state.
@@ -597,6 +602,7 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 	mob_elite[i] = 1 if elite else 0
 	mob_boss[i] = -1
 	mob_summon_owner[i] = -1
+	mob_skills.reset_slot(i)
 	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite,
 		"relocated_from": -1})
 	return i
@@ -621,6 +627,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
 	mob_summon_owner[j] = summon_owner
+	mob_skills.move_slot(i,j)
 	if boss_index >= 0:
 		bosses.records[boss_index].slot = j
 	emit("mob_spawned", {"mob": j, "mob_id": mob_kinds[k].id, "pos": Vector2(swarm.x[j], swarm.y[j]), "elite": elite,
@@ -763,6 +770,8 @@ func _tick_timers(dt: float) -> void:
 
 
 func _sync_slots() -> void:
+	if mob_skills != null:
+		mob_skills.resize(swarm.capacity())
 	if mob_summon_owner.size() < swarm.capacity():
 		var old := mob_summon_owner.size()
 		mob_summon_owner.resize(swarm.capacity())

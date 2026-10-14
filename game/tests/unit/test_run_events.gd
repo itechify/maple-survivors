@@ -9,7 +9,7 @@ const DT := 1.0 / 60.0
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "player_effect", "summon_effect"]
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -35,8 +35,12 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k in ["time", "hit_after", "interval"] and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "hit_after", "interval", "duration"] and typeof(v) != TYPE_FLOAT:
 			fail("%s.time is not float" % type)
+	if type == "boss_skill":
+		assert_true(e.targets is Array,"boss skill targets are sim slot indices")
+		for slot: Variant in e.targets:
+			assert_true(slot is int,"boss skill target slot type")
 	match type:
 		"job_advance_pending":
 			for o: Dictionary in e.options:
@@ -144,6 +148,11 @@ func test_every_event_matches_the_schema() -> void:
 	p.step(DT, MoveInput.make(false, false, true))
 	for e: Dictionary in p.drain_events():
 		_check(e, seen)
+	var mano := preload("res://tests/fixtures/mano_fixtures.gd").world([126,112,113])
+	for tick in 60*17:
+		mano.step(DT,MoveInput.new())
+	for event: Dictionary in mano.drain_events():
+		_check(event,seen)
 	var basic_world := preload("res://tests/fixtures/basic_attack_fixtures.gd").world()
 	RF.put_mob(basic_world, 100100, 450, 190, 100)
 	for tick in 30:
