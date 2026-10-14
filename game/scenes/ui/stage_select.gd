@@ -32,7 +32,7 @@ var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
 var start_button: WzButton
 var back_button: WzButton
-## Stage keys in file order and their info: {key, map_id, name, street, mark, duration, mobs: PackedInt32Array}.
+## Stage keys in file order and their info: key, map_id, name, street, mark, duration, objective and normal mobs.
 var stages: Array[Dictionary] = []
 ## Selected stage index.
 var selected := 0
@@ -96,13 +96,23 @@ static func load_stages(data: Dictionary) -> Array[Dictionary]:
 		var info: Variant = UiArt.node(AssetLibrary.map_img_path(map_id) + "/info/mapMark")
 		if info is String:
 			mark = info
+		var count := (st.get("bosses", []) as Array).size()
+		var objective := "Survive %s to clear the stage." % Hud.format_time(float(st.get("duration", 0)))
+		if count > 0:
+			objective = "Defeat the boss to clear." if count == 1 else "Defeat all %d bosses to clear." % count
+		var roster := DataRepo.stage_mob_ids(data, key)
+		for boss: Dictionary in st.get("bosses", []):
+			var index := roster.find(int(boss.mob_id))
+			if index >= 0:
+				roster.remove_at(index)
 		out.append({"key": key, "map_id": map_id,
 			"name": String(names.get("mapName", st.get("name", key))),
 			"street": String(names.get("streetName", "")),
 			"mark": mark,
 			"duration": float(st.get("duration", 0)),
+			"objective": objective,
 			"note": String(st.get("note", "")),
-			"mobs": DataRepo.stage_mob_ids(data, key)})
+			"mobs": roster})
 	return out
 
 
@@ -222,7 +232,7 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	y += 16.0
 	MapleText.draw(ci, Vector2(x, y), String(st.street), INK_SOFT, MapleText.SMALL)
 	y += 18.0
-	MapleText.draw(ci, Vector2(x, y), "Survive %s to clear the stage." % Hud.format_time(float(st.duration)), INK,
+	MapleText.draw(ci, Vector2(x, y), String(st.objective), INK,
 		MapleText.SMALL)
 	y += 15.0
 	var note := String(st.get("note", ""))

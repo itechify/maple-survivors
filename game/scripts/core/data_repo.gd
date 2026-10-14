@@ -76,6 +76,11 @@ static func stage_mob_ids(data: Dictionary, stage_key: String) -> PackedInt32Arr
 			var id := int(k)
 			if not (id in ids):
 				ids.append(id)
+	for boss: Dictionary in stage.get("bosses", []):
+		var extra: Array = [int(boss.mob_id)] + boss.get("summon_ids", []) + boss.get("revive_ids", [])
+		for id: Variant in extra:
+			if not (int(id) in ids):
+				ids.append(int(id))
 	ids.sort()
 	return ids
 
