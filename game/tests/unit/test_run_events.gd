@@ -7,7 +7,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "required_mp", "mp"]
 const BOOL_FIELDS := ["crit", "elite", "miss"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target"]
 
@@ -128,6 +128,15 @@ func test_every_event_matches_the_schema() -> void:
 	for e: Dictionary in p.drain_events():
 		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "mp_short":
+			var short_world := RF.quiet_world()
+			short_world.change_job(200)
+			short_world.spend_mp(int(short_world.player_state.mp))
+			RF.put_mob(short_world, 1110100, short_world.player.pos.x + 100, 190, 100)
+			for tick in 3:
+				short_world.step(DT, MoveInput.new())
+			for event: Dictionary in short_world.drain_events():
+				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
 	assert_true(declined, "the run went through a declined job window")
 

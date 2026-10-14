@@ -117,8 +117,8 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
 | `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `step(dt, player_pos, magnet_r, fhm, events)` |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
-| `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, cooldown, count, pierce, speed, range, size...) |
-| `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts ready skills; `tick_cooldowns` and `cast_ready` are separate entry points, and `fired_this_tick` reports any cast |
+| `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
+| `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
@@ -177,6 +177,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
+| `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per targeted skill's waiting episode |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
@@ -198,7 +199,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
-`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, a targeted ready skill is waiting for MP), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `invincible_t`, `action`, `action_t`, `dead`).
 
@@ -261,6 +262,11 @@ What the table above leaves open; the class doc comments have the rest.
   `EV_FELL_OUT 128` (fell below the bounds; put back on the nearest floor).
 
 ### 4.4.6 Run details (`ProjectileSystem` ... `RunWorld`)
+
+`RunWorld.spend_mp(amount) -> bool` atomically pays a cost without changing the pool on failure. Regen is applied
+in `balance.regen.interval` pulses: HP/MP base amounts plus owned Improved MP Recovery's canonical level-scaled MP
+bonus. `hp_regen` / `mp_regen` modifiers add to each pulse. Level growth calls `refresh_player_stats(false)` so
+larger maxima do not restore current pools; explicit pool upgrades retain the normal granted-growth behavior.
 
 What the tables above leave open; the class doc comments have the rest.
 

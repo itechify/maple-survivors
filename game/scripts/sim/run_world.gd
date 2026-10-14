@@ -38,6 +38,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
+	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
@@ -66,6 +67,8 @@ const DEFAULT_VIEW := Vector2(800, 600)
 ## tier B: pre-Big-Bang avoidability formula, Exoot 2009 (refs/research/v83-mechanics/notes.md).
 const AVOID_DEX_FACTOR := 0.25
 const AVOID_LUK_FACTOR := 0.5
+## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
+const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
 
 var setup: Dictionary
 var data: Dictionary
@@ -128,8 +131,9 @@ var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
 var body_pad := 64.0
 var magnet_r := 90.0
+## Additional HP/MP per regeneration pulse (interim Recovery card contributes HP here).
 var hp_regen := 0.0
-var mp_regen := 2.0
+var mp_regen := 0.0
 var player_pdd := 0.0
 var player_mdd := 0.0
 var player_avoid := 0.0
@@ -152,6 +156,7 @@ var _attributes := {}
 var _earned_ap := 0
 var _dead := false
 var _invincible_t := 0.0
+var _regen_elapsed := 0.0
 var _cast_action := ""
 var _cast_left := 0.0
 var _action := ""
@@ -366,9 +371,19 @@ func heal_fraction(stat: String, fraction: float) -> void:
 	_write_player_state(0.0)
 
 
+## Pays an action's MP cost; unaffordable actions leave the pool unchanged.
+func spend_mp(amount: int) -> bool:
+	var cost := maxi(0, amount)
+	if _mp < cost:
+		return false
+	_mp -= cost
+	_write_player_state(0.0)
+	return true
+
+
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. A higher max also raises the current value by the difference.
-func refresh_player_stats() -> void:
+## modifiers. Explicit max-pool upgrades grant the difference; level growth passes grant_growth=false.
+func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
 	for stat: String in _base_stats:
@@ -378,16 +393,16 @@ func refresh_player_stats() -> void:
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
 	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp)))
-	if _max_hp > old_hp:
+	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if _max_mp > old_mp:
+	if grant_growth and _max_mp > old_mp:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
 	player.speed_stat = roundi(loadout.player_stat("speed", 100.0))
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
-	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 2.0)))
+	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
 	player_pdd = loadout.player_stat("pdd", _equipment_total("incPDD")) + loadout.passive_total("pdd")
 	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
@@ -607,8 +622,16 @@ func _tick_timers(dt: float) -> void:
 	_invincible_t = maxf(0.0, _invincible_t - dt)
 	_cast_left = maxf(0.0, _cast_left - dt)
 	if not _dead:
-		_hp = minf(_max_hp, _hp + hp_regen * dt)
-		_mp = minf(_max_mp, _mp + mp_regen * dt)
+		var regen: Dictionary = balance.get("regen", DEFAULT_REGEN)
+		var interval := maxf(0.01, float(regen.get("interval", DEFAULT_REGEN.interval)))
+		_regen_elapsed += dt
+		while _regen_elapsed >= interval - 1e-9:
+			_regen_elapsed = maxf(0.0, _regen_elapsed - interval)
+			_hp = minf(_max_hp, _hp + float(regen.get("hp", DEFAULT_REGEN.hp)) + hp_regen)
+			# tier B: pre-Big-Bang Improved MP Recovery rule, rounded to whole MP.
+			var bonus := floorf(float(progression.level * loadout.level("improved_mp_recovery"))
+				/ maxf(1.0, float(regen.get("improved_mp_divisor", DEFAULT_REGEN.improved_mp_divisor))))
+			_mp = minf(_max_mp, _mp + float(regen.get("mp", DEFAULT_REGEN.mp)) + mp_regen + bonus)
 
 
 func _sync_slots() -> void:
@@ -722,8 +745,8 @@ func _on_level_up(level: int) -> void:
 		_base_mp += floorf(float(_attributes.int) / divisor)
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
-	refresh_player_stats()
-	var refill := float(balance.get("level_up_refill", 0.25))
+	refresh_player_stats(false)
+	var refill := float(balance.get("level_up_refill", 0.0))
 	_hp = minf(_max_hp, _hp + refill * _max_hp)
 	_mp = minf(_max_mp, _mp + refill * _max_mp)
 	emit("level_up", {"level": level})
@@ -801,6 +824,7 @@ func _write_player_state(dt: float) -> void:
 		_action_t += dt
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
 	player_state["mp"] = floori(_mp)
+	player_state["mp_short"] = runner.waiting_mp
 	player_state["max_hp"] = _max_hp
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp

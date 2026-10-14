@@ -123,7 +123,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), attack_count, crit, crit_mult, cooldown, range,
-## speed, count, pierce, radius, ball, hit, effect (WZ paths), action, action_time, rotate, passive_stat,
+## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
+## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value (canonical value of the passive's field, e.g. Magic Guard x / Magic Armor pdd).
 func stats(key: String) -> Dictionary:
 	var d := book.def(key)
@@ -150,6 +151,7 @@ func stats(key: String) -> Dictionary:
 		"slot": book.slot(key),
 		"rank": r,
 		"level": lv,
+		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"damage_type": dtype,
 		"damage_min": lo,
 		"damage_max": hi,
