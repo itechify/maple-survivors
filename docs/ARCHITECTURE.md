@@ -118,6 +118,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `step(dt, player_pos, magnet_r, fhm, events)` |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
+| `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
@@ -138,6 +139,8 @@ var setup := {
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
 		1302000: Dictionary, 1372005: Dictionary}, # canonical starter equipment info, keyed by original item id
+	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
+	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots
 	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
@@ -177,6 +180,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
+| `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per targeted skill's waiting episode |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
@@ -383,3 +387,8 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 The real client's physics integrator and timestep, mob speed-stat conversion, projectile speeds, hit-stun and death
 fade timing, climb speed, camera smoothing, and the touch-damage formula are not recoverable from data or clean
 sources. Each is implemented as a labelled, data-driven constant so it can be corrected when better evidence appears.
+
+The canonical `equipment_info` supplies physical `incPAD`, magic `incMAD`, weapon speed, `afterImage` and `sfx`.
+`RunWorld.weapon_id()` selects the configured job weapon; `mob_defense(slot, magic)` reads live slot defense, and
+`physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
+new skills retain standing-only action presentation. Neither action changes movement or locks it.

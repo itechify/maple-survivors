@@ -147,6 +147,8 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 		"physics_img": WF.physics_img_v83(),
 		"mob_imgs": mob_imgs(),
 		"skill_imgs": skill_imgs(),
+		"equipment_info": {1302000: {"incPAD": 17.0, "attackSpeed": 4.0},
+			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
 		"seed": p_seed,

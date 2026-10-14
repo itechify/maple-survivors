@@ -260,3 +260,45 @@ fn real_import_of_henesys_flyers_and_sounds() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_basic_weapon_afterimages_and_sounds() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let names = ["Character.wz/Afterimage/swordOL.img", "Character.wz/Afterimage/mace.img", "Character.wz/Afterimage/hit.img", "Sound.wz/Weapon.img"];
+    let imgs: Vec<_> = source["imgs"].as_array().unwrap().iter().filter(|e| names.contains(&e["img"].as_str().unwrap())).cloned().collect();
+    assert_eq!(imgs.len(), 4, "all basic-attack manifest entries");
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-basic-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "imgs": imgs, "character": [2000, 1302000, 1372005]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert!(result.warnings.is_empty(), "{:?}", result.warnings);
+    let json = |p: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap() };
+    for (id, pad, mad, speed, image, sfx) in [(1302000,17,0,4,"swordOL","swordL"),(1372005,15,23,6,"mace","mace")] {
+        let weapon = json(&format!("Character.wz/Weapon/{id:08}.img.json"));
+        assert_eq!(weapon["info"]["incPAD"], pad);
+        assert_eq!(weapon["info"]["incMAD"].as_i64().unwrap_or(0), mad);
+        assert_eq!(weapon["info"]["attackSpeed"], speed);
+        assert_eq!(weapon["info"]["afterImage"], image);
+        assert_eq!(weapon["info"]["sfx"], sfx);
+        let ai = json(&format!("Character.wz/Afterimage/{image}.img.json"));
+        for action in ["swingO1","swingO2","swingO3","stabO1","stabO2"] {
+            let node = &ai["0"][action];
+            assert!(node["lt"]["$v"].is_array() && node["rb"]["$v"].is_array());
+            let frame = node.as_object().unwrap().iter().find(|(k,_)| k.parse::<u32>().is_ok()).unwrap().1;
+            assert!(frame["0"]["$canvas"].is_array(), "{image}/{action} numbered afterimage frame");
+        }
+        let sound = json("Sound.wz/Weapon.img.json");
+        let path = sound[sfx]["Attack"]["$sound"].as_str().unwrap();
+        assert!(std::fs::metadata(out.join(path)).unwrap().len() > 0);
+    }
+    let body = json("Character.wz/00002000.img.json");
+    assert_eq!(body["swingO1"]["0"]["delay"], 300);
+    assert_eq!(body["swingO1"]["1"]["delay"], 150);
+    let hit = json("Character.wz/Afterimage/hit.img.json");
+    for family in ["sword1","sword2","mace1","mace2"] { assert!(hit[family]["0"]["$canvas"].is_array()); }
+    std::fs::remove_dir_all(tmp).unwrap();
+}

@@ -398,6 +398,29 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   Crits use the `NoCri` digits and the `NoCri1/effect` burst.
 - Mob defence: magic damage × (1 - MDD/(MDD+150)) (tier C, keeps early mobs readable).
 
+### 6.1.1 Basic weapon attacks
+
+The Beginner holds Sword 1302000 from the first frame; Magician holds Wooden Wand 1372005. Canonical equipment
+info supplies Sword W.ATT17/speed4 and Wand W.ATT15/M.ATT23/speed6. Magic attack sums the worn equipment's
+`incMAD`; survivor data only selects the weapon, never duplicates its canonical attack value.
+
+After skill priority, a standing or airborne player automatically attacks when a monster intersects its facing
+stance afterimage box. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
+There is no movement lock. Each swing chooses uniformly among swingO1/O2/O3 and stabO1/O2 on its own seeded stream.
+One nearest live monster is hit; a moving target may leave the box before impact. The interval is
+`ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
+body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
+450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
+
+Physical bounds (tier B, owner-provided pre-Big-Bang formula) are `MAX=(STR*k+DEX)*WATT/100` and
+`MIN=(STR*k*0.9*0.1+DEX)*WATT/100`. Sword k=4; Wand swing k=4.4, stab k=3.2. With
+`D=max(0,mobLevel-playerLevel)`, apply `MAX*(1-0.01D)-0.5PDD` and `MIN*(1-0.01D)-0.6PDD`, clamp each to1,
+roll uniformly and round once. Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
+Sword bounds then are 2.1964..15.81, so rounding to at least the unscaled Snail's 8HP has about61% probability.
+The fixed-seed 1000-swing test checks at least50%. Variant0 for both below-Lv10 starter weapons, and normal sword/mace
+spark family1 for swings / family2 for stabs, are tier C selections. Bounds, canvases, origins, alpha and sound
+come directly from the imported v83 afterimage and Weapon images (tier A). Effects use the existing pooled renderer.
+
 ### 6.2 Damage to the player
 
 - **Monster hits** (tier C, the owner's chosen formula, unverified for v83): roll uniformly from 85% to 100% of
@@ -558,6 +581,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Damage number timing | 400 ms hold + 600 ms fade, 30 px rise | B | v95 RE (Harepacker docs) |
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
 | Invincibility after hit | 1.5 s | C | ours |
+| Basic physical damage / interval | ?6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
+| Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
