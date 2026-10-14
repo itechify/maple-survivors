@@ -517,7 +517,7 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
   MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
-- **Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
+- **Active Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
   maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
   Interval, amounts and divisor live in `balance.regen`. Recovery temporarily adds +10 HP per pulse per card rank;
@@ -552,8 +552,8 @@ existing shots finish separately from carry-over projectile kills.
 | Three Snails (1000) | Beginner | Throws a shell (`level/N/ball`) at the nearest mob within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage; the skill reaches level 2 at character Lv 3 and level 3 at Lv 6 on its own (`level_ranks`: the SP a v83 Beginner puts into it); there is no card for it (owner decision 2026-10-14: a card that only buys what Lv 6 gives for free is a wasted pick) | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Rapid Snails (+25% speed, ×3) |
 | Energy Bolt (2001004) | Magician | `ball` projectile at the nearest mob every 0.9 s; 450 px/s; `hit/0` | rank r = level 1 + 4(r-1) (L1, L5, L9, L13, L17, L20) | Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | same mapping | Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
-| Magic Guard (2001002) | Magician | Passive damage-to-MP split (`x`%) | L1, L5, L10, L15, L20 | ranks only |
-| Magic Armor (2001003) | Magician | Passive PDD (`pdd`) | L1, L5, L10, L15, L20 | ranks only |
+| Magic Guard (2001002) | Magician | Timed damage-to-MP split (`x`%) | L1, L5, L10, L15, L20 | ranks only |
+| Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | L1, L5, L10, L15, L20 | ranks only |
 | Fire Arrow (2101004) | F/P Wizard | Phase 2 | | Additional Projectile, Piercing Flames, Burning, Rapid Casting, Larger Flames |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 
@@ -564,6 +564,14 @@ Projectile speeds and ranges are tier C (no `speed` key exists in v83 `ball` nod
 
 Casting does not stop movement. When standing still the character plays the skill's `action` stance (or `swingO1`)
 for its frame time; while moving it keeps walking.
+
+Guard and Armor auto-cast only when inactive, pay canonical MP cost, and last canonical `time` seconds at the
+cast's skill level. L1 Guard costs 6 MP for 111 s at 11% absorption; L1 Armor costs 8 MP for 54 s at +2 PDD.
+They recast on expiry when affordable. Their timers and effects continue while climbing; no cast starts there.
+Effects are snapshots of the cast rank, so a rank upgrade changes the next cast. Active Guard alone splits damage;
+active Armor alone adds its canonical PDD through the hit-defense hook. The HUD shows v83 skill icons and countdowns.
+Rank cards preview duration, absorption/defense and MP cost. Both occupy passive slots but share the one-cast-per-tick
+readiness ordering with attacks. The alert2 stance comes from v83 skill action data; its 800 ms hold is tier C.
 
 ## 8. Upgrades
 
@@ -701,6 +709,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
 | Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
 | Climbing cast gate | no new skills, basic attacks or buffs while on a rope/ladder; cooldowns and existing effects continue | C | owner choice |
+| Guard/Armor values and durations | canonical mpCon/time/x/pdd at cast skill level; L1 Guard 6 MP/111 s/11%, Armor 8 MP/54 s/+2 PDD | A | Skill.wz/200.img |
+| Player buff lifecycle and row | cast while inactive, expire/recast if affordable; snapshot cast rank, passive slots; 32 px icons with 4 px gaps and countdown labels; alert2 stance held 800 ms | C (lifecycle/layout/timing), A (icons/action) | owner choice; ours; v83 Skill.wz |
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
@@ -733,7 +743,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
-| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
+| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×44 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
 | Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |

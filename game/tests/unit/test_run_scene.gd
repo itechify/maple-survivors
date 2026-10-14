@@ -791,3 +791,32 @@ func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> vo
 	_frames(1)
 	assert_eq(w.state, RunWorld.CLEARED, "clear begins only after the reward is answered")
 	_assert_nothing_missing(scene, "boss reward")
+
+
+func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 12, {})
+	var w := scene.world
+	w.change_job(200)
+	w.loadout.ranks.erase("energy_bolt")
+	w.loadout.order.erase("energy_bolt")
+	w.learn_skill("magic_guard")
+	w.learn_skill("magic_armor")
+	_frames(2)
+	assert_eq((w.player_state.get("buffs", []) as Array).size(), 2)
+	assert_true(scene.hud.buff_row.has_method("displayed"), "dedicated buff widget exposes its draw model")
+	if scene.hud.buff_row.has_method("displayed"):
+		for frame in [0, 90]:
+			_frames(frame)
+			var slots: Array = scene.hud.buff_row.call("displayed")
+			assert_eq(slots.size(), 2)
+			for i in slots.size():
+				assert_eq(slots[i].skill_id, w.player_state.buffs[i].skill_id)
+				assert_eq(slots[i].remaining_seconds, ceili(w.player_state.buffs[i].remaining))
+				assert_true(slots[i].icon != null)
+	assert_eq(w.upgrades.choice_card("magic_guard_rank", w).skill_changes,
+		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 195}, "x": {"before": 11, "after": 23}})
+	assert_eq(w.upgrades.choice_card("magic_armor_rank", w).skill_changes,
+		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 110}, "pdd": {"before": 2, "after": 10}})
+	_assert_nothing_missing(scene, "player buffs")

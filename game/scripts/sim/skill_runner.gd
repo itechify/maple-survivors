@@ -9,7 +9,8 @@ extends RefCounted
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
-## ready and signals its waiting episode once; a later affordable skill may cast instead.
+## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
+## stay out of the ready list while active, and use their canonical duration as the next readiness time.
 ## Stats come from Loadout.stats(), cached until Loadout.version changes.
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
@@ -66,7 +67,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
 	for key: String in lo.order:
-		if lo.book.is_active(key) and float(cooldowns.get(key, 0.0)) <= 0.0:
+		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6:
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
 		var ca := float(cooldowns.get(a, 0.0))
@@ -76,7 +77,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var cd := float(cooldowns.get(key, 0.0))
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
-		var n := _find_targets(world, origin, float(st.range), int(st.count))
+		var is_buff := String(st.kind) == "buff"
+		var n := 1 if is_buff and float(st.duration) > 0 else _find_targets(world, origin, float(st.range), int(st.count))
 		if n == 0:
 			_shortages.erase(key)
 			continue
@@ -88,8 +90,16 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			_shortages[key] = true
 			continue
 		_shortages.erase(key)
-		cooldowns[key] = maxf(cd, -dt) + float(st.cooldown)
-		_fire(world, key, st, origin, n)
+		cooldowns[key] = float(st.duration) if is_buff else maxf(cd, -dt) + float(st.cooldown)
+		if is_buff:
+			casts += 1
+			fired_this_tick = true
+			world.start_buff(key, st)
+			world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
+				"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
+			world.start_action(String(st.action), float(st.action_time))
+		else:
+			_fire(world, key, st, origin, n)
 		break
 
 

@@ -8,7 +8,7 @@ extends RefCounted
 ## changes exactly what the original level-up changed (damage, mastery, the projectile art). Visual paths are
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
-const ACTIVE_KINDS := ["projectile", "instant"]
+const ACTIVE_KINDS := ["projectile", "instant", "buff"]
 
 var defs := {}
 var skill_imgs := {}
@@ -54,7 +54,7 @@ func skill_id(key: String) -> int:
 	return int(def(key).get("skill_id", 0))
 
 
-## "projectile", "instant" or "passive".
+## "projectile", "instant", "buff" or "passive".
 func kind(key: String) -> String:
 	return String(def(key).get("kind", ""))
 
