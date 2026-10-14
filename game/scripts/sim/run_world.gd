@@ -67,6 +67,9 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
+	"mob_projectile_hit": ["proj", "mob", "mob_id", "pos", "hit", "facing", "time"],
+	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 
 }
@@ -134,8 +137,10 @@ var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
 var mob_skills: MobSkillRunner
+var mob_skill_rng: RandomNumberGenerator
 var bosses: BossDirector
 var boss_attacks := BossAttacks.new()
+var mob_projectiles := MobProjectileSystem.new()
 
 var events: Array = []
 var time := 0.0
@@ -214,6 +219,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	drop_rng = _stream(4)
 	potion_rng = _stream(5)
 	reward_rng = _stream(6)
+	mob_skill_rng = _stream(8)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
@@ -380,6 +386,9 @@ func step(dt: float, input: MoveInput) -> void:
 	bosses.step(self, dt)
 	mob_skills.step(self)
 	boss_attacks.step(self)
+	mob_projectiles.step(dt, self)
+
+
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())

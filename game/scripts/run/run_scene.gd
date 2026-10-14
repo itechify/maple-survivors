@@ -114,6 +114,7 @@ var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
 var shots: ProjectileRenderer
+var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
@@ -409,6 +410,9 @@ func _build_presentation() -> void:
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
+	mob_shots = ProjectileRenderer.new()
+	mob_shots.library = library
+	_top.add_child(mob_shots)
 	fx = FxRenderer.new()
 	fx.name = "Fx"
 	fx.library = library
@@ -569,6 +573,15 @@ func handle_events(events: Array) -> void:
 				_on_cast(e)
 			"boss_skill":
 				_on_boss_skill(e)
+			"mob_projectile_spawned":
+				_event_shot("mob_projectile.png", 0.55) # tier C: capture the ball clearly separated from its caster.
+			"mob_projectile_hit":
+				if String(e.hit) != "":
+					fx.play(String(e.hit), e.pos, int(e.facing) > 0)
+			"mob_healed":
+				if world.mob_boss[int(e.mob)] >= 0:
+					hud.push_notice("heal_%d" % int(e.mob), "%s recovered %d HP" % [library.string_name("Mob", int(e.mob_id)).strip_edges(), int(e.amount)])
+					_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
 			"basic_attack":
 				if e.phase == "start":
 					_restart_action = true
@@ -611,8 +624,9 @@ func handle_events(events: Array) -> void:
 func _on_boss_skill(e: Dictionary) -> void:
 	var source := int(e.mob)
 	if String(e.effect) != "":
-		# tier C: MobSkill pos3 effect art anchored to the canonical body-box center.
-		fx.play(String(e.effect),world.mob_center(source),int(e.facing)>0)
+		# tier C: heal mob0 pos0 uses feet; MobSkill pos3 effect art uses the canonical body-box center.
+		var effect_pos: Vector2 = e.pos if int(e.skill_id) == 114 else world.mob_center(source)
+		fx.play(String(e.effect), effect_pos, int(e.facing) > 0)
 	for slot: int in e.targets:
 		if String(e.summon_effect) != "":
 			fx.play(String(e.summon_effect),Vector2(world.swarm.x[slot],world.swarm.y[slot]))
@@ -915,6 +929,7 @@ func _present(delta: float) -> void:
 	for i in mob_renderers.size():
 		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
+	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
 	_update_hud()

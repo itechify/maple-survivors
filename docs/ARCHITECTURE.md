@@ -129,6 +129,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `BossDirector` | Scheduled warnings, arrivals, deaths and completion | `step(world)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
 | `BossAttacks` | Selected canonical type-0 windups, effect timing and delayed area damage | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate |
+| `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; same ProjectileRenderer drawing interface |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING / DEAD / CLEARED) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
 
@@ -200,7 +201,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
-| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
+| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
@@ -220,6 +221,9 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
 | `boss_attack` | `boss_index`, `mob`, `mob_id`, `attack` (canonical stance, e.g. attack1), `phase` (`start` / `effect` / `impact`), `pos` (captured feet), `facing`, `area` (Rect2, captured world-space range), `time` (event tick), `impact_time` (absolute planned sim time), `effect`, `sound` (WZ paths, effect may be empty). Start holds the stance and plays sound; effect phase starts art; impact tests the current player position/grounded state. |
+| `mob_projectile_spawned` | `proj`, `mob`, `mob_id`, `pos` (muzzle), `velocity` (Vector2 px/s), `range`, `speed` (float), `ball`, `hit` (WZ paths), `time` |
+| `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
+| `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
 
@@ -230,6 +234,8 @@ Bosses use `SpawnDirector.pick_player_platform` at the configured near-player di
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
 Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
 duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
+
+
 
 Boss attacks and skills share `BossDirector.can_act(index, now)` and
 `begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
@@ -246,6 +252,18 @@ seconds). It reads attack-local PADamage/MADamage rather than contact attack and
 start-to-start cadence because these attack nodes contain no interval. A canonical `jumpAttack` flag opts into
 the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack frames/metadata remain as cached.
 
+For type 2, `range/r` is the acquisition radius and travel range; `range/sp` is the mirrored muzzle offset.
+At attackAfter, a ball aims at the player's current body centre and travels straight (tier C). The adopted unit
+conversion is `bulletSpeed × 1000/600` px/s, equivalent to `r × 600/bulletSpeed` ms flight; this interpretation
+is tier C, inspired by a later-client reference, not verified v83 client RE. WZ fields remain unchanged.
+Balls store source attack/accuracy/multiplier independently of the live mob, expire at range, and use swept
+segment-vs-player-body contact with a survivor collision radius. RunScene's separate `mob_shots` renderer uses
+the existing batched ProjectileRenderer and `RunWorld.visual_paths`. No per-projectile Nodes are introduced.
+MobSkill114 queues restoration at the caster's canonical effectAfter after the existing interval/HP/stance gate.
+At resolution, one inclusive uniform roll between canonical x/y heals living mobs in the canonical area, clamped
+to each maximum (tier C arithmetic). It uses independent `mob_skill_rng` stream 8; dead casters cancel the queue.
+The original mob0 animation starts at cast with its original blank lead-in; RunScene anchors heal pos0 at feet.
+
 `BossDirector.step(world, dt)` tracks route progress after movement: no route or no progress for 5 s starts fade-out,
 then `relocate_mob` places the living boss about 250 px away on the player's platform, preserving HP and encounter
 identity. `MobSwarm.fading_out` suspends movement/regen while the director drives alpha; arrival restarts normal
@@ -254,6 +272,8 @@ regen fade-in, harmless until opaque. Placement retries while no player platform
 `exp_mult`, `exp_drops`, `spread`, `potion_spread`, `potions` hp/mp counts, `bonus_choices`. The total is rounded
 canonical boss EXP × reward multiplier, split with integer remainders conserved. Scheduled bosses bypass ordinary
 EXP and random potion drops; bundles use the current stock item. Reward scattering has its own seeded RNG stream.
+
+
 
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
 remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;

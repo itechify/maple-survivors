@@ -15,6 +15,8 @@
 				{"time": 900, "mob_id": 9400205, "hp_mult": 0.25, "dmg_mult": 0.96, "typical_hp": 800, "typical_pdd": 47,
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 1.48,
 					"_attacks": "tier C: separate scaling brings canonical attack300 into the typical800HP band; touch remains canonical450 with dmg_mult0.96"}
+
+
 			],
 			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,
@@ -51,6 +53,11 @@
 			"name": "The Tree That Grew I",
 			"duration": 900,
 			"hard_cap": 400,
+			"bosses": [{"time": 300, "mob_id": 3220000, "hp_mult": 0.5, "dmg_mult": 1.2,
+				"typical_hp": 300, "typical_pdd": 7, "attacks": ["attack1", "attack2"],
+				"attack_interval": 8.0, "attack_dmg_mult": 1.12,
+				"_tier": "tier C: initial 3500 HP and contact/attack calibration for first-boss 300 HP; 8 s attack cadence; canonical stats and attack/skill metadata unchanged"}],
+			"post_duration_slope": 0.25,
 			"keyframes": [
 				{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 1.0, "speed": 1.0,
 					"pool": {"100100": 3, "100101": 3}},

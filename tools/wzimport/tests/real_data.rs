@@ -441,3 +441,43 @@ fn real_import_of_mano_skill_tables_and_summon_effect() {
     assert_eq!(boss["skill1"]["0"]["delay"],150);
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_stumpy_projectile_heal_and_sounds() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(3220000)), "manifest omits Stumpy");
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-stumpy-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "mobs": [3220000],
+        "imgs": [{"img": "Skill.wz/MobSkill.img", "paths": ["114/level/15"]}]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let read = |p: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap()
+    };
+    let boss = read("Mob.wz/3220000.img.json");
+    assert_eq!(boss["info"]["maxHP"], 7000);
+    let attack = &boss["attack2"]["info"];
+    assert_eq!(attack["type"], 2);
+    assert_eq!(attack["bulletSpeed"], 140);
+    assert_eq!(attack["attackAfter"], 1320);
+    assert_eq!(attack["range"]["r"], 200);
+    assert_eq!(attack["ball"]["0"]["delay"], 90);
+    assert!(attack["ball"]["0"]["$canvas"].is_array());
+    let skills = read("Skill.wz/MobSkill.img.json");
+    let heal = &skills["114"]["level"]["15"];
+    assert_eq!(heal["x"], 700);
+    assert_eq!(heal["y"], 200);
+    assert_eq!(heal["hp"], 80);
+    assert_eq!(heal["interval"], 30);
+    assert!(heal["mob0"]["1"]["$canvas"].is_array());
+    let sounds = read("Sound.wz/Mob.img.json");
+    for action in ["Attack1", "Attack2", "Skill1", "Damage", "Die"] {
+        let path = sounds["3220000"][action]["$sound"].as_str().unwrap();
+        assert!(std::fs::metadata(out.join(path)).unwrap().len() > 0, "{action} sound");
+    }
+    std::fs::remove_dir_all(tmp).unwrap();
+}
