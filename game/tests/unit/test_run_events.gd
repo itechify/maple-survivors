@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id"]
-const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
+const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind"]
 
 
@@ -120,12 +120,17 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	# A short scheduled boss encounter covers warning/spawn/death and a boss hit's source fields.
 	var boss_setup := RF.setup("quiet", 19, RF.quiet_data())
+	boss_setup.data.balance.player.skills = []
 	boss_setup.data.stages.stages.quiet.bosses = [{"time": 0.5, "mob_id": 100100}]
 	var b := RunWorld.new(boss_setup)
 	b.god = true
 	for tick in 35:
 		b.step(DT, MoveInput.new())
 	var slot := int(b.bosses.records[0].slot)
+	b.mob_kinds[b.swarm.kind[slot]].move_speed = 0
+	for tick in 360:
+		b.step(DT, MoveInput.new())
+	slot = int(b.bosses.records[0].slot)
 	b.god = false
 	b.take_hit(12.0, false, "", b.player.pos, {"mob": slot, "mob_id": 100100, "boss": true})
 	b.hit_mob(slot, {"damage_min": 999.0, "damage_max": 999.0, "magic": false,

@@ -636,3 +636,28 @@ func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> voi
 		_assert_nothing_missing(scene, "%d potion cards" % n)
 		scene.free()
 		scene = null
+
+
+func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 20, {})
+	var w := scene.world
+	w.god = true
+	w.bosses = BossDirector.new([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
+	_frames(6)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	scene.handle_events(w.drain_events())
+	_frames(1)
+	var lw := scene.window as LevelUpWindow
+	assert_true(lw != null, "reward choice is visible before clear")
+	if lw != null:
+		assert_eq(lw.get("bonus"), true, "bonus flag selects the reward header")
+		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
+		assert_eq(w.player_state.level, 1, "bonus does not grant a level")
+		assert_true(lw.choose(0))
+	_frames(1)
+	assert_eq(w.state, RunWorld.CLEARED, "clear begins only after the reward is answered")
+	_assert_nothing_missing(scene, "boss reward")

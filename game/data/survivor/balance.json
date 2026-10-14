@@ -56,8 +56,11 @@
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
 	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},
 	"max_level": 200,
-	"_bosses": "Tier C: survivor warning lead time, near-player boss arrival placement and ordinary spawn-rate reduction during a live boss encounter.",
-	"bosses": {"warning_time": 3, "spawn_distance": 250, "min_spawn_distance": 150, "normal_spawn_mult": 0.5},
+	"_bosses": "Tier C: warning/placement/pressure, stalled-pursuit fade relocation, canonical EXP reward multiplier and shower geometry, current-tier potion bundles and bonus choice count; stage entries may override rewards.",
+	"bosses": {"warning_time": 3, "spawn_distance": 250, "min_spawn_distance": 150, "normal_spawn_mult": 0.5,
+		"teleport_stall": 5, "teleport_fade": 0.3, "teleport_progress": 1,
+		"rewards": {"exp_mult": 5, "exp_drops": 12, "spread": 120, "potion_spread": 30,
+			"potions": {"hp": 3, "mp": 6}, "bonus_choices": 1}},
 	"_run_time_cap": "Tier C: balance/full-run harness timeout, allowing the finale to continue beyond 15:00.",
 	"run_time_cap": 1800
 }

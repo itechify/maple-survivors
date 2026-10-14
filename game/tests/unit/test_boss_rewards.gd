@@ -1,0 +1,80 @@
+extends TestCase
+## Seeded boss death rewards and bonus-before-clear ordering through RunWorld's public tick/card/pickup seams.
+
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const DT := 1.0 / 60.0
+
+
+func _world() -> RunWorld:
+	var data := RF.quiet_data()
+	data.balance.player.skills = []
+	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
+		"rewards": {"exp_mult": 5, "exp_drops": 13, "spread": 100, "potions": {"hp": 2, "mp": 3}, "bonus_choices": 1}}]
+	var w := RunWorld.new(RF.setup("quiet", 20, data))
+	RF.place_player(w, 400)
+	w.god = true
+	for i in 6:
+		w.step(DT, MoveInput.new())
+	w.drain_events()
+	return w
+
+
+func _kill(w: RunWorld) -> void:
+	w.hit_mob(int(w.bosses.records[0].slot), {"damage_min": 1000000.0, "damage_max": 1000000.0,
+		"magic": false, "crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+
+
+func test_boss_shower_conserves_configured_exp_and_only_drops_current_tier_bundles() -> void:
+	var w := _world()
+	w.progression.level = 25
+	for id: String in ["orange_potion", "white_potion", "mana_elixir"]:
+		w.upgrades.apply(id, w)
+	w.balance.potions.drops.normal = {"hp": 1.0, "mp": 1.0}
+	w.drain_events()
+	_kill(w)
+	var total := 0
+	var drops := 0
+	var bundles := {}
+	for i in w.pickups.capacity():
+		if w.pickups.active[i] == 0:
+			continue
+		if w.pickups.kind[i] == PickupSystem.EXP:
+			total += w.pickups.exp[i]
+			drops += 1
+		else:
+			bundles[int(w.pickups.item_id[i])] = int(w.pickups.potion_count[i])
+	assert_eq(total, 600, "canonical Mano EXP 120 × survivor reward multiplier 5, with no extra ordinary drop")
+	assert_eq(drops, 13, "the split preserves the total despite a remainder")
+	assert_eq(bundles, {2000002: 2, 2000006: 3}, "no incidental ordinary potion roll alters a boss bundle")
+	assert_eq(w.player_state.potions.hp.count, 5, "ground rewards have not been collected")
+	assert_eq(w.player_state.potions.mp.count, 0)
+
+
+func test_final_boss_bonus_choice_precedes_clear_and_does_not_consume_a_queued_level() -> void:
+	var w := _world()
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.refresh_player_stats()
+	var level := w.progression.level
+	var queue := w.progression.queue.duplicate()
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "final death opens its bonus instead of clearing")
+	var events := w.drain_events()
+	var choices := events.filter(func(e: Dictionary) -> bool: return e.type == "choice_pending")
+	assert_eq(choices.size(), 1)
+	if not choices.is_empty():
+		assert_true(bool(choices[0].get("bonus", false)))
+	assert_true(events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").is_empty())
+	assert_eq(w.progression.level, level, "bonus grants no level")
+	if w.pending_cards.is_empty():
+		return
+	assert_true(w.apply_choice(String(w.pending_cards[0].id)))
+	assert_eq(w.progression.queue, queue, "bonus does not consume the queued normal level")
+	assert_eq(w.progression.level, level)
+	var normal := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "choice_pending")
+	assert_eq(normal.size(), 1)
+	if not normal.is_empty():
+		assert_false(bool(normal[0].get("bonus", true)))
+	assert_true(w.apply_choice(String(w.pending_cards[0].id)))
+	w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CLEARED)

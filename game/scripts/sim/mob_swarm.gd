@@ -67,6 +67,8 @@ var platform := PackedInt32Array()
 var facing := PackedInt32Array()
 ## Regen fade-in 0 -> 1.
 var alpha := PackedFloat32Array()
+## BossDirector drives fade-out while movement/regen is suspended; respawning clears this flag.
+var fading_out := PackedByteArray()
 ## 1 while the mob is alive (not DIE/FREE): the mask for SpatialHash.rebuild and targeting.
 var active := PackedByteArray()
 ## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
@@ -149,6 +151,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	platform[i] = -1
 	facing[i] = -1
 	alpha[i] = 0.0
+	fading_out[i] = 0
 	active[i] = 1
 	_stop_x[i] = INF
 	_route_e[i] = -1
@@ -281,6 +284,8 @@ func step(dt: float, ctx: Dictionary) -> void:
 				_air(i, dt, m, grav, fall, lim, bottom)
 			if state[i] == DIE and t >= _k_die[k]:
 				_release(i)
+			continue
+		if fading_out[i] != 0:
 			continue
 		if alpha[i] < 1.0:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
@@ -605,6 +610,7 @@ func _grow(n: int) -> void:
 	platform.resize(n)
 	facing.resize(n)
 	alpha.resize(n)
+	fading_out.resize(n)
 	active.resize(n)
 	_stop_x.resize(n)
 	_route_e.resize(n)
