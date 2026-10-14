@@ -1,0 +1,16 @@
+{
+	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. An option whose canonical advancement level is above the player's level shows level_reason instead. grants: max_mp (added to max and current MP), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
+	"default_reason": "Not yet available",
+	"level_reason": "Lv. {level}",
+	"jobs": {
+		"0": {"playable": true},
+		"100": {"playable": false, "reason": "Not in this build"},
+		"200": {"playable": true, "grants": {"max_mp": 120, "guarantee": {"kind": "skill_new", "job": 200}}},
+		"300": {"playable": false, "reason": "Not in this build"},
+		"400": {"playable": false, "reason": "Not in this build"},
+		"500": {"playable": false, "reason": "Not in this build"},
+		"210": {"playable": false, "reason": "Phase 2"},
+		"220": {"playable": false, "reason": "Not yet available"},
+		"230": {"playable": false, "reason": "Not yet available"}
+	}
+}

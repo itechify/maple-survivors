@@ -76,7 +76,7 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 | Autoload | Script | Role |
 |---|---|---|
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
-| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, key bindings |
+| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, key bindings (rebound actions applied to the `InputMap`) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
 
 Everything else is owned by the scene that uses it.
@@ -133,7 +133,9 @@ var setup := {
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
 	"seed": 12345,
-	"view_size": Vector2(800, 600),   # logical view; RunWorld keeps a player-centred view rect for spawn logic
+	"view_size": Vector2(800, 600),   # the live logical view, get_viewport().get_visible_rect().size (800x600 on 4:3,
+	                                  # 1066x600 on 16:9, more with fill_window; see 4.5); RunWorld keeps a
+	                                  # player-centred view rect of this size for spawn logic
 }
 ```
 
@@ -199,22 +201,74 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants |
 
+### 4.4.5 World-movement details (`FootholdMap` ... `SpatialHash`)
+
+What the table above leaves open; the class doc comments have the rest.
+
+- **Footholds:** `x1 < x2` floor (landed on from above), `x1 == x2` wall, `x1 > x2` ceiling (stops upward motion).
+- **`MobSwarm.step(dt, ctx)`**, `ctx` keys: `fhm` (required); `nav` = `NavGraph.build(fhm, {"can_jump": false})` for
+  mobs whose `MobKind.can_jump` is false; `nav_jump` = `NavGraph.build(fhm, {"can_jump": true})` (default `nav`);
+  `target` (player position); `target_fh` (player foothold, -1 = the floor below `target`); `bounds` (MapBounds rect);
+  `speed_mult` (stage speed multiplier, default 1); `physics` (PhysicsConstants, default v83). Build both graphs with
+  the same `gravity` / `fall_speed` / `jump_speed` as `physics`. `MobSwarm.kinds` is `RunWorld.mob_kinds`; edits to a
+  kind apply from the next step.
+- **`MobSwarm` state:** `state` is `STAND 0`, `MOVE 1`, `JUMP 2` (airborne: hop, drop or fall), `HIT 3`, `DIE 4`,
+  `FREE 5`. `active[i]` is 1 for live mobs (not DIE/FREE): the `SpatialHash.rebuild` and targeting mask. `alpha` is the
+  regen fade-in 0..1. `state_t` counts seconds in the state; `anim_t` restarts when the shown stance changes.
+  `facing` is -1 left (the WZ default orientation of mob sprites) or 1 right; the player starts facing 1.
+- **`NavGraph`:** `edge(e)` also has `lo`/`hi` (takeoff range) and `vx`. A drop lands on its `to_p` at every mob speed
+  (`NavGraph.drop_landing` replays MobSwarm's step-off; this holds when MapBounds contains the foothold box and
+  `step` runs at the graph's `dt`, 1/60). Jump arcs are checked against walls and ceilings when the graph is built.
+  A wall standing inside a platform (not at its ends) is not modelled: mobs stop at it, the graph routes past it.
+- **`PlayerMotion`:** `place(pos, fhm)` stands the player on a floor only when one is within 1 px below `pos`, else the
+  player falls; to start standing at a spawn portal, place at `fhm.y_at(fhm.find_below(x, y), x)`. `step()` returns
+  `EV_JUMP 1`, `EV_LAND 2`, `EV_DOWN_JUMP 4`, `EV_GRAB 8`, `EV_LADDER_EXIT 16`, `EV_WALK_OFF 32`, `EV_WALL 64`,
+  `EV_FELL_OUT 128` (fell below the bounds; put back on the nearest floor).
+
+### 4.4.6 Run details (`ProjectileSystem` ... `RunWorld`)
+
+What the tables above leave open; the class doc comments have the rest.
+
+- **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives
+  the canonical id. Canonical numbers are read per level from `setup.skill_imgs[book].skill[<7-digit id>].level`.
+- **`RunWorld` extras:** `drain_events()` (returns and clears `events`), `emit(type, fields)`, `state_name()`,
+  `pending_jobs` / `pending_cards` (the open window), `spawn_mob(kind, pos, fh, hp_mult, elite)`, `mob_elite` (per
+  slot, for name tags), `kills`, `damage_dealt`, `view`, `warnings`, `god` (tests/benchmarks only). `player_state` also
+  has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer).
+- **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
+  with MP. `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited.
+  The run's starting skill emits `skill_learned` before the first `step()`.
+- **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
+  `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
+- **`PickupSystem`:** `step()` returns the EXP collected this tick; past `max_active` drops `spawn()` merges into the
+  nearest drop and sets `merged` (no `pickup_spawned` then).
+- **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
+  `effects` op `add` sums, `mul` compounds per rank, `heal` restores a fraction of max HP/MP.
+- **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
+  advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
+
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
 | `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. |
-| `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. |
+| `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
+| `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations (skill hit, level-up, job change) and projectiles. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | `UI.wz/StatusBar.img` bar (800x71), gauges, `Basic.img/LevelNo` digits, timer, kill count. |
+| `Hud` | `UI.wz/StatusBar.img` bar (800x71), gauges, `Basic.img/LevelNo` digits, timer, kill count, "+N EXP" system messages (`show_exp`). |
 | Windows | Level-up choice, job advancement, pause, results: built from `UI.wz` window frames and buttons, skill icons from `Skill.wz`, text from `String.wz`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=viewport`,
 `aspect=expand`, `scale_mode=integer`, nearest filtering: on wider windows the player sees more of the map at the same
-pixel size, never a stretched sprite.
+pixel size, never a stretched sprite (1920x1080: 1066x600 at 1x with black bars). The logical view size therefore
+varies; read it live (`get_viewport().get_visible_rect().size`), never assume 800x600. `Settings` adjusts two cases:
+a window smaller than 800x600 on either axis is scaled down (fractional) instead of cropped, and the opt-in
+`[display] fill_window` grows the view to window / s at the same integer scale s instead of showing bars
+(`GameSettings.fit_size`: 3440x1440 -> 1720x720 at 2x, 1920x1080 -> 1920x1080 at 1x; much more map on screen, so it is
+off by default).
 
 ## 5. Data architecture
 

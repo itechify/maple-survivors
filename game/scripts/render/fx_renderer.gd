@@ -1,0 +1,191 @@
+class_name FxRenderer
+extends Node2D
+## Pooled one-shot WZ animations (skill hits, LevelUp, JobChanged, the death tombstone) on RenderingServer items.
+##
+## `play("Effect.wz/BasicEff.img/LevelUp", pos)` shows the animation once with its WZ delays and a0/a1 alpha, anchored
+## by origin at `pos` (mirrored when `flip`), optionally following a node (its position + `offset` every frame), and
+## frees the slot when it ends (or holds the last frame with `hold`). `play_tomb(pos)` drops Effect.wz/Tomb.img/fall
+## from TOMB_HEIGHT px above onto `pos`, then plays `land` and stays until cleared. With `behind` set, animations whose
+## WZ `z` is negative (BasicEff.img/JobChanged) are forwarded to that renderer, placed before the character in the tree
+## (the returned slot id then belongs to `behind`).
+##
+## The pooled canvas items are children of this node's own canvas item, which lives as long as the node: effects keep
+## playing when the node moves between containers (remove_child/add_child, reparent()) and are freed with the node.
+
+const TOMB_FALL := "Effect.wz/Tomb.img/fall"
+const TOMB_LAND := "Effect.wz/Tomb.img/land"
+## tier C: the tombstone starts this far above the character and lands after the fall animation's duration.
+const TOMB_HEIGHT := 300.0
+
+## Asset source; defaults to the "Assets" autoload.
+var library: AssetLibrary
+## Optional renderer placed behind the character: animations whose WZ `z` is negative (JobChanged) play there.
+var behind: FxRenderer
+
+var _pool: SpritePool
+var _anim: Array = []
+var _t: PackedFloat32Array = []
+var _pos: PackedVector2Array = []
+var _offset: PackedVector2Array = []
+var _flip: PackedByteArray = []
+var _hold: PackedByteArray = []
+var _active: PackedByteArray = []
+var _follow: Array = []
+## 0 = normal, 1 = tomb falling, 2 = tomb landed.
+var _mode: PackedByteArray = []
+var _free: PackedInt32Array = []
+
+
+func _ready() -> void:
+	_ensure_pool()
+
+
+## Plays the animation at a WZ path. Returns the slot id, or -1 when the animation is missing.
+func play(path: String, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
+		hold: bool = false) -> int:
+	var lib := _lib()
+	var a := lib.anim(path) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	return play_anim(a, pos, flip, follow, offset, hold)
+
+
+## Plays an already resolved animation (see play()).
+func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D = null, offset: Vector2 = Vector2.ZERO,
+		hold: bool = false) -> int:
+	if behind != null and behind != self and a.z != null and int(a.z) < 0:
+		return behind.play_anim(a, pos, flip, follow, offset, hold)
+	_ensure_pool()
+	var i := _alloc()
+	_anim[i] = a
+	_t[i] = 0.0
+	_pos[i] = pos
+	_offset[i] = offset
+	_flip[i] = 1 if flip else 0
+	_hold[i] = 1 if hold else 0
+	_follow[i] = weakref(follow) if follow != null else null
+	_mode[i] = 0
+	_active[i] = 1
+	_draw_slot(i)
+	return i
+
+
+## Drops the tombstone onto `pos` (fall, then land, then stays). Returns the slot id or -1.
+func play_tomb(pos: Vector2) -> int:
+	var lib := _lib()
+	var a := lib.anim(TOMB_FALL) if lib != null else null
+	if a == null or a.is_empty():
+		return -1
+	var i := play_anim(a, pos, false, null, Vector2.ZERO, true)
+	_mode[i] = 1
+	_draw_slot(i)
+	return i
+
+
+## Stops one effect.
+func stop(i: int) -> void:
+	if i >= 0 and i < _active.size() and _active[i] == 1:
+		_release(i)
+
+
+## Stops every effect.
+func clear() -> void:
+	for i in _active.size():
+		if _active[i] == 1:
+			_release(i)
+
+
+## Number of playing (or held) effects.
+func active_count() -> int:
+	var n := 0
+	for a in _active:
+		n += a
+	return n
+
+
+func _process(delta: float) -> void:
+	advance(delta)
+
+
+## Advances every effect by `dt` seconds.
+func advance(dt: float) -> void:
+	for i in _active.size():
+		if _active[i] == 0:
+			continue
+		_t[i] += dt
+		var a: SpriteAnim = _anim[i]
+		if _mode[i] == 1 and _t[i] >= a.total:
+			var land := _lib().anim(TOMB_LAND) if _lib() != null else null
+			if land != null and not land.is_empty():
+				_anim[i] = land
+			_t[i] = 0.0
+			_mode[i] = 2
+		elif _mode[i] == 0 and _hold[i] == 0 and a.finished(_t[i]):
+			_release(i)
+			continue
+		_draw_slot(i)
+
+
+## Current anchor of a slot (follow target + offset, or the fixed position; tomb fall included).
+func slot_position(i: int) -> Vector2:
+	var p := _pos[i]
+	var wr: Variant = _follow[i]
+	if wr is WeakRef:
+		var n: Variant = (wr as WeakRef).get_ref()
+		if n is Node2D and (n as Node2D).is_inside_tree():
+			p = to_local((n as Node2D).global_position) + _offset[i]
+	if _mode[i] == 1:
+		var a: SpriteAnim = _anim[i]
+		var k := clampf(_t[i] / maxf(a.total, 0.001), 0.0, 1.0)
+		p.y -= TOMB_HEIGHT * (1.0 - k * k)
+	return p
+
+
+func _draw_slot(i: int) -> void:
+	_ensure_pool()
+	_pool.ensure(i + 1)
+	var a: SpriteAnim = _anim[i]
+	var loop := _mode[i] == 1
+	var f := a.frame_at(_t[i], loop)
+	var pos := slot_position(i).round()
+	_pool.show(i, f, pos, _flip[i] == 1, a.alpha_at(_t[i], loop))
+
+
+func _alloc() -> int:
+	_ensure_pool()
+	if not _free.is_empty():
+		var j := _free[_free.size() - 1]
+		_free.resize(_free.size() - 1)
+		_pool.ensure(j + 1)
+		return j
+	var i := _active.size()
+	_anim.append(null)
+	_t.append(0.0)
+	_pos.append(Vector2.ZERO)
+	_offset.append(Vector2.ZERO)
+	_flip.append(0)
+	_hold.append(0)
+	_active.append(0)
+	_follow.append(null)
+	_mode.append(0)
+	_pool.ensure(i + 1)
+	return i
+
+
+func _release(i: int) -> void:
+	_active[i] = 0
+	_anim[i] = null
+	_follow[i] = null
+	_pool.hide(i)
+	_free.append(i)
+
+
+func _ensure_pool() -> void:
+	if _pool == null:
+		_pool = SpritePool.new(get_canvas_item())
+
+
+func _lib() -> AssetLibrary:
+	if library == null:
+		library = AssetLibrary.get_default()
+	return library

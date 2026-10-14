@@ -1,0 +1,36 @@
+[package]
+name = "wzimport"
+version = "0.1.0"
+edition = "2021"
+description = "Offline importer: reads original MapleStory v83 .wz archives and writes the Maple Survivors asset cache"
+license = "MIT"
+publish = false
+
+[lib]
+name = "wzimport"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wzimport"
+path = "src/main.rs"
+
+[dependencies]
+aes = "0.8"
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+png = "0.18"
+rayon = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[profile.release]
+opt-level = 3
+debug = false
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

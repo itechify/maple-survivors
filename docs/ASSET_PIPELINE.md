@@ -60,7 +60,7 @@ Verified against all 16 PKG1 archives of the vanilla install (0 parse errors, `d
 | Canvas | u8 0, u8 has_props (1 -> u16 + props), cint w, cint h, cint fmt, u8 fmt2, i32 0, i32 len, u8 0, `len-1` data bytes |
 | Canvas data | zlib (`78 9C`) or block-encrypted: repeated (i32 block_len, block XOR keystream[0..]) then zlib. Block encryption occurs in 9,669 Mob.wz canvases (incl. Slime 0210100, Pig 1210100) |
 | Pixel formats (fmt+fmt2) | 1 BGRA4444 (99.9%), 2 BGRA8888, 513 RGB565 (UI.wz), 517 RGB565 with one pixel per 16x16 block (2 backs, incl. midForest of 100020000). No DXT in v83 |
-| Sound_DX8 | u8 0, cint data_len, cint duration_ms, media-type header (82 bytes for MP3: 51-byte GUID block + u8 wfx_len + WAVEFORMATEX(30)), then data. PCM entries (40, Pet.img) have a 70-byte header (wfx_len 18). Tag 0x55 = MP3 (MPEG-1/2 Layer III), 0x01 = PCM. WAVEFORMATEX is never encrypted in v83 |
+| Sound_DX8 | u8 0, cint data_len, cint duration_ms, media-type header (82 bytes for MP3: 51-byte GUID block + u8 wfx_len + WAVEFORMATEX(30)), then data. PCM entries (40: 27 in Pet.img, 13 in Mob.img) have a 70-byte header (wfx_len 18). Tag 0x55 = MP3 (MPEG-1/2 Layer III), 0x01 = PCM. WAVEFORMATEX is never encrypted in v83. A media type whose format-declaration byte is 1 has no wfx_len/WAVEFORMATEX (51-byte header); its only v83 use, `BgmGL.img/Amorianchallenge`, is an ID3-tagged MP3 (not malformed) |
 | UOL | u8 0, string block; path relative to the UOL's parent; `..` walks up |
 | List.wz | not PKG1: list of mob imgs with encrypted canvases; not needed |
 
@@ -115,6 +115,9 @@ The manifest says what to import. The importer expands convenience entries into 
 }
 ```
 
+Img entries also carry `sounds` and `bytes` (per-img totals behind `stats`); readers ignore keys they do not know.
+`stats.seconds` is the wall time of the run that wrote the index.
+
 ### 5.2 Img JSON trees
 
 The file is a JSON object holding the img root's children, in WZ order (Godot dictionaries keep insertion order).
@@ -139,6 +142,18 @@ with `$` are reserved for the cache format and never collide with WZ names.
 
 With `paths`, only those sub-trees are written (at their normal place in the tree).
 
+Details fixed by the importer (tools/wzimport 0.1.0):
+
+- Requests for the same img from several manifest entries merge: a whole-img request wins, otherwise the union of
+  `paths`; a path below another requested path is covered by it. Only canvases inside the written sub-trees are packed.
+- A sound file is named after the node that holds the data, so a UOL copy (`Sound.wz/Skill.img/0001000/Use` ->
+  `../1001004/Use`) points at the target's file; that file is written even when the target is outside `paths`.
+- A canvas copied from another img through a UOL is packed into this img's own pages (so it is in this `$pages`).
+- `float` (f32) values are written as the shortest decimal that round-trips as f32 (`flyJumpDec` 0.35, not
+  0.3499999940395355); doubles as the shortest f64 decimal.
+- A sound whose header is neither MP3 nor PCM is written as `null` (with a warning). If a property has two children
+  with the same name, the first is kept (with a warning).
+
 ### 5.3 Atlas pages
 
 - Every canvas of an img is decoded to straight-alpha RGBA8 (BGRA4444 nibbles expanded `n * 17`; RGB565 expanded with
@@ -162,8 +177,12 @@ the WAVEFORMATEX. Godot loads them at runtime with `AudioStreamMP3.load_from_buf
 | `Assets.img("Mob.wz/0100100.img") -> WzImg` | parsed tree (cached); `WzImg.root`, `WzImg.node("move/0")`, `WzImg.texture(canvas_dict) -> AtlasTexture` |
 | `Assets.node("Mob.wz/0100100.img/move/0")` | any node by full path |
 | `Assets.anim("Mob.wz/0100100.img/move") -> SpriteAnim` | frames `{texture, origin, delay_s, a0, a1, extras}` for children "0", "1", ...; missing `delay` = 100 ms (tier C, HeavenClient) |
+| `Assets.frame("UI.wz/StatusBar.img/gauge/bar") -> SpriteFrame` | one canvas as a frame (icons, UI pieces) |
 | `Assets.sound("Sound.wz/Mob.img/0100100/Die") -> AudioStream` | MP3/WAV stream (cached) |
 | `Assets.string_name("Mob", 100100)` | `String.wz` lookups (Mob keys are unpadded ints, Skill keys 7-digit, Map keys grouped by region) |
+
+A `SpriteFrame`'s `texture` is the canvas itself (an `AtlasTexture` of its region, made on first use) for Node drawing
+(`TextureRect`, `Sprite2D`); batched and RenderingServer drawing uses `page` (the shared atlas page) + `region` instead.
 
 Page textures are loaded on first use with `Image.load_from_file` + `ImageTexture.create_from_image` (0.09 ms per small
 PNG measured in an exported build).

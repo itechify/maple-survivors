@@ -136,7 +136,7 @@ list (Snail, Slime and Orange Mushroom are the classic trio); the original spawn
 
 `Effect.wz/BasicEff.img`: dealt = `NoRed1` first digit + `NoRed0` rest; crit = `NoCri1`/`NoCri0`; taken = `NoViolet`.
 Digit advance overlaps per v95 RE (tier B); 400 ms hold, then 600 ms fade while rising 30 px. Multiple hits on one mob
-stack upward 30 px per line.
+stack upward one line per number: 30 px above a normal number, 36 px above a (taller) critical one.
 
 ## 7. Skills (auto-cast)
 
@@ -195,7 +195,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 10. Presentation
 
-- 800x600 logical view (wider windows show more map at the same pixel scale), integer scaling, nearest filtering.
+- 800x600 logical view (wider windows show more map at the same pixel scale), integer scaling, nearest filtering. An
+  opt-in "fill window" setting fills large windows with more map instead of black bars (see View fit below).
 - HUD: `UI.wz/StatusBar.img` bottom bar with HP/MP/EXP gauges, level from `Basic.img/LevelNo`, job name; survival timer
   and kill count at the top; owned-skill icons with ranks at the top left.
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
@@ -209,7 +210,20 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
+| Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
 | Climb speed | 100 px/s | C | ours (HeavenClient uses 125) |
+| Ladder grab/exit | Up: hands 50 px above the feet within 10 px of x; Down: 10 px below the feet; 0.25 s re-grab delay; exit jump vx = max walk speed, vy = jumpSpeed/1.5; `uf=1` top exit onto a floor within 24 px above / 4 px below the top | C | ours / HeavenClient exit jump |
+| Down-jump reach | a floor within 600 px below | C | HeavenClient |
+| Player knockback hop, alert stance | 200 px/s up, 2 s | C | ours |
+| Player placement | `PlayerMotion.place()` snaps onto a floor at most 1 px below, else the player falls | C | ours |
+| Falling out of the world | below the MapBounds bottom the player is put back on the nearest floor (`EV_FELL_OUT`) | C | ours |
+| Wall probe | a wall blocks where it covers the point 1 px above the feet (a wall hanging below a platform end can be walked off) | C | ours |
+| Ceilings (x1 > x2) | stop upward motion at the feet (head bump), never landed on; mobs never hop straight up through one | B | NoLifeStory description (prior-art.md §1b) |
+| Map bounds without VR | miniMap rect (-centerX, -centerY, width, height), else foothold box with top -300 / bottom +100 | C | ours / HeavenClient border rule |
+| Mob nav (`NavGraph`) | hop 555 px/s, jump height ≤ 70 px, takeoff ≤ 90 px from landing, land 8 px inside; a drop steps off the end at 120 px/s for 4 px, then falls straight down (the same for every mob, so the graph predicts its landing exactly) | C | ours |
+| Mob stop distance | a mob on the player's platform stops 2 px from the player's x | C | ours |
+| Mob regen fade | 0.3 s, standing still meanwhile | C | ours |
+| Mob fallbacks | die time 0.5 s without `die1`; hitbox (-20,-40)-(20,0) without `lt/rb` | C | ours |
 | Mob speed | (speed+100) × 0.625 px/s | C | HeavenClient terminal speed |
 | Mob hit stun / push | 0.24 s / 12 px | C | HeavenClient / ours |
 | Default frame delay | 100 ms | C | HeavenClient |
@@ -221,6 +235,31 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Touch damage | §6.2 | C | ours |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
+| Player start | 50 HP, 5 MP, 4 INT, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
+| Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet | C | ours |
+| Cast stance | the skill's `action` (swingO1) for 0.8 s (its WZ frames 300+150+350 ms) while standing still | C | ours |
+| Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
+| Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
+| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery +1 HP/s, MP Recovery +1 MP/s, Max MP +25, Magnet ×1.25) | C | ours |
+| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest | C | ours |
+| Spawn rings | within 320 px of the view, then 960 px, then the map within 1170 px of the player; 12 samples per ring for a platform that reaches the player before an unreachable spot | C | ours |
+| Mob recycling | silent, after 3 s farther than 1300 px, or on a platform that cannot reach the player and 320 px off-screen; never elites | C | ours |
+| Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15, then every 60 s | C | ours |
+| Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
+| Background auto-scroll axis | types 4-7: no camera term on the scrolling axis (screen x = x + rx·5·t + W/2), parallax on the other | C | ours (reading of "auto-scroll X, parallax Y") |
+| Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
+| a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
+| Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
+| Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
+| Face blink | `blink` every 2-5 s (seeded) | C | ours |
+| Tombstone drop | `Tomb.img/fall` from 300 px above over its own duration (ease-in), then `land`, stays | C | ours |
+| Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
+| BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
+| HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
+| Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
+| System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
+| Mob draw layer | the foothold layer of the mob's current foothold, kept while it is airborne | C | ours |
+| View fit | default: Godot's 800×600 expand + integer scale (1920×1080 → 1066×600 at 1× with bars); opt-in `fill_window`: s = ⌊min(W/800, H/600)⌋, view = window / s (3440×1440 → 1720×720 at 2×, 1920×1080 → 1920×1080 at 1×); windows below 800×600 are scaled down, not cropped | C | ours |
 
 ## 12. Later phases
 
