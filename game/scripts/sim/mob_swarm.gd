@@ -18,7 +18,8 @@ extends RefCounted
 ## and ceilings upward motion; outside a drop's drift a descending mob never drifts from a column with a floor below
 ## into one without (so a hop toward a narrow ledge lands on it instead of overshooting into the void); a mob that
 ## still ends up below the world bounds is recycled silently (`lost_count`). Flying mobs move straight at the player.
-## New mobs fade in (regen) and stand still meanwhile; a hit stuns (HIT) and may push the mob along its platform; a
+## New mobs fade in (regen) and stand still meanwhile; a hit reaching canonical `pushed` stuns (HIT) and pushes the
+## mob along its platform; weaker hits only damage HP. A
 ## killed mob stays in DIE for its die1 time, then its slot is freed for reuse.
 ##
 ## step(dt, ctx) takes a Dictionary:
@@ -169,7 +170,7 @@ func despawn(i: int) -> bool:
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
-## Dying or free slots ignore hits.
+## Dying or free slots ignore hits. Only damage >= the kind's canonical pushed threshold starts stun/push.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
 	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
@@ -186,15 +187,16 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		active[i] = 0
 		_alive -= 1
 		return true
+	if mk != null and dmg < mk.pushed:
+		return false
 	state[i] = HIT
 	state_t[i] = 0.0
 	anim_t[i] = 0.0
 	if dir != 0:
 		facing[i] = -signi(dir)
 	if fh[i] >= 0:
-		var pushes := mk == null or dmg >= mk.pushed
 		var stun := mk.hit_time if mk != null else MobKind.DEFAULT_HIT_TIME
-		vx[i] = signf(dir) * float(tuning.push_px) / maxf(stun, 0.01) if pushes else 0.0
+		vx[i] = signf(dir) * float(tuning.push_px) / maxf(stun, 0.01)
 	return false
 
 

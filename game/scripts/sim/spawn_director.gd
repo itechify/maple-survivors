@@ -2,7 +2,7 @@ class_name SpawnDirector
 extends RefCounted
 ## Stage pacing and spawn positions (docs/GAME_DESIGN.md sections 4, 4.1; `data/survivor/stages.json`).
 ##
-## Pacing: `rate` (mobs/s), `max_alive`, `hp`, `speed` and `damage` interpolate linearly between the stage keyframes;
+## Pacing: `rate` (mobs/s), `max_alive`, `hp` and `speed` interpolate linearly between the stage keyframes;
 ## the pool (mob id -> weight) is the one of the last keyframe at or before t. While alive < max_alive(t) the director
 ## spawns rate(t) mobs per second (a fractional accumulator, not banked while capped), each of a kind drawn by weight.
 ## Every `bursts.every` s a ring of count_min..count_max mobs (growing linearly over the stage) spawns around the view
@@ -60,7 +60,7 @@ const WALLED_HOPS := 8
 var stage: Dictionary
 var duration := 900.0
 var hard_cap := 400
-## Parsed keyframes: {t, rate, max_alive, hp, speed, damage, kinds: PackedInt32Array, weights: PackedFloat32Array}.
+## Parsed keyframes: {t, rate, max_alive, hp, speed, kinds: PackedInt32Array, weights: PackedFloat32Array}.
 var keyframes: Array = []
 var params: Dictionary
 var spawned := 0
@@ -119,7 +119,7 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 		d.keyframes.append({
 			"t": float(kf.get("t", 0.0)), "rate": float(kf.get("rate", 0.0)),
 			"max_alive": float(kf.get("max_alive", 0.0)), "hp": float(kf.get("hp", 1.0)),
-			"speed": float(kf.get("speed", 1.0)), "damage": float(kf.get("damage", 1.0)),
+			"speed": float(kf.get("speed", 1.0)),
 			"kinds": kinds, "weights": weights,
 		})
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
@@ -132,7 +132,7 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 	return d
 
 
-## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed", "damage") at time t.
+## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed") at time t.
 func value_at(field: String, t: float) -> float:
 	if keyframes.is_empty():
 		return 0.0 if field == "rate" or field == "max_alive" else 1.0

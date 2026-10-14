@@ -286,7 +286,7 @@ func test_hit_stun_and_push() -> void:
 	s.step(DT, ctx)
 	assert_ne(s.state[i], MobSwarm.HIT, "stun over after 0.24 s")
 	assert_between(s.x[i] - 500.0, 11.0, 12.5, "about 12 px in total")
-	# Below `pushed` there is a stun but no push.
+	# Below `pushed` there is neither stun nor push.
 	var tough: Array = [MobKind.from_wz(WF.mob_img(false), 1)]
 	tough[0].pushed = 50
 	var s2 := MobSwarm.new(2, tough)
@@ -296,7 +296,7 @@ func test_hit_stun_and_push() -> void:
 	s2.apply_hit(j, 5, -1)
 	for t in 10:
 		s2.step(DT, ctx)
-	assert_eq(s2.state[j], MobSwarm.HIT)
+	assert_eq(s2.state[j], MobSwarm.STAND)
 	assert_near(s2.x[j], 500.0, 1e-4, "no push below the pushed threshold")
 
 
@@ -422,7 +422,8 @@ func test_kind_edits_apply_on_the_next_step() -> void:
 	s.apply_hit(i, 5, 1)
 	for t in 5:
 		s.step(DT, ctx)
-	assert_near(s.x[i], hx, 1e-4, "edited pushed threshold applies to the next hit")
+	assert_ne(s.state[i], MobSwarm.HIT, "edited pushed threshold prevents stun on the next hit")
+	assert_true(s.x[i] < hx, "a sub-threshold hit lets the mob keep walking toward the target")
 
 
 func test_swarm_is_deterministic() -> void:

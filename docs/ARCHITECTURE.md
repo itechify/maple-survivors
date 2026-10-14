@@ -112,7 +112,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
 | `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id)`, `step(dt, player_pos, magnet_r, fhm, events)` |
-| `CombatMath` | Damage formulas (static) | `magic_damage_range(int_stat, matk, spell_attack, mastery)`, `touch_damage(...)`, `apply_defense(...)`, `roll_crit(...)` |
+| `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, cooldown, count, pierce, speed, range, size...) |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts ready skills; `tick_cooldowns` and `cast_ready` are separate entry points, and `fired_this_tick` reports any cast |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
@@ -176,7 +176,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
-| `player_hit` | `damage` (int), `mp_absorbed` (int), `dir` (-1/1), `pos` |
+| `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool; a miss has zero damage/MP loss and no knockback/invincibility), `dir` (-1/1), `pos` |
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
@@ -205,7 +205,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks` (rank reached at a character level), visuals (WZ paths), sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
 | `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note` |
-| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), contact damage scale, mob speed factor |
+| `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
 
@@ -267,7 +267,10 @@ What the tables above leave open; the class doc comments have the rest.
   `mob_spawned` carries the usual fields; the presentation treats it like a new mob (its slot may be the one it had);
   tools that follow a mob across relocations (`balance_run.gd`'s stale share) use `relocated_from`.
 - **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
-  with MP. `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
+  with MP. `player_hit.miss` renders the violet MISS and produces no hit expression or invincibility blink.
+  `RunWorld.take_hit` takes attack, magic flag, element, source position and optional source fields `accuracy`,
+  `elite`, `dmg_mult`. Only explicit elite/source multipliers scale damage; time keyframes never do.
+  `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
   level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).

@@ -16,7 +16,8 @@ extends RefCounted
 ## change nothing) when called in the wrong state or with an id that is not on offer.
 ##
 ## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
-## whole hit (the number shown), `mp_absorbed` the part Magic Guard paid with MP. `choice_pending` card `rank` is the
+## whole hit (the number shown), `mp_absorbed` the part Magic Guard paid with MP; `miss` hits spend neither and
+## cause no knockback or invincibility. `choice_pending` card `rank` is the
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
 ##
 ## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
@@ -40,7 +41,7 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
-	"player_hit": ["damage", "mp_absorbed", "dir", "pos"],
+	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
@@ -653,7 +654,7 @@ func _touch() -> void:
 
 func _player_hit(m: int, mk: MobKind) -> void:
 	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]),
-		{"mob": m, "mob_id": mk.id, "elite": mob_elite[m] != 0})
+		{"mob": m, "mob_id": mk.id, "accuracy": mk.acc, "elite": mob_elite[m] != 0})
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
@@ -666,22 +667,29 @@ func magic_guard_ratio() -> float:
 	return loadout.passive_total("mp_guard")
 
 
-## Damage scaling for this hit source. The prefactor preserves the existing stage multiplier.
-func hit_source_multiplier(_source: Dictionary) -> float:
-	return director.value_at("damage", time)
+## Only explicit source scaling: elites use stage.elites.damage_mult; boss sources may pass dmg_mult.
+func hit_source_multiplier(source: Dictionary) -> float:
+	var mult := float(source.get("dmg_mult", 1.0))
+	if bool(source.get("elite", false)):
+		mult *= float(stage.get("elites", {}).get("damage_mult", 1.0))
+	return mult
 
 
-## Applies one monster hit through defense, Magic Guard, invincibility, knockback and death; returns whole damage.
+## Applies one monster hit through avoid, defense, Magic Guard and hit reaction; returns whole damage (0 on miss).
+## Source fields: accuracy (canonical acc), elite (stage damage multiplier), dmg_mult (explicit boss/attack scaling).
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	if _dead or god or _invincible_t > 0.0:
 		return 0
+	var dir := 1 if player.pos.x >= source_pos.x else -1
+	if CombatMath.roll_miss(player_avoid, float(source.get("accuracy", 0.0)), rng):
+		emit("player_hit", {"damage": 0, "mp_absorbed": 0, "miss": true, "dir": dir, "pos": player.pos})
+		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
-		hit_source_multiplier(source), balance.get("touch_damage", {}))
+		hit_source_multiplier(source))
 	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
-	var dir := 1 if player.pos.x >= source_pos.x else -1
-	emit("player_hit", {"damage": dmg, "mp_absorbed": split.y, "dir": dir, "pos": player.pos})
+	emit("player_hit", {"damage": dmg, "mp_absorbed": split.y, "miss": false, "dir": dir, "pos": player.pos})
 	_invincible_t = float(balance.get("invincible_time", 1.5))
 	if _hp <= 0.0:
 		_hp = 0.0

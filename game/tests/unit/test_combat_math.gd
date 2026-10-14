@@ -40,23 +40,15 @@ func test_mob_magic_defense() -> void:
 	assert_near(CombatMath.apply_defense(80.0, 40.0, 40.0), 40.0, 1e-6, "custom k")
 
 
-func test_touch_damage_bounds() -> void:
-	# Snail PAD 12: 12 x 0.55 x [0.85, 1] = 5.61 .. 6.6 -> 6 .. 7.
-	assert_eq(CombatMath.touch_damage(12.0, 0.0, 1.0, 0.0), 6)
-	assert_eq(CombatMath.touch_damage(12.0, 1.0, 1.0, 0.0), 7)
-	assert_eq(CombatMath.touch_damage(12.0, 1.0, 1.0, 10.0), 1, "PDD 10 takes 6 off: 0.6 -> at least 1")
-	assert_eq(CombatMath.touch_damage(12.0, 1.0, 1.0, 40.0), 1, "never below 1")
-	assert_eq(CombatMath.touch_damage(82.0, 1.0, 1.2, 0.0), 54, "Green Mushroom with a 1.2 stage multiplier")
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 11
-	var lo := 1000
-	var hi := 0
-	for i in 500:
-		var d := CombatMath.touch_damage(42.0, rng.randf(), 1.0, 0.0)
-		lo = mini(lo, d)
-		hi = maxi(hi, d)
-	assert_between(lo, 20, 21, "Orange Mushroom min ~ round(42 x 0.55 x 0.85) = 20")
-	assert_between(hi, 22, 23, "max ~ round(23.1) = 23")
+func test_monster_damage_rounding_and_mitigation() -> void:
+	assert_eq(CombatMath.monster_damage(42.0, 0.0, 7.0), 31, "round(35.7 - floor(5.25))")
+	assert_eq(CombatMath.monster_damage(42.0, 1.0, 7.0), 37)
+	assert_eq(CombatMath.monster_damage(82.0, 0.0, 7.0), 65)
+	assert_eq(CombatMath.monster_damage(82.0, 1.0, 7.0), 77)
+	assert_eq(CombatMath.monster_damage(82.0, 0.0, 47.0), 35)
+	assert_eq(CombatMath.monster_damage(82.0, 1.0, 47.0), 47)
+	assert_eq(CombatMath.monster_damage(12.0, 1.0, 40.0), 1, "never below 1")
+	assert_eq(CombatMath.monster_damage(100.0, 1.0, 20.0, 100.0), 1, "complete resistance still costs 1")
 
 
 func test_magic_guard_split() -> void:

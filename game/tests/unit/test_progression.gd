@@ -247,21 +247,19 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 			if e.type == "player_hit":
 				hits.append([w.time, e])
 				assert_eq(typeof(e.damage), TYPE_INT)
-				assert_between(e.damage, 38, 45, "Green Mushroom PAD 82 x 0.55 x [0.85, 1]")
+				assert_between(e.damage, 70, 82, "Green Mushroom PAD 82 x [0.85, 1], synthetic player has no gear")
 				assert_eq(e.mp_absorbed, 0, "no Magic Guard")
 				assert_eq(e.dir, -1, "pushed away from the mob on the right")
 			elif e.type == "player_died":
 				died = true
 		if w.state != RunWorld.PLAYING:
 			break
-	assert_true(died, "two Green Mushroom hits kill a level 1 Beginner")
+	assert_true(died, "one Green Mushroom hit kills a level 1 Beginner without gear")
 	assert_eq(w.state, RunWorld.DEAD)
 	assert_true(w.player_state.dead)
 	assert_eq(w.player_state.hp, 0)
 	assert_eq(w.player_state.action, "dead")
-	assert_eq(hits.size(), 2)
-	if hits.size() == 2:
-		assert_true(hits[1][0] - hits[0][0] >= 1.5 - 1e-6, "1.5 s invincibility between hits")
+	assert_eq(hits.size(), 1)
 	var t := w.time
 	w.step(DT, MoveInput.new())
 	assert_eq(w.time, t, "DEAD: step is a no-op")

@@ -8,7 +8,7 @@ const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "facing", "relocated_from"]
-const BOOL_FIELDS := ["crit", "elite"]
+const BOOL_FIELDS := ["crit", "elite", "miss"]
 const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target"]
 
 
@@ -66,6 +66,11 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 		"mob_hit":
 			if int(e.damage) < 1:
 				fail("damage below 1")
+		"player_hit":
+			if bool(e.miss) and (int(e.damage) != 0 or int(e.mp_absorbed) != 0):
+				fail("a missed hit cannot spend HP or MP")
+			elif not bool(e.miss) and int(e.damage) < 1:
+				fail("a landed hit must deal at least 1")
 		"cast":
 			if not (int(e.facing) in [-1, 1]):
 				fail("facing %s" % e.facing)
@@ -102,6 +107,14 @@ func test_every_event_matches_the_schema() -> void:
 		if d.state == RunWorld.DEAD:
 			break
 	for e: Dictionary in d.drain_events():
+		_check(e, seen)
+	# Both player-hit variants obey the same documented event schema.
+	var m := RF.quiet_world(400.0, 617)
+	m.loadout.add_player_mod("avoid", "add", 1000.0)
+	m.refresh_player_stats()
+	m.drain_events()
+	m.take_hit(82.0, false, "", m.player.pos, {"accuracy": 42})
+	for e: Dictionary in m.drain_events():
 		_check(e, seen)
 	# A same-map warp for portal_used (the synthetic hunting ground otherwise has only spawn points).
 	var p_setup := RF.setup("quiet", 17, RF.quiet_data())
