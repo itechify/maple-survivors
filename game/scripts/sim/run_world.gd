@@ -44,7 +44,7 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
-	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp"],
+	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
@@ -55,7 +55,7 @@ const EVENT_FIELDS := {
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
-	"choice_pending": ["cards"],
+	"choice_pending": ["cards", "bonus"],
 	"upgrade_applied": ["id", "rank"],
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
@@ -63,6 +63,9 @@ const EVENT_FIELDS := {
 	"boss_warning": ["boss_index", "mob_id", "time"],
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
+	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
+
 }
 
 ## tier C defaults used when balance.json lacks a value.
@@ -90,6 +93,10 @@ var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
+var reward_rng: RandomNumberGenerator
+## Boss bonus picks have priority and never consume progression.queue.
+var pending_bonus_choices := 0
+var choice_bonus := false
 
 var physics: PhysicsConstants
 var fhm: FootholdMap
@@ -124,6 +131,7 @@ var upgrades: UpgradePool
 var director: SpawnDirector
 var mob_skills: MobSkillRunner
 var bosses: BossDirector
+var boss_attacks := BossAttacks.new()
 
 var events: Array = []
 var time := 0.0
@@ -201,6 +209,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
 	potion_rng = _stream(5)
+	reward_rng = _stream(6)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
@@ -263,7 +272,9 @@ func state_name() -> String:
 ## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
 ## Reward/choice tickets may defer this decision until their pending rewards have been answered.
 func can_clear() -> bool:
-	return bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
+	if bosses.has_bosses():
+		return bosses.all_dead() and pending_bonus_choices == 0 and not choice_bonus and not progression.has_pending()
+	return time >= duration - 1e-6
 
 
 ## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
@@ -348,8 +359,9 @@ func step(dt: float, input: MoveInput) -> void:
 	_ctx.speed_mult = director.value_at("speed", time)
 	_ctx["boss_actions"] = bosses.prepare_actions(self)
 	swarm.step(dt, _ctx)
-	bosses.step(self)
+	bosses.step(self, dt)
 	mob_skills.step(self)
+	boss_attacks.step(self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -372,6 +384,10 @@ func step(dt: float, input: MoveInput) -> void:
 	_write_player_state(dt)
 	if _dead:
 		return
+	if pending_bonus_choices > 0:
+		_advance_queue()
+		if state != PLAYING:
+			return
 	if can_clear():
 		state = CLEARED
 		emit("stage_cleared", {"time": time})
@@ -419,8 +435,12 @@ func apply_choice(card_id: String) -> bool:
 		return false
 	pending_cards = []
 	upgrades.apply(card_id, self)
-	progression.pop_front()
-	_job_checked = false
+	if choice_bonus:
+		pending_bonus_choices -= 1
+		choice_bonus = false
+	else:
+		progression.pop_front()
+		_job_checked = false
 	state = PLAYING
 	_advance_queue()
 	_write_player_state(0.0)
@@ -795,9 +815,15 @@ func _on_kill(m: int) -> void:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
 	var e := roundi(mk.exp * mult)
 	var pos := Vector2(swarm.x[m], swarm.y[m])
+	var boss_rewards := {}
 	if mob_boss[m] >= 0:
+		boss_rewards = bosses.reward_config(mob_boss[m])
+		e = maxi(0, roundi(mk.exp * float(boss_rewards.get("exp_mult", 1.0))))
 		bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
+	if mob_boss[m] >= 0:
+		_drop_boss_rewards(pos, e, mk.exp_item, boss_rewards)
+		return
 	if e > 0:
 		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
 		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
@@ -807,6 +833,22 @@ func _on_kill(m: int) -> void:
 		var chance := float(chances.get(kind, 0.0))
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+
+
+func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictionary) -> void:
+	var count := mini(total, maxi(1, int(config.get("exp_drops", 1))))
+	var spread := float(config.get("spread", 0.0))
+	for i in count:
+		var amount := total / count + (1 if i < total % count else 0)
+		var point := pos + Vector2(reward_rng.randf_range(-spread, spread), 0)
+		var slot := pickups.spawn(point, amount, item_id, player.pos)
+		emit("pickup_spawned", {"pickup": slot, "item_id": item_id, "pos": point,
+			"kind": "exp", "potion_kind": "", "count": 0})
+	var bundles: Dictionary = config.get("potions", {})
+	var potion_spread := float(config.get("potion_spread", 0.0))
+	spawn_potion("hp", pos - Vector2(potion_spread, 0), int(bundles.get("hp", 0)))
+	spawn_potion("mp", pos + Vector2(potion_spread, 0), int(bundles.get("mp", 0)))
+	pending_bonus_choices += maxi(0, int(config.get("bonus_choices", 1)))
 
 
 func _touch() -> void:
@@ -831,7 +873,7 @@ func _touch() -> void:
 func _player_hit(m: int, mk: MobKind) -> void:
 	var boss_index := mob_boss[m]
 	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
-		"elite": mob_elite[m] != 0, "boss": boss_index >= 0}
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
@@ -885,7 +927,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, source: Dictionary) -> void:
 	emit("player_hit", {"damage": damage, "mp_absorbed": mp_absorbed, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
-		"boss": bool(source.get("boss", false)), "max_hp": _max_hp})
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.
@@ -956,6 +998,16 @@ func _equipment_total(field: String) -> float:
 
 
 func _advance_queue() -> void:
+	while pending_bonus_choices > 0:
+		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
+		if bonus_cards.is_empty():
+			pending_bonus_choices -= 1
+			continue
+		choice_bonus = true
+		pending_cards = bonus_cards
+		state = CHOOSING_UPGRADE
+		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true})
+		return
 	while progression.has_pending():
 		var lvl := progression.front()
 		if not _job_checked:
@@ -972,7 +1024,7 @@ func _advance_queue() -> void:
 			continue
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": cards.duplicate(true)})
+		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false})
 		return
 	state = PLAYING
 

@@ -353,7 +353,8 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
-15:00. The current encounters use canonical movement, contact attack and art; their skill kits are separate tickets.
+15:00. The current encounters use canonical movement, contact attack and art; the mushroom family also uses its
+jump slam. The other skill kits are separate tickets.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
 250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
 survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
@@ -375,6 +376,48 @@ Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pa
 (`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Clearing requires every scheduled boss dead;
 stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
 boss schedule arrives with its kit tickets.
+
+If a living boss has no route or makes no progress toward the player for 5 s, it fades out over 300 ms, then
+relocates about 250 px away on the player's platform using the same placement policy. HP is preserved; it stands
+still and cannot touch during fade-out or the normal 300 ms arrival fade. Progress means closing the route distance
+by at least 1 px through its own movement; a boss already at the player does not relocate.
+
+Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
+(initially ×5), split into 12 drops with no remainder lost, spread ±120 px. HP/MP bundles hold 3/6 potions of the
+stock's current tier, separated by ±30 px. Ordinary random potion rolls do not add to these bundles. Each death
+also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
+consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
+header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
+reward defaults for tuning.
+
+Presentation uses the original `UIWindow.img/MobGage` icon frame, gauge borders and colour strips, centred below
+the timer; multiple surviving bosses keep separate rows. Names come from `String.wz`, HP comes from the swarm,
+and colour indices come from canonical `info/hpTagColor` and `info/hpTagBgcolor`. Blue Mushmom lacks a v83 icon and
+colour tags, so survivor `mobs.json.boss_ui` borrows Mushmom's icon and 1/5 colours (tier C). King Slime keeps its
+canonical icon but receives the missing 1/5 colour tags (tier C). No WZ metadata is modified.
+Warnings say "<name> will appear in 3 seconds!"; arrival replaces the warning with yellow "<name> has appeared!"
+and the original `BasicEff.img/Summoned` effect at the boss. Selecting this effect and positioning the notices is
+tier C; the effect frames, origins and 80 ms delays are tier A. Keyed notices sit above EXP and low-MP messages,
+expire after the warning lead or 4 s after arrival, and cannot be evicted by EXP pickup traffic.
+
+Mushmom and Blue Mushmom select their canonical `attack1` type-0 jumping attack: attack-local PADamage 300,
+500×150 range (-250,-150) through (250,0), impact at `attackAfter = 1050 ms`, and `effectAfter = 0`. The boss holds
+its captured ground anchor/facing during the 1.85 s stance (tier C anchoring); the apparent jump comes from the
+original frame origins. The range mirrors with facing. A player body inside the captured area at impact takes the
+physical hit through `take_hit`; when `jumpAttack` is set, being airborne at that moment avoids it (lore, tier C).
+Leaving the area during the windup also avoids it. A boss killed before impact cannot finish the attack.
+An intentional attack/skill stance resets pursuit stall rather than causing a teleport; a fading boss cannot
+begin another action (tier C action/teleport coordination).
+Windup art, sound and effect use original timings. The effect's ground-wave frames begin at 1.10 s, 50 ms after
+the damage impact; neither timeline is retimed to conceal this canonical difference. Selected attacks repeat at
+an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).
+
+Slam scaling is separate from touch scaling because both mushrooms' slam attack is 300 while their contact attack
+is 200 / 450. Mushmom `attack_dmg_mult = 1.03` yields 227–273 whole damage against typical HP 550 / W.DEF 47;
+Blue Mushmom `attack_dmg_mult = 1.48` yields 326–392 against HP 800 / W.DEF 47, both within 40–50%. These are tier-C
+calibration examples pending #27 build validation, preserving canonical attack values and existing touch scales.
+The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
+The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
 The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
@@ -675,7 +718,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
 | Boss arrival and initial multipliers | Henesys 5/10/15 min; HP ×2/0.6/0.25; damage ×1.75/1.66/0.96 | C | survivor choices and documented calibration examples above |
 | Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
+| Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
+| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
+| Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
+| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
 | Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
@@ -719,10 +767,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
-| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bar 300×30 centred at y=42 | C | ours, difficulty overhaul |
+| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
 | Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
+| Boss notices / respawn effect | keyed yellow notices above EXP and low-MP; warning lead / 4 s lifetime; BasicEff/Summoned at boss feet | C (selection/layout), A (art/timing) | ours; original v83 WZ |
+| Missing boss UI metadata | Blue Mushmom uses Mushmom icon and 1/5 colour tags; King Slime uses 1/5 tags with its own icon | C (override), A (borrowed art) | survivor mobs.json.boss_ui |
 | Mob draw layer | the foothold layer of the mob's current foothold, kept while it is airborne | C | ours |
 | View fit | default: Godot's 800×600 expand + integer scale (1920×1080 → 1066×600 at 1× with bars); opt-in `fill_window`: s = ⌊min(W/800, H/600)⌋, view = window / s (3440×1440 → 1720×720 at 2×, 1920×1080 → 1920×1080 at 1×); windows below 800×600 are scaled down, not cropped | C | ours |
 | Level-up window delay | the `LevelUp` effect plays 1.2 s (about its pillar's peak) on the character before the upgrade window opens; after a job advancement the next window waits for the whole `JobChanged` effect (~1.3 s; 1.3 s without the animation). Presentation only; the sim is already paused | C | ours |

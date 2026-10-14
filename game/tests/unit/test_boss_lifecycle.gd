@@ -63,9 +63,14 @@ func test_clear_waits_for_every_boss_death() -> void:
 	for index in 2:
 		_kill(w, int(w.bosses.records[index].slot))
 		w.step(DT, MoveInput.new())
+		RF.auto_choose(w)
 		assert_eq(w.state, RunWorld.PLAYING, "a remaining boss blocks clear")
 	_kill(w, int(w.bosses.records[2].slot))
-	w.step(DT, MoveInput.new())
+	for tick in 120:
+		RF.auto_choose(w)
+		w.step(DT, MoveInput.new())
+		if w.state == RunWorld.CLEARED:
+			break
 	assert_eq(w.state, RunWorld.CLEARED)
 	assert_true(w.bosses.all_dead())
 	var deaths := 0
@@ -197,6 +202,7 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 		if hit.is_empty():
 			continue
 		assert_eq(hit.boss, true)
+		assert_eq(hit.source_kind, "touch")
 		assert_eq(hit.mob, slot)
 		assert_eq(hit.mob_id, id)
 		assert_eq(hit.max_hp, int(entry.typical_hp), "HP pool is captured at hit time")

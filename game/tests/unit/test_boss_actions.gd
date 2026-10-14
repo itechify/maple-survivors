@@ -29,3 +29,18 @@ func test_boss_action_holds_movement_and_facing_for_its_declared_duration() -> v
 		w.step(DT, MoveInput.new())
 	assert_true(w.bosses.can_act(0, w.time))
 	assert_eq(w.bosses.action_snapshot(w.swarm).actions[slot], "", "normal movement/animation resume after the stance")
+
+
+func test_an_authored_action_hold_does_not_count_as_failed_pursuit_for_teleport() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.skills = []
+	data.stages.stages.quiet.bosses = [{"mob_id": 6130101, "time": 0.5}]
+	var w := RunWorld.new(RF.setup("quiet", 2305, data))
+	w.god = true
+	for tick in 60:
+		w.step(DT, MoveInput.new())
+	w.bosses.begin_action(0, "attack1", 6.0, -1, w.time)
+	for tick in 330:
+		w.step(DT, MoveInput.new())
+	assert_eq(w.bosses.records[0].teleports, 0, "a windup is deliberate standing, not a pursuit stall")
+	assert_false(w.bosses.records[0].fading)
