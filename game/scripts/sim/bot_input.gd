@@ -9,6 +9,8 @@ extends RefCounted
 ## When the only drops left are on platforms above (at least CLIMB_MIN_DROPS), it walks to the nearest ladder or rope
 ## that starts on its platform and climbs it (jumping for a rope that hangs above the floor). With no drop at all it
 ## heads back toward the middle of the map. When it has not moved for a while it turns around and jumps.
+## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
+## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
 ## Choices (auto_choose): the first available job, and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
@@ -46,6 +48,10 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var mi := MoveInput.new()
 	var s := w.swarm
 	var p := w.player.pos
+	# Keep Up held during the small hop onto a portal's entrance ledge.
+	if memo.has("portal_x") and w.player.fh < 0 and absf(p.x - float(memo.portal_x)) <= float(w.portals.tuning.reach_x):
+		mi.up = true
+		return mi
 	# On a ladder or rope (the bot only grabs one to climb up): keep climbing; jump off if it takes far too long.
 	if w.player.ladder >= 0:
 		memo["climb_t"] = int(memo.get("climb_t", 0)) + 1
@@ -78,6 +84,24 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var dir := 0
 	var down := false
+	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
+	if not portal.is_empty():
+		var dx: float = portal.pos.x - p.x
+		mi.up = bool(portal.same_floor) and absf(dx) <= float(w.portals.tuning.reach_x)
+		mi.left = not mi.up and dx < 0.0
+		mi.right = not mi.up and dx > 0.0
+		if not bool(portal.same_floor) and absf(dx) < 3.0:
+			mi.jump_pressed = bool(portal.hop)
+			mi.jump_held = mi.jump_pressed
+			mi.left = float(portal.hop_dir) < 0.0
+			mi.right = float(portal.hop_dir) > 0.0
+		memo["portal_x"] = portal.source.x
+		memo.erase("climb_x")
+		memo.erase("flip_t")
+		memo["stuck"] = 0
+		memo["last_x"] = p.x
+		return mi
+	memo.erase("portal_x")
 	if minf(nearest[0], nearest[1]) < 160.0:
 		dir = -1 if danger[0] < danger[1] else 1
 	else:
@@ -154,6 +178,72 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		mi.up = true
 	mi.jump_held = mi.jump_pressed
 	return mi
+
+
+static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
+	if w.player.fh < 0 or w.portals.links.is_empty():
+		return {}
+	var p := w.player.pos
+	var pk := w.pickups
+	var best := INF
+	for i in pk.capacity():
+		if pk.active[i] != 0:
+			best = minf(best, _drop_distance(p, Vector2(pk.x[i], pk.y[i])))
+	if best == INF and not escaping:
+		return {}
+	var chosen := {}
+	var safer := {}
+	var safety := _mob_danger(w, p) if escaping else 0.0
+	var plat := w.player_platform()
+	for link: Dictionary in w.portals.links:
+		var source: Vector2 = link.pos
+		var f := w.fhm.find_below(source.x, source.y - float(w.portals.tuning.reach_above))
+		if f < 0 or w.fhm.y_at(f, source.x) > source.y + float(w.portals.tuning.reach_below):
+			continue
+		var source_plat := w.fhm.platform_of(f)
+		var plan := {"pos": source, "source": source, "same_floor": source_plat == plat, "hop": false, "hop_dir": 0.0}
+		if source_plat != plat:
+			var edge := w.nav_jump.route_near(plat, source_plat, p.x)
+			if edge < 0:
+				continue
+			var e := w.nav_jump.edge(edge)
+			plan.pos = Vector2(clampf(source.x, float(e.lo), float(e.hi)), p.y)
+			plan.hop = String(e.kind) == "jump"
+			plan.hop_dir = signf(float(e.vx))
+		if w.fhm.walk_blocked(plat, p.x, plan.pos.x):
+			continue
+		var arrival: Vector2 = link.target_pos - Vector2(0, float(w.portals.tuning.arrival_lift))
+		if escaping and absf(source.x - p.x) <= BLOCK_DIST:
+			var danger := _mob_danger(w, arrival)
+			if danger < safety:
+				safety = danger
+				safer = plan
+		for i in pk.capacity():
+			if pk.active[i] == 0:
+				continue
+			var cost := absf(source.x - p.x) + _drop_distance(arrival, Vector2(pk.x[i], pk.y[i]))
+			if cost < best:
+				best = cost
+				chosen = plan
+	return safer if not safer.is_empty() else chosen
+
+
+static func _mob_danger(w: RunWorld, point: Vector2) -> float:
+	# tier C: the same nearby-mob box and distance weights as the existing kiting decision.
+	var danger := 0.0
+	for i in w.swarm.capacity():
+		if w.swarm.active[i] == 0:
+			continue
+		var dx := w.swarm.x[i] - point.x
+		var dy := w.swarm.y[i] - point.y
+		if dy >= -140.0 and dy <= 90.0 and absf(dx) <= 450.0:
+			danger += 1.0 / (absf(dx) + 30.0)
+	return danger
+
+
+static func _drop_distance(from: Vector2, to: Vector2) -> float:
+	# tier C: match the bot's existing preference for horizontal travel over changing floors.
+	return absf(to.x - from.x) + absf(to.y - from.y) * 2.0
 
 
 ## The nearest ladder or rope that starts on the bot's platform (its bottom at most LADDER_JUMP_REACH above the floor
