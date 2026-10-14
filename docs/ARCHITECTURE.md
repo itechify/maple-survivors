@@ -122,7 +122,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSkillRunner` | Scheduled canonical mob skills and timed per-slot defense/slow | `step(world)`, `defense_bonus(slot, magic, time)`, `slow_state(time)`, `summoned_alive(world, encounter)`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing |
 | `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
-| `PlayerBuffs` | Timed player effects and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events)`, `effect_total(stat)`, `snapshot()` |
+| `PlayerBuffs` | Timed player effects, periodic healing and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events) -> int` (HP healing due), `effect_total(stat)`, `snapshot()` |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
@@ -197,6 +197,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per targeted skill's waiting episode |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; exactly once per cast |
+| `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). A final pulse precedes expiry. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
@@ -211,7 +212,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
+| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -382,6 +383,12 @@ What the tables above leave open; the class doc comments have the rest.
   Expiry drops the effect immediately; an affordable, permitted recast may happen on that same tick. `HudBuffRow`
   draws canonical Skill.wz icons and whole-second remaining labels; the HUD signature updates on countdown changes.
   Rank previews add canonical `time`, `x`, `pdd` changes to MP cost and existing combat fields.
+  Recovery also reads canonical `cooltime`; its `buff.hp_threshold` and `pulse_interval` are survivor rules.
+  `RunWorld.can_start_buff(skill, stats)` checks the HP threshold before spending MP. Recovery's cooldown starts at
+  cast time and keeps ticking during its HoT and while climbing. PlayerBuffs applies periodic intervals only inside
+  the active duration, returns total healing due to the world, and emits the final pulse before expiry. The six
+  5-second pulses over 30 seconds are a tier C interpretation of canonical `x`. Rank previews include `cooltime`,
+  and Recovery's `x` is labelled HP per pulse rather than an absorption percentage.
 - **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
   `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest

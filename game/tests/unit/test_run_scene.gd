@@ -886,3 +886,29 @@ func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 	assert_eq(scene.fx.active_count(), effects + 1)
 	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
 	_assert_nothing_missing(scene, "Stumpy presentation")
+
+
+
+func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 13, {})
+	var w := scene.world
+	w.learn_skill("recovery")
+	w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
+	scene.handle_events(w.drain_events())
+	var effects := scene.fx.active_count()
+	_frames(1)
+	assert_eq(w.player_state.mp, 0)
+	assert_eq(w.player_state.buffs.size(), 1)
+	var slots := scene.hud.buff_row.displayed()
+	assert_eq(slots.size(), 1)
+	assert_eq(slots[0].skill_id, 1001)
+	assert_eq(slots[0].remaining_seconds, 30)
+	assert_true(slots[0].icon != null)
+	assert_true(scene.fx.active_count() > effects, "canonical Recovery cast animation is presented")
+	var card := w.upgrades.choice_card("recovery_rank", w)
+	assert_eq(card.skill_changes, {"mpCon": {"before": 5, "after": 10}, "time": {"before": 30, "after": 30},
+		"x": {"before": 4, "after": 8}, "cooltime": {"before": 120, "after": 120}})
+	assert_has(LevelUpWindow.change_lines(card), "HP / pulse: 4 → 8")
+	_assert_nothing_missing(scene, "Recovery")

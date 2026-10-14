@@ -159,7 +159,7 @@ func test_unaffordable_skill_allows_a_later_free_skill_to_fire() -> void:
 	assert_true(bool(world.player_state.mp_short), "the unaffordable skill still needs MP")
 
 
-func test_recovery_card_adds_hp_to_the_next_pulse() -> void:
+func test_recovery_healing_and_base_regeneration_have_separate_pulse_clocks() -> void:
 	var world := _mage()
 	world.god = false
 	world.take_hit(30, false, "", world.player.pos + Vector2(100, 0))
@@ -168,4 +168,6 @@ func test_recovery_card_adds_hp_to_the_next_pulse() -> void:
 	world.upgrades.apply("recovery", world)
 	for tick in 600:
 		world.step(DT, MoveInput.new())
-	assert_eq(world.player_state.hp, mini(hp + 20, int(world.player_state.max_hp)), "base 10 plus interim Recovery 10")
+	assert_eq(world.hp_regen, 0.0, "Recovery no longer modifies permanent regeneration")
+	assert_eq(world.player_state.hp, mini(hp + 14, int(world.player_state.max_hp)),
+		"at 10 s: base regen 10 plus Recovery's first 4 HP pulse; its second is at cast-time + 10 s")
