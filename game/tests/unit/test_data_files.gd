@@ -129,7 +129,7 @@ func test_build_setup_and_paths() -> void:
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
-		return {"stub": p}
+		return {"info": {}} if p.begins_with("Character.wz/") else {"stub": p}
 	var mob_loader := func(id: int) -> Dictionary: return {} if id == 1110100 else {"info": {"id": id}}
 	var missing := PackedStringArray()
 	var s := DataRepo.build_setup(data, "henesys_hg1", 5, Vector2(800, 600), loader, mob_loader, missing)
@@ -143,3 +143,17 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(s.seed, 5)
 	assert_eq(s.view_size, Vector2(800, 600))
 	assert_true(s.data == data)
+
+
+func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
+	var loader := func(p: String) -> Dictionary:
+		if p == "Skill.wz/MobSkill.img":
+			return {"126": {"level": {"1": {"time": 10.0, "x": 50.0}}}}
+		if p == "Character.wz/Coat/01040002.img":
+			return {"info": {"incPDD": 3.0}}
+		return {"info": {"incPDD": 1.0}}
+	var s := DataRepo.build_setup(data, "henesys_hg1", 1, Vector2(800, 600), loader,
+		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
+	assert_eq(s.equipment_info[1040002].incPDD, 3.0, "canonical equipment info, untouched")
+	assert_true(s.equipment_info.has(1302000) and s.equipment_info.has(1372005), "both starter weapons")
+	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")

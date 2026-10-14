@@ -451,8 +451,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 - 800x600 logical view (wider windows show more map at the same pixel scale), integer scaling, nearest filtering. An
   opt-in "fill window" setting fills large windows with more map instead of black bars (see View fit below).
-- HUD: `UI.wz/StatusBar.img` bottom bar with HP/MP/EXP gauges, level from `Basic.img/LevelNo`, job name; survival timer
-  and kill count at the top; owned-skill icons with ranks at the top left.
+- HUD: independent status-bar, counter, skill-icon and message widgets receive state from RunScene. The original
+  gauges, level, job name, timer, kill count and skill icons keep their layout. Decorative controls on the bar's
+  right side are removed to reserve a potion quickslot; separate buff and boss widgets reserve space below the
+  kill count and timer. Full-run pacing checks remain disabled until overhaul tuning ticket #27 re-enables them;
+  structural checks still require EXP collection, Magician advancement, a completed run and no lost mobs.
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
@@ -522,6 +525,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
+| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×40 at (view width −224, 42); boss bar 300×30 centred at y=42 | C | ours, difficulty overhaul |
+| Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
 | Mob draw layer | the foothold layer of the mob's current foothold, kept while it is airborne | C | ours |

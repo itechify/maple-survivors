@@ -914,7 +914,14 @@ func _update_hud() -> void:
 	if sig == _hud_sig:
 		return
 	_hud_sig = sig
-	hud.update(ps, run_info())
+	var info := run_info()
+	hud.store_state(ps, info)
+	hud.status.update(ps, info)
+	hud.counters.update(ps, info)
+	hud.skills.update(ps, info)
+	hud.potion_slot.update(ps, info)
+	hud.buff_row.update(ps, info)
+	hud.boss_bar.update(ps, info)
 
 
 ## Run time in seconds, snapped to 1 ms (900 ticks of 1/60 s sum to 899.9999...; the HUD and results show 15:00).

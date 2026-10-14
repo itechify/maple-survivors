@@ -22,6 +22,13 @@ const FILES := {
 	"exp_table": "canonical/exp_table.json",
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
+const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
+## tier C: starter loadout selection, matching AvatarRenderer.DEFAULT_LOOK and the two starting weapons.
+const STARTER_EQUIPMENT := {
+	1040002: "Character.wz/Coat/01040002.img", 1060002: "Character.wz/Pants/01060002.img",
+	1072001: "Character.wz/Shoes/01072001.img", 1302000: "Character.wz/Weapon/01302000.img",
+	1372005: "Character.wz/Weapon/01372005.img",
+}
 
 
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
@@ -112,11 +119,24 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 			skill_imgs[book] = s
 		else:
 			missing.append(skill_img_path(book))
+	var equipment_info := {}
+	for id: int in STARTER_EQUIPMENT:
+		var equip: Variant = img_loader.call(STARTER_EQUIPMENT[id])
+		if equip is Dictionary and equip.get("info") is Dictionary:
+			equipment_info[id] = equip.info
+		else:
+			missing.append(STARTER_EQUIPMENT[id])
+	var mob_skill: Variant = img_loader.call(MOB_SKILL_IMG)
+	if not (mob_skill is Dictionary) or mob_skill.is_empty():
+		missing.append(MOB_SKILL_IMG)
+		mob_skill = {}
 	return {
 		"map_img": map_img,
 		"physics_img": physics,
 		"mob_imgs": mob_imgs,
 		"skill_imgs": skill_imgs,
+		"equipment_info": equipment_info,
+		"mob_skill_img": mob_skill,
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,
