@@ -27,6 +27,7 @@ extends RefCounted
 ##   target: Vector2 (player position)       target_fh: int (player foothold, -1 = find the floor below target)
 ##   bounds: Rect2 (MapBounds; default foothold box + 300 above/100 below)
 ##   speed_mult: float (stage speed multiplier, default 1)   physics: PhysicsConstants (default v83)
+##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
 ## `kinds` must hold the MobKind of every `kind` index used (RunWorld shares its mob_kinds array). Their fields are
 ## re-read at every step(), so replacing or editing a kind (elite or speed overrides) takes effect on the next tick.
@@ -271,6 +272,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 		tk_j = nav_j.take
 		ef_j = nav_j.e_from
 	var hyst := float(tuning.route_hysteresis)
+	var action_state: Dictionary = ctx.get("boss_actions", {})
+	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
+	var action_facings: PackedInt32Array = action_state.get("facings", PackedInt32Array())
 	for i in _hi:
 		var st := state[i]
 		if st == FREE:
@@ -289,6 +293,12 @@ func step(dt: float, ctx: Dictionary) -> void:
 			continue
 		if alpha[i] < 1.0:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
+		if i < actions.size() and actions[i] != "" and fh[i] >= 0:
+			# tier C: an authored boss stance holds its ground anchor; airborne art comes from canonical origins.
+			vx[i] = 0.0
+			if i < action_facings.size():
+				facing[i] = action_facings[i]
+			continue
 		if _k_fly[k] != 0:
 			_fly(i, dt, _k_speed[k] * smult, target, bounds)
 			route_len[i] = Vector2(x[i], y[i]).distance_to(target)

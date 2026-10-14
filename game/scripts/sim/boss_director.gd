@@ -11,6 +11,8 @@ var entries: Array = []
 ## Schedule-order records: boss_index, mob_id, slot, warned, spawn_time, death_time, dead.
 var records: Array = []
 var rules: Dictionary = {}
+var _actions: Array[Dictionary] = []
+var _now := 0.0
 
 
 func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
@@ -21,6 +23,49 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 			"warned": false, "spawn_time": -1.0, "death_time": -1.0, "dead": false,
 			"stall": 0.0, "best_distance": INF, "anchor": Vector2.ZERO, "fading": false, "fade_left": 0.0,
 			"teleports": 0})
+		_actions.append({"action": "", "start": 0.0, "until": 0.0, "facing": -1})
+
+
+## Whether this living, spawned boss can begin an attack or skill at the supplied sim time.
+func can_act(index: int, now: float) -> bool:
+	return index >= 0 and index < records.size() and float(records[index].spawn_time) >= 0.0 \
+		and not bool(records[index].dead) and not bool(records[index].get("fading", false)) \
+		and now >= float(_actions[index].until) - 1e-6
+
+
+## Holds a canonical stance and facing for its duration; attacks and skills use the same action gate.
+func begin_action(index: int, action: String, seconds: float, facing: int, now: float) -> void:
+	if not can_act(index, now):
+		return
+	_now = now
+	_actions[index] = {"action": action, "start": now, "until": now + maxf(0.0, seconds), "facing": facing}
+
+
+## Updates the shared action clock before swarm movement and returns its per-slot presentation/lock snapshot.
+func prepare_actions(world: RunWorld) -> Dictionary:
+	_now = world.time
+	return action_snapshot(world.swarm)
+
+
+## Per-slot actions, elapsed times and facing for movement and rendering; death or expiry clears the override.
+func action_snapshot(swarm: MobSwarm) -> Dictionary:
+	var actions := PackedStringArray()
+	var times := PackedFloat32Array()
+	var facings := PackedInt32Array()
+	actions.resize(swarm.capacity())
+	times.resize(swarm.capacity())
+	facings.resize(swarm.capacity())
+	for index in records.size():
+		var record: Dictionary = records[index]
+		var slot := int(record.slot)
+		if slot < 0 or slot >= swarm.capacity() or bool(record.dead) or swarm.active[slot] == 0 \
+				or _now >= float(_actions[index].until) - 1e-6:
+			continue
+		actions[slot] = String(_actions[index].action)
+		times[slot] = maxf(0.0, _now - float(_actions[index].start))
+		facings[slot] = int(_actions[index].facing)
+	return {"actions": actions, "times": times, "facings": facings}
+
 
 
 ## Whether this stage has an encounter schedule (empty schedules retain duration-based clears).
@@ -90,6 +135,11 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 			"pos": Vector2(point.x, point.y), "time": world.time})
 		return
 	if s.alpha[slot] < 1.0:
+		return
+	if not can_act(index, world.time):
+		# tier C: an intentional windup/skill stance is not a failed pursuit attempt.
+		record.stall = 0.0
+		record.anchor = Vector2(s.x[slot], s.y[slot])
 		return
 	var distance := float(s.route_len[slot])
 	var pos := Vector2(s.x[slot], s.y[slot])

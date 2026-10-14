@@ -554,6 +554,16 @@ func handle_events(events: Array) -> void:
 				hud.push_notice("boss_%d" % int(e.boss_index), "%s has appeared!" % name)
 				fx.play("Effect.wz/BasicEff.img/Summoned", e.pos)
 				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
+			"boss_attack":
+				if e.phase == "start":
+					_sound(String(e.sound))
+					# tier C: evidence capture during the jump frame of the canonical mushroom windup.
+					_event_shot("boss_windup_%d.png" % int(e.boss_index), 0.85)
+				elif e.phase == "effect" and String(e.effect) != "":
+					fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+				elif e.phase == "impact":
+					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
+					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
 			"cast":
 				_on_cast(e)
 			"basic_attack":
@@ -877,8 +887,9 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 func _present(delta: float) -> void:
 	_update_player(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
+	var boss_actions := world.bosses.action_snapshot(world.swarm)
 	for i in mob_renderers.size():
-		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers)
+		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
