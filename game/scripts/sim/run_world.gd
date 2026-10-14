@@ -43,7 +43,7 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
-	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp"],
+	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
@@ -62,6 +62,7 @@ const EVENT_FIELDS := {
 	"boss_warning": ["boss_index", "mob_id", "time"],
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
+	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 }
 
 ## tier C defaults used when balance.json lacks a value.
@@ -119,6 +120,7 @@ var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
 var bosses: BossDirector
+var boss_attacks := BossAttacks.new()
 
 var events: Array = []
 var time := 0.0
@@ -342,6 +344,7 @@ func step(dt: float, input: MoveInput) -> void:
 	_ctx["boss_actions"] = bosses.prepare_actions(self)
 	swarm.step(dt, _ctx)
 	bosses.step(self)
+	boss_attacks.step(self)
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
@@ -802,7 +805,7 @@ func _touch() -> void:
 func _player_hit(m: int, mk: MobKind) -> void:
 	var boss_index := mob_boss[m]
 	var source := {"mob": m, "mob_id": mk.id, "accuracy": mk.acc,
-		"elite": mob_elite[m] != 0, "boss": boss_index >= 0}
+		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
 	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
@@ -856,7 +859,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, source: Dictionary) -> void:
 	emit("player_hit", {"damage": damage, "mp_absorbed": mp_absorbed, "miss": miss, "dir": dir,
 		"pos": player.pos, "mob": int(source.get("mob", -1)), "mob_id": int(source.get("mob_id", 0)),
-		"boss": bool(source.get("boss", false)), "max_hp": _max_hp})
+		"boss": bool(source.get("boss", false)), "max_hp": _max_hp, "source_kind": String(source.get("source_kind", "other"))})
 
 
 ## Whether auto-actions may cast now: hanging on a rope/ladder blocks new casts, not their cooldowns or effects.

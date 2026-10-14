@@ -197,6 +197,7 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 		if hit.is_empty():
 			continue
 		assert_eq(hit.boss, true)
+		assert_eq(hit.source_kind, "touch")
 		assert_eq(hit.mob, slot)
 		assert_eq(hit.mob_id, id)
 		assert_eq(hit.max_hp, int(entry.typical_hp), "HP pool is captured at hit time")
