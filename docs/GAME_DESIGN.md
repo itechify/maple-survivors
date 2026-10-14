@@ -383,6 +383,16 @@ follows from the calibration table alone.
 
 ## 5. Experience and levels
 
+Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
+with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
+End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
+Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
+Normal kills roll HP 2.5% and MP 18% independently; elites roll HP 25% and MP 65%. These choices and starter stock
+are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
+EXP cap/absorption path. The bot drinks below 50% HP or 30% MP, with thresholds in the same survivor data.
+The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
+quantities per kind.
+
 - Mobs drop their **signature Etc item** as an EXP pickup (icon from `Item.wz/Etc/0400.img/<id>/info/iconRaw`), with
   the classic drop pop (`Sound.wz/Game.img/DropItem`). Snail -> Snail Shell 4000019, Blue Snail -> Blue Snail Shell
   4000000, Red Snail -> Red Snail Shell 4000016, Shroom -> Mushroom Spore 4000011, Slime -> Slime Bubble 4000010,
@@ -409,7 +419,8 @@ follows from the calibration table alone.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
-  Max HP/MP are currently refilled by 25% on level up; overhaul ticket #9 removes healing from level-ups.
+  Level-ups raise the maxima without restoring current HP or MP (`level_up_refill` = 0); explicit maximum-pool
+  upgrade cards still grant their stated increase.
 - **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
   active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
@@ -441,7 +452,11 @@ follows from the calibration table alone.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
 - **Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
-- HP regenerates slowly (Recovery upgrade); MP regenerates 2/s (+Improved MP Recovery).
+- Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
+  maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
+  Interval, amounts and divisor live in `balance.regen`. Recovery temporarily adds +10 HP per pulse per card rank;
+  its timed-buff ticket will replace that interim rule. Pulses continue on ropes and ladders; paused ticks do not
+  advance the timer, and partial pulse intervals survive skill/card changes.
 
 ### 6.3 Damage numbers
 
@@ -453,7 +468,12 @@ stack upward one line per number: 30 px above a normal number, 36 px above a (ta
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank** maps to a canonical skill level, so ranking up a skill visibly changes it the way the original did.
-No skill costs MP in survivor mode (MP fuels Magic Guard instead).
+Job skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
+uses the survivor `mp_cost_override` of 0 (tier C, owner choice). Each tick casts at most one skill, oldest-ready
+first; learned order breaks a tie. A ready skill without a target or sufficient MP waits without restarting its
+cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
+per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting
+can resume (tier C presentation). No MP is charged while climbing or when no target exists.
 
 While hanging on a rope or ladder, no new auto-action casts: skills, basic attacks and buff casting share
 `RunWorld.can_cast()`. Cooldowns continue, so a ready skill fires on the first eligible tick after leaving the
@@ -503,9 +523,10 @@ Draw rules:
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
 
-General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) HP regen, Magnet +25% radius;
-for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000) (Magician skills in v83, and MP
-only matters once Magic Guard exists).
+General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, interim Recovery (1001) +10 HP per pulse,
+Magnet +25% radius; for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
+The latter is an owned canonical passive skill, learned at level 1 and ranked through levels 4 / 8 / 12 / 16,
+adding the level-scaled pulse bonus in section 6.2.
 
 Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
 1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
@@ -551,6 +572,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Constant | Value | Tier | Source |
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
+| Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .025/MP .18, elite HP .25/MP .65; drink below HP .5/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
@@ -605,7 +629,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
-| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery +1 HP/s, MP Recovery +1 MP/s, Max MP +25, Magnet ×1.25) | C | ours |
+| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, interim Recovery +10 HP/pulse, MP Recovery ranks 1/4/8/12/16, Max MP +25, Magnet ×1.25) | C (rank mapping/tuning); A (canonical levels) | ours; original WZ |
+| Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
+| Level-up pools / casting order / low-MP cue | no level-up healing or implicit current-pool gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |
 | EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); at 600 drops the farthest from the player is absorbed into a fresh drop at the new kill | C | ours |
 | EXP drop lifetime | never expires (`pickup.lifetime` 0); capped absorption resets the new drop's age and conserves EXP | C | owner decision 2026-10-14 |
 | Player-platform spawns | 35% of ground placements, at least 150 px away; visible only when the whole platform fits in view, otherwise on off-screen portions; normal regen fade and harmlessness | C | owner choice, `balance.json.spawn` |

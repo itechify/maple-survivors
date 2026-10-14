@@ -38,6 +38,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
+	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
@@ -45,8 +46,9 @@ const EVENT_FIELDS := {
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
-	"pickup_spawned": ["pickup", "item_id", "pos"],
-	"pickup_collected": ["pickup", "item_id", "exp", "pos"],
+	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
+	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
+	"potion_used": ["kind", "item_id", "restored", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
@@ -69,6 +71,8 @@ const DEFAULT_VIEW := Vector2(800, 600)
 ## tier B: pre-Big-Bang avoidability formula, Exoot 2009 (refs/research/v83-mechanics/notes.md).
 const AVOID_DEX_FACTOR := 0.25
 const AVOID_LUK_FACTOR := 0.5
+## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
+const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
 
 var setup: Dictionary
 var data: Dictionary
@@ -82,6 +86,7 @@ var rng: RandomNumberGenerator
 var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
+var potion_rng: RandomNumberGenerator
 
 var physics: PhysicsConstants
 var fhm: FootholdMap
@@ -103,6 +108,7 @@ var mob_boss := PackedInt32Array()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
+var potions: PotionInventory
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
@@ -134,8 +140,9 @@ var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
 var body_pad := 64.0
 var magnet_r := 90.0
+## Additional HP/MP per regeneration pulse (interim Recovery card contributes HP here).
 var hp_regen := 0.0
-var mp_regen := 2.0
+var mp_regen := 0.0
 var player_pdd := 0.0
 var player_mdd := 0.0
 var player_avoid := 0.0
@@ -158,6 +165,7 @@ var _attributes := {}
 var _earned_ap := 0
 var _dead := false
 var _invincible_t := 0.0
+var _regen_elapsed := 0.0
 var _cast_action := ""
 var _cast_left := 0.0
 var _action := ""
@@ -181,6 +189,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
+	potion_rng = _stream(5)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
@@ -208,6 +217,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	pk["gravity"] = physics.gravity_acc
 	pk["fall_speed"] = physics.fall_speed
 	pickups = PickupSystem.new(128, pk, drop_rng)
+	potions = PotionInventory.new(balance.get("potions", {}), setup.get("item_info", {}))
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
 	var crit: Dictionary = balance.get("crit", {})
@@ -243,6 +253,37 @@ func can_clear() -> bool:
 	return bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
 
 
+## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
+func drink_potion(kind: String) -> bool:
+	if state != PLAYING or _dead:
+		return false
+	var sip := potions.consume(kind)
+	if sip.is_empty():
+		return false
+	var before := int(player_state[kind])
+	if kind == "hp":
+		_hp = minf(_max_hp, _hp + int(sip.amount))
+	else:
+		_mp = minf(_max_mp, _mp + int(sip.amount))
+	_write_player_state(0.0)
+	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
+		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
+	return true
+
+
+## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
+func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
+	if not potions.stock.has(kind):
+		return -1
+	var id := int(potions.stock[kind].item_id)
+	var slot := pickups.spawn_potion(pos, count, id, kind)
+	if slot >= 0:
+		emit("pickup_spawned", {"pickup": slot, "item_id": id, "pos": pos,
+			"kind": "potion", "potion_kind": kind, "count": count})
+	return slot
+
+
+
 ## Returns the pending events and clears the list (what the presentation does every frame).
 func drain_events() -> Array:
 	var out := events
@@ -262,6 +303,10 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
+	if input.drink_hp:
+		drink_potion("hp")
+	if input.drink_mp:
+		drink_potion("mp")
 	var warp := portals.step(dt, player.pos, input.up)
 	var flags := 0
 	if warp.is_empty():
@@ -287,6 +332,8 @@ func step(dt: float, input: MoveInput) -> void:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
 	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
+	for kind: String in pickups.collected_potions:
+		potions.add(kind, int(pickups.collected_potions[kind]))
 	_touch()
 	if got > 0 and not _dead:
 		_gain_exp(got)
@@ -382,9 +429,19 @@ func heal_fraction(stat: String, fraction: float) -> void:
 	_write_player_state(0.0)
 
 
+## Pays an action's MP cost; unaffordable actions leave the pool unchanged.
+func spend_mp(amount: int) -> bool:
+	var cost := maxi(0, amount)
+	if _mp < cost:
+		return false
+	_mp -= cost
+	_write_player_state(0.0)
+	return true
+
+
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. A higher max also raises the current value by the difference.
-func refresh_player_stats() -> void:
+## modifiers. Explicit max-pool upgrades grant the difference; level growth passes grant_growth=false.
+func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
 	for stat: String in _base_stats:
@@ -394,16 +451,16 @@ func refresh_player_stats() -> void:
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
 	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp)))
-	if _max_hp > old_hp:
+	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if _max_mp > old_mp:
+	if grant_growth and _max_mp > old_mp:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
 	player.speed_stat = roundi(loadout.player_stat("speed", 100.0))
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
-	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 2.0)))
+	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
 	player_pdd = loadout.player_stat("pdd", _equipment_total("incPDD")) + loadout.passive_total("pdd")
 	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
@@ -633,8 +690,16 @@ func _tick_timers(dt: float) -> void:
 	_invincible_t = maxf(0.0, _invincible_t - dt)
 	_cast_left = maxf(0.0, _cast_left - dt)
 	if not _dead:
-		_hp = minf(_max_hp, _hp + hp_regen * dt)
-		_mp = minf(_max_mp, _mp + mp_regen * dt)
+		var regen: Dictionary = balance.get("regen", DEFAULT_REGEN)
+		var interval := maxf(0.01, float(regen.get("interval", DEFAULT_REGEN.interval)))
+		_regen_elapsed += dt
+		while _regen_elapsed >= interval - 1e-9:
+			_regen_elapsed = maxf(0.0, _regen_elapsed - interval)
+			_hp = minf(_max_hp, _hp + float(regen.get("hp", DEFAULT_REGEN.hp)) + hp_regen)
+			# tier B: pre-Big-Bang Improved MP Recovery rule, rounded to whole MP.
+			var bonus := floorf(float(progression.level * loadout.level("improved_mp_recovery"))
+				/ maxf(1.0, float(regen.get("improved_mp_divisor", DEFAULT_REGEN.improved_mp_divisor))))
+			_mp = minf(_max_mp, _mp + float(regen.get("mp", DEFAULT_REGEN.mp)) + mp_regen + bonus)
 
 
 func _sync_slots() -> void:
@@ -659,10 +724,15 @@ func _on_kill(m: int) -> void:
 	if mob_boss[m] >= 0:
 		bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
-	if e <= 0:
-		return
-	var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
-	emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos})
+	if e > 0:
+		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
+		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
+			"kind": "exp", "potion_kind": "", "count": 0})
+	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
+	for kind: String in ["hp", "mp"]:
+		var chance := float(chances.get(kind, 0.0))
+		if chance > 0.0 and potion_rng.randf() < chance:
+			spawn_potion(kind, pos)
 
 
 func _touch() -> void:
@@ -765,8 +835,8 @@ func _on_level_up(level: int) -> void:
 		_base_mp += floorf(float(_attributes.int) / divisor)
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
-	refresh_player_stats()
-	var refill := float(balance.get("level_up_refill", 0.25))
+	refresh_player_stats(false)
+	var refill := float(balance.get("level_up_refill", 0.0))
 	_hp = minf(_max_hp, _hp + refill * _max_hp)
 	_mp = minf(_max_mp, _mp + refill * _max_mp)
 	emit("level_up", {"level": level})
@@ -844,6 +914,7 @@ func _write_player_state(dt: float) -> void:
 		_action_t += dt
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
 	player_state["mp"] = floori(_mp)
+	player_state["mp_short"] = runner.waiting_mp
 	player_state["max_hp"] = _max_hp
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp
@@ -859,3 +930,4 @@ func _write_player_state(dt: float) -> void:
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
 	player_state["dead"] = _dead
+	player_state["potions"] = potions.snapshot()

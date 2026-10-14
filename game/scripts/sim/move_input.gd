@@ -9,6 +9,9 @@ var up := false
 var down := false
 var jump_pressed := false
 var jump_held := false
+## Potion presses are consumed once by a sim tick; holding the key does not repeatedly drink.
+var drink_hp := false
+var drink_mp := false
 
 
 ## Convenience constructor.

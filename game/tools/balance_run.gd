@@ -189,7 +189,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		eng_b[bk] += ec.x
 		stale_b[bk] += ec.y
 		live_b[bk] += a
-		drops_sum += w.pickups.active_count()
+		drops_sum += w.pickups.exp_count()
 		alive_n += 1
 		hp_low = minf(hp_low, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		if a > max_alive:
@@ -264,6 +264,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
+		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),

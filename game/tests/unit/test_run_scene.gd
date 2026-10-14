@@ -345,6 +345,24 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 	_assert_nothing_missing(scene, "job effect")
 
 
+func test_low_mp_cue_tracks_the_waiting_skill_and_clears_after_restoration() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 9, {})
+	var world := scene.world
+	world.god = true
+	world.change_job(200)
+	world.spend_mp(int(world.player_state.mp))
+	world.spawn_mob(int(world.kind_of_id[100100]), world.player.pos + Vector2(-80, 0), world.player.fh, 1000, false)
+	_frames(4)
+	assert_true(bool(world.player_state.mp_short), "a targeted skill waits for MP")
+	assert_true(scene.hud.low_mp_visible(), "the scene displays the persistent low-MP cue")
+	world.heal_fraction("mp", 1.0)
+	_frames(1)
+	assert_false(scene.hud.low_mp_visible(), "the cue disappears when the ready skill casts")
+	_assert_nothing_missing(scene, "low MP cue")
+
+
 func test_pause_holds_the_run() -> void:
 	if not require_cache():
 		return
@@ -523,3 +541,48 @@ func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
 	assert_eq(int(scene.counters.sounds), sounds, "same-map warp is silent")
 	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), effects, "no transition effect")
 	_assert_nothing_missing(scene, "portal")
+
+
+func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_are_full() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 10, {})
+	var hp: Dictionary = scene.hud.potion_slot.displayed("hp")
+	assert_eq(hp.item_id, 2000000)
+	assert_eq(hp.count, 5)
+	assert_eq(hp.key_label, "Del / Q")
+	assert_true(hp.icon != null, "canonical Red Potion icon is drawable")
+	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
+	_frames(1)
+	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
+	assert_eq(mp.count, 2)
+	assert_eq(mp.item_id, 2000003)
+	assert_eq(mp.key_label, "End / E")
+	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
+	scene.world.drink_potion("hp")
+	scene.advance_frame(0.0)
+	assert_eq(scene.hud.potion_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
+	_assert_nothing_missing(scene, "potions")
+	var report := scene.perf_summary()
+	assert_eq(report.get("potions_collected", {}), {"hp": 0, "mp": 2})
+	assert_eq(report.get("potions_used", {}), {"hp": 1, "mp": 0})
+
+
+func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame() -> void:
+	assert_true(InputMap.has_action("drink_hp"))
+	assert_true(InputMap.has_action("drink_mp"))
+	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
+		return
+	scene = _make("henesys_hg1", 10, {})
+	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END], ["drink_mp", KEY_E]]:
+		var event := InputEventKey.new()
+		event.physical_keycode = pair[1]
+		event.pressed = true
+		assert_true(event.is_action_pressed(pair[0]), "%s binds %s" % [pair[0], OS.get_keycode_string(pair[1])])
+		if pair[0] == "drink_mp":
+			scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
+			_frames(1)
+		var before: int = scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count
+		scene._unhandled_input(event)
+		scene.advance_frame(DT * 4)
+		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)

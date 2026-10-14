@@ -159,10 +159,9 @@ func test_applying_general_cards() -> void:
 	w.upgrades.apply("magnet", w)
 	assert_near(w.magnet_r, m0 * 1.25, 1e-3)
 	w.upgrades.apply("recovery", w)
-	assert_near(w.hp_regen, 1.0, 1e-6)
-	var mp_regen0 := w.mp_regen
+	assert_near(w.hp_regen, 10.0, 1e-6, "interim Recovery adds HP per pulse")
 	w.upgrades.apply("improved_mp_recovery", w)
-	assert_near(w.mp_regen, mp_regen0 + 1.0, 1e-6)
+	assert_eq(w.loadout.level("improved_mp_recovery"), 1, "the card learns the canonical passive")
 	var mp0: int = w.player_state.max_mp
 	w.upgrades.apply("improved_max_mp", w)
 	assert_eq(w.player_state.max_mp, mp0 + 25)

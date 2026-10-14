@@ -7,9 +7,9 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp"]
+	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp"]
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind"]
 
 
 func _check(e: Dictionary, seen: Dictionary) -> void:
@@ -144,7 +144,24 @@ func test_every_event_matches_the_schema() -> void:
 	p.step(DT, MoveInput.make(false, false, true))
 	for e: Dictionary in p.drain_events():
 		_check(e, seen)
+	# Guaranteed potion use and collection exercise the consumable schema regardless of random drop rolls.
+	var potion := RF.quiet_world()
+	potion.spawn_potion("mp", potion.player.pos - Vector2(0, 25), 2)
+	potion.step(DT, MoveInput.new())
+	potion.drink_potion("hp")
+	potion.drink_potion("mp")
+	for e: Dictionary in potion.drain_events():
+		_check(e, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "mp_short":
+			var short_world := RF.quiet_world()
+			short_world.change_job(200)
+			short_world.spend_mp(int(short_world.player_state.mp))
+			RF.put_mob(short_world, 1110100, short_world.player.pos.x + 100, 190, 100)
+			for tick in 3:
+				short_world.step(DT, MoveInput.new())
+			for event: Dictionary in short_world.drain_events():
+				_check(event, seen)
 		assert_true(seen.has(type), "%s was emitted (seen %s)" % [type, seen])
 	assert_true(declined, "the run went through a declined job window")
 

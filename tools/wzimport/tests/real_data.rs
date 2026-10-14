@@ -293,3 +293,34 @@ fn real_import_of_henesys_bosses_and_sounds() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_potion_icons_and_restore_specs() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let items: Vec<u32> = (2000000..=2000006).collect();
+    for id in &items {
+        assert!(source["items"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
+    }
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-potions-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "items": items})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let img: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("Item.wz/Consume/0200.img.json")).unwrap()).unwrap();
+    for (id, field, amount) in [(2000000, "hp", 50), (2000001, "hp", 150), (2000002, "hp", 300),
+        (2000003, "mp", 100), (2000006, "mp", 300)] {
+        assert_eq!(img[format!("{id:08}")]["spec"][field], amount, "canonical restore {id}");
+    }
+    for id in items {
+        for icon in ["icon", "iconRaw"] {
+            let region = img[format!("{id:08}")]["info"][icon]["$canvas"].as_array().unwrap();
+            assert!(region[3].as_u64().unwrap() > 0 && region[4].as_u64().unwrap() > 0);
+            let page = img["$pages"][region[0].as_u64().unwrap() as usize].as_str().unwrap();
+            assert!(out.join(page).is_file(), "{id}/{icon} atlas");
+        }
+    }
+    std::fs::remove_dir_all(tmp).unwrap();
+}

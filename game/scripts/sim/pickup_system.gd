@@ -1,6 +1,6 @@
 class_name PickupSystem
 extends RefCounted
-## EXP drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
+## EXP and potion drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
 ##
 ## A drop pops up (vy = -pop_speed, a small sideways drift from `rng`), falls with gravity up to fall_speed and lands
 ## on the first floor below it (FootholdMap.find_landing; a drop with nothing below stops where it is once it is below
@@ -15,6 +15,10 @@ extends RefCounted
 const AIR := 0
 const REST := 1
 const MAGNET := 2
+## Pickup kinds: potion slots share motion and pooling but never enter the EXP cap or expiry policy.
+const EXP := 0
+const HP_POTION := 1
+const MP_POTION := 2
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -38,6 +42,10 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var exp := PackedInt32Array()
 var item_id := PackedInt32Array()
+var kind := PackedByteArray()
+var potion_count := PackedInt32Array()
+## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
+var collected_potions := {"hp": 0, "mp": 0}
 ## AIR / REST / MAGNET.
 var state := PackedByteArray()
 ## Seconds since the drop appeared (or last took merged EXP).
@@ -56,6 +64,7 @@ var expired_exp := 0
 var _free := PackedInt32Array()
 var _hi := 0
 var _count := 0
+var _exp_count := 0
 
 
 func _init(capacity: int = 64, p_tuning: Dictionary = {}, p_rng: RandomNumberGenerator = null) -> void:
@@ -77,14 +86,19 @@ func active_count() -> int:
 	return _count
 
 
+## Live EXP drops, excluding the persistent potions that share this pool.
+func exp_count() -> int:
+	return _exp_count
+
+
 ## Drops EXP at pos, absorbing the farthest old drop relative to player_pos when capped; returns the fresh drop's slot.
 func spawn(pos: Vector2, p_exp: int, p_item_id: int, player_pos: Vector2 = Vector2.ZERO) -> int:
 	merged = false
-	if _count >= int(tuning.max_active):
+	if _exp_count >= int(tuning.max_active):
 		var best := -1
 		var best_d := -1.0
 		for i in _hi:
-			if active[i] != 0:
+			if active[i] != 0 and kind[i] == EXP:
 				var d := Vector2(x[i] - player_pos.x, y[i] - player_pos.y).length_squared()
 				if d > best_d:
 					best_d = d
@@ -93,6 +107,18 @@ func spawn(pos: Vector2, p_exp: int, p_item_id: int, player_pos: Vector2 = Vecto
 			p_exp += exp[best]
 			despawn(best)
 			merged = true
+	return _spawn(pos, p_exp, p_item_id, EXP, 0)
+
+
+## Drops a persistent potion bundle (hp or mp) independently of the EXP cap; -1 for invalid kinds/counts.
+func spawn_potion(pos: Vector2, count: int, p_item_id: int, potion_kind: String) -> int:
+	if count <= 0 or not (potion_kind in ["hp", "mp"]):
+		return -1
+	merged = false
+	return _spawn(pos, 0, p_item_id, HP_POTION if potion_kind == "hp" else MP_POTION, count)
+
+
+func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -> int:
 	if _free.is_empty():
 		_grow(capacity() * 2)
 	var i := _free[_free.size() - 1]
@@ -105,9 +131,13 @@ func spawn(pos: Vector2, p_exp: int, p_item_id: int, player_pos: Vector2 = Vecto
 	vy[i] = -float(tuning.pop_speed)
 	exp[i] = p_exp
 	item_id[i] = p_item_id
+	kind[i] = p_kind
+	potion_count[i] = count
 	state[i] = AIR
 	age[i] = 0.0
 	_count += 1
+	if p_kind == EXP:
+		_exp_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
 
@@ -118,6 +148,8 @@ func despawn(i: int) -> void:
 		return
 	active[i] = 0
 	_count -= 1
+	if kind[i] == EXP:
+		_exp_count -= 1
 	_free.append(i)
 	while _hi > 0 and active[_hi - 1] == 0:
 		_hi -= 1
@@ -126,7 +158,7 @@ func despawn(i: int) -> void:
 ## Draw alpha of drop i: 1, fading to 0 over the last `fade` seconds of its lifetime.
 func alpha(i: int) -> float:
 	var life := float(tuning.lifetime)
-	if life <= 0.0 or i < 0 or i >= capacity() or state[i] == MAGNET:
+	if life <= 0.0 or i < 0 or i >= capacity() or state[i] == MAGNET or kind[i] != EXP:
 		return 1.0
 	var f := float(tuning.fade)
 	return clampf((life - age[i]) / f, 0.0, 1.0) if f > 0.0 else 1.0
@@ -135,6 +167,7 @@ func alpha(i: int) -> float:
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
 func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
 	var got := 0
+	collected_potions = {"hp": 0, "mp": 0}
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
 	var acc := float(tuning.magnet_acc)
@@ -161,7 +194,7 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 		var dy := cy - py
 		var d2 := dx * dx + dy * dy
 		var st := state[i]
-		if st != MAGNET and life > 0.0:
+		if st != MAGNET and life > 0.0 and kind[i] == EXP:
 			age[i] += dt
 			if age[i] >= life and d2 > mr2:
 				expired += 1
@@ -208,8 +241,12 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			d2 = (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny)
 		if d2 <= cr2:
 			got += exp[i]
+			var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
+			if potion_kind != "":
+				collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
 			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
-				"pos": Vector2(x[i], y[i])})
+				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else "potion",
+				"potion_kind": potion_kind, "count": potion_count[i]})
 			despawn(i)
 	collected_exp += got
 	return got
@@ -219,11 +256,11 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, state]:
+	for arr: Variant in [active, state, kind]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
-	for arr: Variant in [exp, item_id]:
+	for arr: Variant in [exp, item_id, potion_count]:
 		arr.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0

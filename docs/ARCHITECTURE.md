@@ -108,17 +108,18 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
-| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held` |
+| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp` (drink flags are presses) |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events)`, per-shot pierce and already-hit list |
-| `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `step(dt, player_pos, magnet_r, fhm, events)` |
+| `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
+| `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
-| `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, cooldown, count, pierce, speed, range, size...) |
-| `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts ready skills; `tick_cooldowns` and `cast_ready` are separate entry points, and `fired_this_tick` reports any cast |
+| `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
+| `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
@@ -140,6 +141,7 @@ var setup := {
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
 		1302000: Dictionary, 1372005: Dictionary}, # canonical starter equipment info, keyed by original item id
 	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
+	"item_info": {2000000: Dictionary, 2000003: Dictionary}, # canonical Consume item nodes (info icons + spec)
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
@@ -178,6 +180,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
+| `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per targeted skill's waiting episode |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
@@ -185,8 +188,9 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos` |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos` |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
+| `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
@@ -212,7 +216,7 @@ ordinary alive targets still obey `hard_cap`.
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
-`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
+`RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, a targeted ready skill is waiting for MP), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `invincible_t`, `action`, `action_t`, `dead`).
 
@@ -276,6 +280,11 @@ What the table above leaves open; the class doc comments have the rest.
 
 ### 4.4.6 Run details (`ProjectileSystem` ... `RunWorld`)
 
+`RunWorld.spend_mp(amount) -> bool` atomically pays a cost without changing the pool on failure. Regen is applied
+in `balance.regen.interval` pulses: HP/MP base amounts plus owned Improved MP Recovery's canonical level-scaled MP
+bonus. `hp_regen` / `mp_regen` modifiers add to each pulse. Level growth calls `refresh_player_stats(false)` so
+larger maxima do not restore current pools; explicit pool upgrades retain the normal granted-growth behavior.
+
 What the tables above leave open; the class doc comments have the rest.
 
 - **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives
@@ -305,6 +314,17 @@ What the tables above leave open; the class doc comments have the rest.
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
   (no event; `expired`, `expired_exp`) after fading out; renderers read `alpha(i)`.
+  Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
+  Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
+  `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
+- **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
+  `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
+  `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
+  `drink_potion(kind) -> bool` consumes one and restores `spec.hp` or `spec.mp`, clamped to max. Empty stock is inert.
+  Drink presses run before movement and casting, including on ropes; no cooldown applies.
+  `balance.potions` selects starter IDs/counts, independent normal/elite per-kind drop chances and bot thresholds.
+  `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
+  current canonical item icons, counts and keys.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,
   preferred_distance := -1, allow_visible := false, side := 0) -> Vector3` returns (x, y, foothold), or z=-2 when no
   point is possible. It samples the current platform while avoiding walls and nearby points; normal placement is
