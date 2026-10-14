@@ -75,3 +75,32 @@ func test_animated_run_advances() -> void:
 	assert_eq(run.items[0].anim.index_at(run.time, true), 0)
 	run.advance(0.06)
 	assert_eq(run.items[0].anim.index_at(run.time, true), 1, "second frame after 100 ms")
+
+
+func test_hidden_portal_sparkles_animate_on_a_synthetic_map() -> void:
+	var root := AF.map_img()
+	root.portal = {
+		"0": {"pn": "hidden", "pt": 10.0, "x": 40.0, "y": 0.0},
+		"1": {"pn": "exit", "pt": 2.0, "x": 70.0, "y": 0.0},
+		"2": {"pn": "invisible", "pt": 1.0, "x": 90.0, "y": 0.0},
+	}
+	var art := {"$pages": [AF.PAGE], "portal": {"game": {
+		"ph": {"default": {"portalContinue": {
+			"0": {"$canvas": [0, 0, 0, 4, 4], "origin": {"$v": [2, 4]}, "delay": 100},
+			"1": {"$canvas": [0, 5, 0, 4, 4], "origin": {"$v": [2, 4]}, "delay": 100},
+		}}},
+		"pv": {"0": {"$canvas": [0, 10, 0, 4, 4], "origin": {"$v": [2, 4]}}},
+	}}}
+	var f := FileAccess.open(lib.root.path_join("Map.wz/MapHelper.img.json"), FileAccess.WRITE)
+	f.store_string(JSON.stringify(art))
+	f.close()
+	map.show_portals = true
+	map.build(root)
+	assert_eq(map.stats.portals, 2, "visible exit and hidden sparkle; type 1 remains invisible")
+	var draws := map.get_node("Portals").get_children()
+	assert_eq(draws.size(), 2)
+	var sparkle: MapDrawList = draws[0]
+	assert_eq(sparkle.items[0].pos, Vector2(40, 0), "sparkle drawn at the portal point")
+	assert_true(sparkle.items[0].anim.frames[0].page != null, "synthetic sparkle has a drawable atlas")
+	map.advance(0.11)
+	assert_eq(sparkle.items[0].anim.index_at(sparkle.time, true), 1, "sparkle advances to its second frame")
