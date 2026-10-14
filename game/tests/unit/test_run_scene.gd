@@ -271,6 +271,38 @@ func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 	_assert_nothing_missing(scene, "mushroom slam")
 
 
+func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 2406, {})
+	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
+	entry.time = 0.5
+	entry.attacks = ["attack2"]
+	scene.world.bosses = BossDirector.new([entry])
+	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
+	scene.world.mob_skills.resize(scene.world.swarm.capacity())
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	scene.world.god = true
+	var drawn := 0
+	for tick in 900:
+		scene.advance_frame(DT)
+		drawn = maxi(drawn, scene.mob_shots.visible_count())
+		if drawn > 0:
+			break
+	assert_true(drawn > 0, "monster pool is drawn by its own batched renderer")
+	var effects := scene.fx.active_count()
+	var slot := int(scene.world.bosses.records[0].slot)
+	var pos := Vector2(scene.world.swarm.x[slot], scene.world.swarm.y[slot])
+	scene.handle_events([{"type": "boss_skill", "mob": slot, "mob_id": 3220000, "skill_id": 114,
+		"level": 15, "pos": pos, "facing": -1, "action": "skill1", "duration": 1.0,
+		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": ""},
+		{"type": "mob_healed", "mob": slot, "mob_id": 3220000, "amount": 350, "pos": pos}])
+	assert_eq(scene.fx.active_count(), effects + 1)
+	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
+	_assert_nothing_missing(scene, "Stumpy presentation")
+
+
 func test_cast_plays_the_action_stance_while_standing() -> void:
 	if not require_cache():
 		return
@@ -822,4 +854,3 @@ func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() ->
 	_frames(840)
 	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
 	_assert_nothing_missing(scene,"Mano slow")
-

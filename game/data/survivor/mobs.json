@@ -14,6 +14,7 @@
 		"9300064": {"name": "Goblin Fire", "exp_item": 4000081, "_exp_item": "tier C: Firebomb Flame as the EXP pickup icon; not a canonical drop-table claim"},
 		"2300100": {"name": "Stirge", "exp_item": 4000042},
 		"2220000": {"name": "Mano", "exp_item": 4000019},
+		"3220000": {"name": "Stumpy", "exp_item": 4000003, "_exp_item": "tier C: Tree Branch signature EXP icon; not a canonical drop-table claim"},
 		"6130101": {"name": "Mushmom", "exp_item": 4000011},
 		"9400205": {"name": "Blue Mushmom", "exp_item": 4000011,
 			"boss_ui": {"icon_id": 6130101, "hp_tag_color": 1, "hp_tag_bgcolor": 5,

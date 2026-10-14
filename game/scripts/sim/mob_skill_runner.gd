@@ -15,6 +15,7 @@ var _pdd := PackedFloat32Array()
 var _mdd := PackedFloat32Array()
 var _pdd_until := PackedFloat64Array()
 var _mdd_until := PackedFloat64Array()
+var _pending_heals: Array[Dictionary] = []
 
 
 func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
@@ -43,6 +44,7 @@ func slow_state(now: float) -> Dictionary:
 
 
 func step(world: RunWorld) -> void:
+	_resolve_heals(world)
 	for record: Dictionary in world.bosses.records:
 		var slot := int(record.slot)
 		if slot < 0 or slot >= world.swarm.capacity() or world.swarm.active[slot] == 0 or world.swarm.alpha[slot] < 1.0 or not int(record.mob_id) in _enabled:
@@ -55,7 +57,7 @@ func step(world: RunWorld) -> void:
 			var id := int(entry.skill)
 			var level := int(entry.level)
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
-			if spec.is_empty() or id not in [126, 200, 112, 113]:
+			if spec.is_empty() or id not in [126, 200, 112, 113, 114]:
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
@@ -79,15 +81,47 @@ func step(world: RunWorld) -> void:
 				targets = _summon(world, slot, index, spec)
 			elif id in [112, 113]:
 				targets = _buff(world, slot, id, spec, duration)
+			elif id == 114:
+				_pending_heals.append({"index": index, "level": level, "spec": spec,
+					"due": world.time + float(entry.get("effectAfter", 0.0)) / 1000.0})
 			_ready[key] = world.time + float(spec.get("interval", 0.0))
 			var action := "skill%d" % int(entry.get("action", 1))
 			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), int(world.swarm.facing[slot]), world.time)
 			world.player.speed_stat = roundi(world.player_speed_stat())
 			world.emit("boss_skill", {"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
 				"pos": pos, "facing": int(world.swarm.facing[slot]), "action": action, "duration": duration,
-				"effect": path + "/effect" if spec.has("effect") else "", "player_effect": affected, "targets": targets,
+				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == 114 and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
 				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == 200 and spec.has("summonEffect") else ""})
 			break
+
+
+func _resolve_heals(world: RunWorld) -> void:
+	var waiting: Array[Dictionary] = []
+	for pending: Dictionary in _pending_heals:
+		var record: Dictionary = world.bosses.records[int(pending.index)]
+		var source := int(record.slot)
+		if bool(record.dead) or source < 0 or world.swarm.active[source] == 0:
+			continue
+		if world.time < float(pending.due) - 1e-6:
+			waiting.append(pending)
+			continue
+		var spec: Dictionary = pending.spec
+		# tier C: x/y are interpreted as inclusive uniform heal bounds, following the reference resolver.
+		var low := maxi(0, mini(int(spec.get("x", 0)), int(spec.get("y", spec.get("x", 0)))))
+		var high := maxi(low, maxi(int(spec.get("x", 0)), int(spec.get("y", 0))))
+		var amount := world.mob_skill_rng.randi_range(low, high)
+		var area := _area(spec, Vector2(world.swarm.x[source], world.swarm.y[source]), world.swarm.facing[source])
+		for slot in world.swarm.capacity():
+			if world.swarm.active[slot] == 0 or not area.has_point(Vector2(world.swarm.x[slot], world.swarm.y[slot])):
+				continue
+			var restored := mini(amount, world.swarm.max_hp[slot] - world.swarm.hp[slot])
+			if restored <= 0:
+				continue
+			world.swarm.hp[slot] += restored
+			world.emit("mob_healed", {"mob": slot, "mob_id": world.mob_kinds[world.swarm.kind[slot]].id,
+				"skill_id": 114, "level": int(pending.level), "amount": restored,
+				"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time})
+	_pending_heals = waiting
 
 
 func _area(spec: Dictionary, pos: Vector2, facing: int) -> Rect2:

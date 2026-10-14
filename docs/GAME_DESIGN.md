@@ -419,6 +419,25 @@ calibration examples pending #27 build validation, preserving canonical attack v
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
+The Tree That Grew I adds Stumpy (3220000) at 5:00; later bosses are added by their kit ticket. Initial tier-C
+calibration uses HP ×0.5 (3,500), touch ×1.2 (121–144 against typical HP300 / W.DEF7), and attack ×1.12
+(123–146 for canonical attack135). Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
+keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
+The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
+`r ×600/bulletSpeed` ms maximum flight (857.14 ms), hence 233.33 px/s over 200 px. This conversion and using r
+for acquisition/travel are tier C, inspired by the prose CMob comment in the later-client reference
+`HaCreator/MapSimulator/Combat/MobAttackSystem.cs: ResolveProjectileTravelTimeMs`; that comment alone is not
+verified v83 RE. Aim is at the current player body centre on launch; flight is straight, ignores terrain and
+hits a swept body box grown by 8 px (tier C, survivor data). A ball is consumed on contact even if damage is
+blocked or misses. Animation frames, origins, delays and sound remain canonical.
+Stumpy's heal114/15 uses canonical HP gate80%, interval30 s and effectAfter1,500 ms. We interpret x700/y200 as
+inclusive uniform bounds 200–700, then clamp to max HP and heal living mobs in the canonical area (tier C;
+reference resolver `MapSimulator.cs: ResolveMobSkillHealAmount`, not a verified v83 formula). Its dedicated
+seed stream8 makes the amounts replayable without changing card, potion, reward or hit rolls. The original
+mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP restores at the application delay.
+The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
+was copied. These encounter multipliers remain initial estimates for #27 calibration.
+
 The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
 times and landed boss hits with whole damage, HP at impact and the damage/HP fraction. No survival/pacing claim
@@ -723,6 +742,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Stumpy HP/contact/attack | ×0.5 / ×1.2 / ×1.12; attacks every8 s when eligible; Tree Branch EXP icon | C | survivor initial calibration; canonical stats/art A |
+| Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
+| Mob heal arithmetic / timing / art anchor | inclusive uniform x/y, max clamp and canonical area; independent RNG8; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | local reference resolver; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
 | Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
