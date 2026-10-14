@@ -47,6 +47,7 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
+	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
 	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
 	"player_jump": ["pos"],
 	"portal_used": ["portal", "target", "pos"],
@@ -124,6 +125,7 @@ var mob_boss := PackedInt32Array()
 ## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
 var mob_summon_owner := PackedInt32Array()
 var _live_mdd := PackedFloat32Array()
+var _live_physical_allowed := PackedByteArray()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
@@ -395,10 +397,12 @@ func step(dt: float, input: MoveInput) -> void:
 	runner.step(dt, self)
 	basic.step(dt, self)
 	_live_mdd.resize(swarm.capacity())
+	_live_physical_allowed.resize(swarm.capacity())
 	for slot in swarm.capacity():
 		if swarm.active[slot] != 0:
 			_live_mdd[slot] = mob_defense(slot,true)
-	projectiles.step(dt, swarm, mob_grid, events, _live_mdd)
+			_live_physical_allowed[slot] = 1 if physical_hit_allowed(slot) else 0
+	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed)
 	for m in projectiles.kills:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
@@ -634,9 +638,9 @@ func mob_defense(m: int, magic: bool) -> float:
 	return float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
 
 
-## Whether a physical hit may damage this slot; the weapon-immunity ticket supplies its timed state.
-func physical_hit_allowed(_m: int) -> bool:
-	return true
+## Whether a physical impact may damage this slot at the current simulation time.
+func physical_hit_allowed(m: int) -> bool:
+	return mob_skills.physical_hit_allowed(m, time)
 
 
 ## Spawns a mob of kind index k on foothold fh at pos with max_hp x hp_mult; emits mob_spawned. Returns the slot.
@@ -850,6 +854,7 @@ func _on_kill(m: int) -> void:
 		bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	if mob_boss[m] >= 0:
+		_spawn_revives(m, pos)
 		_drop_boss_rewards(pos, e, mk.exp_item, boss_rewards)
 		return
 	if e > 0:
@@ -861,6 +866,39 @@ func _on_kill(m: int) -> void:
 		var chance := float(chances.get(kind, 0.0))
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+
+
+func _spawn_revives(source: int, pos: Vector2) -> void:
+	var id: int = mob_kinds[swarm.kind[source]].id
+	var image: Dictionary = setup.get("mob_imgs", {}).get(id, setup.get("mob_imgs", {}).get(str(id), {}))
+	var list: Dictionary = image.get("info", {}).get("revive", {})
+	if list.is_empty():
+		return
+	var keys := PackedInt32Array()
+	for key: String in list:
+		if key.is_valid_int():
+			keys.append(int(key))
+	keys.sort()
+	var platform := swarm.platform[source]
+	if platform < 0:
+		return
+	var span := fhm.platform_span(platform)
+	var children: Array[Dictionary] = []
+	# tier C: reuse survivor summon spacing for death offspring; every canonical revive entry is spawned once.
+	var spacing := float(balance.get("mob_skills", {}).get("summon_spacing", 24.0))
+	for i in keys.size():
+		var child_id := int(list[str(keys[i])])
+		if not kind_of_id.has(child_id):
+			continue
+		var x := clampf(pos.x + (i - (keys.size() - 1) * 0.5) * spacing, span.x, span.y)
+		var fh := fhm.platform_fh_at(platform, x)
+		if fh < 0:
+			continue
+		var slot := spawn_mob(int(kind_of_id[child_id]), Vector2(x, fhm.y_at(fh, x)), fh, 1.0, false)
+		mob_summon_owner[slot] = mob_boss[source]
+		children.append({"mob": slot, "mob_id": child_id})
+	emit("mob_revives_spawned", {"boss_index": mob_boss[source], "mob": source, "mob_id": id,
+		"pos": pos, "revives": children, "time": time})
 
 
 func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictionary) -> void:

@@ -419,7 +419,7 @@ calibration examples pending #27 build validation, preserving canonical attack v
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-The Tree That Grew I adds Stumpy (3220000) at 5:00; later bosses are added by their kit ticket. Initial tier-C
+The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00. Initial tier-C
 calibration uses HP ×0.5 (3,500), touch ×1.2 (121–144 against typical HP300 / W.DEF7), and attack ×1.12
 (123–146 for canonical attack135). Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
@@ -437,6 +437,30 @@ seed stream8 makes the amounts replayable without changing card, potion, reward 
 mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP restores at the application delay.
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
 was copied. These encounter multipliers remain initial estimates for #27 calibration.
+
+King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Initial survivor HP ×1.5 gives 12,000; touch ×2.9
+and slam ×2.09 are separate estimates against typical HP 550/W.DEF 47 (about 219–275 and 220–272 respectively;
+the contact estimate is one HP below the exact 40% boundary and remains for #27 calibration). Its type 0 slam
+uses canonical attackAfter 900 ms, effectAfter 300 ms, 500×150 area and jumpAttack 1; grounded players in the area
+are hit only at impact, airborne players can dodge. Skill 200/2 waits 50 s, HP ≤50%, summons the original three
+210100 Slimes with summonEffect 3, and caps living encounter-owned summons at 15. Its eleven-entry info/revive
+list spawns eleven ordinary canonical Slimes on death, independently of that cast limit. Relocations preserve
+ownership and fresh slots reset it. King Slime lacks info/boss and hpTag colours in v83: the survivor no_flinch
+override and existing 1/5 MobGage colour override supply scheduled-boss behavior without modifying WZ facts.
+Dyle retains maxHP 31,000 (survivor ×1.5=46,500) and touch 190 (initial ×2.57≈325–398 versus HP 800/W.DEF 47).
+Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Canonical
+x 5,000/y 500 are interpreted as inclusive uniform 500–5,000 bounds (tier C, same reference interpretation as
+Stumpy), clamped at max HP. Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
+weapon immunity (tier C): basic swings and Three Snails shells are blocked at live impact time; magic remains
+effective. A blocked shell consumes a contact/pierce hit without damage or crit RNG consumption (tier C).
+The original repeat 1/pos 2 34×34 icon with origin (17,44) stays above Dyle's body and follows relocations;
+body-top anchor mapping is tier C, art/origins are tier A. Status stops at expiration or death, never leaks
+into a reused pool slot. Dyle's canonical 112/113 defense skills reuse the existing handlers; 110 is not enabled.
+Death offspring use survivor summon_spacing 24 px on the death platform, with no new per-entity Nodes.
+Source facts are the owner's original Mob.wz/9300003.img, Mob.wz/6220000.img and Skill.wz/MobSkill.img;
+Local reference summaries: research/stage-bosses/out/bosses_3220000_5220002_9300003.json (King Slime),
+bosses_5220000_6220000_8130100_3300008_3300005_9500326_9300187.json (Dyle), and the context mob-skills.txt.
+Dyle's Tree Branch EXP icon is a tier-C existing stage icon, not a claim about its original drop table.
 
 The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
@@ -760,6 +784,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×1.03 / ×1.48; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
 | Stumpy HP/contact/attack | ×0.5 / ×1.2 / ×1.12; attacks every8 s when eligible; Tree Branch EXP icon | C | survivor initial calibration; canonical stats/art A |
+| King Slime / Dyle HP and hit scaling | ×1.5 HP each; King touch×2.9/slam×2.09, Dyle touch×2.57; King8s cadence | C | survivor estimates, pending #27; canonical stats and attack delays A |
+| King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
+| Dyle heal / weapon immunity | uniform500–5,000 heal; timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; reference heal resolver prose |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
 | Mob heal arithmetic / timing / art anchor | inclusive uniform x/y, max clamp and canonical area; independent RNG8; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | local reference resolver; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |

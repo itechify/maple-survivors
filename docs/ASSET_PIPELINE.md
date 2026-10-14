@@ -1,5 +1,9 @@
 # Asset pipeline
 
+Tree boss manifest additions: Mob9300003 and6220000 automatically include their original Sound.wz/Mob.img
+entries; Effect.wz/Summon.img/3 accompanies King Slime's canonical skill200/2. The existing whole MobSkill.img
+and UIWindow.img include Dyle's repeat-marked immunity icon and both MobGage icons. No decoded art is committed.
+
 The game renders the player's own MapleStory v83 data. Nothing proprietary is in this repository. A local, offline
 importer (`tools/wzimport`, Rust) reads the original `.wz` archives and writes an **asset cache** that the Godot runtime
 loads. This document is the contract between the two.

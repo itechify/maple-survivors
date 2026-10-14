@@ -224,6 +224,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_projectile_spawned` | `proj`, `mob`, `mob_id`, `pos` (muzzle), `velocity` (Vector2 px/s), `range`, `speed` (float), `ball`, `hit` (WZ paths), `time` |
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
+| `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
 
@@ -263,6 +264,17 @@ MobSkill114 queues restoration at the caster's canonical effectAfter after the e
 At resolution, one inclusive uniform roll between canonical x/y heals living mobs in the canonical area, clamped
 to each maximum (tier C arithmetic). It uses independent `mob_skill_rng` stream 8; dead casters cancel the queue.
 The original mob0 animation starts at cast with its original blank lead-in; RunScene anchors heal pos0 at feet.
+EffectAfter0 heals resolve on the casting tick after `boss_skill`; positive delays retain their queued resolution.
+MobSkill140 is a timed self weapon-immunity status in packed per-slot expiry/path arrays. `physical_hit_allowed`
+is checked at instant/basic impact and passed as a live mask to ProjectileSystem each tick. Immune physical
+contact consumes the shot/pierce hit without a damage roll or `mob_hit`; magic ignores this mask. Launch time
+does not decide immunity. Relocation transfers the status; fresh spawn resets it. The original repeat-marked
+MobSkill140/level/8/mob icon is a pooled FxRenderer effect at the body top (tier C pos2 mapping), follows the
+encounter's current slot, and stops at expiry/death. `RunScene.mob_status_effects()` exposes its draw model.
+Scheduled King Slime's canonical info/boss remains absent; survivor `mobs.json.no_flinch` supplies stance immunity.
+On scheduled death, the sorted canonical info/revive list spawns once on the source platform before rewards.
+Offspring retain canonical stats, own ordinary slots and the dead encounter's summon ownership, and are not
+additional scheduled bosses. Skill200's living limit applies to casts, not this unconditional death list.
 
 `BossDirector.step(world, dt)` tracks route progress after movement: no route or no progress for 5 s starts fade-out,
 then `relocate_mob` places the living boss about 250 px away on the player's platform, preserving HP and encounter

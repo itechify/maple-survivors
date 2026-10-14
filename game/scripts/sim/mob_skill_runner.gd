@@ -15,6 +15,8 @@ var _pdd := PackedFloat32Array()
 var _mdd := PackedFloat32Array()
 var _pdd_until := PackedFloat64Array()
 var _mdd_until := PackedFloat64Array()
+var _weapon_until := PackedFloat64Array()
+var _weapon_visual := PackedStringArray()
 var _pending_heals: Array[Dictionary] = []
 
 
@@ -57,7 +59,7 @@ func step(world: RunWorld) -> void:
 			var id := int(entry.skill)
 			var level := int(entry.level)
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
-			if spec.is_empty() or id not in [126, 200, 112, 113, 114]:
+			if spec.is_empty() or id not in [126, 200, 112, 113, 114, 140]:
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
@@ -84,6 +86,11 @@ func step(world: RunWorld) -> void:
 			elif id == 114:
 				_pending_heals.append({"index": index, "level": level, "spec": spec,
 					"due": world.time + float(entry.get("effectAfter", 0.0)) / 1000.0})
+			elif id == 140:
+				# tier C: weapon immunity is a timed self status; WZ verifies its gate and duration.
+				_weapon_until[slot] = world.time + duration
+				_weapon_visual[slot] = path + "/mob"
+				targets = [slot]
 			_ready[key] = world.time + float(spec.get("interval", 0.0))
 			var action := "skill%d" % int(entry.get("action", 1))
 			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), int(world.swarm.facing[slot]), world.time)
@@ -93,6 +100,8 @@ func step(world: RunWorld) -> void:
 				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == 114 and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
 				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == 200 and spec.has("summonEffect") else ""})
 			break
+	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
+	_resolve_heals(world)
 
 
 func _resolve_heals(world: RunWorld) -> void:
@@ -183,6 +192,8 @@ func resize(capacity: int) -> void:
 	_mdd.resize(capacity)
 	_pdd_until.resize(capacity)
 	_mdd_until.resize(capacity)
+	_weapon_until.resize(capacity)
+	_weapon_visual.resize(capacity)
 
 
 ## A new mob in a reused slot starts without the previous occupant's defense statuses.
@@ -193,6 +204,8 @@ func reset_slot(slot: int) -> void:
 	_mdd[slot] = 0
 	_pdd_until[slot] = 0
 	_mdd_until[slot] = 0
+	_weapon_until[slot] = 0
+	_weapon_visual[slot] = ""
 
 
 ## Transfers timed statuses with a relocation; a later reuse of the former slot gets no stale state.
@@ -205,7 +218,19 @@ func move_slot(from: int, to: int) -> void:
 	_mdd[to] = _mdd[from]
 	_pdd_until[to] = _pdd_until[from]
 	_mdd_until[to] = _mdd_until[from]
+	_weapon_until[to] = _weapon_until[from]
+	_weapon_visual[to] = _weapon_visual[from]
 	reset_slot(from)
+
+
+## Live weapon immunity at this impact tick; magic damage remains allowed.
+func physical_hit_allowed(slot: int, now: float) -> bool:
+	return slot < 0 or slot >= _weapon_until.size() or now >= _weapon_until[slot] - 1e-9
+
+
+## Detached active mob-icon presentation state, empty after status expiry or slot reset.
+func immunity_state(slot: int, now: float) -> Dictionary:
+	return {} if physical_hit_allowed(slot, now) else {"remaining": _weapon_until[slot] - now, "visual": _weapon_visual[slot]}
 
 
 ## Live flat defense addition at this slot; canonical MobKind stats are never edited.

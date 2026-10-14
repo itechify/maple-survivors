@@ -104,6 +104,13 @@ func stop(i: int) -> void:
 		_release(i)
 
 
+## Moves an active pooled effect to a simulation-owned anchor, without an entity Node.
+func place(i: int, pos: Vector2) -> void:
+	if i >= 0 and i < _active.size() and _active[i] == 1:
+		_pos[i] = pos
+		_draw_slot(i)
+
+
 ## Stops every effect.
 func clear() -> void:
 	for i in _active.size():
