@@ -168,6 +168,21 @@ since Slimes in the opening minute killed some runs before 1:00. It takes 0.85x 
 the 2:30-3:45 window, and Lv 30 at ~10:20), and default spawn preferences. It was only roughly
 re-tuned (section 4.2, tuning seeds 1-24) and its stage card says "Not fully tuned yet" (`note`).
 
+### 4.1.1 New-system measurements
+
+The balance harness records completed boss spawn-to-death times per encounter, HP/MP potion collection and use,
+MP-short waiting seconds, and whole boss-hit damage divided by max HP at the hit (before Magic Guard's split).
+Aggregates report completed fight samples separately from unfinished or unspawned encounters and retain the
+boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
+
+Three harness-only camper policies use sensible cards and potions, then park after a normal 60 s warmup:
+Henesys highest platform, Henesys ground rope, and Tree's highest playable branch reached through the real
+up00/up01/up02 chain. Henesys placement is a one-time controlled setup; Tree uses movement inputs. Arrival
+success and portal use are recorded, and displaced campers are not placed back. The 60 s warmup, placement
+choice and navigation cost/jump tolerance are tier C measurement policy, not MapleStory facts or gameplay tuning.
+CLI, record fields, aggregate semantics and seed separation are documented in AGENTS.md. Ticket #26 adds these
+measurements without changing balance data; subsequent tuning must keep training and held-out results distinct.
+
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,

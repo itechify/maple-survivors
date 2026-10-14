@@ -114,6 +114,29 @@ be compared without editing `game/data` (keyframe arrays merge element by elemen
 2026); report on the held-out seeds 101..130 (the default is 101..106) and never tune on them. Tuning targets and the
 last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
 
+The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
+all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with
+`--camp-after=<seconds>`). Henesys campers are placed once on the highest platform or at the ground rope and
+then grab/park; the Tree camper walks and jumps through the real `up00 -> up01 -> up02` portal chain to the top
+playable branch. After arrival they leave movement keys alone, including after knockback. Their stage is selected
+automatically; an explicitly incompatible `--stage` is rejected. For example:
+
+`ISOLATE=campers bash scripts/balance.sh 1 2 --policy=camper_tree_top --cap=420`
+
+Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
+`dead|alive|not_spawned` status), `potions_collected` / `potions_used` totals for `hp` and `mp`,
+`mp_short_seconds` (fixed ticks with the oldest ready skill waiting for MP), and `boss_hits` (whole hit damage,
+max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
+`camper` records activation/arrival times, arrival success and portal names. At the cap a living run is
+`TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
+
+The supplemental `SYSTEMS` summary reports potion sums, MP-wait seconds per run, whole boss-hit HP percentages
+per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count.
+Unfinished/not-spawned fights are counted separately; no completed observation is reported as `none (n=0)`,
+not zero. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
+`_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
+and held-out seeds remain separate.
+
 ## Git
 
 Commit meaningful milestones on the working branch with clear messages. Do not commit `_scratch/`, `evidence/`,
