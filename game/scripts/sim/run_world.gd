@@ -628,9 +628,8 @@ func _on_kill(m: int) -> void:
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	if e <= 0:
 		return
-	var p := pickups.spawn(pos, e, mk.exp_item)
-	if not pickups.merged:
-		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos})
+	var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
+	emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos})
 
 
 func _touch() -> void:

@@ -83,7 +83,11 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   player who paces), and a straight-up hop takes off where the way goes on. A walker below a player standing on a low
   step (at most 40 px up, within touch) walks under the player; jumpers hop onto the step. Mobs never teleport
   visibly or float. A mob that cannot reach the player wanders on its platform.
-- **Spawning:** at points on floors outside the camera view (+48 px margin, and 32 px more on the side a moving
+- **Player-platform spawns:** 35% of ground spawn attempts target the player's platform (`spawn.platform_share`),
+  at least 150 px away (`spawn.platform_min_dist`). If the whole platform fits in view, these mobs can appear visibly
+  with the existing 0.3 s regen fade and remain harmless until fully opaque. If it extends past the view, placements
+  stay on its off-screen portions. When that platform has no valid point, the ordinary rings serve instead.
+- **Other spawning:** at points on floors outside the camera view (+48 px margin, and 32 px more on the side a moving
   player runs away from, where the camera lags behind it) but inside the map bounds, first on the floors beside the
   view (within 160 px of its sides and 48 px of its height), so the crowd walks in from the screen edges; preferring
   points whose way to the player is no longer than the walk in from 160 px beyond the view's side
@@ -357,8 +361,9 @@ and 14:00; they are on their way in, not queueing. On the Hill the crowd presses
   Firebomb Flame 4000081 as a tier C visual choice (not a claim about a canonical drop table).
 - EXP value = the mob's canonical `exp` × 1.0 (× 5 for elites). Pickups within the magnet radius (90 px) fly to the
   player; collecting plays `Game.img/PickUpItem` and shows "+N EXP" in MapleStory's yellow system-message style.
-- **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). Past `pickup.max_active` (600) a new
-  drop merges into the nearest one, so the map cannot fill without bound. (Expiry after 60 s was tried and removed.)
+- **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). At `pickup.max_active` (600), the EXP drop
+  farthest from the player is absorbed into the new drop at the monster's death position. The combined EXP pops
+  there with a fresh age, keeping the pool bounded and collection near recent kills; no EXP is lost.
 - **Survivor EXP curve:** `exp_to_next(L) = round(4 + 8·L + 4·L²)` (L1 = 16, close to the canonical 15; L7 = 256,
   L9 = 400, L29 = 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30; before the swarm follow-up
   round(4 + 12·L + 3·L²): 784 / 1431 / 31001). The quadratic term carries the late game: a strong build that levels
@@ -566,8 +571,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery +1 HP/s, MP Recovery +1 MP/s, Max MP +25, Magnet ×1.25) | C | ours |
-| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); past 600 drops new EXP merges into the nearest (its age restarts) | C | ours |
-| EXP drop lifetime | never expires (`pickup.lifetime` 0); past 600 drops new EXP merges into the nearest drop | C | owner decision 2026-10-14 |
+| EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); at 600 drops the farthest from the player is absorbed into a fresh drop at the new kill | C | ours |
+| EXP drop lifetime | never expires (`pickup.lifetime` 0); capped absorption resets the new drop's age and conserves EXP | C | owner decision 2026-10-14 |
+| Player-platform spawns | 35% of ground placements, at least 150 px away; visible only when the whole platform fits in view, otherwise on off-screen portions; normal regen fade and harmlessness | C | owner choice, `balance.json.spawn` |
 | Spawn rings | first the floors beside the view (within 160 px of its sides, `band`, and 48 px of its height, `band_y`), then within 480 px of the view, then the map within 1170 px of the player; 12 samples per ring, looking first for a point whose way to the player is at most half the view width + 48 + 160 px (`prefer_route`, 608 px on an 800 px view: no longer than the walk in from the ring's outer edge), then for any point that reaches the player, before an unreachable spot; never where a wall that crosses a platform stands anywhere on the way to the player (followed edge by edge onto the player's platform) | C | ours |
 | Spawn trail margin | spawns stay 32 px further out (`trail_margin`) on the side a moving player (horizontal speed > 1 px/s) runs away from: the camera lags about 125 / 6 + 8 = 29 px behind a running player (smoothing 6/s, 8 px dead zone) | C | ours |
 | Mob relocation | silent, never on screen (only from outside the view + 48 + 32 px on every side: the camera can lag either way) and never elites: a mob that has not come 1 px closer along its way while itself moving 1 px for 3 s (`stall_time`, `stall_progress`; a mob standing still on screen keeps counting and is moved once off screen), or that is farther than 1300 px or cannot reach the player 160 px off-screen for 3 s, is moved to a fresh spawn point, preferring the side the player is moving toward (its horizontal speed > 1 px/s), with its HP; only when no point is found is it recycled (removed) | C | ours |
