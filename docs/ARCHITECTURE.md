@@ -113,7 +113,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `PickupSystem` | EXP drops (pooled SoA) | `spawn(pos, exp, item_id)`, `step(dt, player_pos, magnet_r, fhm, events)` |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(int_stat, matk, spell_attack, mastery)`, `touch_damage(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, cooldown, count, pierce, speed, range, size...) |
-| `SkillRunner` | Auto-casting | `step(dt, world)`: cooldowns, targeting via `SpatialHash`, emits `cast` events, spawns projectiles or instant hits |
+| `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts ready skills; `tick_cooldowns` and `cast_ready` are separate entry points, and `fired_this_tick` reports any cast |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
@@ -131,6 +131,9 @@ var setup := {
 	"physics_img": Dictionary,        # Map.wz/Physics.img root
 	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
+	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
+		1302000: Dictionary, 1372005: Dictionary}, # canonical starter equipment info, keyed by original item id
+	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
@@ -279,7 +282,7 @@ What the tables above leave open; the class doc comments have the rest.
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations (skill hit, level-up, job change) and projectiles. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | `UI.wz/StatusBar.img` bar (800x71), gauges, `Basic.img/LevelNo` digits, timer, kill count, "+N EXP" system messages (`show_exp`). |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills` and `HudMessages` widgets. `RunScene` feeds each widget. Reserved Controls mark the potion quickslot at the bar's right, buff row below kills and boss bar below the timer. |
 | Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. Title, stage select, results and import are scenes under `scenes/ui/`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 

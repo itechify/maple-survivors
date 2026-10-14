@@ -157,7 +157,7 @@ fn real_import_of_a_small_manifest() {
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).unwrap();
     let manifest = tmp.join("manifest.json");
-    std::fs::write(&manifest, r#"{"format":1,"maps":[104040000],"character":[12000],"mobs":[210100]}"#).unwrap();
+    std::fs::write(&manifest, r#"{"format":1,"maps":[104040000],"character":[12000,1040002,1060002,1072001,1302000,1372005],"mobs":[210100],"imgs":[{"img":"Skill.wz/MobSkill.img"}]}"#).unwrap();
     let out = tmp.join("cache");
     let r = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: false }).unwrap();
     assert!(r.errors.is_empty(), "{:?}", r.errors);
@@ -167,6 +167,19 @@ fn real_import_of_a_small_manifest() {
     assert_eq!(head["stand1"]["0"]["head"], head["front"]["head"]);
     assert_eq!(head["stand1"]["0"]["head"]["origin"]["$v"], serde_json::json!([19, 17]));
     assert_eq!(head["front"]["head"]["$canvas"].as_array().unwrap()[3..], [39, 35]);
+    // The canonical starter equipment and boss skill tables are available to run setup.
+    let coat = json("Character.wz/Coat/01040002.img.json");
+    let pants = json("Character.wz/Pants/01060002.img.json");
+    let shoes = json("Character.wz/Shoes/01072001.img.json");
+    assert_eq!(coat["info"]["incPDD"].as_i64().unwrap()
+        + pants["info"]["incPDD"].as_i64().unwrap()
+        + shoes["info"]["incPDD"].as_i64().unwrap(), 7);
+    assert_eq!(json("Character.wz/Weapon/01302000.img.json")["info"]["attackSpeed"], 4);
+    assert_eq!(json("Character.wz/Weapon/01372005.img.json")["info"]["incMAD"], 23);
+    let mob_skill = json("Skill.wz/MobSkill.img.json");
+    for skill in ["112", "113", "114", "126", "140", "200"] {
+        assert!(!mob_skill[skill]["level"].as_object().unwrap().is_empty(), "{skill}");
+    }
     // backs: only the used sub-paths, back/2 is the 2493x340 hill on its own page
     let back = json("Map.wz/Back/grassySoil.img.json");
     assert_eq!(back["back"].as_object().unwrap().len(), 5);
