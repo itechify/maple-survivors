@@ -13,8 +13,6 @@
 		"equipment": [1040002, 1060002, 1072001],
 		"weapon_by_job": {"0": 1302000, "200": 1372005},
 		"skills": ["three_snails"],
-		"_magic_attack": "Total magic attack (weapon) per job. 200: the Wooden Wand 1372005 (Character.wz incMAD 23, reqLevel 8) a new Magician holds.",
-		"magic_attack": {"0": 0, "200": 23},
 		"_body": "Touch hitbox relative to the feet (x, y, w, h), roughly the v83 character's body + head.",
 		"body": [-14, -58, 28, 58],
 		"_cast": "Targeting measures from cast_height px above the feet; shots start cast_forward px further toward their target (the throwing hand, in front of the body).",

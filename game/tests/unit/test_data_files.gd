@@ -171,6 +171,8 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 	assert_eq(s.equipment_info[1040002].incPDD, 3.0, "canonical equipment info, untouched")
 	assert_true(s.equipment_info.has(1302000) and s.equipment_info.has(1372005), "both starter weapons")
 	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")
+	assert_eq(s.body_img.info.incPDD, 1.0, "body root reaches the sim untouched")
+	assert_eq(s.afterimage_imgs.swordOL.info.incPDD, 1.0, "afterimage root reaches the sim untouched")
 
 
 func test_monster_damage_has_no_hidden_balance_scales() -> void:

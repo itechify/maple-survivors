@@ -93,6 +93,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
+	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
@@ -517,6 +518,34 @@ func test_launcher_args() -> void:
 	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
 	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
+
+
+func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 83, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.mob_motion.push_px = 0
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 83, Vector2(800, 600),
+		func(path: String) -> Dictionary: return lib.img(path).root, lib.mob_root)
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.player.facing = 1
+	var target := w.player.pos + Vector2(50, 0)
+	w.mob_kinds[int(w.kind_of_id[100100])].move_speed = 0
+	w.spawn_mob(int(w.kind_of_id[100100]), target, w.player.fh, 100, false)
+	var before_sounds: int = scene.counters.sounds
+	_frames(40)
+	assert_true(String(scene.avatar.stance) in BasicAttack.ACTIONS, "the body plays the canonical swing/stab")
+	assert_true(scene.fx.active_count() >= 2, "afterimage and hit sparks are pooled effects")
+	assert_true(int(scene.counters.hit_fx) >= 1, "the swing hit emitted its spark")
+	assert_true(int(scene.counters.sounds) > before_sounds, "swing and monster-hit audio played")
+	_assert_nothing_missing(scene, "basic attack")
 
 
 func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
