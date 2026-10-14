@@ -8,7 +8,7 @@
 			"hard_cap": 400,
 			"_bosses": "Tier C: survivor arrival times and HP/damage multipliers; canonical stats/art come from Mob.wz. Typical HP/defense inputs are documented estimates for the initial 40-50% hit band, to validate during ticket #27 tuning.",
 			"bosses": [
-				{"time": 300, "mob_id": 2220000, "hp_mult": 2.0, "dmg_mult": 1.75, "typical_hp": 300, "typical_pdd": 7},
+				{"time": 300, "mob_id": 2220000, "summon_ids": [100100, 100101, 130101], "hp_mult": 2.0, "dmg_mult": 1.75, "typical_hp": 300, "typical_pdd": 7},
 				{"time": 600, "mob_id": 6130101, "hp_mult": 0.6, "dmg_mult": 1.66, "typical_hp": 550, "typical_pdd": 47,
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 1.03,
 					"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"},
