@@ -51,7 +51,7 @@
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
-		"drops": {"normal": {"hp": 0.012, "mp": 0.06}, "elite": {"hp": 0.25, "mp": 0.65}},
+		"drops": {"normal": {"hp": 0.012, "mp": 0.06}, "elite": {"hp": 0.15, "mp": 0.65}},
 		"_bot": "Tier C: drink below 70% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
 		"bot": {"hp_threshold": 0.7, "mp_threshold": 0.3, "tier_score": 112}
 	},
