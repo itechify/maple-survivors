@@ -164,7 +164,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
-			for field: String in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd"]:
+			for field: String in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime"]:
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))

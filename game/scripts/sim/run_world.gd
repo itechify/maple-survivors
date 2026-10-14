@@ -41,6 +41,7 @@ const EVENT_FIELDS := {
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
+	"buff_pulse": ["skill", "skill_id", "amount"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
@@ -314,6 +315,12 @@ func spawn_potion(kind: String, pos: Vector2, count: int = 1) -> int:
 			"kind": "potion", "potion_kind": kind, "count": count})
 	return slot
 
+
+
+## Whether an inactive buff meets its optional survivor HP threshold; casting/cooldown gates remain in SkillRunner.
+func can_start_buff(skill: String, stats: Dictionary) -> bool:
+	var threshold := float(stats.hp_threshold)
+	return not buffs.has(skill) and (threshold <= 0 or _hp < float(_max_hp) * threshold)
 
 
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
@@ -764,7 +771,7 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
-	buffs.step(dt, events)
+	_hp = minf(_max_hp, _hp + buffs.step(dt, events))
 	_invincible_t = maxf(0.0, _invincible_t - dt)
 	_cast_left = maxf(0.0, _cast_left - dt)
 	if not _dead:

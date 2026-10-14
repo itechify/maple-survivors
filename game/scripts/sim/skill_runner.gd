@@ -78,6 +78,9 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
+		if is_buff and not world.can_start_buff(key, st):
+			_shortages.erase(key)
+			continue
 		var n := 1 if is_buff and float(st.duration) > 0 else _find_targets(world, origin, float(st.range), int(st.count))
 		if n == 0:
 			_shortages.erase(key)
@@ -90,7 +93,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			_shortages[key] = true
 			continue
 		_shortages.erase(key)
-		cooldowns[key] = float(st.duration) if is_buff else maxf(cd, -dt) + float(st.cooldown)
+		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
 		if is_buff:
 			casts += 1
 			fired_this_tick = true

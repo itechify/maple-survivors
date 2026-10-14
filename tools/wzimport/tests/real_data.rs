@@ -366,3 +366,40 @@ fn real_import_of_potion_icons_and_restore_specs() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+#[test]
+fn real_import_of_recovery_values_effect_and_use_sound() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let entry = source["imgs"].as_array().unwrap().iter().find(|v| v["img"] == "Sound.wz/Skill.img").unwrap();
+    assert!(entry["paths"].as_array().unwrap().contains(&serde_json::json!("0001001")));
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-recovery-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "imgs": [
+        {"img": "Skill.wz/000.img", "paths": ["skill/0001001"]},
+        {"img": "Sound.wz/Skill.img", "paths": ["0001001"]}
+    ]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert!(result.unresolved_uols.is_empty(), "{:?}", result.unresolved_uols);
+    let read_json = |p: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap()
+    };
+    let skill = read_json("Skill.wz/000.img.json");
+    let recovery = &skill["skill"]["0001001"];
+    for (level, cost, heal) in [("1", 5, 4), ("2", 10, 8), ("3", 15, 12)] {
+        let row = &recovery["level"][level];
+        assert_eq!(row["mpCon"], cost);
+        assert_eq!(row["x"], heal);
+        assert_eq!(row["time"], 30);
+        assert_eq!(row["cooltime"], 120);
+    }
+    assert!(recovery["icon"]["$canvas"].is_array());
+    assert_eq!(recovery["effect"].as_object().unwrap().len(), 13);
+    let sound = read_json("Sound.wz/Skill.img.json");
+    let audio = sound["0001001"]["Use"]["$sound"].as_str().unwrap();
+    assert!(std::fs::metadata(out.join(audio)).unwrap().len() > 0, "same-image UOL resolves to original Heal audio");
+    std::fs::remove_dir_all(tmp).unwrap();
+}
