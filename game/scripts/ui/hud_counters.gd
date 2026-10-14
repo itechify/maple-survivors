@@ -1,4 +1,4 @@
-﻿class_name HudCounters
+class_name HudCounters
 extends HudWidget
 ## Survival timer and kill count, supplied independently by RunScene.
 
@@ -14,4 +14,3 @@ func _draw() -> void:
 	var ks := "KILLS %d" % int(run_info.get("kills", 0))
 	var kw := bold_font.get_string_size(ks, HORIZONTAL_ALIGNMENT_LEFT, -1, big).x
 	_text(Vector2(view.x - kw - 12, 28), ks, Color(1, 0.86, 0.3), big, bold_font)
-

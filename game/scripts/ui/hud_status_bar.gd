@@ -1,4 +1,4 @@
-﻿class_name HudStatusBar
+class_name HudStatusBar
 extends HudWidget
 ## The original status bar, gauges and identity; the right-hand decorative controls are reserved for potions.
 
@@ -67,5 +67,3 @@ func _draw_level(o: Vector2) -> void:
 		x += f.region.size.x
 	_text(o + JOB_POS, str(run_info.get("job_name", "")), Color(1, 1, 1))
 	_text(o + NAME_POS, str(run_info.get("name", "")), Color(1, 1, 1))
-
-

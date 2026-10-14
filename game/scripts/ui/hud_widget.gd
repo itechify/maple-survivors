@@ -138,5 +138,3 @@ func _rank(br: Vector2, rank: int) -> void:
 	for f: SpriteFrame in frames:
 		_blit(f, Vector2(x, br.y - f.region.size.y))
 		x += f.region.size.x
-
-

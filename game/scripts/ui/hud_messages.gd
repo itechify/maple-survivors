@@ -1,4 +1,4 @@
-﻿class_name HudMessages
+class_name HudMessages
 extends HudWidget
 ## Transient system messages above the status bar, with the original lifetime and fade.
 
@@ -57,5 +57,3 @@ func _draw_messages(o: Vector2) -> void:
 		c.a *= a
 		_text(Vector2(o.x + MSG_INSET.x, y), str(m.text), c, FONT_SIZE, null, a)
 		y -= MSG_LINE
-
-

@@ -1,4 +1,4 @@
-﻿class_name HudSkills
+class_name HudSkills
 extends HudWidget
 ## Owned skill icons and ranks, supplied independently by RunScene.
 
@@ -12,5 +12,3 @@ func _draw() -> void:
 			_blit(icon, Vector2(x, 8))
 			_rank(Vector2(x + SKILL_ICON, 8 + SKILL_ICON), int(s.get("rank", 0)))
 		x += SKILL_ICON + SKILL_GAP
-
-
