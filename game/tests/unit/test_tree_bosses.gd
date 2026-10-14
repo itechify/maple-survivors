@@ -1,4 +1,4 @@
-﻿extends TestCase
+extends TestCase
 ## Tree bosses through the seeded fixed-tick world, including immunity at live impact time.
 const TF := preload("res://tests/fixtures/tree_boss_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -232,4 +232,3 @@ func test_immunity_and_encounter_identity_follow_relocation_but_not_pool_reuse()
 	assert_eq(w.mob_boss[reused], -1)
 	assert_eq(w.mob_summon_owner[reused], -1)
 	assert_true(w.physical_hit_allowed(reused), "new occupant has no inherited immunity")
-
