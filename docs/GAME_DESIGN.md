@@ -350,6 +350,37 @@ long platform above the ground (mobs walking to its near drop, one mid-fall at 1
 and 14:00; they are on their way in, not queueing. On the Hill the crowd presses the player along its own floor from
 5:00 (a row of snails on a small platform above, mobs dropping in at the screen edge).
 
+### 4.3 Boss encounter lifecycle (difficulty overhaul)
+
+Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
+15:00. The current encounters use canonical movement, contact attack and art; their skill kits are separate tickets.
+Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
+250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
+survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
+
+Initial survivor settings and calibration examples (tier C, not measured build predictions):
+
+| Boss | Canonical HP | Survivor HP multiplier | Touch multiplier | Typical HP / W.DEF | Whole touch damage |
+|---|---|---|---|---|---|
+| Mano | 2,000 | 2.0 | 1.75 | 300 / 7 | 125–149 (42–50%) |
+| Mushmom | 20,000 | 0.6 | 1.66 | 550 / 47 | 224–274 (41–50%) |
+| Blue Mushmom | 200,000 | 0.25 | 0.96 | 800 / 47 | 334–398 (42–50%) |
+
+The W.DEF 47 example includes the starter outfit and level-20 Magic Armor. Ticket #27 must validate actual HP pools,
+hit fractions and the 30/60/90 s fight-length targets after the economy and kits exist. `stage.bosses` stores these
+settings and the documented typical-stat inputs; `balance.bosses` stores warning time, placement and spawn reduction.
+
+While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
+Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
+(`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Clearing requires every scheduled boss dead;
+stages without a boss list retain their duration clear. Stage select states the applicable objective. The Tree's
+boss schedule arrives with its kit tickets.
+
+The balance harness continues until death/clear or `balance.run_time_cap` (initially 30:00, CLI `--cap` override).
+An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
+times and landed boss hits with whole damage, HP at impact and the damage/HP fraction. No survival/pacing claim
+follows from the calibration table alone.
+
 ## 5. Experience and levels
 
 Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
@@ -575,6 +606,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
+| Boss arrival and initial multipliers | Henesys 5/10/15 min; HP ×2/0.6/0.25; damage ×1.75/1.66/0.96 | C | survivor choices and documented calibration examples above |
+| Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
+| Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
+| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |

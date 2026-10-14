@@ -175,7 +175,7 @@ func despawn(i: int) -> bool:
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
-## Dying or free slots ignore hits. Only damage >= the kind's canonical pushed threshold starts stun/push.
+## Dying or free slots ignore hits. Bosses ignore stun/push; normal mobs require damage >= canonical pushed.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
 	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
@@ -192,7 +192,7 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		active[i] = 0
 		_alive -= 1
 		return true
-	if mk != null and dmg < mk.pushed:
+	if mk != null and (mk.boss or dmg < mk.pushed):
 		return false
 	state[i] = HIT
 	state_t[i] = 0.0

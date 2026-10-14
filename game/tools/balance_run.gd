@@ -42,6 +42,8 @@ const ENG_X := 400.0
 const ENG_Y := 200.0
 const STALE_S := 20.0
 const POLICIES := ["bot", "random", "first"]
+## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
+const DEFAULT_RUN_CAP := 1800.0
 
 
 func _init() -> void:
@@ -50,6 +52,7 @@ func _init() -> void:
 	var patch_file := ""
 	var policy := "bot"
 	var idle_after := -1.0
+	var cap := -1.0
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
@@ -61,6 +64,8 @@ func _init() -> void:
 			policy = a.substr(9)
 		elif a.begins_with("--idle-after="):
 			idle_after = float(a.substr(13))
+		elif a.begins_with("--cap="):
+			cap = float(a.substr(6))
 		elif a.begins_with("--seed="):
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
@@ -79,6 +84,8 @@ func _init() -> void:
 			quit(1)
 			return
 		deep_merge(data, patch)
+	if cap > 0.0:
+		data.balance["run_time_cap"] = cap
 	var missing := PackedStringArray()
 	var root := AssetCachePaths.resolve_cache_root()
 	var setup_base := DataRepo.build_setup(data, stage, 0, Vector2(800, 600),
@@ -129,6 +136,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
+	var boss_hits: Array = []
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
@@ -145,7 +153,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var eng_b := PackedInt64Array()
 	var stale_b := PackedInt64Array()
 	var live_b := PackedInt64Array()
-	var nb := int(ceil(w.duration / 30.0)) + 2
+	var cap := maxf(DT, float(w.balance.get("run_time_cap", DEFAULT_RUN_CAP)))
+	var nb := int(ceil(cap / 30.0)) + 2
 	eng_b.resize(nb)
 	stale_b.resize(nb)
 	live_b.resize(nb)
@@ -163,7 +172,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var max_alive := 0
 	var max_alive_t := 0.0
 	var job_t := -1.0
-	var ticks := int(round(w.duration / DT)) + 1
+	var ticks := ceili(cap / DT)
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
@@ -198,8 +207,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 						seen.resize(w.swarm.capacity())
 					seen[ms] = seen[from] if from >= 0 else w.time
 				"player_hit":
-					hits += 1
-					taken += int(e.damage)
+					if not bool(e.miss):
+						hits += 1
+						taken += int(e.damage)
+						if bool(e.boss):
+							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
+								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp))})
 				"pickup_collected":
 					exp_total += int(e.exp)
 				"level_up":
@@ -234,7 +247,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	choose(w, policy, rng, cards_taken)
 	var eng_min: Array = []
 	var stale_min: Array = []
-	for m in range(1, int(w.duration / 60.0) + 1):
+	for m in range(1, int(w.time / 60.0) + 1):
 		var lv := live_b[2 * m - 1] + live_b[2 * m]
 		eng_min.append(snappedf(float(eng_b[2 * m - 1] + eng_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
 		stale_min.append(snappedf(float(stale_b[2 * m - 1] + stale_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
@@ -242,7 +255,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
 	return {
-		"state": w.state_name(), "time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
+		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
+		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
+		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits,
+		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,

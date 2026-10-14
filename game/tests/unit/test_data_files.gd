@@ -131,7 +131,7 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(DataRepo.map_img_path(10000), "Map.wz/Map/Map0/000010000.img")
 	var mob_ids := DataRepo.stage_mob_ids(data, "henesys_hg1")
 	assert_eq(mob_ids, PackedInt32Array([100100, 100101, 120100, 130101, 210100, 1110100, 1210100, 1210102,
-		2300100, 9300062, 9300063, 9300064]))
+		2220000, 2300100, 6130101, 9300062, 9300063, 9300064, 9400205]))
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)

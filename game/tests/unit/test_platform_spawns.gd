@@ -12,6 +12,7 @@ func _world(half_width := 300.0, share := 0.35) -> RunWorld:
 	data.balance.spawn["platform_min_dist"] = 150.0
 	data.balance.spawn.recycle_dist = 5000.0
 	data.balance.spawn.stall_time = 0.0
+	data.stages.stages.quiet["hard_cap"] = 2000
 	data.stages.stages.quiet.keyframes = [{"t": 0, "rate": 60, "max_alive": 2000, "hp": 1,
 		"speed": 0, "damage": 1, "pool": {"100100": 1}}]
 	var s := RF.setup("quiet", 15, data)

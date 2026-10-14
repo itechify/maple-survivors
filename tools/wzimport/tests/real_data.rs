@@ -262,6 +262,39 @@ fn real_import_of_henesys_flyers_and_sounds() {
 }
 
 #[test]
+fn real_import_of_henesys_bosses_and_sounds() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let bosses = [2220000_u32, 6130101, 9400205];
+    for id in bosses {
+        assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
+    }
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-bosses-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format": 1, "mobs": bosses})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let read_json = |p: &str| -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap()
+    };
+    let sounds = read_json("Sound.wz/Mob.img.json");
+    for (id, hp, pad) in [(2220000, 2000, 90), (6130101, 20000, 200), (9400205, 200000, 450)] {
+        let mob = read_json(&format!("Mob.wz/{id:07}.img.json"));
+        assert_eq!(mob["info"]["maxHP"], hp);
+        assert_eq!(mob["info"]["PADamage"], pad);
+        assert_eq!(mob["info"]["boss"], 1);
+        assert!(mob["move"]["0"]["$canvas"].is_array(), "{id} movement art");
+        for action in ["Damage", "Die"] {
+            let path = sounds[format!("{id:07}")][action]["$sound"].as_str().unwrap_or_else(|| panic!("{id}/{action}"));
+            assert!(std::fs::metadata(out.join(path)).unwrap().len() > 0, "{id}/{action} audio");
+        }
+    }
+    std::fs::remove_dir_all(tmp).unwrap();
+}
+
+#[test]
 fn real_import_of_potion_icons_and_restore_specs() {
     let Some(root) = wz_root() else { return };
     let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();

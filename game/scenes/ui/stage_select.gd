@@ -32,7 +32,7 @@ var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
 var start_button: WzButton
 var back_button: WzButton
-## Stage keys in file order and their info: {key, map_id, name, street, mark, duration, mobs: PackedInt32Array}.
+## Stage keys in file order and their info: key, map_id, name, street, mark, duration, objective and normal mobs.
 var stages: Array[Dictionary] = []
 ## Selected stage index.
 var selected := 0
@@ -96,13 +96,23 @@ static func load_stages(data: Dictionary) -> Array[Dictionary]:
 		var info: Variant = UiArt.node(AssetLibrary.map_img_path(map_id) + "/info/mapMark")
 		if info is String:
 			mark = info
+		var count := (st.get("bosses", []) as Array).size()
+		var objective := "Survive %s to clear the stage." % Hud.format_time(float(st.get("duration", 0)))
+		if count > 0:
+			objective = "Defeat the boss to clear." if count == 1 else "Defeat all %d bosses to clear." % count
+		var roster := DataRepo.stage_mob_ids(data, key)
+		for boss: Dictionary in st.get("bosses", []):
+			var index := roster.find(int(boss.mob_id))
+			if index >= 0:
+				roster.remove_at(index)
 		out.append({"key": key, "map_id": map_id,
 			"name": String(names.get("mapName", st.get("name", key))),
 			"street": String(names.get("streetName", "")),
 			"mark": mark,
 			"duration": float(st.get("duration", 0)),
+			"objective": objective,
 			"note": String(st.get("note", "")),
-			"mobs": DataRepo.stage_mob_ids(data, key)})
+			"mobs": roster})
 	return out
 
 
@@ -222,7 +232,7 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	y += 16.0
 	MapleText.draw(ci, Vector2(x, y), String(st.street), INK_SOFT, MapleText.SMALL)
 	y += 18.0
-	MapleText.draw(ci, Vector2(x, y), "Survive %s to clear the stage." % Hud.format_time(float(st.duration)), INK,
+	MapleText.draw(ci, Vector2(x, y), String(st.objective), INK,
 		MapleText.SMALL)
 	y += 15.0
 	var note := String(st.get("note", ""))
@@ -235,26 +245,25 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	y += 18.0
 	var mobs: PackedInt32Array = st.mobs
 	var cols := int(DETAIL_W / ROSTER_CELL.x)
+	var rows := maxi(1, ceili(float(mobs.size()) / cols))
+	var cell_size := Vector2(ROSTER_CELL.x, minf(ROSTER_CELL.y, (r.end.y - 6.0 - y) / rows))
 	for i in mobs.size():
-		var cell := Vector2(x + (i % cols) * ROSTER_CELL.x, y + int(i / cols) * ROSTER_CELL.y)
-		_draw_mob(ci, mobs[i], cell)
+		var cell := Vector2(x + (i % cols) * cell_size.x, y + int(i / cols) * cell_size.y)
+		_draw_mob(ci, mobs[i], cell, cell_size)
 
 
-func _draw_mob(ci: Control, mob_id: int, cell: Vector2) -> void:
+func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> void:
 	var f := _mob_frame(mob_id)
-	var feet := cell + Vector2(ROSTER_CELL.x * 0.5, ROSTER_CELL.y - ROSTER_FEET)
 	if f != null:
-		# Mobs taller than the cell are drawn from their feet up to the cell top (cut), never scaled.
-		var top := f.top_left(feet)
-		var src := Rect2(Vector2.ZERO, f.region.size)
-		if top.y < cell.y:
-			src.position.y = cell.y - top.y
-			src.size.y -= src.position.y
-			top.y = cell.y
-		UiArt.blit_part(ci, f, src, top)
+		# Fit the entire preview canvas above its two name lines; the in-run sprites keep native scale.
+		var icon_box := Vector2(cell_size.x - 4.0, cell_size.y - ROSTER_FEET)
+		var scale := minf(1.0, minf(icon_box.x / f.size().x, icon_box.y / f.size().y))
+		var size := (f.size() * scale).floor()
+		var top := cell + Vector2((cell_size.x - size.x) * 0.5, icon_box.y - size.y)
+		ci.draw_texture_rect(f.texture, Rect2(top.floor(), size), false)
 	var lib := UiArt.lib()
 	var nm := lib.string_name("Mob", mob_id) if lib != null else str(mob_id)
-	var y := cell.y + ROSTER_CELL.y - ROSTER_FEET + 1.0
+	var y := cell.y + cell_size.y - ROSTER_FEET + 1.0
 	for line in MapleText.wrap(nm, ROSTER_CELL.x + 2.0, MapleText.SMALL).slice(0, 2):
 		MapleText.draw_centered(ci, cell.x - 1.0, y, ROSTER_CELL.x + 2.0, line, INK, MapleText.SMALL)
 		y += MapleText.LINE_SMALL - 1.0
@@ -266,7 +275,11 @@ func _mob_frame(mob_id: int) -> SpriteFrame:
 	var lib := UiArt.lib()
 	var f: SpriteFrame = null
 	if lib != null:
-		f = UiArt.frame(lib.mob_anim_img_path(mob_id) + "/stand/0")
+		var root := lib.mob_root(mob_id)
+		for stance: String in ["stand", "fly", "move"]:
+			if root.get(stance) is Dictionary:
+				f = UiArt.frame(lib.mob_anim_img_path(mob_id) + "/" + stance + "/0")
+				break
 	_mob_frames[mob_id] = f
 	return f
 

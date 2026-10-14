@@ -63,6 +63,13 @@ const MOB_INFO := {
 	9300062: {"level": 8, "maxHP": 80, "exp": 10, "PADamage": 25, "PDDamage": 5, "MDDamage": 30, "flySpeed": -30},
 	9300064: {"level": 11, "maxHP": 155, "exp": 22, "PADamage": 35, "PDDamage": 10, "MDDamage": 40, "flySpeed": -50},
 	2300100: {"level": 20, "maxHP": 300, "exp": 33, "PADamage": 85, "PDDamage": 20, "MDDamage": 20, "flySpeed": 5},
+	# Boss reference facts from the owner's v83 dumps; all frames remain synthetic snail-like art.
+	2220000: {"level": 20, "maxHP": 2000, "exp": 120, "PADamage": 90, "PDDamage": 20,
+		"MDDamage": 30, "speed": -40, "acc": 60, "boss": 1, "pushed": 1},
+	6130101: {"level": 60, "maxHP": 20000, "exp": 1200, "PADamage": 200, "PDDamage": 320,
+		"MDDamage": 320, "speed": 5, "acc": 150, "boss": 1, "pushed": 1000},
+	9400205: {"level": 90, "maxHP": 200000, "exp": 10000, "PADamage": 450, "PDDamage": 810,
+		"MDDamage": 520, "speed": -20, "acc": 220, "boss": 1, "pushed": 1000},
 }
 
 
