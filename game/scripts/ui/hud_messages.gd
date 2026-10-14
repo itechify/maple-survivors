@@ -1,11 +1,20 @@
 class_name HudMessages
 extends HudWidget
-## Transient system messages above the status bar, with the original lifetime and fade.
+## Transient system messages above the status bar, plus a persistent cue while a skill waits for MP.
 
 var _messages: Array[Dictionary] = []
 
 func _draw() -> void:
-	_draw_messages(bar_origin(get_viewport_rect().size))
+	var origin := bar_origin(get_viewport_rect().size)
+	_draw_messages(origin)
+	if low_mp_visible():
+		# tier C: low-MP cue above the six-line EXP message area, in warm red with the standard text outline.
+		_text(origin + Vector2(MSG_INSET.x, -MSG_INSET.y - MSG_MAX * MSG_LINE), "Not enough MP", Color8(255, 112, 96))
+
+
+## Whether the persistent low-MP cue is visible in the current run snapshot.
+func low_mp_visible() -> bool:
+	return bool(player_state.get("mp_short", false))
 
 ## Adds a system message, evicting the oldest when the message area is full.
 func push_message(text: String, color: Color = SYSTEM_YELLOW) -> void:

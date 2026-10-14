@@ -46,7 +46,7 @@ func _ready() -> void:
 ## Compatibility entry point for callers displaying a HUD without a run scene.
 func update(ps: Dictionary, info: Dictionary) -> void:
 	store_state(ps, info)
-	for w: HudWidget in [status, counters, skills]:
+	for w: HudWidget in [status, counters, skills, system_messages]:
 		w.update(ps, info)
 	for w: HudReservedSlot in [potion_slot, buff_row, boss_bar]:
 		w.update(ps, info)
@@ -67,6 +67,11 @@ func show_exp(n: int) -> void:
 ## Returns currently visible message lines.
 func messages() -> Array[Dictionary]:
 	return system_messages.messages()
+
+
+## Whether a ready skill is waiting for MP in the current HUD snapshot.
+func low_mp_visible() -> bool:
+	return system_messages.low_mp_visible()
 
 ## Advances message lifetimes for tests and non-processing hosts.
 func advance_messages(dt: float) -> void:

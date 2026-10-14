@@ -125,3 +125,47 @@ func test_bot_drink_threshold_comes_from_survivor_data() -> void:
 	for i in 5:
 		w.drink_potion("hp")
 	assert_false(BotInput.decide(w, {}).drink_hp, "no stock means no drink request")
+
+
+func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 300
+	data.balance.player.skills = []
+	var w := RunWorld.new(RF.setup("quiet", 10, data))
+	RF.change_job_bare(w, 200)
+	RF.place_player(w, 400)
+	w.learn_skill("energy_bolt")
+	RF.put_mob(w, 1110100, 550, 190, 100)
+	w.mob_kinds[int(w.kind_of_id[1110100])].move_speed = 0
+	w.spend_mp(int(w.player_state.mp) - 5)
+	w.spawn_potion("mp", w.player.pos - Vector2(0, 25), 2)
+	w.step(DT, MoveInput.new())
+	assert_true(w.player_state.mp_short)
+	assert_eq(w.player_state.potions.mp.count, 2)
+	assert_true(BotInput.decide(w, {}).drink_mp, "bot drinks below the configured MP threshold")
+	w.balance.potions.bot.mp_threshold = 0.01
+	assert_false(BotInput.decide(w, {}).drink_mp, "MP threshold is data-driven too")
+	w.drain_events()
+	assert_true(w.drink_potion("mp"))
+	assert_eq(w.player_state.mp, 105, "Blue Potion restores exactly canonical 100 MP immediately")
+	w.step(DT, MoveInput.new())
+	var events := w.drain_events()
+	var casts := events.filter(func(e: Dictionary) -> bool: return e.type == "cast")
+	assert_eq(casts.size(), 1, "the waiting skill fires on the first tick after the drink")
+	assert_eq(casts[0].skill, "energy_bolt")
+	assert_eq(w.player_state.mp, 99, "100 restored, then canonical 6 spent")
+	assert_false(w.player_state.mp_short)
+	assert_eq(w.potions.used.mp, 1)
+	assert_eq(events[0].type, "potion_used")
+	assert_eq(events[0].restored, 100)
+	# Input presses share the same restoration-before-casting ordering (instant even during a multi-tick frame).
+	w.spend_mp(99)
+	for i in 60:
+		w.step(DT, MoveInput.new())
+	w.drain_events()
+	var input := MoveInput.new()
+	input.drink_mp = true
+	w.step(DT, input)
+	assert_eq(w.player_state.mp, 94)
+	assert_eq(w.player_state.potions.mp.count, 0)
+	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1)

@@ -937,7 +937,8 @@ func _update_hud() -> void:
 	var ps := world.player_state
 	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
 		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
-		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id)])
+		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
+		int(bool(ps.get("mp_short", false)))])
 	if sig == _hud_sig:
 		return
 	_hud_sig = sig
@@ -946,6 +947,7 @@ func _update_hud() -> void:
 	hud.status.update(ps, info)
 	hud.counters.update(ps, info)
 	hud.skills.update(ps, info)
+	hud.system_messages.update(ps, info)
 	hud.potion_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
 	hud.boss_bar.update(ps, info)
