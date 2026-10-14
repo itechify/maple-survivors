@@ -7,6 +7,8 @@ const LEVELS := {126: 7, 200: 78, 112: 1, 113: 1}
 static func setup(ids: Array = [126], seed_value: int = 22) -> Dictionary:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
+	# Timer/area tests hold the synthetic boss still; separate lifecycle tests cover pursuit teleport.
+	data.balance.bosses.teleport_stall = 10000.0
 	data.balance.mob_motion.push_px = 0
 	data.balance.magnet_radius = 0
 	data.stages.stages.quiet.bosses = [{"time": 0.0, "mob_id": 2220000, "summon_ids": [100100, 100101, 130101]}]

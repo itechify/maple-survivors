@@ -271,38 +271,6 @@ func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 	_assert_nothing_missing(scene, "mushroom slam")
 
 
-func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
-	if not require_cache():
-		return
-	scene = _make("tree_that_grew_1", 2406, {})
-	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
-	entry.time = 0.5
-	entry.attacks = ["attack2"]
-	scene.world.bosses = BossDirector.new([entry])
-	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
-	scene.world.mob_skills.resize(scene.world.swarm.capacity())
-	scene.world.loadout.order.clear()
-	scene.world.loadout.ranks.clear()
-	scene.world.god = true
-	var drawn := 0
-	for tick in 900:
-		scene.advance_frame(DT)
-		drawn = maxi(drawn, scene.mob_shots.visible_count())
-		if drawn > 0:
-			break
-	assert_true(drawn > 0, "monster pool is drawn by its own batched renderer")
-	var effects := scene.fx.active_count()
-	var slot := int(scene.world.bosses.records[0].slot)
-	var pos := Vector2(scene.world.swarm.x[slot], scene.world.swarm.y[slot])
-	scene.handle_events([{"type": "boss_skill", "mob": slot, "mob_id": 3220000, "skill_id": 114,
-		"level": 15, "pos": pos, "facing": -1, "action": "skill1", "duration": 1.0,
-		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": ""},
-		{"type": "mob_healed", "mob": slot, "mob_id": 3220000, "amount": 350, "pos": pos}])
-	assert_eq(scene.fx.active_count(), effects + 1)
-	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
-	_assert_nothing_missing(scene, "Stumpy presentation")
-
-
 func test_cast_plays_the_action_stance_while_standing() -> void:
 	if not require_cache():
 		return
@@ -799,6 +767,41 @@ func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> voi
 		scene.free()
 		scene = null
 
+func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	sfx.library = lib
+	scene = _make("henesys_hg1",22,{})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.bosses.teleport_stall = 10000.0
+	data.stages.stages.henesys_hg1.bosses = [{"mob_id":2220000,"time":0.0}]
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data,"henesys_hg1",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root,lib.mob_root)
+	setup.mob_imgs[2220000] = setup.mob_imgs[2220000].duplicate(true)
+	setup.mob_imgs[2220000].info.skill = {"0":{"skill":126.0,"level":7.0,"action":1.0,"effectAfter":0.0}}
+	setup.mob_imgs[2220000].info.speed = -100.0
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	_frames(901)
+	var slot := int(w.bosses.records[0].slot)
+	assert_eq(w.player.speed_stat,80)
+	assert_eq(w.bosses.action_snapshot(w.swarm).actions[slot],"skill1","canonical boss skill stance")
+	assert_true(scene.fx.active_count() >= 1,"slow affected animation plays")
+	w.swarm.despawn(slot)
+	_frames(60)
+	scene.fx.advance(1.0)
+	assert_true(scene.fx.active_count() >= 1,"repeat-marked slow art outlives its single 350ms cycle")
+	_frames(840)
+	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
+	_assert_nothing_missing(scene,"Mano slow")
+	sfx.library = previous_library
+
 
 func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
 	if not require_cache():
@@ -825,32 +828,61 @@ func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> vo
 	_assert_nothing_missing(scene, "boss reward")
 
 
-func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() -> void:
+func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1",22,{})
-	var data := scene.data.duplicate(true)
-	data.balance.player.skills = []
-	data.stages.stages.henesys_hg1.bosses = [{"mob_id":2220000,"time":0.0}]
-	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
-		keyframe.rate = 0
-		keyframe.max_alive = 0
-	var setup := DataRepo.build_setup(data,"henesys_hg1",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root,lib.mob_root)
-	setup.mob_imgs[2220000] = setup.mob_imgs[2220000].duplicate(true)
-	setup.mob_imgs[2220000].info.skill = {"0":{"skill":126.0,"level":7.0,"action":1.0,"effectAfter":0.0}}
-	setup.mob_imgs[2220000].info.speed = -100.0
-	scene.world = RunWorld.new(setup)
+	scene = _make("henesys_hg1", 12, {})
 	var w := scene.world
-	w.god = true
-	_frames(901)
-	var slot := int(w.bosses.records[0].slot)
-	assert_eq(w.player.speed_stat,80)
-	assert_eq(w.bosses.action_snapshot(w.swarm).actions[slot],"skill1","canonical boss skill stance")
-	assert_true(scene.fx.active_count() >= 1,"slow affected animation plays")
-	w.swarm.despawn(slot)
-	_frames(60)
-	scene.fx.advance(1.0)
-	assert_true(scene.fx.active_count() >= 1,"repeat-marked slow art outlives its single 350ms cycle")
-	_frames(840)
-	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
-	_assert_nothing_missing(scene,"Mano slow")
+	w.change_job(200)
+	w.loadout.ranks.erase("energy_bolt")
+	w.loadout.order.erase("energy_bolt")
+	w.learn_skill("magic_guard")
+	w.learn_skill("magic_armor")
+	_frames(2)
+	assert_eq((w.player_state.get("buffs", []) as Array).size(), 2)
+	assert_true(scene.hud.buff_row.has_method("displayed"), "dedicated buff widget exposes its draw model")
+	if scene.hud.buff_row.has_method("displayed"):
+		for frame in [0, 90]:
+			_frames(frame)
+			var slots: Array = scene.hud.buff_row.call("displayed")
+			assert_eq(slots.size(), 2)
+			for i in slots.size():
+				assert_eq(slots[i].skill_id, w.player_state.buffs[i].skill_id)
+				assert_eq(slots[i].remaining_seconds, ceili(w.player_state.buffs[i].remaining))
+				assert_true(slots[i].icon != null)
+	assert_eq(w.upgrades.choice_card("magic_guard_rank", w).skill_changes,
+		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 195}, "x": {"before": 11, "after": 23}})
+	assert_eq(w.upgrades.choice_card("magic_armor_rank", w).skill_changes,
+		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 110}, "pdd": {"before": 2, "after": 10}})
+	_assert_nothing_missing(scene, "player buffs")
+
+func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 2406, {})
+	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
+	entry.time = 0.5
+	entry.attacks = ["attack2"]
+	scene.world.bosses = BossDirector.new([entry])
+	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
+	scene.world.mob_skills.resize(scene.world.swarm.capacity())
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	scene.world.god = true
+	var drawn := 0
+	for tick in 900:
+		scene.advance_frame(DT)
+		drawn = maxi(drawn, scene.mob_shots.visible_count())
+		if drawn > 0:
+			break
+	assert_true(drawn > 0, "monster pool is drawn by its own batched renderer")
+	var effects := scene.fx.active_count()
+	var slot := int(scene.world.bosses.records[0].slot)
+	var pos := Vector2(scene.world.swarm.x[slot], scene.world.swarm.y[slot])
+	scene.handle_events([{"type": "boss_skill", "mob": slot, "mob_id": 3220000, "skill_id": 114,
+		"level": 15, "pos": pos, "facing": -1, "action": "skill1", "duration": 1.0,
+		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": ""},
+		{"type": "mob_healed", "mob": slot, "mob_id": 3220000, "amount": 350, "pos": pos}])
+	assert_eq(scene.fx.active_count(), effects + 1)
+	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
+	_assert_nothing_missing(scene, "Stumpy presentation")

@@ -16,6 +16,7 @@
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 1.48,
 					"_attacks": "tier C: separate scaling brings canonical attack300 into the typical800HP band; touch remains canonical450 with dmg_mult0.96"}
 
+
 			],
 			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,

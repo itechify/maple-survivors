@@ -31,7 +31,7 @@ var _flip: PackedByteArray = []
 var _hold: PackedByteArray = []
 var _active: PackedByteArray = []
 var _follow: Array = []
-## 0 = normal, 1 = tomb falling, 2 = tomb landed.
+## 0 = normal, 1 = tomb falling, 2 = tomb landed, 3 = repeating status art.
 var _mode: PackedByteArray = []
 var _repeat_left := PackedFloat32Array()
 var _free: PackedInt32Array = []
