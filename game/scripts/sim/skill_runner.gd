@@ -42,7 +42,6 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 
 ## Advances cooldowns and fires every ready skill that has a target.
 func step(dt: float, world: RunWorld) -> void:
-	fired_this_tick = false
 	tick_cooldowns(dt, world)
 	if world.can_cast():
 		cast_ready(dt, world)
@@ -50,6 +49,7 @@ func step(dt: float, world: RunWorld) -> void:
 
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
+	fired_this_tick = false
 	for key: String in world.loadout.order:
 		if world.loadout.book.is_active(key):
 			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt

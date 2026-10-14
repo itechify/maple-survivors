@@ -30,7 +30,7 @@ func test_shared_hit_uses_existing_formula_and_guard() -> void:
 
 func test_cast_tick_signal_and_cooldowns() -> void:
 	var w := RF.quiet_world()
-	assert_true(w.can_cast(), "the prefactor keeps climbing casts allowed until ticket #9")
+	assert_true(w.can_cast(), "the prefactor keeps climbing casts allowed until ticket #8")
 	w.step(DT, MoveInput.new())
 	assert_false(w.runner.fired_this_tick, "no target")
 	var p := w.player.pos + Vector2(70, 0)
@@ -39,6 +39,8 @@ func test_cast_tick_signal_and_cooldowns() -> void:
 	w.step(DT, MoveInput.new())
 	assert_true(w.runner.fired_this_tick, "a target triggers the current skill path")
 	var cd := float(w.runner.cooldowns.three_snails)
-	w.step(DT, MoveInput.new())
+	w.runner.tick_cooldowns(DT, w)
 	assert_false(w.runner.fired_this_tick, "cooldown tick does not cast")
 	assert_near(float(w.runner.cooldowns.three_snails), cd - DT, 1e-6)
+	w.runner.cast_ready(DT, w)
+	assert_false(w.runner.fired_this_tick, "separate cast phase still waits for the cooldown")
