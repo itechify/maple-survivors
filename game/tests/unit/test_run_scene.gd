@@ -317,7 +317,8 @@ func test_level_up_opens_the_window() -> void:
 	scene = _make("henesys_hg1", 11, {})
 	var w := scene.world
 	_frames(2)
-	w.pickups.spawn(w.player.pos, 20, 4000019)
+	# Exercise opening a choice, independently of the tuned first-level EXP cost.
+	w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
 	var ticks := 0
 	while int(w.player_state.level) < 2 and ticks < 120:
 		scene.advance_frame(DT)
