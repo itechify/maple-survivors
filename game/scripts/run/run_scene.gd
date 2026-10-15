@@ -10,9 +10,10 @@ extends Node2D
 ## Options (configure()): autoplay (BotInput drives the player), autopick (BotInput's choices are taken at once and
 ## no window opens: the first available job and BotInput.pick_card_for's card; automated runs and benchmarks), speed
 ## (sim ticks per 60 Hz frame; implemented as Engine.time_scale so effects keep pace), shots_dir + shot_every (PNG
-## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json and
-## quits the app), perf (perf overlay on at start with autoplay), name (character name), use_flow (default true;
-## false = only emit run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
+## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json, saves
+## final.png when a frame is drawn within FINAL_SHOT_TIMEOUT real seconds (else logs that it was skipped) and quits),
+## perf (perf overlay on at start with autoplay), name (character name), use_flow (default true; false = only emit
+## run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
 ## with BotInput's choice after that long; demos and evidence runs), warp (run seconds: before the first frame the sim is
 ## fast-forwarded to that time by BotInput with autopick, nothing drawn; perf runs of the late game in real time).
 ##
@@ -85,6 +86,9 @@ const PLAYER_KEY := 1 << 20
 const PERF_WINDOW := 2.0
 const PERF_REFRESH := 0.25
 const PERF_WARMUP_FRAMES := 60
+## Real seconds an automated run waits for a drawn frame to save final.png before quitting without it (an occluded or
+## minimized window draws nothing, so RenderingServer.frame_post_draw never fires). Ignores Engine.time_scale.
+const FINAL_SHOT_TIMEOUT := 5.0
 
 ## Configuration (configure()).
 var stage_key := "henesys_hg1"
@@ -1277,8 +1281,19 @@ func _automation_end(summary: Dictionary) -> void:
 	if _shots_dir != "" and DisplayServer.get_name() != "headless":
 		_quit_after_capture = true
 		_request_shot("final.png")
+		get_tree().create_timer(FINAL_SHOT_TIMEOUT, true, false, true).timeout.connect(_quit_without_final_shot)
 	else:
 		get_tree().quit()
+
+
+## --quit-after fallback: no frame was drawn in FINAL_SHOT_TIMEOUT real seconds, so quit without final.png.
+func _quit_without_final_shot() -> void:
+	if not _quit_after_capture:
+		return
+	_quit_after_capture = false
+	print("RunScene: final.png skipped: no frame was drawn within %.0f s (window occluded or minimized?)"
+		% FINAL_SHOT_TIMEOUT)
+	get_tree().quit()
 
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
@@ -1358,6 +1373,7 @@ func _capture() -> void:
 	_shot_queue.clear()
 	_skip_perf_frames = 2
 	if _quit_after_capture:
+		_quit_after_capture = false
 		get_tree().quit()
 
 
