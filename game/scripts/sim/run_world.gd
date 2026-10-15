@@ -84,8 +84,8 @@ const DEFAULT_VIEW := Vector2(800, 600)
 ## tier B: pre-Big-Bang avoidability formula, Exoot 2009 (refs/research/v83-mechanics/notes.md).
 const AVOID_DEX_FACTOR := 0.25
 const AVOID_LUK_FACTOR := 0.5
-## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
-const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
+## balance.regen fallback (PlayerUpkeep owns the pulse clock).
+const DEFAULT_REGEN := PlayerUpkeep.DEFAULT_REGEN
 ## tier C: the survivor starter attributes; balance.player.stats overrides each one.
 const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
 ## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
@@ -135,6 +135,8 @@ var projectiles: ProjectileSystem
 var pickups: PickupSystem
 var potions: PotionInventory
 var buffs := PlayerBuffs.new()
+## Buff, invincibility, cast-hold and regeneration timers.
+var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
@@ -192,13 +194,8 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _dead := false
-var _invincible_t := 0.0
-var _regen_elapsed := 0.0
-var _cast_action := ""
-var _action_airborne := false
 var basic: BasicAttack
 var basic_rng: RandomNumberGenerator
-var _cast_left := 0.0
 var _action := ""
 var _action_t := 0.0
 var _job_checked := false
@@ -216,6 +213,21 @@ func _init(p_setup: Dictionary = {}) -> void:
 	stage = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	duration = float(stage.get("duration", 900.0))
 	seed_value = int(setup.get("seed", 0))
+	view_size = setup.get("view_size", DEFAULT_VIEW)
+	_init_rng_streams()
+	_init_map()
+	_init_mobs()
+	_init_drops_and_shots()
+	_init_skills_and_progression()
+	_init_directors()
+	_init_player_motion()
+	_init_player()
+	update_view()
+	_write_player_state(0.0)
+
+
+## One seeded stream per owner (see the header).
+func _init_rng_streams() -> void:
 	rng = _stream(1)
 	basic_rng = _stream(5)
 	spawn_rng = _stream(2)
@@ -223,7 +235,10 @@ func _init(p_setup: Dictionary = {}) -> void:
 	drop_rng = _stream(4)
 	potion_rng = _stream(7)
 	reward_rng = _stream(6)
-	view_size = setup.get("view_size", DEFAULT_VIEW)
+
+
+## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
+func _init_map() -> void:
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))
 	fhm = FootholdMap.from_wz(map_img)
@@ -233,6 +248,10 @@ func _init(p_setup: Dictionary = {}) -> void:
 	var nav_opts := {"gravity": physics.gravity_acc, "fall_speed": physics.fall_speed, "jump_speed": physics.jump_speed}
 	nav = NavGraph.build(fhm, nav_opts.merged({"can_jump": false}))
 	nav_jump = NavGraph.build(fhm, nav_opts.merged({"can_jump": true}))
+
+
+## Mob kinds, the swarm with its per-slot arrays, its spatial hash and its step context.
+func _init_mobs() -> void:
 	_build_mob_kinds()
 	body_pad = ProjectileSystem.max_body_extent(mob_kinds)
 	swarm = MobSwarm.new(256, mob_kinds, balance.get("mob_motion", {}))
@@ -241,6 +260,12 @@ func _init(p_setup: Dictionary = {}) -> void:
 	mob_boss.resize(swarm.capacity())
 	mob_boss.fill(-1)
 	mob_grid = SpatialHash.new(64.0, bounds.grow(64.0))
+	_ctx = {"fhm": fhm, "nav": nav, "nav_jump": nav_jump, "bounds": bounds, "physics": physics,
+		"target": Vector2.ZERO, "target_fh": -1, "speed_mult": 1.0}
+
+
+## Player shots, EXP/potion drops and the potion stock.
+func _init_drops_and_shots() -> void:
 	projectiles = ProjectileSystem.new(64, rng)
 	projectiles.paths = visual_paths
 	projectiles.bounds = bounds
@@ -251,6 +276,10 @@ func _init(p_setup: Dictionary = {}) -> void:
 	pk["fall_speed"] = physics.fall_speed
 	pickups = PickupSystem.new(128, pk, drop_rng)
 	potions = PotionInventory.new(balance.get("potions", {}), setup.get("item_info", {}))
+
+
+## Skill book, loadout, casters, EXP curve, job tree and upgrade cards.
+func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
 	var crit: Dictionary = balance.get("crit", {})
@@ -262,19 +291,23 @@ func _init(p_setup: Dictionary = {}) -> void:
 		int(balance.get("max_level", 200)))
 	jobs = JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 	upgrades = UpgradePool.from_data(data.get("upgrades", {}))
+
+
+## Ordinary spawning, the boss schedule and the bosses' canonical skills.
+func _init_directors() -> void:
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
+
+
+## The player's movement model (with the survivor knockback) and per-tick timers.
+func _init_player_motion() -> void:
 	var kb: Dictionary = balance.get("knockback", {})
 	player = PlayerMotion.new(physics, {
 		"knockback_speed": float(kb.get("speed", 187.5)), "knockback_hop": float(kb.get("hop", 200.0)),
 		"knockback_lock": float(kb.get("lock", 0.3)),
 	})
-	_ctx = {"fhm": fhm, "nav": nav, "nav_jump": nav_jump, "bounds": bounds, "physics": physics,
-		"target": Vector2.ZERO, "target_fh": -1, "speed_mult": 1.0}
-	_init_player()
-	update_view()
-	_write_player_state(0.0)
+	upkeep = PlayerUpkeep.new(buffs, balance.get("regen", DEFAULT_REGEN))
 
 
 ## Name of the current state ("PLAYING", ...).
@@ -366,21 +399,43 @@ func step(dt: float, input: MoveInput) -> void:
 		return
 	time += dt
 	refresh_player_speed()
+	_step_player(dt, input)
+	_step_monsters(dt)
+	_step_player_attacks(dt)
+	var got := _step_pickups(dt)
+	_touch()
+	if got > 0 and not _dead:
+		_gain_exp(got)
+	_write_player_state(dt)
+	_end_tick()
+
+
+## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
+func _step_player(dt: float, input: MoveInput) -> void:
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
-	var warp := portals.step(dt, player.pos, input.up)
-	var flags := 0
-	if warp.is_empty():
-		flags = player.step(dt, input, fhm, ladders, bounds)
-	else:
-		player.place(warp.pos, fhm)
-		emit("portal_used", warp)
-	if flags & PlayerMotion.EV_JUMP:
-		emit("player_jump", {"pos": player.pos})
+	if not _take_portal(dt, input):
+		var flags := player.step(dt, input, fhm, ladders, bounds)
+		if flags & PlayerMotion.EV_JUMP:
+			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## Holding Up in a same-map portal's box places the player at its destination (emits portal_used); true when warped.
+func _take_portal(dt: float, input: MoveInput) -> bool:
+	var warp := portals.step(dt, player.pos, input.up)
+	if warp.is_empty():
+		return false
+	player.place(warp.pos, fhm)
+	emit("portal_used", warp)
+	return true
+
+
+## Swarm movement, the boss lifecycle, boss skills/attacks, monster balls, ordinary spawns and the mob hash.
+func _step_monsters(dt: float) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
@@ -390,11 +445,13 @@ func step(dt: float, input: MoveInput) -> void:
 	mob_skills.step(self)
 	boss_attacks.step(self)
 	mob_projectiles.step(dt, self)
-
-
 	director.step(dt, self)
 	_sync_slots()
 	mob_grid.rebuild(swarm.x, swarm.y, swarm.active, swarm.capacity())
+
+
+## Auto-casts, the basic swing, then the player's shots against live defense/immunity; kills drop their rewards.
+func _step_player_attacks(dt: float) -> void:
 	runner.step(dt, self)
 	basic.step(dt, self)
 	_live_mdd.resize(swarm.capacity())
@@ -407,13 +464,18 @@ func step(dt: float, input: MoveInput) -> void:
 	for m in projectiles.kills:
 		_on_kill(m)
 	damage_dealt = projectiles.dealt + _instant_dealt
+
+
+## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
+func _step_pickups(dt: float) -> int:
 	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
-	_touch()
-	if got > 0 and not _dead:
-		_gain_exp(got)
-	_write_player_state(dt)
+	return got
+
+
+## After a living tick: boss bonus choices first, then the clear, then queued level-ups.
+func _end_tick() -> void:
 	if _dead:
 		return
 	if pending_bonus_choices > 0:
@@ -672,11 +734,7 @@ func face_toward(tx: float) -> void:
 
 ## Starts a stance for its frame time; airborne opts basic swings into the same visual without changing motion.
 func start_action(action: String, seconds: float, airborne: bool = false) -> void:
-	if action == "" or seconds <= 0.0:
-		return
-	_cast_action = action
-	_cast_left = seconds
-	_action_airborne = airborne
+	upkeep.start_action(action, seconds, airborne)
 
 
 ## Canonical starter weapon selected by the current job's survivor-data rule.
@@ -801,42 +859,13 @@ func _init_player() -> void:
 		body = Rect2(float(b[0]), float(b[1]), float(b[2]), float(b[3]))
 	cast_height = float(pb.get("cast_height", DEFAULT_CAST_HEIGHT))
 	cast_forward = float(pb.get("cast_forward", DEFAULT_CAST_FORWARD))
-	player.place(_start_point(), fhm)
+	player.place(PortalSet.start_point(setup.get("map_img", {}), fhm, bounds, spawn_rng), fhm)
 	refresh_player_stats()
 	_hp = _max_hp
 	_mp = _max_mp
 	for key: Variant in pb.get("skills", []):
 		learn_skill(String(key))
 	_action = player.stance()
-
-
-## A random spawn portal (pn "sp") dropped onto the floor below it; else the middle of the widest platform.
-func _start_point() -> Vector2:
-	var pts: Array = []
-	var portals: Variant = setup.get("map_img", {}).get("portal", {})
-	if portals is Dictionary:
-		for k: String in portals:
-			var p: Variant = portals[k]
-			if p is Dictionary and String(p.get("pn", "")) == "sp":
-				pts.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
-	while not pts.is_empty():
-		var i := spawn_rng.randi_range(0, pts.size() - 1)
-		var p: Vector2 = pts[i]
-		var f := fhm.find_below(p.x, p.y)
-		if f >= 0:
-			return Vector2(p.x, fhm.y_at(f, p.x))
-		pts.remove_at(i)
-	var best := -1
-	for p in fhm.platform_count():
-		var s := fhm.platform_span(p)
-		if best < 0 or s.y - s.x > fhm.platform_span(best).y - fhm.platform_span(best).x:
-			best = p
-	if best < 0:
-		return bounds.get_center()
-	var mid := fhm.platform_span(best)
-	var cx := (mid.x + mid.y) * 0.5
-	var f := fhm.platform_fh_at(best, cx)
-	return Vector2(cx, fhm.y_at(f, cx)) if f >= 0 else bounds.get_center()
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
@@ -854,20 +883,13 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
-	_hp = minf(_max_hp, _hp + buffs.step(dt, events))
-	_invincible_t = maxf(0.0, _invincible_t - dt)
-	_cast_left = maxf(0.0, _cast_left - dt)
-	if not _dead:
-		var regen: Dictionary = balance.get("regen", DEFAULT_REGEN)
-		var interval := maxf(0.01, float(regen.get("interval", DEFAULT_REGEN.interval)))
-		_regen_elapsed += dt
-		while _regen_elapsed >= interval - 1e-9:
-			_regen_elapsed = maxf(0.0, _regen_elapsed - interval)
-			_hp = minf(_max_hp, _hp + float(regen.get("hp", DEFAULT_REGEN.hp)) + hp_regen)
-			# tier B: pre-Big-Bang Improved MP Recovery rule, rounded to whole MP.
-			var bonus := floorf(float(progression.level * loadout.level("improved_mp_recovery"))
-				/ maxf(1.0, float(regen.get("improved_mp_divisor", DEFAULT_REGEN.improved_mp_divisor))))
-			_mp = minf(_max_mp, _mp + float(regen.get("mp", DEFAULT_REGEN.mp)) + mp_regen + bonus)
+	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
+	if _dead:
+		return
+	for _pulse in upkeep.regen_pulses(dt):
+		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen)
+		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen
+			+ upkeep.improved_mp_bonus(progression.level, loadout.level("improved_mp_recovery")))
 
 
 func _sync_slots() -> void:
@@ -889,23 +911,17 @@ func _sync_slots() -> void:
 
 func _on_kill(m: int) -> void:
 	kills += 1
-	var mk: MobKind = mob_kinds[swarm.kind[m]]
+	var mk := swarm.mob_kind(m)
 	var elite := mob_elite[m] != 0
+	var pos := swarm.pos(m)
+	if mob_boss[m] >= 0:
+		_on_boss_kill(m, mk, pos, elite)
+		return
 	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
 	var e := roundi(mk.exp * mult)
-	var pos := Vector2(swarm.x[m], swarm.y[m])
-	var boss_rewards := {}
-	if mob_boss[m] >= 0:
-		boss_rewards = bosses.reward_config(mob_boss[m])
-		e = maxi(0, roundi(mk.exp * float(boss_rewards.get("exp_mult", 1.0))))
-		bosses.mark_dead(mob_boss[m], m, pos, self)
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
-	if mob_boss[m] >= 0:
-		_spawn_revives(m, pos)
-		_drop_boss_rewards(pos, e, mk.exp_item, boss_rewards)
-		return
 	if e > 0:
 		var p := pickups.spawn(pos, e, mk.exp_item, player.pos)
 		emit("pickup_spawned", {"pickup": p, "item_id": mk.exp_item, "pos": pos,
@@ -917,6 +933,17 @@ func _on_kill(m: int) -> void:
 			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+
+
+## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
+## EXP or random potion rolls), its canonical revive list, then the reward shower and bonus choices.
+func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
+	var rewards := bosses.reward_config(mob_boss[m])
+	var e := maxi(0, roundi(mk.exp * float(rewards.get("exp_mult", 1.0))))
+	bosses.mark_dead(mob_boss[m], m, pos, self)
+	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
+	_spawn_revives(m, pos)
+	_drop_boss_rewards(pos, e, mk.exp_item, rewards)
 
 
 func _spawn_revives(source: int, pos: Vector2) -> void:
@@ -949,7 +976,7 @@ func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictiona
 
 
 func _touch() -> void:
-	if _dead or god or _invincible_t > 0.0:
+	if _dead or god or upkeep.invincible_t > 0.0:
 		return
 	var box := player_box()
 	var c := box.get_center()
@@ -997,7 +1024,7 @@ func hit_source_multiplier(source: Dictionary) -> float:
 ## Applies one monster hit through avoid, defense, Magic Guard and hit reaction; returns whole damage (0 on miss).
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
-	if _dead or god or _invincible_t > 0.0:
+	if _dead or god or upkeep.invincible_t > 0.0:
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid, float(source.get("accuracy", 0.0)), rng):
@@ -1009,7 +1036,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	_hp -= split.x
 	_mp -= split.y
 	_emit_player_hit(dmg, split.y, false, dir, source)
-	_invincible_t = float(balance.get("invincible_time", 1.5))
+	upkeep.invincible_t = float(balance.get("invincible_time", 1.5))
 	if _hp <= 0.0:
 		_hp = 0.0
 		_dead = true
@@ -1128,9 +1155,9 @@ func _advance_queue() -> void:
 
 func _write_player_state(dt: float) -> void:
 	var a := "dead" if _dead else player.stance()
-	if not _dead and _cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
-			or (_action_airborne and player.state == PlayerMotion.ST_AIR)):
-		a = _cast_action
+	if not _dead and upkeep.cast_left > 0.0 and (player.state == PlayerMotion.ST_STAND
+			or (upkeep.action_airborne and player.state == PlayerMotion.ST_AIR)):
+		a = upkeep.cast_action
 	if a != _action:
 		_action = a
 		_action_t = 0.0
@@ -1152,7 +1179,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
 	player_state["avoid"] = player_avoid
-	player_state["invincible_t"] = _invincible_t
+	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
 	player_state["dead"] = _dead
