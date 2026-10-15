@@ -28,12 +28,13 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 func test_pacing_keyframes() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1"))
 	var d := w.director
-	assert_near(d.rate_at(0.0), 0.6, 1e-6)
-	assert_near(d.rate_at(60.0), 1.15, 1e-6, "halfway to the 2:00 keyframe")
-	assert_near(d.rate_at(120.0), 1.7, 1e-6)
-	assert_eq(d.max_alive_at(0.0), 15)
-	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
-	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between the 4:00 HP 1.0 and 5:00 HP 1.25")
+	assert_near(d.rate_at(0.0), 1.0, 1e-6)
+	assert_near(d.rate_at(60.0), 1.75, 1e-6, "halfway from 1.0 to 2.5 at the 2:00 keyframe")
+	assert_near(d.rate_at(120.0), 2.5, 1e-6)
+	assert_eq(d.max_alive_at(0.0), 25)
+	assert_eq(d.max_alive_at(60.0), 43, "round((25+60)/2)")
+	assert_near(d.value_at("hp", 120.0), 1.0, 1e-6, "opening HP stays flat before the ramp after 2:00")
+	assert_near(d.value_at("hp", 270.0), 2.375, 1e-6, "halfway between 4:00 HP 2.25 and 5:00 HP 2.5")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
 	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
