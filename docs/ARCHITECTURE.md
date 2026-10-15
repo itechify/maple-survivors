@@ -343,7 +343,8 @@ Player-inflicted monster statuses live in `MobSwarm` packed arrays: `slow_left`,
 is `apply_status(slot, status, params, events) -> bool`; `params` contains canonical `time`, signed Slow `x`, or poison
 skill `level` and optional survivor `skill` key. `step` receives the current event list in `ctx.events`, advances status
 timers after movement and emits poison `mob_hit` events. `RunWorld` adds cumulative `swarm.poison_dealt` to player
-damage credit. No status means no status timer pass. `can_act(slot)` additionally rejects Freeze; `is_frozen(slot)`
+damage credit. No status means no status timer pass; `has_statuses()` lets presentation skip status work too.
+`can_act(slot)` additionally rejects Freeze; `is_frozen(slot)`
 is the public query. Touch admission remains separate. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
 Slow/Poison art and status tints; frozen state/animation clocks do not advance.

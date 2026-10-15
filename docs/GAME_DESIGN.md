@@ -154,6 +154,44 @@ poison tint is the fallback when its cached cue is absent. Anchors and tints are
 The formulas, source limitations and pinned citations are in [the status research](research/monster-status-effects.md).
 The applying Slow/Poison Breath/Cold Beam skill implementations remain sibling work.
 
+Validation (2026-10-15): Henesys seed 2026, `scripts/playtest.sh --warp=720 --minutes=13 --speed=1 --vsync=off`;
+baseline 5e178c3 versus #54, separate sequential runs with no concurrent tests from this task. Other worktrees were
+running balance jobs on the shared machine, so these timings are noisy. Each measured 3,600 drawn sim ticks,
+all at 200+ mobs, max 288, with identical gameplay totals and `missing: []`:
+
+| Capture (`evidence/issue54/`) | Sim µs/tick | 200+ frame p95 ms |
+|---|---:|---:|
+| `baseline` (5e178c3) | 1,235.95 | 4.808 |
+| `after` (first implementation) | 1,040.83 | 3.864 |
+| `after_final` (renderer fast path) | 1,530.81 | 5.411 |
+| `baseline_final` (fresh 5e178c3) | 1,469.27 | 5.201 |
+
+The initial pair alone cannot establish the no-regression criterion under changing CPU load. After adding the
+movement fast path, three alternating `scripts/bench.sh run 300` baseline/implementation samples (600 timed ticks
+after 240 warmup ticks, built-in seed 4542) gave real-map µs/tick 1184.4/1173.4, 1200.2/1220.9 and 2002.9/2065.6;
+synthetic 1011.2/1028.4, 1061.0/1120.4 and 1899.0/1688.9. All held 300 mobs and matching gameplay counts.
+The large timing variation prevents a precise small-regression conclusion from these unrestricted samples.
+Raw output: `evidence/issue54/bench-300.log`.
+
+Final controlled pair: the same playtest at `--minutes=12.25` (12:00–12:15), pinning only each owned native Godot
+process to logical CPU 15 (affinity mask 32768) at High priority before the measured interval. Both ran 900 ticks,
+max 247 mobs, every drawn frame 200+, 1,974 kills and 392,213 damage, missing[]. Baseline **1,483.16 µs/tick** versus
+final implementation **933.92 µs/tick**: no observed simulation slowdown in this pair. This is not a speedup claim;
+frame pacing still differed (p95 6.322/6.962 ms), and a small CPU-cost difference remains below what these shared-machine
+measurements can establish. Scheduling settings and summaries are preserved in
+`evidence/issue54/{baseline_controlled,after_controlled}/`; settings ended with the test processes. The implementation's
+final screenshot was skipped because the window was occluded; visual QA uses the earlier captures described below.
+
+These exercise inactive-status cost because applying skills remain sibling work. Evidence/logs are gitignored;
+cached status-cue/expiry captures in `evidence/issue54/statuses/status_0..2.png` were checked by eye, as were the
+real-game captures. These 13:00 timeouts are not clears or balance acceptance runs.
+
+Final checks: `bash scripts/test.sh` passed **551 tests, 0 failed, 0 skipped** (both stages' fixed training-seed
+full-run regressions included). `cargo test` with `MAPLE_WZ_ROOT` set to the original v83 install passed **46 tests**,
+including all 17 real-data integration tests. Final isolated status/movement/render checks passed **42 tests, 0 skips**.
+Console output is preserved under gitignored `evidence/issue54/`. Standards review has zero outstanding findings;
+Spec review found no confirmed code defects and retained the explicit exact-v83 research limitations above.
+
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at

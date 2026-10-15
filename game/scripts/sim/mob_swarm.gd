@@ -181,6 +181,11 @@ func can_act(i: int) -> bool:
 	return is_settled(i) and frozen_left[i] <= 0.0
 
 
+## Whether any slot has a player-inflicted status; presentation can skip status work when false.
+func has_statuses() -> bool:
+	return _status_count > 0
+
+
 ## The MobKind of the mob in slot i.
 func mob_kind(i: int) -> MobKind:
 	return kinds[kind[i]]
@@ -388,13 +393,14 @@ func step(dt: float, ctx: Dictionary) -> void:
 	var action_state: Dictionary = ctx.get("boss_actions", {})
 	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
 	var action_facings: PackedInt32Array = action_state.get("facings", PackedInt32Array())
+	var statuses_active := _status_count > 0
 	for i in _hi:
 		var st := state[i]
 		if st == FREE:
 			continue
 		var k := kind[i]
 		# tier B: later-client RE holds frozen movement and attacks; keep both animation clocks fixed as well.
-		if st != DIE and frozen_left[i] > 0.0:
+		if statuses_active and st != DIE and frozen_left[i] > 0.0:
 			continue
 		var t := state_t[i] + dt
 		state_t[i] = t
@@ -416,7 +422,10 @@ func step(dt: float, ctx: Dictionary) -> void:
 				facing[i] = action_facings[i]
 			continue
 		if _k_fly[k] != 0:
-			_fly(i, dt, _k_speed[k] * smult * slow_factor[i], target, bounds)
+			var fly_speed := _k_speed[k] * smult
+			if statuses_active:
+				fly_speed *= slow_factor[i]
+			_fly(i, dt, fly_speed, target, bounds)
 			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
 			continue
 		var f := fh[i]
@@ -434,7 +443,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 			continue
 		var p := platform[i]
 		var cx := x[i]
-		var spd := _k_speed[k] * smult * slow_factor[i]
+		var spd := _k_speed[k] * smult
+		if statuses_active:
+			spd *= slow_factor[i]
 		var want := 0
 		var wander := false
 		if p == tp or (p == lowp and _k_jump[k] == 0):

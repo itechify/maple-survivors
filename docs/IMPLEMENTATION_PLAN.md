@@ -140,6 +140,18 @@ drawn. Evidence includes summary, actual adapter log, process creation times/CPU
 | 2026-10-14 | swarm follow-up (stall rule on the mob's own movement, way-long wall check with a per-tick memo and a per-platform wall flag, trail margin; `bench.sh` debug build, three interleaved rounds of 209be82 / first swarm version / follow-up, medians; the machine was shared with other Godot processes, so differences under ~5% are noise) | `bench_world` 100-1000 mobs, `bench_run` 100-1000 targets, synthetic / 104040000 | `MobSwarm.step` +15-23% against 209be82 and -6% to +2% against the first version (no measurable change: the hysteresis check is cheaper, but it rarely ran); whole world tick -4% to +11% against 209be82; `RunWorld.step` (`bench_run`) on 104040000 +6% / +25% / +12% / +14% at 100 / 300 / 600 / 1000 against 209be82 and +1-12% against the first version (the way-long wall check; it includes behaviour differences between the versions), synthetic -1% to +7%. Worst sim tick on the Hill (seed 202, headless): 15.8 ms with 85 relocations in one tick (31.5 ms before the memo, 10 ms in the first version with 86) |
 | 2026-10-14 | swarm follow-up, 15:00 at x4 (`playtest.sh --seed=777 --speed=4 --minutes=15 --shot-every=60`, capped at the 165 Hz display; and `--stage=hill_east_henesys --seed=202`) | henesys: CLEARED, Lv 36, 6451 kills (the same as the headless run), up to 330 mobs alive, `missing: []`; Hill: CLEARED, Lv 36, up to 330, `missing: []` | henesys: frame p95 6.10-6.12 ms in every minute (the 165 Hz cap), 200+ mobs p95 6.11 / max 12.3 ms; RunScene work per frame avg 1.09 ms, p95 2.18; `RunWorld.step` 0.37 ms/tick. Hill: p95 at the cap except minute 8 (6.91), frame max 118 ms in minute 8 and 40 ms in minute 9: the 40 ms frame matches the sim's worst tick (15.8 ms at 9:07, 85 relocations, inside a 4-tick frame); the 118 ms one is not explained (no sim tick over 4 ms in that minute; other Godot processes were running on the machine) |
 
+Issue #54 performance checks (2026-10-15): real Henesys seed2026, baseline 5e178c3 versus implementation;
+`bash scripts/playtest.sh --warp=720 --minutes=13 --speed=1 --vsync=off`, 3,600 measured ticks each, max288,
+all drawn frames200+, missing[] throughout. Initial baseline/implementation sim1,235.95/1,040.83µs; repeat
+baseline/implementation1,469.27/1,530.81µs, with background balance jobs on the shared machine. Alternating
+300-mob headless samples also varied widely. All captures and limitations are recorded in GAME_DESIGN section4
+"Monster statuses and elements"; a single unrestricted pair cannot prove a precise no-regression claim.
+Final controlled 12:00–12:15 pair (900 ticks, max247, process CPU15/High priority): baseline1,483.16 versus
+final933.92µs/tick, no observed sim slowdown; small differences remain below shared-machine measurement certainty.
+Both had matching kills/damage and missing[]. Scheduling metadata is preserved beside these captures.
+Logs/screenshots: gitignored `evidence/issue54/`; status-specific cached-art/tint/expiry captures checked by eye.
+Applying skills are sibling work. Capped runs are not clears or balance acceptance evidence.
+
 ## Progress log
 
 | Date | Milestone |
