@@ -232,6 +232,15 @@ they are not clears or a new population balance acceptance. No held-out seeds we
 Reproduce with `BALANCE_OUT=evidence/issue40/henesys bash scripts/balance.sh 1..6 2026 --cap=420` and
 `BALANCE_OUT=evidence/issue40/tree bash scripts/balance.sh 1..6 2026 --stage=tree_that_grew_1 --cap=420`.
 Each directory preserves the per-seed JSON/logs, aggregate JSON/log and the captured full `console.log`.
+The full-run regression also exercised fixed training seeds **1/2/2026** on both stages: Henesys cleared 3/3,
+Tree cleared 2/3 with seed 1 dying at 987 s. All six reached Lv30; stage median Lv30 times were approximately
+775 / 812 s, within the unchanged 720–900 s bounds. These small regression samples do not replace population
+acceptance. Output is preserved in `evidence/issue40/full-suite.log` and `full-run-recheck.log`.
+Validation ran all 491 tests with zero skips. Three test failures exposed two stale Lv8 stat fixtures and a
+floating-point tolerance at the harness's next-tick job-event observation. After correcting only those tests,
+the affected progression/player-stat files passed 19 tests and the full-run file passed 5 tests, all with zero
+failures/skips. The optional five-minute windowed probe recorded job 200 and no missing assets, but generated
+no PNGs and waited for a rendered frame after saving its summary; it was stopped and is not visual verification.
 The earlier cohorts below used Lv8 advancement and remain historical evidence.
 
 #### Frozen difficulty-overhaul training
