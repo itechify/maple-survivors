@@ -770,7 +770,7 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## The character look for a job: the default clothes plus the configured canonical weapon.
+## A job's look: the worn starter outfit (balance.player.equipment) plus the job's canonical weapon.
 func _apply_job_look(job_id: int) -> void:
 	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
 	var weapon := int(weapons.get("0", 0))
@@ -778,7 +778,9 @@ func _apply_job_look(job_id: int) -> void:
 		if weapons.has(str(ancestor)):
 			weapon = int(weapons[str(ancestor)])
 			break
-	var equips: Array = AvatarRenderer.DEFAULT_LOOK.equips.duplicate()
+	var equips: Array = []
+	for id: Variant in world.balance.player.get("equipment", AvatarRenderer.DEFAULT_LOOK.equips):
+		equips.append(int(id))
 	if weapon > 0:
 		equips.append(weapon)
 	avatar.set_look({"equips": equips})

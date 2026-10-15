@@ -138,6 +138,35 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
 
 
+## Code fallbacks exist only for synthetic setups without balance data; each must repeat the shipped value exactly so
+## a fact has one source (balance.json) and the fallback cannot drift from it.
+func test_code_fallbacks_match_shipped_balance_data() -> void:
+	var b: Dictionary = data.balance
+	for key: String in RunWorld.DEFAULT_REGEN:
+		assert_eq(float(b.regen[key]), float(RunWorld.DEFAULT_REGEN[key]), "RunWorld.DEFAULT_REGEN.%s" % key)
+	assert_eq(b.regen.size(), RunWorld.DEFAULT_REGEN.size(), "every regen value has its fallback")
+	for key: String in RunWorld.DEFAULT_STATS:
+		assert_eq(int(b.player.stats[key]), int(RunWorld.DEFAULT_STATS[key]), "RunWorld.DEFAULT_STATS.%s" % key)
+	var body: Array = b.player.body
+	assert_eq(Rect2(body[0], body[1], body[2], body[3]), RunWorld.DEFAULT_BODY, "RunWorld.DEFAULT_BODY")
+	assert_eq(float(b.player.cast_height), RunWorld.DEFAULT_CAST_HEIGHT, "RunWorld.DEFAULT_CAST_HEIGHT")
+	assert_eq(float(b.player.cast_forward), RunWorld.DEFAULT_CAST_FORWARD, "RunWorld.DEFAULT_CAST_FORWARD")
+	assert_eq(float(b.mob_skills.summon_spacing), RunWorld.DEFAULT_SUMMON_SPACING, "RunWorld.DEFAULT_SUMMON_SPACING")
+	for key: String in BossDirector.DEFAULT_RULES:
+		assert_eq(float(b.bosses[key]), float(BossDirector.DEFAULT_RULES[key]), "BossDirector.DEFAULT_RULES.%s" % key)
+	for kind: String in PotionInventory.START:
+		for field: String in PotionInventory.START[kind]:
+			assert_eq(int(b.potions[kind][field]), int(PotionInventory.START[kind][field]),
+				"PotionInventory.START.%s.%s" % [kind, field])
+	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
+	var outfit: Array = []
+	for id: Variant in b.player.equipment:
+		outfit.append(int(id))
+	assert_eq(outfit, AvatarRenderer.DEFAULT_LOOK.equips, "AvatarRenderer.DEFAULT_LOOK.equips is the worn outfit")
+	assert_eq(DataRepo.starter_equipment_ids(data), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
+		"setup loads the outfit and both job weapons")
+
+
 func test_build_setup_and_paths() -> void:
 	assert_eq(DataRepo.map_img_path(104040000), "Map.wz/Map/Map1/104040000.img")
 	assert_eq(DataRepo.map_img_path(101010100), "Map.wz/Map/Map1/101010100.img")
@@ -208,9 +237,11 @@ func test_setup_carries_canonical_potion_specs() -> void:
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
 	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(setup.get("item_info", {}).size(), 7, "all requested potion entries are retained")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
+		"the starters and the potion_tier ladders: Red, Orange, White, Blue, Mana Elixir")
+	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every ladder potion is retained")
 	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
-	for id in range(2000000, 2000007):
+	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
 
 

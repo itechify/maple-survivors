@@ -86,6 +86,10 @@ const AVOID_DEX_FACTOR := 0.25
 const AVOID_LUK_FACTOR := 0.5
 ## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
 const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
+## tier C: the survivor starter attributes; balance.player.stats overrides each one.
+const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
+## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
+const DEFAULT_SUMMON_SPACING := 24.0
 
 var setup: Dictionary
 var data: Dictionary
@@ -184,8 +188,7 @@ var _max_mp := 0
 var _base_hp := 50.0
 var _base_mp := 5.0
 var _job_mp := 0.0
-## tier C: defaults match the survivor starter selection; balance.player.stats overrides each attribute.
-var _base_stats := {"str": 12, "dex": 5, "int": 4, "luk": 4}
+var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _dead := false
@@ -630,7 +633,7 @@ func spawn_offspring(source: int, center_x: float, ids: PackedInt32Array, owner:
 		return slots
 	var span := fhm.platform_span(platform)
 	# tier C: symmetric survivor spawn spacing; canonical list/limit/stats remain unchanged.
-	var spacing := float(balance.get("mob_skills", {}).get("summon_spacing", 24.0))
+	var spacing := float(balance.get("mob_skills", {}).get("summon_spacing", DEFAULT_SUMMON_SPACING))
 	for i in (ids.size() if max_count < 0 else mini(ids.size(), max_count)):
 		var id := ids[i]
 		if not kind_of_id.has(id):

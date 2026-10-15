@@ -24,12 +24,6 @@ const FILES := {
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
 const POTION_IMG := "Item.wz/Consume/0200.img"
-## tier C: starter loadout selection, matching AvatarRenderer.DEFAULT_LOOK and the two starting weapons.
-const STARTER_EQUIPMENT := {
-	1040002: "Character.wz/Coat/01040002.img", 1060002: "Character.wz/Pants/01060002.img",
-	1072001: "Character.wz/Shoes/01072001.img", 1302000: "Character.wz/Weapon/01302000.img",
-	1372005: "Character.wz/Weapon/01372005.img",
-}
 
 
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
@@ -75,6 +69,38 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 		mob_skill_img: Dictionary = {}) -> PackedInt32Array:
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
+
+
+## The starter outfit and every job weapon the run can wear (balance.player `equipment`, then `weapon_by_job` in job
+## order), without duplicates: the equipment whose canonical info a setup loads.
+static func starter_equipment_ids(data: Dictionary) -> PackedInt32Array:
+	var pb: Dictionary = data.get("balance", {}).get("player", {})
+	var ids := PackedInt32Array()
+	for id: Variant in pb.get("equipment", []) + pb.get("weapon_by_job", {}).values():
+		if int(id) > 0 and not (int(id) in ids):
+			ids.append(int(id))
+	return ids
+
+
+## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
+## target items (the survivor potion ladders). These are the Item.wz/Consume/0200.img entries a setup loads.
+static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
+	var ids := PackedInt32Array()
+	var potions: Dictionary = data.get("balance", {}).get("potions", {})
+	for kind: String in PotionInventory.START:
+		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
+	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
+		if String(c.get("kind", "")) == "potion_tier":
+			_add_id(ids, int(c.get("item_id", 0)))
+			for from: Variant in c.get("requires", {}).get("potions", {}).values():
+				_add_id(ids, int(from))
+	ids.sort()
+	return ids
+
+
+static func _add_id(ids: PackedInt32Array, id: int) -> void:
+	if id > 0 and not (id in ids):
+		ids.append(id)
 
 
 ## Every Skill.wz book named in skills.json ("000", "200", ...).
@@ -127,12 +153,13 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		else:
 			missing.append(skill_img_path(book))
 	var equipment_info := {}
-	for id: int in STARTER_EQUIPMENT:
-		var equip: Variant = img_loader.call(STARTER_EQUIPMENT[id])
+	for id in starter_equipment_ids(data):
+		var equip_path := AvatarRenderer.part_img_path(id)
+		var equip: Variant = img_loader.call(equip_path)
 		if equip is Dictionary and equip.get("info") is Dictionary:
 			equipment_info[id] = equip.info
 		else:
-			missing.append(STARTER_EQUIPMENT[id])
+			missing.append(equip_path)
 	var body: Dictionary = img_loader.call("Character.wz/00002000.img")
 	if body.is_empty():
 		missing.append("Character.wz/00002000.img")
@@ -149,7 +176,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		afterimages[name] = image
 	var item_info := {}
 	var potion_img: Variant = img_loader.call(POTION_IMG)
-	for id in range(2000000, 2000007):
+	for id in potion_item_ids(data):
 		var key := "%08d" % id
 		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
 			item_info[id] = potion_img[key]
