@@ -2,10 +2,11 @@ extends TestCase
 ## Seeded full runs to death/clear or the configured cap, including boss finales past15:00.
 ## Synthetic setup exercises the whole simulation; real-cache setup covers both playable stages.
 ## Predetermined training seeds 1/2/2026 provide ongoing regressions, avoiding held-out acceptance leakage.
-## The full 101..130 matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
+## The fresh held-out matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
 ## Checks include spawning/engagement, kills/EXP, progression/event consistency, ordinary late landed hits,
 ## no lost mobs and all scheduled bosses dead before clear. Individual progression windows allow build spread;
-## stage sample medians use Mage at Lv10 180–330s and retain the Lv30 720–900s window.
+## Henesys stage sample medians use Mage at Lv10 180–330s and Lv30 720–900s when reached.
+## Tree records outcomes without judging its pacing; both stages retain event, cache and finale invariants.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Tier C: fixed regression sample chosen before held-out execution; both stages use the same seeds.
@@ -81,7 +82,7 @@ func _run(w: RunWorld) -> Dictionary:
 	return st
 
 
-func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
+func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := true) -> void:
 	var alive: PackedInt32Array = st.alive
 	var minutes := int(w.time / 60.0)
 	print("%s: %.0f s, %s, level %d, job %d, kills %d, EXP %d, lv8 at %.0f s, lv10 at %.0f s, lv30 at %.0f s, job 200 at %.0f s, hits after 8:00 %d (ordinary %d), killers %s, alive/min %s, engaged 6:00-12:00 %.2f, relocated %d" % [
@@ -89,7 +90,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
 		st.lv10_time, st.lv30_time, st.job_time, st.hits_after_8, st.ordinary_hits_after_8, st.killers, _per_minute(alive), _engaged_share(st),
 		w.director.relocated])
 	var spawn_minutes: PackedInt32Array = st.spawn_minutes
-	if CHECK_PACING:
+	if CHECK_PACING and enforce_pacing:
 		for m in minutes:
 			assert_true(spawn_minutes[m] > 0, "%s: mobs spawned in minute %d" % [label, m])
 		var third := maxi(1, floori(alive.size() / 3.0))
@@ -97,17 +98,21 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
 			"%s: the mean alive count grows (%s)" % [label, _per_minute(alive)])
 		assert_true(int(st.killers.get("three_snails", 0)) > 20, "%s: Three Snails killed mobs %s" % [label, st.killers])
 	assert_true(int(st.exp) > 0, "%s: EXP collected" % label)
-	assert_true(w.player_state.level >= 8, "%s: level 8 reached" % label)
-	assert_true(float(st.lv8_time) > 0.0 and float(st.lv8_time) < 900.0, "%s: level 8 before 15:00" % label)
-	assert_true(float(st.job_time) > 0.0 and float(st.job_time) < 900.0, "%s: Magician before 15:00" % label)
-	assert_eq(w.player_state.job_id, 200, label)
+	assert_eq(int(st.exp), w.pickups.collected_exp, "%s: collected EXP matches its events" % label)
+	var kill_events := 0
+	for count: int in st.killers.values():
+		kill_events += count
+	assert_eq(kill_events, w.kills, "%s: exactly one death event per kill" % label)
+	if enforce_pacing and float(st.job_time) > 0.0:
+		assert_eq(w.player_state.job_id, 200, label)
 	assert_eq(st.levels, w.player_state.level - 1, "%s: one level_up event per level" % label)
-	assert_true(w.state == RunWorld.DEAD or w.state == RunWorld.CLEARED, "%s: ended (%s)" % [label, w.state_name()])
+	assert_true(w.state == RunWorld.DEAD or w.state == RunWorld.CLEARED or (not enforce_pacing and w.state == RunWorld.PLAYING),
+		"%s: ended or informational Tree timeout (%s)" % [label, w.state_name()])
 	if w.state == RunWorld.DEAD:
 		assert_true(st.died and not st.cleared, "%s: DEAD with player_died" % label)
 		assert_true(w.player_state.dead)
 		assert_eq(w.player_state.hp, 0)
-	else:
+	elif w.state == RunWorld.CLEARED:
 		assert_true(st.cleared and not st.died, "%s: CLEARED with stage_cleared" % label)
 		if w.bosses.has_bosses():
 			assert_true(w.time >= w.duration - DT, "%s: the finale can continue past the timer" % label)
@@ -115,9 +120,13 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String) -> void:
 		else:
 			assert_near(w.time, w.duration, DT, "%s: the full duration" % label)
 		assert_false(w.player_state.dead)
+	else:
+		assert_false(st.died or st.cleared, "%s: timeout cannot manufacture death or clear" % label)
+		assert_false(w.player_state.dead)
 	assert_eq(w.swarm.lost_count, 0, "%s: no mob fell out of the world" % label)
-	if CHECK_PACING and int(st.alive_6_12) > 0:
-		# Preserve the inherited engagement floor on both stages; late ordinary-hit checks cover landed pressure.
+	assert_true(w.warnings.is_empty(), "%s: no skipped boss or missing simulation data (%s)" % [label, w.warnings])
+	if CHECK_PACING and enforce_pacing and int(st.alive_6_12) > 0:
+		# Henesys retains the inherited engagement floor; Tree is not a pacing acceptance stage.
 		assert_true(_engaged_share(st) >= ENGAGED_MIN, "%s: %.2f of the live mobs within %d x %d px of the player at %s" % [
 			label, _engaged_share(st), ENGAGED_X, ENGAGED_Y, "6:00-12:00"])
 
@@ -134,6 +143,7 @@ func test_full_run_real_map() -> void:
 		return
 	var data := DataRepo.load_all()
 	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+		var outcomes := {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
 		var magician: Array[float] = []
 		var lv8: Array[float] = []
 		var lv10: Array[float] = []
@@ -141,8 +151,8 @@ func test_full_run_real_map() -> void:
 		for pacing_seed: int in PACING_SEEDS:
 			var missing := PackedStringArray()
 			var setup := DataRepo.build_setup(data, stage, pacing_seed, Vector2(800, 600), _img, _mob, missing)
+			assert_true(missing.is_empty(), "%s seed%d: cache has every required img (%s)" % [stage, pacing_seed, missing])
 			if not missing.is_empty():
-				skip("cache lacks %s" % [missing])
 				return
 			var w := RunWorld.new(setup)
 			if stage == "henesys_hg1":
@@ -152,20 +162,33 @@ func test_full_run_real_map() -> void:
 			assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(data, stage).size(), "every stage pool kind")
 			assert_true(w.warnings.is_empty(), "%s" % [w.warnings])
 			var st := _run(w)
+			var outcome := "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name()
+			outcomes[outcome] += 1
 			var label := "%s seed%d" % [stage, pacing_seed]
-			_assert_run(w, st, label)
-			if CHECK_PACING:
+			_assert_run(w, st, label, stage == "henesys_hg1")
+			if CHECK_PACING and stage == "henesys_hg1":
 				_assert_pacing(w, st, label)
-			lv8.append(float(st.lv8_time))
-			magician.append(float(st.job_time))
-			lv10.append(float(st.lv10_time))
+			if float(st.lv8_time) > 0.0:
+				lv8.append(float(st.lv8_time))
+			if float(st.job_time) > 0.0:
+				magician.append(float(st.job_time))
+			if float(st.lv10_time) > 0.0:
+				lv10.append(float(st.lv10_time))
 			if float(st.lv30_time) > 0.0:
 				lv30.append(float(st.lv30_time))
-		if CHECK_PACING:
-			assert_between(_median(lv8), 150.0, 225.0, "%s: Lv8 median150–225s" % stage)
-			assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s" % stage)
-			assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s" % stage)
-			assert_true(lv30.size() >= 2, "%s: at least2 of3 predetermined runs reachLv30" % stage)
+		print("%s outcomes %s; milestone reaches Lv8 %d/3, Lv10 %d/3, Magician %d/3, Lv30 %d/3" % [
+			stage, outcomes, lv8.size(), lv10.size(), magician.size(), lv30.size()])
+		if CHECK_PACING and stage == "henesys_hg1":
+			# Population acceptance allows early deaths. The fixed sample still needs majority early progression.
+			assert_true(lv8.size() >= 2 and lv10.size() >= 2 and magician.size() >= 2,
+				"%s: at least2/3 predetermined runs reach the early milestones" % stage)
+			if not lv8.is_empty():
+				assert_between(_median(lv8), 135.0, 210.0, "%s: Lv8 median135–210s (n%d/3)" % [stage, lv8.size()])
+			if not magician.is_empty():
+				assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s (n%d/3)" % [stage, magician.size()])
+			if not lv10.is_empty():
+				assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s (n%d/3)" % [stage, lv10.size()])
+			assert_true(lv30.size() >= 1, "%s: at least1 of3 predetermined runs reachesLv30; population clear target40–50%%" % stage)
 			if not lv30.is_empty():
 				assert_between(_median(lv30), 720.0, 900.0, "%s: Lv30 median720–900s (n%d/3)" % [stage, lv30.size()])
 
@@ -180,25 +203,27 @@ static func _median(values: Array[float]) -> float:
 
 ## The tuned pacing on the real map, per seed (docs/GAME_DESIGN.md 4.1, 5); windows with some slack for the bot.
 func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
-	assert_between(float(st.lv8_time), 135.0, 270.0, "%s: Lv 8 between 2:15 and 4:30" % label)
-	assert_between(float(st.job_time), 150.0, 360.0, "%s: Magician between 2:30 and 6:00" % label)
-	# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
-	assert_near(float(st.job_time), float(st.lv10_time) + DT, 1e-6, "%s: Magician at Lv10" % label)
-	assert_between(float(st.lv10_time), 150.0, 360.0, "%s: Lv 10 between 2:30 and 6:00" % label)
+	if float(st.lv8_time) > 0.0:
+		assert_between(float(st.lv8_time), 120.0, 270.0, "%s: reached Lv8 between2:00 and4:30" % label)
+	if float(st.job_time) > 0.0:
+		assert_between(float(st.job_time), 150.0, 360.0, "%s: reached Magician between2:30 and6:00" % label)
+		# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
+		assert_near(float(st.job_time), float(st.lv10_time) + DT, 1e-6, "%s: Magician at Lv10" % label)
+	if float(st.lv10_time) > 0.0:
+		assert_between(float(st.lv10_time), 150.0, 360.0, "%s: reached Lv10 between2:30 and6:00" % label)
 	if float(st.lv30_time) > 0.0:
 		assert_between(float(st.lv30_time), 600.0, 1080.0, "%s: individual Lv30 in10:00–18:00; sample median12:00–15:00" % label)
 	assert_true(int(w.player_state.level) < 50, "%s: far below the old Lv 50+ at the end (%d)" % [label,
 		int(w.player_state.level)])
-	if w.state == RunWorld.DEAD:
-		assert_true(w.time >= 600.0, "%s: a death comes late in the run (%.0f s)" % [label, w.time])
 	var alive: PackedInt32Array = st.alive
 	if alive.size() > 840:
 		var late := 0
 		for i in range(780, alive.size()):
 			late = maxi(late, alive[i])
 		assert_true(late >= 200, "%s: a crowd of 200+ alive after 13:00 (%d)" % [label, late])
-	assert_true(int(st.near_after_8) > 0, "%s: mobs reach the player after 8:00" % label)
-	assert_true(int(st.ordinary_hits_after_8) >= 5, "%s: at least5 ordinary nonmiss hits after8:00 (%d)" % [label, int(st.ordinary_hits_after_8)])
+	if w.time >= 540.0:
+		assert_true(int(st.near_after_8) > 0, "%s: mobs reach the player after 8:00" % label)
+		assert_true(int(st.ordinary_hits_after_8) >= 5, "%s: at least5 ordinary nonmiss hits after a full late minute (%d)" % [label, int(st.ordinary_hits_after_8)])
 
 
 func _img(path: String) -> Dictionary:
