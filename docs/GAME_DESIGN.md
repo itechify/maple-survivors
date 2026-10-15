@@ -276,6 +276,59 @@ survivor EXP to 4+15L+3.8L² while preserving exact Mage cost 980. Its full Tree
 110/109, tier score 112, offer weights 8/8 and HP-drink threshold 0.8 remain in survivor data; random choices
 remain uniform. Earlier v22 versus v24 sensible results change both rank weight and threshold and cannot
 isolate either. Independent HP-only probe results are kept separate, not pooled with selected training.
+#### Frozen held-out assessment: one target failed
+
+All **120 fresh runs** on seeds **101–130**, both stages and both card policies, use freeze milestone `b230305`
+(gameplay `db9ef80`), actual data without patch overrides and the same 1,800 s cap. Every expected identity is
+verified. The later `ab5d7fa` change only makes a scene-test fixture use the public EXP threshold; it does not
+change gameplay, design data, the pacing guard or the already-running held-out mirror. No tuning followed these
+results.
+
+**Tree careless timing fails acceptance:** only **12/29 deaths (41.4%)** fall in 540–720 s, versus a required
+majority. Its 717.3 s death median alone would conceal 14 later deaths. The training share of 36/60 (60%) did not
+reproduce on this reserved sample. This remains an open Spec #1 / #27 acceptance failure. Both sensible groups
+meet their progression, clear-rate, late-hit and typical boss timing/source-hit gates; Henesys random meets the
+careless timing gate. No run times out in the held-out matrix.
+
+The actual frozen pacing run passed 5 tests with no failures or skips. After `ab5d7fa` corrected the stale
+scene-test EXP fixture through the public progression API, the final full suite passed **482 tests, 0 failed,
+0 skipped, 59 files** in 507.517 s. The survivor data and pacing guard remained unchanged.
+
+| Stage / policy | Clear / dead / timeout | Deaths early / 9-12 / late | Window share of deaths | Mage median (reaches) | Lv30 median (reaches) | Clears below Lv30 |
+|---|---|---|---|---|---|---|
+| Henesys sensible | 18 / 12 / 0 | 0 / 5 / 7 | 5/12 = 41.67% | 178.3 s (30) | 794.4 s (23) | 0 |
+| Henesys random | 2 / 28 / 0 | 4 / 21 / 3 | 21/28 = 75% | 177.8 s (29) | 810.3 s (3) | 0 |
+| Tree sensible | 24 / 6 / 0 | 0 / 4 / 2 | 4/6 = 66.67% | 163.6 s (30) | 812.7 s (24) | 1 |
+| Tree random | 1 / 29 / 0 | 3 / 12 / 14 | 12/29 = 41.38% | 162.4 s (27) | 814.7 s (8) | 0 |
+
+| Sensible boss, in arrival order | Completed / unfinished / unspawned | Completed duration median [min-max], s | Whole-hit HP median [min-max] | Source medians (landed hit count) |
+|---|---|---|---|---|
+| Mano | 30 / 0 / 0 | 31.37 [11.23-48.45] | 47.45% [42.35%-52.17%] | touch 47.45% (72) |
+| Mushmom | 28 / 1 / 1 | 74.15 [34.63-128.73] | 44.89% [38.74%-51.27%] | attack 44.32% (27), touch 45% (136) |
+| Blue Mushmom | 18 / 4 / 8 | 71.42 [35.88-143.28] | 45.54% [34.77%-51.46%] | attack 44.72% (9), touch 45.59% (76) |
+| Stumpy | 29 / 1 / 0 | 22.93 [8.87-78.33] | 42.5% [32.46%-65.67%] | attack 42.79% (43), projectile 41.83% (17), touch 41.82% (30) |
+| King Slime | 25 / 4 / 1 | 80.3 [26.67-148.67] | 45.59% [39.36%-60.82%] | attack 45.81% (46), touch 45.47% (210) |
+| Dyle | 24 / 1 / 5 | 68.62 [8.45-237.68] | 45.75% [35.83%-53%] | touch 45.75% (247) |
+
+| Stage / policy | Mean HP collected / used | HP stock median / empty runs | Mean inferred HP stock | Mean MP collected / used | MP stock median / empty runs | MP-wait runs / maximum |
+|---|---|---|---|---|---|---|
+| Henesys sensible | 32 / 34 | 0 / 19 | 3 | 241.5 / 109.5 | 119 / 1 | 1/30 / 81.5 s |
+| Henesys random | 25 / 29.8 | 0 / 29 | 0.2 | 144.9 / 55.5 | 99 / 0 | 0/30 / 0 s |
+| Tree sensible | 34.6 / 30.9 | 4 / 9 | 8.7 | 239.2 / 106.7 | 132.5 / 1 | 1/30 / 2.32 s |
+| Tree random | 27.8 / 32.6 | 0 / 29 | 0.2 | 160.6 / 70.3 | 89.5 / 1 | 1/30 / 20.4 s |
+
+Sensible clear rates are 60% / 80%. Ordinary late nonmiss hit medians are 219 / 145, minima 25 / 29; every
+sensible run lives beyond 8:00. HP stock medians 0 / 4 and exhaustion 19/30 / 9/30 show scarcity is uneven;
+mean inferred banks are 3.0 / 8.7. MP waiting occurs in one run per sensible stage (81.5 s / 2.317 s), with zero
+wait medians and stock medians 119 / 132.5. These remain measured counts, not a claim that every build has
+ample MP or exhausts HP. Tree has one clear below Lv30, retained explicitly rather than excluding it.
+
+Random-policy encounter/source observations remain in the raw audit, including small and censored finale
+samples: Henesys Blue Mushmom has only 2 completed fights, 1 unfinished and 27 unspawned, with a whole-hit
+median 39.43% across 8 landed hits. Tree Dyle has 1 completed fight (422.27 s), 8 unfinished and 21 unspawned.
+They are not substituted for the sensible-policy boss medians. All durations, source counts, stock inference
+and missing harness measurements follow the definitions above. The frozen data remain unchanged after this
+failed assessment; these seeds must not become another tuning input.
 #### Informational camper samples
 
 On the same v28 data, seeds **1–6 and 2026**, `--camp-after=60 --cap=1800`, all 21 runs reached their requested
