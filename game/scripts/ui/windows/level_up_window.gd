@@ -38,7 +38,8 @@ const ROW := "UI.wz/UIWindow.img/Skill/skill0"
 const ROW_FOCUS := "UI.wz/UIWindow.img/Skill/skill1"
 const LEVEL_DIGITS := "UI.wz/Basic.img/LevelNo/"
 const KEY_DIGITS := "UI.wz/Basic.img/ItemNo/"
-## tier C: the owner's v83 Monster Card cue celebrates a displayed Unique / Legendary offer.
+## tier C: implementation-selected v83 Monster Card cue for Unique / Legendary offers; the owner reserved
+## EnchantSuccess for future scrolling.
 const SND_HIGH_TIER := "Sound.wz/Game.img/mCardGet"
 ## tier C: readable Potential-ladder accents on the v83 panel; the explicit label also identifies every tier.
 const TIER_STYLES := {

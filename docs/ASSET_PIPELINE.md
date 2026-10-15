@@ -184,8 +184,9 @@ Details fixed by the importer (tools/wzimport 0.1.0):
 MP3 data is written byte-for-byte (`.mp3`). PCM entries are written as `.wav` with a canonical RIFF header built from
 the WAVEFORMATEX. Godot loads them at runtime with `AudioStreamMP3.load_from_buffer` / `AudioStreamWAV.load_from_buffer`.
 
-The Unique / Legendary reward-offer cue is `Sound.wz/Game.img/mCardGet`, the owner's selected original v83
-Monster Card sound. The existing whole-`Game.img` manifest entry already exports it as
+The Unique / Legendary reward-offer cue is `Sound.wz/Game.img/mCardGet`, the original v83 Monster Card sound
+selected by the implementation agent after the owner reserved `EnchantSuccess` for future scrolling.
+The existing whole-`Game.img` manifest entry already exports it as
 `Sound.wz/Game.img/mCardGet.mp3`; the cache reports 2664 ms (tier A). Its use for survivor reward offers is tier C.
 `RunScene` preloads the stream, and `LevelUpWindow.open` plays it once if the displayed cards include either high
 tier, including boss rewards. Automatic picks that display no window do not play this cue; hover/click retain their

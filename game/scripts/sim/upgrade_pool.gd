@@ -221,7 +221,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"name": String(c.get("name", id)),
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
-		"rank": rank(id, state) + (magnitude if kind == "skill_rank" or _is_stacking(c) else 1),
+		"rank": rank(id, state) + _consumed_steps(c, magnitude),
 		"rank_before": rank(id, state),
 		"max_rank": int(c.get("max_rank", 1)),
 		"skill": skill,
@@ -302,6 +302,11 @@ static func _is_stacking(c: Dictionary) -> bool:
 	return String(c.get("kind", "")) in ["skill_mod", "stat", "passive"]
 
 
+## A pick consumes its tier's ranks/modifier steps, while learn, potion and filler cards consume one.
+static func _consumed_steps(c: Dictionary, magnitude: int) -> int:
+	return magnitude if String(c.get("kind", "")) == "skill_rank" or _is_stacking(c) else 1
+
+
 static func _description_value(c: Dictionary, magnitude: int) -> float:
 	if _is_stacking(c):
 		for effect: Dictionary in c.get("effects", []):
@@ -340,7 +345,7 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var magnitude := _magnitude(c, state, tier)
 	if magnitude <= 0:
 		return 0
-	var r := rank(id, state) + (magnitude if kind == "skill_rank" or _is_stacking(c) else 1)
+	var r := rank(id, state) + _consumed_steps(c, magnitude)
 	lo.card_ranks[id] = r
 	var skill := String(c.get("skill", ""))
 	if kind == "skill_new":
