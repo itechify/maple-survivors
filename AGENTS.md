@@ -128,7 +128,7 @@ automatically; an explicitly incompatible `--stage` is rejected. For example:
 `ISOLATE=campers bash scripts/balance.sh 1 2 --policy=camper_tree_top --cap=420`
 
 Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
-`dead|alive|not_spawned` status), `potions_collected` / `potions_used` totals for `hp` and `mp`,
+`dead|alive|not_spawned|skipped` status; skipped = no mob img in the cache), `potions_collected` / `potions_used` totals for `hp` and `mp`,
 `mp_short_seconds` (fixed ticks with an eligible ready skill failing affordability during the cast scan), and `boss_hits` (whole hit damage,
 max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
 An affordable later skill may still cast in a tick counted as MP-short; eligible targetless buffs can wait too.
@@ -139,9 +139,12 @@ and the final reward choice finished.
 `TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
 
 The supplemental `SYSTEMS` summary reports potion sums, MP-wait seconds per run, whole boss-hit HP percentages
-per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count.
-Unfinished/not-spawned fights are counted separately; no completed observation is reported as `none (n=0)`,
-not zero. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
+per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count, followed
+by `completed n/spawned` and a censored median over every spawned fight (an unfinished fight counts as at least its
+elapsed seconds; `>=` marks a median that is only a lower bound). Report completed-only medians with that count, never
+alone. Unfinished/not-spawned/skipped fights are counted separately; no completed observation is reported as
+`none (n=0)`, not zero. The camper count (`campers reached R/N runs`) appears only when camper-policy runs are
+summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
 

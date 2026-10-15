@@ -174,8 +174,9 @@ monster HP or redesigning the roster. It has no flyers, and its portals connect 
 
 The balance harness records completed boss spawn-to-death times per encounter, HP/MP potion collection and use,
 MP-short waiting seconds, and whole boss-hit damage divided by max HP at the hit (before Magic Guard's split).
-Aggregates report completed fight samples separately from unfinished or unspawned encounters and retain the
-boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
+Aggregates report completed fight samples separately from unfinished, unspawned or skipped encounters, print the
+completed/spawned count beside each median and a censored median over all spawned fights (an unfinished fight counts
+as at least its elapsed seconds; `>=` marks a lower bound), and retain the boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
 
 Since the buff-timeline diagnostic, `buff_casts` also records each observed cast tick, skill ID, canonical level,
 duration and active effect stat/value. This exposes the real cast snapshot, unlike a final rank or an absorbed
@@ -380,12 +381,15 @@ No clear occurs below Lv30. The careless single Lv30 reach is an observation, no
 Sensible ordinary late nonmiss hits have median **218.5**, minimum **58**, using completed minute buckets after
 8:00. Boss hits and misses do not satisfy that ordinary-hit observation.
 
-| Final sensible boss | Completed / unfinished / unspawned | Duration median [min–max], s | Whole-hit HP median [min–max] | Source medians (landed hits) |
+| Final sensible boss | Completed / unfinished / unspawned | Completed-fight duration median [min–max], s | Whole-hit HP median [min–max] | Source medians (landed hits) |
 |---|---|---|---|---|
 | Mano | 30 / 0 / 0 | 27.29 [11.13–73.40] | 45.92% [41.84–50.00%] | touch 45.92% (75) |
 | Mushmom | 25 / 5 / 0 | 57.23 [20.85–161.92] | 45.00% [39.20–50.30%] | attack 44.31% (20), touch 45.06% (126) |
 | Blue Mushmom | 22 / 0 / 8 | 73.44 [22.80–131.77] | 44.95% [38.46–51.46%] | attack 43.09% (12), touch 45.63% (73) |
 
+These duration medians cover completed fights only (Mushmom 25 of 30 spawned); unfinished fights are censored, not
+missing. The harness now prints `completed n/spawned` beside the median and a censored median that counts each
+unfinished fight as at least its elapsed seconds (`>=` when that makes it a lower bound); pass 3 re-measures with it.
 All sensible completed-duration medians fit 15–45 / 30–90 / 45–135 s, and all whole/source-hit medians fit 40–50%.
 Ranges show that individual fights and damage rolls can fall outside those typical bands. Fractions precede
 Magic Guard's split. Unfinished fights are not completed observations or zero durations. Careless boss samples
