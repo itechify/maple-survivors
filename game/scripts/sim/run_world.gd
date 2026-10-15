@@ -24,8 +24,9 @@ extends RefCounted
 ## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
-## Separate seeded RNG streams (combat rolls, spawning, card draws, drop pops) keep e.g. card draws independent of
-## damage rolls.
+## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
+## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 mob-skill rolls. Each
+## stream has exactly one owner.
 
 const PLAYING := 0
 const CHOOSING_JOB := 1
@@ -218,7 +219,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	spawn_rng = _stream(2)
 	card_rng = _stream(3)
 	drop_rng = _stream(4)
-	potion_rng = _stream(5)
+	potion_rng = _stream(7)
 	reward_rng = _stream(6)
 	mob_skill_rng = _stream(8)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
