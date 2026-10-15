@@ -473,15 +473,18 @@ static func aggregate(records: Array) -> Dictionary:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
 	result["mp_short_seconds"] = statistics(waits)
+	var mp_used := int(result.potions_used.mp)
+	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["boss_hit_fraction"] = statistics(fractions)
 	return result
 
 
 ## Readable supplemental systems summary; ranges are min/median/max and include their observation count.
 static func describe_metrics(summary: Dictionary) -> String:
-	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s; campers reached %d/%d started" % [
+	var mp_ratio := "undefined (no MP used)" if summary.mp_collected_used_ratio == null else "%.3f" % float(summary.mp_collected_used_ratio)
+	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP collected/used %s; MP-short seconds %s; campers reached %d/%d started" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		_range(summary.mp_short_seconds), int(summary.camper_reached), int(summary.camper_started)]])
+		mp_ratio, _range(summary.mp_short_seconds), int(summary.camper_reached), int(summary.camper_started)]])
 	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
 	for id: String in summary.boss_fights:
 		var fight: Dictionary = summary.boss_fights[id]

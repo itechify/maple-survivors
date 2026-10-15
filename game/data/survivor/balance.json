@@ -51,7 +51,8 @@
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
-		"drops": {"normal": {"hp": 0.012, "mp": 0.06}, "elite": {"hp": 0.15, "mp": 0.65}},
+		"_drops": "Tier C: initial MP scarcity pass (#37), normal 2% and elite 30%; HP chances unchanged. Final MP economy tuning belongs to the balance pass.",
+		"drops": {"normal": {"hp": 0.012, "mp": 0.02}, "elite": {"hp": 0.15, "mp": 0.3}},
 		"_bot": "Tier C: drink below 80% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
 		"bot": {"hp_threshold": 0.8, "mp_threshold": 0.3, "tier_score": 112}
 	},
@@ -62,7 +63,8 @@
 	"bosses": {"warning_time": 3, "spawn_distance": 250, "min_spawn_distance": 150, "normal_spawn_mult": 0.5,
 		"teleport_stall": 5, "teleport_fade": 0.3, "teleport_progress": 1,
 		"rewards": {"exp_mult": 5, "exp_drops": 12, "spread": 120, "potion_spread": 30,
-			"potions": {"hp": 3, "mp": 6}, "bonus_choices": 1}},
+			"_potions": "Tier C: halve the MP bundle to 3 for the initial scarcity pass (#37); HP remains 3.",
+			"potions": {"hp": 3, "mp": 3}, "bonus_choices": 1}},
 	"_run_time_cap": "Tier C: balance/full-run harness timeout, allowing the finale to continue beyond 15:00.",
 	"run_time_cap": 1800
 }
