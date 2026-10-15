@@ -264,3 +264,20 @@ func test_real_boss_imgs_supply_their_summon_and_revive_families() -> void:
 	for id: int in [6130101, 9400205, 3220000, 6220000]:
 		assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/%07d.img" % id), mob_skill).size(), 0,
 			"boss %d summons and revives nothing" % id)
+
+
+func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
+	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
+	for key: String in ["henesys_hg1", "tree_that_grew_1"]:
+		var stage: Dictionary = data.stages.stages[key]
+		var imgs := {}
+		for id in StageRoster.named_ids(stage):
+			imgs[id] = lib.mob_root(id)
+		for id in StageRoster.mob_ids(stage, imgs, mob_skill):
+			assert_true(float(id) in manifest.mobs, "%s: derived mob %d in the asset manifest" % [key, id])
+	lib.free()
