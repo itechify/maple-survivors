@@ -67,6 +67,8 @@ Every row below includes all 61 training seeds for that policy. No held-out seed
 | C15 random | 3 / 58 / 0 | 4.92% | 669.1 (58) | 6,365 / 5,743 | 1.108 | 5 | 21 / 54 |
 | C16 sensible | 24 / 37 / 0 | 39.34% | 879.5 (37) | 9,581 / 7,196 | 1.331 | 51 | 10 / 60 |
 | C16 random | 3 / 58 / 0 | 4.92% | 661.05 (58) | 6,398 / 5,742 | 1.114 | 4 | 21 / 54 |
+| C17 sensible | 26 / 35 / 0 | 42.62% | 879.3 (35) | 9,595 / 7,222 | 1.329 | 50 | 10 / 60 |
+| C17 random | 3 / 58 / 0 | 4.92% | 661.05 (58) | 6,397 / 5,742 | 1.114 | 4 | 21 / 54 |
 
 C10 had 25% more HP supply than C11 throughout the curve. C13 kept C11's opening/midgame supply and raised only
 the 13:00 / 15:00 endpoints to 0.8% / 1.2%. This brought sensible clears into range, but careless clears still missed
@@ -81,9 +83,16 @@ to 0.7%, first affecting interpolation after 12:00. It lost three sensible clear
 moving the sensible death median below 900 seconds. It was rejected. C16 restored C14's late supply and reduced
 the 9:00 HP chance from 0.48% to 0.24%, affecting interpolation from 8:00 to 11:00. Its complete cohort moved
 the death median into range, with 20 of 37 sensible deaths before 15:00, but both policies were one clear below
-their exact minimum. C17 retains that earlier deficit and raises only the 15:00 endpoint from 1.2% to 1.4%,
-first affecting interpolation after 13:00. It is evaluated directly on all 61 seeds per policy; no selected
-seed identities are protected, and no intermediate subset substitutes for the population assessment.
+their exact minimum. C17 retained that earlier deficit and raised only the 15:00 endpoint from 1.2% to 1.4%,
+first affecting interpolation after 13:00. All 61 seeds per policy were freshly run on committed, unpatched data.
+Sensible targets passed, but random still cleared only three; it collected only four additional HP bottles across
+the whole cohort. C17 was rejected. C18 then probed a 13:00 endpoint of 0.9%, keeping C17's other values, on all
+seven random runs that had spawned the final boss. The three completed/four censored outcomes did not change.
+That conditional mechanism subset is not population acceptance. C19's 1.0% endpoint also left those outcomes
+unchanged, adding only one HP bottle across seven runs. C20's 1.2% endpoint increased that subset's HP collection
+from 270 to 292 and converted one unfinished finale: four completed, three censored. The promising mechanism is
+then assessed on all 61 seeds per policy, including those seven records once. Sensible clear rate and death timing
+remain open until the full cohort completes. No seed identities are protected.
 
 ## Freeze and final checks
 
