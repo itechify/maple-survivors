@@ -123,8 +123,9 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), attack_count, crit, crit_mult, cooldown, range,
-## speed, count, pierce, radius, ball, hit, effect (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value (canonical value of the passive's field, e.g. Magic Guard x / Magic Armor pdd).
+## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
+## (WZ paths), action, action_time, rotate, passive_stat,
+## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
 func stats(key: String) -> Dictionary:
 	var d := book.def(key)
 	var r := maxi(1, rank(key))
@@ -143,6 +144,7 @@ func stats(key: String) -> Dictionary:
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
+	var buff: Dictionary = d.get("buff", {})
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -150,6 +152,7 @@ func stats(key: String) -> Dictionary:
 		"slot": book.slot(key),
 		"rank": r,
 		"level": lv,
+		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"damage_type": dtype,
 		"damage_min": lo,
 		"damage_max": hi,
@@ -171,6 +174,13 @@ func stats(key: String) -> Dictionary:
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": book.canonical(key, lv, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0,
+		"icon": String(d.get("icon", "")),
+		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
+		"buff_stat": String(buff.get("stat", "")),
+		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
+		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
+		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
+		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 	}
 
 

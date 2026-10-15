@@ -56,7 +56,6 @@ const SND_SKILL_USE := "Sound.wz/Skill.img/%07d/Use"
 const DEFAULT_ACTION := "swingO1"
 ## Weapon held per job branch (job id / 100): the Magician's Wooden Wand 1372005 (tier A: the item; GAME_DESIGN 11).
 ## Beginners hold nothing (GAME_DESIGN section 1, AvatarRenderer.DEFAULT_LOOK).
-const JOB_WEAPONS := {2: 1372005}
 const DEFAULT_NAME := "MapleHero"
 
 ## tier C (ours): seconds of the LevelUp effect before the upgrade window opens (about the pillar's peak; the whole
@@ -115,6 +114,7 @@ var mob_renderers: Array[MobRenderer] = []
 ## Foothold layer drawn by mob_renderers[i] (-1 = every slot).
 var mob_layers := PackedInt32Array()
 var shots: ProjectileRenderer
+var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
@@ -137,6 +137,8 @@ var _autopick := false
 var _speed := 1
 var _acc := 0.0
 var _jump_latch := false
+var _drink_hp_latch := false
+var _drink_mp_latch := false
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -153,6 +155,8 @@ var _window_req: Dictionary = {}
 var _window_open_t := 0.0
 var _window_auto := 0.0
 var _restart_action := false
+var _slow_fx := -1
+var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
@@ -176,6 +180,7 @@ var _shot_queue := PackedStringArray()
 var _quit_after_capture := false
 var _timed_shots: Array = []
 var _hit_shot_taken := false
+var _miss_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -251,8 +256,7 @@ func _ready() -> void:
 			_next_shot = (floorf(world.time / _shot_every + 1e-6) + 1.0) * _shot_every
 	_build_presentation()
 	_warm_ui()
-	if int(world.player_state.job_id) != 0:
-		_apply_job_look(int(world.player_state.job_id))
+	_apply_job_look(int(world.player_state.job_id))
 	handle_events(world.drain_events())
 	_start_title()
 	_play_bgm()
@@ -283,6 +287,13 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
+	if not _autoplay and not event.is_echo():
+		if event.is_action_pressed("drink_hp"):
+			_drink_hp_latch = true
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("drink_mp"):
+			_drink_mp_latch = true
+			get_viewport().set_input_as_handled()
 	var key := event as InputEventKey
 	if key != null and key.pressed and not key.echo and key.keycode == KEY_F3:
 		_perf_on = not _perf_on
@@ -329,6 +340,8 @@ func advance_frame(delta: float) -> void:
 	else:
 		_acc = 0.0
 		_jump_latch = false
+		_drink_hp_latch = false
+		_drink_mp_latch = false
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	_auto_resolve_window(delta)
@@ -398,6 +411,9 @@ func _build_presentation() -> void:
 	shots = ProjectileRenderer.new()
 	shots.library = library
 	_top.add_child(shots)
+	mob_shots = ProjectileRenderer.new()
+	mob_shots.library = library
+	_top.add_child(mob_shots)
 	fx = FxRenderer.new()
 	fx.name = "Fx"
 	fx.library = library
@@ -462,7 +478,7 @@ func _warm_ui() -> void:
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in JOB_WEAPONS.values():
+	for wid: Variant in world.balance.player.get("weapon_by_job", {}).values():
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -514,6 +530,11 @@ func _read_input(first_tick: bool) -> MoveInput:
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
+	if first_tick:
+		mi.drink_hp = _drink_hp_latch
+		mi.drink_mp = _drink_mp_latch
+		_drink_hp_latch = false
+		_drink_mp_latch = false
 	return mi
 
 
@@ -529,8 +550,47 @@ func _after_tick() -> void:
 func handle_events(events: Array) -> void:
 	for e: Dictionary in events:
 		match String(e.type):
+			"boss_warning":
+				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
+				var lead := float(world.bosses.rules.warning_time)
+				hud.push_notice("boss_%d" % int(e.boss_index), "%s will appear in %d seconds!" % [name, roundi(lead)], lead)
+				_event_shot("boss_warning_%d.png" % int(e.boss_index), 0.1)
+			"boss_spawned":
+				var name := library.string_name("Mob", int(e.mob_id)).strip_edges()
+				hud.push_notice("boss_%d" % int(e.boss_index), "%s has appeared!" % name)
+				fx.play("Effect.wz/BasicEff.img/Summoned", e.pos)
+				_event_shot("boss_arrival_%d.png" % int(e.boss_index), 0.1)
+			"boss_attack":
+				if e.phase == "start":
+					_sound(String(e.sound))
+					# tier C: evidence capture during the jump frame of the canonical mushroom windup.
+					_event_shot("boss_windup_%d.png" % int(e.boss_index), 0.85)
+				elif e.phase == "effect" and String(e.effect) != "":
+					fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+				elif e.phase == "impact":
+					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
+					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
 			"cast":
 				_on_cast(e)
+			"boss_skill":
+				_on_boss_skill(e)
+			"mob_projectile_spawned":
+				_event_shot("mob_projectile.png", 0.55) # tier C: capture the ball clearly separated from its caster.
+			"mob_projectile_hit":
+				if String(e.hit) != "":
+					fx.play(String(e.hit), e.pos, int(e.facing) > 0)
+			"mob_healed":
+				if world.mob_boss[int(e.mob)] >= 0:
+					hud.push_notice("heal_%d" % int(e.mob), "%s recovered %d HP" % [library.string_name("Mob", int(e.mob_id)).strip_edges(), int(e.amount)])
+					_event_shot("mob_heal.png", 0.15) # tier C: show the canonical mob0 effect while the bar reflects healing.
+			"mob_revives_spawned":
+				_event_shot("king_slime_split.png", 0.15) # tier C: capture canonical death art with its living offspring.
+			"basic_attack":
+				if e.phase == "start":
+					_restart_action = true
+					_sound(String(e.sound))
+				else:
+					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
 			"mob_died":
@@ -539,6 +599,8 @@ func handle_events(events: Array) -> void:
 				_on_player_hit(e)
 			"player_jump":
 				_sound(SND_JUMP)
+			"portal_used":
+				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
 			"pickup_collected":
@@ -555,11 +617,32 @@ func handle_events(events: Array) -> void:
 			"job_changed":
 				_on_job_changed(int(e.job_id))
 			"choice_pending":
-				_pending_window = {"kind": "cards", "cards": e.cards}
+				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
 				_on_stage_cleared()
+
+
+func _on_boss_skill(e: Dictionary) -> void:
+	var source := int(e.mob)
+	if int(e.skill_id) == 140:
+		_event_shot("dyle_immunity.png", 0.15)
+	if String(e.effect) != "":
+		# tier C: heal mob0 pos0 uses feet; MobSkill pos3 effect art uses the canonical body-box center.
+		var effect_pos: Vector2 = e.pos if int(e.skill_id) == 114 else world.mob_center(source)
+		fx.play(String(e.effect), effect_pos, int(e.facing) > 0)
+	for slot: int in e.targets:
+		if String(e.summon_effect) != "":
+			fx.play(String(e.summon_effect),Vector2(world.swarm.x[slot],world.swarm.y[slot]))
+		elif slot != source and String(e.recipient_effect) != "":
+			fx.play(String(e.recipient_effect),world.mob_center(slot))
+	if String(e.player_effect) != "":
+		if _slow_fx >= 0:
+			fx.stop(_slow_fx)
+		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
+		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
+	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
 
 
 func _on_cast(e: Dictionary) -> void:
@@ -589,6 +672,13 @@ func _on_mob_hit(e: Dictionary) -> void:
 
 func _on_player_hit(e: Dictionary) -> void:
 	var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
+	if bool(e.get("miss", false)):
+		numbers.spawn_miss(head, DamageNumbers.TAKEN, PLAYER_KEY)
+		counters.numbers += 1
+		if not _miss_shot_taken:
+			_miss_shot_taken = true
+			_event_shot("miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
+		return
 	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
 	counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)
@@ -610,10 +700,14 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## The character look for a job: the default look plus the job branch's weapon (JOB_WEAPONS).
+## The character look for a job: the default clothes plus the configured canonical weapon.
 func _apply_job_look(job_id: int) -> void:
-	@warning_ignore("integer_division")
-	var weapon := int(JOB_WEAPONS.get(job_id / 100, 0))
+	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
+	var weapon := int(weapons.get("0", 0))
+	for ancestor in world.jobs.lineage(job_id):
+		if weapons.has(str(ancestor)):
+			weapon = int(weapons[str(ancestor)])
+			break
 	var equips: Array = AvatarRenderer.DEFAULT_LOOK.equips.duplicate()
 	if weapon > 0:
 		equips.append(weapon)
@@ -708,7 +802,7 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level)
+			lw.open(req.cards, level, bool(req.get("bonus", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
@@ -831,11 +925,17 @@ static func option_flag(opts: Dictionary, key: String) -> bool:
 # --- presentation --------------------------------------------------------------------------------------------
 
 func _present(delta: float) -> void:
+	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
+		fx.stop(_slow_fx)
+		_slow_fx = -1
+	_update_mob_status_effects()
 	_update_player(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
+	var boss_actions := world.bosses.action_snapshot(world.swarm)
 	for i in mob_renderers.size():
-		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers)
+		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
+	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
 	tags.update_from(world.swarm, world.mob_elite, _kind_names)
 	_update_hud()
@@ -844,6 +944,41 @@ func _present(delta: float) -> void:
 		notice_layer.get_node("NoticeText").queue_redraw()
 	elif _clear_text:
 		notice_layer.get_node("NoticeText").queue_redraw()
+
+
+## Detached draw model for live boss status icons; original animations/origins remain in the asset cache.
+func mob_status_effects() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for record: Dictionary in world.bosses.records:
+		var slot := int(record.slot)
+		if slot < 0 or world.swarm.active[slot] == 0:
+			continue
+		var status := world.mob_skills.immunity_state(slot, world.time)
+		if status.is_empty():
+			continue
+		var kind: MobKind = world.mob_kinds[world.swarm.kind[slot]]
+		# tier C: MobSkill pos2 is anchored at the mob body top; WZ origin supplies the gap above it.
+		var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot] + kind.hitbox.position.y)
+		out.append({"boss_index": int(record.boss_index), "mob": slot, "visual": String(status.visual),
+			"pos": pos, "visible": _immunity_fx.has(int(record.boss_index))})
+	return out
+
+
+func _update_mob_status_effects() -> void:
+	var seen := {}
+	for status: Dictionary in mob_status_effects():
+		var index := int(status.boss_index)
+		seen[index] = true
+		if not _immunity_fx.has(index):
+			var slot := fx.play_repeating(String(status.visual), status.pos, INF)
+			if slot >= 0:
+				_immunity_fx[index] = slot
+		if _immunity_fx.has(index):
+			fx.place(int(_immunity_fx[index]), status.pos)
+	for index: int in _immunity_fx.keys():
+		if not seen.has(index):
+			fx.stop(int(_immunity_fx[index]))
+			_immunity_fx.erase(index)
 
 
 func _update_player(delta: float) -> void:
@@ -865,7 +1000,7 @@ func _update_player(delta: float) -> void:
 		if avatar.stance != "dead":
 			avatar.play("dead", true, false)
 	elif action != motion:
-		# The cast stance (the sim only reports it while the player stands still).
+		# Skill stance while standing; basic swing stance while standing or airborne.
 		var st := action if avatar.has_stance(action) else DEFAULT_ACTION
 		avatar.play(st, _restart_action or _shown_action != st, false)
 		_shown_action = st
@@ -909,12 +1044,45 @@ func _place_player_layer(layer: int) -> void:
 
 func _update_hud() -> void:
 	var ps := world.player_state
+	# The encounter widget tracks damage every frame, independently of the status/timer snapshot signature.
+	hud.boss_bar.update(ps, {"bosses": boss_bars()})
 	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
-		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version])
+		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
+		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
+		int(bool(ps.get("mp_short", false)))])
+	for buff: Dictionary in ps.buffs:
+		sig.append(int(buff.skill_id))
+		sig.append(ceili(float(buff.remaining)))
 	if sig == _hud_sig:
 		return
 	_hud_sig = sig
-	hud.update(ps, run_info())
+	var info := run_info()
+	hud.store_state(ps, info)
+	hud.status.update(ps, info)
+	hud.counters.update(ps, info)
+	hud.skills.update(ps, info)
+	hud.system_messages.update(ps, info)
+	hud.potion_slot.update(ps, info)
+	hud.buff_row.update(ps, info)
+
+
+## Live encounter snapshots for the dedicated HUD bar; canonical hpTag values remain unchanged in the asset cache.
+func boss_bars() -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for record: Dictionary in world.bosses.records:
+		var slot := int(record.slot)
+		if float(record.spawn_time) < 0.0 or bool(record.dead) or slot < 0 or world.swarm.active[slot] == 0:
+			continue
+		var id := int(record.mob_id)
+		var info: Dictionary = world.setup.mob_imgs[id].get("info", {})
+		var override: Dictionary = data.mobs.mobs.get(str(id), {}).get("boss_ui", {})
+		# tier C: standard 1/5 fallback for missing hpTag metadata; named exceptions live in survivor boss_ui data.
+		rows.append({"boss_index": int(record.boss_index), "mob": slot, "mob_id": id,
+			"name": library.string_name("Mob", id).strip_edges(), "hp": int(world.swarm.hp[slot]),
+			"max_hp": int(world.swarm.max_hp[slot]), "icon_id": int(override.get("icon_id", id)),
+			"hp_tag_color": int(override.get("hp_tag_color", info.get("hpTagColor", 1))),
+			"hp_tag_bgcolor": int(override.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))})
+	return rows
 
 
 ## Run time in seconds, snapped to 1 ms (900 ticks of 1/60 s sum to 899.9999...; the HUD and results show 15:00).
@@ -1030,6 +1198,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"sim_us_per_tick": float(_sim_us) / maxf(1.0, _sim_ticks), "ticks": _sim_ticks, "max_alive": _max_alive,
 		"level_by_minute": Array(_level_by_minute), "job_id": int(world.player_state.job_id), "kills": world.kills,
 		"state": world.state_name(), "time": world.time, "speed": _speed, "counters": counters.duplicate(),
+		"potions_collected": world.potions.collected.duplicate(), "potions_used": world.potions.used.duplicate(),
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}

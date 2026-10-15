@@ -72,6 +72,12 @@ func _assert_nothing_missing(s: RunScene, label: String) -> void:
 
 
 func _assert_hud_matches(s: RunScene) -> void:
+	assert_eq(s.hud.status.player_state, s.world.player_state, "status widget fed by the run scene")
+	assert_eq(s.hud.counters.run_info.kills, s.world.kills, "counter widget fed by the run scene")
+	assert_eq(s.hud.skills.run_info.skills, s.run_info().skills, "skill widget fed by the run scene")
+	assert_eq(s.hud.potion_slot.get_parent(), s.hud, "quickslot has its own widget")
+	assert_eq(s.hud.buff_row.get_parent(), s.hud, "buffs have their own widget")
+	assert_eq(s.hud.boss_bar.get_parent(), s.hud, "boss bar has its own widget")
 	var ps := s.world.player_state
 	for k: String in ["hp", "mp", "max_hp", "max_mp", "exp", "level", "job_id"]:
 		assert_eq(int(s.hud.player_state.get(k, -1)), int(ps[k]), "HUD %s" % k)
@@ -87,6 +93,7 @@ func test_autoplay_two_minutes_draws_the_sim() -> void:
 		return
 	scene = _make("henesys_hg1", 7, {"autoplay": true, "autopick": true})
 	assert_eq(scene.error, "", "scene started")
+	assert_true(1302000 in scene.avatar.look.equips, "the first Beginner frame includes the Sword")
 	var w := scene.world
 	assert_true(w != null, "world built")
 	assert_eq(w.mob_kinds.size(), DataRepo.stage_mob_ids(scene.data, "henesys_hg1").size(), "every pool mob has an img")
@@ -145,7 +152,7 @@ func test_events_become_visuals() -> void:
 		"skill": "three_snails"}])
 	assert_eq(scene.numbers.active_count(), n0 + 1, "damage number")
 	assert_eq(scene.fx.active_count(), fx0 + 1, "hit effect")
-	scene.handle_events([{"type": "player_hit", "damage": 7, "mp_absorbed": 0, "dir": 1, "pos": p}])
+	scene.handle_events([{"type": "player_hit", "damage": 7, "mp_absorbed": 0, "miss": false, "dir": 1, "pos": p}])
 	assert_eq(scene.numbers.active_count(), n0 + 2, "taken number")
 	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
 	scene.handle_events([{"type": "level_up", "level": 2}])
@@ -161,6 +168,107 @@ func test_events_become_visuals() -> void:
 		texts.append(m.text)
 	assert_true("+12 EXP" in texts, "one EXP message per frame (%s)" % [texts])
 	_assert_nothing_missing(scene, "events")
+
+
+func test_boss_warning_and_arrival_messages_survive_exp_message_pressure() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2101, {})
+	scene.handle_events([{"type": "boss_warning", "boss_index": 0, "mob_id": 2220000, "time": 297.0}])
+	for i in 12:
+		scene.hud.show_exp(i + 1)
+	var texts := scene.hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_true("Mano will appear in 3 seconds!" in texts, "EXP churn cannot evict the boss warning")
+	var before := scene.fx.active_count()
+	scene.handle_events([{"type": "boss_spawned", "boss_index": 0, "mob": 0, "mob_id": 2220000,
+		"pos": scene.world.player.pos, "time": 300.0}])
+	var appeared := false
+	for message: Dictionary in scene.hud.messages():
+		if message.text == "Mano has appeared!":
+			appeared = true
+			assert_eq(message.color, Hud.SYSTEM_YELLOW)
+	assert_true(appeared, "yellow system arrival message")
+	assert_eq(scene.fx.active_count(), before + 1, "canonical respawn effect plays at the boss")
+	scene.hud.advance_messages(4.01)
+	assert_eq(scene.hud.messages().size(), 0, "encounter notices expire after their visible lifetime")
+	_assert_nothing_missing(scene, "boss messages")
+
+
+func test_live_boss_bar_tracks_hp_and_hides_on_death() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2102, {})
+	scene.world.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0}])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	var bar: Variant = scene.hud.boss_bar
+	assert_eq(bar.displayed().size(), 0, "no boss bar before arrival")
+	_frames(31)
+	var rows: Array = bar.displayed()
+	assert_eq(rows.size(), 1, "arrival creates its bar below the timer")
+	if rows.is_empty():
+		return
+	assert_eq(rows[0].name, "Mano")
+	assert_eq(rows[0].hp, 4000)
+	assert_eq(rows[0].max_hp, 4000)
+	assert_eq(rows[0].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/2220000")
+	assert_eq(rows[0].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[0].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	var slot := int(scene.world.bosses.records[0].slot)
+	scene.world.hit_mob(slot, {"damage_min": 2000.0, "damage_max": 2000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed()[0].hp, 2000, "fixed damage is visible in the bar on the next frame")
+	assert_eq(bar.displayed()[0].ratio, 0.5)
+	scene.world.hit_mob(slot, {"damage_min": 100000.0, "damage_max": 100000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(1)
+	assert_eq(bar.displayed().size(), 0, "dead boss is hidden immediately")
+	_assert_nothing_missing(scene, "boss bar")
+
+
+func test_multiple_live_boss_bars_keep_their_own_icons_and_colour_overrides() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2103, {})
+	scene.world.bosses = BossDirector.new([
+		{"mob_id": 2220000, "time": 0.5, "hp_mult": 2.0},
+		{"mob_id": 9400205, "time": 0.7, "hp_mult": 0.25},
+	])
+	scene.world.god = true
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	_frames(43)
+	var rows := scene.hud.boss_bar.displayed()
+	assert_eq(rows.size(), 2, "both surviving bosses remain visible")
+	if rows.size() != 2:
+		return
+	assert_eq(rows[0].mob_id, 2220000)
+	assert_eq(rows[1].name, "Blue Mushmom")
+	assert_eq(rows[1].max_hp, 50000)
+	assert_eq(rows[1].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/6130101", "Blue Mushmom borrows Mushmom's icon")
+	assert_eq(rows[1].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[1].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	assert_true(rows[0].icon is SpriteFrame and rows[1].icon is SpriteFrame)
+	_assert_nothing_missing(scene, "multiple boss bars")
+
+
+func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 2303, {})
+	var pos := scene.world.player.pos + Vector2(180, 0)
+	var effect := "Mob.wz/6130101.img/attack1/info/effect"
+	var sounds := int(scene.counters.sounds)
+	var effects := scene.fx.active_count()
+	scene.handle_events([{"type": "boss_attack", "phase": "start", "boss_index": 1,
+		"sound": "Sound.wz/Mob.img/6130101/Attack1"},
+		{"type": "boss_attack", "phase": "effect", "boss_index": 1,
+		"effect": effect, "pos": pos, "facing": -1}])
+	assert_eq(scene.counters.sounds, sounds + 1)
+	assert_eq(scene.fx.active_count(), effects + 1)
+	_assert_nothing_missing(scene, "mushroom slam")
 
 
 func test_cast_plays_the_action_stance_while_standing() -> void:
@@ -184,13 +292,33 @@ func test_cast_plays_the_action_stance_while_standing() -> void:
 	_assert_nothing_missing(scene, "cast")
 
 
+func test_player_miss_uses_violet_art_without_hit_expression() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 616, {})
+	_frames(2)
+	var w := scene.world
+	w.loadout.add_player_mod("avoid", "add", 1000.0)
+	w.refresh_player_stats()
+	w.drain_events()
+	var numbers := scene.numbers.active_count()
+	var expression := scene.avatar.current_expression()
+	w.take_hit(82.0, false, "", w.player.pos + Vector2(10, 0), {"accuracy": 42})
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.numbers.active_count(), numbers + 1, "a MISS is rendered")
+	assert_eq(scene.avatar.current_expression(), expression, "a miss does not hurt the avatar")
+	assert_true(lib.find("Effect.wz/BasicEff.img/NoViolet0/Miss") != null, "the violet MISS glyph is canonical")
+	_assert_nothing_missing(scene, "player miss")
+
+
 func test_level_up_opens_the_window() -> void:
 	if not require_cache():
 		return
 	scene = _make("henesys_hg1", 11, {})
 	var w := scene.world
 	_frames(2)
-	w.pickups.spawn(w.player.pos, 20, 4000019)
+	# Exercise opening a choice, independently of the tuned first-level EXP cost.
+	w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
 	var ticks := 0
 	while int(w.player_state.level) < 2 and ticks < 120:
 		scene.advance_frame(DT)
@@ -320,6 +448,24 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 	_assert_nothing_missing(scene, "job effect")
 
 
+func test_low_mp_cue_tracks_the_waiting_skill_and_clears_after_restoration() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 9, {})
+	var world := scene.world
+	world.god = true
+	world.change_job(200)
+	world.spend_mp(int(world.player_state.mp))
+	world.spawn_mob(int(world.kind_of_id[100100]), world.player.pos + Vector2(-80, 0), world.player.fh, 1000, false)
+	_frames(4)
+	assert_true(bool(world.player_state.mp_short), "a targeted skill waits for MP")
+	assert_true(scene.hud.low_mp_visible(), "the scene displays the persistent low-MP cue")
+	world.heal_fraction("mp", 1.0)
+	_frames(1)
+	assert_false(scene.hud.low_mp_visible(), "the cue disappears when the ready skill casts")
+	_assert_nothing_missing(scene, "low MP cue")
+
+
 func test_pause_holds_the_run() -> void:
 	if not require_cache():
 		return
@@ -358,6 +504,7 @@ func test_stage_clear_finishes_with_summary() -> void:
 	scene = _make("henesys_hg1", 4, {"autoplay": true, "autopick": true})
 	var w := scene.world
 	w.duration = 2.0
+	w.bosses = BossDirector.new() # This fixture exercises the duration fallback and clear presentation.
 	_frames(150)
 	assert_eq(w.state, RunWorld.CLEARED, "cleared at the shortened duration")
 	assert_true(scene.notice_fx.active_count() == 1, "the CLEAR field effect shows")
@@ -473,3 +620,454 @@ func test_launcher_args() -> void:
 	var bare := RunLauncher.parse_args(PackedStringArray(["--run"]))
 	assert_eq(RunLauncher.stage_from_args(bare), "henesys_hg1")
 	assert_false(RunLauncher.has_run_args(RunLauncher.parse_args(PackedStringArray(["--map=1"]))))
+
+
+func test_canonical_basic_swing_drives_afterimage_sparks_and_weapon_sound() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 83, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.mob_motion.push_px = 0
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 83, Vector2(800, 600),
+		func(path: String) -> Dictionary: return lib.img(path).root, lib.mob_root)
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.player.facing = 1
+	var target := w.player.pos + Vector2(50, 0)
+	w.mob_kinds[int(w.kind_of_id[100100])].move_speed = 0
+	w.spawn_mob(int(w.kind_of_id[100100]), target, w.player.fh, 100, false)
+	var before_sounds: int = scene.counters.sounds
+	_frames(40)
+	assert_true(String(scene.avatar.stance) in BasicAttack.ACTIONS, "the body plays the canonical swing/stab")
+	assert_true(scene.fx.active_count() >= 2, "afterimage and hit sparks are pooled effects")
+	assert_true(int(scene.counters.hit_fx) >= 1, "the swing hit emitted its spark")
+	assert_true(int(scene.counters.sounds) > before_sounds, "swing and monster-hit audio played")
+	_assert_nothing_missing(scene, "basic attack")
+
+
+func test_same_map_portal_snaps_the_camera_without_sound_or_effects() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 17, {})
+	var w := scene.world
+	w.player.place(Vector2(-1355, 2021), w.fhm)
+	scene.advance_frame(0.0)
+	scene.cam.snap_to(w.player.pos)
+	scene.cam.update_camera(DT)
+	var sounds := int(scene.counters.sounds)
+	var effects := scene.fx.active_count() + scene.fx_back.active_count()
+	w.step(DT, MoveInput.make(false, false, true))
+	scene.handle_events(w.drain_events())
+	scene.advance_frame(0.0)
+	scene.cam.update_camera(DT)
+	assert_eq(scene.player_group.position, Vector2(-1338, 1592), "player drawn immediately at up01 minus 30 px")
+	var view := scene.cam.view_rect()
+	assert_near((scene.player_group.position.y - view.position.y) / view.size.y, 0.58, 1.0 / view.size.y,
+		"camera immediately places arrival feet at the normal 58 percent anchor")
+	assert_eq(int(scene.counters.sounds), sounds, "same-map warp is silent")
+	assert_eq(scene.fx.active_count() + scene.fx_back.active_count(), effects, "no transition effect")
+	_assert_nothing_missing(scene, "portal")
+
+
+func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_are_full() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 10, {})
+	var hp: Dictionary = scene.hud.potion_slot.displayed("hp")
+	assert_eq(hp.item_id, 2000000)
+	assert_eq(hp.count, 5)
+	assert_eq(hp.key_label, "Del / Q")
+	assert_true(hp.icon != null, "canonical Red Potion icon is drawable")
+	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
+	_frames(1)
+	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
+	assert_eq(mp.count, 2)
+	assert_eq(mp.item_id, 2000003)
+	assert_eq(mp.key_label, "End / E")
+	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
+	scene.world.drink_potion("hp")
+	scene.advance_frame(0.0)
+	assert_eq(scene.hud.potion_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
+	_assert_nothing_missing(scene, "potions")
+	var report := scene.perf_summary()
+	assert_eq(report.get("potions_collected", {}), {"hp": 0, "mp": 2})
+	assert_eq(report.get("potions_used", {}), {"hp": 1, "mp": 0})
+
+
+func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame() -> void:
+	assert_true(InputMap.has_action("drink_hp"))
+	assert_true(InputMap.has_action("drink_mp"))
+	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
+		return
+	scene = _make("henesys_hg1", 10, {})
+	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END], ["drink_mp", KEY_E]]:
+		var event := InputEventKey.new()
+		event.physical_keycode = pair[1]
+		event.pressed = true
+		assert_true(event.is_action_pressed(pair[0]), "%s binds %s" % [pair[0], OS.get_keycode_string(pair[1])])
+		if pair[0] == "drink_mp":
+			scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
+			_frames(1)
+		var before: int = scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count
+		scene._unhandled_input(event)
+		scene.advance_frame(DT * 4)
+		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)
+
+
+func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 11, {})
+	scene.world.progression.level = 25
+	for example: Array in [["orange_potion", "hp", 2000001], ["white_potion", "hp", 2000002],
+			["mana_elixir", "mp", 2000006]]:
+		var before: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		scene.world.upgrades.apply(example[0], scene.world)
+		scene.advance_frame(0.0)
+		var after: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		assert_eq(after.item_id, example[2])
+		assert_eq(after.count, before.count)
+		assert_true(after.icon != null)
+		assert_ne(after.icon.region, before.icon.region, "a new canonical icon is displayed")
+	_assert_nothing_missing(scene, "potion tiers")
+
+
+func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> void:
+	if not require_cache():
+		return
+	var height_one := 0.0
+	for n in [1, 2]:
+		scene = _make("henesys_hg1", 11, {})
+		var w := scene.world
+		w.change_job(200)
+		w.progression.level = 20
+		var ids: Array = ["orange_potion", "mana_elixir"].slice(0, n)
+		w.upgrades = UpgradePool.from_data({"cards": w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id in ids)})
+		w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
+		_frames(1 + ceili(RunScene.WINDOW_DELAY / DT) + 2)
+		var lw := scene.window as LevelUpWindow
+		assert_true(lw != null)
+		if lw != null:
+			assert_eq(lw.cards.size(), n)
+			for i in n:
+				assert_true(lw.card_rect(i).has_area())
+			assert_eq(lw.card_rect(n), Rect2(), "no empty substitute row")
+			assert_false(lw.choose(n), "out-of-range choice cannot consume a card")
+			if n == 1:
+				height_one = lw.panel_size.y
+			else:
+				assert_true(lw.panel_size.y > height_one, "panel grows to hold the second card")
+			assert_true(lw.choose(0))
+			assert_eq(w.state, RunWorld.PLAYING)
+		_assert_nothing_missing(scene, "%d potion cards" % n)
+		scene.free()
+		scene = null
+
+func test_mano_slow_uses_repeating_canonical_effect_and_shared_skill_stance() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	sfx.library = lib
+	scene = _make("henesys_hg1",22,{})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.bosses.teleport_stall = 10000.0
+	data.stages.stages.henesys_hg1.bosses = [{"mob_id":2220000,"time":0.0}]
+	for keyframe: Dictionary in data.stages.stages.henesys_hg1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	var setup := DataRepo.build_setup(data,"henesys_hg1",22,Vector2(800,600),func(p:String)->Dictionary:return lib.img(p).root,lib.mob_root)
+	setup.mob_imgs[2220000] = setup.mob_imgs[2220000].duplicate(true)
+	setup.mob_imgs[2220000].info.skill = {"0":{"skill":126.0,"level":7.0,"action":1.0,"effectAfter":0.0}}
+	setup.mob_imgs[2220000].info.speed = -100.0
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	_frames(901)
+	var slot := int(w.bosses.records[0].slot)
+	assert_eq(w.player.speed_stat,80)
+	assert_eq(w.bosses.action_snapshot(w.swarm).actions[slot],"skill1","canonical boss skill stance")
+	assert_true(scene.fx.active_count() >= 1,"slow affected animation plays")
+	w.swarm.despawn(slot)
+	_frames(60)
+	scene.fx.advance(1.0)
+	assert_true(scene.fx.active_count() >= 1,"repeat-marked slow art outlives its single 350ms cycle")
+	_frames(840)
+	assert_eq(scene.fx.active_count(),0,"the affected effect ends with canonical duration")
+	_assert_nothing_missing(scene,"Mano slow")
+	sfx.library = previous_library
+
+
+func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 20, {})
+	var w := scene.world
+	w.god = true
+	w.bosses = BossDirector.new([{"time": 0.1, "mob_id": 2220000}], w.balance.bosses)
+	_frames(6)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	scene.handle_events(w.drain_events())
+	_frames(1)
+	var lw := scene.window as LevelUpWindow
+	assert_true(lw != null, "reward choice is visible before clear")
+	if lw != null:
+		assert_eq(lw.get("bonus"), true, "bonus flag selects the reward header")
+		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
+		assert_eq(w.player_state.level, 1, "bonus does not grant a level")
+		assert_true(lw.choose(0))
+	_frames(1)
+	assert_eq(w.state, RunWorld.CLEARED, "clear begins only after the reward is answered")
+	_assert_nothing_missing(scene, "boss reward")
+
+
+func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 12, {})
+	var w := scene.world
+	w.change_job(200)
+	w.loadout.ranks.erase("energy_bolt")
+	w.loadout.order.erase("energy_bolt")
+	w.learn_skill("magic_guard")
+	w.learn_skill("magic_armor")
+	_frames(2)
+	assert_eq((w.player_state.get("buffs", []) as Array).size(), 2)
+	assert_true(scene.hud.buff_row.has_method("displayed"), "dedicated buff widget exposes its draw model")
+	if scene.hud.buff_row.has_method("displayed"):
+		for frame in [0, 90]:
+			_frames(frame)
+			var slots: Array = scene.hud.buff_row.call("displayed")
+			assert_eq(slots.size(), 2)
+			for i in slots.size():
+				assert_eq(slots[i].skill_id, w.player_state.buffs[i].skill_id)
+				assert_eq(slots[i].remaining_seconds, ceili(w.player_state.buffs[i].remaining))
+				assert_true(slots[i].icon != null)
+	assert_eq(w.upgrades.choice_card("magic_guard_rank", w).skill_changes,
+		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 195}, "x": {"before": 11, "after": 23}})
+	assert_eq(w.upgrades.choice_card("magic_armor_rank", w).skill_changes,
+		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 110}, "pdd": {"before": 2, "after": 10}})
+	_assert_nothing_missing(scene, "player buffs")
+
+func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 2406, {})
+	var entry: Dictionary = scene.world.bosses.entries[0].duplicate(true)
+	entry.time = 0.5
+	entry.attacks = ["attack2"]
+	scene.world.bosses = BossDirector.new([entry])
+	scene.world.mob_skills = MobSkillRunner.new(scene.world.setup, {"enabled_ids": []})
+	scene.world.mob_skills.resize(scene.world.swarm.capacity())
+	scene.world.loadout.order.clear()
+	scene.world.loadout.ranks.clear()
+	scene.world.god = true
+	var drawn := 0
+	for tick in 900:
+		scene.advance_frame(DT)
+		drawn = maxi(drawn, scene.mob_shots.visible_count())
+		if drawn > 0:
+			break
+	assert_true(drawn > 0, "monster pool is drawn by its own batched renderer")
+	var effects := scene.fx.active_count()
+	var slot := int(scene.world.bosses.records[0].slot)
+	var pos := Vector2(scene.world.swarm.x[slot], scene.world.swarm.y[slot])
+	scene.handle_events([{"type": "boss_skill", "mob": slot, "mob_id": 3220000, "skill_id": 114,
+		"level": 15, "pos": pos, "facing": -1, "action": "skill1", "duration": 1.0,
+		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": "", "recipient_effect": ""},
+		{"type": "mob_healed", "mob": slot, "mob_id": 3220000, "amount": 350, "pos": pos}])
+	assert_eq(scene.fx.active_count(), effects + 1)
+	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
+	_assert_nothing_missing(scene, "Stumpy presentation")
+
+
+
+func _canonical_dyle_area_buff(skill_entry: String) -> Dictionary:
+	scene = _make("tree_that_grew_1", 2026, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	data.stages.stages.tree_that_grew_1.bursts = {}
+	data.stages.stages.tree_that_grew_1.elites = {}
+	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
+	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 2026, Vector2(800, 600),
+		func(p: String) -> Dictionary: return lib.img(p).root, lib.mob_root)
+	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
+	setup.mob_imgs[6220000].info.skill = {skill_entry: setup.mob_imgs[6220000].info.skill[skill_entry]}
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.step(DT, MoveInput.new())
+	var source := int(w.bosses.records[0].slot)
+	w.swarm.alpha[source] = 1.0
+	w.spawn_mob(0, Vector2(w.swarm.x[source] + 20, w.swarm.y[source]), w.swarm.fh[source], 1.0, false)
+	# Pass the canonical 30 s interval without spending a whole run moving the affected mobs apart.
+	w.time = 40.1
+	w.bosses.prepare_actions(w)
+	w.drain_events()
+	w.mob_skills.step(w)
+	for event: Dictionary in w.drain_events():
+		if event.type == "boss_skill":
+			return event
+	fail("canonical Dyle area buff should cast after its interval")
+	return {}
+
+
+func test_dyle_area_defense_without_optional_recipient_burst_keeps_art_complete() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("2")
+	if event.is_empty():
+		return
+	assert_eq(event.skill_id, 112)
+	assert_eq(event.level, 4)
+	assert_eq(event.targets.size(), 2, "caster and nearby ordinary mob receive the real area buff")
+	for slot: int in event.targets:
+		assert_near(scene.world.mob_skills.defense_bonus(slot, false, scene.world.time), 85.0, 0.001)
+	assert_eq(event.get("recipient_effect", ""), "", "v83 112/L4 has no mob0 burst")
+	assert_eq(event.effect, "Skill.wz/MobSkill.img/112/level/4/effect")
+	var effects := scene.fx.active_count()
+	scene.handle_events([event])
+	assert_eq(scene.fx.active_count(), effects + 1, "the canonical caster effect still plays")
+	_assert_nothing_missing(scene, "Dyle area defense without recipient art")
+
+
+func test_dyle_area_magic_defense_plays_its_canonical_recipient_burst() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("3")
+	if event.is_empty():
+		return
+	assert_eq(event.skill_id, 113)
+	assert_eq(event.level, 2)
+	assert_eq(event.targets.size(), 2)
+	for slot: int in event.targets:
+		assert_near(scene.world.mob_skills.defense_bonus(slot, true, scene.world.time), 85.0, 0.001)
+	assert_eq(event.get("recipient_effect", ""), "Skill.wz/MobSkill.img/113/level/2/mob0")
+	var effects := scene.fx.active_count()
+	scene.handle_events([event])
+	assert_eq(scene.fx.active_count(), effects + 1, "v83 113/L2 plays its recipient burst")
+	_assert_nothing_missing(scene, "Dyle area magic defense with recipient art")
+
+
+func test_boss_skill_nonempty_missing_recipient_art_is_still_reported() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("3")
+	if event.is_empty():
+		return
+	# A nonempty event path is required art; only canonical absence may omit the optional burst.
+	var missing := "Skill.wz/MobSkill.img/113/level/2/required_art_removed"
+	event.recipient_effect = missing
+	scene.handle_events([event])
+	assert_eq(Array(lib.missing), [missing], "a broken required export remains visible to acceptance")
+
+
+func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 25, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	data.balance.bosses.teleport_stall = 10000.0
+	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	data.stages.stages.tree_that_grew_1.bursts = {}
+	data.stages.stages.tree_that_grew_1.elites = {}
+	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
+	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 25, Vector2(800,600), func(p:String)->Dictionary:return lib.img(p).root, lib.mob_root)
+	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
+	setup.mob_imgs[6220000].info.skill = {"0": {"skill":140,"level":8,"action":1,"effectAfter":0}}
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	_frames(1)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min":10000.0,"damage_max":10000.0,"magic":false,"crit":0.0,"crit_mult":1.5,"skill":"three_snails"}, -1)
+	_frames(1800)
+	assert_true(scene.has_method("mob_status_effects"), "mob status art exposes its detached draw model")
+	if not scene.has_method("mob_status_effects"):
+		return
+	var displayed: Array = scene.call("mob_status_effects")
+	assert_eq(displayed.size(), 1)
+	if displayed.size() == 1:
+		assert_eq(displayed[0].visual, "Skill.wz/MobSkill.img/140/level/8/mob")
+		assert_eq(displayed[0].mob, slot)
+		assert_true(displayed[0].visible)
+	var pos := Vector2(w.swarm.x[slot] + 100, w.swarm.y[slot])
+	var moved := w.relocate_mob(slot, pos, w.swarm.fh[slot])
+	_frames(1)
+	displayed = scene.call("mob_status_effects")
+	assert_eq(displayed[0].mob, moved)
+	assert_near((displayed[0].pos as Vector2).x, w.swarm.x[moved], 0.01)
+	_frames(300)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 0)
+	_frames(1500)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 1, "second canonical interval recasts")
+	w.hit_mob(moved, {"damage_min":100000.0,"damage_max":100000.0,"magic":true,"crit":0.0,"crit_mult":1.5,"skill":"energy_bolt"}, -1)
+	_frames(1)
+	assert_eq((scene.call("mob_status_effects") as Array).size(), 0, "death hides a still-timed icon")
+	_assert_nothing_missing(scene, "Dyle immunity")
+
+
+func test_tree_boss_bars_use_original_icons_and_split_removes_only_the_dead_bar() -> void:
+	if not require_cache():
+		return
+	scene = _make("tree_that_grew_1", 2521, {})
+	var w := scene.world
+	w.god = true
+	w.loadout.order.clear()
+	w.loadout.ranks.clear()
+	w.bosses = BossDirector.new([{"mob_id":9300003,"time":0.0,"hp_mult":1.5}, {"mob_id":6220000,"time":0.0,"hp_mult":1.5}])
+	_frames(1)
+	var rows := scene.hud.boss_bar.displayed()
+	assert_eq(rows.size(), 2)
+	if rows.size() != 2:
+		return
+	assert_eq(rows[0].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/9300003")
+	assert_eq(rows[0].color_path, "UI.wz/UIWindow.img/MobGage/Gage/1/0")
+	assert_eq(rows[0].background_path, "UI.wz/UIWindow.img/MobGage/Gage/5/1")
+	assert_eq(rows[1].icon_path, "UI.wz/UIWindow.img/MobGage/Mob/6220000")
+	assert_true(rows[0].icon != null and rows[1].icon != null)
+	var slot := int(w.bosses.records[0].slot)
+	w.hit_mob(slot, {"damage_min":100000.0,"damage_max":100000.0,"magic":true,"crit":0.0,"crit_mult":1.5,"skill":"energy_bolt"}, -1)
+	_frames(1)
+	assert_eq(scene.hud.boss_bar.displayed().size(), 1)
+	assert_eq(w.mob_skills.summoned_alive(w, 0), 11)
+	_assert_nothing_missing(scene, "Tree bosses and revive")
+
+
+func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 13, {})
+	var w := scene.world
+	w.learn_skill("recovery")
+	w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
+	scene.handle_events(w.drain_events())
+	var effects := scene.fx.active_count()
+	_frames(1)
+	assert_eq(w.player_state.mp, 0)
+	assert_eq(w.player_state.buffs.size(), 1)
+	var slots := scene.hud.buff_row.displayed()
+	assert_eq(slots.size(), 1)
+	assert_eq(slots[0].skill_id, 1001)
+	assert_eq(slots[0].remaining_seconds, 30)
+	assert_true(slots[0].icon != null)
+	assert_true(scene.fx.active_count() > effects, "canonical Recovery cast animation is presented")
+	var card := w.upgrades.choice_card("recovery_rank", w)
+	assert_eq(card.skill_changes, {"mpCon": {"before": 5, "after": 10}, "time": {"before": 30, "after": 30},
+		"x": {"before": 4, "after": 8}, "cooltime": {"before": 120, "after": 120}})
+	assert_has(LevelUpWindow.change_lines(card), "HP / pulse: 4 → 8")
+	_assert_nothing_missing(scene, "Recovery")

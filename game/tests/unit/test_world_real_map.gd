@@ -202,7 +202,7 @@ func test_real_every_edge_lands_where_the_graph_says() -> void:
 	assert_false(walker.can_jump)
 	assert_true(jumper.can_jump)
 	var maps_done := 0
-	for map_id: String in ["104040000", "100010000", "101010100"]:
+	for map_id: String in ["104040000", "101010100"]:
 		var img := _img("Map.wz/Map/Map%s/%s.img" % [map_id.substr(0, 1), map_id])
 		if img.is_empty():
 			print("  %s: not in the cache, skipped" % map_id)

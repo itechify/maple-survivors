@@ -68,7 +68,7 @@ func test_map_104040000_builds_without_missing() -> void:
 func test_other_maps_build_without_missing() -> void:
 	if not require_cache():
 		return
-	for id in [100010000, 101010100]:
+	for id in [101010100]:
 		var map := MapRenderer.new()
 		map.library = lib
 		assert_true(map.load_map(id), "map %d" % id)

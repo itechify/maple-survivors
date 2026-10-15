@@ -19,7 +19,8 @@ static func skill_imgs() -> Dictionary:
 			"ball": _anim(3, 90.0, 32, 35), "hit": {"0": _anim(6, 90.0, 76, 79)}}
 	var b000 := {"skill": {
 		"0001000": {"icon": _canvas(32, 32), "level": snails},
-		"0001001": {"icon": _canvas(32, 32), "level": _levels(3, {"mpCon": [5.0, 15.0], "x": [4.0, 12.0]})},
+		"0001001": {"icon": _canvas(32, 32), "effect": _anim(13, 90.0, 50, 100),
+			"level": _levels(3, {"mpCon": [5.0, 15.0], "x": [4.0, 12.0], "time": [30.0, 30.0], "cooltime": [120.0, 120.0]})},
 		"0001002": {"icon": _canvas(32, 32), "level": _levels(3, {"mpCon": [4.0, 10.0], "speed": [10.0, 20.0]})},
 	}}
 	var b200 := {"skill": {
@@ -46,7 +47,7 @@ static func skill_imgs() -> Dictionary:
 	return {"000": b000, "200": b200, "210": b210}
 
 
-## Canonical info rows of the stage mobs (cosmic-data.md section 6; Ribbon Pig is a synthetic stand-in).
+## Canonical info rows of the stage mobs (cosmic-data.md section 6).
 const MOB_INFO := {
 	100100: {"level": 1, "maxHP": 8, "exp": 3, "PADamage": 12, "PDDamage": 0, "MDDamage": 0, "speed": -65},
 	100101: {"level": 2, "maxHP": 15, "exp": 4, "PADamage": 17, "PDDamage": 0, "MDDamage": 0, "speed": -50},
@@ -56,11 +57,26 @@ const MOB_INFO := {
 		"jump": true},
 	1210100: {"level": 7, "maxHP": 75, "exp": 15, "PADamage": 37, "PDDamage": 5, "MDDamage": 20, "speed": 0,
 		"jump": true},
-	1210101: {"level": 10, "maxHP": 120, "exp": 20, "PADamage": 45, "PDDamage": 10, "MDDamage": 20, "speed": 0,
-		"jump": true},
 	1210102: {"level": 8, "maxHP": 80, "exp": 15, "PADamage": 42, "PDDamage": 0, "MDDamage": 10, "speed": 0,
 		"jump": true},
 	1110100: {"level": 15, "maxHP": 250, "exp": 26, "PADamage": 82, "PDDamage": 12, "MDDamage": 40, "speed": -20},
+	9300063: {"level": 6, "maxHP": 60, "exp": 22, "PADamage": 22, "PDDamage": 5, "MDDamage": 20, "flySpeed": -28},
+	9300062: {"level": 8, "maxHP": 80, "exp": 10, "PADamage": 25, "PDDamage": 5, "MDDamage": 30, "flySpeed": -30},
+	9300064: {"level": 11, "maxHP": 155, "exp": 22, "PADamage": 35, "PDDamage": 10, "MDDamage": 40, "flySpeed": -50},
+	2300100: {"level": 20, "maxHP": 300, "exp": 33, "PADamage": 85, "PDDamage": 20, "MDDamage": 20, "flySpeed": 5},
+	# Boss reference facts from the owner's v83 dumps; all frames remain synthetic snail-like art.
+	2220000: {"level": 20, "maxHP": 2000, "exp": 120, "PADamage": 90, "PDDamage": 20,
+		"MDDamage": 30, "speed": -40, "acc": 60, "boss": 1, "pushed": 1},
+	3220000: {"level": 35, "maxHP": 7000, "exp": 405, "PADamage": 125, "PDDamage": 50,
+		"MDDamage": 70, "speed": -60, "acc": 80, "boss": 1, "pushed": 1},
+	6130101: {"level": 60, "maxHP": 20000, "exp": 1200, "PADamage": 200, "PDDamage": 320,
+		"MDDamage": 320, "speed": 5, "acc": 150, "boss": 1, "pushed": 1000},
+	9400205: {"level": 90, "maxHP": 200000, "exp": 10000, "PADamage": 450, "PDDamage": 810,
+		"MDDamage": 520, "speed": -20, "acc": 220, "boss": 1, "pushed": 1000},
+	9300003: {"level": 40, "maxHP": 8000, "exp": 800, "PADamage": 130, "PDDamage": 160,
+		"MDDamage": 160, "speed": -20, "acc": 140, "pushed": 300},
+	6220000: {"level": 65, "maxHP": 31000, "exp": 810, "PADamage": 190, "PDDamage": 190,
+		"MDDamage": 220, "speed": -30, "acc": 150, "boss": 1, "pushed": 1500},
 }
 
 
@@ -74,6 +90,10 @@ static func mob_img(id: int) -> Dictionary:
 			i[k] = float(info[k])
 	if not bool(info.get("jump", false)):
 		img.erase("jump")
+	if info.has("flySpeed"):
+		img.fly = img.move
+		img.erase("move")
+		img.erase("stand")
 	return img
 
 
@@ -141,6 +161,11 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 		"physics_img": WF.physics_img_v83(),
 		"mob_imgs": mob_imgs(),
 		"skill_imgs": skill_imgs(),
+		"equipment_info": {1302000: {"incPAD": 17.0, "attackSpeed": 4.0},
+			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
+		# Synthetic item nodes with independently verified v83 restore amounts.
+		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
+			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
 		"seed": p_seed,
@@ -192,13 +217,15 @@ static func auto_choose(w: RunWorld) -> void:
 ## can place every mob themselves.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
+	# Isolated combat/physics tests opt into potion rolls explicitly when they need them.
+	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var stages: Dictionary = data.stages.stages
 	var pool := {}
 	for id: int in MOB_INFO:
 		pool[str(id)] = 1.0
 	stages["quiet"] = {
 		"map_id": 0, "name": "quiet", "duration": 900.0, "hard_cap": 400,
-		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "damage": 1.0, "pool": pool}],
+		"keyframes": [{"t": 0.0, "rate": 0.0, "max_alive": 0.0, "hp": 1.0, "speed": 1.0, "pool": pool}],
 		"bursts": {}, "elites": {},
 	}
 	return data

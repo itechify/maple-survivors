@@ -9,6 +9,8 @@ extends RefCounted
 ## When the only drops left are on platforms above (at least CLIMB_MIN_DROPS), it walks to the nearest ladder or rope
 ## that starts on its platform and climbs it (jumping for a rope that hangs above the floor). With no drop at all it
 ## heads back toward the middle of the map. When it has not moved for a while it turns around and jumps.
+## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
+## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
 ## Choices (auto_choose): the first available job, and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
@@ -36,16 +38,23 @@ const SCORE_MOD_OTHER := 25.0
 const SCORE_JOB_BONUS := 12.0
 const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0, "magnet": 22.0, "max_mp": 16.0,
 	"mp_regen": 16.0}
-const SCORE_FILLER := 5.0
-## A filler that heals is worth this much more while HP is below half.
-const SCORE_FILLER_LOW_HP := 60.0
+## tier C: permanent potion tier improvement is preferred to a general defence card, below attack ranks.
+const SCORE_POTION_TIER := 52.0
 
 
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var mi := MoveInput.new()
+	var thresholds: Dictionary = w.balance.get("potions", {}).get("bot", {})
+	var ps := w.player_state
+	mi.drink_hp = int(ps.potions.hp.count) > 0 and float(ps.hp) < float(ps.max_hp) * float(thresholds.get("hp_threshold", 0.0))
+	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0))
 	var s := w.swarm
 	var p := w.player.pos
+	# Keep Up held during the small hop onto a portal's entrance ledge.
+	if memo.has("portal_x") and w.player.fh < 0 and absf(p.x - float(memo.portal_x)) <= float(w.portals.tuning.reach_x):
+		mi.up = true
+		return mi
 	# On a ladder or rope (the bot only grabs one to climb up): keep climbing; jump off if it takes far too long.
 	if w.player.ladder >= 0:
 		memo["climb_t"] = int(memo.get("climb_t", 0)) + 1
@@ -78,6 +87,16 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var dir := 0
 	var down := false
+	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
+	if not portal.is_empty():
+		PortalApproach.steer(w, portal, mi)
+		memo["portal_x"] = portal.source.x
+		memo.erase("climb_x")
+		memo.erase("flip_t")
+		memo["stuck"] = 0
+		memo["last_x"] = p.x
+		return mi
+	memo.erase("portal_x")
 	if minf(nearest[0], nearest[1]) < 160.0:
 		dir = -1 if danger[0] < danger[1] else 1
 	else:
@@ -156,6 +175,59 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return mi
 
 
+static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
+	if w.player.fh < 0 or w.portals.links.is_empty():
+		return {}
+	var p := w.player.pos
+	var pk := w.pickups
+	var best := INF
+	for i in pk.capacity():
+		if pk.active[i] != 0:
+			best = minf(best, _drop_distance(p, Vector2(pk.x[i], pk.y[i])))
+	if best == INF and not escaping:
+		return {}
+	var chosen := {}
+	var safer := {}
+	var safety := _mob_danger(w, p) if escaping else 0.0
+	for link: Dictionary in w.portals.links:
+		var source: Vector2 = link.pos
+		var plan := PortalApproach.plan(w, source)
+		if plan.is_empty() or float(plan.floor_y) > source.y + float(w.portals.tuning.reach_below):
+			continue
+		var arrival: Vector2 = link.target_pos - Vector2(0, float(w.portals.tuning.arrival_lift))
+		if escaping and absf(source.x - p.x) <= BLOCK_DIST:
+			var danger := _mob_danger(w, arrival)
+			if danger < safety:
+				safety = danger
+				safer = plan
+		for i in pk.capacity():
+			if pk.active[i] == 0:
+				continue
+			var cost := absf(source.x - p.x) + _drop_distance(arrival, Vector2(pk.x[i], pk.y[i]))
+			if cost < best:
+				best = cost
+				chosen = plan
+	return safer if not safer.is_empty() else chosen
+
+
+static func _mob_danger(w: RunWorld, point: Vector2) -> float:
+	# tier C: the same nearby-mob box and distance weights as the existing kiting decision.
+	var danger := 0.0
+	for i in w.swarm.capacity():
+		if w.swarm.active[i] == 0:
+			continue
+		var dx := w.swarm.x[i] - point.x
+		var dy := w.swarm.y[i] - point.y
+		if dy >= -140.0 and dy <= 90.0 and absf(dx) <= 450.0:
+			danger += 1.0 / (absf(dx) + 30.0)
+	return danger
+
+
+static func _drop_distance(from: Vector2, to: Vector2) -> float:
+	# tier C: match the bot's existing preference for horizontal travel over changing floors.
+	return absf(to.x - from.x) + absf(to.y - from.y) * 2.0
+
+
 ## The nearest ladder or rope that starts on the bot's platform (its bottom at most LADDER_JUMP_REACH above the floor
 ## under it) and leads up; -1 when none.
 static func climb_ladder(w: RunWorld) -> int:
@@ -227,22 +299,24 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 	return best
 
 
-## How much a sensible player wants card `c` (a choice_pending card) now; see the class doc.
+## How much a sensible player wants card `c`; optional survivor bot.card_scores override the final score, before fallback.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
+	var overrides: Dictionary = w.balance.get("bot", {}).get("card_scores", {})
+	if overrides.has(String(d.id)):
+		return float(overrides[String(d.id)])
 	var kind := String(d.get("kind", ""))
 	var effects: Array = d.get("effects", [])
 	var stat := String(effects[0].get("stat", "")) if not effects.is_empty() and effects[0] is Dictionary else ""
-	if kind == "filler":
-		var low := float(w.player_state.hp) < 0.5 * float(w.player_state.max_hp)
-		return SCORE_FILLER + (SCORE_FILLER_LOW_HP if low and stat == "hp" else 0.0)
+	if kind == "potion_tier":
+		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
 	var key := String(d.get("skill", ""))
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
 	var sd := w.book.def(key)
-	var attack := String(sd.get("kind", "")) != "passive"
+	var attack := String(sd.get("kind", "")) in ["projectile", "instant"]
 	var sj := int(sd.get("job", -1))
 	var pj := w.progression.job_id
 	var bonus := SCORE_JOB_BONUS if sj == pj or (sj > 0 and w.jobs.is_descendant(pj, sj)) else 0.0

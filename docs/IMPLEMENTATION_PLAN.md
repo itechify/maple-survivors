@@ -17,9 +17,10 @@ Work packages, in dependency order. A and B run in parallel; C needs A's cache; 
 | D (open item, resolved) | The import screen must find `wzimport` both in dev (`tools/wzimport/target/release/`) and in an export (next to the game exe); exports must bundle it | `ImportScreen.importer_candidates()` tries the exe folder first, then the dev build; `scripts/export.sh` copies `wzimport.exe` beside `MapleSurvivors.exe`. Verified: a dev import from the import screen into an empty cache; the exported build opens the import screen without a cache (an import was not driven from the export) |
 | **E. Verification** | Offline test, perf benchmark (`bench.sh`), scripted playtest with screenshots (`playtest.sh`), adversarial review against the brief | Evidence recorded below |
 
-### Acceptance checks (from the brief)
+### Historical Phase 1 acceptance checks (before the difficulty overhaul)
 
-Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
+The following results describe the earlier economy and timer-based clear, not the current spec #1 balance. New
+acceptance evidence is recorded separately below. Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
 `game/scenes/debug/flow_driver.tscn` playing the real game with injected keyboard and mouse input.
 
 | Check | How it is verified | Result (2026-10-13, integration) |
@@ -36,22 +37,91 @@ Evidence folders are under `evidence/integration/` (gitignored: screenshots of t
 | Death, results, restart | run-state tests; playtest of death -> results -> retry | `flow_full/14-20`: hands off the keys -> death, tombstone, results ("You died...", NEW BEST), Retry (mouse) -> a new run, Esc then "2" -> stage select with the best result, Esc -> title. `flow_clear/01-03`: CLEAR notice -> "Stage Clear!" results -> stage select. `import/01-05`: empty cache -> import screen -> folder typed -> Import (73 imgs, 0 warnings, 0 errors) -> title |
 | Responsive under density | `bench.sh` µs/tick at 100/300/600/1000 mobs; playtest frame-time p95 at 15:00 | Performance log below: with 200+ mobs the frame p95 is 2.8-3.5 ms with `--vsync=off` (target < 16.7 ms); up to 338 mobs alive. By default the frame rate is now capped at the display's refresh rate (60 fps on the dev PC's 59.95 Hz screen) |
 
+## Spec #1: difficulty overhaul
+
+The playable stages are Henesys Hunting Ground I and The Tree That Grew I; The Hill East of Henesys is retired.
+Both stages require all three scheduled bosses dead and the final bonus reward choice completed. The run continues
+past 15:00 while that finale is unresolved. This replaces the historical timer-only acceptance above.
+
+Tickets #3–26 are integrated: v83 player stats and hit model, basic weapons, climbing cast restrictions, MP
+costs/regeneration, separate potion inventory and tier cards, timed Guard/Armor/Recovery, polished choices,
+platform-aware spawns, conserved capped EXP drops, flyers, same-map portals and bot navigation, boss lifecycle,
+teleport/rewards, warning/bar presentation and the specified kits for all six bosses. The later pooled-identity fix keeps
+piercing contacts stable through slot reuse and relocation. Ticket #27 supplies balance and independent acceptance.
+
+| Current acceptance check | Status and evidence |
+|---|---|
+| New economy and threat | **Final Henesys pass; Tree timing deferred by user:** unchanged corrected runtime `a25697e`, reserved 301–330, 60 runs. Sensible 22/30 clears, Mage 177.45 s (30 reaches), Lv30 774.4 s (23 reaches), ordinary late hits median 218.5/minimum 58; careless 23/29 deaths in-window. Original 120-run freeze and corrected-runtime 101–130 failure (15/30 sensible clears) remain separate ledgers. Tree careless **12/29 (41.4%)** remains deferred. `GAME_DESIGN.md` 4.2 records selection, seed amendment, all denominators and resources. |
+| Boss encounters | **Pass for sensible Henesys:** completed-duration medians 27.29/57.23/73.44 s, completed 30/25/22; every whole/source-hit median 40–50%. Unfinished/unspawned denominators remain explicit. Prior Tree observations are retained separately; canonical WZ facts unchanged. |
+| Regression | Corrected runtime `a25697e` full suite passes **489 tests, 0 failed, 0 skipped, 59 files**, 695.839 s (`evidence/acceptance/final-review/full-suite.log`), including unchanged fixed pacing seeds 1/2/2026 and guards on both stages and real-cache checks. Review regressions went red before uniform stance selection, reusable borrowed boss-action view and fresh-slot identity fixes; portal approach extraction preserves public bot/camper inputs. Earlier `ab5d7fa`/`2805a24` fixture/art fixes and 485-test evidence remain historical. Root fresh-target Rust validation passed 45 tests, no skips; importer/manifest unchanged afterward. |
+| Visual integration | **Pass:** current `a25697e` density screenshot checked by eye, intact, `missing: []`. Prior seed 2026 composites retain actual Henesys/Tree clears at 16:19/Lv34 and 15:53/Lv32, max 351 mobs. Optional Dyle art fix `2805a24` has a corrected Tree clear replay with `missing: []`, unchanged outcome and inspected immunity/clear screenshots. Earlier feature-specific evidence remains in `evidence/spec1/`; these composites precede the final simulation fixes. |
+| Performance | **Pass:** final `a25697e` Henesys seed 2026 speed 1 uncapped 10:00–13:00 capture after all owned heavy jobs ended: **74,953 frames with 200+ mobs, p95 3.070 ms**, p99 3.662, max 25.346; max 274, `missing: []`. Work p95 1.806 ms; sim 0.865 ms/tick. PLAYING at the deliberate cap, not a clear. Wrapper exit 1 and late after-process sample are disclosed below; valid capture artifacts were inspected. |
+| Documentation | Live borrowed-view and shared portal-approach contracts match code; survivor constants/provenance remain unchanged. Training-only unchanged-candidate selection, amended fresh 301–330 range, original/failed/final outcome ledgers and manifest repair after launch are explicit. README controls/defaults match code; Tree timing remains deferred. |
+
+The user narrowed this pass to **Henesys-first balance acceptance** ("Mainly henesys"). Tree careless timing
+remains a documented failure of the original two-stage target, deferred without further tuning or fresh seeds.
+Both maps remain playable. Implementation evidence meets this amended scope; Tree timing is not reported as passed.
+All raw training, held-out and camper evidence is preserved locally under `evidence/acceptance/`; camper results
+are informational (21 reached their positions; 21 died). Historical Phase 1 acceptance above is not current proof.
+
+The review fixes preserve all survivor data and the pacing guard. The predeclared corrected-runtime training
+cohort 1–24+2026 (25 per policy) produced 12/25 sensible clears and 14/25 careless deaths in 9–12 minutes; only the
+sensible sample expanded through 25–60. Its 38/61 clears and all remaining target medians supported selecting the
+candidate unchanged, with the careless denominator retained at 25. The decision was sealed 03:46:14 UTC on
+2026-10-15, before the first 301–330 log at 03:46:48. The initial freeze-manifest command failed and its empty metadata
+file was rebuilt 03:48:21 after launch from the sealed decision and unchanged runtime code/data. The runner records
+that result existence was checked, outcome values were not read, and no selection/tuning changed. Independent
+audit verifies the sealed decision, hashes and timestamps; absence of reads remains the runner's recorded account.
+Hashes and repair disclosure remain in `evidence/acceptance/final_301_330/freeze-manifest.json`. The original 120 and corrected 101–130 audit are
+preserved and not pooled with the final 60. No Tree retuning occurred.
+
 ## Phase 2: job and skill expansion
 
 Fire/Poison Wizard at 30 (Fire Arrow with the five listed upgrades incl. Burning DoT; Poison Breath with the
-canonical poison tick), Magic Claw/Energy Bolt polish, Teleport as a dash, second stage set (The Tree That Grew I,
-Henesys Hunting Ground II), more mobs (Green Mushroom, Horny Mushroom, Stumps), stage select with map previews.
+canonical poison tick), Magic Claw/Energy Bolt polish, Teleport as a dash, Henesys Hunting Ground II and further
+stage/mob sets, and stage select with map previews. The Tree That Grew I is already playable in Spec #1.
 
 ## Phase 3: expanded survivor systems
 
-Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, bosses (Mushmom, King Slime,
-Mano), elite waves and modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting
-configurations, persistent progression and achievements (local save file).
+Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, additional bosses, elite wave
+modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting configurations,
+persistent progression and achievements (local save file).
 
 ## Performance log
 
+The final corrected Spec #1 sample uses runtime `a25697e`, unchanged survivor data, Godot 4.7.2 Compatibility/OpenGL 3.3,
+NVIDIA GeForce RTX 4070 SUPER (driver 610.88), Ryzen 7 7800X3D and 32 GB RAM (31.1 GiB visible). Logical view 800x600,
+window override 1600x1200, no saved window overrides. All owned training, final acceptance and suite processes had
+ended before measurement. Four unrelated Oct 13 Godot processes remained: pixcheck 4860 with console 33352 and
+dbg_drops 62280 with console 59228. Between process samples at 20:54:13 and 20:58:37 PDT they used 0.281/14.484 CPU-s
+for the workers and 0 for the wrappers. The summary was written 20:57:32, so the after sample is about 65 s late and
+those CPU deltas cover the extended interval; this is not an uncontended-machine claim.
+
+Exact command: `bash scripts/playtest.sh --stage=henesys_hg1 --seed=2026 --speed=1 --warp=600 --minutes=13
+--vsync=off --shot-every=60 --out=evidence/acceptance/density_hg_final`. Only 10:00–13:00 is drawn. The game writes
+valid summary/screenshots/game.log and ends PLAYING at the absolute 780 s cap (Lv29, 3,207 kills, max 274 mobs), not a
+clear. `final.png` was checked by eye. The PowerShell wrapper exits 1 because its stop-on-error preference treats
+the expected stderr status line as NativeCommandError after game completion; console.log is empty. The valid
+capture and late after-process sample are explicitly reconciled in `completion-context.json` and the corrected
+hardware-context status. No runtime code, data or HEAD mutation occurred during this capture; documentation was edited.
+
+The earlier pre-review sample uses runtime `59ccfd5` (optional-art fix `2805a24`), frozen survivor data, Godot 4.7.2
+Compatibility/OpenGL 3.3, NVIDIA GeForce RTX 4070 SUPER (driver 610.88), Ryzen 7 7800X3D and 32 GB RAM
+(31.1 GiB visible). Logical view 800x600, window override 1600x1200, no saved window overrides. All owned
+training, acceptance, diagnostic and full-suite processes had ended before measurement. Two unrelated Godot jobs
+were left running: pixcheck PID4860 (created Oct13 18:40, parent33352) and dbg_drops PID62280 (Oct13 20:07,
+parent59228). They used 0.281 / 13.313 CPU-seconds during the 209.239 s command interval including warp;
+this is not an uncontended-machine claim. Previously observed UI PIDs38056/68840 were absent.
+
+Exact command: `bash scripts/playtest.sh --stage=henesys_hg1 --seed=2026 --speed=1 --warp=600 --minutes=13
+--vsync=off --shot-every=60 --out=evidence/acceptance/density_hg`. The cap is absolute, so only 10:00–13:00 is
+drawn. Evidence includes summary, actual adapter log, process creation times/CPU samples and visually checked
+`t660.png` / `final.png`; original full-stage composites establish the complete clear/early-window flow separately.
+
 | Date | Build | Scenario | Result |
 |---|---|---|---|
+| 2026-10-14 | Final corrected runtime `a25697e`, speed 1 uncapped; context/wrapper disclosure above | Henesys seed 2026, draw 10:00–13:00 after warp 600; PLAYING at deliberate cap, Lv29, 3,207 kills, max 274 mobs, `missing: []` | **200+ mobs: p95 3.070 ms, p99 3.662, max 25.346 over 74,953 frames**. Global p95 3.044 ms over 87,800 frames; frame work avg 0.885/p95 1.806 ms; sim 0.865 ms/tick. |
+| 2026-10-14 | Historical pre-review runtime `59ccfd5`, speed1 uncapped; hardware/background context above | Henesys seed2026, draw 10:00–13:00 after warp600; PLAYING at the deliberate measurement cap, Lv29, 3,318 kills, max274 mobs, `missing: []` | **200+ mobs: p95 3.912 ms, p99 5.801, max15.021 over62,580 frames**. Global p95 3.743 ms over75,954 frames; frame work avg1.030/p95 2.099 ms; sim1.024 ms/tick. |
 | 2026-10-13 | Phase 0 probe | GDScript SoA sim, 1000 mobs, Forward+ | 2.5-3.3 ms/frame (editor), 2.1-2.6 ms (release) |
 | 2026-10-13 | sim-world (`scripts/bench.sh`, editor binary headless, other agents running) | `MobSwarm.step` + `SpatialHash.rebuild` + 20 radius-420 queries per tick, 104040000 / synthetic map | 100: 0.30 / 0.26 ms; 300: 0.75 / 0.56 ms; 600: 1.44 / 1.01 ms; 1000: 2.09 / 1.66 ms per tick (step alone at 1000: 1.19 / 0.87 ms) |
 | 2026-10-13 | sim-world fix pass (drop step-off, mob wall checks, ceilings; same setup) | same | 100: 0.25 / 0.21 ms; 300: 0.65 / 0.53 ms; 600: 1.38 / 0.92 ms; 1000: 1.95 / 1.72 ms per tick (step alone at 1000: 1.07 / 0.96 ms); 0 lost |
@@ -74,6 +144,7 @@ configurations, persistent progression and achievements (local save file).
 
 | Date | Milestone |
 |---|---|
+| 2026-10-14 | Spec #1 final review: uniform basic stances with unequal canonical reach, reusable borrowed boss-action buffers with lifecycle/identity guards, shared pure bot/camper portal approach. 489 tests/0 failures/0 skips; data and pacing guard unchanged. Training-only unchanged selection sealed before final reserved 301–330 runs: Henesys 22/30 sensible clears, 23/29 careless deaths at 9–12 min, target boss/progression medians; Tree careless 12/29 remains deferred. Current speed 1 uncapped 200+ p95 3.070 ms; manifest/wrapper metadata repairs disclosed. |
 | 2026-10-13 | Phase 0 complete: research, architecture decision (Godot 4.7.2 + Rust importer), docs, repo skeleton |
 | 2026-10-13 | Phase 1 A-C: WZ importer, sim core, presentation layer (190 tests) |
 | 2026-10-13 | Phase 1 D: RunScene (fixed-tick loop, every event mapped to visuals and sounds), the UI windows (level-up, job dialog, pause), title / stage select / results / import screens and the Flow autoload |

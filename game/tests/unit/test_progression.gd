@@ -6,7 +6,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "rank", "max_rank", "skill", "skill_name", "skill_level",
-	"skill_level_next"]
+	"skill_level_next", "skill_changes"]
 const JOB_OPTION_KEYS := ["job_id", "name", "available", "reason"]
 
 
@@ -39,19 +39,18 @@ func _sorted(a: Array) -> Array:
 	return c
 
 
-## The tuned curve of balance.json (docs/GAME_DESIGN.md 5): round(4 + 8 L + 4 L^2).
+## A worked survivor-data example: round(4 + 12 L + 4.4 L^2), independent of subsequent balance calibration.
 func test_exp_curve_values() -> void:
-	var c := ExpCurve.from_data(DataRepo.load_all().balance.exp_curve)
-	assert_eq(c.exp_to_next(1), 16, "4 + 8 + 4")
-	assert_eq(c.exp_to_next(2), 36, "4 + 16 + 16")
-	assert_eq(c.exp_to_next(7), 256, "4 + 56 + 196")
-	assert_eq(c.exp_to_next(29), 3600, "4 + 232 + 3364")
-	assert_eq(c.total_to(8), 16 + 36 + 64 + 100 + 144 + 196 + 256, "EXP from 1 to 8 (812)")
-	assert_eq(c.total_to(10), 1536, "EXP from 1 to 10")
-	assert_eq(c.total_to(30), 37816, "EXP from 1 to 30")
-	assert_eq(ExpCurve.new().exp_to_next(29), 3600, "defaults = the design curve")
-	assert_eq(ExpCurve.new().total_to(8), c.total_to(8), "defaults = the design curve")
-
+	var c := ExpCurve.from_data({"a": 4, "b": 12, "c": 4.4})
+	assert_eq(c.exp_to_next(1), 20, "round(20.4)")
+	assert_eq(c.exp_to_next(2), 46, "round(45.6)")
+	assert_eq(c.exp_to_next(7), 304, "round(303.6)")
+	assert_eq(c.exp_to_next(29), 4052, "round(4052.4)")
+	assert_eq(c.total_to(8), 980, "worked sum from level 1 to 8")
+	assert_eq(c.total_to(10), 1830, "worked sum from level 1 to 10")
+	assert_eq(c.total_to(30), 42978, "worked sum from level 1 to 30")
+	assert_eq(ExpCurve.new().exp_to_next(29), 3600, "missing-data fallback preserves the original curve")
+	assert_eq(ExpCurve.new().total_to(8), 812, "fallback is independent of configured survivor tuning")
 
 func test_run_progression_queue() -> void:
 	var curve := ExpCurve.new()
@@ -247,21 +246,19 @@ func test_touch_damage_invincibility_knockback_and_death() -> void:
 			if e.type == "player_hit":
 				hits.append([w.time, e])
 				assert_eq(typeof(e.damage), TYPE_INT)
-				assert_between(e.damage, 38, 45, "Green Mushroom PAD 82 x 0.55 x [0.85, 1]")
+				assert_between(e.damage, 70, 82, "Green Mushroom PAD 82 x [0.85, 1], synthetic player has no gear")
 				assert_eq(e.mp_absorbed, 0, "no Magic Guard")
 				assert_eq(e.dir, -1, "pushed away from the mob on the right")
 			elif e.type == "player_died":
 				died = true
 		if w.state != RunWorld.PLAYING:
 			break
-	assert_true(died, "two Green Mushroom hits kill a level 1 Beginner")
+	assert_true(died, "one Green Mushroom hit kills a level 1 Beginner without gear")
 	assert_eq(w.state, RunWorld.DEAD)
 	assert_true(w.player_state.dead)
 	assert_eq(w.player_state.hp, 0)
 	assert_eq(w.player_state.action, "dead")
-	assert_eq(hits.size(), 2)
-	if hits.size() == 2:
-		assert_true(hits[1][0] - hits[0][0] >= 1.5 - 1e-6, "1.5 s invincibility between hits")
+	assert_eq(hits.size(), 1)
 	var t := w.time
 	w.step(DT, MoveInput.new())
 	assert_eq(w.time, t, "DEAD: step is a no-op")

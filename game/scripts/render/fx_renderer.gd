@@ -31,8 +31,9 @@ var _flip: PackedByteArray = []
 var _hold: PackedByteArray = []
 var _active: PackedByteArray = []
 var _follow: Array = []
-## 0 = normal, 1 = tomb falling, 2 = tomb landed.
+## 0 = normal, 1 = tomb falling, 2 = tomb landed, 3 = repeating status art.
 var _mode: PackedByteArray = []
+var _repeat_left := PackedFloat32Array()
 var _free: PackedInt32Array = []
 
 
@@ -82,10 +83,32 @@ func play_tomb(pos: Vector2) -> int:
 	return i
 
 
+## Repeats an animation in a pooled slot for seconds; INF lets a sim-owned status stop it explicitly.
+func play_repeating(path: String, pos: Vector2, seconds: float, flip: bool = false, follow: Node2D = null,
+		offset: Vector2 = Vector2.ZERO) -> int:
+	var lib := _lib()
+	var anim := lib.anim(path) if lib != null else null
+	if anim == null or anim.is_empty() or seconds <= 0.0:
+		return -1
+	if behind != null and behind != self and anim.z != null and int(anim.z) < 0:
+		return behind.play_repeating(path,pos,seconds,flip,follow,offset)
+	var slot := play_anim(anim,pos,flip,follow,offset)
+	_mode[slot] = 3
+	_repeat_left[slot] = seconds
+	return slot
+
+
 ## Stops one effect.
 func stop(i: int) -> void:
 	if i >= 0 and i < _active.size() and _active[i] == 1:
 		_release(i)
+
+
+## Moves an active pooled effect to a simulation-owned anchor, without an entity Node.
+func place(i: int, pos: Vector2) -> void:
+	if i >= 0 and i < _active.size() and _active[i] == 1:
+		_pos[i] = pos
+		_draw_slot(i)
 
 
 ## Stops every effect.
@@ -112,6 +135,11 @@ func advance(dt: float) -> void:
 	for i in _active.size():
 		if _active[i] == 0:
 			continue
+		if _mode[i] == 3:
+			_repeat_left[i] -= dt
+			if _repeat_left[i] <= 1e-9:
+				_release(i)
+				continue
 		_t[i] += dt
 		var a: SpriteAnim = _anim[i]
 		if _mode[i] == 1 and _t[i] >= a.total:
@@ -145,7 +173,7 @@ func _draw_slot(i: int) -> void:
 	_ensure_pool()
 	_pool.ensure(i + 1)
 	var a: SpriteAnim = _anim[i]
-	var loop := _mode[i] == 1
+	var loop := _mode[i] in [1,3]
 	var f := a.frame_at(_t[i], loop)
 	var pos := slot_position(i).round()
 	_pool.show(i, f, pos, _flip[i] == 1, a.alpha_at(_t[i], loop))
@@ -168,6 +196,7 @@ func _alloc() -> int:
 	_active.append(0)
 	_follow.append(null)
 	_mode.append(0)
+	_repeat_left.append(0.0)
 	_pool.ensure(i + 1)
 	return i
 

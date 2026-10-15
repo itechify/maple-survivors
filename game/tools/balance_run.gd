@@ -5,6 +5,7 @@ extends SceneTree
 ## over the minute, so burst spikes do not dominate), the mean number of mobs near the player (within NEAR_X px
 ## horizontally and NEAR_Y px vertically), the swarm engagement (below), the mean EXP drops lying on the map, mobs
 ## recycled and relocated per minute, the lowest HP fraction per minute, EXP lost to expired drops, and how it ended.
+## Also records per-boss fight duration, potion totals, MP waiting and whole boss-hit fractions.
 ## Needs the asset cache (the real map and mob/skill imgs).
 ##
 ## Engagement (docs/GAME_DESIGN.md 4.2): `eng_by_min[m-1]` is the share of the live mobs within ENG_X px horizontally
@@ -14,8 +15,8 @@ extends SceneTree
 ## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
-##   bash scripts/balance.sh                       # henesys_hg1, the held-out seeds, in parallel
-##   bash scripts/balance.sh 7 11 --stage=hill_east_henesys
+##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
+##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
 ##
@@ -27,6 +28,9 @@ extends SceneTree
 ##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (the
 ##           Magician's Energy Bolt, pity cards) are always drawn first, so this policy always takes them.
 ##
+## Camper movement policies: camper_henesys_top, camper_henesys_rope, camper_tree_top (sensible cards/potions).
+## --camp-after=S: begin parking after S seconds (default 60); Tree reaches its top branch through portals.
+## --cap=S: report TIMEOUT at S seconds if still playing; only boss completion reports a clear.
 ## --idle-after=S: from S seconds of run time on the player stops moving (hands off the keys; cards are still chosen).
 ## --patch: a JSON object deep-merged into the loaded data before the run (keys as in setup.data: "balance",
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
@@ -41,7 +45,10 @@ const NEAR_Y := 150.0
 const ENG_X := 400.0
 const ENG_Y := 200.0
 const STALE_S := 20.0
-const POLICIES := ["bot", "random", "first"]
+const CAMPER := preload("res://tools/camper_input.gd")
+const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henesys_rope", "camper_tree_top"]
+## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
+const DEFAULT_RUN_CAP := 1800.0
 
 
 func _init() -> void:
@@ -50,9 +57,13 @@ func _init() -> void:
 	var patch_file := ""
 	var policy := "bot"
 	var idle_after := -1.0
+	var cap := -1.0
+	var camp_after := 60.0
+	var stage_explicit := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
+			stage_explicit = true
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a == "--first-card":
@@ -61,6 +72,10 @@ func _init() -> void:
 			policy = a.substr(9)
 		elif a.begins_with("--idle-after="):
 			idle_after = float(a.substr(13))
+		elif a.begins_with("--camp-after="):
+			camp_after = float(a.substr(13))
+		elif a.begins_with("--cap="):
+			cap = float(a.substr(6))
 		elif a.begins_with("--seed="):
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
@@ -69,8 +84,14 @@ func _init() -> void:
 		print("balance_run: unknown --policy=%s (%s)" % [policy, POLICIES])
 		quit(2)
 		return
+	if CAMPER.STAGES.has(policy):
+		if stage_explicit and stage != CAMPER.STAGES[policy]:
+			print("balance_run: policy %s requires stage %s" % [policy,CAMPER.STAGES[policy]])
+			quit(2)
+			return
+		stage = CAMPER.STAGES[policy]
 	if seeds.is_empty():
-		seeds = [101]
+		seeds = [1] # tier C: training default; held-out runs are explicit after candidate freeze.
 	var data := DataRepo.load_all()
 	if patch_file != "":
 		var patch: Variant = JSON.parse_string(FileAccess.get_file_as_string(patch_file))
@@ -79,6 +100,8 @@ func _init() -> void:
 			quit(1)
 			return
 		deep_merge(data, patch)
+	if cap > 0.0:
+		data.balance["run_time_cap"] = cap
 	var missing := PackedStringArray()
 	var root := AssetCachePaths.resolve_cache_root()
 	var setup_base := DataRepo.build_setup(data, stage, 0, Vector2(800, 600),
@@ -92,7 +115,7 @@ func _init() -> void:
 	for s in seeds:
 		var setup := setup_base.duplicate()
 		setup.seed = s
-		var r := run_one(RunWorld.new(setup), policy, s, idle_after)
+		var r := run_one(RunWorld.new(setup), policy, s, idle_after, camp_after)
 		r["seed"] = s
 		r["stage"] = stage
 		r["policy"] = policy
@@ -123,12 +146,16 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 		w.apply_choice(id)
 
 
-## Plays `w` to its end with the kiting bot and card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0) -> Dictionary:
+## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
+static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
 	var memo := {}
+	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
+	var boss_hits: Array = []
+	var buff_casts: Array = []
+	var mp_short_seconds := 0.0
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
@@ -145,7 +172,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var eng_b := PackedInt64Array()
 	var stale_b := PackedInt64Array()
 	var live_b := PackedInt64Array()
-	var nb := int(ceil(w.duration / 30.0)) + 2
+	var cap := maxf(DT, float(w.balance.get("run_time_cap", DEFAULT_RUN_CAP)))
+	var nb := int(ceil(cap / 30.0)) + 2
 	eng_b.resize(nb)
 	stale_b.resize(nb)
 	live_b.resize(nb)
@@ -163,7 +191,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var max_alive := 0
 	var max_alive_t := 0.0
 	var job_t := -1.0
-	var ticks := int(round(w.duration / DT)) + 1
+	var ticks := ceili(cap / DT)
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
@@ -171,7 +199,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		if w.state != RunWorld.PLAYING:
 			break
 		var idle := idle_after >= 0.0 and w.time >= idle_after
-		w.step(DT, MoveInput.new() if idle else BotInput.decide(w, memo))
+		w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+		if bool(w.player_state.get("mp_short",false)):
+			mp_short_seconds += DT
 		var a := w.swarm.alive_count()
 		alive_sum += a
 		near_sum += _near(w)
@@ -180,7 +210,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		eng_b[bk] += ec.x
 		stale_b[bk] += ec.y
 		live_b[bk] += a
-		drops_sum += w.pickups.active_count()
+		drops_sum += w.pickups.exp_count()
 		alive_n += 1
 		hp_low = minf(hp_low, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		if a > max_alive:
@@ -197,11 +227,28 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if seen.size() <= maxi(ms, from):
 						seen.resize(w.swarm.capacity())
 					seen[ms] = seen[from] if from >= 0 else w.time
+				"buff_cast":
+					# Tier C measurement: event-observation tick; normal runs drain each step.
+					var cast := {"time": w.time, "skill": String(e.skill), "skill_id": int(e.skill_id),
+						"level": int(e.level), "duration": float(e.duration), "effect_stat": "", "value": 0.0}
+					for buff: Dictionary in w.player_state.get("buffs", []):
+						if String(buff.skill) == String(e.skill):
+							cast.effect_stat = String(buff.effect_stat)
+							cast.value = float(buff.value)
+							break
+					buff_casts.append(cast)
 				"player_hit":
-					hits += 1
-					taken += int(e.damage)
+					if not bool(e.miss):
+						hits += 1
+						taken += int(e.damage)
+						if bool(e.boss):
+							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
+								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
+								"mp_absorbed": int(e.mp_absorbed), "source_kind": String(e.get("source_kind","other"))})
 				"pickup_collected":
 					exp_total += int(e.exp)
+				"portal_used":
+					portal_names.append(String(e.portal))
 				"level_up":
 					var lv := int(e.level)
 					if lv in MILESTONES and not reach.has(str(lv)):
@@ -234,7 +281,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	choose(w, policy, rng, cards_taken)
 	var eng_min: Array = []
 	var stale_min: Array = []
-	for m in range(1, int(w.duration / 60.0) + 1):
+	for m in range(1, int(w.time / 60.0) + 1):
 		var lv := live_b[2 * m - 1] + live_b[2 * m]
 		eng_min.append(snappedf(float(eng_b[2 * m - 1] + eng_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
 		stale_min.append(snappedf(float(stale_b[2 * m - 1] + stale_b[2 * m]) / lv, 0.01) if lv > 0 else -1.0)
@@ -242,12 +289,20 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
 	return {
-		"state": w.state_name(), "time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
+		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
+		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
+		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits, "buff_casts": buff_casts,
+		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
+		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
+		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
+			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
+		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
+		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
@@ -321,6 +376,9 @@ static func describe(r: Dictionary) -> String:
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
 		lines.append("  %-16s %s" % [k, r.get(k, [])])
+	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
+	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	lines.append("  camper %s" % [r.get("camper",{})])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
 	return "\n".join(lines)
 
@@ -337,3 +395,103 @@ static func _json(root: String, path: String) -> Dictionary:
 		return {}
 	var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(file))
 	return d if d is Dictionary else {}
+
+
+## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.
+static func fight_records(world: RunWorld) -> Array:
+	var fights: Array = []
+	for record: Dictionary in world.bosses.records:
+		var spawn := float(record.spawn_time)
+		var death := float(record.death_time)
+		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
+			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
+			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "not_spawned"})
+	return fights
+
+
+## Unweighted sample summary; null values distinguish no observations from observed zero.
+static func statistics(values: Array) -> Dictionary:
+	if values.is_empty():
+		return {"count": 0, "min": null, "median": null, "max": null, "mean": null}
+	var sorted := values.duplicate()
+	sorted.sort()
+	var count := sorted.size()
+	var sum := 0.0
+	for value: Variant in sorted:
+		sum += float(value)
+	var median := float(sorted[count/2]) if count%2 else (float(sorted[count/2-1])+float(sorted[count/2]))*0.5
+	return {"count": count, "min": float(sorted[0]), "median": median, "max": float(sorted[count-1]), "mean": sum/count}
+
+
+## Harness movement policy; camper policies use the sensible card and potion policy with their own movement goals.
+static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_after: float = 60.0) -> MoveInput:
+	return CAMPER.decide(world, policy, memo, camp_after) if CAMPER.STAGES.has(policy) else BotInput.decide(world, memo)
+
+
+## Aggregates observed run records: completed fights only, whole-hit fractions per boss/source and potion totals.
+static func aggregate(records: Array) -> Dictionary:
+	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
+		"boss_fights": {}, "boss_hits": {}, "camper_started": 0, "camper_reached": 0}
+	var waits: Array = []
+	var fractions: Array = []
+	var fight_samples := {}
+	var hit_samples := {}
+	for record: Dictionary in records:
+		waits.append(float(record.get("mp_short_seconds", 0.0)))
+		for key: String in ["potions_collected", "potions_used"]:
+			for kind: String in ["hp", "mp"]:
+				result[key][kind] += int(record.get(key, {}).get(kind, 0))
+		var camper: Dictionary = record.get("camper", {})
+		result.camper_started += 1 if float(camper.get("started_time", -1.0))>=0 else 0
+		result.camper_reached += 1 if bool(camper.get("reached", false)) else 0
+		for fight: Dictionary in record.get("boss_fights", []):
+			var id := str(int(fight.mob_id))
+			if not result.boss_fights.has(id):
+				result.boss_fights[id] = {"alive": 0, "not_spawned": 0}
+				fight_samples[id] = []
+			if String(fight.status) == "dead":
+				fight_samples[id].append(float(fight.duration))
+			else:
+				result.boss_fights[id][String(fight.status)] += 1
+		for hit: Dictionary in record.get("boss_hits", []):
+			var id := str(int(hit.mob_id))
+			var source := String(hit.get("source_kind", "other"))
+			var fraction := float(hit.fraction)
+			fractions.append(fraction)
+			if not hit_samples.has(id):
+				hit_samples[id] = {"all": [], "sources": {}}
+			hit_samples[id].all.append(fraction)
+			if not hit_samples[id].sources.has(source):
+				hit_samples[id].sources[source] = []
+			hit_samples[id].sources[source].append(fraction)
+	for id: String in result.boss_fights:
+		result.boss_fights[id]["completed"] = statistics(fight_samples[id])
+	for id: String in hit_samples:
+		var sources := {}
+		for source: String in hit_samples[id].sources:
+			sources[source] = statistics(hit_samples[id].sources[source])
+		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
+	result["mp_short_seconds"] = statistics(waits)
+	result["boss_hit_fraction"] = statistics(fractions)
+	return result
+
+
+## Readable supplemental systems summary; ranges are min/median/max and include their observation count.
+static func describe_metrics(summary: Dictionary) -> String:
+	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s; campers reached %d/%d started" % [
+		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
+		_range(summary.mp_short_seconds), int(summary.camper_reached), int(summary.camper_started)]])
+	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
+	for id: String in summary.boss_fights:
+		var fight: Dictionary = summary.boss_fights[id]
+		lines.append("  boss %s fight seconds %s; unfinished %d; not spawned %d" % [id, _range(fight.completed), int(fight.alive), int(fight.not_spawned)])
+	for id: String in summary.boss_hits:
+		lines.append("  boss %s whole-hit HP percent %s" % [id, _range(summary.boss_hits[id].whole_fraction, 100.0)])
+		for source: String in summary.boss_hits[id].by_source:
+			lines.append("    %s HP percent %s" % [source, _range(summary.boss_hits[id].by_source[source], 100.0)])
+	return "\n".join(lines)
+
+
+static func _range(stats: Dictionary, scale: float = 1.0) -> String:
+	return "none (n=0)" if int(stats.count)==0 else "%.2f/%.2f/%.2f (n=%d)" % [float(stats.min)*scale, float(stats.median)*scale, float(stats.max)*scale, int(stats.count)]

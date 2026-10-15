@@ -1,6 +1,6 @@
 extends TestCase
 ## UpgradePool (docs/GAME_DESIGN.md section 8): eligibility (job gates, mods only for owned skills, maxed cards,
-## slots), seeded weighted draws without duplicates, fillers when short, and what applying a card does.
+## slots), seeded weighted draws without duplicates, sparse draws when short, and what applying a card does.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
@@ -25,8 +25,8 @@ func test_beginner_eligibility() -> void:
 		assert_false(id in el, "%s never before the job" % id)
 	for id: String in ["energy_bolt_count", "magic_claw_targets", "energy_bolt_rank"]:
 		assert_false(id in el, "%s: no mods for a skill not owned" % id)
-	for id: String in ["elixir", "power_elixir", "white_potion"]:
-		assert_false(id in el, "fillers are not in the normal pool")
+	for id: String in ["orange_potion", "white_potion", "mana_elixir"]:
+		assert_false(id in el, "potion cards wait for their level gate")
 
 
 func test_magician_eligibility_and_mods_after_owning() -> void:
@@ -105,46 +105,34 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 	for c: Dictionary in w.upgrades.roll_choices(w, _rng(1000), 3):
 		again.append(c.id)
 	assert_eq(again, first, "same seed, same draw")
-	# Weight 3 cards come up more often than weight 2 ones.
+	# The more heavily weighted shell-count card appears more often than the piercing card.
 	assert_true(int(counts.get("three_snails_count", 0)) > int(counts.get("three_snails_pierce", 0)),
-		"weight 3 > weight 2: %s" % [counts])
+		"shell-count frequency > piercing frequency: %s" % [counts])
 
 
-func test_fillers_fill_a_short_draw() -> void:
+func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 	var w := RF.quiet_world()
 	# Max out everything a Beginner can take.
 	for c: Dictionary in w.upgrades.cards:
-		if c.kind == "filler":
-			continue
 		var guard := 0
 		while w.upgrades.is_eligible(c, w) and guard < 10:
 			w.upgrades.apply(String(c.id), w)
 			guard += 1
 	assert_eq(w.upgrades.eligible(w).size(), 0, "nothing left")
 	var cards := w.upgrades.roll_choices(w, _rng(5), 3)
-	assert_eq(cards.size(), 3, "three fillers")
-	var ids: Array = []
-	for c: Dictionary in cards:
-		assert_eq(c.kind, "filler")
-		assert_false(c.id in ids, "distinct fillers")
-		ids.append(c.id)
-		assert_eq(c.max_rank, 0, "unlimited")
-	# Exactly one real card left: it is drawn, fillers fill the rest.
+	assert_eq(cards.size(), 0, "no cards remain")
+	# Exactly one card left: offer it alone.
 	var w2 := RF.quiet_world()
 	for c: Dictionary in w2.upgrades.cards:
-		if c.kind == "filler" or c.id == "magnet":
+		if c.id == "magnet":
 			continue
 		var guard := 0
 		while w2.upgrades.is_eligible(c, w2) and guard < 10:
 			w2.upgrades.apply(String(c.id), w2)
 			guard += 1
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
-	assert_eq(mixed.size(), 3)
-	var kinds: Array = []
-	for c: Dictionary in mixed:
-		kinds.append(c.id if c.kind != "filler" else "filler")
-	assert_has(kinds, "magnet")
-	assert_eq(kinds.count("filler"), 2)
+	assert_eq(mixed.size(), 1)
+	assert_eq(mixed[0].id, "magnet")
 
 
 func test_applying_general_cards() -> void:
@@ -159,10 +147,10 @@ func test_applying_general_cards() -> void:
 	w.upgrades.apply("magnet", w)
 	assert_near(w.magnet_r, m0 * 1.25, 1e-3)
 	w.upgrades.apply("recovery", w)
-	assert_near(w.hp_regen, 1.0, 1e-6)
-	var mp_regen0 := w.mp_regen
+	assert_eq(w.loadout.level("recovery"), 1, "Recovery card learns the Beginner skill")
+	assert_near(w.hp_regen, 0.0, 1e-6, "no permanent Recovery regen")
 	w.upgrades.apply("improved_mp_recovery", w)
-	assert_near(w.mp_regen, mp_regen0 + 1.0, 1e-6)
+	assert_eq(w.loadout.level("improved_mp_recovery"), 1, "the card learns the canonical passive")
 	var mp0: int = w.player_state.max_mp
 	w.upgrades.apply("improved_max_mp", w)
 	assert_eq(w.player_state.max_mp, mp0 + 25)
@@ -192,6 +180,35 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 	w.upgrades.apply("energy_bolt_new", w)
 	c = w.upgrades.choice_card("energy_bolt_rank", w)
 	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 5], "Energy Bolt rank 2 = canonical level 5")
+
+
+func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.loadout.add_skill("energy_bolt")
+	# Synthetic WZ levels make the expected preview independent of survivor damage tuning.
+	w.book.skill_node("energy_bolt")["level"]["1"] = {"mad": 20.0, "mastery": 1.0, "mpCon": 6.0}
+	w.book.skill_node("energy_bolt")["level"]["5"] = {"mad": 28.0, "mastery": 3.0, "mpCon": 9.0}
+	w.loadout.add_skill_mod("energy_bolt", "damage", "mul", 2.0)
+	var c := w.upgrades.choice_card("energy_bolt_rank", w)
+	assert_eq(c.get("skill_changes", {}), {
+		"mad": {"before": 20, "after": 28},
+		"mastery": {"before": 15, "after": 25},
+		"mpCon": {"before": 6, "after": 9},
+	}, "rank preview uses canonical levels, mastery percent, and unmodified MP cost")
+	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
+	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
+	assert_eq(w.upgrades.choice_card("max_hp", w).skill_changes, {}, "stat cards have no canonical skill values")
+
+
+func test_fixed_damage_rank_card_previews_only_fields_in_canonical_data() -> void:
+	var w := RF.quiet_world()
+	# Three Snails ranks automatically in this design; a synthetic rank card exercises fixed-damage support.
+	w.upgrades = UpgradePool.from_data({"cards": [{"id": "fixed_rank", "kind": "skill_rank", "skill": "three_snails",
+		"effects": [{"stat": "rank", "value": 1}]}]})
+	var c := w.upgrades.choice_card("fixed_rank", w)
+	assert_eq(c.skill_changes, {"mpCon": {"before": 3, "after": 5}, "fixdamage": {"before": 10, "after": 25}},
+		"canonical MP and fixed damage; no fabricated magic attack or mastery")
 
 
 func test_pity_offers_a_power_card_after_dry_draws() -> void:

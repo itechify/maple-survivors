@@ -2,7 +2,7 @@ class_name SpawnDirector
 extends RefCounted
 ## Stage pacing and spawn positions (docs/GAME_DESIGN.md sections 4, 4.1; `data/survivor/stages.json`).
 ##
-## Pacing: `rate` (mobs/s), `max_alive`, `hp`, `speed` and `damage` interpolate linearly between the stage keyframes;
+## Pacing: `rate` (mobs/s), `max_alive`, `hp` and `speed` interpolate linearly between the stage keyframes;
 ## the pool (mob id -> weight) is the one of the last keyframe at or before t. While alive < max_alive(t) the director
 ## spawns rate(t) mobs per second (a fractional accumulator, not banked while capped), each of a kind drawn by weight.
 ## Every `bursts.every` s a ring of count_min..count_max mobs (growing linearly over the stage) spawns around the view
@@ -23,6 +23,10 @@ extends RefCounted
 ## platform above whose near end drops it next to the player), so the crowd comes at the player instead of queueing on a
 ## long platform that leads away from it; the ring's first reachable point serves when none is that direct.
 ## pick_spawn(world, k, side) with side -1/1 also prefers points on that side of the player (ahead of it).
+## Flyers sample air in off-screen strips of the same rings inside map bounds, ignoring floors and NavGraph.
+## Their spawn point has foothold -1; all kinds return foothold -2 when no valid point exists.
+## A platform_share of ground placements first targets the player's floor, at least platform_min_dist away. When
+## the entire platform fits in view these points may be visible; otherwise its off-screen portions are used.
 ##
 ## The view grown by `margin` (the rect spawns stay out of) is grown by `trail_margin` more on the side the player moves
 ## away from (horizontal speed > 1 px/s): the camera lags behind a running player (CameraRig: 125 px/s / 6 per s + its
@@ -52,6 +56,8 @@ const DEFAULT_SPAWN := {
 	"stall_time": 0.0,  # tier C: ours, s without coming closer before an off-screen mob is relocated; 0 = never
 	"stall_progress": 1.0,  # tier C: ours, px of route a mob must gain (and walk) to count as coming closer
 	"trail_margin": 0.0,  # tier C: ours, extra margin on the side the player moves away from (camera lag); 0 = none
+	"platform_share": 0.35,  # tier C: owner choice, share of ground placements that target the player's platform
+	"platform_min_dist": 150.0,  # tier C: owner choice, minimum separation of a player-platform spawn
 }
 ## Edges of a spawn point's way that _walled() follows looking for a wall across a platform (a bound; each edge of the
 ## way is strictly cheaper than the one before, so the way has no cycle).
@@ -60,7 +66,7 @@ const WALLED_HOPS := 8
 var stage: Dictionary
 var duration := 900.0
 var hard_cap := 400
-## Parsed keyframes: {t, rate, max_alive, hp, speed, damage, kinds: PackedInt32Array, weights: PackedFloat32Array}.
+## Parsed keyframes: {t, rate, max_alive, hp, speed, kinds: PackedInt32Array, weights: PackedFloat32Array}.
 var keyframes: Array = []
 var params: Dictionary
 var spawned := 0
@@ -119,9 +125,11 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 		d.keyframes.append({
 			"t": float(kf.get("t", 0.0)), "rate": float(kf.get("rate", 0.0)),
 			"max_alive": float(kf.get("max_alive", 0.0)), "hp": float(kf.get("hp", 1.0)),
-			"speed": float(kf.get("speed", 1.0)), "damage": float(kf.get("damage", 1.0)),
+			"speed": float(kf.get("speed", 1.0)),
 			"kinds": kinds, "weights": weights,
 		})
+		if kf.has("normal_hp_drop_chance"):
+			d.keyframes.back()["normal_hp_drop_chance"] = float(kf.normal_hp_drop_chance)
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
 	var bu: Dictionary = p_stage.get("bursts", {})
 	if not bu.is_empty() and float(bu.get("every", 0.0)) > 0.0:
@@ -132,7 +140,7 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 	return d
 
 
-## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed", "damage") at time t.
+## Linearly interpolated keyframe value `field` ("rate", "max_alive", "hp", "speed") at time t.
 func value_at(field: String, t: float) -> float:
 	if keyframes.is_empty():
 		return 0.0 if field == "rate" or field == "max_alive" else 1.0
@@ -145,12 +153,45 @@ func value_at(field: String, t: float) -> float:
 			var span := float(b.t) - float(a.t)
 			var f := (t - float(a.t)) / span if span > 0.0 else 1.0
 			return lerpf(float(a[field]), float(b[field]), f)
-	return float(keyframes[keyframes.size() - 1][field])
+	var last: Dictionary = keyframes[keyframes.size() - 1]
+	var slope_mult := float(stage.get("post_duration_slope", 0.0))
+	if slope_mult > 0.0 and keyframes.size() >= 2:
+		var previous: Dictionary = keyframes[keyframes.size() - 2]
+		var span := float(last.t) - float(previous.t)
+		if span > 0.0:
+			var slope := (float(last[field]) - float(previous[field])) / span
+			return maxf(0.0, float(last[field]) + slope * (t - float(last.t)) * slope_mult)
+	return float(last[field])
 
 
 ## Spawns per second at t.
 func rate_at(t: float) -> float:
 	return value_at("rate", t)
+
+
+## Ordinary HP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
+## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
+func normal_hp_drop_chance_at(t: float, fallback: float) -> float:
+	if keyframes.is_empty():
+		return clampf(fallback, 0.0, 1.0)
+	var a: Dictionary = keyframes[0]
+	var value := clampf(float(a.get("normal_hp_drop_chance", fallback)), 0.0, 1.0)
+	if t <= float(a.t):
+		return value
+	for k in range(1, keyframes.size()):
+		var b: Dictionary = keyframes[k]
+		var next := clampf(float(b.get("normal_hp_drop_chance", fallback)), 0.0, 1.0)
+		if t <= float(b.t):
+			var span := float(b.t) - float(a.t)
+			return lerpf(value, next, (t - float(a.t)) / span if span > 0.0 else 1.0)
+		a = b
+		value = next
+	return value
+
+
+## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
+func effective_rate(world: RunWorld) -> float:
+	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()
 
 
 ## Alive target at t (rounded).
@@ -201,9 +242,9 @@ func step(dt: float, world: RunWorld) -> void:
 	var t := world.time
 	var swarm := world.swarm
 	_recycle(dt, world)
-	var cap := max_alive_at(t)
+	var cap := mini(max_alive_at(t), hard_cap)
 	var alive := swarm.alive_count()
-	_acc += rate_at(t) * dt
+	_acc += effective_rate(world) * dt
 	while _acc >= 1.0 and alive < cap:
 		_acc -= 1.0
 		if _spawn_one(world, t, false):
@@ -214,7 +255,8 @@ func step(dt: float, world: RunWorld) -> void:
 		_acc = minf(_acc, 1.0)
 	if t >= next_burst:
 		next_burst += float(stage.bursts.every)
-		var n := mini(burst_count_at(t), maxi(0, hard_cap - swarm.alive_count()))
+		var count := roundi(burst_count_at(t) * world.bosses.normal_spawn_multiplier())
+		var n := mini(count, maxi(0, hard_cap - swarm.alive_count()))
 		bursts += 1
 		world.emit("burst", {"count": n})
 		for k in n:
@@ -225,11 +267,17 @@ func step(dt: float, world: RunWorld) -> void:
 			elites += 1
 
 
-## A spawn point for kind `k`: Vector3(x, y, foothold), or Vector3(0, 0, -1) when there is none (see the class comment).
+## A spawn point for kind `k`: Vector3(x, y, foothold), with foothold -1 for flyers; z=-2 when none is found.
 ## side -1/1: prefer points on that side of the player (a direct point on the other side still beats an indirect one).
 func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 	var rng := world.spawn_rng
 	var mk: MobKind = world.mob_kinds[k]
+	if mk.flies:
+		return _pick_air_spawn(world, side)
+	if float(params.platform_share) > 0.0 and rng.randf() < float(params.platform_share):
+		var on_platform := pick_player_platform(world, -1.0, -1.0, false, side)
+		if on_platform.z >= 0:
+			return on_platform
 	var nav := world.nav_jump if mk.can_jump else world.nav
 	var target_p := world.player_platform()
 	var px := world.player.pos.x
@@ -242,7 +290,7 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 		route_max = world.view.size.x * 0.5 + float(params.margin) + float(params.prefer_route)
 	if nav != null and target_p >= 0:
 		nav.prepare_target(target_p, px, -1 if mk.can_jump else world.player_low_platform())
-	var fallback := Vector3(0, 0, -1)
+	var fallback := Vector3(0, 0, -2)
 	for ring in 3:
 		var pieces := _ring(world, ring)
 		var fhs: PackedInt32Array = pieces[0]
@@ -283,6 +331,140 @@ func pick_spawn(world: RunWorld, k: int, side: int = 0) -> Vector3:
 			return direct
 		if reach.z >= 0:
 			return reach
+	return fallback
+
+
+## True when every floor of the player's current platform fits inside the logical view.
+func player_platform_visible(world: RunWorld) -> bool:
+	var p := world.player_platform()
+	if p < 0:
+		return false
+	var m := world.fhm
+	return m.plat_x1[p] >= world.view.position.x and m.plat_x2[p] <= world.view.end.x \
+		and m.plat_y_min[p] >= world.view.position.y and m.plat_y_max[p] <= world.view.end.y
+
+
+## Places on the player's platform (z=-2 when impossible). A preferred distance supports boss relocations;
+## allow_visible permits them in view even on a long platform. Normal spawns are visible only on a fully visible floor.
+func pick_player_platform(world: RunWorld, min_distance := -1.0, preferred_distance := -1.0,
+		allow_visible := false, side := 0) -> Vector3:
+	var p := world.player_platform()
+	if p < 0:
+		return Vector3(0, 0, -2)
+	var m := world.fhm
+	var visible := allow_visible or player_platform_visible(world)
+	var distance := float(params.platform_min_dist) if min_distance < 0.0 else min_distance
+	var fhs := PackedInt32Array()
+	var aa := PackedFloat32Array()
+	var bb := PackedFloat32Array()
+	var cum := PackedFloat32Array()
+	var total := 0.0
+	var px := world.player.pos.x
+	for f in m.count():
+		if m.platform_of(f) != p:
+			continue
+		var a := maxf(m.x1[f], world.bounds.position.x)
+		var b := minf(m.x2[f], world.bounds.end.x)
+		var parts: Array = [Vector2(a, minf(b, px - distance)), Vector2(maxf(a, px + distance), b)]
+		for part: Vector2 in parts:
+			if part.y <= part.x:
+				continue
+			var ranges: Array = [part] if visible else _outside_rect(m, f, part, screen_rect(world))
+			for r: Vector2 in ranges:
+				if r.y <= r.x:
+					continue
+				total += r.y - r.x
+				fhs.append(f)
+				aa.append(r.x)
+				bb.append(r.y)
+				cum.append(total)
+	if fhs.is_empty():
+		return Vector3(0, 0, -2)
+	if preferred_distance >= distance:
+		var points: Array[Vector3] = []
+		for i in fhs.size():
+			for direction: int in [-1, 1]:
+				var x := px + direction * preferred_distance
+				var pos := Vector2(x, m.y_at(fhs[i], x))
+				if x >= aa[i] and x <= bb[i] and (side == 0 or direction == side) \
+						and world.bounds.has_point(pos) and not m.walk_blocked(p, px, x):
+					points.append(Vector3(pos.x, pos.y, fhs[i]))
+		if not points.is_empty():
+			return points[world.spawn_rng.randi_range(0, points.size() - 1)]
+	var fallback := Vector3(0, 0, -2)
+	for attempt in int(params.attempts):
+		var point := _sample(m, [fhs, aa, bb, cum], world.spawn_rng)
+		if not world.bounds.has_point(Vector2(point.x, point.y)) or m.walk_blocked(p, px, point.x):
+			continue
+		if not visible and screen_rect(world).has_point(Vector2(point.x, point.y)):
+			continue
+		if side == 0 or (point.x - px) * side > 0.0:
+			return point
+		fallback = point
+	return fallback
+
+
+static func _outside_rect(m: FootholdMap, f: int, part: Vector2, rect: Rect2) -> Array:
+	var a := maxf(part.x, rect.position.x)
+	var b := minf(part.y, rect.end.x)
+	if a >= b:
+		return [part]
+	var slope := (m.y2[f] - m.y1[f]) / (m.x2[f] - m.x1[f])
+	if slope == 0.0:
+		if m.y1[f] < rect.position.y or m.y1[f] > rect.end.y:
+			return [part]
+	else:
+		var top := m.x1[f] + (rect.position.y - m.y1[f]) / slope
+		var bottom := m.x1[f] + (rect.end.y - m.y1[f]) / slope
+		a = maxf(a, minf(top, bottom))
+		b = minf(b, maxf(top, bottom))
+	if a >= b:
+		return [part]
+	return [Vector2(part.x, a), Vector2(b, part.y)]
+
+
+## Flyers can reach any air point, so sample the off-screen strips directly without footholds or NavGraph.
+func _pick_air_spawn(world: RunWorld, side: int) -> Vector3:
+	var inner := screen_rect(world)
+	var distance := float(params.min_player_dist)
+	var far := float(params.recycle_dist) * 0.9
+	var fallback := Vector3(0, 0, -2)
+	for ring in 3:
+		var band := float(params.band) * (1.0 if ring == 0 else 3.0)
+		var outer := inner.grow(band).intersection(world.bounds) if ring < 2 else world.bounds
+		if not outer.has_area():
+			continue
+		var left := clampf(inner.position.x, outer.position.x, outer.end.x)
+		var right := clampf(inner.end.x, outer.position.x, outer.end.x)
+		var top := clampf(inner.position.y, outer.position.y, outer.end.y)
+		var bottom := clampf(inner.end.y, outer.position.y, outer.end.y)
+		var strips := [Rect2(outer.position, Vector2(left - outer.position.x, outer.size.y)),
+			Rect2(Vector2(right, outer.position.y), Vector2(outer.end.x - right, outer.size.y)),
+			Rect2(Vector2(left, outer.position.y), Vector2(right - left, top - outer.position.y)),
+			Rect2(Vector2(left, bottom), Vector2(right - left, outer.end.y - bottom))]
+		var area := 0.0
+		for strip: Rect2 in strips:
+			area += strip.get_area()
+		if area <= 0.0:
+			continue
+		for attempt in int(params.attempts):
+			var choice := world.spawn_rng.randf() * area
+			for strip: Rect2 in strips:
+				choice -= strip.get_area()
+				if choice >= 0.0 or not strip.has_area():
+					continue
+				var pos := Vector2(world.spawn_rng.randf_range(strip.position.x, strip.end.x),
+					world.spawn_rng.randf_range(strip.position.y, strip.end.y))
+				var d := pos.distance_to(world.player.pos)
+				if inner.has_point(pos) or not world.bounds.has_point(pos) or d < distance or (ring == 2 and d > far):
+					break
+				var p := Vector3(pos.x, pos.y, -1)
+				if side == 0 or (pos.x - world.player.pos.x) * side > 0.0:
+					return p
+				fallback = p
+				break
+		if fallback.z == -1:
+			return fallback
 	return fallback
 
 
@@ -334,7 +516,7 @@ func _spawn_one(world: RunWorld, t: float, elite: bool) -> bool:
 	if k < 0:
 		return false
 	var p := pick_spawn(world, k)
-	if p.z < 0:
+	if p.z < -1:
 		return false
 	var hp_mult := value_at("hp", t)
 	if elite:
@@ -350,7 +532,7 @@ func _spawn_one(world: RunWorld, t: float, elite: bool) -> bool:
 	return true
 
 
-## The rect spawns and relocations stay out of, which counts as on screen: the view grown by `margin`, and by
+## The rect ordinary ring placements stay out of: the view grown by `margin`, and by
 ## `trail_margin` more on the side the player moves away from (see the class doc).
 func screen_rect(world: RunWorld) -> Rect2:
 	var r := world.view.grow(float(params.margin))
@@ -453,7 +635,7 @@ func _recycle(dt: float, world: RunWorld) -> void:
 	if absf(world.player.vel.x) > 1.0:
 		side = 1 if world.player.vel.x > 0.0 else -1
 	for i in s.capacity():
-		if s.active[i] == 0 or world.mob_elite[i] != 0:
+		if s.active[i] == 0 or world.mob_elite[i] != 0 or world.mob_boss[i] >= 0:
 			_far_t[i] = 0.0
 			_stall_t[i] = 0.0
 			_best_len[i] = INF
@@ -489,7 +671,7 @@ func _recycle(dt: float, world: RunWorld) -> void:
 		if not move:
 			continue
 		var at := pick_spawn(world, s.kind[i], side)
-		var j := world.relocate_mob(i, Vector2(at.x, at.y), int(at.z)) if at.z >= 0 else -1
+		var j := world.relocate_mob(i, Vector2(at.x, at.y), int(at.z)) if at.z >= -1 else -1
 		if j < 0:
 			s.despawn(i)
 			recycled += 1

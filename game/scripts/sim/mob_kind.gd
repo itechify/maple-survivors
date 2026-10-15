@@ -4,9 +4,10 @@ extends RefCounted
 ## and survivor overrides from `data/survivor/mobs.json` (applied as multipliers, never edited into the WZ numbers).
 ##
 ## Overrides read (all optional): `name` (String.wz name, looked up outside the sim), `hp_mult`, `speed_mult`,
-## `can_jump` (bool), `exp_item` (EXP pickup item id), `hit_time` (s).
+## `can_jump` (bool), `exp_item` (EXP pickup item id), `hit_time` (s), `no_flinch` (survivor boss stance override).
 
-## Move speed in px/s = (speed stat + 100) x this. tier C: HeavenClient's terminal mob speed.
+## Move speed in px/s = (speed stat + 100) x this. tier C: HeavenClient's terminal mob speed;
+## using the same conversion for canonical flySpeed is our tier C interpretation.
 const SPEED_SCALE := 0.625
 ## Hit stun. tier C: HeavenClient (30 ticks x 8 ms).
 const DEFAULT_HIT_TIME := 0.24
@@ -43,10 +44,14 @@ var hitbox := DEFAULT_HITBOX
 ## Seconds of the death animation (sum of die1 delays) and of the hit stun.
 var die_time := DEFAULT_DIE_TIME
 var hit_time := DEFAULT_HIT_TIME
-## Damage at or above this pushes the mob back.
+## Canonical damage threshold for hit stun and push.
 var pushed := 1
 var body_attack := false
 var undead := false
+## Canonical info/boss: bosses never enter hit stun or receive push.
+var boss := false
+## Survivor stance immunity for scheduled bosses whose original info/boss is absent.
+var no_flinch := false
 var elem_attr := ""
 ## Survivor EXP pickup item id (0 = none set).
 var exp_item := 0
@@ -72,6 +77,8 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.pushed = int(info.get("pushed", 1))
 	k.body_attack = int(info.get("bodyAttack", 0)) != 0
 	k.undead = int(info.get("undead", 0)) != 0
+	k.boss = int(info.get("boss", 0)) != 0
+	k.no_flinch = bool(overrides.get("no_flinch", false))
 	k.elem_attr = String(info.get("elemAttr", ""))
 	k.flies = mob_img.get("fly") is Dictionary
 	k.can_jump = bool(overrides.get("can_jump", mob_img.get("jump") is Dictionary))

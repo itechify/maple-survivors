@@ -33,9 +33,9 @@ func test_pacing_keyframes() -> void:
 	assert_near(d.rate_at(120.0), 1.7, 1e-6)
 	assert_eq(d.max_alive_at(0.0), 15)
 	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
-	assert_near(d.value_at("hp", 180.0), 1.225, 1e-6, "halfway between 1.15 and 1.3")
+	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between the 4:00 HP 1.0 and 5:00 HP 1.25")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
-	assert_near(d.rate_at(2000.0), 20.0, 1e-6, "held after the last keyframe")
+	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
 	var snail := int(w.kind_of_id[100100])
 	var blue := int(w.kind_of_id[100101])
@@ -58,6 +58,7 @@ func test_pacing_keyframes() -> void:
 
 func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1", 99))
+	w.director.params.platform_share = 0.0  # This test exercises the off-screen ring rule; platform placement is separate.
 	w.god = true
 	var memo := {}
 	var per_minute := PackedInt32Array()
@@ -78,6 +79,8 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 			if e.type == "burst":
 				bursts.append([w.time, e.count])
 			elif e.type == "mob_spawned":
+				if w.mob_boss[int(e.mob)] >= 0:
+					continue # Boss arrivals deliberately use the visible, near-player placement rule.
 				checked += 1
 				per_minute[minute] += 1
 				var pos: Vector2 = e.pos
@@ -88,7 +91,11 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 				if pos.distance_to(w.player.pos) < 200.0:
 					fail("spawned %s px from the player" % pos.distance_to(w.player.pos))
 				var f: int = w.swarm.fh[e.mob]
-				assert_true(f >= 0 and absf(w.fhm.y_at(f, pos.x) - pos.y) < 0.01, "standing on a floor")
+				var mob_kind: MobKind = w.mob_kinds[w.swarm.kind[e.mob]]
+				if mob_kind.flies:
+					assert_eq(f, -1, "flyers spawn in air")
+				else:
+					assert_true(f >= 0 and absf(w.fhm.y_at(f, pos.x) - pos.y) < 0.01, "standing on a floor")
 				if e.elite:
 					elites += 1
 					var mk: MobKind = w.mob_kinds[w.swarm.kind[e.mob]]
@@ -305,6 +312,7 @@ func test_prefer_route_brings_spawns_in_on_short_ways() -> void:
 		var w := RunWorld.new(s)
 		RF.place_player(w, 1500.0, -5.0)
 		w.director.params["prefer_route"] = prefer
+		w.director.params["platform_share"] = 0.0
 		w.director.params["band_y"] = -1.0
 		var budget := w.view.size.x * 0.5 + 48.0 + 160.0
 		worst[prefer] = 0.0
@@ -321,8 +329,7 @@ func test_prefer_route_brings_spawns_in_on_short_ways() -> void:
 
 
 func test_never_spawns_behind_a_wall_across_the_platform() -> void:
-	# The ground runs on under a solid block (walls at x 1000 and 1400 crossing it, as on 100010000 where the hill's
-	# faces bury a stretch of the ground chain): no spawn inside it.
+	# The ground runs on under a solid block (walls at x 1000 and 1400 crossing it): no spawn inside it.
 	var segs := [
 		{"x1": 0.0, "y1": 0.0, "x2": 1000.0, "y2": 0.0},
 		{"x1": 1000.0, "y1": 0.0, "x2": 1400.0, "y2": 0.0},

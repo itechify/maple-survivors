@@ -3,12 +3,14 @@
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
-#   bash scripts/balance.sh                                # henesys_hg1, the held-out seeds 101..106
+#   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 101..130                       # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 101..112       # the careless player (random cards)
 #   bash scripts/balance.sh --idle-after=300 101..106      # hands off the keys from 5:00 (cards still chosen)
-#   bash scripts/balance.sh --stage=hill_east_henesys 1 2  # another stage
+#   bash scripts/balance.sh --stage=tree_that_grew_1 1 2  # another stage
+#   bash scripts/balance.sh 1 2 --policy=camper_tree_top --camp-after=60 --cap=420
+#   # Other campers: camper_henesys_top / camper_henesys_rope (auto stage, sensible cards/potions).
 #   ISOLATE=<name> bash scripts/balance.sh                 # private mirror (_scratch/godot_runs/<name>/game), like test.sh
 #   PATCH=/abs/variant.json bash scripts/balance.sh         # deep-merge a JSON patch into the data first (try a tuning
 #                                                          # variant without editing game/data; see balance_run.gd)
@@ -23,26 +25,33 @@
 # swarm engagement at 6/9/12 min (live mobs within 400 x 200 px of the player over the minute centred there, see
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
-# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json.
+# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP wait, completed boss
+# fight times and whole boss-hit HP fractions (min/median/max/count); *_summary.json/log preserve the aggregate.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
 
 STAGE="henesys_hg1"
+STAGE_EXPLICIT=0
 POLICY="bot"
 EXTRA_IDLE=""
+EXTRA_CAP=""
+EXTRA_CAMP=""
 SEEDS=()
 for a in "$@"; do
   case "$a" in
-    --stage=*) STAGE="${a#--stage=}" ;;
+    --stage=*) STAGE="${a#--stage=}"; STAGE_EXPLICIT=1 ;;
     --policy=*) POLICY="${a#--policy=}" ;;
     --first-card) POLICY="first" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
+    --cap=*) EXTRA_CAP="$a" ;;
+    --camp-after=*) EXTRA_CAMP="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
   esac
 done
-[[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(101 102 103 104 105 106)
+if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="tree_that_grew_1"; fi
+[[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(1 2 3 4 5 6)
 
 if [[ -n "${ISOLATE:-}" ]]; then
   DEST="$REPO/_scratch/godot_runs/$ISOLATE/game"
@@ -61,6 +70,8 @@ mkdir -p "$OUT"
 EXTRA=()
 [[ -n "${PATCH:-}" ]] && EXTRA+=(--patch="$(cygpath -m "$PATCH" 2>/dev/null || echo "$PATCH")")
 [[ -n "$EXTRA_IDLE" ]] && EXTRA+=("$EXTRA_IDLE")
+[[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
+[[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
 MAXJ="${JOBS:-12}"
 PIDS=()
 for s in "${SEEDS[@]}"; do
@@ -85,7 +96,24 @@ for s in "${SEEDS[@]}"; do
   f="$OUT/${STAGE}_${POLICY}_${s}.json"
   [[ -s "$f" ]] || continue
   awk -v seed="$s" '
-    function field(name,   m) { if (match($0, "\"" name "\":[^,}\\]]*")) { m = substr($0, RSTART, RLENGTH); sub(/^[^:]*:/, "", m); gsub(/"/, "", m); return m } return "" }
+    # Scalar fields must come from the root, not nested boss-hit timestamps.
+    function root(json,   out, depth, quoted, escaped, i, c) {
+      out = ""; depth = 0; quoted = 0; escaped = 0
+      for (i = 1; i <= length(json); i++) {
+        c = substr(json, i, 1)
+        if (quoted) {
+          if (depth == 1) out = out c
+          if (escaped) escaped = 0
+          else if (c == "\\") escaped = 1
+          else if (c == "\"") quoted = 0
+        } else if (c == "\"") { quoted = 1; if (depth == 1) out = out c }
+        else if (c == "{" || c == "[") { depth++; if (depth == 1) out = out c }
+        else if (c == "}" || c == "]") { if (depth == 1) out = out c; depth-- }
+        else if (depth == 1) out = out c
+      }
+      return out
+    }
+    function field(name,   m) { if (match(scalars, "\"" name "\":[^,}\\]]*")) { m = substr(scalars, RSTART, RLENGTH); sub(/^[^:]*:/, "", m); gsub(/"/, "", m); return m } return "" }
     function arr(name,   m) { if (match($0, "\"" name "\":\\[[^\\]]*\\]")) { m = substr($0, RSTART, RLENGTH); sub(/^[^\[]*\[/, "", m); sub(/\]$/, "", m); return m } return "" }
     function reach(lv,   m) { if (match($0, "\"" lv "\":[0-9.]+")) { m = substr($0, RSTART, RLENGTH); sub(/^[^:]*:/, "", m); return mmss(m) } return "--:--" }
     function mmss(t) { t = int(t); return sprintf("%d:%02d", int(t / 60), t % 60) }
@@ -93,6 +121,7 @@ for s in "${SEEDS[@]}"; do
     function v(x) { return (x == "") ? "-" : x }
     function pc(x) { return (x == "" || x + 0 < 0) ? "-" : sprintf("%d", x * 100 + 0.5) }
     {
+      scalars = root($0)
       split(arr("level_by_min"), L, ","); split(arr("alive_by_min"), A, ","); k = split(arr("hits_by_min"), H, ",")
       split(arr("near_by_min"), N, ","); split(arr("drops_by_min"), D, ",")
       split(arr("eng_by_min"), G, ","); split(arr("stale_by_min"), S, ",")
@@ -118,7 +147,9 @@ awk '
   }
   {
     runs++
-    if ($14 == "CLEARED") cleared++; else { died++; deaths = deaths " " $15 }
+    if ($14 == "CLEARED") cleared++
+    else if ($14 == "TIMEOUT") timed_out++
+    else { died++; deaths = deaths " " $15 }
     if ((t = sec($2)) >= 0) { a8[++n8] = t; if (t >= 150 && t <= 225) in8++ }
     if ((t = sec($3)) >= 0) a10[++n10] = t
     if ((t = sec($5)) >= 0) { a30[++n30] = t; if (t >= 720) in30++ }
@@ -139,7 +170,7 @@ awk '
   END {
     if (runs == 0) exit
     for (i = 1; i <= nl; i++) for (j = i + 1; j <= nl; j++) if (lv[j] < lv[i]) { t = lv[i]; lv[i] = lv[j]; lv[j] = t }
-    printf "SUMMARY %d runs: %d cleared, %d died%s\n", runs, cleared, died, (died ? " (at" deaths ")" : "")
+    printf "SUMMARY %d runs: %d cleared, %d died%s, %d timed out\n", runs, cleared, died, (died ? " (at" deaths ")" : ""), timed_out
     printf "  Lv 8 %s, %d in 2:30-3:45\n", stat(a8, n8), in8
     printf "  Lv 10 %s\n", stat(a10, n10)
     printf "  Lv 30 %s, %d at 12:00 or later\n", stat(a30, n30), in30
@@ -151,4 +182,16 @@ awk '
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
   }' "$OUT/.table"
+# Supplemental systems metrics use Godot's JSON parser; nested records stay intact.
+RECORDS=()
+for s in "${SEEDS[@]}"; do
+  f="$OUT/${STAGE}_${POLICY}_$s.json"
+  [[ -s "$f" ]] && RECORDS+=("$(cygpath -m "$f" 2>/dev/null || echo "$f")")
+done
+if [[ ${#RECORDS[@]} -gt 0 ]]; then
+  REPORT="$OUT/${STAGE}_${POLICY}_summary.log"
+  "${GODOT_CMD[@]}" --headless --path "$PROJECT" --script res://tools/balance_report.gd -- "${RECORDS[@]}" > "$REPORT" 2>&1 || STATUS=1
+  sed -n 's/^METRICS_SUMMARY //p' "$REPORT" > "$OUT/${STAGE}_${POLICY}_summary.json"
+  sed -n '/^SYSTEMS /,$p' "$REPORT"
+fi
 exit "$STATUS"

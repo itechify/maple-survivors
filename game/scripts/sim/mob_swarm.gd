@@ -18,7 +18,8 @@ extends RefCounted
 ## and ceilings upward motion; outside a drop's drift a descending mob never drifts from a column with a floor below
 ## into one without (so a hop toward a narrow ledge lands on it instead of overshooting into the void); a mob that
 ## still ends up below the world bounds is recycled silently (`lost_count`). Flying mobs move straight at the player.
-## New mobs fade in (regen) and stand still meanwhile; a hit stuns (HIT) and may push the mob along its platform; a
+## New mobs fade in (regen) and stand still meanwhile; a hit reaching canonical `pushed` stuns (HIT) and pushes the
+## mob along its platform; weaker hits only damage HP. A
 ## killed mob stays in DIE for its die1 time, then its slot is freed for reuse.
 ##
 ## step(dt, ctx) takes a Dictionary:
@@ -26,6 +27,7 @@ extends RefCounted
 ##   target: Vector2 (player position)       target_fh: int (player foothold, -1 = find the floor below target)
 ##   bounds: Rect2 (MapBounds; default foothold box + 300 above/100 below)
 ##   speed_mult: float (stage speed multiplier, default 1)   physics: PhysicsConstants (default v83)
+##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
 ## `kinds` must hold the MobKind of every `kind` index used (RunWorld shares its mob_kinds array). Their fields are
 ## re-read at every step(), so replacing or editing a kind (elite or speed overrides) takes effect on the next tick.
@@ -44,9 +46,14 @@ const TUNING_DEFAULTS := {
 	"stop_dist": 2.0,  # tier C: ours, a mob on the player's platform stops this close to the player's x
 	"route_hysteresis": 96.0,  # tier C: ours, a mob switches to another route only when it is this many px cheaper
 	"reach_y": 40.0,  # tier C: ours, a floor at most this far below the player's feet counts as the player's (touch reach)
+	"fly_bob_px": 2.0,  # tier C: ours, small vertical flyer bob independent of pursuit
+	"fly_bob_period": 1.2,  # tier C: ours, seconds per flyer bob
 }
 
 var kind := PackedInt32Array()
+## Logical mob identity in a packed 64-bit array, independent of its reusable slot and canonical kind ID.
+## tier C: run-local monotonic spawn bookkeeping; RunWorld retains identity when relocating the same entity.
+var identity := PackedInt64Array()
 var x := PackedFloat32Array()
 var y := PackedFloat32Array()
 var vx := PackedFloat32Array()
@@ -64,6 +71,8 @@ var platform := PackedInt32Array()
 var facing := PackedInt32Array()
 ## Regen fade-in 0 -> 1.
 var alpha := PackedFloat32Array()
+## BossDirector drives fade-out while movement/regen is suspended; respawning clears this flag.
+var fading_out := PackedByteArray()
 ## 1 while the mob is alive (not DIE/FREE): the mask for SpatialHash.rebuild and targeting.
 var active := PackedByteArray()
 ## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
@@ -78,6 +87,7 @@ var lost_count := 0
 
 var _free := PackedInt32Array()
 var _alive := 0
+var _next_identity := 0
 var _hi := 0
 var _pending := false
 ## x where a drop's step-off drift ends (INF = not drifting).
@@ -89,6 +99,8 @@ var _k_jump := PackedByteArray()
 var _k_fly := PackedByteArray()
 var _k_die := PackedFloat32Array()
 var _k_hit := PackedFloat32Array()
+## The bob already included in y; subtract it before steering so oscillation never accumulates drift.
+var _fly_bob := PackedFloat32Array()
 
 
 func _init(capacity: int = 256, p_kinds: Array = [], p_tuning: Dictionary = {}) -> void:
@@ -126,12 +138,15 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 		_grow(capacity() * 2)
 	var i := _free[_free.size() - 1]
 	_free.resize(_free.size() - 1)
+	_next_identity += 1
+	identity[i] = _next_identity
 	var h := p_hp
 	if h <= 0:
 		h = kinds[k].max_hp if k >= 0 and k < kinds.size() else 1
 	kind[i] = k
 	x[i] = px
 	y[i] = py
+	_fly_bob[i] = 0.0
 	vx[i] = 0.0
 	vy[i] = 0.0
 	hp[i] = h
@@ -143,6 +158,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	platform[i] = -1
 	facing[i] = -1
 	alpha[i] = 0.0
+	fading_out[i] = 0
 	active[i] = 1
 	_stop_x[i] = INF
 	_route_e[i] = -1
@@ -169,7 +185,7 @@ func despawn(i: int) -> bool:
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
-## Dying or free slots ignore hits.
+## Dying or free slots ignore hits. Bosses ignore stun/push; normal mobs require damage >= canonical pushed.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
 	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
@@ -186,15 +202,16 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		active[i] = 0
 		_alive -= 1
 		return true
+	if mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed):
+		return false
 	state[i] = HIT
 	state_t[i] = 0.0
 	anim_t[i] = 0.0
 	if dir != 0:
 		facing[i] = -signi(dir)
 	if fh[i] >= 0:
-		var pushes := mk == null or dmg >= mk.pushed
 		var stun := mk.hit_time if mk != null else MobKind.DEFAULT_HIT_TIME
-		vx[i] = signf(dir) * float(tuning.push_px) / maxf(stun, 0.01) if pushes else 0.0
+		vx[i] = signf(dir) * float(tuning.push_px) / maxf(stun, 0.01)
 	return false
 
 
@@ -261,6 +278,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 		tk_j = nav_j.take
 		ef_j = nav_j.e_from
 	var hyst := float(tuning.route_hysteresis)
+	var action_state: Dictionary = ctx.get("boss_actions", {})
+	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
+	var action_facings: PackedInt32Array = action_state.get("facings", PackedInt32Array())
 	for i in _hi:
 		var st := state[i]
 		if st == FREE:
@@ -270,13 +290,21 @@ func step(dt: float, ctx: Dictionary) -> void:
 		state_t[i] = t
 		anim_t[i] += dt
 		if st == DIE:
-			if fh[i] < 0:
+			if fh[i] < 0 and _k_fly[k] == 0:
 				_air(i, dt, m, grav, fall, lim, bottom)
 			if state[i] == DIE and t >= _k_die[k]:
 				_release(i)
 			continue
+		if fading_out[i] != 0:
+			continue
 		if alpha[i] < 1.0:
 			alpha[i] = minf(1.0, alpha[i] + dt / regen)
+		if i < actions.size() and actions[i] != "" and fh[i] >= 0:
+			# tier C: an authored boss stance holds its ground anchor; airborne art comes from canonical origins.
+			vx[i] = 0.0
+			if i < action_facings.size():
+				facing[i] = action_facings[i]
+			continue
 		if _k_fly[k] != 0:
 			_fly(i, dt, _k_speed[k] * smult, target, bounds)
 			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
@@ -479,7 +507,7 @@ func _air(i: int, dt: float, m: FootholdMap, grav: float, fall: float, lim: Vect
 	y[i] = ny
 
 
-## Flying mobs head straight for the target inside the bounds.
+## Flying mobs steer through footholds toward the target, with a small non-drifting bob inside the bounds.
 func _fly(i: int, dt: float, spd: float, target: Vector2, bounds: Rect2) -> void:
 	if state[i] == HIT:
 		if state_t[i] >= _k_hit[kind[i]]:
@@ -487,19 +515,24 @@ func _fly(i: int, dt: float, spd: float, target: Vector2, bounds: Rect2) -> void
 		return
 	if alpha[i] < 1.0:
 		return
-	var d := Vector2(target.x - x[i], target.y - y[i])
+	var base := Vector2(x[i], y[i] - _fly_bob[i])
+	var d := target - base
 	var len := d.length()
 	if len <= float(tuning.stop_dist):
 		if state[i] != STAND:
 			_set_state(i, STAND)
-		return
-	var s := minf(spd * dt, len)
-	x[i] = clampf(x[i] + d.x / len * s, bounds.position.x, bounds.end.x)
-	y[i] = clampf(y[i] + d.y / len * s, bounds.position.y, bounds.end.y)
-	if absf(d.x) > 0.5:
-		facing[i] = 1 if d.x > 0.0 else -1
-	if state[i] != MOVE:
-		_set_state(i, MOVE)
+	else:
+		base += d / len * minf(spd * dt, len)
+		if absf(d.x) > 0.5:
+			facing[i] = 1 if d.x > 0.0 else -1
+		if state[i] != MOVE:
+			_set_state(i, MOVE)
+	base.x = clampf(base.x, bounds.position.x, bounds.end.x)
+	base.y = clampf(base.y, bounds.position.y, bounds.end.y)
+	var bob := float(tuning.fly_bob_px) * sin(anim_t[i] * TAU / maxf(0.01, float(tuning.fly_bob_period)))
+	x[i] = base.x
+	y[i] = clampf(base.y + bob, bounds.position.y, bounds.end.y)
+	_fly_bob[i] = y[i] - base.y
 
 
 ## Moves a grounded mob along its platform to nx, stopping at walls and the platform ends (used for hit pushes).
@@ -586,12 +619,15 @@ func _grow(n: int) -> void:
 	hp.resize(n)
 	max_hp.resize(n)
 	state.resize(n)
+	identity.resize(n)
 	state_t.resize(n)
 	anim_t.resize(n)
+	_fly_bob.resize(n)
 	fh.resize(n)
 	platform.resize(n)
 	facing.resize(n)
 	alpha.resize(n)
+	fading_out.resize(n)
 	active.resize(n)
 	_stop_x.resize(n)
 	_route_e.resize(n)

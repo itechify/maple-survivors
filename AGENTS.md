@@ -75,11 +75,11 @@ bash scripts/export.sh                                # Windows build -> game/ex
 Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
 (`--run=<stage> --seed=<n> --autoplay --autopick --speed=<k> --shots=<abs dir> --shot-every=<s> --quit-after=<s>
 --perf`), waits for it to quit and prints `summary.json`. Defaults: henesys_hg1, seed 2026, speed 4 (sim ticks per
-60 Hz frame, via `Engine.time_scale`), the full 15:00, a screenshot every 60 s of run time, output in
+60 Hz frame, via `Engine.time_scale`), up to 30:00 so the final boss can finish, a screenshot every 60 s of run time, output in
 `evidence/playtest/<stage>_s<seed>_x<speed>_<time>/` (or `--out=<dir>`).
 
 ```bash
-bash scripts/playtest.sh                                       # 15:00 at x4 (~4 min wall time)
+bash scripts/playtest.sh                                       # through the finale at x4; death/clear ends earlier
 bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in real time
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
@@ -111,8 +111,37 @@ Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits b
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
-2026); report on the held-out seeds 101..130 (the default is 101..106) and never tune on them. Tuning targets and the
-last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
+2026); the default is training seeds 1..6. Freeze the candidate before explicitly reporting on held-out seeds
+101..130; never tune on them. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
+Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
+held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
+
+The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
+all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with
+`--camp-after=<seconds>`). Henesys campers are placed once on the highest platform or at the ground rope and
+then grab/park; the Tree camper walks and jumps through the real `up00 -> up01 -> up02` portal chain to the top
+playable branch. After arrival they leave movement keys alone, including after knockback. Their stage is selected
+automatically; an explicitly incompatible `--stage` is rejected. For example:
+
+`ISOLATE=campers bash scripts/balance.sh 1 2 --policy=camper_tree_top --cap=420`
+
+Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
+`dead|alive|not_spawned` status), `potions_collected` / `potions_used` totals for `hp` and `mp`,
+`mp_short_seconds` (fixed ticks with an eligible ready skill failing affordability during the cast scan), and `boss_hits` (whole hit damage,
+max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
+An affordable later skill may still cast in a tick counted as MP-short; eligible targetless buffs can wait too.
+`--minutes` in playtests is an absolute simulation-time limit, including `--warp`; the default 30:00 is a safety cap.
+A 15:00 limit stops just as the third boss arrives. Claim a clear only from CLEARED with every scheduled boss dead
+and the final reward choice finished.
+`camper` records activation/arrival times, arrival success and portal names. At the cap a living run is
+`TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
+
+The supplemental `SYSTEMS` summary reports potion sums, MP-wait seconds per run, whole boss-hit HP percentages
+per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count.
+Unfinished/not-spawned fights are counted separately; no completed observation is reported as `none (n=0)`,
+not zero. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
+`_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
+and held-out seeds remain separate.
 
 ## Git
 
