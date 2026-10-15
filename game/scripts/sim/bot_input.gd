@@ -48,7 +48,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var thresholds: Dictionary = w.balance.get("potions", {}).get("bot", {})
 	var ps := w.player_state
 	mi.drink_hp = int(ps.potions.hp.count) > 0 and float(ps.hp) < float(ps.max_hp) * float(thresholds.get("hp_threshold", 0.0))
-	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0))
+	# tier C: a ready skill's observed affordability failure also prompts a sip, even above the fraction threshold.
+	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) and (
+		float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0)) or bool(ps.get("mp_short", false)))
 	var s := w.swarm
 	var p := w.player.pos
 	# Keep Up held during the small hop onto a portal's entrance ledge.

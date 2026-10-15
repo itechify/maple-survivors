@@ -137,6 +137,7 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	w.god = true
 	RF.place_player(w, 400)
 	r = BR.run_one(w, "bot", 26, 0.0)
+	assert_eq(r.boss_fights[0].status, "dead", "the excluded boss really receives a killing cast")
 	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0, "scheduled bosses do not require canonical info/boss")
 
 
