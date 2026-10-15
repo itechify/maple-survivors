@@ -536,7 +536,7 @@ func _warm_ui() -> void:
 func _warm_stage() -> void:
 	if library == null:
 		return
-	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED]:
+	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED, LevelUpWindow.SND_HIGH_TIER]:
 		_warm_sound(path)
 	library.find_anim("Effect.wz/BasicEff.img/Summoned")
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:

@@ -18,7 +18,7 @@ extends MapleWindow
 ##
 ##   win.open(cards, level)   # cards exactly as in the choice_pending event: {id, kind, name, desc, icon, rank,
 ##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes,
-##                            # skill_effect_stat}
+##                            # skill_effect_stat, tier, magnitude, rank_before}
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
@@ -38,6 +38,19 @@ const ROW := "UI.wz/UIWindow.img/Skill/skill0"
 const ROW_FOCUS := "UI.wz/UIWindow.img/Skill/skill1"
 const LEVEL_DIGITS := "UI.wz/Basic.img/LevelNo/"
 const KEY_DIGITS := "UI.wz/Basic.img/ItemNo/"
+## tier C: the owner's v83 Monster Card cue celebrates a displayed Unique / Legendary offer.
+const SND_HIGH_TIER := "Sound.wz/Game.img/mCardGet"
+## tier C: readable Potential-ladder accents on the v83 panel; the explicit label also identifies every tier.
+const TIER_STYLES := {
+	"normal": ["Normal", Color.WHITE],
+	"rare": ["Rare", Color8(119, 187, 255)],
+	"epic": ["Epic", Color8(204, 153, 255)],
+	"unique": ["Unique", Color8(255, 204, 68)],
+	"legendary": ["Legendary", Color8(119, 221, 136)],
+}
+## tier C: a compact label band and inset pixel frame retain the original skill row and its focus art.
+const TIER_BAND := 16.0
+const TIER_BACKGROUND := Color8(23, 52, 79)
 ## SkillUp/backgrd geometry (measured from the v83 canvas, 215x201): rows above TOP_H are the notice, rows
 ## [MID_Y, MID_Y + MID_H) are uniform and repeat, the rest is the bottom edge.
 const ART_SIZE := Vector2(215, 201)
@@ -53,8 +66,8 @@ const LEVEL_BOX := Rect2(116, 108, 27, 17)
 ## fill is a vertical gradient, so each covered row is painted with its own row's fill colour).
 const SENTENCE_BANDS := [[105.0, 126.0, [Vector2(13, 82), Vector2(144, 202)]], [126.0, 164.0, [Vector2(13, 202)]]]
 const BLANK_X := 14.0
-## Choice rows inside the panel's inner fill (x 12..202).
-const ROWS_TOP := 166.0
+## Choice rows inside the panel's inner fill (x 12..202). tier C: use the blanked notice sentence for compactness.
+const ROWS_TOP := 140.0
 ## tier C: reward title plus instruction above the same canonical card rows.
 const BONUS_ROWS_TOP := 52.0
 const ROW_X := 12.0
@@ -65,7 +78,9 @@ const ROW_SLOT_W := 36.0
 const ROW_MID_X := 60.0
 const DESC_LINE := 13.0
 const DESC_MAX_LINES := 3
-const BLOCK_GAP := 6.0
+## tier C: compact separation and total vertical margin keep the 600px view's mascots and HUD clear.
+const BLOCK_GAP := 4.0
+const VIEW_MARGIN := 128.0
 
 ## The cards on offer.
 var cards: Array = []
@@ -95,6 +110,10 @@ func open(p_cards: Array, p_level: int, p_bonus: bool = false) -> void:
 	focus = 0 if not cards.is_empty() else -1
 	_build_layout()
 	_show_window()
+	for card: Dictionary in cards:
+		if String(card.get("tier", "normal")) in ["unique", "legendary"]:
+			UiArt.play_sound(SND_HIGH_TIER)
+			break
 
 
 ## Picks card `i`: emits card_chosen(id) and closes. False when closed or out of range.
@@ -129,9 +148,7 @@ func card_rect(i: int) -> Rect2:
 	return Rect2(r.position + panel.position, r.size)
 
 
-## Rank text of a card: a skill_rank card shows the skill's canonical level change ("Skill Lv. 2 → 3", from the card's
-## skill_level / skill_level_next) since its own rank is not the level the skill reaches; other cards "NEW" for a
-## first rank, "Lv. a → b" after; " MAX" at the skill's canonical cap or the other card's last rank; "" for fillers.
+## The offered canonical skill level (learn/rank) or consumed modifier steps; fillers have no rank text.
 static func rank_text(card: Dictionary) -> String:
 	var kind := String(card.get("kind", ""))
 	if kind == "filler":
@@ -141,19 +158,21 @@ static func rank_text(card: Dictionary) -> String:
 	var s := ""
 	var lv := int(card.get("skill_level", 0))
 	var lv_next := int(card.get("skill_level_next", 0))
+	if kind == "skill_new" and lv_next > 0:
+		return "NEW  Skill Lv. %d" % lv_next
 	if kind == "skill_rank" and lv > 0 and lv_next > lv:
 		s = "Skill Lv. %d → %d" % [lv, lv_next]
 		rank = lv_next
 	elif rank <= 1:
 		return "NEW"
 	else:
-		s = "Lv. %d → %d" % [rank - 1, rank]
+		s = "Lv. %d → %d" % [int(card.get("rank_before", rank - 1)), rank]
 	if max_rank > 1 and rank >= max_rank:
 		s += "  MAX"
 	return s
 
 
-## Readable canonical before/after lines of a rank card (mastery is already converted to percent in card data).
+## Canonical values that change at the offered rank (mastery is already a percent in card data).
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var changes: Dictionary = card.get("skill_changes", {})
@@ -162,6 +181,8 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
+		if values.before == values.after:
+			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
 		if field in PERCENT_FIELDS:
 			suffix = "%"
@@ -205,22 +226,28 @@ func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
 
 
 func _build_layout() -> void:
-	_blocks.clear()
-	var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
-	for c: Variant in cards:
-		var card: Dictionary = c if c is Dictionary else {}
-		var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 4.0, MapleText.SMALL)
-		if desc.size() > DESC_MAX_LINES:
-			desc = desc.slice(0, DESC_MAX_LINES)
-			desc[DESC_MAX_LINES - 1] = MapleText.ellipsize(desc[DESC_MAX_LINES - 1] + " ...", ROW_W - 4.0,
-				MapleText.SMALL)
-		var changes := change_lines(card)
-		var h := ROW_H + 3.0 + (desc.size() + changes.size()) * DESC_LINE
-		_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h),
-			"desc": desc, "changes": changes})
-		y += h + BLOCK_GAP
 	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus else ART_SIZE.y
-	var height := maxf(minimum, y - BLOCK_GAP + 4.0 + BOTTOM_H - 8.0)
+	var height := minimum
+	var view_h := size.y if size.y > 0.0 else Vector2(GameSettings.BASE_VIEW).y
+	# tier C: dense previews shorten prose before hiding any tier, magnitude or changed canonical value.
+	for desc_limit in range(DESC_MAX_LINES, 0, -1):
+		_blocks.clear()
+		var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
+		for c: Variant in cards:
+			var card: Dictionary = c if c is Dictionary else {}
+			var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 6.0, MapleText.SMALL)
+			if desc.size() > desc_limit:
+				desc = desc.slice(0, desc_limit)
+				desc[desc_limit - 1] = MapleText.ellipsize(desc[desc_limit - 1] + " ...", ROW_W - 6.0,
+					MapleText.SMALL)
+			var changes := change_lines(card)
+			var h := ROW_H + TIER_BAND + 3.0 + (desc.size() + changes.size()) * DESC_LINE
+			_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h),
+				"desc": desc, "changes": changes})
+			y += h + BLOCK_GAP
+		height = maxf(minimum, y - BLOCK_GAP + 4.0 + BOTTOM_H - 8.0)
+		if height <= view_h - VIEW_MARGIN:
+			break
 	panel_size = Vector2(ART_SIZE.x, ceilf(height))
 
 
@@ -324,14 +351,21 @@ func _draw_card(ci: Control, i: int, card: Dictionary, row_art: SpriteFrame) -> 
 	MapleText.draw(ci, Vector2(tx, p.y + 2.0), MapleText.ellipsize(nm, name_w, name_size, true), MapleText.BLACK,
 		name_size, true)
 	var rt := rank_text(card)
-	var rank_col := MapleText.ORANGE if rt == "NEW" or rt.ends_with("MAX") else Color8(68, 68, 68)
-	MapleText.draw(ci, Vector2(tx, p.y + 19.0), rt, rank_col, MapleText.SMALL, rt == "NEW")
-	var y := r.end.y + 3.0
+	var learned := rt.begins_with("NEW")
+	var rank_col := MapleText.ORANGE if learned or rt.ends_with("MAX") else Color8(68, 68, 68)
+	MapleText.draw(ci, Vector2(tx, p.y + 19.0), rt, rank_col, MapleText.SMALL, learned)
+	var style: Array = TIER_STYLES.get(String(card.get("tier", "normal")), TIER_STYLES.normal)
+	var colour: Color = style[1]
+	ci.draw_rect(Rect2(p + Vector2(1, ROW_H), Vector2(ROW_W - 2.0, TIER_BAND)), TIER_BACKGROUND)
+	MapleText.draw(ci, Vector2(p.x + 4.0, r.end.y + 2.0), String(style[0]), colour, MapleText.SMALL, true)
+	var y := r.end.y + TIER_BAND + 3.0
 	for line: String in b.desc:
-		MapleText.draw(ci, Vector2(p.x + 2.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw(ci, Vector2(p.x + 3.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
 	for line: String in b.changes:
-		MapleText.draw(ci, Vector2(p.x + 2.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw(ci, Vector2(p.x + 3.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
+	var block: Rect2 = b.block
+	ci.draw_rect(Rect2(block.position + Vector2(0.5, 0.5), block.size - Vector2.ONE), colour, false, 1.0)
