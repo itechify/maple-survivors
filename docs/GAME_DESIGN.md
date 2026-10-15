@@ -1325,7 +1325,8 @@ values are omitted from the visual preview; changed values remain visible. Dense
 use the already-blanked notice sentence area and target a panel 128 px shorter than the logical view, keeping the
 mascots and HUD clear in the normal 800x600 view (tier C layout choices).
 
-The owner selected `Sound.wz/Game.img/mCardGet` for a displayed Unique / Legendary offer. A window plays one cue
+The implementation agent selected `Sound.wz/Game.img/mCardGet` for a displayed Unique / Legendary offer after
+the owner reserved `EnchantSuccess` for future scrolling. A window plays one cue
 even when several cards qualify; boss rewards use the same cue. Keyboard/mouse focus and selection never replay
 it, and automated picks without a displayed window remain silent. The stream is preloaded with the stage sounds.
 Real-cache tests and a WASAPI gallery run verified the exact stream, one advancing voice and no missing lookups;
@@ -1526,7 +1527,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Card honesty / boss floor | highest fitting tier; max equal to a lower fitting gain downgrades; explicit Normal/Rare equal defaults retained; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band and 1px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
-| High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | owner's cue selection; existing whole Game.img manifest; playback verified, ear check unavailable |
+| High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; playback verified, ear check unavailable |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
