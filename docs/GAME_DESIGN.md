@@ -246,7 +246,7 @@ Tree outcomes and clear rate are recorded without judging pacing or difficulty. 
 required cache data, no simulation warnings, EXP/kill/level event consistency, no lost mobs, correct deaths and
 all scheduled bosses dead before a clear. A living Tree run at the cap is a timeout, never a clear. Earlier Tree
 pacing tables and guards below are historical information. Freeze candidate data and guards before the full suite
-and the next fresh held-out range **401–430**; spent 101–130/201–212/301–330 are never reused for tuning or fresh evidence.
+and the next fresh held-out range **501–530**; spent 101–130/201–212/301–330/401–430 are never reused for tuning or fresh evidence.
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
@@ -298,9 +298,14 @@ per-run means. [The detailed balance record](research/spec29-henesys-balance.md)
 counts, censoring, rejected cohorts, resource measurements and exact reproduction/provenance.
 
 Candidate data and the conditional Henesys pacing guards are frozen before the full suite and three actual
-Tree presentation regressions. Their final results and the single fresh held-out **401–430** check will be added
+Tree presentation regressions. Their final results and the single fresh held-out **501–530** check will be added
 after frozen QA; no held-out run has started. The inspected 306-second x1 opening at `f6637da` can be reused only
 with explicit source/prefix equivalence, since all subsequent tuning first affects time after 8:00.
+
+The initially reserved 401–430 range was retired before execution: the historical "Review-fix pass 3" below
+already reports 401–406 for both policies. The untouched replacement 501–530 was audited against repository
+reports/history before release. This reservation correction changes no gameplay, data, pacing guard or training
+record; the original unexecuted freeze manifest is preserved beside the amended one.
 
 The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
 earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.

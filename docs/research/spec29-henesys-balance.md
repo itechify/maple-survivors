@@ -144,8 +144,30 @@ Candidate data and regression guards are committed before the full suite. Pacing
 milestones, with explicit minimum reach counts; legitimate early deaths remain in every report. Tree outcomes are
 informational, with event/EXP/kill/finale invariants and empty real-presentation asset misses required.
 
-The next fresh held-out range is 401–430, bot and random once each, only after the final 61-per-policy training
-report and frozen QA are accepted. Spent 101–130, 201–212 and 301–330 are never reused. The final report will retain
+Freeze commit `81afb947ed69ad9895b2becc0f81b9af84b355e3` contains the unchanged `cec3fe8` gameplay/data and the
+complete training report. Its sealed `c21/freeze.json` hashes all 122 records. Before held-out execution, the
+reservation was corrected from 401–430 to untouched 501–530: historical "Review-fix pass 3" in GAME_DESIGN and
+IMPLEMENTATION_PLAN already reported 401–406 for bot and random. Repository reports and the coordinator's
+history audit found no prior use of 501–530. Data/runtime/guard and all training hashes are unchanged.
+Amended manifest SHA256: `6d12b85a5c86b4b107571ff77df7ca2958495030addeaf8c7b4936d7d960767b`.
+The original unexecuted manifest remains as `freeze-original-401-430-unexecuted.json`, SHA256
+`58e9e2645aedf0ac5025496204a0895469b4a5eb4cce2a83a99af2d63fdfa87b`, with the reason recorded in the amendment.
+
+The three actual headless Tree RunScene regressions completed successfully at that freeze, with no script,
+error or warning lines and `missing: []` in every summary. They use autoplay/autopick, no warp, speed 120 and an
+1,800 s safety cap. These are presentation/asset/crash checks, not visual or Tree pacing acceptance.
+
+| Tree seed | Outcome | Time, s | Level | Kills |
+|---|---|---|---|---|
+| 1 | DEAD | 1,067.417 | 30 | 3,565 |
+| 2 | DEAD | 1,213.533 | 33 | 4,369 |
+| 2026 | DEAD | 239.417 | 7 | 210 |
+
+The clear rate is therefore 0/3, recorded without judging it. Per-seed stdout, summaries and summary hashes are
+in `final/tree-presentation/`, alongside `checks.json`. Full-suite simulation regressions are separate.
+
+The next fresh held-out range is 501–530, bot and random once each, only after the final 61-per-policy training
+report and frozen QA are accepted. Spent 101–130, 201–212, 301–330 and 401–430 are never reused. The final report will retain
 the freeze SHA/data hash, held-out output, six fixed RunWorld regressions, three headless Tree presentation checks
 and the inspected five-minute x1 Henesys evidence separately from training.
 
