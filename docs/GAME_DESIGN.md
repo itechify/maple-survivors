@@ -177,6 +177,8 @@ MP-short waiting seconds, and whole boss-hit damage divided by max HP at the hit
 Aggregates report completed fight samples separately from unfinished, unspawned or skipped encounters, print the
 completed/spawned count beside each median and a censored median over all spawned fights (an unfinished fight counts
 as at least its elapsed seconds; `>=` marks a lower bound), and retain the boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
+The per-policy `SYSTEMS` report also divides total MP potions collected by total MP potions used (not a mean of
+per-run ratios). `mp_collected_used_ratio` is JSON null, printed as `undefined (no MP used)`, when use totals zero.
 
 Since the buff-timeline diagnostic, `buff_casts` also records each observed cast tick, skill ID, canonical level,
 duration and active effect stat/value. This exposes the real cast snapshot, unlike a final rank or an absorbed
@@ -193,6 +195,15 @@ choice and navigation cost/jump tolerance are tier C measurement policy, not Map
 CLI, record fields, aggregate semantics and seed separation are documented in AGENTS.md. Ticket #26 adds the
 core measurements without changing balance data; #27 adds the cast snapshot trace. Training and held-out results
 remain separate.
+
+Issue #37's initial MP scarcity pass uses normal/elite MP chances 2%/30% and boss MP bundles of 3,
+with HP supply unchanged (tier C). Before integrating the subsequent #48/#49/#50 changes, HG training seeds 1..12
+showed sensible collected/used falling from
+1.917 to 1.064 and median leftover from 85 to 0; random falls from 2.275 to 1.034, with median leftover
+59.5 to 0. Sensible clears fall from 4/12 to 0/12; random remains 0/12. Median MP-short seconds become
+116.884 (sensible) and 54.367 (random), from zero. This overshoots the 1.2-1.5 target; final calibration
+belongs to the balance pass. No held-out seeds were run. Configuration and exact training output:
+[issue37-mp-drops.md](research/issue37-mp-drops.md).
 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from the held-out
 acceptance matrix. Magician now advances at Lv10: its target stage-sample median is **180–330 s (3:00–5:30)**,
@@ -724,9 +735,9 @@ still and cannot touch during fade-out or the normal 300 ms arrival fade. Progre
 by at least 1 px through its own movement; a boss already at the player does not relocate.
 
 Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
-(×5), split into 12 drops with no remainder lost, spread ±120 px. Default HP/MP bundles hold 3/6 potions of the
-stock's current tier, separated by ±30 px. Mano overrides these to 6 HP/6 MP; Stumpy keeps 3 HP/6 MP, supporting
-early builds. Both second bosses give 1 HP/6 MP, limiting later stock while ordinary HP supply stays scarce. The nested override includes
+(×5), split into 12 drops with no remainder lost, spread ±120 px. Default HP/MP bundles hold 3/3 potions of the
+stock's current tier, separated by ±30 px. Mano overrides these to 6 HP/3 MP; Stumpy keeps 3 HP/3 MP, supporting
+early builds. Both second bosses give 1 HP/3 MP, limiting later stock while ordinary HP supply stays scarce. The nested override includes
 MP explicitly; EXP and reward geometry retain the global defaults. Ordinary potion rolls do not add to bundles. Each death
 also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
 consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
@@ -836,7 +847,7 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 6% independently; elites roll HP 15% and MP 65%. These choices and starter stock
+Normal kills use a global fallback of HP 1.2% and MP 2% independently; elites roll HP 15% and MP 30%. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
 EXP cap/absorption path. The bot drinks below 80% HP or 30% MP, with thresholds in the same survivor data.
 The optional stage-keyframe `normal_hp_drop_chance` is tier C survivor supply tuning: clamp each endpoint to [0, 1],
@@ -1129,7 +1140,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .06, elite HP .15/MP .65; drink below HP .8/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .02, elite HP .15/MP .30; drink below HP .8/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
@@ -1174,7 +1185,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Normal spawns during a boss | while any boss lives the steady spawn rate and every burst's count are ×0.5 (bursts are normal spawns; count rounded); elites unchanged | C | spec "normal spawns run at half rate", our reading that bursts are normal spawns; balance.bosses.normal_spawn_mult |
 | Boss warning / placement / pressure | 3 s lead; no arrival point on the arrival tick: slip 3 s behind a fresh warning; missing mob img: skipped with a run warning; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
-| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
+| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP3 bundles (Mano HP6, second bosses HP1; MP3 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | every scheduled boss: no stun/push, regardless of pushed or info/boss; kinds with info/boss or `no_flinch` also never flinch | A flag / C behavior | v83 info/boss, survivor encounter rule (`MobSwarm.steady`) |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.72; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |

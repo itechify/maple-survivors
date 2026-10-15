@@ -489,6 +489,8 @@ static func aggregate(records: Array) -> Dictionary:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
 	result["mp_short_seconds"] = statistics(waits)
+	var mp_used := int(result.potions_used.mp)
+	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
 	result["boss_hit_fraction"] = statistics(fractions)
 	return result
@@ -520,9 +522,10 @@ static func censored_median(samples: Array) -> Dictionary:
 ## put the completed count next to the spawned count and add the censored median, so a median over completed fights
 ## alone cannot hide unfinished ones.
 static func describe_metrics(summary: Dictionary) -> String:
-	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s%s" % [
+	var mp_ratio := "undefined (no MP used)" if summary.mp_collected_used_ratio == null else "%.3f" % float(summary.mp_collected_used_ratio)
+	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP collected/used %s; MP-short seconds %s%s" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		_range(summary.mp_short_seconds), _campers(summary)]])
+		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
 	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
 	for id: String in summary.boss_fights:

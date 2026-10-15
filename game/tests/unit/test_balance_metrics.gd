@@ -146,6 +146,10 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 	var summary: Dictionary = BR.aggregate([first, second])
 	assert_eq(summary.potions_collected, {"hp": 6, "mp": 8})
 	assert_eq(summary.potions_used, {"hp": 1, "mp": 3})
+	assert_true(summary.has("mp_collected_used_ratio"), "policy summary exposes collected/used MP ratio")
+	if summary.has("mp_collected_used_ratio"):
+		assert_near(summary.mp_collected_used_ratio, 2.666666667, 0.000001, "ratio of totals, not mean of per-run ratios")
+	assert_true(BR.describe_metrics(summary).contains("MP collected/used 2.667"))
 	assert_eq(summary.mp_short_seconds.median, 15.0)
 	assert_eq(summary.boss_fights["2220000"].completed.count, 1)
 	assert_eq(summary.boss_fights["2220000"].completed.median, 30.0, "unfinished eighty seconds is not a completed fight sample")
@@ -160,6 +164,16 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 	assert_near(summary.boss_hit_fraction.median, 0.45, 0.000001)
 	assert_eq(summary.boss_hits["2220000"].by_source.touch.median, 0.4)
 	assert_eq(summary.boss_hits["2220000"].by_source.attack.median, 0.5)
+
+
+func test_summary_reports_undefined_ratio_when_no_mp_is_used() -> void:
+	for records: Array in [[], [{"potions_collected": {"mp": 7}, "potions_used": {"mp": 0}}]]:
+		var summary: Dictionary = BR.aggregate(records)
+		assert_eq(summary.mp_collected_used_ratio, null, "zero use cannot produce a finite collected/used ratio")
+		assert_true(BR.describe_metrics(summary).contains("MP collected/used undefined (no MP used)"))
+	var none_collected: Dictionary = BR.aggregate([{"potions_collected": {"mp": 0}, "potions_used": {"mp": 2}}])
+	assert_eq(none_collected.mp_collected_used_ratio, 0.0, "zero collection with positive use is a defined zero")
+	assert_true(BR.describe_metrics(none_collected).contains("MP collected/used 0.000"))
 
 
 func test_summary_reports_observed_magician_times() -> void:
