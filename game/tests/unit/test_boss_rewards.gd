@@ -78,3 +78,26 @@ func test_final_boss_bonus_choice_precedes_clear_and_does_not_consume_a_queued_l
 	assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 	w.step(DT, MoveInput.new())
 	assert_eq(w.state, RunWorld.CLEARED)
+
+
+func test_exhausted_boss_and_level_rewards_each_offer_elixir_before_clear() -> void:
+	var w := _world()
+	var data: Dictionary = DataRepo.load_all().upgrades
+	data.cards = []
+	w.upgrades = UpgradePool.from_data(data)
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.refresh_player_stats()
+	var queue := w.progression.queue.duplicate()
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "an exhausted boss reward must still open")
+	assert_true(w.choice_bonus)
+	assert_eq(w.pending_cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"])
+	assert_true(w.apply_choice("elixir"))
+	assert_eq(w.progression.queue, queue, "the bonus consumes no queued level")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the normal level still opens its own reward")
+	assert_false(w.choice_bonus)
+	assert_eq(w.pending_cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"])
+	assert_true(w.apply_choice("elixir"))
+	w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CLEARED, "clear waits until both rewards were chosen")

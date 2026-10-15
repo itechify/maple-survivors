@@ -71,6 +71,15 @@ func test_cards_are_consistent() -> void:
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
 		assert_true(ids.has(id), "card %s" % id)
+	var fallback: Dictionary = data.upgrades.fallback
+	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
+	assert_eq(fallback.kind, "filler")
+	assert_eq(fallback.requires, {}, "fallback is job-neutral")
+	assert_eq(int(fallback.max_rank), 0, "healing can be taken again on a later reward")
+	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0},
+		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
+	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
 
 
 func test_stages_mobs_and_manifest() -> void:
