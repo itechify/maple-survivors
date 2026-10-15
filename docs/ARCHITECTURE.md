@@ -239,7 +239,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 
 `RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, spawn_time, death_time,
 dead, teleports}`. Times are -1 before arrival/death. Pursuit bookkeeping also holds `stall`, `best_distance`,
-`anchor`, `fading`, `fade_left`. `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
+`anchor`, `fading`, `fade_left`; action bookkeeping captures the spawned mob's logical `identity` for reuse checks.
+`RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
 Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
 Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
@@ -460,16 +461,15 @@ What the tables above leave open; the class doc comments have the rest.
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
-policies.
-`PortalApproach` supplies the shared pure entrance-floor lookup, jump-graph approach, wall gate and movement input
-for `BotInput` and the camper harness. Each caller retains its goal scoring and eligibility policy, including the
-bot's additional entrance-floor activation-height check.
-Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
+policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
 per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
 TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,
 offensive cast counts and aggregated Guard coverage are not separate recorded metrics. Monster balls retain captured source/damage after
 caster death; their original mob slot may be reused, while captured mob ID/source position remain meaningful.
+`PortalApproach` supplies the shared pure entrance-floor lookup, jump-graph approach, wall gate and movement input
+for `BotInput` and the camper harness. Each caller retains its goal scoring and eligibility policy, including the
+bot's additional entrance-floor activation-height check.
 `buff_casts` is an additive harness diagnostic: event-observation time, skill/key ID, canonical level/duration,
 and effect stat/value copied from the public cast snapshot. Normal runs drain after each fixed step, so this is
 that cast tick; already-pending setup events are observed at the next drain. It adds no RNG calls or gameplay

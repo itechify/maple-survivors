@@ -276,7 +276,7 @@ survivor EXP to 4+15L+3.8L² while preserving exact Mage cost 980. Its full Tree
 110/109, tier score 112, offer weights 8/8 and HP-drink threshold 0.8 remain in survivor data; random choices
 remain uniform. Earlier v22 versus v24 sensible results change both rank weight and threshold and cannot
 isolate either. Independent HP-only probe results are kept separate, not pooled with selected training.
-#### Frozen held-out assessment: Henesys-first acceptance scope
+#### Historical frozen held-out assessment: Henesys-first acceptance scope
 
 All **120 fresh runs** on seeds **101–130**, both stages and both card policies, use freeze milestone `b230305`
 (gameplay `db9ef80`), actual data without patch overrides and the same 1,800 s cap. Every expected identity is
@@ -294,7 +294,7 @@ careless timing gate. No run times out in the held-out matrix.
 
 The actual frozen pacing run passed 5 tests with no failures or skips. `ab5d7fa` corrected the stale scene-test
 EXP fixture through the public progression API. `2805a24` then made the optional canonical recipient-burst path
-explicit without changing recipients, RNG or gameplay. The final runtime full suite passed **485 tests, 0 failed,
+explicit without changing recipients, RNG or gameplay. That pre-review runtime full suite passed **485 tests, 0 failed,
 0 skipped, 59 files** in 590.147 s. The survivor data and pacing guard remained unchanged.
 
 | Stage / policy | Clear / dead / timeout | Deaths early / 9-12 / late | Window share of deaths | Mage median (reaches) | Lv30 median (reaches) | Clears below Lv30 |
@@ -332,7 +332,85 @@ median 39.43% across 8 landed hits. Tree Dyle has 1 completed fight (422.27 s), 
 They are not substituted for the sensible-policy boss medians. All durations, source counts, stock inference
 and missing harness measurements follow the definitions above. The frozen data remain unchanged after this
 failed assessment; these seeds must not become another tuning input.
-#### Informational camper samples
+
+#### Corrected-runtime training and final Henesys assessment
+
+Final review corrected the unequal-afterimage reach gate: swing selection remains uniform while the chosen
+stance keeps its own impact box. It also replaced steady boss-action buffer allocation with a reusable borrowed
+view and shared the bot/camper portal-entrance approach without changing their goal policies. These fixes are
+runtime `a25697e`; **all survivor data, canonical values and pacing guards remain unchanged** from the v28 freeze.
+The corrected full suite passed **489 tests, 0 failed, 0 skipped, 59 files** in 695.839 s, including the unchanged
+fixed pacing sample on both stages and real-cache tests. No skip is counted as coverage.
+
+The corrected-runtime 101–130 Henesys audit did not pass every gate: sensible clears were **15/30**, exactly
+half, failing “most but not all”; careless timing passed at **21/29 deaths** in 540–720 s. These results remain
+preserved in `evidence/acceptance/post_review_hg/`, separate from both the original 120 and the final assessment.
+They were not used to choose data changes. The original Tree careless **12/29** timing failure remains deferred
+under the owner's Henesys-first scope; no Tree tuning or replacement Tree validation was performed.
+
+Before further training, the corrected-runtime baseline cohort was declared as **1–24 plus 2026**, both policies.
+Its sensible 12/25 clears prompted a sensible-only expansion through training seeds 25–60; careless already met
+its timing target at 14/25 deaths in-window. The resulting **61 sensible / 25 careless** training records supported
+selecting the data unchanged: sensible 38/61 clears, Mage median 178.6 s (61 reaches), Lv30 789.0 s (43 reaches),
+boss duration medians 30.60/65.17/74.12 s (61/51/38 completed), and every sensible boss/source hit median in-band.
+Ordinary late hits have median 209/minimum 25. Sensible HP stock median is 1 (29/61 empty); MP stock median 118,
+with no MP-wait ticks. Careless HP stock is zero in all 25 runs. Full ranges and censoring are preserved in
+`evidence/acceptance/final-review/training-assessment.md` and its machine-readable metrics; cohorts are not pooled.
+
+Ticket #27's final reserved range was explicitly amended to **301–330** before any of those runs, because 101–130
+was consumed and historical 201–212 was also consumed. Substantive targets stayed unchanged. Selection of unchanged
+`a25697e` was sealed at **2026-10-15 03:46:14 UTC**, before the first held-out log at **03:46:48 UTC**. The initial
+PowerShell manifest construction failed and left an empty file; its metadata was rebuilt at **03:48:21 UTC**,
+after launch, from the sealed decision and unchanged commit/data. The runner's recorded account says completed-result
+existence was checked during repair, no outcome values were read, and no tuning or selection changed. Independent
+audit verified the sealed decision, hashes and timestamps; absence of outcome reads is the runner's account.
+The preserved manifest discloses this repair, all 86 training-record hashes, six unchanged data hashes and the
+unchanged pacing-guard hash.
+
+All **60 final Henesys runs** use `a25697e`, actual data without patches, and the 1,800 s cap. This final amended
+assessment passes the Henesys targets; it neither replaces the earlier failed audit nor claims Tree timing passed.
+
+| Final 301–330 policy | Clear / dead / timeout | Deaths early / 9–12 / late | Window share of deaths | Mage median (reaches) | Lv30 median (reaches) |
+|---|---|---|---|---|---|
+| Sensible | 22 / 8 / 0 | 0 / 6 / 2 | 6/8 = 75% | 177.45 s (30/30) | 774.4 s (23/30) |
+| Careless | 1 / 29 / 0 | 4 / 23 / 2 | 23/29 = 79.31% | 175.7 s (30/30) | 838.6 s (1/30) |
+
+Sensible clears are **73.33%**, most but not all; careless timing has a majority of deaths in 9–12 minutes.
+No clear occurs below Lv30. The careless single Lv30 reach is an observation, not a progression acceptance sample.
+Sensible ordinary late nonmiss hits have median **218.5**, minimum **58**, using completed minute buckets after
+8:00. Boss hits and misses do not satisfy that ordinary-hit observation.
+
+| Final sensible boss | Completed / unfinished / unspawned | Duration median [min–max], s | Whole-hit HP median [min–max] | Source medians (landed hits) |
+|---|---|---|---|---|
+| Mano | 30 / 0 / 0 | 27.29 [11.13–73.40] | 45.92% [41.84–50.00%] | touch 45.92% (75) |
+| Mushmom | 25 / 5 / 0 | 57.23 [20.85–161.92] | 45.00% [39.20–50.30%] | attack 44.31% (20), touch 45.06% (126) |
+| Blue Mushmom | 22 / 0 / 8 | 73.44 [22.80–131.77] | 44.95% [38.46–51.46%] | attack 43.09% (12), touch 45.63% (73) |
+
+All sensible completed-duration medians fit 15–45 / 30–90 / 45–135 s, and all whole/source-hit medians fit 40–50%.
+Ranges show that individual fights and damage rolls can fall outside those typical bands. Fractions precede
+Magic Guard's split. Unfinished fights are not completed observations or zero durations. Careless boss samples
+remain separate: Mano 28/2/0, Mushmom 4/15/11, Blue Mushmom 1/0/29 completed/unfinished/unspawned.
+
+| Final policy | Mean HP collected / used | HP stock median / empty runs | Mean inferred HP stock | Mean MP collected / used | MP stock median / empty runs | MP-wait runs / maximum |
+|---|---|---|---|---|---|---|
+| Sensible | 33.13 / 33.80 | 2 / 11 of 30 | 4.33 | 238.87 / 112.13 | 117 / 0 of 30 | 0/30 / 0 s |
+| Careless | 24.03 / 28.70 | 0 / 29 of 30 | 0.33 | 129.03 / 55.23 | 67.5 / 0 of 30 | 0/30 / 0 s |
+
+HP scarcity is uneven, not universal exhaustion; MP supply supports the recorded builds without waiting. Stock
+remains starter plus collected minus used. Exact potion-source/tier counts, depletion timestamps and healed-HP
+totals remain unmeasured. Final records, console reports, audit and repair disclosure are retained in
+`evidence/acceptance/final_301_330/`. No further tuning followed this assessment.
+
+The final corrected-runtime density capture uses `a25697e`, Henesys seed 2026, speed 1, vsync off, warp 600 and an
+absolute 780 s cap. It remains PLAYING at that deliberate cap, not cleared. After all owned heavy jobs ended,
+**74,953 frames with 200+ mobs have p95 3.070 ms**, p99 3.662 ms and max 25.346 ms; max 274 mobs, `missing: []`.
+Work p95 is 1.806 ms and sim cost 0.865 ms/tick. The final screenshot was checked by eye. The PowerShell wrapper
+exited 1 after treating the expected stderr status line as an error; the game completed and wrote valid summary,
+screenshots and engine log. The late after-process sample and wrapper issue are disclosed in
+`evidence/acceptance/density_hg_final/completion-context.json`; full hardware/background context is in the
+Implementation Plan. Earlier visual/performance evidence remains separate below.
+
+#### Historical informational camper samples
 
 On the same v28 data, seeds **1–6 and 2026**, `--camp-after=60 --cap=1800`, all 21 runs reached their requested
 camping position. These observations are informational and did not select or tune the profile.
@@ -345,12 +423,12 @@ camping position. These observations are informational and did not select or tun
 
 Raw records, requested-position flags and commands are preserved in `evidence/acceptance/campers/`.
 
-Final visual evidence preserves the original full composites and the corrected Tree replay: both stages actually
+Pre-review visual evidence preserves the original full composites and the corrected Tree replay: both stages actually
 clear beyond 15:00, and corrected summaries have `missing: []`. Optional Dyle recipient art is selected from the
 canonical field rather than assumed. The separate Henesys speed1 uncapped 10:00–13:00 measurement records
 62,580 frames with 200+ live mobs at p95 **3.912 ms**, max274 mobs, no missing assets. It stops PLAYING at its
 deliberate 13:00 measurement cap, not a clear. Hardware, background load and timing detail are in the
-Implementation Plan performance log; screenshots were checked by eye. This completes the implementation evidence
+Implementation Plan performance log; screenshots were checked by eye. This completed the pre-review implementation evidence
 for the user-amended Henesys-first scope, with Tree careless timing still deferred.
 #### Historical Phase 1 records
 
