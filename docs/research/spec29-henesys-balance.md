@@ -102,6 +102,42 @@ boss: four still clear, while one former late death moves from 945.7 to 771.0 se
 four completed/eight spawned, four unfinished and one unspawned. The nine records are included once in the
 subsequent full population assessment. No seed identities are protected.
 
+## Chosen C21 training profile
+
+C21 meets every training target. Sensible records are 61 fresh unpatched runs at `cec3fe8`; random combines nine
+mechanism runs at `b3a50c8` plus the exact C21 patch with 52 unpatched runs at `cec3fe8`. The patch's 42 leaves
+match shipped values bit for bit, and gameplay code is unchanged between those commits. Every expected seed
+occurs exactly once per policy. All simulation warnings are empty and no runtime errors or warnings were logged.
+
+| Policy | Clear / dead / timeout | Clear rate | Death median, s (deaths) | MP collected / used | MP ratio | MP stock median (empty) | Late wait / observed runs |
+|---|---|---|---|---|---|---|---|
+| Sensible | 30 / 31 / 0 | 49.18% | 886.7 (31) | 9,646 / 7,271 | 1.32664 | 50 (8/61) | 10 / 60 |
+| Random | 4 / 57 / 0 | 6.56% | 660.6 (57) | 6,443 / 5,776 | 1.11548 | 2 (28/61) | 21 / 54 |
+
+Late sensible wait totals 697.568 s over 27,638.619 observed seconds; random totals 1,484.218 / 12,682.881 s.
+Maximum per-run late waits are 255.600 / 194.283 s respectively. Magician medians are 201.9 s (60/61 reaches)
+and 200.8 s (59/61); Lv30 is 748.3 s (53/61) and 708.55 s (14/61). The latter random sample is conditional,
+not a progression target. First-five-minute hit means and every numerator/denominator are in GAME_DESIGN 4.2
+and the official aggregates. The unchanged opening retains the resource/clipping measurements above.
+
+| Policy / boss | Completed / spawned | Completed median [min–max], s | Unfinished / unspawned / skipped | Censored median, s | Whole-hit HP median (hits) |
+|---|---|---|---|---|---|
+| Sensible Mano | 60 / 60 | 20.91 [8.70–45.08] | 0 / 1 / 0 | 20.91 | 41.52% (77) |
+| Sensible Mushmom | 56 / 60 | 57.35 [15.60–151.38] | 4 / 1 / 0 | 59.65 | 41.85% (275) |
+| Sensible Blue Mushmom | 30 / 45 | 97.57 [42.55–177.10] | 15 / 16 / 0 | ≥92.47 | 44.69% (201) |
+| Random Mano | 53 / 59 | 20.45 [8.52–63.90] | 6 / 2 / 0 | ≥23.48 | 41.98% (124) |
+| Random Mushmom | 21 / 49 | 50.65 [26.00–125.82] | 28 / 12 / 0 | ≥50.95 | 43.60% (205) |
+| Random Blue Mushmom | 4 / 8 | 65.75 [32.93–106.65] | 4 / 53 / 0 | ≥44.00 | 42.26% (36) |
+
+Each censored sample includes every spawned fight, including unfinished elapsed lower bounds. Completed-only
+medians cannot represent the unfinished or unspawned encounters. Source-specific hit counts and ranges remain
+in the public JSON/log report.
+
+Exact data Git tree: `e585c58d2728212ecc2d10b5c55c4c55dd6ea371`. Canonical Git-data manifest SHA256:
+`a931ebbeb587ac94ead67e50be8517b8bc93d7777e210a1bb48a55571f88b3e9`.
+Pacing-guard Git blob: `837c5f2639820d8149f46809ae625f55f598fac4`. The coordinator receives the clean freeze
+commit and sealed `c21/freeze.json`, including all 122 record hashes, before any held-out execution.
+
 ## Freeze and final checks
 
 Candidate data and regression guards are committed before the full suite. Pacing applies conditionally to reached
@@ -126,6 +162,8 @@ The recorded pilot/extension splits contain exactly the same complete seed sets.
 the exact patch, runtime SHA/context and any runtime diff, per-seed JSON/logs, console output and aggregate reports.
 The selected mechanism subsets are explicitly labeled; they are included once when that same configuration is
 extended to a full cohort. Legacy diagnostic normalization is logged during aggregation, with raw records retained.
+C18's CRLF seed-list markers were removed from filenames only; the input, raw console and filename mapping remain
+in its archive. JSON seed IDs and record contents were unchanged. Later commands use literal numeric arguments.
 
 The stable local evidence root is `evidence/spec29/balance/issue42/` (gitignored, archived by the coordinator before
 the implementer worktree is removed). Candidate directories are `c00/` onward; full cohort aggregates are

@@ -257,6 +257,51 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #29 / #42 Henesys rebalance: chosen training profile
+
+C21, gameplay/data commit `cec3fe8`, meets every new training target in 4.1.1. Each policy includes all **61 seeds,
+1–60 and 2026**, an 800 × 600 view and a 1,800 s safety cap. No held-out results informed selection. Sensible runs
+were freshly run on committed, unpatched data; random contains nine same-profile mechanism records plus 52
+remaining runs, included once each. The exact patch matches every shipped tuning leaf. Data Git tree:
+`e585c58d2728212ecc2d10b5c55c4c55dd6ea371`; pacing-guard blob:
+`837c5f2639820d8149f46809ae625f55f598fac4`. The sealed freeze manifest records the commit and all 122 record hashes.
+
+| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Magician median (reaches) | Lv30 median (reaches) |
+|---|---|---|---|---|---|
+| Sensible | 30 / 31 / 0 | **49.18%** | **886.7 s** (31) | 201.9 s (60/61) | 748.3 s (53/61) |
+| Random | 4 / 57 / 0 | **6.56%** | **660.6 s** (57) | 200.8 s (59/61) | 708.55 s (14/61) |
+
+The random Lv30 median is conditional on its fourteen reaches, not a progression target. Legitimate early deaths
+remain in these counts, including sensible seed 2026 at 204.7 s. All 122 records have empty simulation warnings.
+
+| Policy | MP collected / used | Ratio of totals | MP stock median / empty runs | Late MP-wait runs / observed | Wait / observed seconds after 8:00 |
+|---|---|---|---|---|---|
+| Sensible | 9,646 / 7,271 | **1.32664** | **50 / 8 of 61** | 10 / 60 | 697.568 / 27,638.619 |
+| Random | 6,443 / 5,776 | 1.11548 | 2 / 28 of 61 | **21 / 54** | 1,484.218 / 12,682.881 |
+
+Sensible stock is 57% below the former median 117. Normal/elite/boss MP supply is 4% / 30% / three, compared with
+the original 6% / 65% / six. Canonical restoration, damage, MP costs and ranks are unchanged. The finite 30-MP pool
+and five Blue starters reduce opening capacity waste; the first five uses occur around the opening minute and
+still clip about 60% of their canonical restoration, measured separately from collected supply.
+
+| Run minute | Sensible mean hits/ordinary kill (hits / kills) | Random mean (hits / kills) |
+|---|---|---|
+| 1 | 1.149 (5,277 / 4,591) | 1.149 (5,263 / 4,581) |
+| 2 | 1.000 (8,346 / 8,346) | 1.000 (8,281 / 8,279) |
+| 3 | 1.217 (12,190 / 10,014) | 1.219 (12,025 / 9,866) |
+| 4 | 1.560 (21,370 / 13,701) | 1.563 (20,784 / 13,295) |
+| 5 | **2.187** (40,532 / 18,530) | **2.195** (37,069 / 16,888) |
+
+Density rises before durability: HP stays at ×1 through 2:00, then increases so ordinary kills average roughly
+two landed hits by minute five. Means pool lifetime hits over kills; they are not per-cast counts or averages of
+per-run means. [The detailed balance record](research/spec29-henesys-balance.md) preserves completed/spawned boss
+counts, censoring, rejected cohorts, resource measurements and exact reproduction/provenance.
+
+Candidate data and the conditional Henesys pacing guards are frozen before the full suite and three actual
+Tree presentation regressions. Their final results and the single fresh held-out **401–430** check will be added
+after frozen QA; no held-out run has started. The inspected 306-second x1 opening at `f6637da` can be reused only
+with explicit source/prefix equivalence, since all subsequent tuning first affects time after 8:00.
+
 The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
 earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.
 
