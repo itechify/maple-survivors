@@ -166,7 +166,7 @@ Hunting Ground I. Its map and unused Ribbon Pig assets are no longer selected fo
 retired stages are ignored.
 
 The Tree That Grew I retains its own ground-only pool: Snails until 2:00, then the existing Slimes and mushrooms.
-It takes 0.90x EXP and uses the same rate/crowd caps with HP multipliers 0.8/1.0/1.5 at 2/4/6 minutes, then
+Its ordinary kills yield 0.90x EXP, and it uses the same rate/crowd caps with HP multipliers 0.8/1.0/1.5 at 2/4/6 minutes, then
 3.25/4.25/6.875 at 9/12/15 minutes. The early HP curve supports weak builds without changing canonical
 monster HP or redesigning the roster. It has no flyers, and its portals connect the playable branches.
 
@@ -177,29 +177,45 @@ MP-short waiting seconds, and whole boss-hit damage divided by max HP at the hit
 Aggregates report completed fight samples separately from unfinished or unspawned encounters and retain the
 boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
 
+Since the buff-timeline diagnostic, `buff_casts` also records each observed cast tick, skill ID, canonical level,
+duration and active effect stat/value. This exposes the real cast snapshot, unlike a final rank or an absorbed
+hit fraction (which available MP may clip). It changes no gameplay or RNG. Old records without the field cannot
+prove zero casts. It supports diagnosis; aggregate Guard coverage and offensive cast counts remain unrecorded.
+The legacy `cards_taken` prefix is the queued level at `progression.front()`, not the character level or a bonus
+flag. A bonus pick can carry a positive prefix while normal levels are queued; −1 is not an exhaustive bonus
+marker. These strings cannot isolate normal-choice timing or replace the actual cast snapshots.
 Three harness-only camper policies use sensible cards and potions, then park after a normal 60 s warmup:
 Henesys highest platform, Henesys ground rope, and Tree's highest playable branch reached through the real
 up00/up01/up02 chain. Henesys placement is a one-time controlled setup; Tree uses movement inputs. Arrival
 success and portal use are recorded, and displaced campers are not placed back. The 60 s warmup, placement
 choice and navigation cost/jump tolerance are tier C measurement policy, not MapleStory facts or gameplay tuning.
-CLI, record fields, aggregate semantics and seed separation are documented in AGENTS.md. Ticket #26 adds these
-measurements without changing balance data; subsequent tuning must keep training and held-out results distinct.
+CLI, record fields, aggregate semantics and seed separation are documented in AGENTS.md. Ticket #26 adds the
+core measurements without changing balance data; #27 adds the cast snapshot trace. Training and held-out results
+remain separate.
 
+The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from the held-out
+acceptance matrix. Stage-sample medians retain Mage 150–225 s and Lv30 720–900 s, with at least two of three
+runs reaching Lv30. Individual windows allow build variation: Mage 135–270 s, Lv10 150–360 s and Lv30 600–1080 s;
+the Lv10 sample median is 180–330 s. Population acceptance still uses all thirty held-out seeds and explicit
+reach/outcome counts, rather than that small regression sample. Spawning each minute (including after 15:00), crowd
+growth, EXP/kill/event consistency, all-boss finale, no lost mobs, inherited 30% engagement floor, late 200+ density
+and at least five ordinary nonmiss hits after 8:00 remain active. Boss hits and misses cannot satisfy that last
+check. The draft guard is prepared before held-out execution and is run only after candidate freeze.
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground, walks to EXP
 drops and climbs a ladder or rope to drops left on a platform above, and takes the first available job. Card
-policies: `bot` takes the card a sensible player would take (a new attack skill, then more shots / damage / pierce /
-rank for the current job's attack skills, then defence; `BotInput.pick_card_for`); `random` is a careless player who
+policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
+survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-**Seeds.** The 2026-10-14 pass was tuned on seeds 1-24 (variants compared on both policies) and is reported on the
+**Historical seeds.** The earlier 2026-10-14 pass was tuned on seeds 1-24 (variants compared on both policies) and is reported on the
 held-out seeds 101-130, which were never used for tuning; the earlier record (seeds 1-23 + 2026) had been tuned and
 reported on the same seeds, and it did not hold on fresh seeds (a review found 6 of 18 deaths on seeds 31-48). Keep
-tuning on 1-60 and reporting on 101-130; `test_full_run` checks the pacing on seeds 101 and 102 (Lv 8 and Lv 10 on
-their mean, see the test).
+tuning on 1-60 and reporting on 101-130. The earlier regression consumed seeds 101/102; the new-system regression
+uses fixed training seeds 1/2/2026 on both stages as described in 4.1.1.
 
 Targets: Lv 8 (Magician) at 2:30-3:45, Lv 10 at 3:00-5:30, Lv 30 at ~12:00-15:00, a crowd of 200+ alive in the last
 minutes, hits taken regularly after 8:00, deaths of the sensible player late and on a minority of seeds; a careless
@@ -301,7 +317,7 @@ the other 30 seeds of the verification), so its "55-60% engaged at 9:00 / 12:00"
   ~29 px behind a running player, so mobs faded in there with up to 23 px of their body on screen).
 - The EXP curve is steeper (section 5: 22% more EXP to Lv 30, 4% more to Lv 8), and touch damage is 0.7 of the first
   version's (0.35-0.525; the steeper curve alone killed 45 of 48 tuning runs: a build that levels slower is weaker
-  against the same crowd). The Hill takes 1.0x EXP and touch damage 0.25-0.375, the Tree 0.85x EXP (section 4.1).
+  against the same crowd). The Hill takes 1.0x EXP and touch damage 0.25-0.375, the Tree 0.85x EXP in that historical model.
 - `balance_run.gd`'s stale share follows a mob across relocations (`mob_spawned.relocated_from`).
 
 **Seeds.** Tuned on seeds 1-48 (henesys) and 1-24 (the other stages). The record below is the whole held-out range
@@ -384,8 +400,8 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
 | Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.70 |
 | Stumpy | 7,000 | 3,150 | 0.45 | 0.8 | 0.74 |
-| King Slime | 8,000 | 6,400 | 0.8 | 1.3 | 1.02 |
-| Dyle | 31,000 | 5,580 | 0.18 | 1.15 | — |
+| King Slime | 8,000 | 6,400 | 0.8 | 1.4 | 1.1 |
+| Dyle | 31,000 | 8,060 | 0.26 | 1.15 | — |
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
 `stage.bosses` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
@@ -406,7 +422,7 @@ by at least 1 px through its own movement; a boss already at the player does not
 Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
 (×5), split into 12 drops with no remainder lost, spread ±120 px. Default HP/MP bundles hold 3/6 potions of the
 stock's current tier, separated by ±30 px. Mano overrides these to 6 HP/6 MP; Stumpy keeps 3 HP/6 MP, supporting
-early builds through the second encounter while later ordinary HP supply stays scarce. The nested override includes
+early builds. Both second bosses give 1 HP/6 MP, limiting later stock while ordinary HP supply stays scarce. The nested override includes
 MP explicitly; EXP and reward geometry retain the global defaults. Ordinary potion rolls do not add to bundles. Each death
 also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
 consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
@@ -436,7 +452,7 @@ the damage impact; neither timeline is retimed to conceal this canonical differe
 an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).
 
 Slam scaling is separate from touch scaling because both mushrooms' slam attack is 300 while their contact attack
-is 200 / 450. Mushmom and Blue Mushmom use separate attack scales 0.55/0.8 and contact scales 0.85/0.52,
+is 200 / 450. Mushmom and Blue Mushmom use separate attack scales 0.55/0.70 and contact scales 0.85/0.48,
 calibrated against actual training HP pools. No attack-local canonical value is changed to achieve those fractions.
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
@@ -459,15 +475,15 @@ mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP res
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
 was copied. Encounter scaling is survivor data; all heal bounds, gates, intervals and effect timing stay canonical.
 
-King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×0.8 gives 6,400; touch ×1.3
-and slam ×1.02 are separate training-calibrated scales. Its type 0 slam
+King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×0.8 gives 6,400; touch ×1.4
+and slam ×1.1 are separate training-calibrated scales. Its type 0 slam
 uses canonical attackAfter 900 ms, effectAfter 300 ms, 500×150 area and jumpAttack 1; grounded players in the area
 are hit only at impact, airborne players can dodge. Skill 200/2 waits 50 s, HP ≤50%, summons the original three
 210100 Slimes with summonEffect 3, and caps living encounter-owned summons at 15. Its eleven-entry info/revive
 list spawns eleven ordinary canonical Slimes on death, independently of that cast limit. Relocations preserve
 ownership and fresh slots reset it. King Slime lacks info/boss and hpTag colours in v83: the survivor no_flinch
 override and existing 1/5 MobGage colour override supply scheduled-boss behavior without modifying WZ facts.
-Dyle retains canonical maxHP 31,000 (survivor ×0.18=5,580) and touch 190 (survivor ×1.15).
+Dyle retains canonical maxHP 31,000 (survivor ×0.26=8,060) and touch 190 (survivor ×1.15).
 Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Canonical
 x 5,000/y 500 are interpreted as inclusive uniform 500–5,000 bounds (tier C, same reference interpretation as
 Stumpy), clamped at max HP. Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
@@ -493,23 +509,24 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000); MP stock starts empty with Blue Potion (2000003) selected. Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 6% independently; elites roll HP 25% and MP 65%. These choices and starter stock
+Normal kills use a global fallback of HP 1.2% and MP 6% independently; elites roll HP 15% and MP 65%. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
-EXP cap/absorption path. The bot drinks below 70% HP or 30% MP, with thresholds in the same survivor data.
+EXP cap/absorption path. The bot drinks below 80% HP or 30% MP, with thresholds in the same survivor data.
 The optional stage-keyframe `normal_hp_drop_chance` is tier C survivor supply tuning: clamp each endpoint to [0, 1],
 interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance for
 missing endpoints. Elite HP, all MP rolls and fixed boss bundles keep their existing settings. This curve is
 independent of card policy.
 
-Potion-tier score 92 prioritizes a useful permanent supply upgrade over attack ranks/modifiers (maximum87),
-while learning a new attack remains score100. The fallback52 preserves callers without this design field.
+Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
+attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
 Only sensible choices use these scores; careless choices use their separate seeded card RNG.
-Optional final card-score overrides set Guard learning to90 and ranks to89, without adding a job bonus. Missing
-entries preserve legacy scoring. Guard rank offer weight6 (formerly2) improves availability; Orange/White offer
-weights30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights12/8/8 support the
+Optional final card-score overrides set Guard learning to 110 and ranks to 109, without adding a job bonus. Missing
+entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
+weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Normal HP supply interpolates by stage: HG1.2% through6:00,0.6% at8:00,0.2% at9:00 and11:00,0.3% at12:00,
-0.4% at15:00; Tree2% through4:00,0.6% at6:00,0.2% at9:00,0.3% at12:00,0.4% at15:00. Elite chances remain
+Normal HP supply interpolates by stage: HG 1.2% through 6:00, 0.2% at 8:00; Tree 2% through 4:00 and 0.6% at 6:00.
+Both stages reach 0% at 9:00, hold through 12:00, recover to 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
+chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
 The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
 quantities per kind.
@@ -728,8 +745,9 @@ Potion tiers are one-time cards: HP Red (2000000) → Orange (2000001) from Lv 1
 MP Blue (2000003) → Mana Elixir (2000006) from Lv 20. Each requires its previous item, preserves the entire stock
 count and changes all future drops of that kind. The current item drives canonical restoration and the HUD icon.
 The ladders, level gates and weights are tier C entries in `upgrades.json` (`potion_kind`, `item_id`,
-`requires.potions`, `requires.min_level`); no canonical item value is changed. The sensible bot scores tier cards
-52, above general defence and below attack ranks; first/random policies can offer and take them normally.
+`requires.potions`, `requires.min_level`); no canonical item value is changed. The sensible bot scores tier cards at
+the configured `potions.bot.tier_score` (currently 112), with fallback 52 when absent; first/random policies can
+offer and take them normally.
 
 Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
 1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
@@ -761,8 +779,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - HUD: independent status-bar, counter, skill-icon and message widgets receive state from RunScene. The original
   gauges, level, job name, timer, kill count and skill icons keep their layout. Decorative controls on the bar's
   right side are removed to reserve a potion quickslot; separate buff and boss widgets reserve space below the
-  kill count and timer. Full-run pacing checks remain disabled until overhaul tuning ticket #27 re-enables them;
-  structural checks still require EXP collection, Magician advancement, a completed run and no lost mobs.
+  kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
+  advancement, boss-only completion, late ordinary hits and no lost mobs (4.1.1).
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
@@ -776,7 +794,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .012 fallback (stage curve below)/MP .04, elite HP .25/MP .65; drink below HP .5/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot thresholds | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .06, elite HP .15/MP .65; drink below HP .8/MP .3; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
@@ -818,12 +836,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss arrivals and scaling | both stages at 5/10/15 min; HP/contact/attack multipliers in §4.3 | C | survivor data calibrated on training runs; canonical base stats unchanged |
 | Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
-| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6/MP6) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
+| Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
-| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.74; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
-| Stumpy HP/contact/attack | ×0.6 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
-| King Slime / Dyle HP and hit scaling | HP ×1.2/×0.4; King touch×1.4/slam×1.02, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
+| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.70; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Stumpy HP/contact/attack | ×0.45 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
+| King Slime / Dyle HP and hit scaling | HP ×0.8/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
 | King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
 | Dyle heal / weapon immunity | uniform500–5,000 heal; timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; reference heal resolver prose |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
@@ -849,8 +867,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; no fillers, 0–3 eligible choices | C | owner choice; upgrades.json |
-| Bot potion tier score | 92 (above attack ranks/modifiers, below new attacks); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
-| Bot Guard preference / offers | final scores learn 90, rank 89; no job bonus added; rank offer weight 6 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
+| Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
+| Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |

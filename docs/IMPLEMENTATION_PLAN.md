@@ -37,6 +37,30 @@ acceptance evidence is recorded separately below. Evidence folders are under `ev
 | Death, results, restart | run-state tests; playtest of death -> results -> retry | `flow_full/14-20`: hands off the keys -> death, tombstone, results ("You died...", NEW BEST), Retry (mouse) -> a new run, Esc then "2" -> stage select with the best result, Esc -> title. `flow_clear/01-03`: CLEAR notice -> "Stage Clear!" results -> stage select. `import/01-05`: empty cache -> import screen -> folder typed -> Import (73 imgs, 0 warnings, 0 errors) -> title |
 | Responsive under density | `bench.sh` µs/tick at 100/300/600/1000 mobs; playtest frame-time p95 at 15:00 | Performance log below: with 200+ mobs the frame p95 is 2.8-3.5 ms with `--vsync=off` (target < 16.7 ms); up to 338 mobs alive. By default the frame rate is now capped at the display's refresh rate (60 fps on the dev PC's 59.95 Hz screen) |
 
+## Spec #1: difficulty overhaul
+
+The playable stages are Henesys Hunting Ground I and The Tree That Grew I; The Hill East of Henesys is retired.
+Both stages require all three scheduled bosses dead and the final bonus reward choice completed. The run continues
+past 15:00 while that finale is unresolved. This replaces the historical timer-only acceptance above.
+
+Tickets #3–26 are integrated: v83 player stats and hit model, basic weapons, climbing cast restrictions, MP
+costs/regeneration, separate potion inventory and tier cards, timed Guard/Armor/Recovery, polished choices,
+platform-aware spawns, conserved capped EXP drops, flyers, same-map portals and bot navigation, boss lifecycle,
+teleport/rewards, warning/bar presentation and the specified kits for all six bosses. The later pooled-identity fix keeps
+piercing contacts stable through slot reuse and relocation. Ticket #27 supplies balance and independent acceptance.
+
+| Current acceptance check | Evidence required |
+|---|---|
+| New economy and threat | Frozen training candidate followed by held-out seeds 101–130, both stages and both sensible/random policies; progression reaches, outcomes, death-window denominators, late ordinary hits, potion supply/use/stock and MP waits in `GAME_DESIGN.md` 4.2 |
+| Boss encounters | Completed timing and whole-hit source medians with sample counts, plus unfinished/unspawned encounters; preserve canonical WZ facts and tune separate survivor multipliers |
+| Regression | Active pacing checks on predetermined training seeds 1/2/2026, both stages; full Godot suite without skips; Rust real-data validation without skips |
+| Visual integration | Composite runs reaching actual clear on both stages; inspect boss/HUD/buff/potion/cards/reward art and `missing: []`; earlier ticket-specific evidence retained under `evidence/spec1/` |
+| Performance | No concurrent acceptance jobs; uncapped speed=1 measurement with nonzero 200+ mob frames and p95 below16.7 ms; report hardware, actual renderer and remaining unrelated background processes |
+| Documentation | Live contracts in Architecture, survivor constants/provenance and measured outcomes in GameDesign, current controls/defaults in README/AGENTS/scripts |
+
+Final acceptance is pending the frozen-candidate assessment. Training diagnostics are preserved locally under
+`evidence/acceptance/` and are not reported as held-out acceptance. Camper outcomes are informational.
+
 ## Phase 2: job and skill expansion
 
 Fire/Poison Wizard at 30 (Fire Arrow with the five listed upgrades incl. Burning DoT; Poison Breath with the

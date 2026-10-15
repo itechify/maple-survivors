@@ -112,9 +112,9 @@ the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone sprea
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
 2026); the default is training seeds 1..6. Freeze the candidate before explicitly reporting on held-out seeds
-101..130; never tune on them. Full `test.sh` includes held-out 101/102, so use focused filters excluding `full_run`
-while selecting tuning data and run the entire suite after freeze. Tuning targets and the
-last results are in `docs/GAME_DESIGN.md` 4.1-4.2; record new results there.
+101..130; never tune on them. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
+Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
+held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
 all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with
