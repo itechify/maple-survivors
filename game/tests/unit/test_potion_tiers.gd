@@ -88,7 +88,7 @@ func test_bot_values_potion_tiers_above_general_defence_cards() -> void:
 	var w := RF.quiet_world(400, 11)
 	w.progression.level = 25
 	for id: String in ["orange_potion", "mana_elixir"]:
-		var cards := [w.upgrades.choice_card("max_hp", w), w.upgrades.choice_card(id, w)]
+		var cards := [w.upgrades.choice_card("improved_max_mp", w), w.upgrades.choice_card(id, w)]
 		assert_eq(BotInput.pick_card_for(w, cards), id)
 		assert_true(BotInput.card_score(w, cards[1]) > BotInput.card_score(w, cards[0]))
 

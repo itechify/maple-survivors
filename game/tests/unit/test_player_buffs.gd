@@ -5,6 +5,47 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
+func test_nimble_feet_uses_canonical_speed_duration_mp_and_cast_cooldown() -> void:
+	for example: Array in [[1, 10, 4, 4], [2, 15, 8, 7], [3, 20, 12, 10]]:
+		var data := RF.quiet_data()
+		data.balance.player.skills = []
+		data.balance.player.mp = 100
+		data.balance.regen.mp = 0
+		var w := RunWorld.new(RF.setup("quiet", 41, data))
+		RF.place_player(w, 400)
+		w.upgrades.apply("nimble_feet", w)
+		for pick in int(example[0]) - 1:
+			w.upgrades.apply("nimble_feet_rank", w)
+		w.step(DT, MoveInput.new())
+		var buff := _buff(w, "nimble_feet")
+		assert_false(buff.is_empty(), "Nimble Feet casts without a mob target")
+		assert_eq(w.player.speed_stat, 100 + int(example[1]), "canonical speed bonus")
+		assert_eq(w.player_state.mp, 100 - int(example[3]), "canonical cast MP")
+		if buff.is_empty():
+			continue
+		assert_eq(buff.icon, "Skill.wz/000.img/skill/0001002/icon")
+		assert_near(float(buff.duration), float(example[2]), 1e-6)
+		w.drain_events()
+		for tick in int(example[2]) * 60 - 1:
+			w.step(DT, MoveInput.new())
+		assert_false(_buff(w, "nimble_feet").is_empty(), "active until the canonical duration")
+		w.step(DT, MoveInput.new())
+		assert_true(_buff(w, "nimble_feet").is_empty())
+		assert_eq(w.player.speed_stat, 100, "expiry removes the speed bonus immediately")
+		assert_eq(w.runner.casts, 1, "expiry alone does not bypass the 60-second canonical cooldown")
+		for tick in (60 - int(example[2])) * 60 - 1:
+			w.step(DT, MoveInput.new())
+		assert_eq(w.runner.casts, 1, "not yet ready before 60 seconds from cast")
+		w.spend_mp(int(w.player_state.mp))
+		w.step(DT, MoveInput.new())
+		assert_true(_buff(w, "nimble_feet").is_empty(), "ready but unaffordable waits")
+		assert_has(w.drain_events().map(func(e: Dictionary) -> String: return e.type), "mp_short")
+		w.heal_fraction("mp", 1.0)
+		w.step(DT, MoveInput.new())
+		assert_eq(w.runner.casts, 2, "recasts as soon as cooldown and MP allow")
+		assert_eq(w.player.speed_stat, 100 + int(example[1]))
+
+
 func _mage(skill: String) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
@@ -18,6 +59,38 @@ func _mage(skill: String) -> RunWorld:
 	w.learn_skill(skill)
 	w.drain_events()
 	return w
+
+
+func test_nimble_feet_waits_while_climbing_and_its_active_speed_expires_there() -> void:
+	var w := _mage("nimble_feet")
+	RF.place_player(w, -100)
+	var mp: int = w.player_state.mp
+	w.step(DT, MoveInput.make(false, false, true))
+	assert_eq(w.player.state, PlayerMotion.ST_LADDER)
+	assert_true(_buff(w, "nimble_feet").is_empty())
+	assert_eq(w.player_state.mp, mp, "hanging spends no MP")
+	var jump := MoveInput.new()
+	jump.jump_pressed = true
+	jump.left = true
+	w.step(DT, jump)
+	assert_false(_buff(w, "nimble_feet").is_empty(), "casts on leaving the rope")
+	assert_eq(w.player.speed_stat, 110)
+	w = _mage("nimble_feet")
+	w.step(DT, MoveInput.new())
+	RF.place_player(w, -100)
+	w.step(DT, MoveInput.make(false, false, true))
+	assert_eq(w.player.state, PlayerMotion.ST_LADDER)
+	assert_eq(w.player.speed_stat, 110, "the active speed bonus persists while climbing")
+	for tick in 4 * 60 - 1:
+		w.step(DT, MoveInput.new())
+	assert_true(_buff(w, "nimble_feet").is_empty(), "expires after its four-second duration on the rope")
+	assert_eq(w.player.speed_stat, 100)
+	for tick in 56 * 60:
+		w.step(DT, MoveInput.new())
+	assert_eq(w.runner.casts, 1, "the ready cooldown cannot cast while hanging")
+	w.step(DT, jump)
+	assert_eq(w.runner.casts, 2)
+	assert_eq(w.player.speed_stat, 110)
 
 
 func _buff(w: RunWorld, skill: String) -> Dictionary:

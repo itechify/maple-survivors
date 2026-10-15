@@ -17,16 +17,16 @@ func _cards(w: RunWorld, ids: Array) -> Array:
 func test_pick_card_for_prefers_attack_skills() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	var cards := _cards(w, ["max_hp", "magnet", "energy_bolt_new"])
+	var cards := _cards(w, ["improved_max_mp", "magnet", "energy_bolt_new"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_new", "a new attack skill first")
-	assert_eq(BotInput.pick_card(cards), "max_hp", "the first-card policy takes the first")
+	assert_eq(BotInput.pick_card(cards), "improved_max_mp", "the first-card policy takes the first")
 	w.upgrades.apply("energy_bolt_new", w)
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "magnet", "energy_bolt_count"])),
 		"energy_bolt_count", "more bolts before pierce")
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_count", "energy_bolt_count"])), "energy_bolt_count",
 		"the current job's skill before the Beginner's")
-	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "max_hp", "improved_max_mp"])), "max_hp",
-		"defence before the rest")
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "improved_max_mp"])), "improved_max_mp",
+		"an owned passive skill before a general utility modifier")
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
 

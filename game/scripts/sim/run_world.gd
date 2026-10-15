@@ -374,6 +374,7 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
 func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)
+	refresh_player_speed()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
 	_write_player_state(0.0)
@@ -586,7 +587,8 @@ func spend_mp(amount: int) -> bool:
 
 
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. Explicit max-pool upgrades grant the difference; level growth passes grant_growth=false.
+## modifiers. The MaxMP passive preserves the MP ratio on growth; other explicit pool modifiers grant the
+## difference, while ordinary level growth passes grant_growth=false and grants nothing.
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
@@ -596,10 +598,13 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	var old_hp := _max_hp
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
-	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp)))
+	var mp_percent := loadout.passive_total("max_mp_percent")
+	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if grant_growth and _max_mp > old_mp:
+	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
+		_mp = (_mp / old_mp) * _max_mp
+	elif grant_growth and _max_mp > old_mp:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
@@ -615,9 +620,9 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	_write_player_state(0.0)
 
 
-## Upgraded movement speed composed with the current canonical-area slow.
+## Upgraded movement speed plus active canonical buff points, composed with the canonical-area slow.
 func player_speed_stat() -> float:
-	return loadout.player_stat("speed", 100.0) * mob_skills.speed_multiplier(time)
+	return (loadout.player_stat("speed", 100.0) + buffs.effect_total("speed")) * mob_skills.speed_multiplier(time)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points).
@@ -884,6 +889,7 @@ func update_view() -> void:
 
 func _tick_timers(dt: float) -> void:
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
+	refresh_player_speed()
 	if _dead:
 		return
 	for _pulse in upkeep.regen_pulses(dt):

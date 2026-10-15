@@ -102,6 +102,11 @@ the other six `Use` nodes are UOLs to `../02000000/Use`. The importer resolves t
 shared audio once. RunScene plays the consumed item's eight-digit path from `potion_used.item_id`, including
 after tier upgrades; missing sounds remain silent and enter the normal playtest `missing` list.
 
+`Sound.wz/Skill.img` also selects `0001002` for Nimble Feet. Its `Use` node is a canonical UOL to
+`../1111005/Use`; normal importer resolution exports that sound for the buff's own path. Whole `Skill.wz/000.img`
+and `200.img` already supply Nimble Feet and Improved MaxMP Increase icons, level tables and the Nimble Feet
+effect. The removed Max HP card no longer needs the extra `Skill.wz/100.img/skill/1000001` manifest selection.
+
 ## 5. Cache format (contract)
 
 ```
