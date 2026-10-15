@@ -1259,13 +1259,61 @@ Draw rules:
    the item identity, art and 100% restoration are tier A.
 4. Applying a card takes effect immediately.
    Rank cards declare `max_rank` as the canonical skill cap; eligibility also checks the owned skill level.
-   A skill learned at level 1 therefore needs N−1 rank-card picks to reach level N. The window marks the final
-   skill level `MAX`, independently of the card's own pick count.
+   A skill learned at level 1 therefore needs N−1 **Normal** rank-card picks to reach level N; higher tiers grant
+   several levels. The window marks the final skill level `MAX`, independently of consumed card steps.
 5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
    sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
    and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
+
+### 8.1 Fortune and Potential tiers (#30 / #43)
+
+Fortune is a survivor run stat in `player_state.fortune`, separate from canonical LUK. Its base is
+`balance.player.fortune` (0); this spec adds no equipment or NX sources. It changes only card rarity, leaving
+drop and critical rolls untouched. Every scalable offered card, including a job-advance guarantee, rolls a tier
+using the existing seeded card RNG stream 3 after card identities are selected. A choice retains its final `tier`
+and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
+
+| Potential tier | Normal | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|---|
+| Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
+| Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
+| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +1 | +2 | +3 | all remaining steps |
+| New skill starting rank | 1 | 1 | 2 | 3 | 5 |
+
+All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the weights;
+every non-Normal weight is multiplied by `1 + max(0, Fortune) × upgrades.rarity.fortune_scale` (0.02), then weights
+normalize together. At Fortune 100 the Normal share becomes 50%, with 36/10/3.4/0.6% for the higher tiers.
+`upgrades.magnitudes` holds the per-kind tables; an individual card's `magnitudes` can override any tier, with
+unspecified tiers retaining their kind defaults. Legendary can max a 20-rank attack or buff in one pick.
+
+A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier. If Legendary's
+`max` grants exactly a fitting lower tier's magnitude, it uses that lower label: a rank card at 17/20 becomes
+Epic (+3), and at 15/20 becomes Unique (+5). At 16/20 Legendary remains distinct (+4). An Epic rank card at 18/20
+becomes Rare (+2). Explicit equal Normal/Rare defaults for stacking and learning remain part of the designed
+ladder; the honesty clamp addresses benefit lost to headroom. An unlimited stacking card cannot max out and
+downgrades a `max` roll to its highest finite tier. All headroom/label interpretations are tier C.
+
+Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
+omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
+are explicitly always-Normal exceptions, including at bosses; sparse or exhausted rewards still offer the Elixir.
+Boss floor promotion, filtering and exceptions are tier C.
+
+Stacking magnitudes consume several card steps, preserving the original cap. Additive effects add their value
+once per step; multiplicative effects compound: three cooldown ×0.88 steps reduce cooldown by 31.8528%, three
+damage ×1.2 steps increase damage by 72.8%, and three Magnet ×1.25 steps increase radius by 95.3125%. Card text
+shows compounded percentages rounded to two decimals (tier C presentation precision); application retains full
+precision. `choice_card` previews the final skill level and canonical before/after values at the complete gain,
+including Improved MaxMP Increase's survivor percentage. `rank_before/rank` show consumed steps before/after;
+learn and potion cards still consume only one card step. These are tier C card semantics, with canonical fields
+unchanged at each resulting level (tier A).
+
+The balance record exposes `card_tiers_offered` and `card_tiers_picked` for every run, keyed by the five lowercase
+tiers. Counts use the displayed tier after clamping, include Normal potion/Elixir offers and picks, and count
+cards once rather than ranks/steps. Queued level and boss windows are counted once when drawn and selected.
+The supplemental report sums them and reports `card_tier_runs`; legacy records without both fields contribute
+no rarity observation. No tuning evidence or held-out acceptance is claimed by this implementation ticket.
 
 Beginner cards include Nimble Feet (1002) and Recovery (1001) learn/rank cards. Nimble Feet occupies a passive slot
 and auto-casts when inactive, off its canonical cooldown and affordable. It keeps the cast level's canonical speed
@@ -1275,15 +1323,15 @@ climbing; its active effect and cooldown keep advancing there. Its original effe
 is imposed because v83 provides no action node. Auto-casting and slot/lifecycle rules are tier C; the skill values
 and assets are tier A. The former flat +6 speed card and Max HP +10% card are removed.
 
-Magnet +25% radius stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at level 1 and rank it one
-level per card through level 10. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
+Magnet's Normal step is +25% radius and stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at
+their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
 Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant. The canonical
 skill instead raises MP gained per level; no canonical values are edited. The old flat +25 Max MP card is removed.
 Rank previews show the survivor Max MP percentage rather than the canonical per-level gain.
 
-Improved MP Recovery (2000000) is an owned canonical passive skill, learned at level 1 and ranked one level per card through level 16,
+Improved MP Recovery (2000000) is an owned canonical passive skill, learned/ranked by the tier tables through level 16,
 adding the level-scaled pulse bonus in section 6.2.
 
 Recovery casts only below 50% HP and when off cooldown, paying canonical MP. Its duration is 30 seconds, with
@@ -1437,7 +1485,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
-| Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (one level per card) | v83 Skill.wz level tables; owner choice #39 |
+| Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
+| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30; upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
+| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+1/+2/+3/max; new skill 1/1/2/3/5; per-card overrides | C | spec #30; upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
+| Card honesty / boss floor | highest fitting tier; max equal to a lower fitting gain downgrades; explicit Normal/Rare equal defaults retained; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
+| Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |

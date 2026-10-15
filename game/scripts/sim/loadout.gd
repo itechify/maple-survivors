@@ -23,7 +23,7 @@ var skill_mods := {}
 ## stat -> Vector2(add, mul) for player-wide stats (max_hp, max_mp, speed, magnet, hp_regen, mp_regen, pdd, damage,
 ## crit).
 var player_mods := {}
-## Upgrade card id -> times taken.
+## Upgrade card id -> consumed rank/modifier steps (one per learn or potion card), respecting its maximum.
 var card_ranks := {}
 ## Inputs of the damage formula and the CharLevel visuals, kept current by RunWorld.
 var int_stat := 4.0

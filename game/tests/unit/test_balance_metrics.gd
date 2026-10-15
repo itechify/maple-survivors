@@ -6,6 +6,26 @@ const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
 
 
+func test_rarity_report_counts_offers_and_picks_including_queued_boss_rewards() -> void:
+	var data := RF.quiet_data()
+	data.balance.run_time_cap = DT
+	data.upgrades.rarity.weights = {"normal": 1.0}
+	data.upgrades.cards = [{"id": "count", "kind": "skill_mod", "skill": "three_snails", "max_rank": 4,
+		"effects": [{"stat": "count", "op": "add", "value": 1}]}]
+	var w := RunWorld.new(RF.setup("quiet", 43, data))
+	w.pending_bonus_choices = 2
+	var r := BR.run_one(w, "first", 43)
+	var offered := {"normal": 2, "rare": 2, "epic": 0, "unique": 0, "legendary": 0}
+	var picked := {"normal": 0, "rare": 2, "epic": 0, "unique": 0, "legendary": 0}
+	assert_eq(r.get("card_tiers_offered", {}), offered, "each boss window offers one Rare card and one Normal Elixir")
+	assert_eq(r.get("card_tiers_picked", {}), picked, "the two Rare picks each count once, irrespective of magnitude")
+	var summary := BR.aggregate([r, r, {}])
+	assert_eq(summary.get("card_tier_runs", 0), 2, "legacy records do not invent rarity observations")
+	assert_eq(summary.get("card_tiers_offered", {}).get("rare", 0), 4)
+	assert_eq(summary.get("card_tiers_picked", {}).get("rare", 0), 4)
+	assert_true(BR.describe_metrics(summary).contains("cards Rare offered 4 picked 4"))
+
+
 func test_unspawned_boss_diagnostics_round_trip_as_finite_json_without_mutating_the_world() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = DT

@@ -20,7 +20,7 @@ extends RefCounted
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
 ##
 ## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
-## avoid, invincible_t, action,
+## avoid, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
 ## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
@@ -60,7 +60,7 @@ const EVENT_FIELDS := {
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
 	"choice_pending": ["cards", "bonus"],
-	"upgrade_applied": ["id", "rank"],
+	"upgrade_applied": ["id", "rank", "tier", "magnitude"],
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
 	"stage_cleared": ["time"],
@@ -166,6 +166,9 @@ var pending_cards: Array = []
 var guarantee := {}
 ## Card draws in a row that offered no power card (UpgradePool pity).
 var power_dry := 0
+## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
+var card_tiers_offered := {"normal": 0, "rare": 0, "epic": 0, "unique": 0, "legendary": 0}
+var card_tiers_picked := {"normal": 0, "rare": 0, "epic": 0, "unique": 0, "legendary": 0}
 ## Setup problems the sim worked around (e.g. a pool mob without a mob img).
 var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
@@ -522,14 +525,17 @@ func decline_job() -> bool:
 func apply_choice(card_id: String) -> bool:
 	if state != CHOOSING_UPGRADE:
 		return false
-	var ok := false
+	var selected := {}
 	for c: Dictionary in pending_cards:
 		if String(c.id) == card_id:
-			ok = true
-	if not ok:
+			selected = c
+	if selected.is_empty():
 		return false
+	if upgrades.apply(card_id, self, String(selected.get("tier", "normal"))) == 0:
+		return false
+	var tier := String(selected.get("tier", "normal"))
+	card_tiers_picked[tier] += 1
 	pending_cards = []
-	upgrades.apply(card_id, self)
 	if choice_bonus:
 		pending_bonus_choices -= 1
 		choice_bonus = false
@@ -1129,8 +1135,8 @@ func _equipment_total(field: String) -> float:
 
 func _advance_queue() -> void:
 	while pending_bonus_choices > 0:
-		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		choice_bonus = true
+		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true})
@@ -1144,6 +1150,7 @@ func _advance_queue() -> void:
 				state = CHOOSING_JOB
 				emit("job_advance_pending", {"options": pending_jobs.duplicate(true)})
 				return
+		choice_bonus = false
 		var cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
@@ -1178,6 +1185,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
 	player_state["avoid"] = player_avoid
+	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", float(balance.get("player", {}).get("fortune", 0.0))))
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
