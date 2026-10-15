@@ -20,7 +20,8 @@ const MAGIC_DEFENSE_K := 150.0
 const HIT_ROLL_MIN := 0.85
 const HIT_ROLL_MAX := 1.0
 const HIT_DEFENSE_FACTOR := 0.75
-## tier B-: pre-Big-Bang avoid-versus-monster-accuracy percentage (owner-provided RE evidence).
+## tier B (weakly sourced): pre-Big-Bang avoid-versus-monster-accuracy percentage from a single private-server wiki
+## page (owner-provided); no second RE source corroborates it.
 const AVOID_PERCENT_FACTOR := 21.6
 
 

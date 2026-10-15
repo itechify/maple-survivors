@@ -829,8 +829,9 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
   M.DEF for magic). Apply `(1 − elemental resistance/100)`, then explicit elite/boss damage multipliers, round once
   to the nearest integer and enforce minimum 1. There is no hidden scale or time-based damage multiplier.
   Orange Mushroom PAD 42 versus W.DEF 7 yields 31–37; Green Mushroom PAD 82 yields 65–77, or 35–47 at W.DEF 47.
-- **Avoid** (tier B−): miss probability is `clamp(21.6 × player avoid / monster accuracy / 100, 0, 1)`; zero/missing
-  accuracy disables the roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
+- **Avoid** (tier B, weakly sourced: a single owner-provided private-server wiki page, not corroborated): miss
+  probability is `clamp(21.6 × player avoid / monster accuracy / 100, 0, 1)`; zero/missing accuracy disables the
+  roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
   MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   1.5 s invincibility with blinking (tier C).
@@ -1053,7 +1054,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
-| Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B− | owner-provided pre-Big-Bang RE evidence |
+| Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
 | Boss arrivals and scaling | both stages at 5/10/15 min; HP/contact/attack multipliers in §4.3 | C | survivor data calibrated on training runs; canonical base stats unchanged |
 | Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
