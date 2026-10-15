@@ -36,7 +36,7 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	assert_has(el, "energy_bolt_new", "the first Magician skill")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
 		assert_has(el, id, "Magician MP card")
-	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3 (rank 2 = level 5); Magic
+	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3; Magic
 	# Guard waits for Energy Bolt too (survivor rule: the first Magician skill is an attack).
 	for id: String in ["magic_claw_new", "magic_guard_new", "magic_armor_new"]:
 		assert_false(id in el, "%s needs Energy Bolt first" % id)
@@ -44,11 +44,13 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	el = w.upgrades.eligible(w)
 	assert_has(el, "magic_claw_new", "Magic Claw after Energy Bolt")
 	assert_has(el, "magic_guard_new", "Magic Guard after Energy Bolt")
-	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard rank 2")
+	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard level 3")
 	w.upgrades.apply("magic_guard_new", w)
 	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard rank 1 is not enough")
 	w.upgrades.apply("magic_guard_rank", w)
-	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard rank 2 (level 5) opens Magic Armor")
+	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard level 2 is not enough")
+	w.upgrades.apply("magic_guard_rank", w)
+	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard level 3 opens Magic Armor")
 	assert_false("fire_arrow_new" in el, "Fire Arrow needs 210")
 	assert_false("magic_claw_cooldown" in el, "Quick Claw only once Magic Claw is owned")
 	w.upgrades.apply("magic_claw_new", w)
@@ -112,6 +114,7 @@ func test_job_guarantee_and_power_pity_use_only_current_job_cards() -> void:
 	assert_true(w.guarantee.is_empty())
 	w.change_job(210)
 	w.upgrades.apply("fire_arrow_new", w)
+	w.loadout.set_rank("fire_arrow", 30)  # Exhaust the current-job rank card as well as its learn card.
 	w.power_dry = w.upgrades.pity_draws
 	cards = w.upgrades.roll_choices(w, _rng(38))
 	assert_false(cards.is_empty(), "pity with no eligible power cards still draws ordinary choices")
@@ -259,7 +262,17 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 	assert_eq([int(c.skill_level), int(c.skill_level_next)], [0, 1], "learning Energy Bolt: level 1")
 	w.upgrades.apply("energy_bolt_new", w)
 	c = w.upgrades.choice_card("energy_bolt_rank", w)
-	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 5], "Energy Bolt rank 2 = canonical level 5")
+	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 2], "one rank card is one canonical level")
+	w.upgrades.apply("energy_bolt_rank", w)
+	assert_eq(w.loadout.level("energy_bolt"), 2)
+	for level in range(3, 21):
+		assert_has(w.upgrades.eligible(w), "energy_bolt_rank", "rank card remains until level 20")
+		w.upgrades.apply("energy_bolt_rank", w)
+		assert_eq(w.loadout.level("energy_bolt"), level)
+	assert_false("energy_bolt_rank" in w.upgrades.eligible(w), "no rank offer at canonical level 20")
+	for seed in [1, 2, 2026]:
+		for choice: Dictionary in w.upgrades.roll_choices(w, _rng(seed)):
+			assert_ne(choice.id, "energy_bolt_rank", "seeded draws respect the canonical cap")
 
 
 func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
@@ -268,17 +281,29 @@ func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
 	w.loadout.add_skill("energy_bolt")
 	# Synthetic WZ levels make the expected preview independent of survivor damage tuning.
 	w.book.skill_node("energy_bolt")["level"]["1"] = {"mad": 20.0, "mastery": 1.0, "mpCon": 6.0}
-	w.book.skill_node("energy_bolt")["level"]["5"] = {"mad": 28.0, "mastery": 3.0, "mpCon": 9.0}
+	w.book.skill_node("energy_bolt")["level"]["2"] = {"mad": 22.0, "mastery": 2.0, "mpCon": 7.0}
 	w.loadout.add_skill_mod("energy_bolt", "damage", "mul", 2.0)
 	var c := w.upgrades.choice_card("energy_bolt_rank", w)
 	assert_eq(c.get("skill_changes", {}), {
-		"mad": {"before": 20, "after": 28},
-		"mastery": {"before": 15, "after": 25},
-		"mpCon": {"before": 6, "after": 9},
+		"mad": {"before": 20, "after": 22},
+		"mastery": {"before": 15, "after": 20},
+		"mpCon": {"before": 6, "after": 7},
 	}, "rank preview uses canonical levels, mastery percent, and unmodified MP cost")
 	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
 	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
 	assert_eq(w.upgrades.choice_card("max_hp", w).skill_changes, {}, "stat cards have no canonical skill values")
+
+
+func test_fire_arrow_rank_cards_cover_all_thirty_canonical_levels() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 210)
+	w.upgrades.apply("fire_arrow_new", w)
+	assert_eq(w.loadout.level("fire_arrow"), 1)
+	for level in range(2, 31):
+		assert_has(w.upgrades.eligible(w), "fire_arrow_rank")
+		w.upgrades.apply("fire_arrow_rank", w)
+		assert_eq(w.loadout.level("fire_arrow"), level)
+	assert_false("fire_arrow_rank" in w.upgrades.eligible(w))
 
 
 func test_fixed_damage_rank_card_previews_only_fields_in_canonical_data() -> void:

@@ -5,6 +5,8 @@ extends TestCase
 
 var data: Dictionary
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 
 func before_each() -> void:
 	data = DataRepo.load_all()
@@ -28,9 +30,6 @@ func test_skills_reference_canonical_ids() -> void:
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
-	assert_eq(skills.three_snails.ranks, [1.0, 2.0, 3.0])
-	assert_eq(skills.energy_bolt.ranks, [1.0, 5.0, 9.0, 13.0, 17.0, 20.0])
-	assert_eq(skills.magic_guard.ranks, [1.0, 5.0, 10.0, 15.0, 20.0])
 	assert_eq(skills.magic_claw.kind, "instant")
 	for key: String in skills:
 		var s: Dictionary = skills[key]
@@ -41,6 +40,35 @@ func test_skills_reference_canonical_ids() -> void:
 			assert_true(p == "" or p.begins_with("Skill.wz/%s.img/skill/%07d/" % [s.book, int(s.skill_id)]),
 				"%s.%s is a WZ path of the skill" % [key, f])
 		assert_false(s.has("fixdamage") or s.has("mad") or s.has("mastery"), "%s: no canonical numbers here" % key)
+
+
+func test_skill_ranks_cover_every_canonical_level_in_the_fixtures() -> void:
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()))
+
+
+func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var imgs := {}
+	for skill: Dictionary in data.skills.skills.values():
+		var book := String(skill.book)
+		if not imgs.has(book):
+			imgs[book] = lib.img("Skill.wz/%s.img" % book).root
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, imgs))
+	lib.free()
+
+
+func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
+	for key: String in book.defs:
+		var top := book.max_level(key)
+		assert_true(top > 0, "%s has a canonical level table" % key)
+		assert_eq(book.max_rank(key), top, "%s: one rank per canonical level" % key)
+		var ranks: Array = book.def(key).ranks
+		for level in range(1, top + 1):
+			if level <= ranks.size():
+				assert_eq(int(ranks[level - 1]), level, "%s rank %d is canonical level %d" % [key, level, level])
 
 
 func test_cards_are_consistent() -> void:
@@ -56,7 +84,8 @@ func test_cards_are_consistent() -> void:
 		if String(c.kind).begins_with("skill_"):
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
-			assert_eq(int(c.max_rank), skills[c.skill].ranks.size() - 1, "%s: ranks 2..max" % c.id)
+			assert_eq(int(c.max_rank), skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
+			assert_eq(c.effects, [{"stat": "rank", "op": "add", "value": 1.0}], "%s: one level per card" % c.id)
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)

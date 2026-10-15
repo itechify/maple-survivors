@@ -168,12 +168,11 @@ func test_level_up_rank_text() -> void:
 	assert_eq(LevelUpWindow.rank_text({"kind": "skill_mod", "rank": 2, "max_rank": 4}), "Lv. 1 → 2")
 	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 5, "max_rank": 5}), "Lv. 4 → 5  MAX")
 	assert_eq(LevelUpWindow.rank_text({"kind": "filler", "rank": 3, "max_rank": 0}), "")
-	# skill_rank cards show the skill's canonical level change, not the card's own rank (Magic Guard's last
-	# card takes it from level 15 to 20; Energy Bolt rank 2 is level 5).
-	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 4, "max_rank": 4, "skill_level": 15,
-		"skill_level_next": 20}), "Skill Lv. 15 → 20  MAX")
-	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 1, "max_rank": 5, "skill_level": 1,
-		"skill_level_next": 5}), "Skill Lv. 1 → 5")
+	# Learning starts at skill level 1, so the nineteenth rank-card pick reaches the canonical level-20 cap.
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 19, "max_rank": 20, "skill_level": 19,
+		"skill_level_next": 20}), "Skill Lv. 19 → 20  MAX")
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "rank": 1, "max_rank": 20, "skill_level": 1,
+		"skill_level_next": 2}), "Skill Lv. 1 → 2")
 
 
 func test_level_up_card_details_show_canonical_rank_changes() -> void:

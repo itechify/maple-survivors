@@ -75,7 +75,7 @@ func test_magic_armor_changes_the_hit_defense_only_while_cast_buff_is_active() -
 	var damage := []
 	for active: bool in [false, true]:
 		var w := _mage("magic_armor")
-		w.loadout.set_rank("magic_armor", 5)
+		w.loadout.set_rank("magic_armor", 20)
 		w.refresh_player_stats()
 		if active:
 			w.step(DT, MoveInput.new())

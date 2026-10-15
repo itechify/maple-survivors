@@ -75,7 +75,7 @@ func test_job_skills_pay_canonical_mp() -> void:
 			if event.type == "cast":
 				casts += 1
 		assert_eq(casts, 1, "the cost is charged for a real cast")
-	for example: Array in [["energy_bolt", 6, 14], ["magic_claw", 6, 20]]:
+	for example: Array in [["energy_bolt", 20, 14], ["magic_claw", 20, 20]]:
 		var world := _mage(example[0])
 		world.loadout.set_rank(example[0], example[1])
 		var before: int = world.player_state.mp
@@ -183,9 +183,10 @@ func test_improved_mp_recovery_uses_its_canonical_skill_level_per_pulse() -> voi
 	var world := _mage()
 	world.progression.level = 20
 	world.upgrades.apply("improved_mp_recovery", world)
-	for rank in 4:
+	for rank in 15:
 		world.upgrades.apply("improved_mp_recovery_rank", world)
-	assert_eq(world.loadout.level("improved_mp_recovery"), 16, "five picks reach canonical skill level 16")
+	assert_eq(world.loadout.level("improved_mp_recovery"), 16, "learn plus fifteen picks reaches canonical level 16")
+	assert_false("improved_mp_recovery_rank" in world.upgrades.eligible(world))
 	world.spend_mp(int(world.player_state.mp) - 5)
 	for tick in 600:
 		world.step(DT, MoveInput.new())
