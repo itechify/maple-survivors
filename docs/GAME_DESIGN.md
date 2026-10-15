@@ -1338,6 +1338,18 @@ The debug gallery reproduces them with `--window=levelup_tiers|levelup_high|leve
 boss heading. These previews come from the real `UpgradePool.choice_card` boundary, with tiers forced only in
 the debug scene. Proprietary screenshots stay gitignored.
 
+Validation on 2026-10-15: `ISOLATE=spec30_44` focused UI/run/audio/upgrade/progression/event tests passed
+105/105, with no skips. The full injected-input flow (`--time-scale=6 --stop-at=300`, seed 1875548306 recorded
+by the run) reached Magician Lv. 11, answered nine upgrade windows, opened the job dialog, paused/resumed,
+died at 307.583 s, then completed results/retry/stage-select/title/quit; `flow_review/summary.json` records
+20 MP potions used and `missing=[]`. The driver now injects the current Space jump and Q/E potion keys and
+fails full coverage if the Magician or pause/resume path is missed. The isolated seed-2026 playtest at x4 with
+one-second window picks stopped alive at the 5:00 cap, Lv. 11 Magician, 187 kills, with 8 HP / 8 MP potions used
+and `missing=[]`; its screenshots of real tiered windows were checked by eye. These are presentation smoke
+checks, not pacing or held-out acceptance. The standalone audio probe records the actual WASAPI driver, a
+successfully started `mCardGet` stream and one voice advancing past 0.59 s; tier-label contrast is at least 5.83:1
+against the band. Evidence/logs are under `evidence/spec30/ui/`; auditory review remains unverified.
+
 Beginner cards include Nimble Feet (1002) and Recovery (1001) learn/rank cards. Nimble Feet occupies a passive slot
 and auto-casts when inactive, off its canonical cooldown and affordable. It keeps the cast level's canonical speed
 bonus for the canonical duration, shows the v83 buff icon/countdown, and pays canonical MP. The 60-second cooldown
