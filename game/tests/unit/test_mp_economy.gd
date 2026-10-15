@@ -45,6 +45,7 @@ func test_survivor_opening_pool_runs_down_and_sips_canonical_blue_potions() -> v
 	world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
 	world.mob_kinds[int(world.kind_of_id[1110100])].pushed = 100000
 	assert_eq(world.player_state.max_mp, 30, "finite survivor opening pool avoids the former five-MP clipping trap")
+	assert_eq(world.player_state.potions.mp.count, 5, "five starter Blues provide a finite opening bridge")
 	var first_sip := -1.0
 	var restored: Array = []
 	var casts := 0

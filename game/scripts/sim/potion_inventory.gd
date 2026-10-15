@@ -3,9 +3,8 @@ extends RefCounted
 ## Unlimited per-kind potion stock and canonical item restore amounts. Survivor data chooses the current item and
 ## starting count; the item spec comes unchanged from setup.item_info. This module never reads files.
 
-## tier C: conservative fallback stock for synthetic callers; real runs supply balance.potions explicitly.
-## Restoration never falls back to a guessed amount.
-const START := {"hp": {"item_id": 2000000, "start": 5}, "mp": {"item_id": 2000003, "start": 0}}
+## tier C: fallback starter choices match balance.potions; restoration never falls back to a guessed amount.
+const START := {"hp": {"item_id": 2000000, "start": 5}, "mp": {"item_id": 2000003, "start": 5}}
 
 var stock := {}
 var item_info: Dictionary
