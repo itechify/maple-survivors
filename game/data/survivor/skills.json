@@ -18,7 +18,6 @@
 			"name": "Three Snails", "desc": "Hurls snail shells at the nearest monster.",
 			"icon": "Skill.wz/000.img/skill/0001000/icon",
 			"damage": "fixed",
-			"mp_cost_override": 0,
 			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,
 			"ranks": [1, 2, 3],
 			"level_ranks": {"3": 2, "6": 3},

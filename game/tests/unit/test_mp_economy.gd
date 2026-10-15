@@ -20,19 +20,62 @@ func _mage(skill: String = "") -> RunWorld:
 	return world
 
 
-func test_job_skills_pay_canonical_mp_and_three_snails_stays_free() -> void:
-	for skill: String in ["energy_bolt", "magic_claw", "three_snails"]:
+func test_three_snails_pays_each_canonical_levels_mp_cost() -> void:
+	for example: Array in [[1, 3], [2, 5], [3, 7]]:
+		var data := RF.quiet_data()
+		data.balance.player.mp = 20
+		var world := RunWorld.new(RF.setup("quiet", 9, data))
+		RF.place_player(world, 1200)
+		RF.put_mob(world, 1110100, 1350, 190, 100)
+		world.loadout.set_rank("three_snails", int(example[0]))
+		world.drain_events()
+		world.step(DT, MoveInput.new())
+		assert_eq(_casts(world), ["three_snails"], "a Beginner casts at skill level %d" % example[0])
+		assert_eq(world.player_state.mp, 20 - int(example[1]), "canonical cost at skill level %d" % example[0])
+
+
+func test_beginner_with_two_mp_waits_for_three_snails_and_signals_shortage() -> void:
+	var world := RF.quiet_world(1200, 9)
+	RF.put_mob(world, 1110100, 1350, 190, 100)
+	world.spend_mp(3)
+	world.drain_events()
+	var casts := 0
+	var shortages := 0
+	for tick in 10:
+		world.step(DT, MoveInput.new())
+		for event: Dictionary in world.drain_events():
+			if event.type == "cast":
+				casts += 1
+			elif event.type == "mp_short":
+				shortages += 1
+				assert_eq(event.skill, "three_snails")
+				assert_eq(event.skill_id, 1000)
+				assert_eq(event.required_mp, 3)
+				assert_eq(event.mp, 2)
+	assert_eq(casts, 0, "2 MP cannot pay Three Snails' level-1 cost")
+	assert_eq(shortages, 1, "one normal mp_short event for the waiting episode")
+	assert_eq(world.player_state.mp, 2, "waiting does not spend MP")
+	assert_true(bool(world.player_state.mp_short), "the normal persistent shortage cue stays on")
+	world.heal_fraction("mp", 1.0)
+	world.step(DT, MoveInput.new())
+	assert_eq(_casts(world), ["three_snails"], "the skill remains ready and casts as soon as affordable")
+	assert_eq(world.player_state.mp, 2, "the resumed cast pays 3 MP")
+	assert_false(bool(world.player_state.mp_short), "the cue clears after casting")
+
+
+func test_job_skills_pay_canonical_mp() -> void:
+	for skill: String in ["energy_bolt", "magic_claw"]:
 		var world := _mage(skill)
 		var before: int = world.player_state.mp
 		world.step(DT, MoveInput.new())
-		var costs := {"energy_bolt": 6, "magic_claw": 10, "three_snails": 0}
+		var costs := {"energy_bolt": 6, "magic_claw": 10}
 		assert_eq(world.player_state.mp, before - costs[skill], "%s pays its current canonical MP cost" % skill)
 		var casts := 0
 		for event: Dictionary in world.drain_events():
 			if event.type == "cast":
 				casts += 1
 		assert_eq(casts, 1, "the cost is charged for a real cast")
-	for example: Array in [["energy_bolt", 20, 14], ["magic_claw", 20, 20], ["three_snails", 3, 0]]:
+	for example: Array in [["energy_bolt", 20, 14], ["magic_claw", 20, 20]]:
 		var world := _mage(example[0])
 		world.loadout.set_rank(example[0], example[1])
 		var before: int = world.player_state.mp
@@ -150,13 +193,13 @@ func test_improved_mp_recovery_uses_its_canonical_skill_level_per_pulse() -> voi
 	assert_eq(world.player_state.mp, 40, "5 + base 3 + level-20 skill-level-16 recovery bonus 32")
 
 
-func test_unaffordable_skill_allows_a_later_free_skill_to_fire() -> void:
+func test_unaffordable_skill_allows_a_later_affordable_skill_to_fire() -> void:
 	var world := _mage("energy_bolt")
 	world.learn_skill("three_snails")
-	world.spend_mp(int(world.player_state.mp))
+	world.spend_mp(int(world.player_state.mp) - 3)
 	world.step(DT, MoveInput.new())
-	assert_eq(_casts(world), ["three_snails"], "the short-MP Bolt waits while the free fallback fires")
-	assert_eq(world.player_state.mp, 0, "the fallback does not spend MP")
+	assert_eq(_casts(world), ["three_snails"], "the short-MP Bolt waits while the affordable fallback fires")
+	assert_eq(world.player_state.mp, 0, "the fallback spends its canonical 3 MP")
 	assert_true(bool(world.player_state.mp_short), "the unaffordable skill still needs MP")
 
 

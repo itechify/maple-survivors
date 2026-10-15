@@ -123,14 +123,19 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 
 
 func test_runner_fires_only_with_target_in_range() -> void:
-	var w := RF.quiet_world(200.0)
+	var data := RF.quiet_data()
+	data.balance.player.mp = 20
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 200)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "no mob, no cast")
+	assert_eq(w.player_state.mp, 20, "no target, no MP spent")
 	var far := RF.put_mob(w, 1110100, 700.0, 190.0, 20.0)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "a mob ~500 px away is out of the 420 px range")
+	assert_eq(w.player_state.mp, 20, "an out-of-range target costs no MP")
 	w.swarm.despawn(far)
 	RF.put_mob(w, 1110100, 500.0, 190.0, 20.0)
 	w.drain_events()
@@ -144,6 +149,7 @@ func test_runner_fires_only_with_target_in_range() -> void:
 			assert_eq(c.level, 1)
 			assert_eq(c.action, "swingO1")
 	assert_eq(times.size(), 3, "casts at once, then every 1.1 s: %s" % [times])
+	assert_eq(w.player_state.mp, 11, "three level-1 casts spend 9 MP")
 	if times.size() == 3:
 		assert_near(times[1] - times[0], 1.1, DT + 1e-6, "cooldown respected")
 		assert_near(times[2] - times[1], 1.1, DT + 1e-6)
