@@ -1,11 +1,11 @@
 {
-	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. An option whose canonical advancement level is above the player's level shows level_reason instead. grants: max_mp (added to max and current MP), skills (learned at once on advancing: the Magician's first SP goes to Energy Bolt), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
+	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants: max_mp (added to max and current MP), skills (learned at once on advancing: the Magician's first SP goes to Energy Bolt), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
 	"default_reason": "Not yet available",
 	"level_reason": "Lv. {level}",
 	"jobs": {
 		"0": {"playable": true},
 		"100": {"playable": false, "reason": "Not in this build"},
-		"200": {"playable": true, "grants": {"max_mp": 120, "skills": ["energy_bolt"], "guarantee": {"kind": "skill_new", "job": 200}}},
+		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120, "skills": ["energy_bolt"], "guarantee": {"kind": "skill_new", "job": 200}}},
 		"300": {"playable": false, "reason": "Not in this build"},
 		"400": {"playable": false, "reason": "Not in this build"},
 		"500": {"playable": false, "reason": "Not in this build"},

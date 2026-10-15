@@ -360,7 +360,7 @@ func test_job_window_reaches_magician() -> void:
 	scene = _make("henesys_hg1", 12, {"window_autopick": 0.05})
 	var w := scene.world
 	_frames(2)
-	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
 	var guard := 0
 	while (int(w.player_state.job_id) != 200 or w.state != RunWorld.PLAYING) and guard < 60 * 30:
 		scene.advance_frame(DT)
@@ -378,8 +378,8 @@ func test_job_window_select_and_decline() -> void:
 	scene = _make("henesys_hg1", 14, {})
 	var w := scene.world
 	_frames(2)
-	# Exactly enough EXP for level 8 (the Magician advancement level).
-	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	# Exactly enough EXP for level 10 (the Magician advancement level).
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
 	var guard := 0
 	while scene.window == null and guard < 60 * 10:
 		scene.advance_frame(DT)
@@ -388,7 +388,7 @@ func test_job_window_select_and_decline() -> void:
 		if lw0 != null:
 			lw0.choose(0)
 	var jw := scene.window as JobAdvanceWindow
-	# Levels 2-7 were answered above; the job window comes first at level 8.
+	# Levels 2-9 were answered above; the job window comes first at level 10.
 	guard = 0
 	while jw == null and guard < 60 * 10:
 		scene.advance_frame(DT)
@@ -400,14 +400,14 @@ func test_job_window_select_and_decline() -> void:
 	assert_true(jw != null, "the JobAdvanceWindow opened (level %d)" % int(w.player_state.level))
 	if jw == null:
 		return
-	assert_eq(jw.level, 8, "at level 8")
+	assert_eq(jw.level, 10, "at level 10")
 	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the sim waits for the job choice")
-	# "Not now." keeps the Beginner and continues to the level-8 upgrade window.
+	# "Not now." keeps the Beginner and continues to the level-10 upgrade window.
 	assert_true(jw.any_available(), "Magician is available")
 	jw.decline()
 	assert_eq(int(w.player_state.job_id), 0, "still a Beginner")
 	_frames(int(RunScene.WINDOW_DELAY / DT) + 2)
-	assert_true(scene.window is LevelUpWindow, "the level-8 upgrade window follows the decline")
+	assert_true(scene.window is LevelUpWindow, "the level-10 upgrade window follows the decline")
 	_assert_nothing_missing(scene, "job decline")
 
 
@@ -417,7 +417,7 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 	scene = _make("henesys_hg1", 15, {})
 	var w := scene.world
 	_frames(2)
-	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(8), 4000019)
+	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
 	var jw: JobAdvanceWindow = null
 	var guard := 0
 	while jw == null and guard < 60 * 20:
@@ -433,16 +433,16 @@ func test_job_change_effect_plays_before_the_next_window() -> void:
 	var anim := lib.find_anim(RunScene.FX_JOB_CHANGED)
 	assert_true(anim != null and anim.total > 0.5, "the JobChanged effect is in the cache")
 	var total := anim.total if anim != null else RunScene.JOB_WINDOW_DELAY
-	# The player takes Magician: the sim already waits in the level-8 card choice, but the window must not cover the
+	# The player takes Magician: the sim already waits in the level-10 card choice, but the window must not cover the
 	# JobChanged pillar while it plays.
 	jw.job_chosen.emit(200)
 	assert_eq(int(w.player_state.job_id), 200, "Magician taken")
-	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the level-8 card choice is pending in the sim")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the level-10 card choice is pending in the sim")
 	var held := 0
 	while scene.window == null and held < 600:
 		scene.advance_frame(DT)
 		held += 1
-	assert_true(scene.window is LevelUpWindow, "the level-8 upgrade window follows")
+	assert_true(scene.window is LevelUpWindow, "the level-10 upgrade window follows")
 	assert_between(held * DT, total - 2.0 * DT, total + 3.0 * DT,
 		"the window waited for the %.2f s JobChanged effect (%d frames)" % [total, held])
 	_assert_nothing_missing(scene, "job effect")
@@ -589,10 +589,10 @@ func test_climbing_animates_only_while_moving() -> void:
 func test_warp_fast_forwards_before_the_first_frame() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2026, {"autoplay": true, "autopick": true, "warp": 200.0, "shots_dir": "",
+	scene = _make("henesys_hg1", 2026, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
 		"shot_every": 30.0})
 	var w := scene.world
-	assert_true(w.time >= 200.0 - 1e-6, "the sim is at 3:20 before any frame (%.1f)" % w.time)
+	assert_true(w.time >= 300.0 - 1e-6, "the sim is at 5:00 before any frame (%.1f)" % w.time)
 	assert_eq(w.state, RunWorld.PLAYING)
 	assert_eq(int(w.player_state.job_id), 200, "the bot became a Magician on the way")
 	assert_true(1372005 in scene.avatar.look.equips, "the presentation starts with the wand look")

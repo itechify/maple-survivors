@@ -23,19 +23,19 @@ func test_beginner_ap_and_magician_redistribution() -> void:
 	assert_eq(w.player_state.dex, 5)
 	assert_eq(w.player_state.int, 4)
 	assert_eq(w.player_state.luk, 4)
-	var beginner_str := [17, 22, 27, 32, 37, 42]
-	for level in range(2, 8):
+	var beginner_str := [17, 22, 27, 32, 37, 42, 47, 52]
+	for level in range(2, 10):
 		_level_to(w, level)
 		assert_eq(w.player_state.str, beginner_str[level - 2], "all Beginner AP goes to STR")
 		assert_eq(w.player_state.int, 4, "a Beginner receives no INT AP")
-	_level_to(w, 8)
+	_level_to(w, 10)
 	assert_eq(w.player_state.job_id, 200)
 	assert_eq(w.player_state.str, 12, "only earned AP is reset")
-	assert_eq(w.player_state.int, 39, "seven levels of AP move to INT")
+	assert_eq(w.player_state.int, 49, "nine levels of AP move to INT")
 	assert_eq(w.player_state.dex, 5)
 	assert_eq(w.player_state.luk, 4)
-	_level_to(w, 9)
-	assert_eq(w.player_state.int, 44)
+	_level_to(w, 11)
+	assert_eq(w.player_state.int, 54)
 	assert_eq(w.player_state.str, 12)
 
 
@@ -63,17 +63,17 @@ func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 	var data := RF.quiet_data()
 	data.upgrades = {"cards": []} # No max-MP cards change the known level-growth example.
 	var w := RunWorld.new(RF.setup("quiet", 503, data))
-	_level_to(w, 8)
-	assert_eq(w.player_state.int, 39)
-	var mp_at_8 := int(w.player_state.max_mp)
-	_level_to(w, 9)
-	assert_eq(w.player_state.max_mp, mp_at_8 + 25, "22 base + floor(39 INT / 10)")
-	assert_eq(w.player_state.int, 44)
 	_level_to(w, 10)
-	assert_eq(w.player_state.max_mp, mp_at_8 + 51, "next level: 22 base + floor(44 INT / 10)")
+	assert_eq(w.player_state.int, 49)
+	var mp_at_10 := int(w.player_state.max_mp)
+	_level_to(w, 11)
+	assert_eq(w.player_state.max_mp, mp_at_10 + 26, "22 base + floor(49 INT / 10)")
+	assert_eq(w.player_state.int, 54)
+	_level_to(w, 12)
+	assert_eq(w.player_state.max_mp, mp_at_10 + 53, "next level: 22 base + floor(54 INT / 10)")
 	var bolt := w.loadout.stats("energy_bolt")
-	assert_near(float(bolt.damage_max), 56.356, 0.0001, "Energy Bolt L1 at 49 INT and 23 magic attack")
-	assert_near(float(bolt.damage_min), 14.836, 0.0001, "canonical 15% mastery")
+	assert_near(float(bolt.damage_max), 65.049333, 0.0001, "Energy Bolt L1 at 59 INT and 23 magic attack")
+	assert_near(float(bolt.damage_min), 17.762667, 0.0001, "canonical 15% mastery")
 
 
 func test_real_starter_outfit_defense() -> void:

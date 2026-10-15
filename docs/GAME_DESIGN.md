@@ -16,7 +16,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
-5. **Advance** to Magician at level 8. Further Explorer jobs are planned (section 9).
+5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
    their bonus reward choices answered. Results show time, level, job, kills, damage dealt and owned skills;
    Retry or Stage select.
@@ -195,9 +195,11 @@ core measurements without changing balance data; #27 adds the cast snapshot trac
 remain separate.
 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from the held-out
-acceptance matrix. Stage-sample medians retain Mage 150–225 s and Lv30 720–900 s, with at least two of three
-runs reaching Lv30. Individual windows allow build variation: Mage 135–270 s, Lv10 150–360 s and Lv30 600–1080 s;
-the Lv10 sample median is 180–330 s. Population acceptance still uses all thirty held-out seeds and explicit
+acceptance matrix. Magician now advances at Lv10: its target stage-sample median is **180–330 s (3:00–5:30)**,
+replacing the former Lv8 Magician target of 150–225 s. Lv30 retains 720–900 s, with at least two of three runs
+reaching Lv30. Individual windows allow build variation: Magician/Lv10 150–360 s and Lv30 600–1080 s.
+Lv8 remains a separate early-level check (median 150–225 s, individual 135–270 s). Population acceptance still uses
+all thirty held-out seeds and explicit
 reach/outcome counts, rather than that small regression sample. Spawning each minute (including after 15:00), crowd
 growth, EXP/kill/event consistency, all-boss finale, no lost mobs, inherited 30% engagement floor, late 200+ density
 and at least five ordinary nonmiss hits after 8:00 remain active. Boss hits and misses cannot satisfy that last
@@ -211,6 +213,36 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Magician at Lv10 (#40)
+
+The only gameplay data change in this pass is Magician's survivor advancement level, 8 → 10. The sensible bot's
+actual `job_changed` time is reported as `magician_seconds` (min/median/max/count) in the balance aggregate and
+as "Magician seconds" in its console report. Missing or negative `job_t` records are excluded, with no observations
+reported as `none (n=0)`. This measures advancement rather than assuming a level milestone is a job change.
+
+Training seeds **1–6 and 2026**, both stages, `--policy=bot --cap=420`, no patches:
+
+| Stage | Time to Magician min / median / max, seconds | Reached | Outcome at 7:00 cap |
+|---|---|---|---|
+| Henesys Hunting Ground I | 234.3 / **235.9** / 250.2 | 7/7 | 7 TIMEOUT |
+| The Tree That Grew I | 202.0 / **208.2** / 213.7 | 7/7 | 7 TIMEOUT |
+
+Both medians fit the revised 180–330 s target in 4.1.1. These capped probes measure early advancement only;
+they are not clears or a new population balance acceptance. No held-out seeds were run for this change.
+Reproduce with `BALANCE_OUT=evidence/issue40/henesys bash scripts/balance.sh 1..6 2026 --cap=420` and
+`BALANCE_OUT=evidence/issue40/tree bash scripts/balance.sh 1..6 2026 --stage=tree_that_grew_1 --cap=420`.
+Each directory preserves the per-seed JSON/logs, aggregate JSON/log and the captured full `console.log`.
+The full-run regression also exercised fixed training seeds **1/2/2026** on both stages: Henesys cleared 3/3,
+Tree cleared 2/3 with seed 1 dying at 987 s. All six reached Lv30; stage median Lv30 times were approximately
+775 / 812 s, within the unchanged 720–900 s bounds. These small regression samples do not replace population
+acceptance. Output is preserved in `evidence/issue40/full-suite.log` and `full-run-recheck.log`.
+Validation ran all 491 tests with zero skips. Three test failures exposed two stale Lv8 stat fixtures and a
+floating-point tolerance at the harness's next-tick job-event observation. After correcting only those tests,
+the affected progression/player-stat files passed 19 tests and the full-run file passed 5 tests, all with zero
+failures/skips. The optional five-minute windowed probe recorded job 200 and no missing assets, but generated
+no PNGs and waited for a rendered frame after saving its summary; it was stopped and is not visual verification.
+The earlier cohorts below used Lv8 advancement and remain historical evidence.
 
 #### Frozen difficulty-overhaul training
 
@@ -1056,13 +1088,17 @@ waits for Energy Bolt (survivor rule), so the first Magician skill is always Ene
 
 `data/canonical/jobs.json` holds the Explorer tree with canonical ids (Beginner 0; Warrior 100, Magician 200,
 Bowman 300, Thief 400, Pirate 500; second jobs 110-130 / 210-230 / 310-320 / 410-420 / 510-520; third and fourth
-jobs). `data/survivor/jobs.json` marks which are playable in this build and what advancing grants.
+jobs). `data/survivor/jobs.json` marks which are playable in this build and what advancing grants. Its optional
+`level` overrides the advancement level for survivor mode. Magician uses 10 (tier C, owner choice, #40);
+the canonical record keeps level 8 and INT 20. Existing INT handling is unchanged: advancement redistributes
+earned AP to INT rather than adding a stat eligibility gate.
 
 At an advancement level the level-up window is preceded by the **Job Advancement** window (UI.wz window frame, job
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
-- Level 8: Magician (playable). Warrior, Bowman, Thief, Pirate are shown with their requirement ("Lv. 10").
-- Level 10: the other four are shown as "not in this build". "Not now" keeps you a Beginner and asks again next level.
+- Levels 8–9: ordinary upgrade choices; no job window.
+- Level 10: Magician is playable; Warrior, Bowman, Thief and Pirate are shown as "not in this build".
+  "Not now" keeps you a Beginner and asks again next level.
 - Advancing: job becomes 200, MP +120, Energy Bolt is learned at once (`grants.skills`: the first SP of a v83
   Magician; a player who takes cards at random could otherwise stay a Magician without a Magician attack), and the
   next card draw guarantees another Magician skill card (with the prerequisites of section 8: Magic Claw or Magic
@@ -1187,6 +1223,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Mob relocation | silent, never on screen (only from outside the view + 48 + 32 px on every side: the camera can lag either way) and never elites: a mob that has not come 1 px closer along its way while itself moving 1 px for 3 s (`stall_time`, `stall_progress`; a mob standing still on screen keeps counting and is moved once off screen), or that is farther than 1300 px or cannot reach the player 160 px off-screen for 3 s, is moved to a fresh spawn point, preferring the side the player is moving toward (its horizontal speed > 1 px/s), with its HP; only when no point is found is it recycled (removed) | C | ours |
 | Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15, then every 60 s | C | ours |
 | Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
+| Magician advancement level | survivor level 10; canonical level 8 and INT 20 stay unchanged | C | owner choice, #40; `data/survivor/jobs.json` |
 | Background auto-scroll axis | types 4-7: no camera term on the scrolling axis (screen x = x + rx·5·t + W/2), parallax on the other | C | ours (reading of "auto-scroll X, parallax Y") |
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |

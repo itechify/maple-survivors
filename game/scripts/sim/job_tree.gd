@@ -2,10 +2,10 @@ class_name JobTree
 extends RefCounted
 ## Data-driven job advancement (docs/GAME_DESIGN.md section 9): the canonical Explorer tree
 ## (`data/canonical/jobs.json`: id, name, parent, tier, level) plus the survivor flags (`data/survivor/jobs.json`:
-## playable, reason, grants).
+## playable, reason, grants, optional level override).
 ##
 ## advancements(job, level) lists every child job of `job` as `{job_id, name, available, reason}`: available when it
-## is playable and `level` reached its canonical advancement level; otherwise `reason` says why ("Lv. 10" while the
+## is playable and `level` reached its effective advancement level; otherwise `reason` says why ("Lv. 10" while the
 ## level is too low, else the survivor reason such as "Not in this build"). should_offer() decides whether a window
 ## opens at a level: whenever an option is available (so "Not now" asks again next level), and once at exactly the
 ## tier's first advancement level even when nothing is available (the Lv 30 window of GAME_DESIGN 9).
@@ -41,13 +41,14 @@ static func from_data(canonical: Dictionary, survivor: Dictionary) -> JobTree:
 	return t
 
 
-## Canonical record {id, name, parent, tier, level, book} plus the survivor `playable`, `reason`, `grants`; {} when
-## unknown.
+## Canonical record {id, name, parent, tier, level, book} with the survivor level override and
+## `playable`, `reason`, `grants`; {} when unknown. The source canonical record is never modified.
 func job(id: int) -> Dictionary:
 	if not _jobs.has(id):
 		return {}
 	var d: Dictionary = _jobs[id].duplicate()
 	var s: Dictionary = _survivor.get(id, {})
+	d["level"] = int(s.get("level", d.level))
 	d["playable"] = bool(s.get("playable", false))
 	d["reason"] = String(s.get("reason", _default_reason))
 	d["grants"] = s.get("grants", {})
@@ -81,11 +82,11 @@ func advancements(job_id: int, level: int) -> Array:
 	return out
 
 
-## Lowest canonical advancement level among the children of `job_id` (-1 when it has none).
+## Lowest effective advancement level among the children of `job_id` (-1 when it has none).
 func first_advance_level(job_id: int) -> int:
 	var lo := -1
 	for c: int in _children.get(job_id, []):
-		var l := int(_jobs[c].level)
+		var l := int(job(c).level)
 		if lo < 0 or l < lo:
 			lo = l
 	return lo
