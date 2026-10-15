@@ -201,7 +201,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | type | fields |
 |---|---|
 | `cast` | `skill`, `skill_id`, `level`, `pos`, `facing`, `action` (body stance to play when standing, e.g. `"swingO1"`), `effect` (WZ path of the caster effect or `""`) |
-| `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned; empty for delayed heal); emitted at cast/stance/effect initiation, with delayed healing later reported as `mob_healed` |
+| `boss_skill` | `mob`, `mob_id`, `skill_id`, `level` (ints), `pos` (boss feet Vector2), `facing` (int), `action`, `effect`, `player_effect`, `summon_effect`, `recipient_effect` (Strings; WZ paths or empty), `duration` (float seconds), `targets` (Array of int mob slots receiving buffs or summoned; empty for delayed heal); emitted at cast/stance/effect initiation, with delayed healing later reported as `mob_healed` |
 | `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per eligible ready skill's waiting episode, including targetless buffs |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
@@ -254,6 +254,12 @@ movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`
 that canonical stance once at its elapsed sim time, including its original frame origins. Expiry or death clears
 the override. No per-boss Nodes or presentation clocks drive the action.
 An intentional action hold resets the pursuit-stall clock; a fading boss cannot start another action.
+
+`MobSkillRunner` selects optional `boss_skill.recipient_effect` from canonical `mob0` only when that node exists.
+RunScene plays it on non-caster targets, with `summon_effect` retaining priority for summon arrivals. An absent
+recipient burst leaves the caster effect and buff recipients unchanged: Dyle 112/L4 has no `mob0`, while 113/L2
+does. The separate `mob` status icon is not a burst substitute. Nonempty paths still use normal asset lookup and
+report missing required art; presentation never suppresses those warnings.
 
 `stage.bosses[].attacks` selects canonical attack stances. `BossAttacks` handles `info/type = 0`, capturing area and
 facing at windup, starting art at `effectAfter`, and resolving damage at `attackAfter` (milliseconds converted to

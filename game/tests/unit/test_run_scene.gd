@@ -882,12 +882,95 @@ func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
 	var pos := Vector2(scene.world.swarm.x[slot], scene.world.swarm.y[slot])
 	scene.handle_events([{"type": "boss_skill", "mob": slot, "mob_id": 3220000, "skill_id": 114,
 		"level": 15, "pos": pos, "facing": -1, "action": "skill1", "duration": 1.0,
-		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": ""},
+		"effect": "Skill.wz/MobSkill.img/114/level/15/mob0", "player_effect": "", "targets": [], "summon_effect": "", "recipient_effect": ""},
 		{"type": "mob_healed", "mob": slot, "mob_id": 3220000, "amount": 350, "pos": pos}])
 	assert_eq(scene.fx.active_count(), effects + 1)
 	assert_true(scene.hud.messages().any(func(m: Dictionary) -> bool: return m.text == "Stumpy recovered 350 HP"))
 	_assert_nothing_missing(scene, "Stumpy presentation")
 
+
+
+func _canonical_dyle_area_buff(skill_entry: String) -> Dictionary:
+	scene = _make("tree_that_grew_1", 2026, {})
+	var data := scene.data.duplicate(true)
+	data.balance.player.skills = []
+	for keyframe: Dictionary in data.stages.stages.tree_that_grew_1.keyframes:
+		keyframe.rate = 0
+		keyframe.max_alive = 0
+	data.stages.stages.tree_that_grew_1.bursts = {}
+	data.stages.stages.tree_that_grew_1.elites = {}
+	data.stages.stages.tree_that_grew_1.bosses = [{"mob_id": 6220000, "time": 0.0}]
+	var setup := DataRepo.build_setup(data, "tree_that_grew_1", 2026, Vector2(800, 600),
+		func(p: String) -> Dictionary: return lib.img(p).root, lib.mob_root)
+	setup.mob_imgs[6220000] = setup.mob_imgs[6220000].duplicate(true)
+	setup.mob_imgs[6220000].info.skill = {skill_entry: setup.mob_imgs[6220000].info.skill[skill_entry]}
+	scene.world = RunWorld.new(setup)
+	var w := scene.world
+	w.god = true
+	w.step(DT, MoveInput.new())
+	var source := int(w.bosses.records[0].slot)
+	w.swarm.alpha[source] = 1.0
+	w.spawn_mob(0, Vector2(w.swarm.x[source] + 20, w.swarm.y[source]), w.swarm.fh[source], 1.0, false)
+	# Pass the canonical 30 s interval without spending a whole run moving the affected mobs apart.
+	w.time = 40.1
+	w.bosses.prepare_actions(w)
+	w.drain_events()
+	w.mob_skills.step(w)
+	for event: Dictionary in w.drain_events():
+		if event.type == "boss_skill":
+			return event
+	fail("canonical Dyle area buff should cast after its interval")
+	return {}
+
+
+func test_dyle_area_defense_without_optional_recipient_burst_keeps_art_complete() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("2")
+	if event.is_empty():
+		return
+	assert_eq(event.skill_id, 112)
+	assert_eq(event.level, 4)
+	assert_eq(event.targets.size(), 2, "caster and nearby ordinary mob receive the real area buff")
+	for slot: int in event.targets:
+		assert_near(scene.world.mob_skills.defense_bonus(slot, false, scene.world.time), 85.0, 0.001)
+	assert_eq(event.get("recipient_effect", ""), "", "v83 112/L4 has no mob0 burst")
+	assert_eq(event.effect, "Skill.wz/MobSkill.img/112/level/4/effect")
+	var effects := scene.fx.active_count()
+	scene.handle_events([event])
+	assert_eq(scene.fx.active_count(), effects + 1, "the canonical caster effect still plays")
+	_assert_nothing_missing(scene, "Dyle area defense without recipient art")
+
+
+func test_dyle_area_magic_defense_plays_its_canonical_recipient_burst() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("3")
+	if event.is_empty():
+		return
+	assert_eq(event.skill_id, 113)
+	assert_eq(event.level, 2)
+	assert_eq(event.targets.size(), 2)
+	for slot: int in event.targets:
+		assert_near(scene.world.mob_skills.defense_bonus(slot, true, scene.world.time), 85.0, 0.001)
+	assert_eq(event.get("recipient_effect", ""), "Skill.wz/MobSkill.img/113/level/2/mob0")
+	var effects := scene.fx.active_count()
+	scene.handle_events([event])
+	assert_eq(scene.fx.active_count(), effects + 1, "v83 113/L2 plays its recipient burst")
+	_assert_nothing_missing(scene, "Dyle area magic defense with recipient art")
+
+
+func test_boss_skill_nonempty_missing_recipient_art_is_still_reported() -> void:
+	if not require_cache():
+		return
+	var event := _canonical_dyle_area_buff("3")
+	if event.is_empty():
+		return
+	# A nonempty event path is required art; only canonical absence may omit the optional burst.
+	var missing := "Skill.wz/MobSkill.img/113/level/2/required_art_removed"
+	event.recipient_effect = missing
+	scene.handle_events([event])
+	assert_eq(Array(lib.missing), [missing], "a broken required export remains visible to acceptance")
 
 
 func test_dyle_immunity_icon_follows_live_boss_and_ends_with_status_and_death() -> void:

@@ -51,15 +51,16 @@ piercing contacts stable through slot reuse and relocation. Ticket #27 supplies 
 
 | Current acceptance check | Status and evidence |
 |---|---|
-| New economy and threat | **Partial / open:** frozen `b230305` assessment on all 120 held-out runs. Both sensible groups meet progression, most-but-not-all clears and late-hit targets; Henesys random has 21/28 deaths in-window. Tree random has only **12/29 (41.4%)**, failing the majority target. No retuning from held-out results; `GAME_DESIGN.md` 4.2 records all outcomes, stocks and waits. |
+| New economy and threat | **Henesys pass; Tree timing deferred by user:** frozen `b230305` assessment on all 120 held-out runs. Both sensible groups meet progression, most-but-not-all clears and late-hit targets; Henesys random has 21/28 deaths in-window. Tree random has only **12/29 (41.4%)**, failing the original majority target and retained as informational. No retuning from held-out results; `GAME_DESIGN.md` 4.2 records all outcomes, stocks and waits. |
 | Boss encounters | **Pass for sensible policy:** all six completed duration and whole/source-hit medians are in target windows. Completed, unfinished and unspawned denominators remain explicit; canonical WZ facts unchanged. |
-| Regression | Actual pacing 5/0/0 on unchanged training seeds 1/2/2026 and guards. Initial full suite exposed one stale 20-EXP UI fixture; `ab5d7fa` corrects it through the public EXP threshold. Final full suite: **482 tests, 0 failed, 0 skipped, 59 files**, 507.517 s (`t27-final-suite.log`). Root fresh-target Rust validation passed 45 tests, no skips; importer/manifest unchanged afterward. |
-| Visual integration | **Partial / open lookup:** seed2026 composites clear Henesys at 16:19 (Lv34) and Tree at 15:53 (Lv32), both with 351 maximum live mobs. Henesys has `missing: []`; original Tree capture records `Skill.wz/MobSkill.img/112/level/4/mob0`. Original evidence is preserved while the presentation lookup is diagnosed. Other captures were inspected by eye; earlier feature-specific evidence remains in `evidence/spec1/`. |
-| Performance | Pending final uncapped speed=1 measurement after all our heavy jobs finish; require a nonempty 200+ mob sample and p95 below 16.7 ms. Remaining unrelated Godot processes will be disclosed. |
-| Documentation | Live contracts and survivor constants/provenance reconciled; frozen training and all held-out tables distinguish the failed gate. Final performance numbers and lookup resolution remain pending. |
+| Regression | Actual pacing 5/0/0 on unchanged training seeds 1/2/2026 and guards. `ab5d7fa` corrects a stale 20-EXP UI fixture through the public EXP threshold. After optional-art fix `2805a24`, focused producer/scene/schema checks pass 68/0/0 and final full suite passes **485 tests, 0 failed, 0 skipped, 59 files**, 590.147 s (`t27-runtime-final-suite.log`). Root fresh-target Rust validation passed 45 tests, no skips; importer/manifest unchanged afterward. |
+| Visual integration | **Pass:** seed2026 composites clear Henesys at 16:19 (Lv34) and Tree at 15:53 (Lv32), both with 351 maximum live mobs. Henesys has `missing: []`. The original Tree missing optional 112/L4 recipient burst is preserved; `2805a24` selects that optional art from the canonical spec. Corrected Tree capture (warp 840, then draw through actual clear) has `missing: []`, unchanged final time/kills/level and inspected immunity/clear screenshots. Earlier feature-specific evidence remains in `evidence/spec1/`. |
+| Performance | **Pass:** separate Henesys seed2026 speed1 uncapped 10:00–13:00 sample after all owned heavy jobs ended: **62,580 frames with 200+ mobs, p95 3.912 ms**, max274, `missing: []`. Work p95 2.099 ms; sim 1.024 ms/tick. Hardware/background context and exact command below. |
+| Documentation | Live contracts and survivor constants/provenance reconciled; training and every original held-out outcome are retained. README controls/defaults match the code. Current test/visual/performance evidence and deferred Tree timing are explicit. |
 
-Spec #1 / #27 acceptance is **not complete**: Tree careless held-out timing fails. The frozen profile remains
-unchanged while the user decides whether to amend the validation protocol or retain this result in a draft PR.
+The user narrowed this pass to **Henesys-first balance acceptance** ("Mainly henesys"). Tree careless timing
+remains a documented failure of the original two-stage target, deferred without further tuning or fresh seeds.
+Both maps remain playable. Implementation evidence meets this amended scope; Tree timing is not reported as passed.
 All raw training, held-out and camper evidence is preserved locally under `evidence/acceptance/`; camper results
 are informational (21 reached their positions; 21 died). Historical Phase 1 acceptance above is not current proof.
 ## Phase 2: job and skill expansion
@@ -76,8 +77,22 @@ persistent progression and achievements (local save file).
 
 ## Performance log
 
+The final Spec #1 sample uses runtime `59ccfd5` (optional-art fix `2805a24`), frozen survivor data, Godot 4.7.2
+Compatibility/OpenGL 3.3, NVIDIA GeForce RTX 4070 SUPER (driver 610.88), Ryzen 7 7800X3D and 32 GB RAM
+(31.1 GiB visible). Logical view 800x600, window override 1600x1200, no saved window overrides. All owned
+training, acceptance, diagnostic and full-suite processes had ended before measurement. Two unrelated Godot jobs
+were left running: pixcheck PID4860 (created Oct13 18:40, parent33352) and dbg_drops PID62280 (Oct13 20:07,
+parent59228). They used 0.281 / 13.313 CPU-seconds during the 209.239 s command interval including warp;
+this is not an uncontended-machine claim. Previously observed UI PIDs38056/68840 were absent.
+
+Exact command: `bash scripts/playtest.sh --stage=henesys_hg1 --seed=2026 --speed=1 --warp=600 --minutes=13
+--vsync=off --shot-every=60 --out=evidence/acceptance/density_hg`. The cap is absolute, so only 10:00–13:00 is
+drawn. Evidence includes summary, actual adapter log, process creation times/CPU samples and visually checked
+`t660.png` / `final.png`; original full-stage composites establish the complete clear/early-window flow separately.
+
 | Date | Build | Scenario | Result |
 |---|---|---|---|
+| 2026-10-14 | Spec #1 final runtime `59ccfd5`, speed1 uncapped; hardware/background context above | Henesys seed2026, draw 10:00–13:00 after warp600; PLAYING at the deliberate measurement cap, Lv29, 3,318 kills, max274 mobs, `missing: []` | **200+ mobs: p95 3.912 ms, p99 5.801, max15.021 over62,580 frames**. Global p95 3.743 ms over75,954 frames; frame work avg1.030/p95 2.099 ms; sim1.024 ms/tick. |
 | 2026-10-13 | Phase 0 probe | GDScript SoA sim, 1000 mobs, Forward+ | 2.5-3.3 ms/frame (editor), 2.1-2.6 ms (release) |
 | 2026-10-13 | sim-world (`scripts/bench.sh`, editor binary headless, other agents running) | `MobSwarm.step` + `SpatialHash.rebuild` + 20 radius-420 queries per tick, 104040000 / synthetic map | 100: 0.30 / 0.26 ms; 300: 0.75 / 0.56 ms; 600: 1.44 / 1.01 ms; 1000: 2.09 / 1.66 ms per tick (step alone at 1000: 1.19 / 0.87 ms) |
 | 2026-10-13 | sim-world fix pass (drop step-off, mob wall checks, ceilings; same setup) | same | 100: 0.25 / 0.21 ms; 300: 0.65 / 0.53 ms; 600: 1.38 / 0.92 ms; 1000: 1.95 / 1.72 ms per tick (step alone at 1000: 1.07 / 0.96 ms); 0 lost |

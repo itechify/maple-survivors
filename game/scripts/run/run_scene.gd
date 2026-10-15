@@ -635,8 +635,8 @@ func _on_boss_skill(e: Dictionary) -> void:
 	for slot: int in e.targets:
 		if String(e.summon_effect) != "":
 			fx.play(String(e.summon_effect),Vector2(world.swarm.x[slot],world.swarm.y[slot]))
-		elif slot != source:
-			fx.play("Skill.wz/MobSkill.img/%d/level/%d/mob0" % [int(e.skill_id),int(e.level)],world.mob_center(slot))
+		elif slot != source and String(e.recipient_effect) != "":
+			fx.play(String(e.recipient_effect),world.mob_center(slot))
 	if String(e.player_effect) != "":
 		if _slow_fx >= 0:
 			fx.stop(_slow_fx)

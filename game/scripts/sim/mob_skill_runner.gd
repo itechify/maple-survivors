@@ -98,6 +98,7 @@ func step(world: RunWorld) -> void:
 			world.emit("boss_skill", {"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
 				"pos": pos, "facing": int(world.swarm.facing[slot]), "action": action, "duration": duration,
 				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == 114 and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
+				"recipient_effect": path + "/mob0" if spec.has("mob0") else "",
 				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == 200 and spec.has("summonEffect") else ""})
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
