@@ -1,6 +1,6 @@
 class_name Hud
 extends CanvasLayer
-## Hosts independently updated HUD widgets and reserves quickslot, buff-row and boss-bar space.
+## Hosts the independently updated HUD widgets (all HudWidget) and lays out the quickslot, buff-row and boss-bar space.
 
 const BAR_W := HudWidget.BAR_W
 const BAR_H := HudWidget.BAR_H
@@ -27,9 +27,6 @@ func _ready() -> void:
 	layer = 10
 	font = make_font()
 	bold_font = make_font(700)
-	potion_slot.library = library
-	buff_row.library = library
-	boss_bar.library = library
 	for w: HudWidget in [status, counters, skills, system_messages]:
 		w.library = library
 		add_child(w)
@@ -37,7 +34,8 @@ func _ready() -> void:
 	counters.name = "Counters"
 	skills.name = "Skills"
 	system_messages.name = "Messages"
-	for w: HudReservedSlot in [potion_slot, buff_row, boss_bar]:
+	for w: HudWidget in [potion_slot, buff_row, boss_bar]:
+		w.library = library
 		add_child(w)
 	potion_slot.name = "PotionQuickslot"
 	buff_row.name = "BuffRow"
@@ -48,9 +46,7 @@ func _ready() -> void:
 ## Compatibility entry point for callers displaying a HUD without a run scene.
 func update(ps: Dictionary, info: Dictionary) -> void:
 	store_state(ps, info)
-	for w: HudWidget in [status, counters, skills, system_messages]:
-		w.update(ps, info)
-	for w: HudReservedSlot in [potion_slot, buff_row, boss_bar]:
+	for w: HudWidget in [status, counters, skills, system_messages, potion_slot, buff_row, boss_bar]:
 		w.update(ps, info)
 
 ## Stores the public snapshot; RunScene feeds the widgets individually.

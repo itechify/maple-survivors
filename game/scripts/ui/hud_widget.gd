@@ -1,6 +1,8 @@
 class_name HudWidget
-extends Node2D
-## Shared WZ drawing support for independent run HUD widgets.
+extends Control
+## The one base of every run HUD widget (status bar, counters, skills, messages, potion quickslot, buff row, boss bar):
+## its own state snapshot, the HUD fonts and the shared WZ drawing helpers (_frame, _blit, _blit_rect, _text, _rank).
+## Widgets never take mouse input.
 const SB := "UI.wz/StatusBar.img/"
 const BAR_W := 800
 const BAR_H := 71
@@ -38,7 +40,11 @@ var run_info: Dictionary = {}
 var font: SystemFont
 var bold_font: SystemFont
 var _frames: Dictionary = {}
-var _canvas: Node2D = self
+
+
+func _init() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 
 func _ready() -> void:
 	font = make_font()
@@ -88,14 +94,16 @@ static func message_alpha(age: float) -> float:
 	return clampf((MSG_LIFE - age) / MSG_FADE, 0.0, 1.0)
 
 
-func _text(p: Vector2, s: String, col: Color, size: int = FONT_SIZE, f: Font = null, alpha: float = 1.0) -> void:
+## Outlined HUD text (default `font`); the outline colour (default 90% black) fades with `alpha`.
+func _text(p: Vector2, s: String, col: Color, size: int = FONT_SIZE, f: Font = null, alpha: float = 1.0,
+		outline: Color = Color(0, 0, 0, 0.9), width: float = -1) -> void:
 	if f == null:
 		f = font
 	if s == "" or f == null:
 		return
-	_canvas.draw_string_outline(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, 3 if size > FONT_SIZE else 2,
-		Color(0, 0, 0, 0.9 * alpha))
-	_canvas.draw_string(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col)
+	draw_string_outline(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, width, size, 3 if size > FONT_SIZE else 2,
+		Color(outline.r, outline.g, outline.b, outline.a * alpha))
+	draw_string(f, p, s, HORIZONTAL_ALIGNMENT_LEFT, width, size, col)
 
 
 ## Draws a canvas with its top-left at `p` (UI canvases have origin 0,0 or none).
@@ -103,16 +111,27 @@ func _text(p: Vector2, s: String, col: Color, size: int = FONT_SIZE, f: Font = n
 func _blit(f: SpriteFrame, p: Vector2) -> void:
 	if f == null or f.page == null:
 		return
-	_canvas.draw_texture_rect_region(f.page, Rect2(p.floor(), f.region.size), f.region)
+	draw_texture_rect_region(f.page, Rect2(p.floor(), f.region.size), f.region)
 
-func _frame(path: String) -> SpriteFrame:
+
+## Draws a canvas stretched into `rect`.
+func _blit_rect(f: SpriteFrame, rect: Rect2) -> void:
+	if f == null or f.page == null:
+		return
+	draw_texture_rect_region(f.page, rect, f.region)
+
+
+## A cached UI canvas; null when absent. Optional art is looked up quietly; `report_missing` records an absent
+## canvas in the library's `missing` list (art that must exist: boss bars, potion and buff icons).
+func _frame(path: String, report_missing: bool = false) -> SpriteFrame:
 	if _frames.has(path):
 		return _frames[path]
 	var lib := _lib()
 	var f: SpriteFrame = null
 	if lib != null and path != "":
-		var n: Variant = lib.find(path)
-		if WzImg.is_canvas(n):
+		if report_missing:
+			f = lib.frame(path)
+		elif WzImg.is_canvas(lib.find(path)):
 			f = lib.frame(path)
 	_frames[path] = f
 	return f
