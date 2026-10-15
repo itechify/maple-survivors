@@ -1,6 +1,6 @@
 extends TestCase
 ## ExpCurve, RunProgression, JobTree and RunWorld's pause protocol (docs/ARCHITECTURE.md 4.4.2): level queue,
-## choice windows, job advancement at 8 (accept / "Not now"), the guaranteed Magician card, touch damage with
+## choice windows, job advancement at 10 (accept / "Not now"), the guaranteed Magician card, touch damage with
 ## invincibility / knockback / Magic Guard, death and stage clear.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -82,18 +82,20 @@ func test_job_tree_options() -> void:
 		ids.append(int(o.job_id))
 		assert_eq(_sorted_keys(o), _sorted(JOB_OPTION_KEYS))
 		if int(o.job_id) == 200:
-			assert_true(o.available, "Magician at 8")
 			assert_eq(o.name, "Magician")
-			assert_eq(o.reason, "")
-		else:
-			assert_false(o.available)
-			assert_eq(o.reason, "Lv. 10", "%d shows its requirement" % o.job_id)
+		assert_false(o.available)
+		assert_eq(o.reason, "Lv. 10", "%d shows its requirement" % o.job_id)
 	assert_eq(_sorted(ids), [100, 200, 300, 400, 500])
 	for o: Dictionary in t.advancements(0, 10):
-		if int(o.job_id) != 200:
+		if int(o.job_id) == 200:
+			assert_true(o.available, "Magician at 10")
+			assert_eq(o.reason, "")
+		else:
 			assert_eq(o.reason, "Not in this build")
-	assert_true(t.should_offer(0, 8))
-	assert_true(t.should_offer(0, 9), "declined: asked again")
+	assert_false(t.should_offer(0, 8))
+	assert_false(t.should_offer(0, 9))
+	assert_true(t.should_offer(0, 10))
+	assert_true(t.should_offer(0, 11), "declined: asked again")
 	assert_false(t.should_offer(0, 7))
 	var at30 := t.advancements(200, 30)
 	assert_eq(at30.size(), 3)
@@ -107,6 +109,39 @@ func test_job_tree_options() -> void:
 	assert_true(t.is_descendant(210, 200))
 	assert_false(t.is_descendant(200, 210))
 	assert_eq(t.job(200).grants.max_mp, 120.0)
+
+
+func test_magician_window_waits_for_survivor_level_ten() -> void:
+	var data := DataRepo.load_all()
+	var canonical := JobTree.from_data(data.jobs, {})
+	assert_eq(canonical.job(200).level, 8, "canonical Magician stays at Lv 8")
+	assert_eq(int(data.jobs_survivor.jobs["200"].get("level", -1)), 10, "survivor override")
+	for seed_i: int in [1, 2, 2026]:
+		var w := RF.quiet_world(400.0, seed_i)
+		for level in range(2, 11):
+			w.drain_events()
+			_give_exp(w, w.progression.curve.exp_to_next(level - 1))
+			assert_eq(int(w.player_state.level), level)
+			if level < 10:
+				assert_ne(w.state, RunWorld.CHOOSING_JOB, "no job window at Lv %d" % level)
+				assert_true(_of_type(w.drain_events(), "job_advance_pending").is_empty())
+				assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "ordinary upgrade before advancement")
+				if w.state != RunWorld.CHOOSING_UPGRADE:
+					return
+				w.apply_choice(String(w.pending_cards[0].id))
+				assert_eq(w.state, RunWorld.PLAYING)
+			else:
+				assert_eq(w.state, RunWorld.CHOOSING_JOB, "Lv 10 opens the job window")
+				assert_eq(_of_type(w.drain_events(), "job_advance_pending").size(), 1)
+				assert_true(w.apply_job(200), "Magician available with existing INT handling")
+				assert_eq(int(w.player_state.job_id), 200)
+				assert_true(w.loadout.has("energy_bolt"), "advancement still grants Energy Bolt")
+				var guaranteed := false
+				for card: Dictionary in w.pending_cards:
+					if card.kind == "skill_new" and int(w.book.def(String(card.skill)).get("job", -1)) == 200:
+						guaranteed = true
+				assert_true(guaranteed, "Lv 10 advancement keeps the guaranteed Magician card")
+	assert_eq(canonical.job(200).level, 8, "survivor use leaves canonical data unchanged")
 
 
 func test_pause_protocol_single_level() -> void:
@@ -175,8 +210,8 @@ func test_level_queue_opens_one_window_per_level() -> void:
 func test_job_advancement_decline_then_accept() -> void:
 	var w := RF.quiet_world()
 	w.drain_events()
-	_give_exp(w, w.progression.curve.total_to(8))
-	assert_eq(w.player_state.level, 8)
+	_give_exp(w, w.progression.curve.total_to(10))
+	assert_eq(w.player_state.level, 10)
 	var guard := 0
 	while w.state == RunWorld.CHOOSING_UPGRADE and guard < 20:
 		guard += 1
@@ -184,8 +219,8 @@ func test_job_advancement_decline_then_accept() -> void:
 			assert_false(String(c.id) in ["energy_bolt_new", "fire_arrow_new", "magic_claw_new", "magic_guard_new",
 				"magic_armor_new"], "no job skill before the job: %s" % c.id)
 		w.apply_choice(String(w.pending_cards[0].id))
-	assert_eq(guard, 6, "levels 2..7 are plain upgrades")
-	assert_eq(w.state, RunWorld.CHOOSING_JOB, "level 8: the job window first")
+	assert_eq(guard, 8, "levels 2..9 are plain upgrades")
+	assert_eq(w.state, RunWorld.CHOOSING_JOB, "level 10: the job window first")
 	var pend := _of_type(w.drain_events(), "job_advance_pending")
 	assert_eq(pend.size(), 1)
 	if pend.size() == 1:
@@ -195,12 +230,12 @@ func test_job_advancement_decline_then_accept() -> void:
 			assert_eq(bool(o.available), int(o.job_id) == 200, "only Magician is available")
 	assert_false(w.apply_job(300), "Bowman is not available")
 	assert_true(w.decline_job())
-	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "then the level-8 upgrade")
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "then the level-10 upgrade")
 	w.apply_choice(String(w.pending_cards[0].id))
 	assert_eq(w.state, RunWorld.PLAYING)
 	assert_eq(w.player_state.job_id, 0, "still a Beginner")
-	_give_exp(w, w.progression.curve.exp_to_next(8))
-	assert_eq(w.player_state.level, 9)
+	_give_exp(w, w.progression.curve.exp_to_next(10))
+	assert_eq(w.player_state.level, 11)
 	assert_eq(w.state, RunWorld.CHOOSING_JOB, "asked again at the next level")
 	var mp_before: int = w.player_state.max_mp
 	w.drain_events()

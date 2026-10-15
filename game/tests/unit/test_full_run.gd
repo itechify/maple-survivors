@@ -5,7 +5,7 @@ extends TestCase
 ## The full 101..130 matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
 ## Checks include spawning/engagement, kills/EXP, progression/event consistency, ordinary late landed hits,
 ## no lost mobs and all scheduled bosses dead before clear. Individual progression windows allow build spread;
-## stage sample medians retain the agreed Mage 150–225s and Lv30 720–900s windows.
+## stage sample medians use Mage at Lv10 180–330s and retain the Lv30 720–900s window.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Tier C: fixed regression sample chosen before held-out execution; both stages use the same seeds.
@@ -134,6 +134,7 @@ func test_full_run_real_map() -> void:
 		return
 	var data := DataRepo.load_all()
 	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+		var magician: Array[float] = []
 		var lv8: Array[float] = []
 		var lv10: Array[float] = []
 		var lv30: Array[float] = []
@@ -156,11 +157,13 @@ func test_full_run_real_map() -> void:
 			if CHECK_PACING:
 				_assert_pacing(w, st, label)
 			lv8.append(float(st.lv8_time))
+			magician.append(float(st.job_time))
 			lv10.append(float(st.lv10_time))
 			if float(st.lv30_time) > 0.0:
 				lv30.append(float(st.lv30_time))
 		if CHECK_PACING:
-			assert_between(_median(lv8), 150.0, 225.0, "%s: Mage median150–225s" % stage)
+			assert_between(_median(lv8), 150.0, 225.0, "%s: Lv8 median150–225s" % stage)
+			assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s" % stage)
 			assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s" % stage)
 			assert_true(lv30.size() >= 2, "%s: at least2 of3 predetermined runs reachLv30" % stage)
 			if not lv30.is_empty():
@@ -177,7 +180,10 @@ static func _median(values: Array[float]) -> float:
 
 ## The tuned pacing on the real map, per seed (docs/GAME_DESIGN.md 4.1, 5); windows with some slack for the bot.
 func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
-	assert_between(float(st.lv8_time), 135.0, 270.0, "%s: Lv 8 (Magician) between 2:15 and 4:30" % label)
+	assert_between(float(st.lv8_time), 135.0, 270.0, "%s: Lv 8 between 2:15 and 4:30" % label)
+	assert_between(float(st.job_time), 150.0, 360.0, "%s: Magician between 2:30 and 6:00" % label)
+	# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
+	assert_near(float(st.job_time), float(st.lv10_time) + DT, 1e-6, "%s: Magician at Lv10" % label)
 	assert_between(float(st.lv10_time), 150.0, 360.0, "%s: Lv 10 between 2:30 and 6:00" % label)
 	if float(st.lv30_time) > 0.0:
 		assert_between(float(st.lv30_time), 600.0, 1080.0, "%s: individual Lv30 in10:00–18:00; sample median12:00–15:00" % label)

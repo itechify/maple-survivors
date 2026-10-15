@@ -1,8 +1,16 @@
 # Issue #37: initial MP drop scarcity
 
-The measurements below predate the merge of `main` at `adb9d46` (#48/#49). That integration preserves the
-MP scarcity settings alongside upstream's potion RNG fix, Henesys HP trickle, boss fixes and report enhancements.
+The measurements below predate the merge of `main` through `02038d1` (#48/#49/#50). That integration preserves the
+MP scarcity settings alongside upstream's potion RNG fix, Henesys HP trickle, boss fixes, level-10 Magician advancement
+and report enhancements.
 These historical numbers are not a fresh balance assessment of the merged simulation.
+
+Merge validation (2026-10-15): 102 focused tests passed with no failures/skips across `balance_metrics`,
+`data_files`, `potions`, `boss_rewards`, `boss_hit_bands`, `progression`, `player_stats` and `run_scene`.
+Godot script typechecking, Bash syntax and whitespace checks passed. Rust synthetic/offline checks passed
+29 tests; 17 real-WZ tests skipped because `MAPLE_WZ_ROOT` was unset, so they provide no real-data evidence.
+The full Godot suite started against the intermediate #48/#49 integration was stopped when #50 merged into
+main; it was not rerun after the final conflict resolution. No new full-suite or population-balance pass is claimed.
 
 Measured 2026-10-14 with Godot 4.7.2 and the local original-v83 asset cache. Both variants use
 Henesys Hunting Ground I, training seeds 1..12, fixed 1/60 s ticks, default 1800 s cap, kiting movement,

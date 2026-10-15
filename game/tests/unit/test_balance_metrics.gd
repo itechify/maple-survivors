@@ -176,6 +176,19 @@ func test_summary_reports_undefined_ratio_when_no_mp_is_used() -> void:
 	assert_true(BR.describe_metrics(none_collected).contains("MP collected/used 0.000"))
 
 
+func test_summary_reports_observed_magician_times() -> void:
+	var summary := BR.aggregate([{"job_t": 240.0}, {"job_t": 260.0}, {"job_t": -1.0}, {}])
+	assert_true(summary.has("magician_seconds"), "report includes advancement timing")
+	if not summary.has("magician_seconds"):
+		return
+	assert_eq(summary.magician_seconds.count, 2, "unreached and missing times are not observations")
+	assert_eq(summary.magician_seconds.median, 250.0)
+	assert_true("Magician seconds 240.00/250.00/260.00 (n=2)" in BR.describe_metrics(summary))
+	var absent := BR.aggregate([{"job_t": -1.0}, {}])
+	assert_eq(absent.magician_seconds.count, 0)
+	assert_true("Magician seconds none (n=0)" in BR.describe_metrics(absent))
+
+
 func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []

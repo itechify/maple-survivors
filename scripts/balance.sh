@@ -26,7 +26,7 @@
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
 # full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP collected/used, MP wait, completed boss
-# fight times and whole boss-hit HP fractions (min/median/max/count); *_summary.json/log preserve the aggregate.
+# fight times, time to Magician and whole boss-hit HP fractions (min/median/max/count); *_summary.json/log preserve the aggregate.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
