@@ -1,5 +1,5 @@
 {
-	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants: max_mp (added to max and current MP), skills (learned at once on advancing: the Magician's first SP goes to Energy Bolt), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
+	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants: max_mp (added to computed base Max MP; grants the increase to current MP unless Improved MaxMP Increase preserves its ratio), skills (learned at once on advancing: the Magician's first SP goes to Energy Bolt), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
 	"default_reason": "Not yet available",
 	"level_reason": "Lv. {level}",
 	"jobs": {

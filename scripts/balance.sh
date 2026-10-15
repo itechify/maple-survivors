@@ -17,8 +17,8 @@
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
 #
-# Seeds: tune on 1..60 and 2026 only. Held-out ranges 101..130 and 301..330 (and 201..212) are spent; report a frozen
-# candidate on the next fresh held-out range, 401..430, and never tune on it (AGENTS.md "Balance").
+# Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430 and 501..530 are spent or retired
+# (historical smoke used 401..406). Report a frozen candidate on fresh 601..630; never tune on it (AGENTS.md "Balance").
 #
 # Prints a table (time of Lv 8/10/20/30, level at 4/8/12 min, alive mobs at 4/8/12 min, mobs near the player at
 # 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended; then, in %, the
@@ -26,7 +26,8 @@
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
 # full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP collected/used, MP wait, completed boss
-# fight times, time to Magician and whole boss-hit HP fractions (min/median/max/count); *_summary.json/log preserve the aggregate.
+# fight times, time to Magician, final potion stock, late MP waits with observation counts, first-five-minute
+# lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"

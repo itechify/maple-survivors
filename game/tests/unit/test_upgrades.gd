@@ -1,6 +1,6 @@
 extends TestCase
 ## UpgradePool (docs/GAME_DESIGN.md section 8): eligibility (job gates, mods only for owned skills, maxed cards,
-## slots), seeded weighted draws without duplicates, sparse draws when short, and what applying a card does.
+## slots), seeded weighted draws without duplicates, Elixir alternatives when short, and what applying a card does.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
@@ -17,7 +17,7 @@ func test_beginner_eligibility() -> void:
 	var w := RF.quiet_world()
 	var el := w.upgrades.eligible(w)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "max_hp", "nimble_feet", "recovery", "magnet"]:
+			"three_snails_speed", "nimble_feet", "recovery", "magnet"]:
 		assert_has(el, id, "Beginner card")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
 		assert_false(id in el, "%s: a Magician skill (2000001 / 2000000), not for a Beginner" % id)
@@ -36,7 +36,7 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	assert_has(el, "energy_bolt_new", "the first Magician skill")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
 		assert_has(el, id, "Magician MP card")
-	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3 (rank 2 = level 5); Magic
+	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3; Magic
 	# Guard waits for Energy Bolt too (survivor rule: the first Magician skill is an attack).
 	for id: String in ["magic_claw_new", "magic_guard_new", "magic_armor_new"]:
 		assert_false(id in el, "%s needs Energy Bolt first" % id)
@@ -44,11 +44,13 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	el = w.upgrades.eligible(w)
 	assert_has(el, "magic_claw_new", "Magic Claw after Energy Bolt")
 	assert_has(el, "magic_guard_new", "Magic Guard after Energy Bolt")
-	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard rank 2")
+	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard level 3")
 	w.upgrades.apply("magic_guard_new", w)
 	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard rank 1 is not enough")
 	w.upgrades.apply("magic_guard_rank", w)
-	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard rank 2 (level 5) opens Magic Armor")
+	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard level 2 is not enough")
+	w.upgrades.apply("magic_guard_rank", w)
+	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard level 3 opens Magic Armor")
 	assert_false("fire_arrow_new" in el, "Fire Arrow needs 210")
 	assert_false("magic_claw_cooldown" in el, "Quick Claw only once Magic Claw is owned")
 	w.upgrades.apply("magic_claw_new", w)
@@ -60,7 +62,64 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	assert_has(el, "magic_claw_rank")
 	w.change_job(210)
 	assert_has(w.upgrades.eligible(w), "fire_arrow_new", "a 210 descends from 200 and gets its own card")
-	assert_has(w.upgrades.eligible(w), "magic_claw_rank", "Magician cards stay for descendants")
+	assert_false("magic_claw_rank" in w.upgrades.eligible(w), "a second job stops offering first-job cards")
+
+
+func test_seeded_offers_follow_current_job_without_forgetting_beginner_skills() -> void:
+	var w := RF.quiet_world(400.0, 38)
+	w.loadout.set_rank("three_snails", 2)
+	w.learn_skill("recovery")
+	w.change_job(200)
+	var forbidden := ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
+		"three_snails_speed", "recovery", "recovery_rank", "nimble_feet", "nimble_feet_rank"]
+	for seed_value in range(1, 21):
+		for c: Dictionary in w.upgrades.roll_choices(w, _rng(seed_value)):
+			assert_false(c.id in forbidden, "Magician draw must not offer Beginner cards: %s" % c.id)
+	assert_eq(w.loadout.rank("three_snails"), 2, "advancement preserves an earlier skill's rank")
+	assert_eq(w.loadout.rank("recovery"), 1, "earlier-job healing remains learned")
+	RF.put_mob(w, 2220000, 580)
+	w.drain_events()
+	w.step(1.0 / 60.0, MoveInput.new())
+	var snails := w.drain_events().filter(func(e: Dictionary) -> bool:
+		return e.type == "cast" and e.skill == "three_snails")
+	assert_eq(snails.size(), 1, "the learned Beginner attack keeps casting after advancement")
+	if not snails.is_empty():
+		assert_eq(int(snails[0].level), 2, "it casts at the retained canonical level")
+
+
+func test_seeded_utility_offers_are_available_to_beginners_and_magicians() -> void:
+	for job_id in [0, 200]:
+		var w := RF.quiet_world(400.0, 38)
+		if job_id != 0:
+			w.change_job(job_id)
+		w.progression.level = 25
+		var seen := {}
+		for seed_value in range(1, 61):
+			for c: Dictionary in w.upgrades.roll_choices(w, _rng(seed_value)):
+				seen[c.id] = true
+				if job_id == 0:
+					assert_false(c.id in JOB_SKILL_CARDS, "Beginner draws never offer later-job skills")
+		for id: String in ["magnet", "orange_potion", "mana_elixir"]:
+			assert_true(seen.has(id), "%s is offered to job %d" % [id, job_id])
+		w.upgrades.apply("orange_potion", w)
+		assert_has(w.upgrades.eligible(w), "white_potion", "the next HP tier stays job-neutral too")
+
+
+func test_job_guarantee_and_power_pity_use_only_current_job_cards() -> void:
+	var w := RF.quiet_world()
+	w.change_job(200)
+	var cards := w.upgrades.roll_choices(w, _rng(38))
+	assert_eq(cards[0].kind, "skill_new", "advancement guarantees an eligible new current-job skill")
+	assert_eq(w.upgrades.card(cards[0].id).requires.jobs, [200.0])
+	assert_true(w.guarantee.is_empty())
+	w.change_job(210)
+	w.upgrades.apply("fire_arrow_new", w)
+	w.loadout.set_rank("fire_arrow", 30)  # Exhaust the current-job rank card as well as its learn card.
+	w.power_dry = w.upgrades.pity_draws
+	cards = w.upgrades.roll_choices(w, _rng(38))
+	assert_false(cards.is_empty(), "pity with no eligible power cards still draws ordinary choices")
+	for c: Dictionary in cards:
+		assert_false(UpgradePool.is_power(w.upgrades.card(c.id)), "pity cannot reintroduce an earlier-job power card")
 
 
 func test_maxed_cards_disappear() -> void:
@@ -110,7 +169,7 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 		"shell-count frequency > piercing frequency: %s" % [counts])
 
 
-func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
+func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> void:
 	var w := RF.quiet_world()
 	# Max out everything a Beginner can take.
 	for c: Dictionary in w.upgrades.cards:
@@ -120,8 +179,8 @@ func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 			guard += 1
 	assert_eq(w.upgrades.eligible(w).size(), 0, "nothing left")
 	var cards := w.upgrades.roll_choices(w, _rng(5), 3)
-	assert_eq(cards.size(), 0, "no cards remain")
-	# Exactly one card left: offer it alone.
+	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"], "an exhausted pool still gives a choice")
+	# Exactly one card left: offer it and one Elixir, without repeating identical healing cards.
 	var w2 := RF.quiet_world()
 	for c: Dictionary in w2.upgrades.cards:
 		if c.id == "magnet":
@@ -131,18 +190,39 @@ func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 			w2.upgrades.apply(String(c.id), w2)
 			guard += 1
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
-	assert_eq(mixed.size(), 1)
+	assert_eq(mixed.size(), 2)
 	assert_eq(mixed[0].id, "magnet")
+	if mixed.size() == 2:
+		assert_eq(mixed[1].id, "elixir")
+	assert_false("elixir" in w2.upgrades.eligible(w2), "Elixir never enters the weighted pool")
+
+
+func test_picking_elixir_from_an_exhausted_levelup_fully_restores_both_pools() -> void:
+	var data := RF.quiet_data()
+	data.upgrades.cards = []
+	var w := RunWorld.new(RF.setup("quiet", 38, data))
+	RF.place_player(w, 400)
+	w.take_hit(10.0, false, "", w.player.pos - Vector2(10, 0))
+	assert_true(w.spend_mp(3))
+	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
+	w.step(1.0 / 60.0, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "an empty normal pool must still open the level-up window")
+	assert_true(w.player_state.hp < w.player_state.max_hp)
+	assert_true(w.player_state.mp < w.player_state.max_mp)
+	var stock := w.potions.snapshot()
+	assert_true(w.apply_choice("elixir"))
+	assert_eq(w.player_state.hp, w.player_state.max_hp, "Power Elixir restores all HP")
+	assert_eq(w.player_state.mp, w.player_state.max_mp, "Power Elixir restores all MP")
+	assert_eq(w.potions.snapshot(), stock, "this card does not consume or replace carried potions")
+	assert_eq(w.state, RunWorld.PLAYING)
+	assert_false(w.progression.has_pending())
 
 
 func test_applying_general_cards() -> void:
 	var w := RF.quiet_world()
-	var hp0: int = w.player_state.max_hp
-	w.upgrades.apply("max_hp", w)
-	assert_eq(w.player_state.max_hp, roundi(hp0 * 1.1), "Max HP +10%")
-	assert_eq(w.player_state.hp, w.player_state.max_hp, "the extra HP is granted")
 	w.upgrades.apply("nimble_feet", w)
-	assert_eq(w.player.speed_stat, 106, "speed +6")
+	assert_eq(w.loadout.level("nimble_feet"), 1, "the card learns a timed skill")
+	assert_eq(w.player.speed_stat, 100, "learning gives no permanent speed increase")
 	var m0 := w.magnet_r
 	w.upgrades.apply("magnet", w)
 	assert_near(w.magnet_r, m0 * 1.25, 1e-3)
@@ -151,9 +231,8 @@ func test_applying_general_cards() -> void:
 	assert_near(w.hp_regen, 0.0, 1e-6, "no permanent Recovery regen")
 	w.upgrades.apply("improved_mp_recovery", w)
 	assert_eq(w.loadout.level("improved_mp_recovery"), 1, "the card learns the canonical passive")
-	var mp0: int = w.player_state.max_mp
 	w.upgrades.apply("improved_max_mp", w)
-	assert_eq(w.player_state.max_mp, mp0 + 25)
+	assert_eq(w.loadout.level("improved_max_mp"), 1, "the card learns the percentage passive")
 	w.drain_events()
 	assert_eq(w.upgrades.apply("energy_bolt_new", w), 1)
 	var learned := false
@@ -173,13 +252,23 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 	w.loadout.set_rank("three_snails", 2)
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level_next), 0, "a mod keeps the level")
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level), 2, "the mod's skill level is shown")
-	assert_eq(String(w.upgrades.choice_card("max_hp", w).skill_name), "", "no skill")
+	assert_eq(String(w.upgrades.choice_card("magnet", w).skill_name), "", "no skill")
 	RF.change_job_bare(w, 200)
 	c = w.upgrades.choice_card("energy_bolt_new", w)
 	assert_eq([int(c.skill_level), int(c.skill_level_next)], [0, 1], "learning Energy Bolt: level 1")
 	w.upgrades.apply("energy_bolt_new", w)
 	c = w.upgrades.choice_card("energy_bolt_rank", w)
-	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 5], "Energy Bolt rank 2 = canonical level 5")
+	assert_eq([int(c.skill_level), int(c.skill_level_next)], [1, 2], "one rank card is one canonical level")
+	w.upgrades.apply("energy_bolt_rank", w)
+	assert_eq(w.loadout.level("energy_bolt"), 2)
+	for level in range(3, 21):
+		assert_has(w.upgrades.eligible(w), "energy_bolt_rank", "rank card remains until level 20")
+		w.upgrades.apply("energy_bolt_rank", w)
+		assert_eq(w.loadout.level("energy_bolt"), level)
+	assert_false("energy_bolt_rank" in w.upgrades.eligible(w), "no rank offer at canonical level 20")
+	for seed in [1, 2, 2026]:
+		for choice: Dictionary in w.upgrades.roll_choices(w, _rng(seed)):
+			assert_ne(choice.id, "energy_bolt_rank", "seeded draws respect the canonical cap")
 
 
 func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
@@ -188,17 +277,58 @@ func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
 	w.loadout.add_skill("energy_bolt")
 	# Synthetic WZ levels make the expected preview independent of survivor damage tuning.
 	w.book.skill_node("energy_bolt")["level"]["1"] = {"mad": 20.0, "mastery": 1.0, "mpCon": 6.0}
-	w.book.skill_node("energy_bolt")["level"]["5"] = {"mad": 28.0, "mastery": 3.0, "mpCon": 9.0}
+	w.book.skill_node("energy_bolt")["level"]["2"] = {"mad": 22.0, "mastery": 2.0, "mpCon": 7.0}
 	w.loadout.add_skill_mod("energy_bolt", "damage", "mul", 2.0)
 	var c := w.upgrades.choice_card("energy_bolt_rank", w)
 	assert_eq(c.get("skill_changes", {}), {
-		"mad": {"before": 20, "after": 28},
-		"mastery": {"before": 15, "after": 25},
-		"mpCon": {"before": 6, "after": 9},
+		"mad": {"before": 20, "after": 22},
+		"mastery": {"before": 15, "after": 20},
+		"mpCon": {"before": 6, "after": 7},
 	}, "rank preview uses canonical levels, mastery percent, and unmodified MP cost")
 	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
 	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
-	assert_eq(w.upgrades.choice_card("max_hp", w).skill_changes, {}, "stat cards have no canonical skill values")
+	assert_eq(w.upgrades.choice_card("magnet", w).skill_changes, {}, "stat cards have no canonical skill values")
+
+
+func test_real_stat_replacement_rank_previews_and_skill_caps() -> void:
+	var w := RF.quiet_world(400, 41)
+	w.upgrades.apply("nimble_feet", w)
+	var card := w.upgrades.choice_card("nimble_feet_rank", w)
+	assert_eq(card.skill_effect_stat, "speed")
+	assert_eq(card.skill_changes, {"mpCon": {"before": 4, "after": 7}, "time": {"before": 4, "after": 8},
+		"speed": {"before": 10, "after": 15}, "cooltime": {"before": 60, "after": 60}})
+	for pick in 2:
+		assert_has(w.upgrades.eligible(w), "nimble_feet_rank")
+		w.upgrades.apply("nimble_feet_rank", w)
+	assert_eq(w.loadout.level("nimble_feet"), 3)
+	assert_false("nimble_feet_rank" in w.upgrades.eligible(w))
+	w.change_job(200)
+	w.upgrades.apply("improved_max_mp", w)
+	card = w.upgrades.choice_card("improved_max_mp_rank", w)
+	assert_eq(card.skill_changes, {"max_mp_percent": {"before": 2, "after": 4}},
+		"preview the survivor percentage, not canonical MP gained per level or Guard absorption")
+	for pick in 9:
+		assert_has(w.upgrades.eligible(w), "improved_max_mp_rank")
+		w.upgrades.apply("improved_max_mp_rank", w)
+	assert_eq(w.loadout.level("improved_max_mp"), 10)
+	assert_eq(w.player_state.max_mp, 150, "base 5 plus 120 job grant, with the +20% cap")
+	assert_false("improved_max_mp_rank" in w.upgrades.eligible(w))
+	for seed in [1, 2, 2026]:
+		for choice: Dictionary in w.upgrades.roll_choices(w, _rng(seed)):
+			assert_false(choice.id in ["nimble_feet", "nimble_feet_rank", "improved_max_mp", "improved_max_mp_rank"],
+				"seeded offers respect current job and learned-skill cap")
+
+
+func test_fire_arrow_rank_cards_cover_all_thirty_canonical_levels() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 210)
+	w.upgrades.apply("fire_arrow_new", w)
+	assert_eq(w.loadout.level("fire_arrow"), 1)
+	for level in range(2, 31):
+		assert_has(w.upgrades.eligible(w), "fire_arrow_rank")
+		w.upgrades.apply("fire_arrow_rank", w)
+		assert_eq(w.loadout.level("fire_arrow"), level)
+	assert_false("fire_arrow_rank" in w.upgrades.eligible(w))
 
 
 func test_fixed_damage_rank_card_previews_only_fields_in_canonical_data() -> void:

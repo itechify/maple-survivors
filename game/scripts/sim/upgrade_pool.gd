@@ -3,8 +3,8 @@ extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
 ##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (the job is one of them or a
-## descendant), `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
+## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id),
+## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned and a free slot of its kind; skill_rank / skill_mod need the skill owned (skill_rank also
 ## below the skill's max rank). Potion tiers require a current item and level from data. A draw picks up to the
 ## requested number of distinct eligible cards by weight with the given RNG; when the run has a pending `guarantee`
@@ -12,15 +12,20 @@ extends RefCounted
 ## and the guarantee is consumed. Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
-## RunWorld.power_dry counts those draws.
+## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
+## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
+
+## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]
 
 var cards: Array = []
 ## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
 var pity_draws := 0
 var _by_id := {}
+var _fallback_id := ""
 
 
-## Builds the pool from the upgrades.json root ({"cards": [...]}).
+## Builds the pool from the upgrades.json root ({cards: [...], fallback: card}). The fallback is never weighted.
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()
 	var pity: Variant = root.get("pity", {})
@@ -32,6 +37,11 @@ static func from_data(root: Dictionary) -> UpgradePool:
 			continue
 		p._by_id[id] = c
 		p.cards.append(c)
+	var fallback: Dictionary = root.get("fallback", {})
+	var fallback_id := String(fallback.get("id", ""))
+	if fallback_id != "" and not p._by_id.has(fallback_id):
+		p._fallback_id = fallback_id
+		p._by_id[fallback_id] = fallback
 	return p
 
 
@@ -66,7 +76,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	if not jobs.is_empty():
 		var ok := false
 		for j: Variant in jobs:
-			if state.jobs.is_descendant(state.progression.job_id, int(j)):
+			if state.progression.job_id == int(j):
 				ok = true
 				break
 		if not ok:
@@ -97,8 +107,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	return true
 
 
-## Draws up to n distinct eligible cards and returns them as choice_pending cards (see
-## choice_card for the fields).
+## Draws up to n distinct eligible cards, adding one fallback alternative when short (see choice_card for fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
 	var picked: Array = []
@@ -123,6 +132,8 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 		var id := _weighted_pick(pool, rng)
 		picked.append(id)
 		pool.erase(id)
+	if picked.size() < n and _fallback_id != "":
+		picked.append(_fallback_id)
 	var out: Array = []
 	var power := false
 	for id: String in picked:
@@ -141,7 +152,8 @@ static func is_power(c: Dictionary) -> bool:
 ## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
 ## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
-## {before, after}; mastery is a percent, all other values are the original WZ numbers), skill_effect_stat (the skill's
+## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
+## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
 func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var c := card(id)
@@ -167,7 +179,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
-			for field: String in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime"]:
+			for field: String in PREVIEW_FIELDS:
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))
@@ -175,6 +187,12 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
+			var passive: Dictionary = lo.book.def(skill).get("passive", {})
+			if passive.has("per_level"):
+				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
+				# not the canonical fields it reinterprets.
+				changes = {String(passive.stat): {"before": roundi(lo.passive_value(skill, level, passive) * 100.0),
+					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
 	return {
 		"id": id,
 		"kind": kind,
@@ -201,8 +219,8 @@ static func _rank_step(c: Dictionary) -> int:
 	return maxi(1, n)
 
 
-## Applies card `id` to the run (learn / rank up / modifiers / potion tier), emits upgrade_applied (and skill_learned for
-## skill_new) and returns the card's new rank (0 when the card is unknown).
+## Applies card `id` to the run (learn / rank up / modifiers / potion tier / fallback healing), emits
+## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld) -> int:
 	var c := card(id)
 	if c.is_empty():
@@ -221,7 +239,9 @@ func apply(id: String, state: RunWorld) -> int:
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
 		var value := float(e.get("value", 0.0))
-		if kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
+		if kind == "filler" and op == "heal":
+			state.heal_fraction(stat, value)
+		elif kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
 			if stat == "rank":
 				lo.set_rank(skill, lo.rank(skill) + int(value))
 			else:

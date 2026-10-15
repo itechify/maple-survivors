@@ -15,7 +15,10 @@ func _cast_events(world: RunWorld) -> Array:
 
 func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 	for is_ladder in [0, 1]:
-		var world := RF.quiet_world(400.0, 8)
+		var data := RF.quiet_data()
+		data.balance.player.mp = 6
+		var world := RunWorld.new(RF.setup("quiet", 8, data))
+		RF.place_player(world, 400)
 		world.god = true
 		var climb := -1
 		for i in world.ladders.count():
@@ -28,6 +31,7 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 		world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
 		world.step(DT, MoveInput.new())
 		assert_eq(_cast_events(world).size(), 1, "a ground cast starts the normal cooldown")
+		assert_eq(world.player_state.mp, 3, "the ground cast pays its canonical MP cost")
 		var up := MoveInput.new()
 		up.up = true
 		world.step(DT, up)
@@ -38,6 +42,7 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 			world.step(DT, MoveInput.new())
 			blocked += _cast_events(world).size()
 		assert_eq(blocked, 0, "no new cast during 1.5 seconds of hanging")
+		assert_eq(world.player_state.mp, 3, "hanging spends no MP")
 		var jump := MoveInput.new()
 		jump.left = true
 		jump.jump_pressed = true
@@ -47,28 +52,41 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 		assert_true(world.can_cast(), "airborne casting is allowed")
 		var resumed := _cast_events(world)
 		assert_eq(resumed.size(), 1, "the cooldown became ready while hanging and fires on the first eligible tick")
+		assert_eq(world.player_state.mp, 0, "the resumed cast pays its canonical MP cost")
 		if not resumed.is_empty():
 			assert_eq(resumed[0].skill, "three_snails", "the ready skill resumes")
 
 
 func test_seeded_run_parked_mid_rope_from_one_minute_has_no_new_skill_kills() -> void:
 	var world := RunWorld.new(RF.setup("henesys_hg1", 8))
+	# This tests the climbing cast gate, independently of balance changes killing the warmup/camper.
+	world.god = true
 	var memo := {}
-	while world.time < 60.0 - DT * 0.5:
+	for tick in 60 * 60:
 		RF.auto_choose(world)
+		if world.state != RunWorld.PLAYING:
+			break
 		world.step(DT, RF.bot_input(world, memo))
 		world.drain_events()
+	assert_near(world.time, 60.0, DT, "bounded warmup reaches the climbing setup")
+	if world.time < 60.0 - DT:
+		return
 	var rope := -1
 	for i in world.ladders.count():
 		if world.ladders.is_ladder[i] == 0:
 			rope = i
 	assert_true(rope >= 0)
-	world.player.pos = Vector2(world.ladders.x[rope], (world.ladders.y1[rope] + world.ladders.y2[rope]) * 0.5)
-	world.player.fh = -1
-	world.player.vel = Vector2.ZERO
 	var up := MoveInput.new()
 	up.up = true
-	world.step(DT, up)
+	# A level-up window or a hit in progress at 1:00 can delay the grab a few ticks; retry from the rope's middle.
+	for attempt in 60:
+		if world.player.ladder == rope:
+			break
+		RF.auto_choose(world)
+		world.player.pos = Vector2(world.ladders.x[rope], (world.ladders.y1[rope] + world.ladders.y2[rope]) * 0.5)
+		world.player.fh = -1
+		world.player.vel = Vector2.ZERO
+		world.step(DT, up)
 	assert_eq(world.player.ladder, rope, "the run parks on the rope at 1:00")
 	var hanging_casts := 0
 	var hanging_kills := 0

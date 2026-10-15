@@ -24,6 +24,11 @@ extends MapleWindow
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
 const X_LABELS := {"hp": ["HP / pulse", ""]}
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
+## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
+const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
+	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", Loadout.MAX_MP_PERCENT: "Max MP"}
+## Fields shown as a percent.
+const PERCENT_FIELDS := ["mastery", Loadout.MAX_MP_PERCENT]
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -126,7 +131,7 @@ func card_rect(i: int) -> Rect2:
 
 ## Rank text of a card: a skill_rank card shows the skill's canonical level change ("Skill Lv. 2 → 3", from the card's
 ## skill_level / skill_level_next) since its own rank is not the level the skill reaches; other cards "NEW" for a
-## first rank, "Lv. a → b" after; " MAX" at the card's last rank; "" for fillers.
+## first rank, "Lv. a → b" after; " MAX" at the skill's canonical cap or the other card's last rank; "" for fillers.
 static func rank_text(card: Dictionary) -> String:
 	var kind := String(card.get("kind", ""))
 	if kind == "filler":
@@ -138,6 +143,7 @@ static func rank_text(card: Dictionary) -> String:
 	var lv_next := int(card.get("skill_level_next", 0))
 	if kind == "skill_rank" and lv > 0 and lv_next > lv:
 		s = "Skill Lv. %d → %d" % [lv, lv_next]
+		rank = lv_next
 	elif rank <= 1:
 		return "NEW"
 	else:
@@ -152,19 +158,17 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
-	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-		"time": "Duration", "x": x_label[0],
-		"pdd": "Weapon DEF", "cooltime": "Cooldown"}
-	for field: String in labels:
+	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
 		var suffix := " s" if field in ["time", "cooltime"] else ""
-		if field == "mastery":
+		if field in PERCENT_FIELDS:
 			suffix = "%"
 		elif field == "x":
 			suffix = x_label[1]
-		lines.append("%s: %d%s → %d%s" % [labels[field], int(values.before), suffix, int(values.after), suffix])
+		var label := String(x_label[0]) if field == "x" else String(FIELD_LABELS[field])
+		lines.append("%s: %d%s → %d%s" % [label, int(values.before), suffix, int(values.after), suffix])
 	return lines
 
 

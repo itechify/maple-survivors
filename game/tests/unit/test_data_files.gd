@@ -5,6 +5,8 @@ extends TestCase
 
 var data: Dictionary
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
+
 
 func before_each() -> void:
 	data = DataRepo.load_all()
@@ -24,13 +26,10 @@ func test_load_all_has_every_file() -> void:
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
-		"magic_armor": 2001003, "recovery": 1001}
+		"magic_armor": 2001003, "recovery": 1001, "improved_max_mp": 2000001, "nimble_feet": 1002}
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
-	assert_eq(skills.three_snails.ranks, [1.0, 2.0, 3.0])
-	assert_eq(skills.energy_bolt.ranks, [1.0, 5.0, 9.0, 13.0, 17.0, 20.0])
-	assert_eq(skills.magic_guard.ranks, [1.0, 5.0, 10.0, 15.0, 20.0])
 	assert_eq(skills.magic_claw.kind, "instant")
 	for key: String in skills:
 		var s: Dictionary = skills[key]
@@ -41,6 +40,35 @@ func test_skills_reference_canonical_ids() -> void:
 			assert_true(p == "" or p.begins_with("Skill.wz/%s.img/skill/%07d/" % [s.book, int(s.skill_id)]),
 				"%s.%s is a WZ path of the skill" % [key, f])
 		assert_false(s.has("fixdamage") or s.has("mad") or s.has("mastery"), "%s: no canonical numbers here" % key)
+
+
+func test_skill_ranks_cover_every_canonical_level_in_the_fixtures() -> void:
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, RF.skill_imgs()))
+
+
+func test_skill_ranks_cover_every_canonical_level_in_the_real_cache() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var imgs := {}
+	for skill: Dictionary in data.skills.skills.values():
+		var book := String(skill.book)
+		if not imgs.has(book):
+			imgs[book] = lib.img("Skill.wz/%s.img" % book).root
+	_assert_ranks_cover_canonical_levels(SkillBook.from_data(data.skills, imgs))
+	lib.free()
+
+
+func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
+	for key: String in book.defs:
+		var top := book.max_level(key)
+		assert_true(top > 0, "%s has a canonical level table" % key)
+		assert_eq(book.max_rank(key), top, "%s: one rank per canonical level" % key)
+		var ranks: Array = book.def(key).ranks
+		for level in range(1, top + 1):
+			if level <= ranks.size():
+				assert_eq(int(ranks[level - 1]), level, "%s rank %d is canonical level %d" % [key, level, level])
 
 
 func test_cards_are_consistent() -> void:
@@ -56,7 +84,8 @@ func test_cards_are_consistent() -> void:
 		if String(c.kind).begins_with("skill_"):
 			assert_true(skills.has(String(c.skill)), "%s: skill %s exists" % [c.id, c.skill])
 		if c.kind == "skill_rank":
-			assert_eq(int(c.max_rank), skills[c.skill].ranks.size() - 1, "%s: ranks 2..max" % c.id)
+			assert_eq(int(c.max_rank), skills[c.skill].ranks.size(), "%s: max_rank is the canonical level cap" % c.id)
+			assert_eq(c.effects, [{"stat": "rank", "op": "add", "value": 1.0}], "%s: one level per card" % c.id)
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
@@ -68,9 +97,32 @@ func test_cards_are_consistent() -> void:
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
+			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
 		assert_true(ids.has(id), "card %s" % id)
+	var fallback: Dictionary = data.upgrades.fallback
+	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
+	assert_eq(fallback.kind, "filler")
+	assert_eq(fallback.requires, {}, "fallback is job-neutral")
+	assert_eq(int(fallback.max_rank), 0, "healing can be taken again on a later reward")
+	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0},
+		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
+	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
+
+
+func test_stat_cards_are_replaced_by_owned_skills() -> void:
+	var pool := UpgradePool.from_data(data.upgrades)
+	assert_true(pool.card("max_hp").is_empty(), "the non-MapleStory Max HP card is removed")
+	for key: String in ["improved_max_mp", "nimble_feet"]:
+		assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
+		assert_eq(pool.card(key).skill, key)
+		assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
+		assert_eq(pool.card(key + "_rank").kind, "skill_rank")
+		var is_mp := key == "improved_max_mp"
+		assert_eq(int(pool.card(key + "_rank").max_rank), 10 if is_mp else 3)
+		assert_eq(pool.card(key).requires.jobs, [200.0] if is_mp else [0.0])
+		assert_eq(pool.card(key + "_rank").requires.jobs, [200.0] if is_mp else [0.0])
 
 
 func test_stages_mobs_and_manifest() -> void:
@@ -154,10 +206,8 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	assert_eq(float(b.mob_skills.summon_spacing), RunWorld.DEFAULT_SUMMON_SPACING, "RunWorld.DEFAULT_SUMMON_SPACING")
 	for key: String in BossDirector.DEFAULT_RULES:
 		assert_eq(float(b.bosses[key]), float(BossDirector.DEFAULT_RULES[key]), "BossDirector.DEFAULT_RULES.%s" % key)
-	for kind: String in PotionInventory.START:
-		for field: String in PotionInventory.START[kind]:
-			assert_eq(int(b.potions[kind][field]), int(PotionInventory.START[kind][field]),
-				"PotionInventory.START.%s.%s" % [kind, field])
+	for kind: String in PotionInventory.DEFAULT_ITEMS:
+		assert_eq(int(b.potions[kind].item_id), int(PotionInventory.DEFAULT_ITEMS[kind]), "PotionInventory.DEFAULT_ITEMS.%s" % kind)
 	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
 	var outfit: Array = []
 	for id: Variant in b.player.equipment:

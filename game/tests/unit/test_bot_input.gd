@@ -1,6 +1,6 @@
 extends TestCase
 ## BotInput (game/scripts/sim/bot_input.gd), the autoplay bot of RunScene, the full-run tests and scripts/balance.sh:
-## the sensible card choice (pick_card_for), the first-card policy, and climbing a ladder to EXP drops left on a
+## the sensible card choice (pick_card_for), the first-card policy, potion sips, sword duels, and climbing a ladder to EXP drops left on a
 ## platform above (synthetic map of run_fixtures.gd, no spawns).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -17,16 +17,16 @@ func _cards(w: RunWorld, ids: Array) -> Array:
 func test_pick_card_for_prefers_attack_skills() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	var cards := _cards(w, ["max_hp", "magnet", "energy_bolt_new"])
+	var cards := _cards(w, ["improved_max_mp", "magnet", "energy_bolt_new"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_new", "a new attack skill first")
-	assert_eq(BotInput.pick_card(cards), "max_hp", "the first-card policy takes the first")
+	assert_eq(BotInput.pick_card(cards), "improved_max_mp", "the first-card policy takes the first")
 	w.upgrades.apply("energy_bolt_new", w)
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "magnet", "energy_bolt_count"])),
 		"energy_bolt_count", "more bolts before pierce")
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_count", "energy_bolt_count"])), "energy_bolt_count",
 		"the current job's skill before the Beginner's")
-	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "max_hp", "improved_max_mp"])), "max_hp",
-		"defence before the rest")
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "improved_max_mp"])), "improved_max_mp",
+		"an owned passive skill before a general utility modifier")
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
 
@@ -48,6 +48,48 @@ func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback()
 	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_rank")
 	w.balance.bot.card_scores.erase("magic_guard_rank")
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
+
+
+func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:
+	var data := RF.quiet_data()
+	data.balance.potions.mp.start = 2
+	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	w.god = true
+	RF.place_player(w, 400)
+	RF.put_mob(w, 1110100, 600, 190, 100.0)
+	w.step(DT, MoveInput.new())
+	assert_eq(w.player_state.mp, 2, "opening canonical L1 cast spends three of the five MP")
+	for tick in 67:
+		w.step(DT, MoveInput.new())
+	assert_true(w.player_state.mp_short, "a ready targeted shell cannot afford its canonical cost")
+	assert_false(BotInput.decide(w, {}).drink_mp, "three missing MP would waste 97 of a canonical 100-MP Blue")
+
+
+func test_duels_a_lone_mob_with_the_sword_when_no_skill_can_fire() -> void:
+	var w := RF.quiet_world(400, 9)
+	w.god = true
+	w.spend_mp(int(w.player_state.mp))
+	var mob := RF.put_mob(w, 100100, 470, 190, 100.0)
+	var face := 1 if w.player.facing > 0 else -1
+	w.swarm.x[mob] = 400.0 + 70.0 * face
+	var mi := BotInput.decide(w, {})
+	assert_false(mi.left or mi.right, "facing the lone snail: stand still so the basic attack swings")
+	w.swarm.x[mob] = 400.0 - 70.0 * face
+	mi = BotInput.decide(w, {})
+	assert_true(mi.left if face > 0 else mi.right, "a lone snail behind: one press turns toward it")
+	w.heal_fraction("mp", 1.0)
+	mi = BotInput.decide(w, {})
+	assert_true(mi.left or mi.right, "an affordable ready Three Snails: keep kiting, the skill does the work")
+
+
+func test_flees_two_mobs_instead_of_dueling() -> void:
+	var w := RF.quiet_world(400, 9)
+	w.god = true
+	w.spend_mp(int(w.player_state.mp))
+	RF.put_mob(w, 100100, 470, 190, 100.0)
+	RF.put_mob(w, 100100, 500, 190, 100.0)
+	var mi := BotInput.decide(w, {})
+	assert_true(mi.left, "two mobs on the right: run left")
 
 
 func test_auto_choose_policies() -> void:

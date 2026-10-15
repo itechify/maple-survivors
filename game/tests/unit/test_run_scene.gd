@@ -589,7 +589,8 @@ func test_climbing_animates_only_while_moving() -> void:
 func test_warp_fast_forwards_before_the_first_frame() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2026, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
+	# Fixed training seed1 reaches the requested warp; full-run regressions retain2026's valid early death.
+	scene = _make("henesys_hg1", 1, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
 		"shot_every": 30.0})
 	var w := scene.world
 	assert_true(w.time >= 300.0 - 1e-6, "the sim is at 5:00 before any frame (%.1f)" % w.time)
@@ -686,7 +687,7 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
 	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
-	assert_eq(mp.count, 2)
+	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End / E")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
@@ -787,7 +788,7 @@ func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -
 	_assert_nothing_missing(scene, "potion tiers")
 
 
-func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> void:
+func test_levelup_window_adds_one_elixir_beside_its_available_potion_cards() -> void:
 	if not require_cache():
 		return
 	var height_one := 0.0
@@ -797,17 +798,20 @@ func test_levelup_window_has_only_its_one_or_two_available_potion_cards() -> voi
 		w.change_job(200)
 		w.progression.level = 20
 		var ids: Array = ["orange_potion", "mana_elixir"].slice(0, n)
-		w.upgrades = UpgradePool.from_data({"cards": w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id in ids)})
+		var upgrades: Dictionary = scene.data.upgrades.duplicate(true)
+		upgrades.cards = w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id in ids)
+		w.upgrades = UpgradePool.from_data(upgrades)
 		w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
 		_frames(1 + ceili(RunScene.WINDOW_DELAY / DT) + 2)
 		var lw := scene.window as LevelUpWindow
 		assert_true(lw != null)
 		if lw != null:
-			assert_eq(lw.cards.size(), n)
-			for i in n:
+			assert_eq(lw.cards.size(), n + 1)
+			assert_eq(lw.cards[n].id, "elixir")
+			for i in n + 1:
 				assert_true(lw.card_rect(i).has_area())
-			assert_eq(lw.card_rect(n), Rect2(), "no empty substitute row")
-			assert_false(lw.choose(n), "out-of-range choice cannot consume a card")
+			assert_eq(lw.card_rect(n + 1), Rect2(), "no duplicate Elixir rows")
+			assert_false(lw.choose(n + 1), "out-of-range choice cannot consume a card")
 			if n == 1:
 				height_one = lw.panel_size.y
 			else:
@@ -902,9 +906,9 @@ func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() 
 				assert_eq(slots[i].remaining_seconds, ceili(w.player_state.buffs[i].remaining))
 				assert_true(slots[i].icon != null)
 	assert_eq(w.upgrades.choice_card("magic_guard_rank", w).skill_changes,
-		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 195}, "x": {"before": 11, "after": 23}})
+		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 132}, "x": {"before": 11, "after": 14}})
 	assert_eq(w.upgrades.choice_card("magic_armor_rank", w).skill_changes,
-		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 110}, "pdd": {"before": 2, "after": 10}})
+		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 68}, "pdd": {"before": 2, "after": 4}})
 	_assert_nothing_missing(scene, "player buffs")
 
 func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:
@@ -1107,8 +1111,9 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 	w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
 	scene.handle_events(w.drain_events())
 	var effects := scene.fx.active_count()
+	var before_mp := int(w.player_state.mp)
 	_frames(1)
-	assert_eq(w.player_state.mp, 0)
+	assert_eq(w.player_state.mp, before_mp - 5, "Recovery pays canonical level-one MP cost")
 	assert_eq(w.player_state.buffs.size(), 1)
 	var slots := scene.hud.buff_row.displayed()
 	assert_eq(slots.size(), 1)

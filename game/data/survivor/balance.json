@@ -5,7 +5,7 @@
 	"mob_projectiles": {"radius": 8, "_tier": "tier C: swept body contact radius when the canonical ball has no lt/rb"},
 	"exp_mult": 1.0,
 	"player": {
-		"_start": "Tier C: survivor starter stats, with the existing 50 HP / 5 MP and Three Snails rank 1.",
+		"_start": "Tier C: survivor starter stats, the v83 Beginner 50 HP / 5 MP and Three Snails rank 1 (owner: keep the v83 opening pool).",
 		"hp": 50, "mp": 5,
 		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
 		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
@@ -51,10 +51,10 @@
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
-		"_drops": "Tier C: initial MP scarcity pass (#37), normal 2% and elite 30%; HP chances unchanged. Final MP economy tuning belongs to the balance pass.",
-		"drops": {"normal": {"hp": 0.012, "mp": 0.02}, "elite": {"hp": 0.15, "mp": 0.3}},
-		"_bot": "Tier C: drink below 80% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
-		"bot": {"hp_threshold": 0.8, "mp_threshold": 0.3, "tier_score": 112}
+		"_drops": "Tier C: coarse #29 pass, normal MP 10% and elite 60%: single-shot vanilla skills at canonical MP need a steady Blue supply; stage HP curves tune survival. No starter Blues: the v83 5-MP opening pool cannot hold one.",
+		"drops": {"normal": {"hp": 0.012, "mp": 0.1}, "elite": {"hp": 0.15, "mp": 0.6}},
+		"_bot": "Tier C: drink only when the missing HP/MP is at least min_restore_fraction of one current potion's canonical restore (owner: waste guard for v83-sized pools); potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
+		"bot": {"min_restore_fraction": 0.5, "tier_score": 112}
 	},
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
 	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},

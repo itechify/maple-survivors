@@ -4,7 +4,8 @@ extends RefCounted
 ## run benchmark). Pure: it reads the world's state and returns a MoveInput; `memo` keeps its state between ticks.
 ##
 ## It scores the danger on each side (mobs on about its level, closer = worse, the map edge counts as a wall of mobs)
-## and, when a mob is near, runs to the safer side, hopping over a mob right ahead. With nothing near it walks to the
+## and, when a mob is near, runs to the safer side, hopping over a mob right ahead; a lone ordinary mob while no attack
+## skill can fire is instead dueled standing still, facing it, so the basic attack swings. With nothing near it walks to the
 ## nearest EXP drop that no mob stands in front of (a mob nearer than BLOCK_DIST; down-jumping to one just below).
 ## When the only drops left are on platforms above (at least CLIMB_MIN_DROPS), it walks to the nearest ladder or rope
 ## that starts on its platform and climbs it (jumping for a rope that hangs above the floor). With no drop at all it
@@ -18,6 +19,10 @@ extends RefCounted
 
 ## The map edge counts as this much danger / (distance + 10) on its side.
 const EDGE_DANGER := 4.0
+## A mob nearer than this (px, on about the bot's level) makes it flee, or duel when it is the only one.
+const FLEE_DIST := 160.0
+## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
+const DUEL_DY := 40.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -45,10 +50,10 @@ const SCORE_POTION_TIER := 52.0
 ## The input for the next tick of `w`.
 static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var mi := MoveInput.new()
-	var thresholds: Dictionary = w.balance.get("potions", {}).get("bot", {})
+	var guard := float(w.balance.get("potions", {}).get("bot", {}).get("min_restore_fraction", 0.5))
 	var ps := w.player_state
-	mi.drink_hp = int(ps.potions.hp.count) > 0 and float(ps.hp) < float(ps.max_hp) * float(thresholds.get("hp_threshold", 0.0))
-	mi.drink_mp = int(ps.potions.mp.count) > 0 and float(ps.mp) < float(ps.max_mp) * float(thresholds.get("mp_threshold", 0.0))
+	mi.drink_hp = worth_drinking(w, "hp", float(ps.max_hp) - float(ps.hp), guard)
+	mi.drink_mp = worth_drinking(w, "mp", float(ps.max_mp) - float(ps.mp), guard)
 	var s := w.swarm
 	var p := w.player.pos
 	# Keep Up held during the small hop onto a portal's entrance ledge.
@@ -72,6 +77,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			memo.erase("climb_x")
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
+	var close := 0
+	var duel := -1
 	for i in s.capacity():
 		if s.active[i] == 0:
 			continue
@@ -82,6 +89,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var side := 0 if dx < 0.0 else 1
 		danger[side] += 1.0 / (absf(dx) + 30.0)
 		nearest[side] = minf(nearest[side], absf(dx))
+		if absf(dx) < FLEE_DIST:
+			close += 1
+			duel = i if absf(dy) <= DUEL_DY else -2
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
@@ -97,8 +107,16 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		memo["last_x"] = p.x
 		return mi
 	memo.erase("portal_x")
-	if minf(nearest[0], nearest[1]) < 160.0:
-		dir = -1 if danger[0] < danger[1] else 1
+	var dueling := false
+	if minf(nearest[0], nearest[1]) < FLEE_DIST:
+		dueling = close == 1 and duel >= 0 and _can_duel(w, duel)
+		if dueling:
+			# tier C: a lone ordinary mob while no attack skill can fire: stand facing it so the basic attack swings
+			# (one tick of pressing toward it turns the bot).
+			var side := 1 if w.swarm.x[duel] > p.x else -1
+			dir = side if w.player.facing != side else 0
+		else:
+			dir = -1 if danger[0] < danger[1] else 1
 	else:
 		var best := INF
 		var reach_up := w.magnet_r * 0.7
@@ -163,7 +181,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			mi.down = true
 			mi.jump_pressed = true
 			memo["down_cd"] = 60
-		elif dir != 0:
+		elif dir != 0 and not dueling:
 			var ahead: float = nearest[0 if dir < 0 else 1]
 			if ahead > 25.0 and ahead < 75.0:
 				mi.jump_pressed = true
@@ -173,6 +191,28 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		mi.up = true
 	mi.jump_held = mi.jump_pressed
 	return mi
+
+
+## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical
+## restore, so most of it lands below the pool cap.
+static func worth_drinking(w: RunWorld, kind: String, missing: float, guard: float) -> bool:
+	var amount := w.potions.restore_amount(kind)
+	return amount > 0 and int(w.potions.stock[kind].count) > 0 and missing >= guard * amount
+
+
+## True when mob `i` is an ordinary (non-elite, non-boss) mob and no attack skill could fire now: every attack is
+## cooling down or unaffordable, so standing still lets the basic attack swing instead.
+static func _can_duel(w: RunWorld, i: int) -> bool:
+	var kind: MobKind = w.mob_kinds[w.swarm.kind[i]]
+	if kind.boss or w.mob_elite[i] != 0:
+		return false
+	for key: String in w.loadout.order:
+		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
+			continue
+		var st := w.runner.stats_of(w, key)
+		if String(st.kind) != "buff" and float(w.player_state.mp) >= int(st.mp_cost):
+			return false
+	return true
 
 
 static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:

@@ -2,7 +2,43 @@ extends TestCase
 ## Deterministic balance records and aggregation through seeded worlds and the public harness seam.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BR := preload("res://tools/balance_run.gd")
+const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
+
+
+func test_unspawned_boss_diagnostics_round_trip_as_finite_json_without_mutating_the_world() -> void:
+	var data := RF.quiet_data()
+	data.balance.run_time_cap = DT
+	data.stages.stages.quiet.bosses = [{"time": 300.0, "mob_id": 2220000}]
+	var world := RunWorld.new(RF.setup("quiet", 26, data))
+	var record := BR.run_one(world, "bot", 26)
+	var encoded := JSON.stringify(record)
+	assert_false(encoded.contains("1e99999"), "unobserved distance is nullable rather than an overflowing JSON number")
+	if encoded.contains("1e99999"):
+		return
+	var parser := JSON.new()
+	assert_eq(parser.parse(encoded), OK, "a public run record round-trips through JSON")
+	var decoded: Dictionary = parser.data
+	assert_eq(decoded.bosses[0].best_distance, null)
+	assert_eq(decoded.boss_fights[0].status, "not_spawned")
+	assert_eq(decoded.state, "TIMEOUT")
+	assert_true(is_inf(float(world.bosses.records[0].best_distance)), "the live simulation keeps its route sentinel")
+
+
+func test_report_reader_normalizes_only_legacy_nonfinite_boss_diagnostics() -> void:
+	var old := '{"bosses":[{"best_distance":1e99999}],"state":"DEAD","time":612.5,"seed":26}'
+	var parsed: Dictionary = REPORT.parse_record(old)
+	assert_eq(parsed.error, "", "preserved legacy records are readable")
+	if parsed.error != "":
+		return
+	assert_eq(parsed.normalized_diagnostics, 1)
+	assert_eq(parsed.record.bosses[0].best_distance, null)
+	assert_eq(parsed.record.time, 612.5, "actual measurements are untouched")
+	assert_eq(parsed.record.state, "DEAD")
+	assert_true(old.contains("1e99999"), "normalization leaves source text intact")
+	var current: Dictionary = REPORT.parse_record('{"bosses":[{"best_distance":42.25}],"state":"TIMEOUT"}')
+	assert_eq(current.normalized_diagnostics, 0)
+	assert_eq(current.record.bosses[0].best_distance, 42.25)
 
 
 func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
@@ -23,7 +59,7 @@ func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
 	w.mob_kinds[int(w.kind_of_id[1110100])].move_speed = 0
 	w.god = true
 	var r: Dictionary = BR.run_one(w, "bot", 26)
-	assert_near(r.mp_short_seconds, 1.0, DT, "fixed ticks count eligible skill waiting")
+	assert_near(r.mp_short_seconds, 1.0 - DT, 0.001, "fixed ticks count eligible waiting through the absolute cap")
 	assert_eq(r.boss_hits.size(), 1)
 	assert_eq(r.boss_hits[0].source_kind, "attack")
 	assert_true(int(r.boss_hits[0].mp_absorbed)>0, "Magic Guard absorbed part of this hit")
@@ -34,7 +70,7 @@ func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
 
 ## The harness records actual canonical casts, rather than inferring active buffs from the final rank.
 func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
-	for rank: int in [1, 5]:
+	for rank: int in [1, 20]:
 		var data := RF.quiet_data()
 		data.balance.player.skills = []
 		data.balance.run_time_cap = 1.0
@@ -56,6 +92,127 @@ func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
 		assert_eq(cast.duration, 111.0 if rank == 1 else 600.0, "canonical endpoint duration")
 		assert_eq(cast.effect_stat, "mp_guard")
 		assert_eq(cast.value, 11.0 if rank == 1 else 80.0, "cast-time canonical effect from the public snapshot")
+
+
+func test_ordinary_kill_hits_follow_relocation_and_reset_on_same_kind_slot_reuse() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.skills = []
+	data.balance.run_time_cap = DT
+	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	w.god = true
+	var weak := {"magic": false, "damage_min": 5.0, "damage_max": 5.0, "crit": 0.0, "crit_mult": 1.5, "skill": "basic_attack"}
+	var strong := weak.merged({"damage_min": 20.0, "damage_max": 20.0}, true)
+	var mob := RF.put_mob(w, 100100, 500)
+	w.hit_mob(mob, weak, -1)
+	var moved := w.relocate_mob(mob, Vector2(600, 200), w.fhm.find_below(600, 190))
+	assert_eq(moved, mob, "this relocation reuses its own freshly freed slot")
+	w.hit_mob(moved, weak, -1)
+	w.swarm.despawn(moved)
+	var fresh := RF.put_mob(w, 100100, 600)
+	assert_eq(fresh, moved, "a fresh mob reuses the same kind and slot")
+	w.hit_mob(fresh, strong, -1)
+	var elite := RF.put_mob(w, 100100, 700, 190, 1.0, true)
+	w.hit_mob(elite, strong, -1)
+	var r := BR.run_one(w, "bot", 26)
+	assert_true(r.has("ordinary_kill_hits_by_min"), "public run record exposes landed lifetime hits per ordinary kill")
+	if not r.has("ordinary_kill_hits_by_min"):
+		return
+	assert_eq(r.ordinary_kill_hits_by_min[0], {"hits": 3, "kills": 2, "mean": 1.5}, "relocation preserves two hits; fresh reuse starts from zero; elites excluded")
+	assert_eq(r.ordinary_kill_hits_by_min[1], {"hits": 0, "kills": 0, "mean": null}, "no kills is an undefined mean")
+
+
+func test_kill_hit_means_pool_lifetime_hits_over_kills_instead_of_averaging_run_means() -> void:
+	var summary := BR.aggregate([
+		{"ordinary_kill_hits_by_min": [{"hits": 6, "kills": 2, "mean": 3.0}]},
+		{"ordinary_kill_hits_by_min": [{"hits": 1, "kills": 1, "mean": 1.0}]},
+		{"ordinary_kill_hits_by_min": [{"hits": 0, "kills": 0, "mean": null}]},
+	])
+	assert_true(summary.has("ordinary_kill_hits_by_min"))
+	if not summary.has("ordinary_kill_hits_by_min"):
+		return
+	assert_eq(summary.ordinary_kill_hits_by_min[0].hits, 7)
+	assert_eq(summary.ordinary_kill_hits_by_min[0].kills, 3)
+	assert_near(summary.ordinary_kill_hits_by_min[0].mean, 2.333333333, 0.000001)
+	assert_eq(summary.ordinary_kill_hits_by_min[1].mean, null)
+	assert_true(BR.describe_metrics(summary).contains("minute 1 ordinary hits/kill 2.333 (7 hits / 3 kills)"))
+
+
+func test_hits_before_a_minute_boundary_belong_to_the_minute_of_death() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 100
+	data.balance.run_time_cap = 60.8
+	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	RF.place_player(w, 400)
+	w.god = true
+	w.time = 59.8
+	w.loadout.set_rank("three_snails", 3)
+	var mob := RF.put_mob(w, 100100, 600, 190, 5.0)
+	w.hit_mob(mob, {"magic": false, "damage_min": 5.0, "damage_max": 5.0, "crit": 0.0, "crit_mult": 1.5, "skill": "basic_attack"}, -1)
+	var r := BR.run_one(w, "bot", 26, 0.0)
+	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0)
+	assert_eq(r.ordinary_kill_hits_by_min[1], {"hits": 2, "kills": 1, "mean": 2.0}, "earlier damage follows a mob killed by a later projectile")
+
+
+func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 100
+	data.balance.player.skills = ["magic_claw"]
+	data.skills.skills.magic_claw.damage = "fixed"
+	data.balance.run_time_cap = 0.1
+	var setup := RF.setup("quiet", 26, data)
+	setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
+	var w := RunWorld.new(setup)
+	w.god = true
+	RF.place_player(w, 400)
+	RF.put_mob(w, 100101, 500)
+	var r := BR.run_one(w, "bot", 26, 0.0)
+	assert_eq(r.ordinary_kill_hits_by_min[0], {"hits": 2, "kills": 1, "mean": 2.0})
+	data.stages.stages.quiet.bosses = [{"time": DT, "mob_id": 100101}]
+	w = RunWorld.new(RF.setup("quiet", 26, data))
+	w.setup.skill_imgs["200"].skill["2001005"].level["1"]["fixdamage"] = 10.0
+	w.god = true
+	RF.place_player(w, 400)
+	r = BR.run_one(w, "bot", 26, 0.0)
+	assert_eq(r.boss_fights[0].status, "dead", "the excluded boss really receives a killing cast")
+	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0, "scheduled bosses do not require canonical info/boss")
+
+
+func test_late_waits_have_observation_time_and_final_stock_includes_starters() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 0
+	data.balance.potions.mp.start = 3
+	data.balance.run_time_cap = 480.5
+	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	w.god = true
+	RF.place_player(w, 400)
+	RF.put_mob(w, 1110100, 500, 190, 100.0)
+	w.time = 479.5
+	var r := BR.run_one(w, "bot", 26, 0.0)
+	assert_true(r.has("late_mp_short_seconds"), "late shortages are measured separately")
+	if not r.has("late_mp_short_seconds"):
+		return
+	assert_near(r.late_mp_short_seconds, 0.5, DT)
+	assert_near(r.late_observed_seconds, 0.5, DT)
+	assert_eq(r.potions_left.mp, 3, "starting stock is not counted as collection")
+	assert_eq(r.potions_collected.mp, 0)
+	assert_eq(r.potions_start.mp, 3)
+	var early := r.duplicate(true)
+	early.late_mp_short_seconds = 0.0
+	early.late_observed_seconds = 0.0
+	var summary := BR.aggregate([r, early])
+	assert_eq(summary.late_mp_observed_runs, 1)
+	assert_eq(summary.late_mp_short_runs, 1)
+	assert_eq(summary.late_mp_short_seconds.count, 1, "unobserved late time is excluded from shortage samples")
+	assert_eq(summary.potions_left.mp.median, 3.0)
+
+
+func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
+	var summary := BR.aggregate([
+		{"state": "CLEARED", "time": 1000.0}, {"state": "DEAD", "time": 600.0},
+		{"state": "DEAD", "time": 800.0}, {"state": "TIMEOUT", "time": 1800.0},
+	])
+	assert_eq(summary.get("outcomes", {}), {"CLEARED": 1, "DEAD": 2, "TIMEOUT": 1})
+	assert_eq(summary.get("death_seconds", {}).get("median"), 700.0, "death-only median excludes clear and censored timeout")
 
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
@@ -193,6 +350,8 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 1.0
+	# Harness recording, not drinking policy: let the bot sip as soon as one point is missing.
+	data.balance.potions.bot.min_restore_fraction = 0.01
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
 	w.spawn_potion("hp", w.player.pos-Vector2(0, 25), 2)
@@ -202,6 +361,14 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var r: Dictionary = BR.run_one(w, "bot", 26)
 	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
+	assert_eq(r.potions_start.hp, 5, "starting stock includes the potion consumed before harness observation")
+	assert_eq(r.potions_left.hp, 6, "five starters plus two collected minus one used")
+	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
+	if r.has("potion_uses"):
+		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")
+		assert_eq(mp_uses.size(), 1)
+		assert_eq(mp_uses[0].restored, 5, "a Blue Potion restores only the five-MP opening pool")
+		assert_eq(mp_uses[0].capacity_waste, 95, "canonical restoration beyond the pool capacity is explicit")
 
 
 func test_censored_fight_median_is_exact_only_when_no_unfinished_fight_lies_below_it() -> void:

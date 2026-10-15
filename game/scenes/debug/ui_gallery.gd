@@ -6,7 +6,7 @@ extends Node2D
 ##
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
-##   levelup_rank    canonical Energy Bolt and Magic Claw ranks (13 -> 17), plus Nimble Feet
+##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Nimble Feet 1 -> 2 (Speed), Improved MaxMP Increase 1 -> 2 (Max MP %)
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
@@ -222,11 +222,11 @@ func _rank_cards() -> Array:
 				imgs[book] = img.root
 	# The real choice-card boundary supplies the preview; no hard-coded WZ values in the gallery.
 	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
-	for skill: String in ["energy_bolt", "magic_claw"]:
+	for skill: String in ["energy_bolt", "nimble_feet", "improved_max_mp"]:
 		world.loadout.add_skill(skill)
-		world.loadout.set_rank(skill, 4)
+		world.loadout.set_rank(skill, 4 if skill == "energy_bolt" else 1)
 	return [world.upgrades.choice_card("energy_bolt_rank", world),
-		world.upgrades.choice_card("magic_claw_rank", world), world.upgrades.choice_card("nimble_feet", world)]
+		world.upgrades.choice_card("nimble_feet_rank", world), world.upgrades.choice_card("improved_max_mp_rank", world)]
 
 
 func _spawn_point(map: MapRenderer) -> Vector2:

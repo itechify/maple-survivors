@@ -28,12 +28,13 @@ func _walled_world(left_x1 := 300.0, left_x2 := 1300.0) -> RunWorld:
 func test_pacing_keyframes() -> void:
 	var w := RunWorld.new(RF.setup("henesys_hg1"))
 	var d := w.director
-	assert_near(d.rate_at(0.0), 0.6, 1e-6)
-	assert_near(d.rate_at(60.0), 1.15, 1e-6, "halfway to the 2:00 keyframe")
-	assert_near(d.rate_at(120.0), 1.7, 1e-6)
-	assert_eq(d.max_alive_at(0.0), 15)
-	assert_eq(d.max_alive_at(60.0), 28, "round(27.5)")
-	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between the 4:00 HP 1.0 and 5:00 HP 1.25")
+	assert_near(d.rate_at(0.0), 0.15, 1e-6, "sword-paced opening")
+	assert_near(d.rate_at(60.0), 0.275, 1e-6, "halfway from 0.15 to 0.4 at the 2:00 keyframe")
+	assert_near(d.rate_at(120.0), 0.4, 1e-6)
+	assert_eq(d.max_alive_at(0.0), 3)
+	assert_eq(d.max_alive_at(60.0), 6, "round((3+8)/2)")
+	assert_near(d.value_at("hp", 120.0), 1.0, 1e-6, "opening HP stays flat before the ramp after 2:00")
+	assert_near(d.value_at("hp", 270.0), 1.125, 1e-6, "halfway between 4:00 HP 1.0 and 5:00 HP 1.25")
 	assert_near(d.value_at("speed", 900.0), 1.4, 1e-6)
 	assert_true(d.rate_at(2000.0) > 20.0, "boss stages keep ramping after the final arrival")
 	var early: PackedInt32Array = d.pool_at(60.0).kinds
@@ -110,11 +111,11 @@ func test_spawns_outside_view_inside_bounds_and_ramping() -> void:
 		assert_true(w.director.max_alive_at(60.0 * (m + 1)) > w.director.max_alive_at(60.0 * m),
 			"max_alive grows every minute (%d)" % m)
 		assert_true(w.director.rate_at(60.0 * (m + 1)) > w.director.rate_at(60.0 * m), "spawn rate grows (%d)" % m)
-	assert_eq(bursts.size(), 4, "bursts at 1:30, 3:00, 4:30, 6:00: %s" % [bursts])
-	if bursts.size() == 4:
-		assert_near(bursts[0][0], 90.0, DT * 1.5)
+	assert_eq(bursts.size(), 1, "Henesys bursts wait for 5:00, after the Beginner phase: %s" % [bursts])
+	if bursts.size() == 1:
+		assert_near(bursts[0][0], 300.0, DT * 1.5)
 		assert_between(bursts[0][1], 10, 40)
-	assert_eq(elites, 5, "elites at 1:15, 2:15, 3:15, 4:15, 5:15")
+	assert_eq(elites, 3, "Henesys elites at 4:00, 5:00, 6:00")
 
 
 func test_prefers_platforms_that_reach_the_player() -> void:

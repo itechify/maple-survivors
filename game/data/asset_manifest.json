@@ -25,7 +25,7 @@
 		{"img": "Sound.wz/Item.img", "paths": ["02000000/Use", "02000001/Use", "02000002/Use", "02000003/Use", "02000004/Use", "02000005/Use", "02000006/Use"]},
 		{"img": "Sound.wz/UI.img"},
 		{"img": "Sound.wz/BgmUI.img"},
-		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "0001001", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},
+		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "0001001", "0001002", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},
 		{"img": "Map.wz/Effect.img", "paths": ["quest/party/clear"]},
 		{"img": "Sound.wz/Field.img", "paths": ["Party1"]},
 		{"img": "String.wz/Map.img"},
@@ -40,7 +40,6 @@
 		{"img": "Npc.wz/1052001.img"},
 		{"img": "Npc.wz/1090000.img"},
 		{"img": "Npc.wz/9010000.img"},
-		{"img": "Skill.wz/100.img", "paths": ["skill/1000001"]},
 		{"img": "Character.wz/PetEquip/01812000.img", "paths": ["info"]}
 	],
 	"maps": [104040000, 101010100],

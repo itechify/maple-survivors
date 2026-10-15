@@ -58,7 +58,7 @@ func test_tier_cards_preserve_stock_follow_the_ladder_and_change_future_kill_dro
 	assert_has(ids, 2000006)
 
 
-func test_sparse_draws_offer_only_available_cards_and_empty_levelups_continue() -> void:
+func test_sparse_draws_add_one_elixir_and_exhausted_levelups_still_open() -> void:
 	for n in 3:
 		var data := RF.quiet_data()
 		var keep: Array = ["orange_potion", "mana_elixir"].slice(0, n)
@@ -70,29 +70,25 @@ func test_sparse_draws_offer_only_available_cards_and_empty_levelups_continue() 
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 11
 		var drawn := w.upgrades.roll_choices(w, rng, 3)
-		assert_eq(drawn.size(), n, "no substitute cards in a %d-card draw" % n)
+		assert_eq(drawn.size(), n + 1, "one Elixir alternative beside %d eligible cards" % n)
 		for card: Dictionary in drawn:
-			assert_true(card.id in keep)
+			assert_true(card.id in keep or card.id == "elixir")
 		w.drain_events()
 		w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
 		w.step(DT, MoveInput.new())
 		assert_eq(w.player_state.level, 21)
-		if n == 0:
-			assert_eq(w.state, RunWorld.PLAYING, "levelup continues when there is no eligible card")
-			assert_false(w.progression.has_pending())
-			assert_true(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "choice_pending").is_empty())
-		else:
-			assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
-			assert_eq(w.pending_cards.size(), n)
-			assert_true(w.apply_choice(String(w.pending_cards[0].id)))
-			assert_eq(w.state, RunWorld.PLAYING)
+		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
+		assert_eq(w.pending_cards.size(), n + 1)
+		assert_true(w.apply_choice(String(w.pending_cards[0].id)))
+		assert_eq(w.state, RunWorld.PLAYING)
+		assert_false(w.progression.has_pending())
 
 
 func test_bot_values_potion_tiers_above_general_defence_cards() -> void:
 	var w := RF.quiet_world(400, 11)
 	w.progression.level = 25
 	for id: String in ["orange_potion", "mana_elixir"]:
-		var cards := [w.upgrades.choice_card("max_hp", w), w.upgrades.choice_card(id, w)]
+		var cards := [w.upgrades.choice_card("improved_max_mp", w), w.upgrades.choice_card(id, w)]
 		assert_eq(BotInput.pick_card_for(w, cards), id)
 		assert_true(BotInput.card_score(w, cards[1]) > BotInput.card_score(w, cards[0]))
 

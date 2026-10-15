@@ -152,7 +152,7 @@ func test_wz_button_and_image_with_cache() -> void:
 	assert_eq(UiArt.size_of("UI.wz/UIWindow.img/UtilDlgEx/s").y, JobAdvanceWindow.BOTTOM_H)
 	assert_eq(UiArt.size_of("UI.wz/Basic.img/YesNo3/s"), Vector2(PauseMenu.BOX_W, PauseMenu.BOTTOM_H))
 	assert_eq(UiArt.size_of("UI.wz/Login.img/WorldSelect/scroll/0/3"), Vector2(513, 401))
-	for p: String in ["Skill.wz/100.img/skill/1000001/icon", "Character.wz/PetEquip/01812000.img/info/icon",
+	for p: String in ["Skill.wz/200.img/skill/2000001/icon", "Character.wz/PetEquip/01812000.img/info/icon",
 			"Item.wz/Consume/0200.img/02000002/info/icon", "Item.wz/Consume/0200.img/02000004/info/icon",
 			"Item.wz/Consume/0200.img/02000005/info/icon", UiArt.FALLBACK_ICON]:
 		assert_true(UiArt.frame(p) != null, "card icon %s in the cache" % p)

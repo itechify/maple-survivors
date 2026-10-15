@@ -183,8 +183,10 @@ Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd`
 world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
 first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
 `job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`
-when at least one card is eligible. Draws return at most three cards; an empty draw consumes that queued level
-without opening a window.
+for every queued level. Draws return up to three distinct eligible current-job or job-neutral cards; if fewer
+than three are available, they include one Power Elixir fallback alternative. An exhausted pool therefore
+still opens a one-card window rather than consuming the level silently. The fallback is separate from the
+weighted `upgrades.cards` pool in `upgrades.fallback`.
 The presentation layer shows the windows and calls back:
 
 | Call | Effect |
@@ -195,7 +197,8 @@ The presentation layer shows the windows and calls back:
 
 Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
 `CHOOSING_UPGRADE` with `RunWorld.choice_bonus` and `pending_bonus_choices`; they take priority over the level queue.
-`apply_choice` consumes a bonus without changing the level or queue. Empty bonus draws proceed without a window.
+`apply_choice` consumes a bonus without changing the level or queue. Exhausted bonus draws offer Power Elixir
+and still require a choice before clear.
 The bonus window uses a "Boss Reward" title and omits the gained-level notice.
 
 ### 4.4.3 Event schema
@@ -228,7 +231,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes, skill_effect_stat}]`; `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
+| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes, skill_effect_stat}]`; `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `speed` Nimble Feet, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`, `speed`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent. Improved MaxMP Increase instead exposes `max_mp_percent`, the survivor per-level percentage, never canonical MP growth |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -443,6 +446,12 @@ What the tables above leave open; the class doc comments have the rest.
   the active duration, returns total healing due to the world, and emits the final pulse before expiry. The six
   5-second pulses over 30 seconds are a tier C interpretation of canonical `x`. Rank previews include `cooltime`,
   and Recovery's `x` is labelled HP per pulse rather than an absorption percentage.
+  Nimble Feet reads canonical `speed`, `time`, `mpCon` and `cooltime`; its active speed points are added before
+  the mob-skill slow multiplier. Speed refreshes immediately on cast and expiry. Its 60 s cooldown starts at
+  cast, so the 4/8/12 s buff does not recast at expiry before that cooldown elapses. Improved MaxMP Increase is
+  a passive with data-defined `per_level` feeding `max_mp_percent`: RunWorld multiplies its base MP plus job
+  grant on every recompute, rounds once, and preserves current MP ratio on growth when this passive is owned.
+  Ordinary level growth without the passive still grants no current MP.
 - **`ProjectileSystem`:** `rng` (combat stream), `paths` (= `RunWorld.visual_paths`), `bounds`; `step()` fills
   `kills` (mob slots killed this tick) and RunWorld turns them into `mob_died` + an EXP drop, like instant hits.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest

@@ -21,7 +21,9 @@ static func skill_imgs() -> Dictionary:
 		"0001000": {"icon": _canvas(32, 32), "level": snails},
 		"0001001": {"icon": _canvas(32, 32), "effect": _anim(13, 90.0, 50, 100),
 			"level": _levels(3, {"mpCon": [5.0, 15.0], "x": [4.0, 12.0], "time": [30.0, 30.0], "cooltime": [120.0, 120.0]})},
-		"0001002": {"icon": _canvas(32, 32), "level": _levels(3, {"mpCon": [4.0, 10.0], "speed": [10.0, 20.0]})},
+		"0001002": {"icon": _canvas(32, 32), "effect": _anim(12, 90.0, 60, 100),
+			"level": _levels(3, {"mpCon": [4.0, 10.0], "speed": [10.0, 20.0],
+				"time": [4.0, 12.0], "cooltime": [60.0, 60.0]})},
 	}}
 	var b200 := {"skill": {
 		"2000000": {"icon": _canvas(32, 32), "level": _levels(16, {})},
@@ -213,10 +215,30 @@ static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
 
 
-## The real game data with an extra stage "quiet" (the henesys_hg1 pool, but no spawns, bursts or elites) so tests
-## can place every mob themselves.
+## Adds canonical-shaped weapon afterimage and body timing data to `setup` so the automatic basic attack can swing on
+## the synthetic map (the v83 Beginner kills mostly with it). Returns `setup`.
+static func with_basic_attack(setup: Dictionary) -> Dictionary:
+	setup.equipment_info = {
+		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
+		1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0, "afterImage": "mace", "sfx": "mace"}}
+	setup.body_img = {}
+	var images := {"0": {}}
+	for action: String in BasicAttack.ACTIONS:
+		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
+		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
+			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
+	setup.afterimage_imgs = {"swordOL": images, "mace": images}
+	return setup
+
+
+## Real game data with a quiet synthetic stage, a five-MP/zero-Blue resource fixture and single-projectile attacks.
+## Combat tests can place every mob themselves and opt into resources/coverage independently of balance tuning.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
+	data.balance.player.mp = 5
+	data.balance.potions.mp.start = 0
+	data.skills.skills.three_snails.count = 1
+	data.skills.skills.energy_bolt.count = 1
 	# Isolated combat/physics tests opt into potion rolls explicitly when they need them.
 	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var stages: Dictionary = data.stages.stages

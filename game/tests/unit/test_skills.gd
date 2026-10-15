@@ -23,11 +23,10 @@ func test_skill_book_levels_and_paths() -> void:
 	assert_eq(b.max_rank("three_snails"), 3)
 	for r in range(1, 4):
 		assert_eq(b.canonical_level("three_snails", r), r, "Three Snails rank = level")
-	var eb := [1, 5, 9, 13, 17, 20]
-	for r in range(1, 7):
-		assert_eq(b.canonical_level("energy_bolt", r), eb[r - 1], "Energy Bolt rank %d" % r)
-	assert_eq(b.canonical_level("energy_bolt", 9), 20, "clamped to the last rank")
-	assert_eq(b.canonical_level("magic_guard", 5), 20)
+	for r in range(1, 21):
+		assert_eq(b.canonical_level("energy_bolt", r), r, "Energy Bolt rank %d" % r)
+	assert_eq(b.canonical_level("energy_bolt", 21), 20, "clamped to the last rank")
+	assert_eq(b.canonical_level("magic_guard", 20), 20)
 	assert_eq(b.max_level("energy_bolt"), 20, "levels in the img")
 	assert_near(b.canonical("three_snails", 2, "fixdamage"), 25.0, 1e-9, "read from skill_imgs")
 	assert_near(b.canonical("energy_bolt", 20, "mad"), 55.0, 1e-9)
@@ -105,10 +104,10 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_near(w.loadout.stats("energy_bolt").damage_max, expect.y * 1.2, 1e-3, "Overcharge +20%")
 	w.upgrades.apply("energy_bolt_rank", w)
 	var eb2 := w.loadout.stats("energy_bolt")
-	assert_eq(eb2.level, 5, "rank 2 = level 5")
-	var mad5 := w.book.canonical("energy_bolt", 5, "mad")
-	var mas5 := CombatMath.mastery_fraction(int(w.book.canonical("energy_bolt", 5, "mastery")))
-	assert_near(eb2.damage_max, CombatMath.magic_damage_range(int_stat, 23.0, mad5, mas5).y * 1.2, 1e-3)
+	assert_eq(eb2.level, 2, "rank 2 = level 2")
+	var mad2 := w.book.canonical("energy_bolt", 2, "mad")
+	var mas2 := CombatMath.mastery_fraction(int(w.book.canonical("energy_bolt", 2, "mastery")))
+	assert_near(eb2.damage_max, CombatMath.magic_damage_range(int_stat, 23.0, mad2, mas2).y * 1.2, 1e-3)
 	var mc := w.loadout.stats("magic_claw")
 	assert_eq(mc.kind, "instant")
 	assert_eq(mc.attack_count, 2, "canonical attackCount")
@@ -117,21 +116,26 @@ func test_magic_skills_resolve_from_canonical_levels() -> void:
 	assert_eq(mg.buff_stat, "mp_guard")
 	assert_near(mg.buff_value, 11.0, 1e-6, "Magic Guard L1 x = 11")
 	assert_near(w.loadout.passive_total("mp_guard"), 0.0, 1e-6, "no permanent split")
-	w.loadout.set_rank("magic_guard", 5)
-	assert_near(w.loadout.stats("magic_guard").buff_value, 80.0, 1e-6, "rank 5 = level 20: x = 80")
+	w.loadout.set_rank("magic_guard", 20)
+	assert_near(w.loadout.stats("magic_guard").buff_value, 80.0, 1e-6, "rank 20 = level 20: x = 80")
 	assert_near(w.loadout.stats("magic_armor").buff_value, 2.0, 1e-6, "Magic Armor L1 pdd = 2")
 	assert_near(w.player_pdd, 0.0, 1e-6, "no permanent defence")
 
 
 func test_runner_fires_only_with_target_in_range() -> void:
-	var w := RF.quiet_world(200.0)
+	var data := RF.quiet_data()
+	data.balance.player.mp = 20
+	var w := RunWorld.new(RF.setup("quiet", 7, data))
+	RF.place_player(w, 200)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "no mob, no cast")
+	assert_eq(w.player_state.mp, 20, "no target, no MP spent")
 	var far := RF.put_mob(w, 1110100, 700.0, 190.0, 20.0)
 	for i in 60:
 		w.step(DT, MoveInput.new())
 	assert_eq(_casts(w).size(), 0, "a mob ~500 px away is out of the 420 px range")
+	assert_eq(w.player_state.mp, 20, "an out-of-range target costs no MP")
 	w.swarm.despawn(far)
 	RF.put_mob(w, 1110100, 500.0, 190.0, 20.0)
 	w.drain_events()
@@ -145,6 +149,7 @@ func test_runner_fires_only_with_target_in_range() -> void:
 			assert_eq(c.level, 1)
 			assert_eq(c.action, "swingO1")
 	assert_eq(times.size(), 3, "casts at once, then every 1.1 s: %s" % [times])
+	assert_eq(w.player_state.mp, 11, "three level-1 casts spend 9 MP")
 	if times.size() == 3:
 		assert_near(times[1] - times[0], 1.1, DT + 1e-6, "cooldown respected")
 		assert_near(times[2] - times[1], 1.1, DT + 1e-6)
