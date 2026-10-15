@@ -114,6 +114,7 @@ func test_job_guarantee_and_power_pity_use_only_current_job_cards() -> void:
 	assert_true(w.guarantee.is_empty())
 	w.change_job(210)
 	w.upgrades.apply("fire_arrow_new", w)
+	w.loadout.set_rank("fire_arrow", 30)  # Exhaust the current-job rank card as well as its learn card.
 	w.power_dry = w.upgrades.pity_draws
 	cards = w.upgrades.roll_choices(w, _rng(38))
 	assert_false(cards.is_empty(), "pity with no eligible power cards still draws ordinary choices")
