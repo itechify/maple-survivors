@@ -610,9 +610,9 @@ Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 
 15:00. The encounters use canonical movement, contact attack, art and enabled skill kits; the mushroom family
 also uses its jump slam. The Tree schedules Stumpy, King Slime and Dyle at the same arrival times.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
-250 px away. A narrow floor may require a closer point. Scheduled bosses never flinch or receive push, whatever their WZ `info/boss` flag (tier C
-survivor rule; the tier A flag and the `no_flinch` override still apply to their kinds), and ordinary relocation never
-removes them. Skipped bosses remain until killed.
+250 px away. A narrow floor may require a closer point. Scheduled bosses never flinch or receive push, whatever
+their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to their
+kinds), and ordinary relocation never removes them. Skipped bosses remain until killed.
 
 Survivor settings (tier C; canonical stats and attack timings/boxes remain unchanged):
 
