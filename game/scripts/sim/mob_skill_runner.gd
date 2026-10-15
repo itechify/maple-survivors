@@ -3,6 +3,17 @@ extends RefCounted
 ## Canonical scheduled-boss skills (MobSkill 112/113/114/126/140/200) and their timed status state
 ## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
+## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
+const SKILL_PDD_UP_AREA := 112
+const SKILL_MDD_UP_AREA := 113
+const SKILL_HEAL_AREA := 114
+const SKILL_SLOW := 126
+const SKILL_WEAPON_IMMUNITY := 140
+const SKILL_SUMMON := StageRoster.SUMMON_SKILL
+## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
+const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
+	SKILL_WEAPON_IMMUNITY]
+
 var _images: Dictionary
 var _tables: Dictionary
 var _rules: Dictionary
@@ -35,7 +46,7 @@ func speed_multiplier(now: float) -> float:
 
 ## Public presentation state for the player's active slow; empty after expiration.
 func slow_state(now: float) -> Dictionary:
-	return {"skill_id": 126, "remaining": _slow_until - now, "multiplier": _slow_factor, "visual": _slow_visual} if now < _slow_until - 1e-9 else {}
+	return {"skill_id": SKILL_SLOW, "remaining": _slow_until - now, "multiplier": _slow_factor, "visual": _slow_visual} if now < _slow_until - 1e-9 else {}
 
 
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
@@ -53,7 +64,7 @@ func step(world: RunWorld) -> void:
 			var id := int(entry.skill)
 			var level := int(entry.level)
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
-			if spec.is_empty() or id not in [126, 200, 112, 113, 114, 140]:
+			if spec.is_empty() or id not in SUPPORTED:
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
@@ -62,27 +73,27 @@ func step(world: RunWorld) -> void:
 			if world.time < ready - 1e-9 or float(world.swarm.hp[slot]) * 100.0 > float(world.swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
-			if id == 200 and summoned_alive(world, index) >= int(spec.get("limit", 0)):
+			if id == SKILL_SUMMON and summoned_alive(world, index) >= int(spec.get("limit", 0)):
 				continue
 			var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot])
 			var duration := float(spec.get("time", 0.0))
 			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
 			var affected := ""
-			if id == 126 and _area(spec, pos, world.swarm.facing[slot]).has_point(world.player.pos):
+			if id == SKILL_SLOW and _area(spec, pos, world.swarm.facing[slot]).has_point(world.player.pos):
 				# tier C: x is retained percent of upgraded speed (x80 means 20% slower).
 				_slow_factor = clampf(float(spec.get("x", 100.0)) / 100.0, 0.0, 1.0)
 				_slow_until = world.time + duration
 				_slow_visual = path + "/affected"
 				affected = _slow_visual
 			var targets: Array = []
-			if id == 200:
+			if id == SKILL_SUMMON:
 				targets = _summon(world, slot, index, spec)
-			elif id in [112, 113]:
+			elif id in [SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA]:
 				targets = _buff(world, slot, id, spec, duration)
-			elif id == 114:
+			elif id == SKILL_HEAL_AREA:
 				_pending_heals.append({"index": index, "level": level, "spec": spec,
 					"due": world.time + float(entry.get("effectAfter", 0.0)) / 1000.0})
-			elif id == 140:
+			elif id == SKILL_WEAPON_IMMUNITY:
 				# tier C: weapon immunity is a timed self status; WZ verifies its gate and duration.
 				_weapon_until[slot] = world.time + duration
 				_weapon_visual[slot] = path + "/mob"
@@ -93,9 +104,9 @@ func step(world: RunWorld) -> void:
 			world.player.speed_stat = roundi(world.player_speed_stat())
 			world.emit("boss_skill", {"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
 				"pos": pos, "facing": int(world.swarm.facing[slot]), "action": action, "duration": duration,
-				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == 114 and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
+				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == SKILL_HEAL_AREA and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
 				"recipient_effect": path + "/mob0" if spec.has("mob0") else "",
-				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == 200 and spec.has("summonEffect") else ""})
+				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == SKILL_SUMMON and spec.has("summonEffect") else ""})
 			break
 	# Resolve newly queued effectAfter0 heals in the same tick, after the cast event; delayed entries remain queued.
 	_resolve_heals(world)
@@ -124,7 +135,7 @@ func _resolve_heals(world: RunWorld) -> void:
 				continue
 			world.swarm.hp[slot] += restored
 			world.emit("mob_healed", {"mob": slot, "mob_id": world.mob_kinds[world.swarm.kind[slot]].id,
-				"skill_id": 114, "level": int(pending.level), "amount": restored,
+				"skill_id": SKILL_HEAL_AREA, "level": int(pending.level), "amount": restored,
 				"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time})
 	_pending_heals = waiting
 
@@ -236,7 +247,7 @@ func _buff(world: RunWorld, source: int, id: int, spec: Dictionary, duration: fl
 			continue
 		targets.append(slot)
 		# tier C: x is a flat defense addition; WZ verifies x85, not the original client's arithmetic.
-		if id == 113:
+		if id == SKILL_MDD_UP_AREA:
 			_mdd[slot] = float(spec.get("x", 0.0))
 			_mdd_until[slot] = world.time + duration
 		else:

@@ -696,7 +696,7 @@ func handle_events(events: Array) -> void:
 
 func _on_boss_skill(e: Dictionary) -> void:
 	var source := int(e.mob)
-	if int(e.skill_id) == 140:
+	if int(e.skill_id) == MobSkillRunner.SKILL_WEAPON_IMMUNITY:
 		_event_shot("dyle_immunity.png", 0.15)
 	if String(e.effect) != "":
 		# tier C: heal mob0 pos0 uses feet; MobSkill pos3 effect art uses the canonical body-box center.
