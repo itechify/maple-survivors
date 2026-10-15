@@ -173,7 +173,7 @@ func stats(key: String) -> Dictionary:
 		"action_time": float(d.get("action_time", 0.0)),
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
-		"passive_value": book.canonical(key, lv, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0,
+		"passive_value": _passive_value(key, lv, passive),
 		"icon": String(d.get("icon", "")),
 		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
@@ -184,14 +184,20 @@ func stats(key: String) -> Dictionary:
 	}
 
 
-## Sum of the canonical values of every owned passive skill feeding `passive_stat` ("mp_guard", "pdd").
+## Sum of owned passive effects: canonical fields or survivor per-level values from skills.json.
 func passive_total(passive_stat: String) -> float:
 	var t := 0.0
 	for k: String in order:
 		var p: Dictionary = book.def(k).get("passive", {})
 		if String(p.get("stat", "")) == passive_stat:
-			t += book.canonical(k, level(k), String(p.get("field", "")), 0.0)
+			t += _passive_value(k, level(k), p)
 	return t
+
+
+func _passive_value(key: String, level: int, passive: Dictionary) -> float:
+	if passive.has("per_level"):
+		return float(passive.per_level) * level
+	return book.canonical(key, level, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0
 
 
 static func _stack(m: Vector2, op: String, value: float) -> Vector2:

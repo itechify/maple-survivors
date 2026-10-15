@@ -76,6 +76,36 @@ func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 	assert_near(float(bolt.damage_min), 17.762667, 0.0001, "canonical 15% mastery")
 
 
+func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 100
+	data.balance.player.skills = []
+	data.balance.regen.mp = 0
+	var w := RunWorld.new(RF.setup("quiet", 41, data))
+	RF.place_player(w, 400)
+	w.change_job(200)
+	assert_eq(w.player_state.max_mp, 220, "base 100 plus the 120 job grant")
+	assert_true(w.spend_mp(110))
+	w.upgrades.apply("improved_max_mp", w)
+	assert_eq(w.loadout.level("improved_max_mp"), 1, "the learn card owns the real passive")
+	for pick in 4:
+		w.upgrades.apply("improved_max_mp_rank", w)
+	assert_eq(w.loadout.level("improved_max_mp"), 5)
+	assert_eq(w.player_state.max_mp, 242, "rank 5: round(220 base x 1.10)")
+	assert_eq(w.player_state.mp, 121, "the half-full MP pool keeps its ratio")
+	w.refresh_player_stats()
+	assert_eq(w.player_state.max_mp, 242, "recomputing does not compound the multiplier")
+	assert_eq(w.player_state.mp, 121, "recomputing does not refill MP")
+	w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+	for tick in 120:
+		w.step(DT, MoveInput.new())
+		if w.state != RunWorld.PLAYING:
+			break
+	assert_eq(w.player_state.level, 2)
+	assert_eq(w.player_state.max_mp, 266, "new base 242 x 1.10 rounds to 266")
+	assert_eq(w.player_state.mp, 133, "level growth with the passive also keeps the half-full ratio")
+
+
 func test_real_starter_outfit_defense() -> void:
 	if not require_cache():
 		return

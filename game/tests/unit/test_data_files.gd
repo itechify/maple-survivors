@@ -26,7 +26,7 @@ func test_load_all_has_every_file() -> void:
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
-		"magic_armor": 2001003, "recovery": 1001}
+		"magic_armor": 2001003, "recovery": 1001, "improved_max_mp": 2000001, "nimble_feet": 1002}
 	for key: String in want:
 		assert_true(skills.has(key), key)
 		assert_eq(int(skills[key].skill_id), want[key], key)
@@ -97,7 +97,7 @@ func test_cards_are_consistent() -> void:
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new", "max_hp",
+			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
 			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
 		assert_true(ids.has(id), "card %s" % id)
 	var fallback: Dictionary = data.upgrades.fallback
@@ -109,6 +109,20 @@ func test_cards_are_consistent() -> void:
 		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
 	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
 	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
+
+
+func test_stat_cards_are_replaced_by_owned_skills() -> void:
+	var pool := UpgradePool.from_data(data.upgrades)
+	assert_true(pool.card("max_hp").is_empty(), "the non-MapleStory Max HP card is removed")
+	for key: String in ["improved_max_mp", "nimble_feet"]:
+		assert_eq(pool.card(key).kind, "skill_new", "%s learns its skill" % key)
+		assert_eq(pool.card(key).skill, key)
+		assert_eq(pool.card(key).effects, [], "no flat stat effects remain")
+		assert_eq(pool.card(key + "_rank").kind, "skill_rank")
+		var is_mp := key == "improved_max_mp"
+		assert_eq(int(pool.card(key + "_rank").max_rank), 10 if is_mp else 3)
+		assert_eq(pool.card(key).requires.jobs, [200.0] if is_mp else [0.0])
+		assert_eq(pool.card(key + "_rank").requires.jobs, [200.0] if is_mp else [0.0])
 
 
 func test_stages_mobs_and_manifest() -> void:

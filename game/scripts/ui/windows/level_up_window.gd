@@ -155,13 +155,13 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
 	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
 		"time": "Duration", "x": x_label[0],
-		"pdd": "Weapon DEF", "cooltime": "Cooldown"}
+		"pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", "max_mp_percent": "Max MP"}
 	for field: String in labels:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
 		var suffix := " s" if field in ["time", "cooltime"] else ""
-		if field == "mastery":
+		if field in ["mastery", "max_mp_percent"]:
 			suffix = "%"
 		elif field == "x":
 			suffix = x_label[1]

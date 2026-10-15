@@ -21,7 +21,9 @@ static func skill_imgs() -> Dictionary:
 		"0001000": {"icon": _canvas(32, 32), "level": snails},
 		"0001001": {"icon": _canvas(32, 32), "effect": _anim(13, 90.0, 50, 100),
 			"level": _levels(3, {"mpCon": [5.0, 15.0], "x": [4.0, 12.0], "time": [30.0, 30.0], "cooltime": [120.0, 120.0]})},
-		"0001002": {"icon": _canvas(32, 32), "level": _levels(3, {"mpCon": [4.0, 10.0], "speed": [10.0, 20.0]})},
+		"0001002": {"icon": _canvas(32, 32), "effect": _anim(12, 90.0, 60, 100),
+			"level": _levels(3, {"mpCon": [4.0, 10.0], "speed": [10.0, 20.0],
+				"time": [4.0, 12.0], "cooltime": [60.0, 60.0]})},
 	}}
 	var b200 := {"skill": {
 		"2000000": {"icon": _canvas(32, 32), "level": _levels(16, {})},
