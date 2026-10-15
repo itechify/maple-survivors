@@ -878,8 +878,8 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000) and five Blue Potions (2000003). Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 3.75% independently; elites roll HP 15% and MP 30%. Normal MP
-is 37.5% less frequent than the original 6%; elite MP is less than half the former 65%, and boss bundles are 3 rather
+Normal kills use a global fallback of HP 1.2% and MP 4% independently; elites roll HP 15% and MP 30%. Normal MP
+is one third less frequent than the original 6%; elite MP is less than half the former 65%, and boss bundles are 3 rather
 than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
 EXP cap/absorption path. Both card policies drink below 60% HP or 30% MP, with thresholds in the same survivor data.
@@ -1212,7 +1212,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot thresholds | start 5 Red/5 Blue; normal HP .012 fallback (stage curve in §5)/MP .0375, elite HP .15/MP .30; drink below HP .6/MP .3 or observed MP shortage; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot thresholds | start 5 Red/5 Blue; normal HP .012 fallback (stage curve in §5)/MP .04, elite HP .15/MP .30; drink below HP .6/MP .3 or observed MP shortage; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |

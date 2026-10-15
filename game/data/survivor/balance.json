@@ -51,8 +51,8 @@
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 5},
-		"_drops": "Tier C: #29 balance pass, normal MP 3.75% (was 6%), elite 30% (was 65%); stage HP curves tune survival. Five starter Blues bridge opening variance with a finite 30 MP pool.",
-		"drops": {"normal": {"hp": 0.012, "mp": 0.0375}, "elite": {"hp": 0.15, "mp": 0.3}},
+		"_drops": "Tier C: #29 balance pass, normal MP 4% (was 6%), elite 30% (was 65%); stage HP curves tune survival. Five starter Blues bridge opening variance with a finite 30 MP pool.",
+		"drops": {"normal": {"hp": 0.012, "mp": 0.04}, "elite": {"hp": 0.15, "mp": 0.3}},
 		"_bot": "Tier C: drink below 60% HP/30% MP or after an observed MP affordability failure; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
 		"bot": {"hp_threshold": 0.6, "mp_threshold": 0.3, "tier_score": 112}
 	},
