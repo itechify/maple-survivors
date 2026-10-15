@@ -15,7 +15,7 @@ func _world(seed_value := 10) -> RunWorld:
 	return RunWorld.new(setup)
 
 
-func test_run_starts_with_five_red_potions_and_no_mp_potions() -> void:
+func test_synthetic_stock_override_starts_with_five_red_and_zero_blue() -> void:
 	var w := _world()
 	assert_eq(w.player_state.get("potions", {}), {
 		"hp": {"item_id": 2000000, "count": 5}, "mp": {"item_id": 2000003, "count": 0}})
