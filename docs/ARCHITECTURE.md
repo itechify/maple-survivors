@@ -237,8 +237,12 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
 
-`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, spawn_time, death_time,
-dead, teleports}`. Times are -1 before arrival/death. Pursuit bookkeeping also holds `stall`, `best_distance`,
+`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, arrival, spawn_time,
+death_time, dead, skipped, teleports}`. Times are -1 before arrival/death. `arrival` starts at the schedule
+time; when no arrival point exists on the arrival tick it moves to now + `warning_time` and a fresh `boss_warning`
+fires at once, so an arrival always follows its last warning by the warning lead. A boss whose mob img is
+missing is never announced and is `skipped` at its arrival time (a `RunWorld.warnings` line; the harness reports
+status `skipped`); `all_dead()` counts it as done, so it cannot block the clear. Pursuit bookkeeping also holds `stall`, `best_distance`,
 `anchor`, `fading`, `fade_left`; action bookkeeping captures the spawned mob's logical `identity` for reuse checks.
 `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
 Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
@@ -310,9 +314,9 @@ EXP and random potion drops; bundles use the current stock item. Reward scatteri
 
 
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
-remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end, the burst size
-past the stage duration (`burst_count_at`) and shortens the elite interval by the extrapolated rate ratio
-(`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
+remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end,
+the burst size past the stage duration (`burst_count_at`) and shortens the elite interval by the extrapolated rate
+ratio (`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
 
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->

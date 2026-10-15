@@ -610,9 +610,11 @@ Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 
 15:00. The encounters use canonical movement, contact attack, art and enabled skill kits; the mushroom family
 also uses its jump slam. The Tree schedules Stumpy, King Slime and Dyle at the same arrival times.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
-250 px away. A narrow floor may require a closer point. Scheduled bosses never flinch or receive push, whatever
-their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to their
-kinds), and ordinary relocation never removes them. Skipped bosses remain until killed.
+250 px away. A narrow floor may require a closer point. If no arrival point exists at all on the arrival tick, the
+arrival slips by 3 s behind a fresh warning (tier C). A boss whose mob img is missing from the asset cache is skipped
+with a run warning at its arrival time and never blocks the clear. Scheduled bosses never flinch or receive push,
+whatever their WZ `info/boss` flag (tier C survivor rule; the tier A flag and the `no_flinch` override still apply to
+their kinds), and ordinary relocation never removes them. Bosses the player runs away from remain until killed.
 
 Survivor settings (tier C; canonical stats and attack timings/boxes remain unchanged):
 
@@ -1060,7 +1062,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
 | Boss arrivals and scaling | both stages at 5/10/15 min; HP/contact/attack multipliers in §4.3 | C | survivor data calibrated on training runs; canonical base stats unchanged |
-| Boss warning / placement / pressure | 3 s lead; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
+| Boss warning / placement / pressure | 3 s lead; no arrival point on the arrival tick: slip 3 s behind a fresh warning; missing mob img: skipped with a run warning; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |

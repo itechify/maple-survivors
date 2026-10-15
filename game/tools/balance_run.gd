@@ -406,7 +406,7 @@ static func fight_records(world: RunWorld) -> Array:
 		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
-			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "not_spawned"})
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
 	return fights
 
 
@@ -448,7 +448,7 @@ static func aggregate(records: Array) -> Dictionary:
 		for fight: Dictionary in record.get("boss_fights", []):
 			var id := str(int(fight.mob_id))
 			if not result.boss_fights.has(id):
-				result.boss_fights[id] = {"alive": 0, "not_spawned": 0}
+				result.boss_fights[id] = {"alive": 0, "not_spawned": 0, "skipped": 0}
 				fight_samples[id] = []
 			if String(fight.status) == "dead":
 				fight_samples[id].append(float(fight.duration))

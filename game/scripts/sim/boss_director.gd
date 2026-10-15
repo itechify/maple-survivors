@@ -8,7 +8,8 @@ const DEFAULT_RULES := {"warning_time": 3.0, "spawn_distance": 250.0,
 	"teleport_stall": 5.0, "teleport_fade": 0.3, "teleport_progress": 1.0}
 
 var entries: Array = []
-## Schedule-order records: boss_index, mob_id, slot, warned, spawn_time, death_time, dead.
+## Schedule-order records: boss_index, mob_id, slot, warned, arrival (planned arrival time: the schedule time, pushed
+## back when no arrival point exists), spawn_time, death_time, dead, skipped (no mob img: never arrives, counts as done).
 var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
@@ -24,11 +25,10 @@ func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 	_view_slots.fill(-1)
 	for index in entries.size():
 		records.append({"boss_index": index, "mob_id": int(entries[index].mob_id), "slot": -1,
-			"warned": false, "spawn_time": -1.0, "death_time": -1.0, "dead": false,
+			"warned": false, "arrival": float(entries[index].time), "spawn_time": -1.0, "death_time": -1.0,
+			"dead": false, "skipped": false,
 			"stall": 0.0, "best_distance": INF, "anchor": Vector2.ZERO, "fading": false, "fade_left": 0.0,
 			"teleports": 0})
-
-
 		_actions.append({"action": "", "start": 0.0, "until": 0.0, "facing": -1})
 
 
@@ -94,21 +94,29 @@ func has_bosses() -> bool:
 	return not entries.is_empty()
 
 
-## Fires each warning and places each due boss on the player's reachable platform, with regen fade-in.
+## Fires each warning and places each due boss on the player's reachable platform, with regen fade-in. A boss whose
+## mob img is missing is skipped at its arrival time with a run warning (it never blocks the clear); when no arrival
+## point exists on the arrival tick, the arrival is postponed by the warning lead and a fresh warning fires at once,
+## so a boss always arrives exactly warning_time after its last warning (tier C).
 func step(world: RunWorld, dt: float = 0.0) -> void:
 	for index in entries.size():
 		var entry: Dictionary = entries[index]
 		var record: Dictionary = records[index]
-		if bool(record.dead):
+		if bool(record.dead) or bool(record.skipped):
 			continue
 		if float(record.spawn_time) >= 0.0:
 			_track_pursuit(index, world, dt)
 			continue
-		var arrival := float(entry.time)
-		if not bool(record.warned) and world.time >= arrival - float(rules.warning_time) - 1e-6:
-			record.warned = true
-			world.emit("boss_warning", {"boss_index": index, "mob_id": int(entry.mob_id), "time": world.time})
-		if world.time < arrival - 1e-6 or not world.kind_of_id.has(int(entry.mob_id)):
+		var arrival := float(record.arrival)
+		var known := world.kind_of_id.has(int(entry.mob_id))
+		if known and not bool(record.warned) and world.time >= arrival - float(rules.warning_time) - 1e-6:
+			_warn(index, world)
+		if world.time < arrival - 1e-6:
+			continue
+		if not known:
+			record.skipped = true
+			world.warnings.append("boss %d (%d) has no mob img: skipped so the stage can clear" % [
+				index, int(entry.mob_id)])
 			continue
 		var point := world.director.pick_player_platform(world, float(rules.min_spawn_distance),
 			float(rules.spawn_distance), true)
@@ -116,10 +124,12 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 			# A narrow platform can require a closer arrival; the warning and regen fade still apply.
 			point = world.director.pick_player_platform(world, 0.0, float(rules.spawn_distance), true)
 		if point.z < -1.0:
+			_postpone(index, world)
 			continue
 		var slot := world.spawn_mob(int(world.kind_of_id[int(entry.mob_id)]), Vector2(point.x, point.y),
 			int(point.z), float(entry.get("hp_mult", 1.0)), false)
 		if slot < 0:
+			_postpone(index, world)
 			continue
 		world.mob_boss[slot] = index
 		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
@@ -130,6 +140,17 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		record.anchor = Vector2(world.swarm.x[slot], world.swarm.y[slot])
 		world.emit("boss_spawned", {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
 			"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time})
+
+
+func _warn(index: int, world: RunWorld) -> void:
+	records[index].warned = true
+	world.emit("boss_warning", {"boss_index": index, "mob_id": int(entries[index].mob_id), "time": world.time})
+
+
+## No arrival point this tick: arrive warning_time from now, after a fresh warning.
+func _postpone(index: int, world: RunWorld) -> void:
+	records[index].arrival = world.time + float(rules.warning_time)
+	_warn(index, world)
 
 
 func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
@@ -205,12 +226,12 @@ func live_count() -> int:
 	return count
 
 
-## True only after every scheduled boss has spawned and died.
+## True only after every scheduled boss has spawned and died (or was skipped for a missing mob img).
 func all_dead() -> bool:
 	if records.is_empty():
 		return false
 	for record: Dictionary in records:
-		if not bool(record.dead):
+		if not bool(record.dead) and not bool(record.skipped):
 			return false
 	return true
 

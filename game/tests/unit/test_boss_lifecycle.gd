@@ -124,6 +124,66 @@ func test_boss_takes_damage_without_stun_or_push() -> void:
 	assert_eq(w.swarm.vx[slot], velocity, "boss ignores the knockback direction")
 
 
+func test_arrival_without_a_point_rewarns_and_keeps_the_three_second_lead() -> void:
+	var setup := _setup([3.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": -100, "y2": 0},
+		{"x1": 100, "y1": 0, "x2": 2000, "y2": 0}], [Vector2(-600, -10)])
+	var w := RunWorld.new(setup)
+	w.god = true
+	var warnings: Array[float] = []
+	var spawned := -1.0
+	for tick in 9 * 60:
+		if w.time >= 3.3 and w.time < 4.0:
+			# The player hangs over the gap between the floors: no player platform, so no arrival point.
+			w.player.pos = Vector2(0, -300)
+			w.player.vel = Vector2.ZERO
+			w.player.fh = -1
+		elif w.time >= 4.0 and w.time < 4.0 + DT:
+			RF.place_player(w, -600.0, -10.0)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_warning":
+				warnings.append(float(e.time))
+			elif e.type == "boss_spawned":
+				spawned = float(e.time)
+	assert_eq(warnings.size(), 2, "the original warning plus a fresh one when the arrival slips")
+	assert_true(spawned > 0.0, "the boss arrives once a point exists")
+	if warnings.size() != 2 or spawned < 0.0:
+		return
+	assert_near(warnings[0], 0.5, DT)
+	assert_near(warnings[1], 3.5, DT, "the fresh warning fires on the failed arrival tick")
+	assert_near(spawned - warnings[1], 3.0, DT, "arrival keeps the 3 s warning lead")
+	assert_eq(w.state, RunWorld.PLAYING, "no clear while the delayed boss is alive")
+
+
+func test_boss_without_a_mob_img_is_skipped_with_a_warning_and_never_blocks_the_clear() -> void:
+	var setup := _setup([0.5, 1.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.data.stages.stages.quiet.bosses[1].mob_id = 2229999
+	var w := RunWorld.new(setup)
+	w.god = true
+	var warned_ids: Array[int] = []
+	for tick in 120:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_warning":
+				warned_ids.append(int(e.mob_id))
+	assert_eq(warned_ids, [2220000] as Array[int], "a boss that cannot arrive is never announced")
+	assert_true(bool(w.bosses.records[1].skipped), "the missing boss is skipped at its arrival time")
+	assert_true(Array(w.warnings).any(func(s: String) -> bool: return s.contains("2229999")),
+		"the run reports the skipped boss")
+	assert_eq(w.state, RunWorld.PLAYING, "the present boss still has to die")
+	_kill(w, int(w.bosses.records[0].slot))
+	for tick in 120:
+		RF.auto_choose(w)
+		w.step(DT, MoveInput.new())
+		if w.state == RunWorld.CLEARED:
+			break
+	assert_eq(w.state, RunWorld.CLEARED, "the skipped boss does not block the clear")
+	assert_eq(BALANCE_RUN.fight_records(w)[1].status, "skipped")
+
+
 func test_scheduled_boss_without_wz_boss_flag_or_override_never_flinches() -> void:
 	var setup := _setup([0.5])
 	setup.mob_imgs[2220000].info.erase("boss")
