@@ -279,6 +279,7 @@ func step(dt: float, world: RunWorld) -> void:
 		_acc = minf(_acc, 1.0)
 	if t >= next_burst:
 		next_burst += float(stage.bursts.every)
+		# tier C: bursts are normal spawns, so they also run at half size while a boss lives (GAME_DESIGN 4.3).
 		var count := roundi(burst_count_at(t) * world.bosses.normal_spawn_multiplier())
 		var n := mini(count, maxi(0, hard_cap - swarm.alive_count()))
 		bursts += 1

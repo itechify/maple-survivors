@@ -56,6 +56,8 @@ func step(world: RunWorld) -> void:
 			if spec.is_empty() or id not in [126, 200, 112, 113, 114, 140]:
 				continue
 			var key := "%d/%d/%d" % [index, id, level]
+			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
+			# tick), then one interval after each cast; WZ has the interval, not when the first use may happen.
 			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
 			if world.time < ready - 1e-9 or float(world.swarm.hp[slot]) * 100.0 > float(world.swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
@@ -224,6 +226,8 @@ func defense_bonus(slot: int, magic: bool, now: float) -> float:
 	return (_mdd[slot] if now < _mdd_until[slot] - 1e-9 else 0.0) if magic else (_pdd[slot] if now < _pdd_until[slot] - 1e-9 else 0.0)
 
 
+## MobSkill 112/113 are v83 area buffs: every living mob inside the canonical area (ordinary mobs included) gets the
+## flat defense for the canonical time; returns the recipient slots.
 func _buff(world: RunWorld, source: int, id: int, spec: Dictionary, duration: float) -> Array:
 	var targets: Array = []
 	var area := _area(spec, Vector2(world.swarm.x[source], world.swarm.y[source]), world.swarm.facing[source])

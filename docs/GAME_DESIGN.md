@@ -640,7 +640,9 @@ Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are 
 levels its `info/skill` lists) and its `info/revive` list are read from the canonical data at load time (`StageRoster`)
 and loaded with the stage; `stages.json` never repeats these v83 lists.
 
-While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
+While any boss lives, normal spawns run at half rate (spec). Bursts count as normal spawns, so both the steady spawn
+rate and each burst's count halve (`balance.bosses.normal_spawn_mult` 0.5, burst count rounded; tier C reading of
+the spec); elite scheduling stays independent.
 Both stages continue the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
 (`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Burst size keeps its 10→40 slope over the
 stage at the same quarter pace past 15:00, and the elite interval shrinks in proportion to the extrapolated spawn rate
@@ -735,6 +737,29 @@ The balance harness continues until death/clear or `balance.run_time_cap` (initi
 An unfinished capped run is `TIMEOUT`, separately counted from deaths. Records include each boss's spawn/death
 times and landed boss hits with whole damage, HP at impact and the damage/HP fraction. No survival/pacing claim
 follows from the calibration table alone.
+
+#### Additions beyond the spec (kept)
+
+The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and recorded here with its reason.
+
+- **Time-varying ordinary HP potion chance** (`normal_hp_drop_chance` keyframes, tier C): early supply bridges weak
+  Red-potion builds and late scarcity limits banking (section 5).
+- **Per-boss `attack_interval`, `attack_dmg_mult` and `rewards` overrides** (tier C): WZ attack nodes carry no
+  interval, so the 8 s cadence is ours; a slam's PAD differs from the contact PAD (300 against 200/450), so it needs
+  its own scale to land in the 40-50% band; reward overrides support early builds (Mano 6 HP / 6 MP, Stumpy 3 HP / 6 MP) and
+  limit later stock (second bosses 1 HP).
+- **`balance.bot.card_scores`** (tier C): the sensible bot learns and ranks Magic Guard before another attack (scores
+  110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform.
+- **Retuned survivor EXP curve** `4 + 15L + 3.8L²` (tier C): V27 kept the Magician's exact 980 EXP cost (Mage near
+  3:00) while the quadratic term carries the late game toward Lv 30 at 12:00-15:00 (section 5, 4.2).
+- **Boss defense buffs reach ordinary mobs** (tier A area and values, tier C arithmetic): MobSkill 112/113 are v83
+  area buffs (`lt`/`rb`), so Mano's, Stumpy's and Dyle's casts give their flat PDD/MDD to every living mob inside the
+  canonical area for the canonical time, boss or not.
+- **Extra events** (`boss_attack`, `mob_projectile_spawned`/`_hit`, `mob_healed`, `mob_revives_spawned`,
+  `boss_teleported`, `potion_tier_up`, `mp_short`, `buff_cast`/`_expired`/`_pulse`): presentation and metrics seams of
+  the specced systems with no gameplay effect of their own (schema in ARCHITECTURE.md 4.4.3).
+- **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` runs through the post-15:00 finale until a
+  death or clear; documented in AGENTS.md and the script header.
 
 ## 5. Experience and levels
 
@@ -1060,6 +1085,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
 | Invincibility after hit | 1.5 s | C | ours |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
+| Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
+| Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
 | Mano skill scheduling / summons | first use after interval, one canonical stance at a time; omitted hp100%; 24 px symmetric spawn spacing | C (policy/spacing), A (intervals/list/limit/art) | ours; original v83 WZ |
 | MobSkill effect anchors / summon family | affected pos1 at body top, effect pos3 at mob center; summonEffect1 selects Effect.wz/Summon.img/1 | C (mapping/placement), A (art/origins/delays) | ours; original v83 WZ |
 | Basic physical damage / interval | ?6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
@@ -1069,6 +1096,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |
 | Elite damage | ×1.5 after defense/resistance, before final rounding | C | survivor choice in stage elites.damage_mult |
 | Boss arrivals and scaling | both stages at 5/10/15 min; HP/contact/attack multipliers in §4.3 | C | survivor data calibrated on training runs; canonical base stats unchanged |
+| Normal spawns during a boss | while any boss lives the steady spawn rate and every burst's count are ×0.5 (bursts are normal spawns; count rounded); elites unchanged | C | spec "normal spawns run at half rate", our reading that bursts are normal spawns; balance.bosses.normal_spawn_mult |
 | Boss warning / placement / pressure | 3 s lead; no arrival point on the arrival tick: slip 3 s behind a fresh warning; missing mob img: skipped with a run warning; preferred 250 px, minimum 150 px (closer fallback on narrow floors); ordinary rate/bursts ×0.5 while a boss lives | C | survivor choices in balance.bosses |
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
