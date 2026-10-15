@@ -80,7 +80,10 @@ func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 100
 	data.balance.player.skills = []
+	data.balance.player.stats.int = 49
 	data.balance.regen.mp = 0
+	# Synthetic later-job grant exercises the recompute independently of future job balance.
+	data.jobs_survivor.jobs["210"]["grants"] = {"max_mp": 120}
 	var w := RunWorld.new(RF.setup("quiet", 41, data))
 	RF.place_player(w, 400)
 	w.change_job(200)
@@ -102,8 +105,11 @@ func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
 		if w.state != RunWorld.PLAYING:
 			break
 	assert_eq(w.player_state.level, 2)
-	assert_eq(w.player_state.max_mp, 266, "new base 242 x 1.10 rounds to 266")
-	assert_eq(w.player_state.mp, 133, "level growth with the passive also keeps the half-full ratio")
+	assert_eq(w.player_state.max_mp, 271, "base 220 + 22 growth + floor(49 INT/10), times 1.10 rounded once")
+	assert_eq(w.player_state.mp, 135, "half of 271 MP, displayed as whole MP without granting the full growth")
+	w.change_job(210)
+	assert_eq(w.player_state.max_mp, 403, "a later 120 MP job grant is multiplied too")
+	assert_eq(w.player_state.mp, 201, "the subsequent job recompute keeps the half-full ratio")
 
 
 func test_real_starter_outfit_defense() -> void:
