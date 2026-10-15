@@ -256,6 +256,9 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
+earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.
+
 #### Magician at Lv10 (#40)
 
 The only gameplay data change in this pass is Magician's survivor advancement level, 8 → 10. The sensible bot's
@@ -286,7 +289,7 @@ failures/skips. The optional five-minute windowed probe recorded job 200 and no 
 no PNGs and waited for a rendered frame after saving its summary; it was stopped and is not visual verification.
 The earlier cohorts below used Lv8 advancement and remain historical evidence.
 
-#### Frozen difficulty-overhaul training
+#### Historical difficulty-overhaul training
 
 The frozen data are v28, gameplay commit `db9ef80`, with the pooled-projectile identity fix. The actual pacing
 regression passes 5 tests with zero failures/skips, including the unchanged fixed stage guards. No held-out runs
@@ -408,7 +411,7 @@ They are not substituted for the sensible-policy boss medians. All durations, so
 and missing harness measurements follow the definitions above. The frozen data remain unchanged after this
 failed assessment; these seeds must not become another tuning input.
 
-#### Corrected-runtime training and final Henesys assessment
+#### Historical corrected-runtime training and Henesys assessment
 
 Final review corrected the unequal-afterimage reach gate: swing selection remains uniform while the chosen
 stance keeps its own impact box. It also replaced steady boss-action buffer allocation with a reusable borrowed
@@ -488,7 +491,7 @@ screenshots and engine log. The late after-process sample and wrapper issue are 
 `evidence/acceptance/density_hg_final/completion-context.json`; full hardware/background context is in the
 Implementation Plan. Earlier visual/performance evidence remains separate below.
 
-#### Review-fix pass 3: Henesys 9:00 HP trickle (2026-10-15)
+#### Historical review-fix pass 3: Henesys 9:00 HP trickle (2026-10-15)
 
 Giving potion drop rolls their own RNG stream 7 (they had shared stream 5 with basic-attack stance rolls) reshuffled
 seeded outcomes, and fixed regression seed 1 on Henesys then died at 592 s, failing the `test_full_run` guard
@@ -904,7 +907,7 @@ entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve avai
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
 Normal HP supply interpolates by stage: HG 0.6% through 6:00, 0.54% at 8:00, 0.24% at 9:00, 0.36% at 11:00/12:00,
-0.8% at 13:00 and 1.2% at 15:00. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
+0.8% at 13:00 and 1.4% at 15:00. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
