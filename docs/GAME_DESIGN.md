@@ -284,7 +284,7 @@ verified. The later `ab5d7fa` change only makes a scene-test fixture use the pub
 change gameplay, design data, the pacing guard or the already-running held-out mirror. No tuning followed these
 results.
 
-**Tree careless timing fails acceptance:** only **12/29 deaths (41.4%)** fall in 540–720 s, versus a required
+**Tree careless timing fails the original two-stage target:** only **12/29 deaths (41.4%)** fall in 540–720 s, versus a required
 majority. Its 717.3 s death median alone would conceal 14 later deaths. The training share of 36/60 (60%) did not
 reproduce on this reserved sample. This fails the original two-stage target. The user then clarified that this
 pass should gate on Henesys ("Mainly henesys"); Tree careless timing is deferred and informational, with no
@@ -292,9 +292,10 @@ further tuning or replacement held-out sample. Both stages remain implemented an
 meet their progression, clear-rate, late-hit and typical boss timing/source-hit gates; Henesys random meets the
 careless timing gate. No run times out in the held-out matrix.
 
-The actual frozen pacing run passed 5 tests with no failures or skips. After `ab5d7fa` corrected the stale
-scene-test EXP fixture through the public progression API, the final full suite passed **482 tests, 0 failed,
-0 skipped, 59 files** in 507.517 s. The survivor data and pacing guard remained unchanged.
+The actual frozen pacing run passed 5 tests with no failures or skips. `ab5d7fa` corrected the stale scene-test
+EXP fixture through the public progression API. `2805a24` then made the optional canonical recipient-burst path
+explicit without changing recipients, RNG or gameplay. The final runtime full suite passed **485 tests, 0 failed,
+0 skipped, 59 files** in 590.147 s. The survivor data and pacing guard remained unchanged.
 
 | Stage / policy | Clear / dead / timeout | Deaths early / 9-12 / late | Window share of deaths | Mage median (reaches) | Lv30 median (reaches) | Clears below Lv30 |
 |---|---|---|---|---|---|---|
@@ -343,6 +344,14 @@ camping position. These observations are informational and did not select or tun
 | Tree top platform | 0 / 7 / 0 | 321.0 [310.5–403.5] |
 
 Raw records, requested-position flags and commands are preserved in `evidence/acceptance/campers/`.
+
+Final visual evidence preserves the original full composites and the corrected Tree replay: both stages actually
+clear beyond 15:00, and corrected summaries have `missing: []`. Optional Dyle recipient art is selected from the
+canonical field rather than assumed. The separate Henesys speed1 uncapped 10:00–13:00 measurement records
+62,580 frames with 200+ live mobs at p95 **3.912 ms**, max274 mobs, no missing assets. It stops PLAYING at its
+deliberate 13:00 measurement cap, not a clear. Hardware, background load and timing detail are in the
+Implementation Plan performance log; screenshots were checked by eye. This completes the implementation evidence
+for the user-amended Henesys-first scope, with Tree careless timing still deferred.
 #### Historical Phase 1 records
 
 **Historical seeds.** The earlier 2026-10-14 pass was tuned on seeds 1-24 (variants compared on both policies) and is reported on the
