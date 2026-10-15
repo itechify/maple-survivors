@@ -1071,3 +1071,31 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 		"x": {"before": 4, "after": 8}, "cooltime": {"before": 120, "after": 120}})
 	assert_has(LevelUpWindow.change_lines(card), "HP / pulse: 4 → 8")
 	_assert_nothing_missing(scene, "Recovery")
+
+
+func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
+	if not require_cache():
+		return
+	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+		scene = _make(stage, 7, {"autoplay": true, "autopick": true})
+		assert_eq(scene.error, "", "scene started")
+		var pages := lib.pages_loaded()
+		var sounds := (lib.get("_sounds") as Dictionary).size()
+		var paths: Array[String] = ["Effect.wz/BasicEff.img/Summoned", RunScene.FX_JOB_CHANGED]
+		if stage == "henesys_hg1":
+			paths.append_array(["Skill.wz/MobSkill.img/112/level/1/effect", "Skill.wz/MobSkill.img/126/level/7/affected",
+				"Effect.wz/Summon.img/1", "Mob.wz/6130101.img/attack1/info/effect"])
+		else:
+			paths.append_array(["Mob.wz/3220000.img/attack2/info/ball", "Skill.wz/MobSkill.img/140/level/8/mob",
+				"Skill.wz/MobSkill.img/114/level/15/mob0"])
+		for path in paths:
+			assert_true(lib.find_anim(path) != null, "%s: %s exists" % [stage, path])
+		for record: Dictionary in scene.world.bosses.records:
+			lib.find_anim(lib.mob_anim_img_path(int(record.mob_id)) + "/skill1")
+			lib.sound(RunScene.SND_MOB % [int(record.mob_id), "Damage"])
+		lib.sound(RunScene.SND_JOB_CHANGED)
+		assert_eq(lib.pages_loaded(), pages, "%s: no atlas page is first decoded at job change or boss time" % stage)
+		assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "%s: their sounds are already loaded" % stage)
+		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
+		scene.free()
+		scene = null

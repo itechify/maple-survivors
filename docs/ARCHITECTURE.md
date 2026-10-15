@@ -541,6 +541,9 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 - Rendering: atlas pages per WZ image (same-type mobs share a texture so draws batch), RenderingServer canvas items for
   swarms, static map layers recorded once.
 - Pools for projectiles, pickups, damage numbers and effects; no allocation in steady state.
+- No first-use decoding mid-run: `RunScene._warm_ui` and `_warm_stage` load at setup the window art, every skill rank's
+  art, the job weapon and job-change sounds, and every scheduled boss's stances, MobSkill/attack art, sounds, name and
+  boss-bar art (a Mano MobSkill 112 effect first decoded at 5:11 cost a 110 ms frame before this).
 - `scripts/bench.sh` runs the sim headless at fixed mob counts and records µs/tick; `scripts/playtest.sh` records real
   frame times in a window (`summary.json`: percentiles overall, per run minute and for frames with 100+/200+ mobs;
   `--warp=<s>` fast-forwards the sim to the late game first). Results go in `docs/IMPLEMENTATION_PLAN.md`

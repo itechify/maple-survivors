@@ -26,7 +26,8 @@ extends Node2D
 ## 10); while one is open the fixed-tick loop holds (the sim is also held by its CHOOSING_* state). The level-up window
 ## opens WINDOW_DELAY s after the LevelUp effect starts, and after a job advancement only once the JobChanged effect
 ## has played; several queued levels open their windows one after another. The windows' art is loaded during setup
-## (_warm_ui) so the first window does not stall a frame.
+## (_warm_ui) so the first window does not stall a frame; _warm_stage likewise loads the job-change sounds and every
+## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
@@ -256,6 +257,7 @@ func _ready() -> void:
 			_next_shot = (floorf(world.time / _shot_every + 1e-6) + 1.0) * _shot_every
 	_build_presentation()
 	_warm_ui()
+	_warm_stage()
 	_apply_job_look(int(world.player_state.job_id))
 	handle_events(world.drain_events())
 	_start_title()
@@ -461,8 +463,8 @@ func _build_presentation() -> void:
 
 
 ## Loads what the first level-up / job / pause window and the level-up effect draw (the UI imgs, the Magician
-## instructor NPC and its name, the fonts), and what a job advancement swaps in at once (the job's weapon and the job
-## skills' projectile / hit / effect art), so none of it is decoded in the middle of a run.
+## instructor NPC and its name, the fonts), and what a job advancement or a skill rank swaps in at once (the job's
+## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t"]:
@@ -483,14 +485,82 @@ func _warm_ui() -> void:
 		if wimg != null:
 			for i in wimg.pages.size():
 				wimg.page_texture(i)
+	# Every rank's art of every skill (Three Snails reaches canonical levels 2/3 automatically at Lv 3/6), at each
+	# character-level art threshold.
 	for key: String in world.book.defs:
-		if int(world.book.def(key).get("job", 0)) == 0:
+		var char_levels: Array = [1, 10]
+		var cl: Variant = world.book.def(key).get("char_level")
+		if cl is Dictionary:
+			char_levels.append_array(cl.get("thresholds", []))
+		for rank in range(1, world.book.max_rank(key) + 1):
+			var level := world.book.canonical_level(key, rank)
+			for field: String in ["ball", "hit", "effect"]:
+				for char_level: Variant in char_levels:
+					var path := world.book.visual(key, field, level, int(char_level))
+					if path != "":
+						library.find_anim(path)
+
+
+## Loads what the job advancement and the scheduled bosses first show or play, so their first appearance does not
+## decode atlas pages or audio mid-run: the level-up / job-change sounds; per boss its skill and attack stances, the
+## enabled MobSkill effect / recipient / affected / status / summon art, attack effect, ball and hit art, its sounds,
+## its String.wz name and boss-bar MobGage icon and colour strips; and the BasicEff Summoned arrival effect.
+func _warm_stage() -> void:
+	if library == null:
+		return
+	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED]:
+		_warm_sound(path)
+	library.find_anim("Effect.wz/BasicEff.img/Summoned")
+	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
+		_warm_frame(HudBossBar.ART + frame)
+	var enabled: Array = world.balance.get("mob_skills", {}).get("enabled_ids", [])
+	for entry: Dictionary in world.stage.get("bosses", []):
+		var id := int(entry.mob_id)
+		var img: Dictionary = world.setup.get("mob_imgs", {}).get(id, {})
+		if img.is_empty():
 			continue
-		for field: String in ["ball", "hit", "effect"]:
-			for char_level: int in [1, 10]:
-				var path := world.book.visual(key, field, world.book.canonical_level(key, 1), char_level)
-				if path != "":
-					library.find_anim(path)
+		library.string_name("Mob", id)
+		var info: Dictionary = img.get("info", {})
+		var ui: Dictionary = data.get("mobs", {}).get("mobs", {}).get(str(id), {}).get("boss_ui", {})
+		_warm_frame(HudBossBar.ART + "Mob/%d" % int(ui.get("icon_id", id)))
+		for tag: String in ["%d/0" % int(ui.get("hp_tag_color", info.get("hpTagColor", 1))),
+				"%d/1" % int(ui.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))]:
+			_warm_frame(HudBossBar.ART + "Gage/" + tag)
+		var stances := library.mob_anim_img_path(id)
+		for sound: String in ["Damage", "Die"]:
+			_warm_sound(SND_MOB % [id, sound])
+		for attack: Variant in entry.get("attacks", []):
+			library.find_anim(stances + "/" + String(attack))
+			for part: String in ["effect", "ball", "hit"]:
+				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
+			var a := String(attack)
+			_warm_sound(SND_MOB % [id, a.left(1).to_upper() + a.substr(1)])
+		if not (float(id) in enabled or id in enabled):
+			continue
+		for skill: Variant in info.get("skill", {}).values():
+			if not (skill is Dictionary):
+				continue
+			var action := "skill%d" % int(skill.get("action", 1))
+			library.find_anim(stances + "/" + action)
+			_warm_sound(SND_MOB % [id, action.replace("skill", "Skill")])
+			var base := "Skill.wz/MobSkill.img/%d/level/%d" % [int(skill.get("skill", 0)), int(skill.get("level", 0))]
+			for part: String in ["effect", "mob0", "affected", "mob"]:
+				library.find_anim(base + "/" + part)
+			var spec: Variant = library.find(base)
+			if spec is Dictionary and spec.has("summonEffect"):
+				library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
+
+
+## Caches a sound's stream when the node exists (absent optional sounds are not recorded as missing).
+func _warm_sound(path: String) -> void:
+	if library.find(path) != null:
+		library.sound(path)
+
+
+## Caches a UI canvas and its atlas page when it exists.
+func _warm_frame(path: String) -> void:
+	if library.find(path) != null:
+		library.frame(path)
 
 
 func _play_bgm() -> void:
