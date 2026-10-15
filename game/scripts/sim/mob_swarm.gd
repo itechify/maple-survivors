@@ -134,6 +134,35 @@ func alive_count() -> int:
 	return _alive
 
 
+## Feet position of slot i.
+func pos(i: int) -> Vector2:
+	return Vector2(x[i], y[i])
+
+
+## Whether slot i holds a live mob (not dying, not free); false for out-of-range slots.
+func is_live(i: int) -> bool:
+	return i >= 0 and i < capacity() and active[i] != 0
+
+
+## Whether slot i holds a live mob that has fully faded in (alpha 1), so it may touch or act.
+func is_settled(i: int) -> bool:
+	return is_live(i) and alpha[i] >= 1.0
+
+
+## The MobKind of the mob in slot i.
+func mob_kind(i: int) -> MobKind:
+	return kinds[kind[i]]
+
+
+## Live slots whose feet are inside `area`, ascending.
+func live_in_rect(area: Rect2) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for i in capacity():
+		if active[i] != 0 and area.has_point(Vector2(x[i], y[i])):
+			out.append(i)
+	return out
+
+
 ## Adds a mob of kind index `k` standing on foothold `f` (or falling from (px, py) when f = -1). hp <= 0 uses the
 ## kind's max_hp. Returns the slot. The arrays grow when full.
 func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:

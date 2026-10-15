@@ -362,7 +362,7 @@ func step(dt: float, input: MoveInput) -> void:
 	if state != PLAYING:
 		return
 	time += dt
-	player.speed_stat = roundi(player_speed_stat())
+	refresh_player_speed()
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
@@ -538,7 +538,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
-	player.speed_stat = roundi(player_speed_stat())
+	refresh_player_speed()
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
 	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
@@ -553,6 +553,11 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 ## Upgraded movement speed composed with the current canonical-area slow.
 func player_speed_stat() -> float:
 	return loadout.player_stat("speed", 100.0) * mob_skills.speed_multiplier(time)
+
+
+## Applies player_speed_stat() to the movement model (whole speed points).
+func refresh_player_speed() -> void:
+	player.speed_stat = roundi(player_speed_stat())
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -586,6 +591,58 @@ func shot_origin(aim: Vector2) -> Vector2:
 func mob_center(m: int) -> Vector2:
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
+
+
+## The setup's Mob.wz img root of mob `id` (int or String keys); {} when absent.
+func mob_img(id: int) -> Dictionary:
+	var imgs: Dictionary = setup.get("mob_imgs", {})
+	return imgs.get(id, imgs.get(str(id), {}))
+
+
+## The player's world-space body box (feet + `body`): what monster touches, attacks and balls test.
+func player_box() -> Rect2:
+	return Rect2(player.pos + body.position, body.size)
+
+
+## Centre of the player's body box (where monster balls aim).
+func player_body_center() -> Vector2:
+	return player.pos + body.get_center()
+
+
+## Number of living slots owned by summoning encounter `owner` (MobSkill 200 summons and revive offspring).
+func summoned_alive(owner: int) -> int:
+	var count := 0
+	for slot in swarm.capacity():
+		if swarm.active[slot] != 0 and mob_summon_owner[slot] == owner:
+			count += 1
+	return count
+
+
+## Spawns `ids` (in list order) as ordinary mobs owned by encounter `owner` on mob `source`'s platform, spread
+## `balance.mob_skills.summon_spacing` px apart around `center_x` and centred on the whole list even when `max_count`
+## (-1 = all) spawns only its first entries. Ids without a mob kind and points without a foothold are skipped (their
+## place in the spread stays empty). Returns the new slots; none when the source has no platform.
+func spawn_offspring(source: int, center_x: float, ids: PackedInt32Array, owner: int,
+		max_count: int = -1) -> PackedInt32Array:
+	var slots := PackedInt32Array()
+	var platform := swarm.platform[source]
+	if platform < 0:
+		return slots
+	var span := fhm.platform_span(platform)
+	# tier C: symmetric survivor spawn spacing; canonical list/limit/stats remain unchanged.
+	var spacing := float(balance.get("mob_skills", {}).get("summon_spacing", 24.0))
+	for i in (ids.size() if max_count < 0 else mini(ids.size(), max_count)):
+		var id := ids[i]
+		if not kind_of_id.has(id):
+			continue
+		var x := clampf(center_x + (i - (ids.size() - 1) * 0.5) * spacing, span.x, span.y)
+		var fh := fhm.platform_fh_at(platform, x)
+		if fh < 0:
+			continue
+		var slot := spawn_mob(int(kind_of_id[id]), Vector2(x, fhm.y_at(fh, x)), fh, 1.0, false)
+		mob_summon_owner[slot] = owner
+		slots.append(slot)
+	return slots
 
 
 ## Platform the player stands on or is above (-1 when none).
@@ -861,33 +918,13 @@ func _on_kill(m: int) -> void:
 
 func _spawn_revives(source: int, pos: Vector2) -> void:
 	var id: int = mob_kinds[swarm.kind[source]].id
-	var image: Dictionary = setup.get("mob_imgs", {}).get(id, setup.get("mob_imgs", {}).get(str(id), {}))
-	var list: Dictionary = image.get("info", {}).get("revive", {})
-	if list.is_empty():
+	var list: Dictionary = mob_img(id).get("info", {}).get("revive", {})
+	if list.is_empty() or swarm.platform[source] < 0:
 		return
-	var keys := PackedInt32Array()
-	for key: String in list:
-		if key.is_valid_int():
-			keys.append(int(key))
-	keys.sort()
-	var platform := swarm.platform[source]
-	if platform < 0:
-		return
-	var span := fhm.platform_span(platform)
+	# Every canonical revive entry is spawned once (Skill200's living limit applies to casts, not to this list).
 	var children: Array[Dictionary] = []
-	# tier C: reuse survivor summon spacing for death offspring; every canonical revive entry is spawned once.
-	var spacing := float(balance.get("mob_skills", {}).get("summon_spacing", 24.0))
-	for i in keys.size():
-		var child_id := int(list[str(keys[i])])
-		if not kind_of_id.has(child_id):
-			continue
-		var x := clampf(pos.x + (i - (keys.size() - 1) * 0.5) * spacing, span.x, span.y)
-		var fh := fhm.platform_fh_at(platform, x)
-		if fh < 0:
-			continue
-		var slot := spawn_mob(int(kind_of_id[child_id]), Vector2(x, fhm.y_at(fh, x)), fh, 1.0, false)
-		mob_summon_owner[slot] = mob_boss[source]
-		children.append({"mob": slot, "mob_id": child_id})
+	for slot in spawn_offspring(source, pos.x, StageRoster.list_ids(list), mob_boss[source]):
+		children.append({"mob": slot, "mob_id": swarm.mob_kind(slot).id})
 	emit("mob_revives_spawned", {"boss_index": mob_boss[source], "mob": source, "mob_id": id,
 		"pos": pos, "revives": children, "time": time})
 
@@ -911,7 +948,7 @@ func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictiona
 func _touch() -> void:
 	if _dead or god or _invincible_t > 0.0:
 		return
-	var box := Rect2(player.pos + body.position, body.size)
+	var box := player_box()
 	var c := box.get_center()
 	var n := mob_grid.query_radius(c, body.size.length() * 0.5 + body_pad, _touch_buf)
 	for j in n:

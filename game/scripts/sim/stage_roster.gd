@@ -58,6 +58,20 @@ static func mob_ids(stage: Dictionary, mob_imgs: Dictionary, mob_skill_img: Dict
 	return ids
 
 
+## The ids of a WZ list node ({"0": id, "1": id, ...}: a MobSkill 200 level or an info/revive list) in key order,
+## duplicates and zeros kept; other keys (interval, hp, limit, ...) are skipped.
+static func list_ids(node: Dictionary) -> PackedInt32Array:
+	var keys := PackedInt32Array()
+	for key: Variant in node:
+		if String(key).is_valid_int():
+			keys.append(int(key))
+	keys.sort()
+	var ids := PackedInt32Array()
+	for k in keys:
+		ids.append(int(node[str(k)]))
+	return ids
+
+
 ## Integer-keyed entries of a WZ list node ({"0": id, "1": id, ...}); other keys (interval, hp, ...) are skipped.
 static func _add_list(ids: PackedInt32Array, node: Dictionary) -> void:
 	for key: Variant in node:

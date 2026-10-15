@@ -16,7 +16,6 @@ const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AR
 
 var _images: Dictionary
 var _tables: Dictionary
-var _rules: Dictionary
 var _enabled: Array
 var _ready := {}
 var _slow_until := 0.0
@@ -32,7 +31,6 @@ var _pending_heals: Array[Dictionary] = []
 
 
 func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
-	_rules = rules
 	_images = setup.get("mob_imgs", {})
 	_tables = setup.get("mob_skill_img", {})
 	for id: Variant in rules.get("enabled_ids", []):
@@ -52,12 +50,14 @@ func slow_state(now: float) -> Dictionary:
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
 func step(world: RunWorld) -> void:
 	_resolve_heals(world)
+	var swarm := world.swarm
+	var now := world.time
 	for record: Dictionary in world.bosses.records:
 		var slot := int(record.slot)
-		if slot < 0 or slot >= world.swarm.capacity() or world.swarm.active[slot] == 0 or world.swarm.alpha[slot] < 1.0 or not int(record.mob_id) in _enabled:
+		if not swarm.is_settled(slot) or not int(record.mob_id) in _enabled:
 			continue
 		var index := int(record.boss_index)
-		if world.mob_boss[slot] != index or not world.bosses.can_act(index, world.time):
+		if world.mob_boss[slot] != index or not world.bosses.can_act(index, now):
 			continue
 		var image: Dictionary = _images.get(int(record.mob_id), _images.get(str(int(record.mob_id)), {}))
 		for entry: Dictionary in image.get("info", {}).get("skill", {}).values():
@@ -70,40 +70,42 @@ func step(world: RunWorld) -> void:
 			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
 			# tick), then one interval after each cast; WZ has the interval, not when the first use may happen.
 			var ready := float(_ready.get(key, float(record.spawn_time) + float(spec.get("interval", 0.0))))
-			if world.time < ready - 1e-9 or float(world.swarm.hp[slot]) * 100.0 > float(world.swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
+			if now < ready - 1e-9 or float(swarm.hp[slot]) * 100.0 > float(swarm.max_hp[slot]) * float(spec.get("hp", 100.0)):
 				# tier C: an omitted hp field permits casting at full health.
 				continue
-			if id == SKILL_SUMMON and summoned_alive(world, index) >= int(spec.get("limit", 0)):
+			if id == SKILL_SUMMON and world.summoned_alive(index) >= int(spec.get("limit", 0)):
 				continue
-			var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot])
+			var pos := swarm.pos(slot)
+			var facing := int(swarm.facing[slot])
 			var duration := float(spec.get("time", 0.0))
 			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
 			var affected := ""
-			if id == SKILL_SLOW and _area(spec, pos, world.swarm.facing[slot]).has_point(world.player.pos):
+			if id == SKILL_SLOW and _area(spec, pos, facing).has_point(world.player.pos):
 				# tier C: x is retained percent of upgraded speed (x80 means 20% slower).
 				_slow_factor = clampf(float(spec.get("x", 100.0)) / 100.0, 0.0, 1.0)
-				_slow_until = world.time + duration
+				_slow_until = now + duration
 				_slow_visual = path + "/affected"
 				affected = _slow_visual
 			var targets: Array = []
 			if id == SKILL_SUMMON:
-				targets = _summon(world, slot, index, spec)
+				var available := maxi(0, int(spec.get("limit", 0)) - world.summoned_alive(index))
+				targets = Array(world.spawn_offspring(slot, swarm.x[slot], StageRoster.list_ids(spec), index, available))
 			elif id in [SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA]:
-				targets = _buff(world, slot, id, spec, duration)
+				targets = _buff(swarm, _area(spec, pos, facing), id, spec, now + duration)
 			elif id == SKILL_HEAL_AREA:
 				_pending_heals.append({"index": index, "level": level, "spec": spec,
-					"due": world.time + float(entry.get("effectAfter", 0.0)) / 1000.0})
+					"due": now + float(entry.get("effectAfter", 0.0)) / 1000.0})
 			elif id == SKILL_WEAPON_IMMUNITY:
 				# tier C: weapon immunity is a timed self status; WZ verifies its gate and duration.
-				_weapon_until[slot] = world.time + duration
+				_weapon_until[slot] = now + duration
 				_weapon_visual[slot] = path + "/mob"
 				targets = [slot]
-			_ready[key] = world.time + float(spec.get("interval", 0.0))
+			_ready[key] = now + float(spec.get("interval", 0.0))
 			var action := "skill%d" % int(entry.get("action", 1))
-			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), int(world.swarm.facing[slot]), world.time)
-			world.player.speed_stat = roundi(world.player_speed_stat())
+			world.bosses.begin_action(index, action, MobKind.stance_time(image.get(action), 0.0), facing, now)
+			world.refresh_player_speed()
 			world.emit("boss_skill", {"mob": slot, "mob_id": int(record.mob_id), "skill_id": id, "level": level,
-				"pos": pos, "facing": int(world.swarm.facing[slot]), "action": action, "duration": duration,
+				"pos": pos, "facing": facing, "action": action, "duration": duration,
 				"effect": path + ("/effect" if spec.has("effect") else "/mob0") if spec.has("effect") or (id == SKILL_HEAL_AREA and spec.has("mob0")) else "", "player_effect": affected, "targets": targets,
 				"recipient_effect": path + "/mob0" if spec.has("mob0") else "",
 				"summon_effect": "Effect.wz/Summon.img/%d" % int(spec.summonEffect) if id == SKILL_SUMMON and spec.has("summonEffect") else ""})
@@ -113,11 +115,12 @@ func step(world: RunWorld) -> void:
 
 
 func _resolve_heals(world: RunWorld) -> void:
+	var swarm := world.swarm
 	var waiting: Array[Dictionary] = []
 	for pending: Dictionary in _pending_heals:
 		var record: Dictionary = world.bosses.records[int(pending.index)]
 		var source := int(record.slot)
-		if bool(record.dead) or source < 0 or world.swarm.active[source] == 0:
+		if bool(record.dead) or source < 0 or not swarm.is_live(source):
 			continue
 		if world.time < float(pending.due) - 1e-6:
 			waiting.append(pending)
@@ -126,17 +129,14 @@ func _resolve_heals(world: RunWorld) -> void:
 		# tier C: the canonical x is the HP restored to each mob in the area (the spec's "canonical amount"); y is
 		# unused (its role in the v83 client is unverified). No random roll.
 		var amount := maxi(0, int(spec.get("x", 0)))
-		var area := _area(spec, Vector2(world.swarm.x[source], world.swarm.y[source]), world.swarm.facing[source])
-		for slot in world.swarm.capacity():
-			if world.swarm.active[slot] == 0 or not area.has_point(Vector2(world.swarm.x[slot], world.swarm.y[slot])):
-				continue
-			var restored := mini(amount, world.swarm.max_hp[slot] - world.swarm.hp[slot])
+		for slot in swarm.live_in_rect(_area(spec, swarm.pos(source), swarm.facing[source])):
+			var restored := mini(amount, swarm.max_hp[slot] - swarm.hp[slot])
 			if restored <= 0:
 				continue
-			world.swarm.hp[slot] += restored
-			world.emit("mob_healed", {"mob": slot, "mob_id": world.mob_kinds[world.swarm.kind[slot]].id,
+			swarm.hp[slot] += restored
+			world.emit("mob_healed", {"mob": slot, "mob_id": swarm.mob_kind(slot).id,
 				"skill_id": SKILL_HEAL_AREA, "level": int(pending.level), "amount": restored,
-				"pos": Vector2(world.swarm.x[slot], world.swarm.y[slot]), "time": world.time})
+				"pos": swarm.pos(slot), "time": world.time})
 	_pending_heals = waiting
 
 
@@ -150,41 +150,9 @@ func _area(spec: Dictionary, pos: Vector2, facing: int) -> Rect2:
 	return box
 
 
-## Number of this encounter's still-living summoned slots, independent of their present position or kind.
+## Number of this encounter's still-living summoned slots (RunWorld.summoned_alive).
 func summoned_alive(world: RunWorld, owner: int) -> int:
-	var count := 0
-	for slot in world.swarm.capacity():
-		if world.swarm.active[slot] != 0 and world.mob_summon_owner[slot] == owner:
-			count += 1
-	return count
-
-
-func _summon(world: RunWorld, source: int, owner: int, spec: Dictionary) -> Array:
-	var targets: Array = []
-	var keys := PackedInt32Array()
-	for key: String in spec:
-		if key.is_valid_int():
-			keys.append(int(key))
-	keys.sort()
-	var available := maxi(0, int(spec.get("limit", 0)) - summoned_alive(world, owner))
-	var platform := world.swarm.platform[source]
-	if platform < 0:
-		return targets
-	var span := world.fhm.platform_span(platform)
-	# tier C: symmetric survivor spawn spacing; canonical list/limit/stats remain unchanged.
-	var spacing := float(_rules.get("summon_spacing", 24.0))
-	for i in mini(keys.size(), available):
-		var id := int(spec[str(keys[i])])
-		if not world.kind_of_id.has(id):
-			continue
-		var x := clampf(world.swarm.x[source] + (i - (keys.size()-1) * 0.5) * spacing, span.x, span.y)
-		var fh := world.fhm.platform_fh_at(platform, x)
-		if fh < 0:
-			continue
-		var slot := world.spawn_mob(int(world.kind_of_id[id]), Vector2(x, world.fhm.y_at(fh, x)), fh, 1.0, false)
-		world.mob_summon_owner[slot] = owner
-		targets.append(slot)
-	return targets
+	return world.summoned_alive(owner)
 
 
 ## Grows the per-slot timed status pool without changing existing statuses.
@@ -238,19 +206,16 @@ func defense_bonus(slot: int, magic: bool, now: float) -> float:
 
 
 ## MobSkill 112/113 are v83 area buffs: every living mob inside the canonical area (ordinary mobs included) gets the
-## flat defense for the canonical time; returns the recipient slots.
-func _buff(world: RunWorld, source: int, id: int, spec: Dictionary, duration: float) -> Array:
+## flat defense until `until`; returns the recipient slots.
+func _buff(swarm: MobSwarm, area: Rect2, id: int, spec: Dictionary, until: float) -> Array:
 	var targets: Array = []
-	var area := _area(spec, Vector2(world.swarm.x[source], world.swarm.y[source]), world.swarm.facing[source])
-	for slot in world.swarm.capacity():
-		if world.swarm.active[slot] == 0 or not area.has_point(Vector2(world.swarm.x[slot], world.swarm.y[slot])):
-			continue
+	for slot in swarm.live_in_rect(area):
 		targets.append(slot)
 		# tier C: x is a flat defense addition; WZ verifies x85, not the original client's arithmetic.
 		if id == SKILL_MDD_UP_AREA:
 			_mdd[slot] = float(spec.get("x", 0.0))
-			_mdd_until[slot] = world.time + duration
+			_mdd_until[slot] = until
 		else:
 			_pdd[slot] = float(spec.get("x", 0.0))
-			_pdd_until[slot] = world.time + duration
+			_pdd_until[slot] = until
 	return targets
