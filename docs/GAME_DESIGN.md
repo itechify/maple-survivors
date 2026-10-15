@@ -1002,10 +1002,10 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank** maps to a canonical skill level, so ranking up a skill visibly changes it the way the original did.
-Job skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
-uses the survivor `mp_cost_override` of 0 (tier C, owner choice). Each tick casts at most one skill, oldest-ready
-first; learned order breaks a tie. A ready skill without a target or sufficient MP waits without restarting its
-cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
+All skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
+costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick casts at most
+one skill, oldest-ready first; learned order breaks a tie. A ready skill without a target or sufficient MP waits
+without restarting its cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
 per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting
 can resume (tier C presentation). No MP is charged while climbing or when no target exists.
 
@@ -1219,6 +1219,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
+| Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
