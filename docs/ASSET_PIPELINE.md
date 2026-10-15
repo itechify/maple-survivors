@@ -192,7 +192,8 @@ The existing whole-`Game.img` manifest entry already exports it as
 tier, including boss rewards. Automatic picks that display no window do not play this cue; hover/click retain their
 existing UI sounds. The real-cache window test checks the exact stream and voice count, and the debug gallery logs
 its advancing playback position and `missing` list. Windowed evidence used the WASAPI driver with `missing=[]`.
-Audio input is unavailable to the agent, so this verifies playback but does not claim an ear check.
+The agent verified actual playback through these checks. On 2026-10-15 the owner auditioned the replacement cue
+and approved its fit for Unique / Legendary offers, completing listening acceptance.
 
 ## 6. Runtime consumption (Godot)
 
