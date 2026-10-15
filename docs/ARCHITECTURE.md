@@ -461,6 +461,9 @@ and effect stat/value copied from the public cast snapshot. Normal runs drain af
 that cast tick; already-pending setup events are observed at the next drain. It adds no RNG calls or gameplay
 changes. Earlier records lacking this field are unavailable observations, not zero casts. Hit MP absorption may
 be clipped by available MP, so it is not a substitute for the canonical active effect or a coverage measure.
+Legacy `cards_taken` strings prefix the card ID with the front queued level, or −1 when that queue is empty.
+A bonus choice can have a positive prefix while levels remain queued. The field supplies neither a bonus flag
+nor a choice timestamp, so it cannot isolate normal-choice acquisition timing.
 The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
 to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
 ID. These replace the final score, with no job bonus added; an unlisted card retains its existing

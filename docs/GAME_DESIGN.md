@@ -211,6 +211,85 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Frozen difficulty-overhaul training
+
+The frozen data are v28, gameplay commit `db9ef80`, with the pooled-projectile identity fix. The actual pacing
+regression passes 5 tests with zero failures/skips, including the unchanged fixed stage guards. No held-out runs
+had been consumed at freeze. Training uses **1–60 and 2026**, 61 runs per
+stage/policy, with a 1,800 s cap. Henesys records retain their original v27 / `e8197d7` provenance: v28 changes
+only Tree King HP ×0.8→×1.1 (6,400→8,800). Selected Henesys stage data are identical, and predetermined sensible
+controls 1/2/2026 match the full v27 records byte-for-byte. Tree's 122 records were freshly run on v28. The profile
+diff, source hashes, controls, commands and every rejected comparison remain in local `evidence/acceptance/`.
+
+“Most” means a majority of all runs clear, with at least one non-clear. “Careless dies mostly at 9–12 minutes”
+means a majority of recorded deaths fall in 540–720 s, inclusive; clears and timeouts remain separate.
+Milestone medians include only reaches, whose counts are explicit. Conditional random Lv30 medians are not
+progression acceptance: only 4/61 and 6/61 reach it. Sensible progression has majority reach counts.
+| Stage / policy | Clear / dead / timeout | Deaths early / 9-12 / late | Window share of deaths | Mage median (reaches) | Lv30 median (reaches) | Clears below Lv30 |
+|---|---|---|---|---|---|---|
+| Henesys sensible | 40 / 21 / 0 | 0 / 11 / 10 | 11/21 = 52.38% | 178.6 s (61) | 777.4 s (45) | 1 |
+| Henesys random | 2 / 59 / 0 | 16 / 38 / 5 | 38/59 = 64.41% | 178 s (61) | 776.8 s (4) | 0 |
+| Tree sensible | 38 / 23 / 0 | 0 / 5 / 18 | 5/23 = 21.74% | 163.6 s (61) | 784.7 s (50) | 0 |
+| Tree random | 0 / 60 / 1 | 9 / 36 / 15 | 36/60 = 60% | 164.9 s (59) | 845 s (6) | 0 |
+
+| Sensible boss, in arrival order | Completed / unfinished / unspawned | Completed duration median [min-max], s | Whole-hit HP median [min-max] | Source medians (landed hit count) |
+|---|---|---|---|---|
+| Mano | 61 / 0 / 0 | 30.6 [11.53-62.27] | 45.92% [41.2%-50%] | touch 45.92% (130) |
+| Mushmom | 52 / 7 / 2 | 51.67 [12.07-163.15] | 44.82% [35.66%-57.86%] | attack 44.12% (61), touch 45.09% (228) |
+| Blue Mushmom | 40 / 2 / 19 | 71.49 [27.33-176.67] | 44.46% [35.38%-53%] | attack 43.12% (25), touch 44.59% (183) |
+| Stumpy | 61 / 0 / 0 | 22.85 [9.55-269.68] | 42.27% [27.8%-74.17%] | attack 42.31% (88), projectile 43.27% (38), touch 40.87% (47) |
+| King Slime | 55 / 6 / 0 | 67.32 [20.93-197.93] | 45.6% [35.75%-59.59%] | attack 45.88% (88), touch 45.59% (403) |
+| Dyle | 38 / 12 / 11 | 56.91 [6.62-337.88] | 45.05% [35.77%-54.12%] | touch 45.05% (588) |
+
+| Stage / policy | Mean HP collected / used | HP stock median / empty runs | Mean inferred HP stock | Mean MP collected / used | MP stock median / empty runs | MP-wait runs / maximum |
+|---|---|---|---|---|---|---|
+| Henesys sensible | 32.1 / 33.3 | 0 / 35 | 3.8 | 235.5 / 113.8 | 121 / 0 | 0/61 / 0 s |
+| Henesys random | 22.1 / 27 | 0 / 60 | 0.1 | 128 / 54 | 74 / 0 | 0/61 / 0 s |
+| Tree sensible | 35.4 / 32.1 | 4 / 26 | 8.3 | 244.7 / 119.6 | 117 / 1 | 1/61 / 77.63 s |
+| Tree random | 26.3 / 31.1 | 0 / 60 | 0.2 | 139.6 / 72.4 | 71 / 1 | 1/61 / 34.58 s |
+
+The sensible clear rates are 65.6% / 62.3%; careless window-death shares are 64.4% / 60.0%. Tree random seed
+2026 times out at 1,800 s with Dyle alive for 900 s, at Lv36 and zero MP wait. It is neither a clear nor a
+completed finale. No unfinished fight is assigned a completed duration. Dyle's sensible 56.91 s median is
+within 45–135 s but lower than the nominal 90 s; all encounter ranges and censoring remain visible.
+
+Boss whole damage is measured before Guard splits it between HP and MP, not actual clamped HP loss.
+Per-source medians describe typical landed hits, rather than requiring every hit to lie in 40–50%.
+Canonical stats, costs, timings, heal bounds and attack boxes remain unchanged. Separate survivor contact and
+attack multipliers account for actual build HP at impact. Ordinary late nonmiss hits over completed minute
+buckets have sensible medians 211 / 150 and minima 28 / 43; all 61 sensible runs per stage live beyond 8:00.
+
+Stock is inferred exactly as starter stock plus collected minus used (HP starts at 5, MP at 0); rounded means
+may not sum exactly. Drop chances are the explicit curves in §5, including no ordinary HP from 9–12 minutes,
+elite HP 15% and current-tier boss bundles. HP scarcity is supported by actual collection/use and exhaustion,
+not only comparison with MP. The Tree sensible mean HP bank of 8.3 and median 4 remain explicit; scarcity is
+not universal exhaustion. MP-wait medians are zero; rare waits and depleted-stock runs remain recorded.
+The harness lacks potion source/tier totals, depletion timestamps and healed-HP totals, so these counts do not
+establish source-specific supply or exact healing. Guard cast snapshots are separately traced, without exact
+offer timestamps or damage-weighted absorption.
+
+The fixed regression sample stays **1/2/2026 on both stages**, with the unchanged 720–900 s stage-median Lv30
+guard and at least two reaches. V28 medians are Henesys 805.15 s (2/3) and Tree 890.0 s (3/3), Mage 179.0 /
+163.7 s. V26 population gates passed but its fixed Tree median 909.2 s failed; it was not frozen. V27 reshaped
+survivor EXP to 4+15L+3.8L² while preserving exact Mage cost 980. Its full Tree careless timing was only 30/59
+(50.8%), so the King-only comparison was selected from training, not held-out evidence. Guard final scores
+110/109, tier score 112, offer weights 8/8 and HP-drink threshold 0.8 remain in survivor data; random choices
+remain uniform. Earlier v22 versus v24 sensible results change both rank weight and threshold and cannot
+isolate either. Independent HP-only probe results are kept separate, not pooled with selected training.
+#### Informational camper samples
+
+On the same v28 data, seeds **1–6 and 2026**, `--camp-after=60 --cap=1800`, all 21 runs reached their requested
+camping position. These observations are informational and did not select or tune the profile.
+
+| Policy | Clear / dead / timeout | Death median [min–max], s |
+|---|---|---|
+| Henesys top platform | 0 / 7 / 0 | 300.3 [300.3–301.6] |
+| Henesys rope | 0 / 7 / 0 | 207.2 [205.9–294.4] |
+| Tree top platform | 0 / 7 / 0 | 321.0 [310.5–403.5] |
+
+Raw records, requested-position flags and commands are preserved in `evidence/acceptance/campers/`.
+#### Historical Phase 1 records
+
 **Historical seeds.** The earlier 2026-10-14 pass was tuned on seeds 1-24 (variants compared on both policies) and is reported on the
 held-out seeds 101-130, which were never used for tuning; the earlier record (seeds 1-23 + 2026) had been tuned and
 reported on the same seeds, and it did not hold on fresh seeds (a review found 6 of 18 deaths on seeds 31-48). Keep
@@ -400,7 +479,7 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 | Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
 | Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.70 |
 | Stumpy | 7,000 | 3,150 | 0.45 | 0.8 | 0.74 |
-| King Slime | 8,000 | 6,400 | 0.8 | 1.4 | 1.1 |
+| King Slime | 8,000 | 8,800 | 1.1 | 1.4 | 1.1 |
 | Dyle | 31,000 | 8,060 | 0.26 | 1.15 | — |
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
@@ -475,7 +554,7 @@ mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP res
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
 was copied. Encounter scaling is survivor data; all heal bounds, gates, intervals and effect timing stay canonical.
 
-King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×0.8 gives 6,400; touch ×1.4
+King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×1.1 gives 8,800; touch ×1.4
 and slam ×1.1 are separate training-calibrated scales. Its type 0 slam
 uses canonical attackAfter 900 ms, effectAfter 300 ms, 500×150 area and jumpAttack 1; grounded players in the area
 are hit only at impact, airborne players can dodge. Skill 200/2 waits 50 s, HP ≤50%, summons the original three
@@ -524,7 +603,7 @@ Optional final card-score overrides set Guard learning to 110 and ranks to 109, 
 entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Normal HP supply interpolates by stage: HG 1.2% through 6:00, 0.2% at 8:00; Tree 2% through 4:00 and 0.6% at 6:00.
+Normal HP supply interpolates by stage: HG 1.8% through 4:00, 1.2% at 5:00/6:00 and 0.2% at 8:00; Tree 3% through 4:00 and 0.6% at 6:00.
 Both stages reach 0% at 9:00, hold through 12:00, recover to 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
@@ -543,8 +622,8 @@ quantities per kind.
 - **Drops never expire** (owner decision 2026-10-14; `pickup.lifetime` = 0). At `pickup.max_active` (600), the EXP drop
   farthest from the player is absorbed into the new drop at the monster's death position. The combined EXP pops
   there with a fresh age, keeping the pool bounded and collection near recent kills; no EXP is lost.
-- **Survivor EXP curve:** `exp_to_next(L) = round(4 + 14·L + 4·L²)` (L1 = 22, L7 = 298,
-  L9 = 454, L29 = 3774; 980 EXP to reach Lv 8, 1806 to Lv 10, 40426 to Lv 30). Historical curves and their
+- **Survivor EXP curve:** `exp_to_next(L) = round(4 + 15·L + 3.8·L²)` (L1 = 23, L7 = 295,
+  L9 = 447, L29 = 3635; 980 EXP to reach Lv 8, 1794 to Lv 10, 39150 to Lv 30). Historical curves and their
   measurements remain in section4.2. The quadratic term carries the late game: a strong build that levels
   fast meets steeper levels, which keeps the spread between builds small. Measured
   pace: section 4.2. The canonical v83 table (`data/canonical/exp_table.json`) is kept for reference and display
@@ -841,7 +920,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.70; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
 | Stumpy HP/contact/attack | ×0.45 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
-| King Slime / Dyle HP and hit scaling | HP ×0.8/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
+| King Slime / Dyle HP and hit scaling | HP ×1.1/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
 | King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
 | Dyle heal / weapon immunity | uniform500–5,000 heal; timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; reference heal resolver prose |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
