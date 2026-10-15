@@ -183,8 +183,10 @@ Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd`
 world only while `PLAYING`. When EXP crosses one or more levels, the world queues them. For each queued level it
 first checks the job tree: if an advancement is offered at that level it enters `CHOOSING_JOB` and emits
 `job_advance_pending`; otherwise (or after the job choice) it enters `CHOOSING_UPGRADE` and emits `choice_pending`
-when at least one card is eligible. Draws return at most three cards; an empty draw consumes that queued level
-without opening a window.
+for every queued level. Draws return up to three distinct eligible current-job or job-neutral cards; if fewer
+than three are available, they include one Power Elixir fallback alternative. An exhausted pool therefore
+still opens a one-card window rather than consuming the level silently. The fallback is separate from the
+weighted `upgrades.cards` pool in `upgrades.fallback`.
 The presentation layer shows the windows and calls back:
 
 | Call | Effect |
@@ -195,7 +197,8 @@ The presentation layer shows the windows and calls back:
 
 Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
 `CHOOSING_UPGRADE` with `RunWorld.choice_bonus` and `pending_bonus_choices`; they take priority over the level queue.
-`apply_choice` consumes a bonus without changing the level or queue. Empty bonus draws proceed without a window.
+`apply_choice` consumes a bonus without changing the level or queue. Exhausted bonus draws offer Power Elixir
+and still require a choice before clear.
 The bonus window uses a "Boss Reward" title and omits the gained-level notice.
 
 ### 4.4.3 Event schema
