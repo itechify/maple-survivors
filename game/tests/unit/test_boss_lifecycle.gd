@@ -124,6 +124,32 @@ func test_boss_takes_damage_without_stun_or_push() -> void:
 	assert_eq(w.swarm.vx[slot], velocity, "boss ignores the knockback direction")
 
 
+func test_scheduled_boss_without_wz_boss_flag_or_override_never_flinches() -> void:
+	var setup := _setup([0.5])
+	setup.mob_imgs[2220000].info.erase("boss")
+	setup.mob_imgs[2220000].info.pushed = 1.0
+	var w := RunWorld.new(setup)
+	w.god = true
+	var kind: MobKind = w.mob_kinds[int(w.kind_of_id[2220000])]
+	assert_false(kind.boss or kind.no_flinch, "the synthetic kind has neither info/boss nor no_flinch")
+	var loose := w.spawn_mob(int(w.kind_of_id[2220000]), w.player.pos + Vector2(-400, 0), w.player.fh, 1.0, false)
+	for tick in 60:
+		w.step(DT, MoveInput.new())
+	var slot := int(w.bosses.records[0].slot)
+	assert_true(slot >= 0 and slot != loose, "the scheduled boss arrived in its own slot")
+	var state := w.swarm.state[slot]
+	var velocity := w.swarm.vx[slot]
+	w.hit_mob(slot, {"damage_min": 100.0, "damage_max": 100.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	assert_eq(w.swarm.state[slot], state, "scheduled boss never enters HIT without the WZ flag")
+	assert_eq(w.swarm.vx[slot], velocity, "scheduled boss is never pushed without the WZ flag")
+	var moved := w.relocate_mob(slot, w.player.pos + Vector2(250, 0), w.player.fh)
+	assert_eq(w.swarm.steady[moved], 1, "relocation keeps the scheduled boss steady")
+	w.hit_mob(loose, {"damage_min": 100.0, "damage_max": 100.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	assert_eq(w.swarm.state[loose], MobSwarm.HIT, "the same kind spawned as an ordinary mob still flinches")
+
+
 func test_normal_spawn_rate_halves_during_boss_encounter() -> void:
 	var setup := _setup([0.5])
 	var stage: Dictionary = setup.data.stages.stages.quiet

@@ -610,8 +610,9 @@ Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 
 15:00. The encounters use canonical movement, contact attack, art and enabled skill kits; the mushroom family
 also uses its jump slam. The Tree schedules Stumpy, King Slime and Dyle at the same arrival times.
 Each boss gives a 3 s warning, then arrives with the normal regen fade on the player's reachable platform, preferably
-250 px away. A narrow floor may require a closer point. Bosses never flinch or receive push (`info/boss`, tier A flag;
-survivor immunity behavior), and ordinary relocation never removes them. Skipped bosses remain until killed.
+250 px away. A narrow floor may require a closer point. Scheduled bosses never flinch or receive push, whatever their WZ `info/boss` flag (tier C
+survivor rule; the tier A flag and the `no_flinch` override still apply to their kinds), and ordinary relocation never
+removes them. Skipped bosses remain until killed.
 
 Survivor settings (tier C; canonical stats and attack timings/boxes remain unchanged):
 
@@ -1061,7 +1062,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss relocation | no route/progress for 5 s; progress requires 1 px of own movement and route gain; 300 ms fade-out, ~250 px platform arrival with ordinary harmless regen | C | owner rule; balance.bosses |
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
-| Boss stun and push immunity | no stun/push, regardless of pushed | A flag / C behavior | v83 info/boss, survivor encounter rule |
+| Boss stun and push immunity | every scheduled boss: no stun/push, regardless of pushed or info/boss; kinds with info/boss or `no_flinch` also never flinch | A flag / C behavior | v83 info/boss, survivor encounter rule (`MobSwarm.steady`) |
 | Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.70; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
 | Stumpy HP/contact/attack | ×0.45 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
 | King Slime / Dyle HP and hit scaling | HP ×1.1/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |

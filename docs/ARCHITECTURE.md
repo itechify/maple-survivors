@@ -113,7 +113,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
-| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
+| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray())`, per-shot pierce and already-hit list; optional live defense/immunity arrays are indexed by target slot at impact |
 | `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
@@ -243,7 +243,9 @@ dead, teleports}`. Times are -1 before arrival/death. Pursuit bookkeeping also h
 `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
 Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
-Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
+Every scheduled boss slot sets `MobSwarm.steady` (kept through relocation, cleared by a fresh spawn), which blocks
+stun/push whatever the kind's flags; canonical `MobKind.boss` and the survivor `no_flinch` override still block it for
+any mob of that kind. `RunWorld.can_clear()` waits for every scheduled boss death, with the
 duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
 
 

@@ -679,6 +679,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
+	swarm.steady[j] = 1 if boss_index >= 0 else 0
 	mob_summon_owner[j] = summon_owner
 	mob_skills.move_slot(i,j)
 	if boss_index >= 0:

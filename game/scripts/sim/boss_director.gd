@@ -122,6 +122,8 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 		if slot < 0:
 			continue
 		world.mob_boss[slot] = index
+		# Scheduled bosses never flinch or get pushed, whatever their WZ info/boss flag (spec; tier C rule).
+		world.swarm.steady[slot] = 1
 		record.slot = slot
 		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time

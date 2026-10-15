@@ -73,6 +73,9 @@ var facing := PackedInt32Array()
 var alpha := PackedFloat32Array()
 ## BossDirector drives fade-out while movement/regen is suspended; respawning clears this flag.
 var fading_out := PackedByteArray()
+## 1 for a scheduled-boss slot: never stunned or pushed whatever its kind's flags (RunWorld sets it after a boss
+## arrival or relocation); spawn() clears it.
+var steady := PackedByteArray()
 ## 1 while the mob is alive (not DIE/FREE): the mask for SpatialHash.rebuild and targeting.
 var active := PackedByteArray()
 ## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
@@ -159,6 +162,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	facing[i] = -1
 	alpha[i] = 0.0
 	fading_out[i] = 0
+	steady[i] = 0
 	active[i] = 1
 	_stop_x[i] = INF
 	_route_e[i] = -1
@@ -185,7 +189,8 @@ func despawn(i: int) -> bool:
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
-## Dying or free slots ignore hits. Bosses ignore stun/push; normal mobs require damage >= canonical pushed.
+## Dying or free slots ignore hits. Scheduled-boss slots (`steady`) and kinds with canonical info/boss or the survivor
+## no_flinch override ignore stun/push; other mobs require damage >= canonical pushed.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
 	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
@@ -202,7 +207,7 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		active[i] = 0
 		_alive -= 1
 		return true
-	if mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed):
+	if steady[i] != 0 or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
 		return false
 	state[i] = HIT
 	state_t[i] = 0.0
@@ -628,6 +633,7 @@ func _grow(n: int) -> void:
 	facing.resize(n)
 	alpha.resize(n)
 	fading_out.resize(n)
+	steady.resize(n)
 	active.resize(n)
 	_stop_x.resize(n)
 	_route_e.resize(n)
