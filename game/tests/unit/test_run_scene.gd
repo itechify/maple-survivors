@@ -719,6 +719,56 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)
 
 
+func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	sfx.library = lib
+	scene = _make("henesys_hg1", 35, {})
+	var w := scene.world
+	w.potions.add("mp", 2)
+	w.drain_events()
+	for kind: String in ["hp", "mp"]:
+		var sounds := int(scene.counters.sounds)
+		assert_true(w.drink_potion(kind))
+		scene.handle_events(w.drain_events())
+		assert_eq(scene.counters.sounds, sounds + 1, "%s drink starts its sound" % kind)
+	w.progression.level = 10
+	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	var sounds := int(scene.counters.sounds)
+	assert_true(w.drink_potion("hp"))
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.counters.sounds, sounds + 1, "Orange uses its own path even in the same presentation frame")
+	_assert_nothing_missing(scene, "potion use sounds")
+	sfx.library = previous_library
+
+
+func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	scene = _make("henesys_hg1", 35, {})
+	# An empty cache tests misses without changing the player's installed assets.
+	lib.open(TestCase.test_dir("missing_potion_sounds"))
+	sfx.library = lib
+	var w := scene.world
+	w.potions.add("mp", 1)
+	w.drain_events()
+	var sounds := int(scene.counters.sounds)
+	assert_true(w.drink_potion("hp"))
+	assert_true(w.drink_potion("mp"))
+	w.progression.level = 10
+	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	assert_true(w.drink_potion("hp"))
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.counters.sounds, sounds, "missing sounds start no voice")
+	assert_eq(scene.perf_summary().missing, ["Sound.wz/Item.img/02000000/Use",
+		"Sound.wz/Item.img/02000003/Use", "Sound.wz/Item.img/02000001/Use"])
+	sfx.library = previous_library
+
+
 func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -> void:
 	if not require_cache():
 		return

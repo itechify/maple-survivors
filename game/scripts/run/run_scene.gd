@@ -606,6 +606,9 @@ func handle_events(events: Array) -> void:
 			"pickup_collected":
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
+			"potion_used":
+				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
+				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
 			"level_up":
 				fx.play(FX_LEVEL_UP, Vector2.ZERO, false, avatar)
 				_sound(SND_LEVEL_UP)
