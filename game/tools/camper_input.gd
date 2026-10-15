@@ -72,44 +72,20 @@ static func _approach_up_portal(world: RunWorld, memo: Dictionary, input: MoveIn
 	if world.player.fh<0 and memo.has("portal_x") and absf(p.x-float(memo.portal_x)) <= float(world.portals.tuning.reach_x):
 		input.up = true
 		return
-	var platform := world.player_platform()
 	var best := INF
 	var chosen := {}
 	for link: Dictionary in world.portals.links:
 		if not String(link.name).begins_with("up") or link.target_pos.y>=link.pos.y:
 			continue
 		var source: Vector2 = link.pos
-		var floor := world.fhm.find_below(source.x, source.y-float(world.portals.tuning.reach_above))
-		if floor<0:
+		var plan := PortalApproach.plan(world, source)
+		if plan.is_empty():
 			continue
-		var source_platform := world.fhm.platform_of(floor)
-		var point := source
-		var hop := false
-		var direction := 0.0
-		if platform != source_platform:
-			var edge := world.nav_jump.route_near(platform, source_platform, p.x)
-			if edge<0:
-				continue
-			var route := world.nav_jump.edge(edge)
-			point = Vector2(clampf(source.x, float(route.lo), float(route.hi)), p.y)
-			hop = String(route.kind) == "jump"
-			direction = signf(float(route.vx))
-		if world.fhm.walk_blocked(platform, p.x, point.x):
-			continue
-		var cost := absf(p.x-point.x) + absf(p.y-source.y)
+		var cost := absf(p.x-plan.pos.x) + absf(p.y-source.y)
 		if cost<best:
 			best = cost
-			chosen = {"point": point, "source": source, "hop": hop, "direction": direction, "same_floor": platform==source_platform}
+			chosen = plan
 	if chosen.is_empty():
 		return
-	var dx: float = chosen.point.x-p.x
-	input.up = bool(chosen.same_floor) and absf(dx)<=float(world.portals.tuning.reach_x)
-	input.left = not input.up and dx<0
-	input.right = not input.up and dx>0
-	# tier C: 3 px jump takeoff tolerance, matching the navigation bot approach.
-	if not bool(chosen.same_floor) and absf(dx)<3.0:
-		input.jump_pressed = bool(chosen.hop)
-		input.jump_held = input.jump_pressed
-		input.left = float(chosen.direction)<0
-		input.right = float(chosen.direction)>0
+	PortalApproach.steer(world, chosen, input)
 	memo.portal_x = chosen.source.x

@@ -460,7 +460,11 @@ What the tables above leave open; the class doc comments have the rest.
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
-policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
+policies.
+`PortalApproach` supplies the shared pure entrance-floor lookup, jump-graph approach, wall gate and movement input
+for `BotInput` and the camper harness. Each caller retains its goal scoring and eligibility policy, including the
+bot's additional entrance-floor activation-height check.
+Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
 per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
 TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,

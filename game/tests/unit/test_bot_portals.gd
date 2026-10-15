@@ -3,6 +3,7 @@ extends TestCase
 ## the cache-required Tree I test verifies the original portal chain within a fixed tick budget.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const BR := preload("res://tools/balance_run.gd")
 const DT := 1.0 / 60.0
 
 
@@ -97,3 +98,42 @@ func test_bot_reaches_top_of_real_tree_through_the_portal_chain() -> void:
 	assert_eq(used, ["up00", "up01", "up02"])
 	assert_between(reached, 0.0, 30.0, "bot reaches P7 through portals within 30 s")
 	lib.free()
+
+
+func test_bot_and_camper_approach_the_same_portal_ledge_with_identical_inputs() -> void:
+	var setup := RF.setup("quiet", 18, RF.quiet_data())
+	setup.map_img = RF.map_from_segments([
+		{"x1": 0, "y1": 200, "x2": 1200, "y2": 200},
+		{"x1": 300, "y1": 140, "x2": 360, "y2": 140},
+		{"x1": 600, "y1": -200, "x2": 1000, "y2": -200},
+	])
+	setup.map_img.portal = {
+		"0": {"pn": "up00", "pt": 1, "x": 330, "y": 140, "tm": 999999999, "tn": "up01"},
+		"1": {"pn": "up01", "pt": 1, "x": 800, "y": -200, "tm": 999999999, "tn": ""},
+	}
+	var bot := RunWorld.new(setup)
+	var camper := RunWorld.new(setup)
+	for w: RunWorld in [bot, camper]:
+		w.player.place(Vector2(500, 200), w.fhm)
+		w.pickups.spawn(Vector2(900, -200), 1, 4000019)
+	var bot_memo := {}
+	var camper_memo := {}
+	var used := []
+	var hopped := false
+	for tick in 60 * 8:
+		var bot_input := BotInput.decide(bot, bot_memo)
+		var camper_input: MoveInput = BR.movement(camper, "camper_tree_top", camper_memo, 0.0)
+		assert_eq([bot_input.left, bot_input.right, bot_input.up, bot_input.jump_pressed, bot_input.jump_held],
+			[camper_input.left, camper_input.right, camper_input.up, camper_input.jump_pressed, camper_input.jump_held],
+			"different policies share the same entrance approach when their goal matches")
+		hopped = hopped or bot_input.jump_pressed
+		bot.step(DT, bot_input)
+		camper.step(DT, camper_input)
+		for event: Dictionary in bot.drain_events():
+			if event.type == "portal_used":
+				used.append(event.portal)
+		if not used.is_empty():
+			break
+	assert_true(hopped, "the entrance ledge requires the shared takeoff decision")
+	assert_eq(used, ["up00"])
+	assert_eq(bot.player.pos, camper.player.pos)

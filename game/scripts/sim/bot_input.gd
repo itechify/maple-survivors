@@ -89,15 +89,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var down := false
 	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
 	if not portal.is_empty():
-		var dx: float = portal.pos.x - p.x
-		mi.up = bool(portal.same_floor) and absf(dx) <= float(w.portals.tuning.reach_x)
-		mi.left = not mi.up and dx < 0.0
-		mi.right = not mi.up and dx > 0.0
-		if not bool(portal.same_floor) and absf(dx) < 3.0:
-			mi.jump_pressed = bool(portal.hop)
-			mi.jump_held = mi.jump_pressed
-			mi.left = float(portal.hop_dir) < 0.0
-			mi.right = float(portal.hop_dir) > 0.0
+		PortalApproach.steer(w, portal, mi)
 		memo["portal_x"] = portal.source.x
 		memo.erase("climb_x")
 		memo.erase("flip_t")
@@ -197,23 +189,10 @@ static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
 	var chosen := {}
 	var safer := {}
 	var safety := _mob_danger(w, p) if escaping else 0.0
-	var plat := w.player_platform()
 	for link: Dictionary in w.portals.links:
 		var source: Vector2 = link.pos
-		var f := w.fhm.find_below(source.x, source.y - float(w.portals.tuning.reach_above))
-		if f < 0 or w.fhm.y_at(f, source.x) > source.y + float(w.portals.tuning.reach_below):
-			continue
-		var source_plat := w.fhm.platform_of(f)
-		var plan := {"pos": source, "source": source, "same_floor": source_plat == plat, "hop": false, "hop_dir": 0.0}
-		if source_plat != plat:
-			var edge := w.nav_jump.route_near(plat, source_plat, p.x)
-			if edge < 0:
-				continue
-			var e := w.nav_jump.edge(edge)
-			plan.pos = Vector2(clampf(source.x, float(e.lo), float(e.hi)), p.y)
-			plan.hop = String(e.kind) == "jump"
-			plan.hop_dir = signf(float(e.vx))
-		if w.fhm.walk_blocked(plat, p.x, plan.pos.x):
+		var plan := PortalApproach.plan(w, source)
+		if plan.is_empty() or float(plan.floor_y) > source.y + float(w.portals.tuning.reach_below):
 			continue
 		var arrival: Vector2 = link.target_pos - Vector2(0, float(w.portals.tuning.arrival_lift))
 		if escaping and absf(source.x - p.x) <= BLOCK_DIST:
