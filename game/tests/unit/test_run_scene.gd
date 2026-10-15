@@ -902,9 +902,9 @@ func test_timed_buff_row_and_rank_previews_use_canonical_guard_and_armor_data() 
 				assert_eq(slots[i].remaining_seconds, ceili(w.player_state.buffs[i].remaining))
 				assert_true(slots[i].icon != null)
 	assert_eq(w.upgrades.choice_card("magic_guard_rank", w).skill_changes,
-		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 195}, "x": {"before": 11, "after": 23}})
+		{"mpCon": {"before": 6, "after": 6}, "time": {"before": 111, "after": 132}, "x": {"before": 11, "after": 14}})
 	assert_eq(w.upgrades.choice_card("magic_armor_rank", w).skill_changes,
-		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 110}, "pdd": {"before": 2, "after": 10}})
+		{"mpCon": {"before": 8, "after": 8}, "time": {"before": 54, "after": 68}, "pdd": {"before": 2, "after": 4}})
 	_assert_nothing_missing(scene, "player buffs")
 
 func test_stumpy_projectile_pool_is_drawn_and_heal_art_is_canonical() -> void:

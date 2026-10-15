@@ -1001,7 +1001,10 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 ## 7. Skills (auto-cast)
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
-A skill's **rank** maps to a canonical skill level, so ranking up a skill visibly changes it the way the original did.
+A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
+without skips. Learning starts at level 1 and each rank card adds one level. Energy Bolt, Magic Claw, Magic Guard
+and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
+The smaller per-card steps are intentional; canonical skill values remain untouched.
 Job skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
 uses the survivor `mp_cost_override` of 0 (tier C, owner choice). Each tick casts at most one skill, oldest-ready
 first; learned order breaks a tie. A ready skill without a target or sufficient MP waits without restarting its
@@ -1019,11 +1022,12 @@ existing shots finish separately from carry-over projectile kills.
 |---|---|---|---|---|
 | Three Snails (1000) | Beginner | Throws a shell (`level/N/ball`) at the nearest mob within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage; the skill reaches level 2 at character Lv 3 and level 3 at Lv 6 on its own (`level_ranks`: the SP a v83 Beginner puts into it); there is no card for it (owner decision 2026-10-14: a card that only buys what Lv 6 gives for free is a wasted pick) | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Rapid Snails (+25% speed, ×3) |
 | Recovery (1001) | Beginner | Auto-cast below the data HP threshold; heals `x` every 5 s for canonical duration, with canonical MP cost/cooldown | ranks 1–3 = canonical levels 1–3: 5/10/15 MP, 4/8/12 HP per pulse, 30 s duration, 120 s cooldown | learn, then two rank cards |
-| Energy Bolt (2001004) | Magician | `ball` projectile at the nearest mob every 0.9 s; 450 px/s; `hit/0` | rank r = level 1 + 4(r-1) (L1, L5, L9, L13, L17, L20) | Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
-| Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | same mapping | Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
-| Magic Guard (2001002) | Magician | Timed damage-to-MP split (`x`%) | L1, L5, L10, L15, L20 | ranks only |
-| Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | L1, L5, L10, L15, L20 | ranks only |
-| Fire Arrow (2101004) | F/P Wizard | Phase 2 | | Additional Projectile, Piercing Flames, Burning, Rapid Casting, Larger Flames |
+| Energy Bolt (2001004) | Magician | `ball` projectile at the nearest mob every 0.9 s; 450 px/s; `hit/0` | ranks 1–20 = levels 1–20 | learn/rank; Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
+| Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | ranks 1–20 = levels 1–20 | learn/rank; Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
+| Magic Guard (2001002) | Magician | Timed damage-to-MP split (`x`%) | ranks 1–20 = levels 1–20 | learn/rank |
+| Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
+| Improved MP Recovery (2000000) | Magician | Adds `floor(character level × skill level / 10)` MP to each 10 s pulse | ranks 1–16 = levels 1–16 | learn/rank |
+| Fire Arrow (2101004) | F/P Wizard | Phase 2, job unavailable | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
@@ -1064,6 +1068,9 @@ Draw rules:
 3. With fewer than three eligible cards, offer only those cards. With none, continue without a choice window.
    Percentage-heal fillers (Elixir, Power Elixir, the former White Potion card) are removed.
 4. Applying a card takes effect immediately.
+   Rank cards declare `max_rank` as the canonical skill cap; eligibility also checks the owned skill level.
+   A skill learned at level 1 therefore needs N−1 rank-card picks to reach level N. The window marks the final
+   skill level `MAX`, independently of the card's own pick count.
 5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
    sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
    and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
@@ -1072,7 +1079,7 @@ Draw rules:
 
 General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) learn/rank cards,
 Magnet +25% radius; for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
-The latter is an owned canonical passive skill, learned at level 1 and ranked through levels 4 / 8 / 12 / 16,
+The latter is an owned canonical passive skill, learned at level 1 and ranked one level per card through level 16,
 adding the level-scaled pulse bonus in section 6.2.
 
 Recovery casts only below 50% HP and when off cooldown, paying canonical MP. Its duration is 30 seconds, with
@@ -1092,7 +1099,7 @@ the configured `potions.bot.tier_score` (currently 112), with fallback 52 when a
 offer and take them normally.
 
 Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
-1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 2 = level 5). Magic Guard also
+1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 3). Magic Guard also
 waits for Energy Bolt (survivor rule), so the first Magician skill is always Energy Bolt.
 
 ## 9. Jobs
@@ -1220,9 +1227,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
-| Upgrade prerequisites | Magic Claw needs Energy Bolt, Magic Armor needs Magic Guard rank 2 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
+| Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
-| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery ranks 1/2/3, MP Recovery ranks 1/4/8/12/16, Max MP +25, Magnet ×1.25) | C (rank mapping/tuning); A (canonical levels) | ours; original WZ |
+| Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (one level per card) | v83 Skill.wz level tables; owner choice #39 |
+| Upgrade card values | `upgrades.json` (e.g. Max HP ×1.1, Nimble Feet +6 speed, Recovery ranks 1–3, MP Recovery ranks 1–16, Max MP +25, Magnet ×1.25) | C (card tuning); A (canonical values) | ours; original WZ |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
 | Level-up pools / casting order / low-MP cue | no level-up healing or implicit current-pool gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |

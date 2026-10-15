@@ -126,7 +126,7 @@ func card_rect(i: int) -> Rect2:
 
 ## Rank text of a card: a skill_rank card shows the skill's canonical level change ("Skill Lv. 2 → 3", from the card's
 ## skill_level / skill_level_next) since its own rank is not the level the skill reaches; other cards "NEW" for a
-## first rank, "Lv. a → b" after; " MAX" at the card's last rank; "" for fillers.
+## first rank, "Lv. a → b" after; " MAX" at the skill's canonical cap or the other card's last rank; "" for fillers.
 static func rank_text(card: Dictionary) -> String:
 	var kind := String(card.get("kind", ""))
 	if kind == "filler":
@@ -138,6 +138,7 @@ static func rank_text(card: Dictionary) -> String:
 	var lv_next := int(card.get("skill_level_next", 0))
 	if kind == "skill_rank" and lv > 0 and lv_next > lv:
 		s = "Skill Lv. %d → %d" % [lv, lv_next]
+		rank = lv_next
 	elif rank <= 1:
 		return "NEW"
 	else:
