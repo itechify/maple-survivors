@@ -14,7 +14,8 @@ extends RefCounted
 ## point into it); `skill_names` maps the per-shot `skill` index to the survivor skill key.
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
-## rotate (bool), dmg_min, dmg_max, magic (bool), crit (chance), crit_mult, pierce, skill (survivor key).
+## rotate (bool), dmg_min, dmg_max, magic (bool), element (canonical elemAttr), crit (chance), crit_mult, pierce,
+## skill (survivor key).
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
 const MAX_HITS := 16
@@ -35,6 +36,8 @@ var radius := PackedFloat32Array()
 var dmg_min := PackedFloat32Array()
 var dmg_max := PackedFloat32Array()
 var magic := PackedByteArray()
+## Canonical attacking skill elemAttr; resistance is resolved against each target at impact.
+var element := PackedStringArray()
 var crit := PackedFloat32Array()
 var crit_mult := PackedFloat32Array()
 ## Hits left before the shot dies (1 + pierce at spawn).
@@ -99,6 +102,7 @@ func spawn(spec: Dictionary) -> int:
 	dmg_min[i] = float(spec.get("dmg_min", 1.0))
 	dmg_max[i] = float(spec.get("dmg_max", spec.get("dmg_min", 1.0)))
 	magic[i] = 1 if bool(spec.get("magic", false)) else 0
+	element[i] = String(spec.get("element", ""))
 	crit[i] = float(spec.get("crit", 0.0))
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
@@ -212,14 +216,17 @@ static func segment_enter(ax: float, ay: float, bx: float, by: float, r: Rect2) 
 ## Rolls one hit of shot i's damage spec on mob m: Vector2i(damage, crit 0/1). Shared with instant skills through
 ## roll_damage().
 static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: float, crit_chance: float, cmult: float,
-		r: RandomNumberGenerator) -> Vector2i:
+		r: RandomNumberGenerator, element_mult: float = 1.0) -> Vector2i:
+	if element_mult <= 0.0:
+		return Vector2i.ZERO
 	var dmg := r.randf_range(lo, hi) if hi > lo else lo
 	if is_magic:
 		dmg = CombatMath.apply_defense(dmg, mdd, k)
 	var is_crit := CombatMath.roll_crit(crit_chance, r)
 	if is_crit:
 		dmg *= cmult
-	return Vector2i(maxi(1, roundi(dmg)), 1 if is_crit else 0)
+	# tier A: element weakness/resistance is 1.5/0.5 (Cold Beam String.wz); round the final hit once.
+	return Vector2i(maxi(1, roundi(dmg * element_mult)), 1 if is_crit else 0)
 
 
 func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray) -> void:
@@ -233,7 +240,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
 	var defense := float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd)
 	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
-		crit_mult[i], rng)
+		crit_mult[i], rng, mk.element_multiplier(element[i]))
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]
@@ -275,6 +282,7 @@ func _grow(n: int) -> void:
 	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
+	element.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
 		_free.append(i)

@@ -28,6 +28,7 @@ extends RefCounted
 ##   bounds: Rect2 (MapBounds; default foothold box + 300 above/100 below)
 ##   speed_mult: float (stage speed multiplier, default 1)   physics: PhysicsConstants (default v83)
 ##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
+##   events: Array receiving status expiry and poison mob_hit events (RunWorld's current event list)
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
 ## `kinds` must hold the MobKind of every `kind` index used (RunWorld shares its mob_kinds array). Their fields are
 ## re-read at every step(), so replacing or editing a kind (elite or speed overrides) takes effect on the next tick.
@@ -38,6 +39,13 @@ const JUMP := 2
 const HIT := 3
 const DIE := 4
 const FREE := 5
+## tier C: v83 server-reference poison rule; tier B (v95 RE) supports the 1-second display clock only.
+## Formula/rounding limits and pinned sources: docs/research/monster-status-effects.md.
+const POISON_INTERVAL := 1.0
+const POISON_LEVEL_BASE := 70
+const POISON_DAMAGE_CAP := 32767
+## tier C: numerical tolerance for double status clocks at the fixed-tick boundary.
+const STATUS_EPSILON := 1e-9
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -81,6 +89,20 @@ var active := PackedByteArray()
 ## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
 ## route's (NavGraph.route_cost); INF = no way there (or not computed yet). Kept while airborne.
 var route_len := PackedFloat32Array()
+## Player-inflicted statuses; canonical signed Slow x scales speed by (100 + x) / 100.
+## Timers use doubles so a canonical whole second expires after exactly 60 fixed ticks.
+var slow_left := PackedFloat64Array()
+var slow_factor := PackedFloat32Array()
+var slow_elapsed := PackedFloat32Array()
+var poison_left := PackedFloat64Array()
+var poison_elapsed := PackedFloat32Array()
+var frozen_left := PackedFloat64Array()
+var _poison_pulse := PackedFloat64Array()
+var _poison_damage := PackedInt32Array()
+var _poison_skill := PackedStringArray()
+## Actual nonlethal poison damage, included in RunWorld's player damage credit.
+var poison_dealt := 0
+var _status_count := 0
 
 var kinds: Array = []
 var fhm: FootholdMap
@@ -149,6 +171,16 @@ func is_settled(i: int) -> bool:
 	return is_live(i) and alpha[i] >= 1.0
 
 
+## Whether a live monster is frozen (movement, animation and new attacks/skills are held).
+func is_frozen(i: int) -> bool:
+	return is_live(i) and frozen_left[i] > 0.0
+
+
+## Gate for starting monster attacks/skills: fully visible and not frozen (tier B, later-client RE).
+func can_act(i: int) -> bool:
+	return is_settled(i) and frozen_left[i] <= 0.0
+
+
 ## The MobKind of the mob in slot i.
 func mob_kind(i: int) -> MobKind:
 	return kinds[kind[i]]
@@ -193,6 +225,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	fading_out[i] = 0
 	steady[i] = 0
 	active[i] = 1
+	slow_factor[i] = 1.0
 	_stop_x[i] = INF
 	_route_e[i] = -1
 	route_len[i] = INF
@@ -217,11 +250,50 @@ func despawn(i: int) -> bool:
 	return true
 
 
+## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key).
+## Refreshes without stacking (tier C, issue #54); poison snapshots the slot's max HP at application.
+## Appends application/expiry events to the supplied simulation event list. Bosses ignore control statuses.
+## Removal/death/relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
+func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
+	if not is_live(i) or float(params.get("time", 0.0)) <= 0.0:
+		return false
+	var mk := mob_kind(i)
+	if status not in ["slow", "poison", "freeze"]:
+		return false
+	# tier C: #54's boss policy; the v83 server reference instead rejects ordinary poison on bosses too.
+	if status != "poison" and (mk.boss or steady[i] != 0):
+		return false
+	if status == "slow":
+		if slow_left[i] <= 0.0:
+			_status_count += 1
+		slow_left[i] = float(params.time)
+		slow_elapsed[i] = 0.0
+		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
+	elif status == "freeze":
+		if frozen_left[i] <= 0.0:
+			_status_count += 1
+		frozen_left[i] = float(params.time)
+	else:
+		var level := int(params.get("level", 0))
+		if level <= 0 or level >= POISON_LEVEL_BASE:
+			return false
+		if poison_left[i] <= 0.0:
+			_status_count += 1
+		poison_left[i] = float(params.time)
+		poison_elapsed[i] = 0.0
+		_poison_pulse[i] = POISON_INTERVAL
+		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
+		_poison_skill[i] = String(params.get("skill", "poison"))
+	events.append({"type": "mob_status_applied", "mob": i, "mob_id": mk.id, "status": status,
+		"duration": float(params.time)})
+	return true
+
+
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
 ## Dying or free slots ignore hits. Scheduled-boss slots (`steady`) and kinds with canonical info/boss or the survivor
 ## no_flinch override ignore stun/push; other mobs require damage >= canonical pushed.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
-	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
+	if dmg <= 0 or i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
 	var k := kind[i]
 	var mk: MobKind = kinds[k] if k >= 0 and k < kinds.size() else null
@@ -234,9 +306,10 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		if fh[i] >= 0:
 			vx[i] = 0.0
 		active[i] = 0
+		_clear_statuses(i)
 		_alive -= 1
 		return true
-	if steady[i] != 0 or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
+	if frozen_left[i] > 0.0 or steady[i] != 0 or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
 		return false
 	state[i] = HIT
 	state_t[i] = 0.0
@@ -320,6 +393,9 @@ func step(dt: float, ctx: Dictionary) -> void:
 		if st == FREE:
 			continue
 		var k := kind[i]
+		# tier B: later-client RE holds frozen movement and attacks; keep both animation clocks fixed as well.
+		if st != DIE and frozen_left[i] > 0.0:
+			continue
 		var t := state_t[i] + dt
 		state_t[i] = t
 		anim_t[i] += dt
@@ -340,7 +416,7 @@ func step(dt: float, ctx: Dictionary) -> void:
 				facing[i] = action_facings[i]
 			continue
 		if _k_fly[k] != 0:
-			_fly(i, dt, _k_speed[k] * smult, target, bounds)
+			_fly(i, dt, _k_speed[k] * smult * slow_factor[i], target, bounds)
 			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
 			continue
 		var f := fh[i]
@@ -358,7 +434,7 @@ func step(dt: float, ctx: Dictionary) -> void:
 			continue
 		var p := platform[i]
 		var cx := x[i]
-		var spd := _k_speed[k] * smult
+		var spd := _k_speed[k] * smult * slow_factor[i]
 		var want := 0
 		var wander := false
 		if p == tp or (p == lowp and _k_jump[k] == 0):
@@ -483,6 +559,63 @@ func step(dt: float, ctx: Dictionary) -> void:
 		fh[i] = f
 		if st != MOVE:
 			_set_state(i, MOVE)
+	if _status_count > 0:
+		_step_statuses(dt, ctx.get("events", []))
+
+
+func _step_statuses(dt: float, events: Array) -> void:
+	for i in _hi:
+		if slow_left[i] > 0.0:
+			slow_elapsed[i] += minf(dt, slow_left[i])
+			slow_left[i] = maxf(0.0, slow_left[i] - dt)
+			if slow_left[i] <= STATUS_EPSILON:
+				slow_left[i] = 0.0
+				slow_factor[i] = 1.0
+				_status_count -= 1
+				events.append({"type": "mob_status_expired", "mob": i, "mob_id": mob_kind(i).id, "status": "slow"})
+		if poison_left[i] > 0.0:
+			poison_elapsed[i] += minf(dt, poison_left[i])
+			_poison_pulse[i] -= minf(dt, poison_left[i])
+			while _poison_pulse[i] <= STATUS_EPSILON:
+				_poison_pulse[i] += POISON_INTERVAL
+				# tier C: v83 server poison leaves at least 1 HP and never causes stun/push.
+				var damage := mini(_poison_damage[i], maxi(0, hp[i] - 1))
+				if damage > 0:
+					hp[i] -= damage
+					poison_dealt += damage
+					var mk := mob_kind(i)
+					events.append({"type": "mob_hit", "mob": i, "mob_id": mk.id, "damage": damage,
+						"crit": false, "pos": Vector2(x[i], y[i] + mk.hitbox.position.y), "hit_visual": "",
+						"skill": _poison_skill[i]})
+			poison_left[i] = maxf(0.0, poison_left[i] - dt)
+			if poison_left[i] <= STATUS_EPSILON:
+				poison_left[i] = 0.0
+				_status_count -= 1
+				events.append({"type": "mob_status_expired", "mob": i, "mob_id": mob_kind(i).id, "status": "poison"})
+		if frozen_left[i] > 0.0:
+			frozen_left[i] = maxf(0.0, frozen_left[i] - dt)
+			if frozen_left[i] <= STATUS_EPSILON:
+				frozen_left[i] = 0.0
+				_status_count -= 1
+				events.append({"type": "mob_status_expired", "mob": i, "mob_id": mob_kind(i).id, "status": "freeze"})
+
+
+func _clear_statuses(i: int) -> void:
+	if slow_left[i] > 0.0:
+		_status_count -= 1
+	slow_left[i] = 0.0
+	slow_factor[i] = 1.0
+	slow_elapsed[i] = 0.0
+	if poison_left[i] > 0.0:
+		_status_count -= 1
+	poison_left[i] = 0.0
+	poison_elapsed[i] = 0.0
+	_poison_pulse[i] = 0.0
+	_poison_damage[i] = 0
+	_poison_skill[i] = ""
+	if frozen_left[i] > 0.0:
+		_status_count -= 1
+	frozen_left[i] = 0.0
 
 
 ## Ballistic step of an airborne mob: gravity, a drop's drift stop, walls, the void guard, ceilings, landing,
@@ -614,6 +747,7 @@ func _set_state(i: int, s: int) -> void:
 
 
 func _release(i: int) -> void:
+	_clear_statuses(i)
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -667,6 +801,17 @@ func _grow(n: int) -> void:
 	_stop_x.resize(n)
 	_route_e.resize(n)
 	route_len.resize(n)
+	slow_left.resize(n)
+	slow_factor.resize(n)
+	slow_elapsed.resize(n)
+	poison_left.resize(n)
+	poison_elapsed.resize(n)
+	frozen_left.resize(n)
+	_poison_pulse.resize(n)
+	_poison_damage.resize(n)
+	_poison_skill.resize(n)
+	for i in range(old, n):
+		slow_factor[i] = 1.0
 	for i in range(n - 1, old - 1, -1):
 		state[i] = FREE
 		active[i] = 0
