@@ -803,7 +803,7 @@ quantities per kind.
   there with a fresh age, keeping the pool bounded and collection near recent kills; no EXP is lost.
 - **Survivor EXP curve:** `exp_to_next(L) = round(4 + 15·L + 3.8·L²)` (L1 = 23, L7 = 295,
   L9 = 447, L29 = 3635; 980 EXP to reach Lv 8, 1794 to Lv 10, 39150 to Lv 30). Historical curves and their
-  measurements remain in section4.2. The quadratic term carries the late game: a strong build that levels
+  measurements remain in section 4.2. The quadratic term carries the late game: a strong build that levels
   fast meets steeper levels, which keeps the spread between builds small. Measured
   pace: section 4.2. The canonical v83 table (`data/canonical/exp_table.json`) is kept for reference and display
   only.
@@ -897,10 +897,10 @@ are tier A; the interpretations below are tier C where stated.
 
 | Skill / level | Interval | HP gate | Effect |
 |---|---|---|---|
-| Slow 126 / 7 | 15 s | omitted ? 100% | 15 s; rectangle (-300,-120)..(300,120) from boss feet; x80 retains 80% upgraded speed (tier C owner choice), refreshes rather than stacks |
+| Slow 126 / 7 | 15 s | omitted → 100% | 15 s; rectangle (-300,-120)..(300,120) from boss feet; x80 retains 80% upgraded speed (tier C owner choice), refreshes rather than stacks |
 | Summon 200 / 78 | 10 s | 90% | 2 Snails 100100, 2 Blue Snails 100101, 2 Red Snails 130101; at most 30 living summons belonging to that encounter |
-| Weapon defense 112 / 1 | 10 s | omitted ? 100% | 30 s; rectangle (-300,-200)..(300,200); x85 adds 85 W.DEF to living mob feet inside, including Mano (tier C arithmetic) |
-| Magic defense 113 / 1 | 10 s | omitted ? 100% | Same area/duration; x85 adds 85 M.DEF (tier C arithmetic) |
+| Weapon defense 112 / 1 | 10 s | omitted → 100% | 30 s; rectangle (-300,-200)..(300,200); x85 adds 85 W.DEF to living mob feet inside, including Mano (tier C arithmetic) |
+| Magic defense 113 / 1 | 10 s | omitted → 100% | Same area/duration; x85 adds 85 M.DEF (tier C arithmetic) |
 
 Defense refreshes without stacking; Mano's canonical PDD20/MDD30 stay unchanged in the shared kind. Basic attacks,
 instant magic and in-flight projectiles all use the slot's current defense at impact. Status survives relocation and
@@ -1089,7 +1089,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
 | Mano skill scheduling / summons | first use after interval, one canonical stance at a time; omitted hp100%; 24 px symmetric spawn spacing | C (policy/spacing), A (intervals/list/limit/art) | ours; original v83 WZ |
 | MobSkill effect anchors / summon family | affected pos1 at body top, effect pos3 at mob center; summonEffect1 selects Effect.wz/Summon.img/1 | C (mapping/placement), A (art/origins/delays) | ours; original v83 WZ |
-| Basic physical damage / interval | ?6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
+| Basic physical damage / interval | §6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
 | Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
