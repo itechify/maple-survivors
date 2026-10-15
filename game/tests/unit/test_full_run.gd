@@ -182,7 +182,8 @@ static func _median(values: Array[float]) -> float:
 func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
 	assert_between(float(st.lv8_time), 135.0, 270.0, "%s: Lv 8 between 2:15 and 4:30" % label)
 	assert_between(float(st.job_time), 150.0, 360.0, "%s: Magician between 2:30 and 6:00" % label)
-	assert_near(float(st.job_time), float(st.lv10_time), DT, "%s: Magician at Lv10" % label)
+	# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
+	assert_near(float(st.job_time), float(st.lv10_time) + DT, 1e-6, "%s: Magician at Lv10" % label)
 	assert_between(float(st.lv10_time), 150.0, 360.0, "%s: Lv 10 between 2:30 and 6:00" % label)
 	if float(st.lv30_time) > 0.0:
 		assert_between(float(st.lv30_time), 600.0, 1080.0, "%s: individual Lv30 in10:00–18:00; sample median12:00–15:00" % label)
