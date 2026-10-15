@@ -198,6 +198,61 @@ func test_spawn_keyframes_keep_ramping_after_final_arrival() -> void:
 	assert_true(w.director.max_alive_at(1080.0) > 330)
 
 
+func test_bursts_and_elites_keep_ramping_after_the_last_keyframe() -> void:
+	var setup := _setup([900.0])
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.duration = 900.0
+	stage.post_duration_slope = 0.25
+	stage.bursts = {"first": 90.0, "every": 90.0, "count_min": 10.0, "count_max": 40.0}
+	stage.elites = {"first": 75.0, "every": 60.0, "hp_mult": 8.0, "exp_mult": 5.0, "damage_mult": 1.5}
+	stage.keyframes = [
+		{"t": 720.0, "rate": 13.5, "max_alive": 240.0, "hp": 3.4, "speed": 1.28, "pool": {"100100": 1.0}},
+		{"t": 900.0, "rate": 20.0, "max_alive": 330.0, "hp": 5.5, "speed": 1.4, "pool": {"100100": 1.0}},
+	]
+	var w := RunWorld.new(setup)
+	assert_eq(w.director.burst_count_at(450.0), 25, "bursts still grow linearly over the stage")
+	assert_eq(w.director.burst_count_at(900.0), 40)
+	# 40 + (40 - 10) / 900 s x 180 s x 0.25 = 41.5
+	assert_eq(w.director.burst_count_at(1080.0), 42, "burst size keeps its slope at quarter pace")
+	assert_true(w.director.burst_count_at(1800.0) > w.director.burst_count_at(1080.0))
+	assert_near(w.director.elite_interval_at(600.0), 60.0, 1e-9, "elite cadence is fixed before the last keyframe")
+	assert_near(w.director.elite_interval_at(900.0), 60.0, 1e-9)
+	assert_near(w.director.elite_interval_at(1080.0), 60.0 * 20.0 / 21.625, 1e-6,
+		"elites stay the same share of the extrapolated steady rate")
+	assert_true(w.director.elite_interval_at(1800.0) < w.director.elite_interval_at(1080.0))
+	stage.post_duration_slope = 0.0
+	var flat := RunWorld.new(setup)
+	assert_eq(flat.director.burst_count_at(1080.0), 40, "no slope: bursts hold their final size")
+	assert_near(flat.director.elite_interval_at(1080.0), 60.0, 1e-9, "no slope: elite cadence holds")
+
+
+func test_elite_schedule_uses_the_ramped_interval_after_the_last_keyframe() -> void:
+	var setup := _setup([5000.0])
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.duration = 2.0
+	stage.post_duration_slope = 1.0
+	stage.elites = {"first": 3.0, "every": 2.0, "hp_mult": 1.0, "exp_mult": 1.0, "damage_mult": 1.0}
+	stage.keyframes = [
+		{"t": 0.0, "rate": 1.0, "max_alive": 50.0, "hp": 1.0, "speed": 1.0, "pool": {"100100": 1.0}},
+		{"t": 2.0, "rate": 2.0, "max_alive": 50.0, "hp": 1.0, "speed": 1.0, "pool": {"100100": 1.0}},
+	]
+	var w := RunWorld.new(setup)
+	w.god = true
+	var elite_times: Array[float] = []
+	for tick in 8 * 60:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "mob_spawned" and bool(e.elite) and int(e.relocated_from) < 0:
+				elite_times.append(w.time)
+	assert_true(elite_times.size() >= 3, "elites keep coming after the last keyframe")
+	if elite_times.size() < 3:
+		return
+	# rate(3) = 2 + 0.5 x 1 x 1 = 2.5 -> next interval 2 x 2 / 2.5 = 1.6 s; rate(4.6) = 3.3 -> 2 x 2 / 3.3 s.
+	assert_near(elite_times[0], 3.0, 2 * DT)
+	assert_near(elite_times[1] - elite_times[0], 1.6, 2 * DT)
+	assert_near(elite_times[2] - elite_times[1], 4.0 / 3.3, 2 * DT)
+
+
 func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 	var examples: Array = DataRepo.load_all().stages.stages.henesys_hg1.bosses
 	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0}

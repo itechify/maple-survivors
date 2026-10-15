@@ -310,8 +310,9 @@ EXP and random potion drops; bundles use the current stock item. Reward scatteri
 
 
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
-remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
-ordinary alive targets still obey `hard_cap`.
+remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end, the burst size
+past the stage duration (`burst_count_at`) and shortens the elite interval by the extrapolated rate ratio
+(`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
 
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->

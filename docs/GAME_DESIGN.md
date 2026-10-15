@@ -632,8 +632,10 @@ Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are 
 `balance.bosses` stores warning time, placement and spawn reduction.
 
 While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
-Henesys continues the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
-(`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Clearing requires every scheduled boss dead;
+Both stages continue the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00
+(`post_duration_slope`), with ordinary mobs still capped by `hard_cap`. Burst size keeps its 10→40 slope over the
+stage at the same quarter pace past 15:00, and the elite interval shrinks in proportion to the extrapolated spawn rate
+(`every × rate(15:00) / rate(t)`), so elites stay the same share of the growing stream until the clear (tier C). Clearing requires every scheduled boss dead;
 stages without a boss list retain their duration clear. Stage select states the applicable objective.
 
 If a living boss has no route or makes no progress toward the player for 5 s, it fades out over 300 ms, then
@@ -1071,7 +1073,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
 | Mob heal arithmetic / timing / art anchor | each mob in the canonical area regains exactly canonical x, clamped to max HP; y unused; no RNG; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | spec "canonical amount"; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
-| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
+| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; burst size slope ×0.25 past the duration; elite interval × rate(last keyframe) / rate(t); 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Projectile hit exclusion identity | packed 64-bit run-local spawn identity; fresh spawns differ, relocation preserves it | C | our pool bookkeeping; no canonical or balance values changed |

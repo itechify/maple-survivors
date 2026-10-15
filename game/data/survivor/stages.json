@@ -18,7 +18,7 @@
 
 
 			],
-			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes at one quarter pace until every boss dies.",
+			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes, the burst-size slope and (via the rate ratio) the elite frequency at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,
 			"keyframes": [
 				{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 1, "speed": 1.0, "normal_hp_drop_chance": 0.018,
