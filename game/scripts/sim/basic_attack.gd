@@ -39,7 +39,7 @@ func step(dt: float, world: RunWorld) -> void:
 		return
 	var action: String = ACTIONS[world.basic_rng.randi_range(0, ACTIONS.size() - 1)]
 	var spec := _spec(info, action)
-	if spec.is_empty() or _nearest(world, spec.box, world.player.facing) < 0:
+	if spec.is_empty() or not _target_in_reach(world, info):
 		return
 	_pending = spec
 	_pending["weapon_id"] = weapon
@@ -53,6 +53,15 @@ func step(dt: float, world: RunWorld) -> void:
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
 	world.start_action(action, float(spec.action_time), true)
 	_emit(world, "start")
+
+
+func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
+	# Reach gates the opportunity, not its uniformly selected stance. Shorter stances may miss at impact.
+	for action: String in ACTIONS:
+		var spec := _spec(info, action)
+		if not spec.is_empty() and _nearest(world, spec.box, world.player.facing) >= 0:
+			return true
+	return false
 
 
 func _spec(info: Dictionary, action: String) -> Dictionary:

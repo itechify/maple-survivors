@@ -25,4 +25,3 @@ static func world(seed_value: int = 7) -> RunWorld:
 	world.god = true
 	world.drain_events()
 	return world
-

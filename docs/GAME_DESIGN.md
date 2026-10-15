@@ -726,10 +726,11 @@ The Beginner holds Sword 1302000 from the first frame; Magician holds Wooden Wan
 info supplies Sword W.ATT17/speed4 and Wand W.ATT15/M.ATT23/speed6. Magic attack sums the worn equipment's
 `incMAD`; survivor data only selects the weapon, never duplicates its canonical attack value.
 
-After skill priority, a standing or airborne player automatically attacks when a monster intersects its facing
-stance afterimage box. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
+After skill priority, a standing or airborne player automatically attacks when a monster intersects any of its
+five facing stance afterimage boxes. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
 There is no movement lock. Each swing chooses uniformly among swingO1/O2/O3 and stabO1/O2 on its own seeded stream.
-One nearest live monster is hit; a moving target may leave the box before impact. The interval is
+The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One nearest live
+monster in that box is hit; a moving target may leave before impact. The interval is
 `ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
 body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
