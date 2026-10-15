@@ -25,8 +25,8 @@ extends RefCounted
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 mob-skill rolls. Each
-## stream has exactly one owner.
+## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls (8 is unused:
+## it held the old random mob heal rolls). Each stream has exactly one owner.
 
 const PLAYING := 0
 const CHOOSING_JOB := 1
@@ -139,7 +139,6 @@ var jobs: JobTree
 var upgrades: UpgradePool
 var director: SpawnDirector
 var mob_skills: MobSkillRunner
-var mob_skill_rng: RandomNumberGenerator
 var bosses: BossDirector
 var boss_attacks := BossAttacks.new()
 var mob_projectiles := MobProjectileSystem.new()
@@ -221,7 +220,6 @@ func _init(p_setup: Dictionary = {}) -> void:
 	drop_rng = _stream(4)
 	potion_rng = _stream(7)
 	reward_rng = _stream(6)
-	mob_skill_rng = _stream(8)
 	view_size = setup.get("view_size", DEFAULT_VIEW)
 	var map_img: Dictionary = setup.get("map_img", {})
 	physics = PhysicsConstants.from_wz(setup.get("physics_img", {}))

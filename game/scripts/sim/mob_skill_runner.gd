@@ -110,10 +110,9 @@ func _resolve_heals(world: RunWorld) -> void:
 			waiting.append(pending)
 			continue
 		var spec: Dictionary = pending.spec
-		# tier C: x/y are interpreted as inclusive uniform heal bounds, following the reference resolver.
-		var low := maxi(0, mini(int(spec.get("x", 0)), int(spec.get("y", spec.get("x", 0)))))
-		var high := maxi(low, maxi(int(spec.get("x", 0)), int(spec.get("y", 0))))
-		var amount := world.mob_skill_rng.randi_range(low, high)
+		# tier C: the canonical x is the HP restored to each mob in the area (the spec's "canonical amount"); y is
+		# unused (its role in the v83 client is unverified). No random roll.
+		var amount := maxi(0, int(spec.get("x", 0)))
 		var area := _area(spec, Vector2(world.swarm.x[source], world.swarm.y[source]), world.swarm.facing[source])
 		for slot in world.swarm.capacity():
 			if world.swarm.active[slot] == 0 or not area.has_point(Vector2(world.swarm.x[slot], world.swarm.y[slot])):

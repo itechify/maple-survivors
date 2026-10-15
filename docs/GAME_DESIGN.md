@@ -689,10 +689,10 @@ for acquisition/travel are tier C, inspired by the prose CMob comment in the lat
 verified v83 RE. Aim is at the current player body centre on launch; flight is straight, ignores terrain and
 hits a swept body box grown by 8 px (tier C, survivor data). A ball is consumed on contact even if damage is
 blocked or misses. Animation frames, origins, delays and sound remain canonical.
-Stumpy's heal114/15 uses canonical HP gate80%, interval30 s and effectAfter1,500 ms. We interpret x700/y200 as
-inclusive uniform bounds 200–700, then clamp to max HP and heal living mobs in the canonical area (tier C;
-reference resolver `MapSimulator.cs: ResolveMobSkillHealAmount`, not a verified v83 formula). Its dedicated
-seed stream8 makes the amounts replayable without changing card, potion, reward or hit rolls. The original
+Stumpy's heal114/15 uses canonical HP gate80%, interval30 s and effectAfter1,500 ms. Following the spec ("restoring
+the canonical amount"), each living mob in the canonical area regains exactly the canonical x (700), clamped to its
+max HP; there is no random roll. The canonical y (200) is unused: its role in the v83 client is unverified (tier C;
+an earlier build rolled uniformly between y and x after a later-client reference resolver). The original
 mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP restores at the application delay.
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
 was copied. Encounter scaling is survivor data; all heal bounds, gates, intervals and effect timing stay canonical.
@@ -706,9 +706,9 @@ list spawns eleven ordinary canonical Slimes on death, independently of that cas
 ownership and fresh slots reset it. King Slime lacks info/boss and hpTag colours in v83: the survivor no_flinch
 override and existing 1/5 MobGage colour override supply scheduled-boss behavior without modifying WZ facts.
 Dyle retains canonical maxHP 31,000 (survivor ×0.26=8,060) and touch 190 (survivor ×1.15).
-Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Canonical
-x 5,000/y 500 are interpreted as inclusive uniform 500–5,000 bounds (tier C, same reference interpretation as
-Stumpy), clamped at max HP. Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
+Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Each cast
+restores the canonical x 5,000 (y 500 unused; tier C, the same rule as Stumpy), clamped at max HP.
+Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
 weapon immunity (tier C): basic swings and Three Snails shells are blocked at live impact time; magic remains
 effective. A blocked shell consumes a contact/pierce hit without damage or crit RNG consumption (tier C).
 The original repeat 1/pos 2 34×34 icon with origin (17,44) stays above Dyle's body and follows relocations;
@@ -1067,9 +1067,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Stumpy HP/contact/attack | ×0.45 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
 | King Slime / Dyle HP and hit scaling | HP ×1.1/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
 | King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
-| Dyle heal / weapon immunity | uniform500–5,000 heal; timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; reference heal resolver prose |
+| Dyle heal / weapon immunity | canonical x 5,000 heal (y unused); timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; spec "canonical amount" |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
-| Mob heal arithmetic / timing / art anchor | inclusive uniform x/y, max clamp and canonical area; independent RNG8; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | local reference resolver; original v83 WZ |
+| Mob heal arithmetic / timing / art anchor | each mob in the canonical area regains exactly canonical x, clamped to max HP; y unused; no RNG; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | spec "canonical amount"; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
 | Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; 30:00 cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |

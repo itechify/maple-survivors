@@ -230,7 +230,7 @@ func test_potion_rolls_have_their_own_stream_independent_of_basic_attack_stances
 	var a := _world(31)
 	var b := _world(31)
 	var streams: Array[RandomNumberGenerator] = [b.rng, b.spawn_rng, b.card_rng, b.drop_rng, b.basic_rng,
-		b.reward_rng, b.potion_rng, b.mob_skill_rng]
+		b.reward_rng, b.potion_rng]
 	var seeds := {}
 	for s in streams:
 		seeds[s.seed] = true

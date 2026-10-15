@@ -104,7 +104,7 @@ func test_dyle_heal_uses_hp90_interval20_and_zero_effect_delay() -> void:
 	var healed := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_healed")
 	assert_eq(healed.size(), 1, "canonical effectAfter0 restores on the casting tick")
 	if healed.size() == 1:
-		assert_between(int(healed[0].amount), 500, 5000)
+		assert_eq(int(healed[0].amount), mini(5000, w.swarm.max_hp[slot] - hp), "canonical x 5000, clamped to max HP")
 		assert_eq(w.swarm.hp[slot], hp + int(healed[0].amount))
 		assert_eq(healed[0].level, 17)
 		assert_near(healed[0].time, w.time, 1e-9)

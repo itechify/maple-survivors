@@ -283,8 +283,8 @@ Balls store source attack/accuracy/multiplier independently of the live mob, exp
 segment-vs-player-body contact with a survivor collision radius. RunScene's separate `mob_shots` renderer uses
 the existing batched ProjectileRenderer and `RunWorld.visual_paths`. No per-projectile Nodes are introduced.
 MobSkill114 queues restoration at the caster's canonical effectAfter after the existing interval/HP/stance gate.
-At resolution, one inclusive uniform roll between canonical x/y heals living mobs in the canonical area, clamped
-to each maximum (tier C arithmetic). It uses independent `mob_skill_rng` stream 8; dead casters cancel the queue.
+At resolution, every living mob in the canonical area regains the canonical x, clamped to its maximum (tier C:
+y is unused, no RNG); dead casters cancel the queue.
 The original mob0 animation starts at cast with its original blank lead-in; RunScene anchors heal pos0 at feet.
 EffectAfter0 heals resolve on the casting tick after `boss_skill`; positive delays retain their queued resolution.
 MobSkill140 is a timed self weapon-immunity status in packed per-slot expiry/path arrays. `physical_hit_allowed`
