@@ -93,10 +93,10 @@ func test_seeded_normal_and_elite_kills_follow_potion_drop_chances() -> void:
 	print("  Potion drops / 500 kills: normal %s; elite %s" % [measured.normal, measured.elite])
 
 
-func _drop_profile_world(frames: Array, global_hp: float = 0.0) -> RunWorld:
+func _drop_profile_world(frames: Array, global_hp: float = 0.0, global_mp: float = 1.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.stages.stages.quiet.keyframes = frames
-	data.balance.potions.drops = {"normal": {"hp": global_hp, "mp": 1.0}, "elite": {"hp": 1.0, "mp": 1.0}}
+	data.balance.potions.drops = {"normal": {"hp": global_hp, "mp": global_mp}, "elite": {"hp": 1.0, "mp": 1.0}}
 	return RunWorld.new(RF.setup("quiet", 27, data))
 
 
@@ -126,6 +126,75 @@ func test_stage_normal_hp_drop_chance_interpolates_without_changing_mp_or_elites
 	assert_eq(counts.mp, 400, "MP still uses its global normal chance")
 	assert_eq(_kill_drop_counts(_drop_profile_world(frames), true), {"hp": 400, "mp": 400},
 		"elite chances ignore the ordinary HP curve")
+
+
+func test_stage_normal_mp_drop_chance_preserves_early_supply_then_tapers() -> void:
+	var frames := [{"t": 0, "pool": {"100100": 1}, "normal_mp_drop_chance": 0.1},
+		{"t": 10, "pool": {"100100": 1}, "normal_mp_drop_chance": 0.1},
+		{"t": 20, "pool": {"100100": 1}, "normal_mp_drop_chance": 0.0}]
+	var baseline := _drop_profile_world([{"t": 0, "pool": {"100100": 1}}], 0.0, 0.1)
+	var early := _drop_profile_world(frames, 0.0, 0.1)
+	for tick in 600:
+		early.step(DT, MoveInput.new())
+	assert_eq(_kill_drop_counts(early), _kill_drop_counts(baseline), "the early ten-percent supply keeps the seeded drop sequence")
+	var middle := _drop_profile_world(frames, 0.0, 0.1)
+	for tick in 900:
+		middle.step(DT, MoveInput.new())
+	var counts := _kill_drop_counts(middle)
+	assert_near(float(counts.mp) / 400.0, 0.05, 0.03, "halfway through the taper gives five-percent MP drops")
+	assert_eq(counts.hp, 0, "the MP curve leaves the HP chance alone")
+	var late := _drop_profile_world(frames, 0.0, 0.1)
+	for tick in 1260:
+		late.step(DT, MoveInput.new())
+	assert_eq(_kill_drop_counts(late).mp, 0, "the last MP endpoint holds without the spawn ramp")
+
+
+func test_missing_mp_curve_endpoints_use_global_chance_and_probabilities_hold_clamped() -> void:
+	var missing := _drop_profile_world([{"t": 0, "pool": {"100100": 1}}], 0.0, 0.35)
+	assert_near(float(_kill_drop_counts(missing).mp) / 400.0, 0.35, 0.06,
+		"a stage without the optional field retains its global MP chance")
+	var partial := _drop_profile_world([
+		{"t": 0, "pool": {"100100": 1}, "normal_mp_drop_chance": 0.0},
+		{"t": 10, "pool": {"100100": 1}}])
+	for tick in 300:
+		partial.step(DT, MoveInput.new())
+	assert_near(float(_kill_drop_counts(partial).mp) / 400.0, 0.5, 0.06,
+		"a missing individual MP endpoint falls back before interpolation")
+	var clipped := _drop_profile_world([
+		{"t": 0, "pool": {"100100": 1}, "normal_mp_drop_chance": 2.0},
+		{"t": 10, "pool": {"100100": 1}, "normal_mp_drop_chance": -1.0}])
+	assert_eq(_kill_drop_counts(clipped).mp, 400, "MP chance above one clips to one")
+	for tick in 900:
+		clipped.step(DT, MoveInput.new())
+	assert_eq(_kill_drop_counts(clipped).mp, 0, "negative MP chance clips to zero and holds after the final frame")
+
+
+func test_normal_mp_curve_leaves_elite_rolls_and_boss_bundles_unchanged() -> void:
+	var frames := [{"t": 0, "pool": {"100100": 1}, "normal_mp_drop_chance": 0.0}]
+	assert_eq(_kill_drop_counts(_drop_profile_world(frames), true), {"hp": 400, "mp": 400},
+		"elite HP and MP use the global elite chances even with normal MP disabled")
+	var data := RF.quiet_data()
+	data.stages.stages.quiet.keyframes = frames
+	data.stages.stages.quiet.bosses = [{"time": 1.0, "mob_id": 2220000,
+		"rewards": {"potions": {"hp": 3, "mp": 3}, "bonus_choices": 0}}]
+	var w := RunWorld.new(RF.setup("quiet", 27, data))
+	w.god = true
+	var slot := -1
+	for tick in 61:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_spawned":
+				slot = int(e.mob)
+	assert_true(slot >= 0, "the scheduled synthetic boss arrives")
+	if slot < 0:
+		return
+	w.hit_mob(slot, {"damage_min": 1000000.0, "damage_max": 1000000.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	var bundles := {"hp": 0, "mp": 0}
+	for e: Dictionary in w.drain_events():
+		if e.type == "pickup_spawned" and e.get("kind") == "potion":
+			bundles[e.potion_kind] += int(e.count)
+	assert_eq(bundles, {"hp": 3, "mp": 3}, "boss rewards bypass both ordinary drop curves")
 
 
 func test_missing_hp_curve_endpoints_use_global_chance_and_probabilities_hold_clamped() -> void:
