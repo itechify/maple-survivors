@@ -250,7 +250,11 @@ duration rule retained for stages without bosses. Boss clears defer until all bo
 Boss attacks and skills share `BossDirector.can_act(index, now)` and
 `begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
 movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`, `times: PackedFloat32Array` and
-`facings: PackedInt32Array`. A nonempty stance holds grounded movement and facing (tier C); `MobRenderer` draws
+`facings: PackedInt32Array`. This is a borrowed read-only view: subsequent refreshes update the same Dictionary and
+packed buffers, resizing only when swarm capacity changes. Consumers needing history must duplicate it. Refreshes
+clear the previous occupied boss slots before writing current overrides, and match the boss's logical mob identity
+so a newly spawned entity in a reused slot cannot inherit a stance. A nonempty stance holds grounded movement
+and facing (tier C); `MobRenderer` draws
 that canonical stance once at its elapsed sim time, including its original frame origins. Expiry or death clears
 the override. No per-boss Nodes or presentation clocks drive the action.
 An intentional action hold resets the pursuit-stall clock; a fading boss cannot start another action.

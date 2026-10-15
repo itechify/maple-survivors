@@ -13,11 +13,15 @@ var records: Array = []
 var rules: Dictionary = {}
 var _actions: Array[Dictionary] = []
 var _now := 0.0
+var _action_view := {"actions": PackedStringArray(), "times": PackedFloat32Array(), "facings": PackedInt32Array()}
+var _view_slots := PackedInt32Array()
 
 
 func _init(p_entries: Array = [], p_rules: Dictionary = {}) -> void:
 	entries = p_entries.duplicate(true)
 	rules = DEFAULT_RULES.merged(p_rules, true)
+	_view_slots.resize(entries.size())
+	_view_slots.fill(-1)
 	for index in entries.size():
 		records.append({"boss_index": index, "mob_id": int(entries[index].mob_id), "slot": -1,
 			"warned": false, "spawn_time": -1.0, "death_time": -1.0, "dead": false,
@@ -51,24 +55,35 @@ func prepare_actions(world: RunWorld) -> Dictionary:
 	return action_snapshot(world.swarm)
 
 
-## Per-slot actions, elapsed times and facing for movement and rendering; death or expiry clears the override.
+## Borrows reusable per-slot arrays for immediate read-only consumption; the next refresh updates the same view.
+## Callers retaining history must duplicate it. Capacity changes alone resize buffers; death/expiry clears overrides.
 func action_snapshot(swarm: MobSwarm) -> Dictionary:
-	var actions := PackedStringArray()
-	var times := PackedFloat32Array()
-	var facings := PackedInt32Array()
-	actions.resize(swarm.capacity())
-	times.resize(swarm.capacity())
-	facings.resize(swarm.capacity())
+	var actions: PackedStringArray = _action_view.actions
+	var times: PackedFloat32Array = _action_view.times
+	var facings: PackedInt32Array = _action_view.facings
+	var capacity := swarm.capacity()
+	if actions.size() != capacity:
+		actions.resize(capacity)
+		times.resize(capacity)
+		facings.resize(capacity)
+	for slot in _view_slots:
+		if slot >= 0 and slot < capacity:
+			actions[slot] = ""
+			times[slot] = 0.0
+			facings[slot] = 0
+	_view_slots.fill(-1)
 	for index in records.size():
 		var record: Dictionary = records[index]
 		var slot := int(record.slot)
 		if slot < 0 or slot >= swarm.capacity() or bool(record.dead) or swarm.active[slot] == 0 \
+				or swarm.identity[slot] != int(record.get("identity", -1)) \
 				or _now >= float(_actions[index].until) - 1e-6:
 			continue
 		actions[slot] = String(_actions[index].action)
 		times[slot] = maxf(0.0, _now - float(_actions[index].start))
 		facings[slot] = int(_actions[index].facing)
-	return {"actions": actions, "times": times, "facings": facings}
+		_view_slots[index] = slot
+	return _action_view
 
 
 
@@ -108,6 +123,7 @@ func step(world: RunWorld, dt: float = 0.0) -> void:
 			continue
 		world.mob_boss[slot] = index
 		record.slot = slot
+		record.identity = world.swarm.identity[slot]
 		record.spawn_time = world.time
 		record.anchor = Vector2(world.swarm.x[slot], world.swarm.y[slot])
 		world.emit("boss_spawned", {"boss_index": index, "mob": slot, "mob_id": int(entry.mob_id),
