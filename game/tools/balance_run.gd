@@ -157,6 +157,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var cards_taken: Array = []
 	var boss_hits: Array = []
 	var buff_casts: Array = []
+	var potion_uses: Array = []
 	var mp_short_seconds := 0.0
 	var late_mp_short_seconds := 0.0
 	var late_observed_seconds := 0.0
@@ -281,6 +282,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 								"mp_absorbed": int(e.mp_absorbed), "source_kind": String(e.get("source_kind","other"))})
 				"pickup_collected":
 					exp_total += int(e.exp)
+				"potion_used":
+					var id := int(e.item_id)
+					var item: Dictionary = w.potions.item_info.get(id, w.potions.item_info.get(str(id), {}))
+					var amount := int(item.get("spec", {}).get(String(e.kind), 0))
+					potion_uses.append({"time": w.time, "level": int(w.player_state.level), "kind": String(e.kind),
+						"item_id": id, "restored": int(e.restored), "capacity_waste": maxi(0, amount - int(e.restored))})
 				"portal_used":
 					portal_names.append(String(e.portal))
 				"level_up":
@@ -342,6 +349,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"potions_start": potions_start, "potions_left": {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)},
+		"potion_uses": potion_uses,
 		"warnings": Array(w.warnings),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,

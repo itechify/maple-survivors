@@ -323,6 +323,12 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var r: Dictionary = BR.run_one(w, "bot", 26)
 	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
+	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
+	if r.has("potion_uses"):
+		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")
+		assert_eq(mp_uses.size(), 1)
+		assert_eq(mp_uses[0].restored, 5, "a Blue Potion restores only the five-MP opening pool")
+		assert_eq(mp_uses[0].capacity_waste, 95, "canonical restoration beyond the pool capacity is explicit")
 
 
 func test_censored_fight_median_is_exact_only_when_no_unfinished_fight_lies_below_it() -> void:
