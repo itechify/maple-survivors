@@ -1,8 +1,8 @@
 class_name MobSkillRunner
 extends RefCounted
+## Canonical scheduled-boss skills (MobSkill 112/113/114/126/140/200) and their timed status state
+## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
-
-## Canonical scheduled-boss skills and their timed status state; no files, nodes or canonical-stat mutation.
 var _images: Dictionary
 var _tables: Dictionary
 var _rules: Dictionary
@@ -29,22 +29,16 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 
 
 ## Current movement multiplier from the area's timed slow.
-
-
 func speed_multiplier(now: float) -> float:
 	return _slow_factor if now < _slow_until - 1e-9 else 1.0
 
 
 ## Public presentation state for the player's active slow; empty after expiration.
-
-
 func slow_state(now: float) -> Dictionary:
 	return {"skill_id": 126, "remaining": _slow_until - now, "multiplier": _slow_factor, "visual": _slow_visual} if now < _slow_until - 1e-9 else {}
 
 
 ## Casts one ready canonical skill per boss after its own HP gate and stance availability.
-
-
 func step(world: RunWorld) -> void:
 	_resolve_heals(world)
 	for record: Dictionary in world.bosses.records:
@@ -144,10 +138,7 @@ func _area(spec: Dictionary, pos: Vector2, facing: int) -> Rect2:
 	return box
 
 
-
 ## Number of this encounter's still-living summoned slots, independent of their present position or kind.
-
-
 func summoned_alive(world: RunWorld, owner: int) -> int:
 	var count := 0
 	for slot in world.swarm.capacity():
@@ -184,10 +175,7 @@ func _summon(world: RunWorld, source: int, owner: int, spec: Dictionary) -> Arra
 	return targets
 
 
-
 ## Grows the per-slot timed status pool without changing existing statuses.
-
-
 func resize(capacity: int) -> void:
 	_pdd.resize(capacity)
 	_mdd.resize(capacity)
@@ -198,8 +186,6 @@ func resize(capacity: int) -> void:
 
 
 ## A new mob in a reused slot starts without the previous occupant's defense statuses.
-
-
 func reset_slot(slot: int) -> void:
 	_pdd[slot] = 0
 	_mdd[slot] = 0
@@ -210,8 +196,6 @@ func reset_slot(slot: int) -> void:
 
 
 ## Transfers timed statuses with a relocation; a later reuse of the former slot gets no stale state.
-
-
 func move_slot(from: int, to: int) -> void:
 	if from == to:
 		return
@@ -235,8 +219,6 @@ func immunity_state(slot: int, now: float) -> Dictionary:
 
 
 ## Live flat defense addition at this slot; canonical MobKind stats are never edited.
-
-
 func defense_bonus(slot: int, magic: bool, now: float) -> float:
 	if slot < 0 or slot >= _pdd.size():
 		return 0.0
