@@ -96,6 +96,12 @@ The manifest says what to import. The importer expands convenience entries into 
 | `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon |
 | `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash) |
 
+The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
+items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
+the other six `Use` nodes are UOLs to `../02000000/Use`. The importer resolves these links and exports the
+shared audio once. RunScene plays the consumed item's eight-digit path from `potion_used.item_id`, including
+after tier upgrades; missing sounds remain silent and enter the normal playtest `missing` list.
+
 ## 5. Cache format (contract)
 
 ```

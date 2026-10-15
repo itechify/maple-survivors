@@ -515,6 +515,40 @@ fn export_paths_writes_only_selected_subtrees() {
 
 // ---------------------------------------------------------------- manifest expansion
 
+#[test]
+fn potion_manifest_exports_item_use_sounds_and_resolves_links() {
+    let dir = TempDir::new("potion_sounds");
+    let data = vec![0xFF, 0xF2, 0x90, 0x40, 1, 2, 3, 4];
+    let mut items = vec![p("02000000", sub(vec![p("Use", W::Sound(WSound {
+        duration_ms: 433,
+        header: SoundHeader::Mp3 { channels: 1, rate: 22050 },
+        data: data.clone(),
+    }))]))];
+    for id in 2000001..=2000006 {
+        items.push(p(&format!("{id:08}"), sub(vec![p("Use", W::Uol("../02000000/Use".into()))])));
+    }
+    items.push(p("02000007", sub(vec![p("Use", W::Int(99))])));
+    write_wz_root(dir.path(), &[("Sound.wz", vec![WEntry::Img("Item.img".into(), write_img(&items, true))])]);
+    // Use the shipping selection, restricted to this fixture's archive.
+    let shipping: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let entry = shipping["imgs"].as_array().unwrap().iter()
+        .find(|e| e["img"] == "Sound.wz/Item.img").expect("manifest must select potion use sounds");
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(&manifest, serde_json::json!({"format": 1, "imgs": [entry]}).to_string()).unwrap();
+    let out = dir.path().join("cache");
+    let r = run_import(&ImportOptions { wz: dir.path().to_path_buf(), manifest, out: out.clone(), force: false }).unwrap();
+    assert!(r.errors.is_empty(), "{:?}", r.errors);
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+    let exported = read_json(&out.join("Sound.wz/Item.img.json"));
+    for id in 2000000..=2000006 {
+        assert_eq!(exported[format!("{id:08}")]["Use"], serde_json::json!({
+            "$sound": "Sound.wz/Item.img/02000000/Use.mp3", "$ms": 433
+        }));
+    }
+    assert_eq!(std::fs::read(out.join("Sound.wz/Item.img/02000000/Use.mp3")).unwrap(), data);
+    assert!(exported.get("02000007").is_none());
+}
+
 fn synthetic_world(dir: &Path) {
     let map = write_img(
         &[

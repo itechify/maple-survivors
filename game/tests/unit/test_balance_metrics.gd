@@ -154,6 +154,13 @@ func test_summary_aggregates_potions_waits_and_only_completed_fights() -> void:
 	assert_eq(summary.boss_fights["2220000"].completed.count, 1)
 	assert_eq(summary.boss_fights["2220000"].completed.median, 30.0, "unfinished eighty seconds is not a completed fight sample")
 	assert_eq(summary.boss_fights["2220000"].alive, 1)
+	assert_eq(summary.boss_fights["2220000"].spawned, 2, "completed 1 of 2 spawned fights")
+	assert_eq(summary.boss_fights["2220000"].censored_median,
+		{"count": 2, "censored": 1, "median": 55.0, "lower_bound": true},
+		"the unfinished fight counts as at least its 80 s, so the median is only a lower bound")
+	var text := BR.describe_metrics(summary)
+	assert_true(text.contains("completed 1/2 spawned; censored median >=55.00 (n=2, 1 unfinished)"), text)
+	assert_false(text.contains("campers"), "ordinary policies print no camper count")
 	assert_near(summary.boss_hit_fraction.median, 0.45, 0.000001)
 	assert_eq(summary.boss_hits["2220000"].by_source.touch.median, 0.4)
 	assert_eq(summary.boss_hits["2220000"].by_source.attack.median, 0.5)
@@ -182,3 +189,20 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var r: Dictionary = BR.run_one(w, "bot", 26)
 	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
+
+
+func test_censored_fight_median_is_exact_only_when_no_unfinished_fight_lies_below_it() -> void:
+	assert_eq(BR.censored_median([]), {"count": 0, "censored": 0, "median": null, "lower_bound": false})
+	assert_eq(BR.censored_median([Vector2(30, 0), Vector2(40, 0), Vector2(200, 1)]),
+		{"count": 3, "censored": 1, "median": 40.0, "lower_bound": false}, "a long unfinished fight cannot lower it")
+	assert_eq(BR.censored_median([Vector2(30, 0), Vector2(10, 1), Vector2(40, 0)]),
+		{"count": 3, "censored": 1, "median": 30.0, "lower_bound": true}, "an early unfinished fight may hide a longer one")
+
+
+func test_camper_arrivals_are_counted_over_camper_runs_only() -> void:
+	var camper := {"bosses": [], "boss_fights": [], "boss_hits": [],
+		"camper": {"policy": "camper_tree_top", "started_time": 60.0, "reached": true}}
+	var ordinary := {"bosses": [], "boss_fights": [], "boss_hits": [], "camper": {"policy": "", "started_time": -1.0}}
+	var summary: Dictionary = BR.aggregate([camper, ordinary])
+	assert_eq([summary.camper_runs, summary.camper_started, summary.camper_reached], [1, 1, 1])
+	assert_true(BR.describe_metrics(summary).contains("campers reached 1/1 runs (1 started)"))

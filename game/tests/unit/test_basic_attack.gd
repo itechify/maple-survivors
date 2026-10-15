@@ -183,6 +183,22 @@ func test_known_physical_bounds_include_weapon_stance_defense_and_level_differen
 	assert_near(defended.y, 5.898, 0.00001)
 
 
+func test_weapon_info_reads_type_afterimage_interval_and_sound_from_the_canonical_node() -> void:
+	assert_eq(WeaponInfo.type_of(1302000), 130)
+	assert_eq(WeaponInfo.swing_k(1302000, "stabO1"), 4.0, "one-handed swords use k 4 for every stance")
+	assert_eq(WeaponInfo.swing_k(1372005, "swingO2"), 4.4)
+	assert_eq(WeaponInfo.swing_k(1372005, "stabO2"), 3.2)
+	var sword := {"afterImage": "swordOL", "attackSpeed": 4, "sfx": "swordL"}
+	var wand := {"afterImage": "mace", "attackSpeed": 6, "sfx": "mace"}
+	assert_near(WeaponInfo.attack_interval(sword), 0.72, 1e-9, "Sword 720 ms")
+	assert_near(WeaponInfo.attack_interval(wand), 0.81, 1e-9, "Wand 810 ms")
+	assert_eq(WeaponInfo.afterimage_frame_path(WeaponInfo.afterimage_name(sword), "swingO1", 2),
+		"Character.wz/Afterimage/swordOL.img/0/swingO1/2")
+	assert_eq(WeaponInfo.hit_spark_path("swordOL", "stabO1"), "Character.wz/Afterimage/hit.img/sword2")
+	assert_eq(WeaponInfo.hit_spark_path("mace", "swingO3"), "Character.wz/Afterimage/hit.img/mace1")
+	assert_eq(WeaponInfo.sound_path(wand), "Sound.wz/Weapon.img/mace/Attack")
+
+
 func test_unequal_stance_reach_does_not_bias_started_swings_or_expand_impact_boxes() -> void:
 	var world := BF.world(83)
 	# Synthetic unequal boxes model the v83 Sword's longer swingO3 outer reach.

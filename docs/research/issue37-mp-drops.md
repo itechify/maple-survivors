@@ -1,5 +1,9 @@
 # Issue #37: initial MP drop scarcity
 
+The measurements below predate the merge of `main` at `adb9d46` (#48/#49). That integration preserves the
+MP scarcity settings alongside upstream's potion RNG fix, Henesys HP trickle, boss fixes and report enhancements.
+These historical numbers are not a fresh balance assessment of the merged simulation.
+
 Measured 2026-10-14 with Godot 4.7.2 and the local original-v83 asset cache. Both variants use
 Henesys Hunting Ground I, training seeds 1..12, fixed 1/60 s ticks, default 1800 s cap, kiting movement,
 and either `bot` (sensible cards) or `random` (seeded random cards). No held-out seeds were run.

@@ -13,7 +13,7 @@ func _draw_bar(o: Vector2, view: Vector2) -> void:
 	var bg := _frame(SB + "base/backgrnd")
 	if bg != null:
 		var col := Rect2(bg.region.position + Vector2(BAR_W / 2.0, 0), Vector2(1, bg.region.size.y))
-		_canvas.draw_texture_rect_region(bg.page, Rect2(0, o.y, view.x, BAR_H), col)
+		draw_texture_rect_region(bg.page, Rect2(0, o.y, view.x, BAR_H), col)
 		_blit(bg, o)
 	_blit(_frame(SB + "base/backgrnd2"), o)
 
@@ -42,7 +42,7 @@ func _gray(g: Vector2, fill: Vector2, filled: float) -> void:
 	if gray == null or filled >= fill.y:
 		return
 	var x := g.x + fill.x + filled
-	_canvas.draw_texture_rect_region(gray.page, Rect2(x, g.y + FILL_Y, fill.y - filled, FILL_H), gray.region)
+	draw_texture_rect_region(gray.page, Rect2(x, g.y + FILL_Y, fill.y - filled, FILL_H), gray.region)
 
 func _number_text(p: Vector2, text: String) -> void:
 	var x := p.x

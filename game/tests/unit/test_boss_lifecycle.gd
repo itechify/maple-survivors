@@ -124,6 +124,92 @@ func test_boss_takes_damage_without_stun_or_push() -> void:
 	assert_eq(w.swarm.vx[slot], velocity, "boss ignores the knockback direction")
 
 
+func test_arrival_without_a_point_rewarns_and_keeps_the_three_second_lead() -> void:
+	var setup := _setup([3.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.map_img = RF.map_from_segments([{"x1": -2000, "y1": 0, "x2": -100, "y2": 0},
+		{"x1": 100, "y1": 0, "x2": 2000, "y2": 0}], [Vector2(-600, -10)])
+	var w := RunWorld.new(setup)
+	w.god = true
+	var warnings: Array[float] = []
+	var spawned := -1.0
+	for tick in 9 * 60:
+		if w.time >= 3.3 and w.time < 4.0:
+			# The player hangs over the gap between the floors: no player platform, so no arrival point.
+			w.player.pos = Vector2(0, -300)
+			w.player.vel = Vector2.ZERO
+			w.player.fh = -1
+		elif w.time >= 4.0 and w.time < 4.0 + DT:
+			RF.place_player(w, -600.0, -10.0)
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_warning":
+				warnings.append(float(e.time))
+			elif e.type == "boss_spawned":
+				spawned = float(e.time)
+	assert_eq(warnings.size(), 2, "the original warning plus a fresh one when the arrival slips")
+	assert_true(spawned > 0.0, "the boss arrives once a point exists")
+	if warnings.size() != 2 or spawned < 0.0:
+		return
+	assert_near(warnings[0], 0.5, DT)
+	assert_near(warnings[1], 3.5, DT, "the fresh warning fires on the failed arrival tick")
+	assert_near(spawned - warnings[1], 3.0, DT, "arrival keeps the 3 s warning lead")
+	assert_eq(w.state, RunWorld.PLAYING, "no clear while the delayed boss is alive")
+
+
+func test_boss_without_a_mob_img_is_skipped_with_a_warning_and_never_blocks_the_clear() -> void:
+	var setup := _setup([0.5, 1.5])
+	setup.data.stages.stages.quiet.duration = 1.0
+	setup.data.stages.stages.quiet.bosses[1].mob_id = 2229999
+	var w := RunWorld.new(setup)
+	w.god = true
+	var warned_ids: Array[int] = []
+	for tick in 120:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_warning":
+				warned_ids.append(int(e.mob_id))
+	assert_eq(warned_ids, [2220000] as Array[int], "a boss that cannot arrive is never announced")
+	assert_true(bool(w.bosses.records[1].skipped), "the missing boss is skipped at its arrival time")
+	assert_true(Array(w.warnings).any(func(s: String) -> bool: return s.contains("2229999")),
+		"the run reports the skipped boss")
+	assert_eq(w.state, RunWorld.PLAYING, "the present boss still has to die")
+	_kill(w, int(w.bosses.records[0].slot))
+	for tick in 120:
+		RF.auto_choose(w)
+		w.step(DT, MoveInput.new())
+		if w.state == RunWorld.CLEARED:
+			break
+	assert_eq(w.state, RunWorld.CLEARED, "the skipped boss does not block the clear")
+	assert_eq(BALANCE_RUN.fight_records(w)[1].status, "skipped")
+
+
+func test_scheduled_boss_without_wz_boss_flag_or_override_never_flinches() -> void:
+	var setup := _setup([0.5])
+	setup.mob_imgs[2220000].info.erase("boss")
+	setup.mob_imgs[2220000].info.pushed = 1.0
+	var w := RunWorld.new(setup)
+	w.god = true
+	var kind: MobKind = w.mob_kinds[int(w.kind_of_id[2220000])]
+	assert_false(kind.boss or kind.no_flinch, "the synthetic kind has neither info/boss nor no_flinch")
+	var loose := w.spawn_mob(int(w.kind_of_id[2220000]), w.player.pos + Vector2(-400, 0), w.player.fh, 1.0, false)
+	for tick in 60:
+		w.step(DT, MoveInput.new())
+	var slot := int(w.bosses.records[0].slot)
+	assert_true(slot >= 0 and slot != loose, "the scheduled boss arrived in its own slot")
+	var state := w.swarm.state[slot]
+	var velocity := w.swarm.vx[slot]
+	w.hit_mob(slot, {"damage_min": 100.0, "damage_max": 100.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	assert_eq(w.swarm.state[slot], state, "scheduled boss never enters HIT without the WZ flag")
+	assert_eq(w.swarm.vx[slot], velocity, "scheduled boss is never pushed without the WZ flag")
+	var moved := w.relocate_mob(slot, w.player.pos + Vector2(250, 0), w.player.fh)
+	assert_eq(w.swarm.steady[moved], 1, "relocation keeps the scheduled boss steady")
+	w.hit_mob(loose, {"damage_min": 100.0, "damage_max": 100.0, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	assert_eq(w.swarm.state[loose], MobSwarm.HIT, "the same kind spawned as an ordinary mob still flinches")
+
+
 func test_normal_spawn_rate_halves_during_boss_encounter() -> void:
 	var setup := _setup([0.5])
 	var stage: Dictionary = setup.data.stages.stages.quiet
@@ -172,12 +258,71 @@ func test_spawn_keyframes_keep_ramping_after_final_arrival() -> void:
 	assert_true(w.director.max_alive_at(1080.0) > 330)
 
 
+func test_bursts_and_elites_keep_ramping_after_the_last_keyframe() -> void:
+	var setup := _setup([900.0])
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.duration = 900.0
+	stage.post_duration_slope = 0.25
+	stage.bursts = {"first": 90.0, "every": 90.0, "count_min": 10.0, "count_max": 40.0}
+	stage.elites = {"first": 75.0, "every": 60.0, "hp_mult": 8.0, "exp_mult": 5.0, "damage_mult": 1.5}
+	stage.keyframes = [
+		{"t": 720.0, "rate": 13.5, "max_alive": 240.0, "hp": 3.4, "speed": 1.28, "pool": {"100100": 1.0}},
+		{"t": 900.0, "rate": 20.0, "max_alive": 330.0, "hp": 5.5, "speed": 1.4, "pool": {"100100": 1.0}},
+	]
+	var w := RunWorld.new(setup)
+	assert_eq(w.director.burst_count_at(450.0), 25, "bursts still grow linearly over the stage")
+	assert_eq(w.director.burst_count_at(900.0), 40)
+	# 40 + (40 - 10) / 900 s x 180 s x 0.25 = 41.5
+	assert_eq(w.director.burst_count_at(1080.0), 42, "burst size keeps its slope at quarter pace")
+	assert_true(w.director.burst_count_at(1800.0) > w.director.burst_count_at(1080.0))
+	assert_near(w.director.elite_interval_at(600.0), 60.0, 1e-9, "elite cadence is fixed before the last keyframe")
+	assert_near(w.director.elite_interval_at(900.0), 60.0, 1e-9)
+	assert_near(w.director.elite_interval_at(1080.0), 60.0 * 20.0 / 21.625, 1e-6,
+		"elites stay the same share of the extrapolated steady rate")
+	assert_true(w.director.elite_interval_at(1800.0) < w.director.elite_interval_at(1080.0))
+	stage.post_duration_slope = 0.0
+	var flat := RunWorld.new(setup)
+	assert_eq(flat.director.burst_count_at(1080.0), 40, "no slope: bursts hold their final size")
+	assert_near(flat.director.elite_interval_at(1080.0), 60.0, 1e-9, "no slope: elite cadence holds")
+
+
+func test_elite_schedule_uses_the_ramped_interval_after_the_last_keyframe() -> void:
+	var setup := _setup([5000.0])
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.duration = 2.0
+	stage.post_duration_slope = 1.0
+	stage.elites = {"first": 3.0, "every": 2.0, "hp_mult": 1.0, "exp_mult": 1.0, "damage_mult": 1.0}
+	stage.keyframes = [
+		{"t": 0.0, "rate": 1.0, "max_alive": 50.0, "hp": 1.0, "speed": 1.0, "pool": {"100100": 1.0}},
+		{"t": 2.0, "rate": 2.0, "max_alive": 50.0, "hp": 1.0, "speed": 1.0, "pool": {"100100": 1.0}},
+	]
+	var w := RunWorld.new(setup)
+	w.god = true
+	var elite_times: Array[float] = []
+	for tick in 8 * 60:
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			if e.type == "mob_spawned" and bool(e.elite) and int(e.relocated_from) < 0:
+				elite_times.append(w.time)
+	assert_true(elite_times.size() >= 3, "elites keep coming after the last keyframe")
+	if elite_times.size() < 3:
+		return
+	# rate(3) = 2 + 0.5 x 1 x 1 = 2.5 -> next interval 2 x 2 / 2.5 = 1.6 s; rate(4.6) = 3.3 -> 2 x 2 / 3.3 s.
+	assert_near(elite_times[0], 3.0, 2 * DT)
+	assert_near(elite_times[1] - elite_times[0], 1.6, 2 * DT)
+	assert_near(elite_times[2] - elite_times[1], 4.0 / 3.3, 2 * DT)
+
+
 func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
-	var examples: Array = DataRepo.load_all().stages.stages.henesys_hg1.bosses
-	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0}
+	var stages: Dictionary = DataRepo.load_all().stages.stages
+	var examples: Array = stages.henesys_hg1.bosses + stages.tree_that_grew_1.bosses
+	# Canonical v83 contact PADamage (checked against the real cache in test_boss_hit_bands).
+	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3220000: 125.0, 9300003: 130.0, 6220000: 190.0}
 	for entry: Dictionary in examples:
 		var setup := _setup([0.5])
 		setup.data.stages.stages.quiet.bosses = [entry.duplicate(true)]
+		# Contact only: the synthetic img has no attack nodes.
+		setup.data.stages.stages.quiet.bosses[0].erase("attacks")
 		setup.data.stages.stages.quiet.bosses[0].time = 0.5
 		setup.data.balance.player.hp = float(entry.typical_hp)
 		setup.data.balance.player.stats.dex = 0
@@ -207,16 +352,13 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 		assert_eq(hit.mob_id, id)
 		assert_eq(hit.max_hp, int(entry.typical_hp), "HP pool is captured at hit time")
 		assert_true(int(hit.damage) > 0, "the identified touch inflicts damage")
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 1903
-		var fractions: Array[float] = []
-		for roll in 1000:
-			var damage := CombatMath.monster_hit(attacks[id], false, "", {"pdd": float(entry.typical_pdd)},
-				rng, float(entry.dmg_mult))
-			fractions.append(float(damage) / float(entry.typical_hp))
-		fractions.sort()
-		assert_between((fractions[499] + fractions[500]) * 0.5, 0.4, 0.5,
-			"typical seeded touch hits take 40–50%; individual rolls vary")
+		assert_between(float(hit.damage) / float(entry.typical_hp), 0.4, 0.5, "the landed touch is in the band")
+		# The whole roll range, not just a typical roll: 85% and 100% of PAD after defense, at the shipped multiplier.
+		var low := CombatMath.monster_damage(attacks[id], 0.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
+		var high := CombatMath.monster_damage(attacks[id], 1.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
+		assert_between(int(hit.damage), low, high, "the landed touch is one roll of that range")
+		assert_true(float(low) / float(entry.typical_hp) >= 0.4 and float(high) / float(entry.typical_hp) <= 0.5,
+			"%d touch %d..%d of %d HP lies in 40-50%%" % [id, low, high, int(entry.typical_hp)])
 
 
 func test_balance_harness_reports_timeout_and_boss_lifecycle_record() -> void:

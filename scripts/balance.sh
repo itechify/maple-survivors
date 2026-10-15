@@ -5,9 +5,9 @@
 #
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 7 11 13                        # these seeds
-#   bash scripts/balance.sh 101..130                       # a seed range (inclusive)
-#   bash scripts/balance.sh --policy=random 101..112       # the careless player (random cards)
-#   bash scripts/balance.sh --idle-after=300 101..106      # hands off the keys from 5:00 (cards still chosen)
+#   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
+#   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
+#   bash scripts/balance.sh --idle-after=300 1..6          # hands off the keys from 5:00 (cards still chosen)
 #   bash scripts/balance.sh --stage=tree_that_grew_1 1 2  # another stage
 #   bash scripts/balance.sh 1 2 --policy=camper_tree_top --camp-after=60 --cap=420
 #   # Other campers: camper_henesys_top / camper_henesys_rope (auto stage, sensible cards/potions).
@@ -17,8 +17,8 @@
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
 #
-# Seeds: the pacing in docs/GAME_DESIGN.md 4.2 was tuned on seeds 1..60 and 2026 and is reported on the held-out
-# seeds 101..130, never used for tuning; keep it that way (tune on 1..60, check on 101..130).
+# Seeds: tune on 1..60 and 2026 only. Held-out ranges 101..130 and 301..330 (and 201..212) are spent; report a frozen
+# candidate on the next fresh held-out range, 401..430, and never tune on it (AGENTS.md "Balance").
 #
 # Prints a table (time of Lv 8/10/20/30, level at 4/8/12 min, alive mobs at 4/8/12 min, mobs near the player at
 # 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended; then, in %, the

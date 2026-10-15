@@ -5,8 +5,6 @@ extends RefCounted
 
 ## tier B: the five standard one-handed swing/stab actions (pre-Big-Bang client descriptions).
 const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
-## tier C: starter Sword/Wand use afterimage variant 0 (both are below required level 10).
-const VARIANT := "0"
 
 var cooldown := 0.0
 var _body: Dictionary
@@ -65,8 +63,8 @@ func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
 
 
 func _spec(info: Dictionary, action: String) -> Dictionary:
-	var name := String(info.get("afterImage", ""))
-	var node: Dictionary = _images.get(name, {}).get(VARIANT, {}).get(action, {})
+	var name := WeaponInfo.afterimage_name(info)
+	var node: Dictionary = _images.get(name, {}).get(WeaponInfo.AFTERIMAGE_VARIANT, {}).get(action, {})
 	var body: Dictionary = _body.get(action, {})
 	if node.is_empty() or body.is_empty() or not node.has("lt") or not node.has("rb"):
 		return {}
@@ -86,14 +84,9 @@ func _spec(info: Dictionary, action: String) -> Dictionary:
 				before += delay
 	var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
 	var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
-	# tier B: v83 weapon-speed interval, quantized upward to 30 ms.
-	var interval := ceilf(800.0 * (10 + int(info.get("attackSpeed", 0))) / 16.0 / 30.0) * 0.03
-	# tier C: the normal swing/stab spark families matching the imported afterimage names.
-	var spark := ("sword" if name == "swordOL" else "mace") + ("2" if action.begins_with("stab") else "1")
-	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total, "interval": interval,
-		"afterimage": "Character.wz/Afterimage/%s.img/%s/%s/%d" % [name, VARIANT, action, frame],
-		"hit_visual": "Character.wz/Afterimage/hit.img/" + spark,
-		"sound": "Sound.wz/Weapon.img/%s/Attack" % String(info.get("sfx", ""))}
+	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total,
+		"interval": WeaponInfo.attack_interval(info), "afterimage": WeaponInfo.afterimage_frame_path(name, action, frame),
+		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
 
 
 func _nearest(world: RunWorld, relative: Rect2, facing: int) -> int:

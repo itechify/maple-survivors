@@ -719,6 +719,56 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 		assert_eq(scene.world.player_state.potions["hp" if pair[0] == "drink_hp" else "mp"].count, before - 1)
 
 
+func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	sfx.library = lib
+	scene = _make("henesys_hg1", 35, {})
+	var w := scene.world
+	w.potions.add("mp", 2)
+	w.drain_events()
+	for kind: String in ["hp", "mp"]:
+		var sounds := int(scene.counters.sounds)
+		assert_true(w.drink_potion(kind))
+		scene.handle_events(w.drain_events())
+		assert_eq(scene.counters.sounds, sounds + 1, "%s drink starts its sound" % kind)
+	w.progression.level = 10
+	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	var sounds := int(scene.counters.sounds)
+	assert_true(w.drink_potion("hp"))
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.counters.sounds, sounds + 1, "Orange uses its own path even in the same presentation frame")
+	_assert_nothing_missing(scene, "potion use sounds")
+	sfx.library = previous_library
+
+
+func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var previous_library := sfx.library
+	scene = _make("henesys_hg1", 35, {})
+	# An empty cache tests misses without changing the player's installed assets.
+	lib.open(TestCase.test_dir("missing_potion_sounds"))
+	sfx.library = lib
+	var w := scene.world
+	w.potions.add("mp", 1)
+	w.drain_events()
+	var sounds := int(scene.counters.sounds)
+	assert_true(w.drink_potion("hp"))
+	assert_true(w.drink_potion("mp"))
+	w.progression.level = 10
+	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	assert_true(w.drink_potion("hp"))
+	scene.handle_events(w.drain_events())
+	assert_eq(scene.counters.sounds, sounds, "missing sounds start no voice")
+	assert_eq(scene.perf_summary().missing, ["Sound.wz/Item.img/02000000/Use",
+		"Sound.wz/Item.img/02000003/Use", "Sound.wz/Item.img/02000001/Use"])
+	sfx.library = previous_library
+
+
 func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -> void:
 	if not require_cache():
 		return
@@ -1071,3 +1121,31 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 		"x": {"before": 4, "after": 8}, "cooltime": {"before": 120, "after": 120}})
 	assert_has(LevelUpWindow.change_lines(card), "HP / pulse: 4 → 8")
 	_assert_nothing_missing(scene, "Recovery")
+
+
+func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
+	if not require_cache():
+		return
+	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:
+		scene = _make(stage, 7, {"autoplay": true, "autopick": true})
+		assert_eq(scene.error, "", "scene started")
+		var pages := lib.pages_loaded()
+		var sounds := (lib.get("_sounds") as Dictionary).size()
+		var paths: Array[String] = ["Effect.wz/BasicEff.img/Summoned", RunScene.FX_JOB_CHANGED]
+		if stage == "henesys_hg1":
+			paths.append_array(["Skill.wz/MobSkill.img/112/level/1/effect", "Skill.wz/MobSkill.img/126/level/7/affected",
+				"Effect.wz/Summon.img/1", "Mob.wz/6130101.img/attack1/info/effect"])
+		else:
+			paths.append_array(["Mob.wz/3220000.img/attack2/info/ball", "Skill.wz/MobSkill.img/140/level/8/mob",
+				"Skill.wz/MobSkill.img/114/level/15/mob0"])
+		for path in paths:
+			assert_true(lib.find_anim(path) != null, "%s: %s exists" % [stage, path])
+		for record: Dictionary in scene.world.bosses.records:
+			lib.find_anim(lib.mob_anim_img_path(int(record.mob_id)) + "/skill1")
+			lib.sound(RunScene.SND_MOB % [int(record.mob_id), "Damage"])
+		lib.sound(RunScene.SND_JOB_CHANGED)
+		assert_eq(lib.pages_loaded(), pages, "%s: no atlas page is first decoded at job change or boss time" % stage)
+		assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "%s: their sounds are already loaded" % stage)
+		assert_eq(lib.missing.size(), 0, "%s: warming records nothing missing %s" % [stage, lib.missing])
+		scene.free()
+		scene = null
