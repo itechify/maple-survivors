@@ -181,3 +181,34 @@ func test_known_physical_bounds_include_weapon_stance_defense_and_level_differen
 	var defended := CombatMath.basic_damage_range(12, 4, 17, 1302000, "swingO1", 1, 6, 5)
 	assert_near(defended.x, 1.0, 0.00001)
 	assert_near(defended.y, 5.898, 0.00001)
+
+
+func test_unequal_stance_reach_does_not_bias_started_swings_or_expand_impact_boxes() -> void:
+	var world := BF.world(83)
+	# Synthetic unequal boxes model the v83 Sword's longer swingO3 outer reach.
+	world.setup.afterimage_imgs.swordOL["0"].swingO3.lt["$v"][0] = -102.0
+	var mob := _target(world, 496)
+	world.mob_kinds[world.swarm.kind[mob]].hitbox = Rect2(-1, -20, 2, 20)
+	world.swarm.hp[mob] = 100000
+	world.swarm.max_hp[mob] = 100000
+	var counts := {}
+	var impacts := 0
+	var hits := 0
+	var last_action := ""
+	for tick in 60 * 190:
+		world.step(DT, MoveInput.new())
+		for event: Dictionary in world.drain_events():
+			if event.type == "basic_attack" and event.phase == "start":
+				counts[event.action] = int(counts.get(event.action, 0)) + 1
+			elif event.type == "basic_attack" and event.phase == "impact":
+				impacts += 1
+				last_action = event.action
+			elif event.type == "mob_hit":
+				hits += 1
+				assert_eq(last_action, "swingO3", "only the chosen stance's own box deals damage")
+		if impacts >= 250:
+			break
+	assert_eq(impacts, 250, "a nearby target permits the canonical swing cadence")
+	for action: String in ACTIONS:
+		assert_between(int(counts.get(action, 0)), 30, 70, "%s stays about one fifth at outer reach: %s" % [action, counts])
+	assert_between(hits, 30, 70, "shorter stances visibly swing but miss the outer target")

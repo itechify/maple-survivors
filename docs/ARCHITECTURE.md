@@ -250,7 +250,11 @@ duration rule retained for stages without bosses. Boss clears defer until all bo
 Boss attacks and skills share `BossDirector.can_act(index, now)` and
 `begin_action(index, action, seconds, facing, now)`. `prepare_actions(world)` advances its clock before swarm
 movement; `action_snapshot(swarm)` returns per-slot `actions: PackedStringArray`, `times: PackedFloat32Array` and
-`facings: PackedInt32Array`. A nonempty stance holds grounded movement and facing (tier C); `MobRenderer` draws
+`facings: PackedInt32Array`. This is a borrowed read-only view: subsequent refreshes update the same Dictionary and
+packed buffers, resizing only when swarm capacity changes. Consumers needing history must duplicate it. Refreshes
+clear the previous occupied boss slots before writing current overrides, and match the boss's logical mob identity
+so a newly spawned entity in a reused slot cannot inherit a stance. A nonempty stance holds grounded movement
+and facing (tier C); `MobRenderer` draws
 that canonical stance once at its elapsed sim time, including its original frame origins. Expiry or death clears
 the override. No per-boss Nodes or presentation clocks drive the action.
 An intentional action hold resets the pursuit-stall clock; a fading boss cannot start another action.
@@ -456,7 +460,11 @@ What the tables above leave open; the class doc comments have the rest.
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
-policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
+policies.
+`PortalApproach` supplies the shared pure entrance-floor lookup, jump-graph approach, wall gate and movement input
+for `BotInput` and the camper harness. Each caller retains its goal scoring and eligibility policy, including the
+bot's additional entrance-floor activation-height check.
+Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
 per-run MP-short ticks, and camper activation/arrival. A later affordable skill may cast during an MP-short tick.
 TIMEOUT is a measurement cap, never a sim clear. Remaining potion stock, ordinary-versus-boss potion source counts,
