@@ -276,7 +276,7 @@ survivor EXP to 4+15L+3.8L² while preserving exact Mage cost 980. Its full Tree
 110/109, tier score 112, offer weights 8/8 and HP-drink threshold 0.8 remain in survivor data; random choices
 remain uniform. Earlier v22 versus v24 sensible results change both rank weight and threshold and cannot
 isolate either. Independent HP-only probe results are kept separate, not pooled with selected training.
-#### Frozen held-out assessment: one target failed
+#### Frozen held-out assessment: Henesys-first acceptance scope
 
 All **120 fresh runs** on seeds **101–130**, both stages and both card policies, use freeze milestone `b230305`
 (gameplay `db9ef80`), actual data without patch overrides and the same 1,800 s cap. Every expected identity is
@@ -286,7 +286,9 @@ results.
 
 **Tree careless timing fails acceptance:** only **12/29 deaths (41.4%)** fall in 540–720 s, versus a required
 majority. Its 717.3 s death median alone would conceal 14 later deaths. The training share of 36/60 (60%) did not
-reproduce on this reserved sample. This remains an open Spec #1 / #27 acceptance failure. Both sensible groups
+reproduce on this reserved sample. This fails the original two-stage target. The user then clarified that this
+pass should gate on Henesys ("Mainly henesys"); Tree careless timing is deferred and informational, with no
+further tuning or replacement held-out sample. Both stages remain implemented and playable. Both sensible groups
 meet their progression, clear-rate, late-hit and typical boss timing/source-hit gates; Henesys random meets the
 careless timing gate. No run times out in the held-out matrix.
 

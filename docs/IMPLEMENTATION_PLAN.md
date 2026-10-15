@@ -51,15 +51,16 @@ piercing contacts stable through slot reuse and relocation. Ticket #27 supplies 
 
 | Current acceptance check | Status and evidence |
 |---|---|
-| New economy and threat | **Partial / open:** frozen `b230305` assessment on all 120 held-out runs. Both sensible groups meet progression, most-but-not-all clears and late-hit targets; Henesys random has 21/28 deaths in-window. Tree random has only **12/29 (41.4%)**, failing the majority target. No retuning from held-out results; `GAME_DESIGN.md` 4.2 records all outcomes, stocks and waits. |
+| New economy and threat | **Henesys pass; Tree timing deferred by user:** frozen `b230305` assessment on all 120 held-out runs. Both sensible groups meet progression, most-but-not-all clears and late-hit targets; Henesys random has 21/28 deaths in-window. Tree random has only **12/29 (41.4%)**, failing the original majority target and retained as informational. No retuning from held-out results; `GAME_DESIGN.md` 4.2 records all outcomes, stocks and waits. |
 | Boss encounters | **Pass for sensible policy:** all six completed duration and whole/source-hit medians are in target windows. Completed, unfinished and unspawned denominators remain explicit; canonical WZ facts unchanged. |
 | Regression | Actual pacing 5/0/0 on unchanged training seeds 1/2/2026 and guards. Initial full suite exposed one stale 20-EXP UI fixture; `ab5d7fa` corrects it through the public EXP threshold. Final full suite: **482 tests, 0 failed, 0 skipped, 59 files**, 507.517 s (`t27-final-suite.log`). Root fresh-target Rust validation passed 45 tests, no skips; importer/manifest unchanged afterward. |
 | Visual integration | **Partial / open lookup:** seed2026 composites clear Henesys at 16:19 (Lv34) and Tree at 15:53 (Lv32), both with 351 maximum live mobs. Henesys has `missing: []`; original Tree capture records `Skill.wz/MobSkill.img/112/level/4/mob0`. Original evidence is preserved while the presentation lookup is diagnosed. Other captures were inspected by eye; earlier feature-specific evidence remains in `evidence/spec1/`. |
 | Performance | Pending final uncapped speed=1 measurement after all our heavy jobs finish; require a nonempty 200+ mob sample and p95 below 16.7 ms. Remaining unrelated Godot processes will be disclosed. |
 | Documentation | Live contracts and survivor constants/provenance reconciled; frozen training and all held-out tables distinguish the failed gate. Final performance numbers and lookup resolution remain pending. |
 
-Spec #1 / #27 acceptance is **not complete**: Tree careless held-out timing fails. The frozen profile remains
-unchanged while the user decides whether to amend the validation protocol or retain this result in a draft PR.
+The user narrowed this pass to **Henesys-first balance acceptance** ("Mainly henesys"). Tree careless timing
+remains a documented failure of the original two-stage target, deferred without further tuning or fresh seeds.
+Both maps remain playable. Final runtime lookup validation and performance evidence are still pending.
 All raw training, held-out and camper evidence is preserved locally under `evidence/acceptance/`; camper results
 are informational (21 reached their positions; 21 died). Historical Phase 1 acceptance above is not current proof.
 ## Phase 2: job and skill expansion
