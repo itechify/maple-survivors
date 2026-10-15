@@ -17,8 +17,8 @@
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
 #
-# Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330 and 401..430 are spent or retired
-# (historical smoke used 401..406). Report a frozen candidate on fresh 501..530; never tune on it (AGENTS.md "Balance").
+# Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430 and 501..530 are spent or retired
+# (historical smoke used 401..406). Report a frozen candidate on fresh 601..630; never tune on it (AGENTS.md "Balance").
 #
 # Prints a table (time of Lv 8/10/20/30, level at 4/8/12 min, alive mobs at 4/8/12 min, mobs near the player at
 # 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended; then, in %, the
