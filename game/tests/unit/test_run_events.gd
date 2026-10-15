@@ -7,10 +7,10 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
-	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
+	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit"]
 
 
 
@@ -69,13 +69,15 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
 				ck.sort()
-				if ck != ["desc", "icon", "id", "kind", "max_rank", "name", "rank", "skill", "skill_changes", "skill_effect_stat",
-						"skill_level", "skill_level_next", "skill_name"]:
+				if ck != ["desc", "icon", "id", "kind", "magnitude", "max_rank", "name", "rank", "rank_before", "skill", "skill_changes", "skill_effect_stat",
+						"skill_level", "skill_level_next", "skill_name", "tier"]:
 					fail("card fields %s" % [ck])
 				elif typeof(c.rank) != TYPE_INT or typeof(c.max_rank) != TYPE_INT or typeof(c.skill_level) != TYPE_INT 						or typeof(c.skill_level_next) != TYPE_INT:
 					fail("card rank types %s" % [c])
 				elif not (c.skill_changes is Dictionary):
 					fail("card skill_changes is not a Dictionary")
+				elif not (c.tier is String) or not c.tier in UpgradePool.TIERS or not (c.magnitude is int) or not (c.rank_before is int):
+					fail("card rarity schema %s" % [c])
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
