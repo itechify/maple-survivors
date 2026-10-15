@@ -15,7 +15,7 @@ func _world(seed_value := 10) -> RunWorld:
 	return RunWorld.new(setup)
 
 
-func test_run_starts_with_five_red_potions_and_no_mp_potions() -> void:
+func test_synthetic_stock_override_starts_with_five_red_and_zero_blue() -> void:
 	var w := _world()
 	assert_eq(w.player_state.get("potions", {}), {
 		"hp": {"item_id": 2000000, "count": 5}, "mp": {"item_id": 2000003, "count": 0}})
@@ -199,7 +199,7 @@ func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -
 	assert_eq(w.player_state.potions.mp.count, 2)
 	assert_true(BotInput.decide(w, {}).drink_mp, "bot drinks below the configured MP threshold")
 	w.balance.potions.bot.mp_threshold = 0.01
-	assert_false(BotInput.decide(w, {}).drink_mp, "MP threshold is data-driven too")
+	assert_true(BotInput.decide(w, {}).drink_mp, "an observed affordability failure also prompts a sip")
 	w.drain_events()
 	assert_true(w.drink_potion("mp"))
 	assert_eq(w.player_state.mp, 105, "Blue Potion restores exactly canonical 100 MP immediately")
@@ -210,6 +210,9 @@ func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -
 	assert_eq(casts[0].skill, "energy_bolt")
 	assert_eq(w.player_state.mp, 99, "100 restored, then canonical 6 spent")
 	assert_false(w.player_state.mp_short)
+	assert_false(BotInput.decide(w, {}).drink_mp, "without a shortage the lower MP threshold applies")
+	w.balance.potions.bot.mp_threshold = 0.3
+	assert_true(BotInput.decide(w, {}).drink_mp, "the configured fraction still applies before shortage")
 	assert_eq(w.potions.used.mp, 1)
 	assert_eq(events[0].type, "potion_used")
 	assert_eq(events[0].restored, 100)

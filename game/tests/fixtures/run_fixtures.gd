@@ -215,10 +215,14 @@ static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
 
 
-## The real game data with an extra stage "quiet" (the henesys_hg1 pool, but no spawns, bursts or elites) so tests
-## can place every mob themselves.
+## Real game data with a quiet synthetic stage, a five-MP/zero-Blue resource fixture and single-projectile attacks.
+## Combat tests can place every mob themselves and opt into resources/coverage independently of balance tuning.
 static func quiet_data() -> Dictionary:
 	var data := DataRepo.load_all()
+	data.balance.player.mp = 5
+	data.balance.potions.mp.start = 0
+	data.skills.skills.three_snails.count = 1
+	data.skills.skills.energy_bolt.count = 1
 	# Isolated combat/physics tests opt into potion rolls explicitly when they need them.
 	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
 	var stages: Dictionary = data.stages.stages

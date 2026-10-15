@@ -589,7 +589,8 @@ func test_climbing_animates_only_while_moving() -> void:
 func test_warp_fast_forwards_before_the_first_frame() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 2026, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
+	# Fixed training seed1 reaches the requested warp; full-run regressions retain2026's valid early death.
+	scene = _make("henesys_hg1", 1, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
 		"shot_every": 30.0})
 	var w := scene.world
 	assert_true(w.time >= 300.0 - 1e-6, "the sim is at 5:00 before any frame (%.1f)" % w.time)
@@ -686,7 +687,7 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
 	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
-	assert_eq(mp.count, 2)
+	assert_eq(mp.count, 7, "five starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End / E")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
@@ -1110,8 +1111,9 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 	w.take_hit(40, false, "", w.player.pos + Vector2(10, 0))
 	scene.handle_events(w.drain_events())
 	var effects := scene.fx.active_count()
+	var before_mp := int(w.player_state.mp)
 	_frames(1)
-	assert_eq(w.player_state.mp, 0)
+	assert_eq(w.player_state.mp, before_mp - 5, "Recovery pays canonical level-one MP cost")
 	assert_eq(w.player_state.buffs.size(), 1)
 	var slots := scene.hud.buff_row.displayed()
 	assert_eq(slots.size(), 1)

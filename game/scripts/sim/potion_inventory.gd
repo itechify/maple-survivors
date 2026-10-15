@@ -4,7 +4,7 @@ extends RefCounted
 ## starting count; the item spec comes unchanged from setup.item_info. This module never reads files.
 
 ## tier C: fallback starter choices match balance.potions; restoration never falls back to a guessed amount.
-const START := {"hp": {"item_id": 2000000, "start": 5}, "mp": {"item_id": 2000003, "start": 0}}
+const START := {"hp": {"item_id": 2000000, "start": 5}, "mp": {"item_id": 2000003, "start": 5}}
 
 var stock := {}
 var item_info: Dictionary

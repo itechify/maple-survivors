@@ -50,6 +50,22 @@ func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback()
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
 
 
+func test_drinks_when_a_canonical_cost_is_unaffordable_above_the_mp_threshold() -> void:
+	var data := RF.quiet_data()
+	data.balance.potions.mp.start = 2
+	var w := RunWorld.new(RF.setup("quiet", 26, data))
+	w.god = true
+	RF.place_player(w, 400)
+	RF.put_mob(w, 1110100, 600, 190, 100.0)
+	w.step(DT, MoveInput.new())
+	assert_eq(w.player_state.mp, 2, "opening canonical L1 cast spends three of the five MP")
+	assert_false(BotInput.decide(w, {}).drink_mp, "an affordable cooldown does not waste a tiny starter sip")
+	for tick in 67:
+		w.step(DT, MoveInput.new())
+	assert_true(w.player_state.mp_short, "a ready targeted shell cannot afford its canonical cost")
+	assert_true(BotInput.decide(w, {}).drink_mp, "40% MP is above the threshold but cannot buy the ready attack")
+
+
 func test_auto_choose_policies() -> void:
 	var w := RF.quiet_world()
 	w.pickups.spawn(w.player.pos, w.progression.curve.exp_to_next(1), 4000019)

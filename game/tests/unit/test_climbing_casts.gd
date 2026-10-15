@@ -59,11 +59,18 @@ func test_rope_and_ladder_block_casts_without_pausing_cooldowns() -> void:
 
 func test_seeded_run_parked_mid_rope_from_one_minute_has_no_new_skill_kills() -> void:
 	var world := RunWorld.new(RF.setup("henesys_hg1", 8))
+	# This tests the climbing cast gate, independently of balance changes killing the warmup/camper.
+	world.god = true
 	var memo := {}
-	while world.time < 60.0 - DT * 0.5:
+	for tick in 60 * 60:
 		RF.auto_choose(world)
+		if world.state != RunWorld.PLAYING:
+			break
 		world.step(DT, RF.bot_input(world, memo))
 		world.drain_events()
+	assert_near(world.time, 60.0, DT, "bounded warmup reaches the climbing setup")
+	if world.time < 60.0 - DT:
+		return
 	var rope := -1
 	for i in world.ladders.count():
 		if world.ladders.is_ladder[i] == 0:

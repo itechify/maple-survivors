@@ -34,6 +34,39 @@ func test_three_snails_pays_each_canonical_levels_mp_cost() -> void:
 		assert_eq(world.player_state.mp, 20 - int(example[1]), "canonical cost at skill level %d" % example[0])
 
 
+func test_survivor_opening_pool_runs_down_and_sips_canonical_blue_potions() -> void:
+	var data := DataRepo.load_all()
+	data.stages.stages["quiet"] = RF.quiet_data().stages.stages.quiet
+	data.balance.potions.drops = {"normal": {"hp": 0.0, "mp": 0.0}, "elite": {"hp": 0.0, "mp": 0.0}}
+	var world := RunWorld.new(RF.setup("quiet", 29, data))
+	world.god = true
+	RF.place_player(world, 400)
+	RF.put_mob(world, 1110100, 600, 190, 1000.0)
+	world.mob_kinds[int(world.kind_of_id[1110100])].move_speed = 0.0
+	world.mob_kinds[int(world.kind_of_id[1110100])].pushed = 100000
+	assert_eq(world.player_state.max_mp, 30, "finite survivor opening pool avoids the former five-MP clipping trap")
+	assert_eq(world.player_state.potions.mp.count, 5, "five starter Blues provide a finite opening bridge")
+	var first_sip := -1.0
+	var restored: Array = []
+	var casts := 0
+	for tick in 60 * 20:
+		var input := MoveInput.new()
+		input.drink_mp = BotInput.decide(world, {}).drink_mp
+		world.step(DT, input)
+		for event: Dictionary in world.drain_events():
+			if event.type == "cast":
+				casts += 1
+			elif event.type == "potion_used" and event.kind == "mp":
+				if first_sip < 0.0:
+					first_sip = world.time
+				restored.append(int(event.restored))
+	assert_between(first_sip, 7.5, 8.0, "the opening pool is mostly spent within the first minute")
+	assert_eq(casts, 19, "fixed cooldown, repeated attacks")
+	assert_eq(restored, [24, 24], "canonical 100MP Blue Potions clamp to the thirty-MP pool")
+	assert_eq(world.player_state.mp, 27, "thirty start plus48 restored plus6 regen minus57 canonical cast cost")
+	assert_eq(world.potions.used.mp, 2, "the enlarged opening pool still consumes finite potion stock")
+
+
 func test_beginner_with_two_mp_waits_for_three_snails_and_signals_shortage() -> void:
 	var world := RF.quiet_world(1200, 9)
 	RF.put_mob(world, 1110100, 1350, 190, 100)
