@@ -323,6 +323,8 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var r: Dictionary = BR.run_one(w, "bot", 26)
 	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
+	assert_eq(r.potions_start.hp, 5, "starting stock includes the potion consumed before harness observation")
+	assert_eq(r.potions_left.hp, 6, "five starters plus two collected minus one used")
 	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
 	if r.has("potion_uses"):
 		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")

@@ -161,7 +161,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var mp_short_seconds := 0.0
 	var late_mp_short_seconds := 0.0
 	var late_observed_seconds := 0.0
-	var potions_start := {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)}
+	var potions_start := {}
+	for kind: String in ["hp", "mp"]:
+		potions_start[kind] = int(w.potions.stock[kind].count) + int(w.potions.used[kind]) - int(w.potions.collected[kind])
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
