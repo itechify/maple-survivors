@@ -185,6 +185,11 @@ func test_level_up_card_details_show_canonical_rank_changes() -> void:
 		"all canonical changes have a readable label and before/after values")
 	assert_eq(LevelUpWindow.change_lines({"kind": "stat", "desc": "Speed +6."}), PackedStringArray(),
 		"ordinary cards have no fabricated skill values")
+	var x_change := {"x": {"before": 4, "after": 8}}
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "hp"}),
+		PackedStringArray(["HP / pulse: 4 → 8"]), "a healing buff's x is HP per pulse (skills.json buff.stat hp)")
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "mp_guard"}),
+		PackedStringArray(["MP absorption: 4% → 8%"]), "Magic Guard's x is the percent MP absorbs")
 
 
 # --- JobAdvanceWindow --------------------------------------------------------------------------------------------

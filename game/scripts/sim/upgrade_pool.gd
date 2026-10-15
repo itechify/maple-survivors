@@ -141,7 +141,8 @@ static func is_power(c: Dictionary) -> bool:
 ## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
 ## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
-## {before, after}; mastery is a percent, all other values are the original WZ numbers)}.
+## {before, after}; mastery is a percent, all other values are the original WZ numbers), skill_effect_stat (the skill's
+## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
 func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var c := card(id)
 	var desc := String(c.get("desc", ""))
@@ -153,9 +154,11 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var level := 0
 	var level_next := 0
 	var changes := {}
+	var effect_stat := ""
 	var lo: Loadout = state.loadout
 	if skill != "" and lo.book.has(skill):
 		skill_name = String(lo.book.def(skill).get("name", skill))
+		effect_stat = String(lo.book.def(skill).get("buff", {}).get("stat", ""))
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":
@@ -185,6 +188,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 		"skill_level": level,
 		"skill_level_next": level_next,
 		"skill_changes": changes,
+		"skill_effect_stat": effect_stat,
 	}
 
 
