@@ -1030,10 +1030,12 @@ The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision), with no or
 Snails at its canonical 3 MP therefore casts about once per 10 s regeneration pulse, and the Beginner phase is
 sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
 per event.
-The optional stage-keyframe `normal_hp_drop_chance` is tier C survivor supply tuning: clamp each endpoint to [0, 1],
-interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance for
-missing endpoints. Elite HP, all MP rolls and fixed boss bundles keep their existing settings. This curve is
-independent of card policy.
+The optional stage-keyframe `normal_hp_drop_chance` / `normal_mp_drop_chance` fields are tier C survivor supply
+tuning: clamp each endpoint to [0, 1], interpolate linearly, hold the nearest endpoint outside the range, and
+substitute that kind's global normal chance for missing endpoints. Elite rolls and fixed boss bundles keep their
+existing settings. Both curves are independent of card policy. The MP curve permits late scarcity while retaining
+the v83 Beginner phase's existing supply and seeded behavior; changing a global MP chance also changes which
+ground pickups the bot approaches during the opening.
 
 Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
@@ -1436,6 +1438,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
+| Ordinary MP supply curve | Optional `normal_mp_drop_chance` stage endpoints; the same clamp, interpolation, per-endpoint global fallback and endpoint holding as HP; no effect on elite rolls or fixed boss bundles | C | ours; SpawnDirector.normal_mp_drop_chance_at; #30 calibration preserves opening supply |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
