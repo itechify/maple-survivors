@@ -10,62 +10,65 @@ var _next: Dictionary = {}
 
 ## Advances pending effects/impacts, then starts an in-range, fully visible grounded boss's next ready attack.
 func step(world: RunWorld) -> void:
+	var swarm := world.swarm
+	var bosses := world.bosses
 	for index: int in _pending.keys():
 		var pending: Dictionary = _pending[index]
 		var slot := int(pending.mob)
-		if bool(world.bosses.records[index].dead) or bool(world.bosses.records[index].get("fading", false)) \
-				or world.swarm.active[slot] == 0:
+		if bool(bosses.records[index].dead) or bool(bosses.records[index].get("fading", false)) \
+				or not swarm.is_live(slot):
 			_pending.erase(index)
 			continue
 		_service(pending, world)
-	for index in world.bosses.records.size():
-		var record: Dictionary = world.bosses.records[index]
+	var now := world.time
+	for index in bosses.records.size():
+		var record: Dictionary = bosses.records[index]
 		var slot := int(record.slot)
-		if world.state != RunWorld.PLAYING or _pending.has(index) or not world.bosses.can_act(index, world.time) \
-				or slot < 0 or world.swarm.active[slot] == 0 or world.swarm.alpha[slot] < 1.0 or world.swarm.fh[slot] < 0:
+		if world.state != RunWorld.PLAYING or _pending.has(index) or not bosses.can_act(index, now) \
+				or not swarm.is_settled(slot) or swarm.fh[slot] < 0:
 			continue
-		var entry: Dictionary = world.bosses.entries[index]
+		var entry: Dictionary = bosses.entries[index]
 		var id := int(record.mob_id)
-		var img: Dictionary = world.setup.mob_imgs.get(id, {})
+		var img := world.mob_img(id)
 		for attack: String in entry.get("attacks", []):
 			var key := "%d/%s" % [index, attack]
-			if world.time < float(_next.get(key, 0.0)) - 1e-6:
+			if now < float(_next.get(key, 0.0)) - 1e-6:
 				continue
 			var stance: Dictionary = img.get(attack, {})
 			var info: Dictionary = stance.get("info", {})
 			var type := int(info.get("type", -1))
 			if type not in [0, 2]:
 				continue
-			var pos := Vector2(world.swarm.x[slot], world.swarm.y[slot])
+			var pos := swarm.pos(slot)
 			var facing := 1 if world.player.pos.x > pos.x else -1
 			var area := area_at(info.get("range", {}), pos, facing)
 			var range_data: Dictionary = info.get("range", {})
 			var travel := float(range_data.get("r", 0.0))
 			if type == 2:
 				area = Rect2(pos - Vector2.ONE * travel, Vector2.ONE * travel * 2.0)
-			if (type == 0 and not area.intersects(Rect2(world.player.pos + world.body.position, world.body.size), true)) \
+			if (type == 0 and not area.intersects(world.player_box(), true)) \
 					or (type == 2 and world.player.pos.distance_to(pos) > travel):
 				continue
 			var after := maxf(0.0, float(info.get("attackAfter", 0.0)) / 1000.0)
 			var effect_after := maxf(0.0, float(info.get("effectAfter", 0.0)) / 1000.0)
 			var magic := info.has("MADamage") and not info.has("PADamage")
-			var damage := float(info.get("MADamage" if magic else "PADamage", world.mob_kinds[world.swarm.kind[slot]].pad))
+			var damage := float(info.get("MADamage" if magic else "PADamage", swarm.mob_kind(slot).pad))
 			var duration := maxf(after, MobKind.stance_time(stance, after))
-			world.bosses.begin_action(index, attack, duration, facing, world.time)
+			bosses.begin_action(index, attack, duration, facing, now)
 			var pending := {"boss_index": index, "mob": slot, "mob_id": id, "attack": attack,
 				"type": type, "range": travel, "bullet_speed": float(info.get("bulletSpeed", 0.0)),
 				"spawn_offset": _vec(range_data.get("sp", {})),
 				"ball": "Mob.wz/%07d.img/%s/info/ball" % [id, attack],
 				"hit": "Mob.wz/%07d.img/%s/info/hit" % [id, attack] if info.has("hit") else "",
-				"pos": pos, "facing": facing, "area": area, "impact_time": world.time + after,
-				"effect_time": world.time + effect_after, "effect_done": false, "damage": damage,
+				"pos": pos, "facing": facing, "area": area, "impact_time": now + after,
+				"effect_time": now + effect_after, "effect_done": false, "damage": damage,
 				"magic": magic, "element": String(info.get("elemAttr", "")),
 				"jump_attack": int(info.get("jumpAttack", 0)) != 0,
 				"dmg_mult": float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))),
 				"effect": "Mob.wz/%07d.img/%s/info/effect" % [id, attack] if info.has("effect") else "",
 				"sound": "Sound.wz/Mob.img/%07d/%s" % [id, attack.left(1).to_upper() + attack.substr(1)]}
 			_pending[index] = pending
-			_next[key] = world.time + float(entry.get("attack_interval", DEFAULT_INTERVAL))
+			_next[key] = now + float(entry.get("attack_interval", DEFAULT_INTERVAL))
 			_emit(pending, "start", world)
 			_service(pending, world)
 			break
@@ -93,11 +96,10 @@ func _service(pending: Dictionary, world: RunWorld) -> void:
 		_launch_ball(pending, world)
 		_pending.erase(int(pending.boss_index))
 		return
-	var box := Rect2(world.player.pos + world.body.position, world.body.size)
 	# tier C: the lore jump-slam dodge uses the player's grounded state at impact, not at windup.
 	var can_hit := not bool(pending.jump_attack) or world.player.fh >= 0
-	if can_hit and (pending.area as Rect2).intersects(box, true):
-		var kind: MobKind = world.mob_kinds[world.swarm.kind[int(pending.mob)]]
+	if can_hit and (pending.area as Rect2).intersects(world.player_box(), true):
+		var kind := world.swarm.mob_kind(int(pending.mob))
 		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos,
 			{"mob": int(pending.mob), "mob_id": int(pending.mob_id), "boss": true,
 				"accuracy": kind.acc, "dmg_mult": float(pending.dmg_mult), "source_kind": "attack"})
@@ -109,11 +111,11 @@ func _launch_ball(pending: Dictionary, world: RunWorld) -> void:
 	if int(pending.facing) > 0:
 		offset.x = -offset.x
 	var pos: Vector2 = pending.pos + offset
-	var target := world.player.pos + world.body.get_center()
+	var target := world.player_body_center()
 	# tier C: adopt the reference's r*600/bulletSpeed ms interpretation; WZ speed/range fields are unchanged.
 	var speed := float(pending.bullet_speed) * 1000.0 / 600.0
 	var velocity := (target - pos).normalized() * speed
-	var kind: MobKind = world.mob_kinds[world.swarm.kind[int(pending.mob)]]
+	var kind := world.swarm.mob_kind(int(pending.mob))
 	var slot := world.mob_projectiles.spawn({"pos": pos, "velocity": velocity, "range": float(pending.range),
 		"visual": world.visual_index(pending.ball), "radius": float(world.balance.get("mob_projectiles", {}).get("radius", MobProjectileSystem.DEFAULT_RADIUS)),
 		"mob": int(pending.mob), "mob_id": int(pending.mob_id), "damage": float(pending.damage),

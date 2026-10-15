@@ -108,26 +108,29 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `FootholdMap` | Foothold geometry and queries | `static from_wz(map_img)`, `static from_segments(list)`, `count()`, `is_wall(i)`, `is_floor(i)`, `y_at(i, x)`, `find_below(x, y, ignore := -1) -> int`, `next_of(i)`, `prev_of(i)`, `bounds() -> Rect2`, `platform_of(i)`, `platform_count()`, `platform_span(p) -> Vector2` (min x, max x), `walk_blocked(p, xa, xb) -> bool` (a wall stands across p between the two), packed arrays `x1 y1 x2 y2 layer group prev next`, flags `cant_through forbid_fall_down` |
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
-| `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
+| `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`), `static start_point(map_img, fhm, bounds, rng)` (a random `sp` portal dropped to the floor, else the widest platform's middle); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
 | `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp` (drink flags are presses) |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
-| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len` |
+| `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, accessors `pos(i)`, `is_live(i)`, `is_settled(i)` (live and fully faded in), `mob_kind(i)`, `live_in_rect(area)` (ascending slots), `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray())`, per-shot pierce and already-hit list; optional live defense/immunity arrays are indexed by target slot at impact |
 | `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
 | `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...) |
-| `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/immunity and player slow | `step(world)`, `defense_bonus(slot, magic, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing |
-| `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances |
+| `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/immunity and player slow | `step(world)`, `defense_bonus(slot, magic, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing; named MobSkill ids `SKILL_PDD_UP_AREA` 112, `SKILL_MDD_UP_AREA` 113, `SKILL_HEAL_AREA` 114, `SKILL_SLOW` 126, `SKILL_WEAPON_IMMUNITY` 140, `SKILL_SUMMON` 200 (`SUPPORTED`); reads the world only through `RunWorld`/`MobSwarm` accessors (`swarm.pos`, `is_settled`, `live_in_rect`, `mob_kind`, `world.summoned_alive`, `spawn_offspring`, `refresh_player_speed`) |
+| `BasicAttack` | Automatic physical weapon swing | `step(dt, world)` starts after skill priority, resolves the canonical facing afterimage box and body-frame impact, and hits one nearest living slot; a separate seeded stream chooses five stances; weapon facts come from `WeaponInfo` |
+| `WeaponInfo` | Weapon-type facts (static, pure) read by `CombatMath`, `BasicAttack` and `DataRepo` | `type_of(id)` (id / 10000; `TYPE_ONE_HANDED_SWORD` 130), `swing_k(id, action)` (tier B k), `afterimage_name(info)` (canonical `info/afterImage`), `afterimage_img_path`, `afterimage_frame_path`, `hit_spark_path` (tier C spark family), `attack_interval(info)` (tier B, from `attackSpeed`), `sound_path(info)` (`info/sfx`) |
 | `SkillRunner` | Auto-casting | `step(dt, world)` ticks cooldowns, checks `RunWorld.can_cast()`, then casts one affordable ready skill, oldest-ready first; `tick_cooldowns` and `cast_ready` are separate entry points; `fired_this_tick` reports any cast and `waiting_mp` feeds the persistent HUD cue |
 | `PlayerBuffs` | Timed player effects, periodic healing and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events) -> int` (HP healing due), `effect_total(stat)`, `snapshot()` |
+| `PlayerUpkeep` | The player's per-tick timers, owned as `RunWorld.upkeep`: buffs (steps `PlayerBuffs`), hit invincibility, the cast-stance hold and the `balance.regen` pulse clock; the world owns the pools and applies what it reports | `tick(dt, events) -> float` (buff healing due), `regen_pulses(dt) -> int`, `pulse_hp()`, `pulse_mp()`, `improved_mp_bonus(level, skill_level)`, `start_action`, fields `invincible_t cast_action cast_left action_airborne`, `DEFAULT_REGEN` |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
+| `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
 | `BossAttacks` | Selected canonical type-0 area and type-2 ball windups, effect timing and delayed impact | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; same ProjectileRenderer drawing interface |
@@ -150,14 +153,18 @@ The sim never reads files. `RunScene` (presentation) builds a setup Dictionary f
 var setup := {
 	"map_img": Dictionary,            # Map.wz/Map/Map1/104040000.img root (cache JSON)
 	"physics_img": Dictionary,        # Map.wz/Physics.img root
-	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader
+	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader: every id of
+	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
-		1302000: Dictionary, 1372005: Dictionary}, # canonical starter equipment info, keyed by original item id
+		1302000: Dictionary, 1372005: Dictionary}, # canonical info of balance.player.equipment + every weapon_by_job
+		                                       # weapon (DataRepo.starter_equipment_ids), keyed by original item id
 	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
-	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots
+	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots the worn weapons'
+	                                  # canonical info/afterImage names (WeaponInfo.afterimage_name)
 	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
-	"item_info": {2000000: Dictionary, 2000003: Dictionary}, # canonical Consume item nodes (info icons + spec)
+	"item_info": {2000000: Dictionary, 2000003: Dictionary}, # canonical Consume item nodes (info icons + spec) of
+	                                  # DataRepo.potion_item_ids: balance.potions starters + the potion_tier ladders
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
@@ -221,7 +228,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}]`; `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
+| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes, skill_effect_stat}]`; `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent |
 | `upgrade_applied` | `id`, `rank` |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
@@ -237,13 +244,19 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
 
-`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, spawn_time, death_time,
-dead, teleports}`. Times are -1 before arrival/death. Pursuit bookkeeping also holds `stall`, `best_distance`,
+`RunWorld.bosses.records` has one row per stage boss: `{boss_index, mob_id, slot, warned, arrival, spawn_time,
+death_time, dead, skipped, teleports}`. Times are -1 before arrival/death. `arrival` starts at the schedule
+time; when no arrival point exists on the arrival tick it moves to now + `warning_time` and a fresh `boss_warning`
+fires at once, so an arrival always follows its last warning by the warning lead. A boss whose mob img is
+missing is never announced and is `skipped` at its arrival time (a `RunWorld.warnings` line; the harness reports
+status `skipped`); `all_dead()` counts it as done, so it cannot block the clear. Pursuit bookkeeping also holds `stall`, `best_distance`,
 `anchor`, `fading`, `fade_left`; action bookkeeping captures the spawned mob's logical `identity` for reuse checks.
 `RunWorld.mob_boss[slot]` is the schedule index or -1 for an ordinary mob.
 Bosses use `SpawnDirector.pick_player_platform` at the configured near-player distance, keep the regen fade,
 and are exempt from ordinary recycling. Relocation preserves the schedule index and updates the record's slot.
-Canonical `MobKind.boss` blocks stun/push. `RunWorld.can_clear()` waits for every scheduled boss death, with the
+Every scheduled boss slot sets `MobSwarm.steady` (kept through relocation, cleared by a fresh spawn), which blocks
+stun/push whatever the kind's flags; canonical `MobKind.boss` and the survivor `no_flinch` override still block it for
+any mob of that kind. `RunWorld.can_clear()` waits for every scheduled boss death, with the
 duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
 
 
@@ -281,8 +294,8 @@ Balls store source attack/accuracy/multiplier independently of the live mob, exp
 segment-vs-player-body contact with a survivor collision radius. RunScene's separate `mob_shots` renderer uses
 the existing batched ProjectileRenderer and `RunWorld.visual_paths`. No per-projectile Nodes are introduced.
 MobSkill114 queues restoration at the caster's canonical effectAfter after the existing interval/HP/stance gate.
-At resolution, one inclusive uniform roll between canonical x/y heals living mobs in the canonical area, clamped
-to each maximum (tier C arithmetic). It uses independent `mob_skill_rng` stream 8; dead casters cancel the queue.
+At resolution, every living mob in the canonical area regains the canonical x, clamped to its maximum (tier C:
+y is unused, no RNG); dead casters cancel the queue.
 The original mob0 animation starts at cast with its original blank lead-in; RunScene anchors heal pos0 at feet.
 EffectAfter0 heals resolve on the casting tick after `boss_skill`; positive delays retain their queued resolution.
 MobSkill140 is a timed self weapon-immunity status in packed per-slot expiry/path arrays. `physical_hit_allowed`
@@ -308,8 +321,9 @@ EXP and random potion drops; bundles use the current stock item. Reward scatteri
 
 
 The ordinary spawn accumulator and burst count use `BossDirector.normal_spawn_multiplier()`. Elite scheduling
-remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end;
-ordinary alive targets still obey `hard_cap`.
+remains separate. A positive stage `post_duration_slope` extrapolates the final keyframe segment past its end,
+the burst size past the stage duration (`burst_count_at`) and shortens the elite interval by the extrapolated rate
+ratio (`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
 
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
@@ -325,7 +339,7 @@ The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additio
 |---|---|
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, visuals and sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
-| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope` |
+| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope`; summon/revive mob ids are never listed (StageRoster derives them from the boss imgs and MobSkill.img) |
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |
@@ -380,9 +394,10 @@ What the table above leaves open; the class doc comments have the rest.
 ### 4.4.6 Run details (`ProjectileSystem` ... `RunWorld`)
 
 `RunWorld.spend_mp(amount) -> bool` atomically pays a cost without changing the pool on failure. Regen is applied
-in `balance.regen.interval` pulses: HP/MP base amounts plus owned Improved MP Recovery's canonical level-scaled MP
-bonus. `hp_regen` / `mp_regen` modifiers add to each pulse. Level growth calls `refresh_player_stats(false)` so
-larger maxima do not restore current pools; explicit pool upgrades retain the normal granted-growth behavior.
+in `balance.regen.interval` pulses (`PlayerUpkeep` keeps the clock; RunWorld applies each pulse to its pools): HP/MP
+base amounts plus owned Improved MP Recovery's canonical level-scaled MP bonus. `hp_regen` / `mp_regen` modifiers add
+to each pulse. Level growth calls `refresh_player_stats(false)` so larger maxima do not restore current pools;
+explicit pool upgrades retain the normal granted-growth behavior.
 
 What the tables above leave open; the class doc comments have the rest.
 
@@ -397,6 +412,12 @@ What the tables above leave open; the class doc comments have the rest.
   has `exp_next`. The calls of 4.4.2 return `bool` (false and no change when not on offer). A relocated mob's
   `mob_spawned` carries the usual fields; the presentation treats it like a new mob (its slot may be the one it had);
   tools that follow a mob across relocations (`balance_run.gd`'s stale share) use `relocated_from`.
+  Narrow accessors for the components that act on the world (MobSkillRunner, BossAttacks, BasicAttack): `player_box()`,
+  `player_body_center()`, `mob_img(id)`, `refresh_player_speed()`, `summoned_alive(owner)` and `spawn_offspring(source,
+  center_x, ids, owner, max_count := -1)` (MobSkill 200 summons and info/revive offspring: the same symmetric
+  `mob_skills.summon_spacing` spread on the source's platform, centred on the whole list). Its tick reads as
+  `_step_player` (drinks, `_take_portal` or movement, view, `_tick_timers`), `_step_monsters`, `_step_player_attacks`,
+  `_step_pickups`, touch, EXP, state snapshot, `_end_tick`; `_on_boss_kill` handles a scheduled boss's death.
 - **Event details:** `player_hit.damage` is the whole hit (the number shown), `mp_absorbed` the part Magic Guard paid
   with MP. `player_hit.miss` renders the violet MISS and produces no hit expression or invincibility blink.
   `RunWorld.take_hit` takes attack, magic flag, element, source position and optional source fields `accuracy`,
@@ -492,7 +513,7 @@ score setting. Both knobs are tier C survivor tuning.
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets. RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. |
 | Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. Title, stage select, results and import are scenes under `scenes/ui/`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
@@ -532,6 +553,9 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 - Rendering: atlas pages per WZ image (same-type mobs share a texture so draws batch), RenderingServer canvas items for
   swarms, static map layers recorded once.
 - Pools for projectiles, pickups, damage numbers and effects; no allocation in steady state.
+- No first-use decoding mid-run: `RunScene._warm_ui` and `_warm_stage` load at setup the window art, every skill rank's
+  art, the job weapon and job-change sounds, and every scheduled boss's stances, MobSkill/attack art, sounds, name and
+  boss-bar art (a Mano MobSkill 112 effect first decoded at 5:11 cost a 110 ms frame before this).
 - `scripts/bench.sh` runs the sim headless at fixed mob counts and records µs/tick; `scripts/playtest.sh` records real
   frame times in a window (`summary.json`: percentiles overall, per run minute and for frames with 100+/200+ mobs;
   `--warp=<s>` fast-forwards the sim to the late game first). Results go in `docs/IMPLEMENTATION_PLAN.md`

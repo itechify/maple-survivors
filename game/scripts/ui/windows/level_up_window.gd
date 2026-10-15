@@ -17,7 +17,13 @@ extends MapleWindow
 ## (queued level-ups) restarts the window with the new cards.
 ##
 ##   win.open(cards, level)   # cards exactly as in the choice_pending event: {id, kind, name, desc, icon, rank,
-##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes}
+##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes,
+##                            # skill_effect_stat}
+
+## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
+## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
+const X_LABELS := {"hp": ["HP / pulse", ""]}
+const X_LABEL_DEFAULT := ["MP absorption", "%"]
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -145,16 +151,19 @@ static func rank_text(card: Dictionary) -> String:
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
 	var changes: Dictionary = card.get("skill_changes", {})
+	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
 	var labels := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-		"time": "Duration", "x": "HP / pulse" if card.get("skill", "") == "recovery" else "MP absorption",
+		"time": "Duration", "x": x_label[0],
 		"pdd": "Weapon DEF", "cooltime": "Cooldown"}
 	for field: String in labels:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
 		var suffix := " s" if field in ["time", "cooltime"] else ""
-		if field == "mastery" or (field == "x" and card.get("skill", "") != "recovery"):
+		if field == "mastery":
 			suffix = "%"
+		elif field == "x":
+			suffix = x_label[1]
 		lines.append("%s: %d%s → %d%s" % [labels[field], int(values.before), suffix, int(values.after), suffix])
 	return lines
 

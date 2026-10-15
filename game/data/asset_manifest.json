@@ -22,6 +22,7 @@
 		{"img": "Skill.wz/210.img"},
 		{"img": "Skill.wz/MobSkill.img"},
 		{"img": "Sound.wz/Game.img"},
+		{"img": "Sound.wz/Item.img", "paths": ["02000000/Use", "02000001/Use", "02000002/Use", "02000003/Use", "02000004/Use", "02000005/Use", "02000006/Use"]},
 		{"img": "Sound.wz/UI.img"},
 		{"img": "Sound.wz/BgmUI.img"},
 		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "0001001", "1001004", "2001002", "2001003", "2001004", "2001005", "2101004", "2101005"]},

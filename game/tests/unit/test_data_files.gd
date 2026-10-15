@@ -138,6 +138,35 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
 
 
+## Code fallbacks exist only for synthetic setups without balance data; each must repeat the shipped value exactly so
+## a fact has one source (balance.json) and the fallback cannot drift from it.
+func test_code_fallbacks_match_shipped_balance_data() -> void:
+	var b: Dictionary = data.balance
+	for key: String in RunWorld.DEFAULT_REGEN:
+		assert_eq(float(b.regen[key]), float(RunWorld.DEFAULT_REGEN[key]), "RunWorld.DEFAULT_REGEN.%s" % key)
+	assert_eq(b.regen.size(), RunWorld.DEFAULT_REGEN.size(), "every regen value has its fallback")
+	for key: String in RunWorld.DEFAULT_STATS:
+		assert_eq(int(b.player.stats[key]), int(RunWorld.DEFAULT_STATS[key]), "RunWorld.DEFAULT_STATS.%s" % key)
+	var body: Array = b.player.body
+	assert_eq(Rect2(body[0], body[1], body[2], body[3]), RunWorld.DEFAULT_BODY, "RunWorld.DEFAULT_BODY")
+	assert_eq(float(b.player.cast_height), RunWorld.DEFAULT_CAST_HEIGHT, "RunWorld.DEFAULT_CAST_HEIGHT")
+	assert_eq(float(b.player.cast_forward), RunWorld.DEFAULT_CAST_FORWARD, "RunWorld.DEFAULT_CAST_FORWARD")
+	assert_eq(float(b.mob_skills.summon_spacing), RunWorld.DEFAULT_SUMMON_SPACING, "RunWorld.DEFAULT_SUMMON_SPACING")
+	for key: String in BossDirector.DEFAULT_RULES:
+		assert_eq(float(b.bosses[key]), float(BossDirector.DEFAULT_RULES[key]), "BossDirector.DEFAULT_RULES.%s" % key)
+	for kind: String in PotionInventory.START:
+		for field: String in PotionInventory.START[kind]:
+			assert_eq(int(b.potions[kind][field]), int(PotionInventory.START[kind][field]),
+				"PotionInventory.START.%s.%s" % [kind, field])
+	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
+	var outfit: Array = []
+	for id: Variant in b.player.equipment:
+		outfit.append(int(id))
+	assert_eq(outfit, AvatarRenderer.DEFAULT_LOOK.equips, "AvatarRenderer.DEFAULT_LOOK.equips is the worn outfit")
+	assert_eq(DataRepo.starter_equipment_ids(data), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
+		"setup loads the outfit and both job weapons")
+
+
 func test_build_setup_and_paths() -> void:
 	assert_eq(DataRepo.map_img_path(104040000), "Map.wz/Map/Map1/104040000.img")
 	assert_eq(DataRepo.map_img_path(101010100), "Map.wz/Map/Map1/101010100.img")
@@ -175,6 +204,8 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 			return {"126": {"level": {"1": {"time": 10.0, "x": 50.0}}}}
 		if p == "Character.wz/Coat/01040002.img":
 			return {"info": {"incPDD": 3.0}}
+		if p.begins_with("Character.wz/Weapon/"):
+			return {"info": {"incPDD": 1.0, "afterImage": "swordOL"}}
 		return {"info": {"incPDD": 1.0}}
 	var s := DataRepo.build_setup(data, "henesys_hg1", 1, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
@@ -183,6 +214,7 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")
 	assert_eq(s.body_img.info.incPDD, 1.0, "body root reaches the sim untouched")
 	assert_eq(s.afterimage_imgs.swordOL.info.incPDD, 1.0, "afterimage root reaches the sim untouched")
+	assert_eq(s.afterimage_imgs.keys(), ["swordOL"], "only the afterimages the worn weapons name are loaded")
 
 
 func test_monster_damage_has_no_hidden_balance_scales() -> void:
@@ -205,7 +237,81 @@ func test_setup_carries_canonical_potion_specs() -> void:
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
 	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(setup.get("item_info", {}).size(), 7, "all requested potion entries are retained")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
+		"the starters and the potion_tier ladders: Red, Orange, White, Blue, Mana Elixir")
+	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every ladder potion is retained")
 	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
-	for id in range(2000000, 2000007):
+	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
+
+
+func test_boss_summon_and_revive_ids_come_from_canonical_data_not_stages_json() -> void:
+	for key: String in data.stages.stages:
+		for boss: Dictionary in data.stages.stages[key].get("bosses", []):
+			assert_false(boss.has("summon_ids") or boss.has("revive_ids"),
+				"%s boss %d: summon/revive lists are v83 data" % [key, int(boss.mob_id)])
+	var stage := {"keyframes": [{"t": 0, "pool": {"100100": 1}}],
+		"bosses": [{"mob_id": 7000000}, {"mob_id": 7000001}]}
+	var mob_skill := {"200": {"level": {"5": {"0": 8000000.0, "1": 8000000.0, "2": 8000001.0, "interval": 40.0,
+		"hp": 50.0, "limit": 5.0, "summonEffect": 2.0}, "6": {"0": 8000009.0}}}}
+	var imgs := {
+		7000000: {"info": {"skill": {"0": {"skill": 126.0, "level": 6.0}, "1": {"skill": 200.0, "level": 5.0}}}},
+		"7000001": {"info": {"revive": {"0": 8000002.0, "1": 8000002.0}}},
+		8000000: {"info": {"revive": {"0": 8000003.0}}},
+	}
+	assert_eq(StageRoster.named_ids(stage), PackedInt32Array([100100, 7000000, 7000001]))
+	assert_eq(StageRoster.boss_extra_ids(imgs[7000000], mob_skill), PackedInt32Array([8000000, 8000001]),
+		"only the levels the boss lists, integer keys only")
+	assert_eq(StageRoster.mob_ids(stage, imgs, mob_skill),
+		PackedInt32Array([100100, 7000000, 7000001, 8000000, 8000001, 8000002]),
+		"bosses' summons and revives; an ordinary mob's own revive list is not followed")
+	assert_eq(StageRoster.mob_ids(stage, {}, mob_skill), StageRoster.named_ids(stage), "no imgs: the named ids")
+	data.stages.stages["roster"] = stage.merged({"map_id": 100000000})
+	var asked: Array[int] = []
+	var setup := DataRepo.build_setup(data, "roster", 1, Vector2(800, 600),
+		func(p: String) -> Dictionary: return mob_skill if p == DataRepo.MOB_SKILL_IMG else {"info": {}},
+		func(id: int) -> Dictionary:
+			asked.append(id)
+			return imgs.get(id, imgs.get(str(id), {"info": {"maxHP": 1.0}})))
+	data.stages.stages.erase("roster")
+	asked.sort()
+	assert_eq(asked, [100100, 7000000, 7000001, 8000000, 8000001, 8000002] as Array[int],
+		"build_setup loads each derived id once")
+	assert_true(setup.mob_imgs.has(8000001) and setup.mob_imgs.has(8000002))
+
+
+func test_real_boss_imgs_supply_their_summon_and_revive_families() -> void:
+	if not require_cache():
+		return
+	var root := AssetCachePaths.resolve_cache_root()
+	var load_json := func(p: String) -> Dictionary:
+		var file := root.path_join(p + ".json")
+		if not FileAccess.file_exists(file):
+			return {}
+		var v: Variant = JSON.parse_string(FileAccess.get_file_as_string(file))
+		return v if v is Dictionary else {}
+	var mob_skill: Dictionary = load_json.call(DataRepo.MOB_SKILL_IMG)
+	assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/2220000.img"), mob_skill),
+		PackedInt32Array([100100, 100101, 130101]), "Mano's MobSkill 200/78 summons")
+	assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/9300003.img"), mob_skill),
+		PackedInt32Array([210100]), "King Slime's MobSkill 200/2 summons and eleven-entry revive list")
+	for id: int in [6130101, 9400205, 3220000, 6220000]:
+		assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/%07d.img" % id), mob_skill).size(), 0,
+			"boss %d summons and revives nothing" % id)
+
+
+func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
+	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
+	for key: String in ["henesys_hg1", "tree_that_grew_1"]:
+		var stage: Dictionary = data.stages.stages[key]
+		var imgs := {}
+		for id in StageRoster.named_ids(stage):
+			imgs[id] = lib.mob_root(id)
+		for id in StageRoster.mob_ids(stage, imgs, mob_skill):
+			assert_true(float(id) in manifest.mobs, "%s: derived mob %d in the asset manifest" % [key, id])
+	lib.free()

@@ -7,7 +7,9 @@ extends RefCounted
 ## spawns rate(t) mobs per second (a fractional accumulator, not banked while capped), each of a kind drawn by weight.
 ## Every `bursts.every` s a ring of count_min..count_max mobs (growing linearly over the stage) spawns around the view
 ## (allowed past max_alive up to the stage's hard_cap) and a `burst` event is emitted; every `elites.every` s one mob
-## of the pool spawns as an elite (hp_mult x HP; RunWorld pays exp_mult x EXP).
+## of the pool spawns as an elite (hp_mult x HP; RunWorld pays exp_mult x EXP). With a positive `post_duration_slope`
+## the rate/max_alive/hp/speed keyframe slopes, the burst size and the elite frequency keep growing at that pace
+## after the last keyframe until the clear (value_at, burst_count_at, elite_interval_at).
 ##
 ## Positions (tier C): a random point on a floor outside the view grown by `margin` px, inside the map bounds and at
 ## least `min_player_dist` from the player, searched in three rings: within `band` px of the view (with `band_y` >= 0
@@ -230,11 +232,33 @@ func pick_kind(t: float, rng: RandomNumberGenerator) -> int:
 	return kinds[kinds.size() - 1]
 
 
-## Spawn count of the burst at t.
+## Spawn count of the burst at t: count_min..count_max over the stage duration; past the duration (a stage with a
+## positive `post_duration_slope`) the count keeps that slope at post_duration_slope pace (tier C).
 func burst_count_at(t: float) -> int:
 	var bu: Dictionary = stage.get("bursts", {})
-	var f := clampf(t / duration, 0.0, 1.0) if duration > 0.0 else 0.0
-	return roundi(lerpf(float(bu.get("count_min", 20)), float(bu.get("count_max", 40)), f))
+	var lo := float(bu.get("count_min", 20))
+	var hi := float(bu.get("count_max", 40))
+	if duration <= 0.0:
+		return roundi(lo)
+	if t <= duration:
+		return roundi(lerpf(lo, hi, clampf(t / duration, 0.0, 1.0)))
+	var slope_mult := float(stage.get("post_duration_slope", 0.0))
+	return roundi(hi + maxf(0.0, (hi - lo) / duration * (t - duration) * slope_mult))
+
+
+## Seconds until the next elite after one at t: `elites.every`, shortened after the last keyframe of a stage with a
+## positive `post_duration_slope` in proportion to the extrapolated spawn rate (every x rate(last) / rate(t)), so
+## elites stay the same share of the growing steady stream until the clear (tier C).
+func elite_interval_at(t: float) -> float:
+	var every := float(stage.get("elites", {}).get("every", 0.0))
+	if keyframes.is_empty() or float(stage.get("post_duration_slope", 0.0)) <= 0.0:
+		return every
+	var last_t := float(keyframes[keyframes.size() - 1].t)
+	if t <= last_t:
+		return every
+	var base := rate_at(last_t)
+	var now := rate_at(t)
+	return every * base / now if base > 0.0 and now > base else every
 
 
 ## One director tick: recycling, steady spawns, bursts, elites (RunWorld.spawn_mob does the spawning and events).
@@ -255,6 +279,7 @@ func step(dt: float, world: RunWorld) -> void:
 		_acc = minf(_acc, 1.0)
 	if t >= next_burst:
 		next_burst += float(stage.bursts.every)
+		# tier C: bursts are normal spawns, so they also run at half size while a boss lives (GAME_DESIGN 4.3).
 		var count := roundi(burst_count_at(t) * world.bosses.normal_spawn_multiplier())
 		var n := mini(count, maxi(0, hard_cap - swarm.alive_count()))
 		bursts += 1
@@ -262,7 +287,7 @@ func step(dt: float, world: RunWorld) -> void:
 		for k in n:
 			_spawn_one(world, t, false)
 	if t >= next_elite:
-		next_elite += float(stage.elites.every)
+		next_elite += elite_interval_at(t)
 		if swarm.alive_count() < hard_cap and _spawn_one(world, t, true):
 			elites += 1
 

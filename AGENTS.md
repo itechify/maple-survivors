@@ -93,8 +93,10 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 `frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
 `max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `hit_first`, `death_*`, `clear`, `final.png`. F3 toggles the perf overlay in
-any run. Look at the screenshots; numbers alone do not show a broken sprite.
+`t<s>.png`, `levelup_N`, `job_N`, `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
+no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
+`final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
+screenshots; numbers alone do not show a broken sprite.
 
 The whole menu flow with injected keyboard/mouse input (title, stage select, a run steered with the arrow keys, the
 level-up / job / pause windows, death, results, retry, quit) is `game/scenes/debug/flow_driver.tscn`:
@@ -111,8 +113,10 @@ Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits b
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
-2026); the default is training seeds 1..6. Freeze the candidate before explicitly reporting on held-out seeds
-101..130; never tune on them. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
+2026) only; the default is training seeds 1..6. The held-out ranges 101..130 and 301..330 (and the historical
+201..212) are spent: their results are on record and they must not be reused for tuning or as fresh evidence. Freeze
+the candidate before explicitly reporting on the next fresh held-out range, 401..430; never tune on it. Full-run
+regressions use fixed training seeds 1/2/2026 on both stages.
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
@@ -126,7 +130,7 @@ automatically; an explicitly incompatible `--stage` is rejected. For example:
 `ISOLATE=campers bash scripts/balance.sh 1 2 --policy=camper_tree_top --cap=420`
 
 Each run records `boss_fights` (per encounter, spawn/death timestamps, completed duration or -1, elapsed and
-`dead|alive|not_spawned` status), `potions_collected` / `potions_used` totals for `hp` and `mp`,
+`dead|alive|not_spawned|skipped` status; skipped = no mob img in the cache), `potions_collected` / `potions_used` totals for `hp` and `mp`,
 `mp_short_seconds` (fixed ticks with an eligible ready skill failing affordability during the cast scan), and `boss_hits` (whole hit damage,
 max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
 An affordable later skill may still cast in a tick counted as MP-short; eligible targetless buffs can wait too.
@@ -137,9 +141,12 @@ and the final reward choice finished.
 `TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
 
 The supplemental `SYSTEMS` summary reports potion sums, MP-wait seconds per run, whole boss-hit HP percentages
-per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count.
-Unfinished/not-spawned fights are counted separately; no completed observation is reported as `none (n=0)`,
-not zero. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
+per hit and per boss/source, and completed fight seconds per boss as min/median/max plus observation count, followed
+by `completed n/spawned` and a censored median over every spawned fight (an unfinished fight counts as at least its
+elapsed seconds; `>=` marks a median that is only a lower bound). Report completed-only medians with that count, never
+alone. Unfinished/not-spawned/skipped fights are counted separately; no completed observation is reported as
+`none (n=0)`, not zero. The camper count (`campers reached R/N runs`) appears only when camper-policy runs are
+summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
 

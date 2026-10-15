@@ -11,7 +11,7 @@ static func setup(ids: Array = [126], seed_value: int = 22) -> Dictionary:
 	data.balance.bosses.teleport_stall = 10000.0
 	data.balance.mob_motion.push_px = 0
 	data.balance.magnet_radius = 0
-	data.stages.stages.quiet.bosses = [{"time": 0.0, "mob_id": 2220000, "summon_ids": [100100, 100101, 130101]}]
+	data.stages.stages.quiet.bosses = [{"time": 0.0, "mob_id": 2220000}]
 	var setup := RF.setup("quiet", seed_value, data)
 	var img: Dictionary = setup.mob_imgs[100100].duplicate(true)
 	img.info = {"boss": 1.0, "level": 20.0, "maxHP": 2000.0, "PDDamage": 20.0, "MDDamage": 30.0, "speed": -100.0, "skill": {}}
