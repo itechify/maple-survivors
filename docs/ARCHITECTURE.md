@@ -333,6 +333,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
 `RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, an eligible ready skill failed affordability), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
+`fortune` (survivor card-tier stat from `balance.player.fortune`, separate from LUK),
 `invincible_t`, `action`, `action_t`, `dead`, plus detached `buffs`, `slow` and `potions` snapshots described below).
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 

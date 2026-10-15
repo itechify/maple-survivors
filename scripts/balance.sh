@@ -28,6 +28,7 @@
 # full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP collected/used, MP wait, completed boss
 # fight times, time to Magician, final potion stock, late MP waits with observation counts, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
+# Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
