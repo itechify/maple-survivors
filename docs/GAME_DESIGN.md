@@ -192,7 +192,8 @@ all hits on that mob, including earlier-minute hits; a death exactly on a minute
 minute. Relocation preserves a lifetime's count and fresh slot reuse resets it. Elites, scheduled bosses and
 canonical boss kinds are excluded; ordinary summons/offspring are included. Magic Claw counts each landed line,
 basic attacks count, and immune contacts do not. Aggregation divides summed hits by summed kills.
-`late_mp_short_seconds` measures waiting ticks after 8:00; `late_observed_seconds` and reached/waiting run counts
+`late_mp_short_seconds` measures ticks after 8:00 when an eligible ready skill fails affordability during the cast
+scan; a later affordable skill or basic attack may still act. `late_observed_seconds` and reached/waiting run counts
 distinguish unobserved late time from observed zero shortage. Final `potions_left` includes starting stock,
 recorded separately in `potions_start`; collection totals exclude starters. `outcomes` keeps timeouts separate
 from clears and deaths, and `death_seconds` samples deaths alone. Run records retain simulation warnings.
@@ -906,7 +907,7 @@ Optional final card-score overrides set Guard learning to 110 and ranks to 109, 
 entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Normal HP supply interpolates by stage: HG 0.6% through 6:00, 0.54% at 8:00, 0.24% at 9:00, 0.36% at 11:00/12:00,
+Normal HP supply interpolates by stage: HG 0.6% through 6:00, 0.54% at 8:00, 0.24% at 9:00, 0.30% at 11:00, 0.36% at 12:00,
 1.2% at 13:00 and 1.4% at 15:00. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain

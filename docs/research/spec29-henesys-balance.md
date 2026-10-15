@@ -40,7 +40,8 @@ the count, relocation transfers it, Magic Claw's two landed lines count twice, b
 scheduled bosses and canonical boss kinds are excluded. Aggregates divide summed hits by summed kills; no kills
 means null, not zero. First-five-minute values must be read with their hit and kill denominators.
 
-Late MP wait counts fixed ticks after 8:00. Reached-run counts and observed seconds distinguish a missing late
+Late MP wait counts fixed ticks after 8:00 when an eligible ready skill fails affordability during the cast scan;
+a later affordable skill or basic attack may still act. Reached-run counts and observed seconds distinguish a missing late
 window from an observed zero. Initial stock, collection, use and actual leftovers are separate. MP collection/use
 is the ratio of population totals, and death medians exclude clears and timeouts. Boss reports retain completed
 and spawned counts, unfinished/not-spawned/skipped encounters and censored medians alongside completed medians.
@@ -69,6 +70,8 @@ Every row below includes all 61 training seeds for that policy. No held-out seed
 | C16 random | 3 / 58 / 0 | 4.92% | 661.05 (58) | 6,398 / 5,742 | 1.114 | 4 | 21 / 54 |
 | C17 sensible | 26 / 35 / 0 | 42.62% | 879.3 (35) | 9,595 / 7,222 | 1.329 | 50 | 10 / 60 |
 | C17 random | 3 / 58 / 0 | 4.92% | 661.05 (58) | 6,397 / 5,742 | 1.114 | 4 | 21 / 54 |
+| C20 sensible | 30 / 31 / 0 | 49.18% | 909.4 (31) | 9,644 / 7,282 | 1.324 | 50 | 10 / 60 |
+| C20 random | 4 / 57 / 0 | 6.56% | 660.6 (57) | 6,489 / 5,802 | 1.118 | 2 | 21 / 54 |
 
 C10 had 25% more HP supply than C11 throughout the curve. C13 kept C11's opening/midgame supply and raised only
 the 13:00 / 15:00 endpoints to 0.8% / 1.2%. This brought sensible clears into range, but careless clears still missed
@@ -91,8 +94,13 @@ seven random runs that had spawned the final boss. The three completed/four cens
 That conditional mechanism subset is not population acceptance. C19's 1.0% endpoint also left those outcomes
 unchanged, adding only one HP bottle across seven runs. C20's 1.2% endpoint increased that subset's HP collection
 from 270 to 292 and converted one unfinished finale: four completed, three censored. The promising mechanism is
-then assessed on all 61 seeds per policy, including those seven records once. Sensible clear rate and death timing
-remain open until the full cohort completes. No seed identities are protected.
+then assessed on all 61 seeds per policy, including those seven records once. Both clear rates passed, but the
+sensible death median was 909.4 seconds, so C20 was rejected. Fourteen of its 31 sensible deaths were before 15:00;
+the next two occurred at 906.7 and 909.4 seconds. C21 probes a smaller 11:00 HP chance, 0.30% rather than 0.36%,
+while keeping the 13:00/15:00 recovery. Its mechanism check covers all nine C20 random runs that spawned the final
+boss: four still clear, while one former late death moves from 945.7 to 771.0 seconds. The C21 encounter sample is
+four completed/eight spawned, four unfinished and one unspawned. The nine records are included once in the
+subsequent full population assessment. No seed identities are protected.
 
 ## Freeze and final checks
 
