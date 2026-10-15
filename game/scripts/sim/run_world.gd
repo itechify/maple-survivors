@@ -718,19 +718,7 @@ func _build_mob_kinds() -> void:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
 	var overrides: Dictionary = data.get("mobs", {}).get("mobs", {})
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
-	var ids := PackedInt32Array()
-	for kf: Dictionary in stage.get("keyframes", []):
-		for key: Variant in kf.get("pool", {}):
-			var id := int(key)
-			if not (id in ids):
-				ids.append(id)
-	for boss: Dictionary in stage.get("bosses", []):
-		var extra: Array = [int(boss.mob_id)] + boss.get("summon_ids", []) + boss.get("revive_ids", [])
-		for id: Variant in extra:
-			if not (int(id) in ids):
-				ids.append(int(id))
-	ids.sort()
-	for id in ids:
+	for id in StageRoster.mob_ids(stage, imgs, setup.get("mob_skill_img", {})):
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
 			warnings.append("no mob img for %d: dropped from the pools" % id)

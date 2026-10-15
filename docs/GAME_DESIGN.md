@@ -631,7 +631,9 @@ Calibration uses measured training builds rather than the former assumed HP300/5
 `stage.bosses` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
 The target is typical whole-hit source medians of 40–50%, with individual-hit/build variation reported separately.
 Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are not zero-duration observations.
-`balance.bosses` stores warning time, placement and spawn reduction.
+`balance.bosses` stores warning time, placement and spawn reduction. The mobs a boss summons (MobSkill 200 at the
+levels its `info/skill` lists) and its `info/revive` list are read from the canonical data at load time (`StageRoster`)
+and loaded with the stage; `stages.json` never repeats these v83 lists.
 
 While any boss lives, the ordinary spawn rate and normal burst counts halve; elite scheduling stays independent.
 Both stages continue the last rate/max-alive/HP/speed keyframe slopes at quarter pace after 15:00

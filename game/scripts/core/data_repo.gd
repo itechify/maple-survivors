@@ -68,22 +68,13 @@ static func skill_img_path(book: String) -> String:
 	return "Skill.wz/%s.img" % book
 
 
-## Every stage pool, boss, summon and revive mob id, ascending.
-static func stage_mob_ids(data: Dictionary, stage_key: String) -> PackedInt32Array:
-	var ids := PackedInt32Array()
+## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and
+## revive ids the bosses' canonical data lists when their imgs (`mob_imgs`, {id: img root}) and MobSkill.img root are
+## given. Without imgs only the ids stages.json names.
+static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Dictionary = {},
+		mob_skill_img: Dictionary = {}) -> PackedInt32Array:
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
-	for kf: Dictionary in stage.get("keyframes", []):
-		for k: String in kf.get("pool", {}):
-			var id := int(k)
-			if not (id in ids):
-				ids.append(id)
-	for boss: Dictionary in stage.get("bosses", []):
-		var extra: Array = [int(boss.mob_id)] + boss.get("summon_ids", []) + boss.get("revive_ids", [])
-		for id: Variant in extra:
-			if not (int(id) in ids):
-				ids.append(int(id))
-	ids.sort()
-	return ids
+	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
 
 
 ## Every Skill.wz book named in skills.json ("000", "200", ...).
@@ -111,13 +102,23 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 	if not (physics is Dictionary) or physics.is_empty():
 		missing.append(PHYSICS_IMG)
 		physics = {}
+	var mob_skill: Variant = img_loader.call(MOB_SKILL_IMG)
+	if not (mob_skill is Dictionary) or mob_skill.is_empty():
+		missing.append(MOB_SKILL_IMG)
+		mob_skill = {}
+	# Two passes: the named pool/boss imgs first, then the summon/revive ids their canonical data lists.
 	var mob_imgs := {}
-	for id in stage_mob_ids(data, stage_key):
-		var m: Variant = mob_loader.call(id)
-		if m is Dictionary and not m.is_empty():
-			mob_imgs[id] = m
-		else:
-			missing.append("Mob.wz/%07d.img" % id)
+	var tried := {}
+	for _pass in 2:
+		for id in stage_mob_ids(data, stage_key, mob_imgs, mob_skill):
+			if tried.has(id):
+				continue
+			tried[id] = true
+			var m: Variant = mob_loader.call(id)
+			if m is Dictionary and not m.is_empty():
+				mob_imgs[id] = m
+			else:
+				missing.append("Mob.wz/%07d.img" % id)
 	var skill_imgs := {}
 	for book in skill_books(data):
 		var s: Variant = img_loader.call(skill_img_path(book))
@@ -132,10 +133,6 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 			equipment_info[id] = equip.info
 		else:
 			missing.append(STARTER_EQUIPMENT[id])
-	var mob_skill: Variant = img_loader.call(MOB_SKILL_IMG)
-	if not (mob_skill is Dictionary) or mob_skill.is_empty():
-		missing.append(MOB_SKILL_IMG)
-		mob_skill = {}
 	var body: Dictionary = img_loader.call("Character.wz/00002000.img")
 	if body.is_empty():
 		missing.append("Character.wz/00002000.img")

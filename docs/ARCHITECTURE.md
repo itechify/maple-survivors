@@ -128,6 +128,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array`, `job(id) -> Dictionary` |
 | `UpgradePool` | Data-driven upgrade eligibility and draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `apply(id, state)` |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
+| `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
 | `BossAttacks` | Selected canonical type-0 area and type-2 ball windups, effect timing and delayed impact | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; same ProjectileRenderer drawing interface |
@@ -150,7 +151,8 @@ The sim never reads files. `RunScene` (presentation) builds a setup Dictionary f
 var setup := {
 	"map_img": Dictionary,            # Map.wz/Map/Map1/104040000.img root (cache JSON)
 	"physics_img": Dictionary,        # Map.wz/Physics.img root
-	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader
+	"mob_imgs": {100100: Dictionary}, # Mob.wz/<id>.img roots, info/link already followed by the loader: every id of
+	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
 		1302000: Dictionary, 1372005: Dictionary}, # canonical starter equipment info, keyed by original item id
@@ -332,7 +334,7 @@ The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additio
 |---|---|
 | `skills.json` | survivor behaviour per skill key: canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, visuals and sounds |
 | `upgrades.json` | upgrade cards (`GAME_DESIGN.md` §8), `power` flags and the `pity` rule |
-| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope` |
+| `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope`; summon/revive mob ids are never listed (StageRoster derives them from the boss imgs and MobSkill.img) |
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and what advancing grants (MP, skills learned at once, the next draw's guarantee) |

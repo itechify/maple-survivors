@@ -209,3 +209,58 @@ func test_setup_carries_canonical_potion_specs() -> void:
 	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
 	for id in range(2000000, 2000007):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
+
+
+func test_boss_summon_and_revive_ids_come_from_canonical_data_not_stages_json() -> void:
+	for key: String in data.stages.stages:
+		for boss: Dictionary in data.stages.stages[key].get("bosses", []):
+			assert_false(boss.has("summon_ids") or boss.has("revive_ids"),
+				"%s boss %d: summon/revive lists are v83 data" % [key, int(boss.mob_id)])
+	var stage := {"keyframes": [{"t": 0, "pool": {"100100": 1}}],
+		"bosses": [{"mob_id": 7000000}, {"mob_id": 7000001}]}
+	var mob_skill := {"200": {"level": {"5": {"0": 8000000.0, "1": 8000000.0, "2": 8000001.0, "interval": 40.0,
+		"hp": 50.0, "limit": 5.0, "summonEffect": 2.0}, "6": {"0": 8000009.0}}}}
+	var imgs := {
+		7000000: {"info": {"skill": {"0": {"skill": 126.0, "level": 6.0}, "1": {"skill": 200.0, "level": 5.0}}}},
+		"7000001": {"info": {"revive": {"0": 8000002.0, "1": 8000002.0}}},
+		8000000: {"info": {"revive": {"0": 8000003.0}}},
+	}
+	assert_eq(StageRoster.named_ids(stage), PackedInt32Array([100100, 7000000, 7000001]))
+	assert_eq(StageRoster.boss_extra_ids(imgs[7000000], mob_skill), PackedInt32Array([8000000, 8000001]),
+		"only the levels the boss lists, integer keys only")
+	assert_eq(StageRoster.mob_ids(stage, imgs, mob_skill),
+		PackedInt32Array([100100, 7000000, 7000001, 8000000, 8000001, 8000002]),
+		"bosses' summons and revives; an ordinary mob's own revive list is not followed")
+	assert_eq(StageRoster.mob_ids(stage, {}, mob_skill), StageRoster.named_ids(stage), "no imgs: the named ids")
+	data.stages.stages["roster"] = stage.merged({"map_id": 100000000})
+	var asked: Array[int] = []
+	var setup := DataRepo.build_setup(data, "roster", 1, Vector2(800, 600),
+		func(p: String) -> Dictionary: return mob_skill if p == DataRepo.MOB_SKILL_IMG else {"info": {}},
+		func(id: int) -> Dictionary:
+			asked.append(id)
+			return imgs.get(id, imgs.get(str(id), {"info": {"maxHP": 1.0}})))
+	data.stages.stages.erase("roster")
+	asked.sort()
+	assert_eq(asked, [100100, 7000000, 7000001, 8000000, 8000001, 8000002] as Array[int],
+		"build_setup loads each derived id once")
+	assert_true(setup.mob_imgs.has(8000001) and setup.mob_imgs.has(8000002))
+
+
+func test_real_boss_imgs_supply_their_summon_and_revive_families() -> void:
+	if not require_cache():
+		return
+	var root := AssetCachePaths.resolve_cache_root()
+	var load_json := func(p: String) -> Dictionary:
+		var file := root.path_join(p + ".json")
+		if not FileAccess.file_exists(file):
+			return {}
+		var v: Variant = JSON.parse_string(FileAccess.get_file_as_string(file))
+		return v if v is Dictionary else {}
+	var mob_skill: Dictionary = load_json.call(DataRepo.MOB_SKILL_IMG)
+	assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/2220000.img"), mob_skill),
+		PackedInt32Array([100100, 100101, 130101]), "Mano's MobSkill 200/78 summons")
+	assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/9300003.img"), mob_skill),
+		PackedInt32Array([210100]), "King Slime's MobSkill 200/2 summons and eleven-entry revive list")
+	for id: int in [6130101, 9400205, 3220000, 6220000]:
+		assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/%07d.img" % id), mob_skill).size(), 0,
+			"boss %d summons and revives nothing" % id)
