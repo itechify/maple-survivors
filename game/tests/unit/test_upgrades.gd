@@ -1,6 +1,6 @@
 extends TestCase
 ## UpgradePool (docs/GAME_DESIGN.md section 8): eligibility (job gates, mods only for owned skills, maxed cards,
-## slots), seeded weighted draws without duplicates, sparse draws when short, and what applying a card does.
+## slots), seeded weighted draws without duplicates, Elixir alternatives when short, and what applying a card does.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
@@ -62,7 +62,63 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	assert_has(el, "magic_claw_rank")
 	w.change_job(210)
 	assert_has(w.upgrades.eligible(w), "fire_arrow_new", "a 210 descends from 200 and gets its own card")
-	assert_has(w.upgrades.eligible(w), "magic_claw_rank", "Magician cards stay for descendants")
+	assert_false("magic_claw_rank" in w.upgrades.eligible(w), "a second job stops offering first-job cards")
+
+
+func test_seeded_offers_follow_current_job_without_forgetting_beginner_skills() -> void:
+	var w := RF.quiet_world(400.0, 38)
+	w.loadout.set_rank("three_snails", 2)
+	w.learn_skill("recovery")
+	w.change_job(200)
+	var forbidden := ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
+		"three_snails_speed", "recovery", "recovery_rank", "nimble_feet", "nimble_feet_rank"]
+	for seed_value in range(1, 21):
+		for c: Dictionary in w.upgrades.roll_choices(w, _rng(seed_value)):
+			assert_false(c.id in forbidden, "Magician draw must not offer Beginner cards: %s" % c.id)
+	assert_eq(w.loadout.rank("three_snails"), 2, "advancement preserves an earlier skill's rank")
+	assert_eq(w.loadout.rank("recovery"), 1, "earlier-job healing remains learned")
+	RF.put_mob(w, 2220000, 580)
+	w.drain_events()
+	w.step(1.0 / 60.0, MoveInput.new())
+	var snails := w.drain_events().filter(func(e: Dictionary) -> bool:
+		return e.type == "cast" and e.skill == "three_snails")
+	assert_eq(snails.size(), 1, "the learned Beginner attack keeps casting after advancement")
+	if not snails.is_empty():
+		assert_eq(int(snails[0].level), 2, "it casts at the retained canonical level")
+
+
+func test_seeded_utility_offers_are_available_to_beginners_and_magicians() -> void:
+	for job_id in [0, 200]:
+		var w := RF.quiet_world(400.0, 38)
+		if job_id != 0:
+			w.change_job(job_id)
+		w.progression.level = 25
+		var seen := {}
+		for seed_value in range(1, 61):
+			for c: Dictionary in w.upgrades.roll_choices(w, _rng(seed_value)):
+				seen[c.id] = true
+				if job_id == 0:
+					assert_false(c.id in JOB_SKILL_CARDS, "Beginner draws never offer later-job skills")
+		for id: String in ["magnet", "orange_potion", "mana_elixir"]:
+			assert_true(seen.has(id), "%s is offered to job %d" % [id, job_id])
+		w.upgrades.apply("orange_potion", w)
+		assert_has(w.upgrades.eligible(w), "white_potion", "the next HP tier stays job-neutral too")
+
+
+func test_job_guarantee_and_power_pity_use_only_current_job_cards() -> void:
+	var w := RF.quiet_world()
+	w.change_job(200)
+	var cards := w.upgrades.roll_choices(w, _rng(38))
+	assert_eq(cards[0].kind, "skill_new", "advancement guarantees an eligible new current-job skill")
+	assert_eq(w.upgrades.card(cards[0].id).requires.jobs, [200.0])
+	assert_true(w.guarantee.is_empty())
+	w.change_job(210)
+	w.upgrades.apply("fire_arrow_new", w)
+	w.power_dry = w.upgrades.pity_draws
+	cards = w.upgrades.roll_choices(w, _rng(38))
+	assert_false(cards.is_empty(), "pity with no eligible power cards still draws ordinary choices")
+	for c: Dictionary in cards:
+		assert_false(UpgradePool.is_power(w.upgrades.card(c.id)), "pity cannot reintroduce an earlier-job power card")
 
 
 func test_maxed_cards_disappear() -> void:
@@ -112,7 +168,7 @@ func test_draws_are_distinct_seeded_and_weighted() -> void:
 		"shell-count frequency > piercing frequency: %s" % [counts])
 
 
-func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
+func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> void:
 	var w := RF.quiet_world()
 	# Max out everything a Beginner can take.
 	for c: Dictionary in w.upgrades.cards:
@@ -122,8 +178,8 @@ func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 			guard += 1
 	assert_eq(w.upgrades.eligible(w).size(), 0, "nothing left")
 	var cards := w.upgrades.roll_choices(w, _rng(5), 3)
-	assert_eq(cards.size(), 0, "no cards remain")
-	# Exactly one card left: offer it alone.
+	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"], "an exhausted pool still gives a choice")
+	# Exactly one card left: offer it and one Elixir, without repeating identical healing cards.
 	var w2 := RF.quiet_world()
 	for c: Dictionary in w2.upgrades.cards:
 		if c.id == "magnet":
@@ -133,8 +189,32 @@ func test_exhausted_pool_and_one_card_draw_have_no_substitutes() -> void:
 			w2.upgrades.apply(String(c.id), w2)
 			guard += 1
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
-	assert_eq(mixed.size(), 1)
+	assert_eq(mixed.size(), 2)
 	assert_eq(mixed[0].id, "magnet")
+	if mixed.size() == 2:
+		assert_eq(mixed[1].id, "elixir")
+	assert_false("elixir" in w2.upgrades.eligible(w2), "Elixir never enters the weighted pool")
+
+
+func test_picking_elixir_from_an_exhausted_levelup_fully_restores_both_pools() -> void:
+	var data := RF.quiet_data()
+	data.upgrades.cards = []
+	var w := RunWorld.new(RF.setup("quiet", 38, data))
+	RF.place_player(w, 400)
+	w.take_hit(10.0, false, "", w.player.pos - Vector2(10, 0))
+	assert_true(w.spend_mp(3))
+	w.pickups.spawn(w.player.pos - Vector2(0, 25), w.progression.exp_to_next(), 4000019)
+	w.step(1.0 / 60.0, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "an empty normal pool must still open the level-up window")
+	assert_true(w.player_state.hp < w.player_state.max_hp)
+	assert_true(w.player_state.mp < w.player_state.max_mp)
+	var stock := w.potions.snapshot()
+	assert_true(w.apply_choice("elixir"))
+	assert_eq(w.player_state.hp, w.player_state.max_hp, "Power Elixir restores all HP")
+	assert_eq(w.player_state.mp, w.player_state.max_mp, "Power Elixir restores all MP")
+	assert_eq(w.potions.snapshot(), stock, "this card does not consume or replace carried potions")
+	assert_eq(w.state, RunWorld.PLAYING)
+	assert_false(w.progression.has_pending())
 
 
 func test_applying_general_cards() -> void:

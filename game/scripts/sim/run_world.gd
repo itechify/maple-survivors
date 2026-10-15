@@ -1124,9 +1124,6 @@ func _equipment_total(field: String) -> float:
 func _advance_queue() -> void:
 	while pending_bonus_choices > 0:
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
-		if bonus_cards.is_empty():
-			pending_bonus_choices -= 1
-			continue
 		choice_bonus = true
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
@@ -1142,10 +1139,6 @@ func _advance_queue() -> void:
 				emit("job_advance_pending", {"options": pending_jobs.duplicate(true)})
 				return
 		var cards := upgrades.roll_choices(self, card_rng, 3)
-		if cards.is_empty():
-			progression.pop_front()
-			_job_checked = false
-			continue
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false})

@@ -61,7 +61,7 @@ func test_worn_equipment_defense_and_avoid() -> void:
 
 func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 	var data := RF.quiet_data()
-	data.upgrades = {"cards": []} # No max-MP cards change the known level-growth example.
+	data.upgrades.cards = [] # No max-MP cards change the known level-growth example; keep the Elixir fallback.
 	var w := RunWorld.new(RF.setup("quiet", 503, data))
 	_level_to(w, 10)
 	assert_eq(w.player_state.int, 49)

@@ -1052,21 +1052,29 @@ readiness ordering with attacks. The alert2 stance comes from v83 skill action d
 ## 8. Upgrades
 
 `data/survivor/upgrades.json`. Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
-`stat`, `potion_tier`), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
+`stat`, `potion_tier`, `filler` for the separate fallback), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
 
 Draw rules:
 
-1. Eligible = requirements met and rank < max. `skill_new` needs the job (`requires.jobs`) and that the loadout has a
-   free active-skill slot (6 actives, 6 passives).
+1. Eligible = requirements met and rank < max. `requires.jobs` matches the **exact current job id**, never its
+   ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
+   Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
+   but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
+   `skill_new` also needs a free slot of the skill's kind (6 actives, 6 passives).
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
    more shots or targets, damage, cooldown). When a draw offered no power card, the next draw starts with one
    (`pity.draws` = 1), so a run's damage cannot stall on unlucky offers (a reviewed seed never saw an attack card
-   before Lv 8 and fell behind for good).
-3. With fewer than three eligible cards, offer only those cards. With none, continue without a choice window.
-   Percentage-heal fillers (Elixir, Power Elixir, the former White Potion card) are removed.
+   before Lv 8 and fell behind for good). Both pity and the job-advance guarantee select only eligible cards
+   from the current pool; if no eligible power card exists, pity adds none.
+3. With fewer than three eligible cards, offer those cards plus **one Power Elixir** alternative (item 2000005).
+   With no eligible cards, offer Power Elixir alone. This applies to normal level-ups and boss rewards; every
+   reward opens a window. `upgrades.fallback` holds the job-neutral Elixir definition outside the weighted pool,
+   so it never displaces a normal card in a full draw. It uses the canonical Power Elixir name and icon and fully
+   restores HP and MP immediately when chosen, without changing carried potion stock. This reward rule is tier C;
+   the item identity, art and 100% restoration are tier A.
 4. Applying a card takes effect immediately.
    Rank cards declare `max_rank` as the canonical skill cap; eligibility also checks the owned skill level.
    A skill learned at level 1 therefore needs N−1 rank-card picks to reach level N. The window marks the final
@@ -1077,8 +1085,8 @@ Draw rules:
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
 
-General cards: Max HP +10%, Speed (Nimble Feet 1002 icon) +6 speed stat, Recovery (1001) learn/rank cards,
-Magnet +25% radius; for Magicians also Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
+Beginner cards include Speed (Nimble Feet 1002 icon) +6 speed stat and Recovery (1001) learn/rank cards.
+Magnet +25% radius stays job-neutral; Magicians have Improved MaxMP Increase (2000001) and Improved MP Recovery (2000000).
 The latter is an owned canonical passive skill, learned at level 1 and ranked one level per card through level 16,
 adding the level-scaled pulse bonus in section 6.2.
 
@@ -1222,7 +1230,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
-| Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; no fillers, 0–3 eligible choices | C | owner choice; upgrades.json |
+| Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
+| Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
 | Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |

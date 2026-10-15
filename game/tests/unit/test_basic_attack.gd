@@ -143,6 +143,7 @@ func test_five_stances_are_uniform_and_level_three_stats_one_shot_snails() -> vo
 	assert_eq(world.player_state.level, 3)
 	assert_eq(world.player_state.str, 22)
 	assert_eq(world.player_state.dex, 5)
+	RF.auto_choose(world)
 	world.drain_events()
 	var mob := _target(world)
 	world.swarm.hp[mob] = 100000
