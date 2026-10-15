@@ -133,7 +133,7 @@ Each censored sample includes every spawned fight, including unfinished elapsed 
 medians cannot represent the unfinished or unspawned encounters. Source-specific hit counts and ranges remain
 in the public JSON/log report.
 
-Exact data Git tree: `e585c58d2728212ecc2d10b5c55c4c55dd6ea371`. Canonical Git-data manifest SHA256:
+Exact data Git tree: `e585c58d2728212ecc2d10b5c55c4c55dd6ea371`. Git data-tree manifest SHA256:
 `a931ebbeb587ac94ead67e50be8517b8bc93d7777e210a1bb48a55571f88b3e9`.
 Pacing-guard Git blob: `837c5f2639820d8149f46809ae625f55f598fac4`. The coordinator receives the clean freeze
 commit and sealed `c21/freeze.json`, including all 122 record hashes, before any held-out execution.
@@ -152,6 +152,12 @@ history audit found no prior use of 501–530. Data/runtime/guard and all traini
 Amended manifest SHA256: `6d12b85a5c86b4b107571ff77df7ca2958495030addeaf8c7b4936d7d960767b`.
 The original unexecuted manifest remains as `freeze-original-401-430-unexecuted.json`, SHA256
 `58e9e2645aedf0ac5025496204a0895469b4a5eb4cce2a83a99af2d63fdfa87b`, with the reason recorded in the amendment.
+The data/training seal predates held-out release: 2026-10-15 16:51:26.894 UTC; the reservation amendment is
+16:56:37.058 UTC. Frozen QA passed before the coordinator released both policies at 16:58:19.499 UTC.
+Per-policy launch contexts were written at 16:58:22.923/16:58:22.930 UTC (sensible/random). Launch commit
+`c5ba484` merges the corrected seed-ledger comments; gameplay, data and guards remain identical to the freeze.
+The original release JSON, `final/heldout/launch-timestamps.json` and both launch contexts retain exact
+timestamps, commit and file hashes.
 
 The three actual headless Tree RunScene regressions completed successfully at that freeze, with no script,
 error or warning lines and `missing: []` in every summary. They use autoplay/autopick, no warp, speed 120 and an
@@ -166,10 +172,63 @@ error or warning lines and `missing: []` in every summary. They use autoplay/aut
 The clear rate is therefore 0/3, recorded without judging it. Per-seed stdout, summaries and summary hashes are
 in `final/tree-presentation/`, alongside `checks.json`. Full-suite simulation regressions are separate.
 
-The next fresh held-out range is 501–530, bot and random once each, only after the final 61-per-policy training
-report and frozen QA are accepted. Spent 101–130, 201–212, 301–330 and 401–430 are never reused. The final report will retain
-the freeze SHA/data hash, held-out output, six fixed RunWorld regressions, three headless Tree presentation checks
-and the inspected five-minute x1 Henesys evidence separately from training.
+The frozen full suite passed **536 tests, zero failures, zero skips**, 60 files in 379,285 ms (exit 0).
+`final/full-suite.log` SHA256 is `6e017eff8ef4c143cabcb7470f951fbd5b135a728c35f2cab2558f5d648aa793`;
+`final/checks.json` records the counts and empty error/warning scan. Its six fixed real-cache RunWorld
+regressions retain terminal/event/EXP/kill/finale invariants and conditional reached-milestone bounds:
+
+| Stage, seeds 1/2/2026 | Clear / dead / timeout | Lv8 / Lv10 / Magician reaches | Lv30 reaches |
+|---|---|---|---|
+| Henesys | 1 / 2 / 0 | 2/3 each | 1/3 |
+| Tree | 1 / 2 / 0 | 2/3 each | 2/3 |
+
+These simulation-fixture outcomes and the separate actual RunScene outcomes above are independent checks.
+No Tree clear-rate or pacing target is imposed. The bounded climbing warmup also passes and verifies 300 s
+hanging with zero new casts or skill kills after existing projectiles finish.
+
+The coordinator independently verified that the inspected `f6637da` x1 opening remains identical to the freeze
+for all 306 s. Only four Henesys HP-drop leaves at 540/660/780/900 s differ; the earliest interpolation effect
+is after 480 s. Scripts and all other data are unchanged. The original no-warp run completed 18,360 ticks at
+speed 1, Lv13 Magician, max alive 50, with all t60/t120/t180/t240/t300 and final images inspected, `missing: []`
+and no errors/warnings/skipped captures. Its launch hashes, images and QA are in `evidence/spec29/x1/c14_s1/`.
+
+## Frozen held-out report: 501–530, consumed
+
+Both policies completed once on the unchanged profile, with no retuning or reruns. All sixty raw records were
+parsed and checked for exact seed/policy/stage identity, unique complete seed sets and empty world warnings;
+every per-seed log and preserved console has zero script/error/warning lines. Validation completed at
+2026-10-15 17:04:19.732 UTC. `final/heldout/validation.json` hashes all sixty records and both public aggregates
+and consoles; `report.txt` and each policy's `analysis.json` retain the arithmetic behind this report.
+
+| Policy | Clear / dead / timeout | Clear rate | Death median, s (deaths) | MP collected / used | Ratio | MP stock median (empty) | Late wait / observed runs |
+|---|---|---|---|---|---|---|---|
+| Sensible | 16 / 14 / 0 | 53.33% | 770.0 (14) | 4,760 / 3,530 | 1.34844 | 44.5 (3/30) | 5 / 30 |
+| Random | 1 / 29 / 0 | 3.33% | 654.2 (29) | 2,854 / 2,648 | 1.07779 | 0 (18/30) | 12 / 23 |
+
+The fresh clear rates fall outside the training bands in opposite directions. The separate 61-per-policy
+training assessment passes every target; held-out observations are reported without replacing that cohort,
+pooling cohorts, rounding into a band or selecting another candidate. Death medians and sensible MP ratio remain
+within the stated bands. Late waits total 490.700 / 13,010.118 observed seconds for sensible and 770.768 /
+5,806.333 for random; maximum per-run late waits are 216.117 / 161.550 s. Lv8 medians are 147.55 / 146.8 s,
+Magician 200.15 / 201.6 s (all 30 reaches each), and Lv30 740.3 s (23/30) / 701.5 s (6/30, conditional).
+GAME_DESIGN 4.2 records all five hit means with their exact numerators and denominators.
+
+| Policy / boss | Completed / spawned | Completed median [min–max], s | Unfinished / unspawned / skipped | Censored median, s | Whole-hit HP median (hits) |
+|---|---|---|---|---|---|
+| Sensible Mano | 30 / 30 | 14.375 [9.02–124.67] | 0 / 0 / 0 | 14.375 | 42.45% (69) |
+| Sensible Mushmom | 28 / 29 | 52.78 [28.15–102.13] | 1 / 1 / 0 | 53.77 | 42.96% (134) |
+| Sensible Blue Mushmom | 16 / 20 | 105.52 [36.98–174.70] | 4 / 10 / 0 | ≥103.81 | 44.63% (93) |
+| Random Mano | 24 / 29 | 17.16 [9.12–80.25] | 5 / 1 / 0 | ≥31.02 | 43.68% (56) |
+| Random Mushmom | 9 / 18 | 60.40 [31.02–92.85] | 9 / 12 / 0 | ≥59.27 | 43.48% (68) |
+| Random Blue Mushmom | 1 / 5 | 55.07 [55.07–55.07] | 4 / 25 / 0 | ≥66.42 | 43.34% (20) |
+
+Censored medians include every spawned fight; unfinished elapsed times remain lower bounds. All source-specific
+whole-hit fractions and completed-only ranges/counts remain in the public reports. A completed-only median with
+one observation is explicitly one observation, not a reliable estimate of the unfinished fights.
+
+The consumed or retired ranges are 101–130, 201–212, 301–330, 401–430 and now 501–530. The next fresh reserved
+range is **601–630**. The freeze/data hashes, held-out output, six fixed RunWorld regressions, three headless
+Tree presentation checks and inspected five-minute x1 Henesys evidence remain separate from training.
 
 ## Reproduction and local archive
 

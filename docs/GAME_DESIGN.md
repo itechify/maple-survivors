@@ -246,7 +246,10 @@ Tree outcomes and clear rate are recorded without judging pacing or difficulty. 
 required cache data, no simulation warnings, EXP/kill/level event consistency, no lost mobs, correct deaths and
 all scheduled bosses dead before a clear. A living Tree run at the cap is a timeout, never a clear. Earlier Tree
 pacing tables and guards below are historical information. Freeze candidate data and guards before the full suite
-and the next fresh held-out range **501–530**; spent 101–130/201–212/301–330/401–430 are never reused for tuning or fresh evidence.
+and any fresh held-out assessment. **501–530 is now consumed** by the frozen report below; the next reserved
+fresh range is **601–630**. Spent or retired 101–130/201–212/301–330/401–430/501–530 are never reused for tuning
+or fresh evidence.
+
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
@@ -297,15 +300,53 @@ two landed hits by minute five. Means pool lifetime hits over kills; they are no
 per-run means. [The detailed balance record](research/spec29-henesys-balance.md) preserves completed/spawned boss
 counts, censoring, rejected cohorts, resource measurements and exact reproduction/provenance.
 
-Candidate data and the conditional Henesys pacing guards are frozen before the full suite and three actual
-Tree presentation regressions. Their final results and the single fresh held-out **501–530** check will be added
-after frozen QA; no held-out run has started. The inspected 306-second x1 opening at `f6637da` can be reused only
-with explicit source/prefix equivalence, since all subsequent tuning first affects time after 8:00.
+Freeze commit `81afb94` seals the candidate and conditional Henesys pacing guards. The complete suite passed
+**536 tests, zero failures, zero skips** (60 files), including fixed seeds 1/2/2026 on both stages. Henesys recorded
+one clear/two deaths and reaches Lv8/Lv10/Magician 2/3, Lv30 1/3; Tree recorded one clear/two deaths and reaches
+2/3 for each milestone. All event, EXP, kill, finale, cache and meaningful conditional pacing guards passed.
+Three separate actual headless Tree RunScene checks ended in death with **`missing: []` and no script errors**;
+their 0/3 clear rate is informational. The detailed report keeps their outcomes separate from the simulation fixtures.
+
+The inspected **306-second x1** Henesys opening at `f6637da` passes final visual acceptance by independently
+verified prefix equivalence: the only subsequent runtime/data differences are four Henesys HP-drop keyframe
+leaves at 540/660/780/900 s; interpolation first changes behavior after 480 s. All scripts and other data are
+unchanged. All five minute screenshots and the final image were inspected, with no missing assets or log errors
+(`evidence/spec29/x1/c14_s1/QA.md`). Fresh held-out **501–530** runs were executed once per policy after these
+QA gates and are reported separately below, without tuning on their outcomes.
 
 The initially reserved 401–430 range was retired before execution: the historical "Review-fix pass 3" below
 already reports 401–406 for both policies. The untouched replacement 501–530 was audited against repository
 reports/history before release. This reservation correction changes no gameplay, data, pacing guard or training
 record; the original unexecuted freeze manifest is preserved beside the amended one.
+
+#### Frozen held-out report (501–530; consumed)
+
+Both policies ran once on the unchanged frozen profile. All **60 unique records** validate with empty world
+warnings and no script/error/warning log lines. This fresh cohort **does not reproduce the training clear-rate
+bands**: sensible is above 50%, random below 5%. It is reported without retuning, reruns or pooling it with training.
+
+| Policy | Clear / dead / timeout | Clear rate | Death median (deaths) | Magician median (reaches) | Lv30 median (reaches) |
+|---|---|---|---|---|---|
+| Sensible | 16 / 14 / 0 | **53.33%** | 770.0 s (14) | 200.15 s (30/30) | 740.3 s (23/30) |
+| Random | 1 / 29 / 0 | **3.33%** | 654.2 s (29) | 201.6 s (30/30) | 701.5 s (6/30) |
+
+| Policy | MP collected / used | Ratio | MP stock median / empty runs | Late wait runs / observed | Wait / observed seconds after 8:00 |
+|---|---|---|---|---|---|
+| Sensible | 4,760 / 3,530 | 1.34844 | 44.5 / 3 of 30 | 5 / 30 | 490.700 / 13,010.118 |
+| Random | 2,854 / 2,648 | 1.07779 | 0 / 18 of 30 | 12 / 23 | 770.768 / 5,806.333 |
+
+| Run minute | Sensible mean hits/ordinary kill (hits / kills) | Random mean (hits / kills) |
+|---|---|---|
+| 1 | 1.162 (2,604 / 2,241) | 1.159 (2,616 / 2,257) |
+| 2 | 1.000 (4,113 / 4,113) | 1.000 (4,104 / 4,104) |
+| 3 | 1.211 (6,150 / 5,078) | 1.210 (5,882 / 4,862) |
+| 4 | 1.565 (10,632 / 6,793) | 1.562 (10,136 / 6,488) |
+| 5 | 2.192 (20,434 / 9,321) | 2.161 (16,990 / 7,862) |
+
+Completed/spawned boss counts, censored medians, hit fractions, timestamps and all raw-record hashes are retained
+in [the detailed record](research/spec29-henesys-balance.md) and `evidence/spec29/balance/issue42/final/heldout/`.
+The amended freeze manifest SHA256 is `6d12b85a5c86b4b107571ff77df7ca2958495030addeaf8c7b4936d7d960767b`.
+The next fresh reserved range is **601–630**; none of these results may be used as fresh tuning evidence.
 
 The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
 earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.
