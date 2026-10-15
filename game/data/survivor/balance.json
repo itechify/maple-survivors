@@ -1,6 +1,6 @@
 {
 	"_doc": "Run-wide survivor tuning (docs/GAME_DESIGN.md sections 5, 6; docs/ARCHITECTURE.md 4.4.4). Everything here is tier C (ours / emulator-like) unless a note says otherwise; canonical WZ numbers are never copied here except where noted as a survivor choice of equipment.",
-	"exp_curve": {"a": 4, "b": 8, "c": 4.0, "_formula": "exp_to_next(L) = round(a + b*L + c*L^2): L1 16, L7 256, L9 400, L29 3600; 812 EXP to reach Lv 8, 1536 to Lv 10, 37816 to Lv 30. Tuned with scripts/balance.sh (docs/GAME_DESIGN.md 4.1, 4.2, 5)."},
+	"exp_curve": {"a": 4, "b": 15, "c": 3.8, "_formula": "Tier C: exp_to_next(L) = round(a + b*L + c*L^2): L1 23, L7 295, L9 447, L29 3635; 980 EXP to reach Lv8, 1794 to Lv10, 39150 to Lv30. Difficulty-overhaul candidate trained only on 1..60 and 2026; canonical EXP table unchanged."},
 	"mob_skills": {"_doc": "Tier C: enabled boss kits; slow x retains x percent of upgraded speed; defense x adds flat defense; heal x/y are inclusive random bounds;140 is timed self weapon immunity.", "enabled_ids": [2220000, 3220000, 9300003, 6220000], "summon_spacing": 24},
 	"mob_projectiles": {"radius": 8, "_tier": "tier C: swept body contact radius when the canonical ball has no lt/rb"},
 	"exp_mult": 1.0,
@@ -46,12 +46,14 @@
 	"crit": {"chance": 0.0, "mult": 1.5},
 	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drop cap (the farthest from the player is absorbed into a fresh drop at each new kill), lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 0, "fade": 1.5},
+	"bot": {"card_scores":{"magic_guard_new":110,"magic_guard_rank":109},"_doc":"Tier C: sensible-policy final score overrides keyed by card ID; prioritize Guard before learning another attack. No job bonus is added. Missing entries preserve legacy scoring; random card choices remain uniform."},
 	"_potions": "Tier C: starter stock, independent HP/MP drop chances per monster (higher for elites), and bot drink thresholds. Restore amounts come from each current item's canonical spec.",
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
-		"drops": {"normal": {"hp": 0.025, "mp": 0.18}, "elite": {"hp": 0.25, "mp": 0.65}},
-		"bot": {"hp_threshold": 0.5, "mp_threshold": 0.3}
+		"drops": {"normal": {"hp": 0.012, "mp": 0.06}, "elite": {"hp": 0.15, "mp": 0.65}},
+		"_bot": "Tier C: drink below 80% HP/30% MP; potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
+		"bot": {"hp_threshold": 0.8, "mp_threshold": 0.3, "tier_score": 112}
 	},
 	"_spawn": "SpawnDirector (docs/GAME_DESIGN.md 4): margin outside the view, band of the first spawn ring and band_y, how far it reaches above and below the view (the floors beside the view; -1 = band), min distance to the player, samples per ring, recycle distance (px) and time (s) of the far/unreachable relocation rule, prefer_route (a ring first looks for a point whose NavGraph travel cost to the player is at most half the view width + margin + this many px; -1 = any reachable point), stall_time (s an off-screen mob may go without coming stall_progress px closer by moving itself before it is relocated ahead of the player; 0 = never), trail_margin (px the margin grows on the side the player moves away from: the camera lags about 29 px behind a running player).",
 	"spawn": {"margin": 48, "band": 160, "band_y": 48, "min_player_dist": 200, "attempts": 12, "recycle_dist": 1300, "recycle_time": 3.0, "prefer_route": 160, "stall_time": 3.0, "stall_progress": 1.0, "trail_margin": 32, "platform_share": 0.35, "platform_min_dist": 150},

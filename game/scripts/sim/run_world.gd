@@ -3,11 +3,10 @@ extends RefCounted
 ## One survivor run (docs/ARCHITECTURE.md 4.3, 4.4, 4.4.1-4.4.3): built from a setup Dictionary, advanced by fixed
 ## 1/60 s step() calls, reporting what happened through `events`. Pure: no nodes, input, time, files or autoloads.
 ##
-## Per PLAYING tick: same-map portal activation or player movement (PlayerMotion) -> view rect -> timers -> mobs
-## (MobSwarm, target = the player) -> BossDirector (warnings/arrivals) -> SpawnDirector (normal spawns) -> hash ->
-## SkillRunner (casts, instant hits, new shots) -> ProjectileSystem (hits; kills become mob_died + an EXP drop) ->
-## PickupSystem (magnet, collect -> EXP) -> touch damage -> EXP/level-ups. Then: death -> DEAD (player_died); the
-## every scheduled boss dead (or duration reached in a stage without bosses) -> CLEARED; else queued level-ups open.
+## Per PLAYING tick: drinks -> portals/movement -> view/timers (regen/buffs) -> swarm -> boss lifecycle,
+## skills/attacks/monster balls -> ordinary spawns/hash -> SkillRunner/BasicAttack -> player shots/kills/rewards ->
+## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death takes priority; bonus choices precede clear,
+## and can_clear requires all bosses dead and all bonus/level choices resolved. Normal queued levels open last.
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
@@ -166,7 +165,7 @@ var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
 var body_pad := 64.0
 var magnet_r := 90.0
-## Additional HP/MP per regeneration pulse (interim Recovery card contributes HP here).
+## Additional HP/MP per regeneration pulse; Recovery's separate PlayerBuffs timeline heals independently.
 var hp_regen := 0.0
 var mp_regen := 0.0
 var player_pdd := 0.0
@@ -866,6 +865,8 @@ func _on_kill(m: int) -> void:
 	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
 	for kind: String in ["hp", "mp"]:
 		var chance := float(chances.get(kind, 0.0))
+		if kind == "hp" and not elite:
+			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
 

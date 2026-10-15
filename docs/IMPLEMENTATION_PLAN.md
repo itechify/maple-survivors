@@ -17,9 +17,10 @@ Work packages, in dependency order. A and B run in parallel; C needs A's cache; 
 | D (open item, resolved) | The import screen must find `wzimport` both in dev (`tools/wzimport/target/release/`) and in an export (next to the game exe); exports must bundle it | `ImportScreen.importer_candidates()` tries the exe folder first, then the dev build; `scripts/export.sh` copies `wzimport.exe` beside `MapleSurvivors.exe`. Verified: a dev import from the import screen into an empty cache; the exported build opens the import screen without a cache (an import was not driven from the export) |
 | **E. Verification** | Offline test, perf benchmark (`bench.sh`), scripted playtest with screenshots (`playtest.sh`), adversarial review against the brief | Evidence recorded below |
 
-### Acceptance checks (from the brief)
+### Historical Phase 1 acceptance checks (before the difficulty overhaul)
 
-Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
+The following results describe the earlier economy and timer-based clear, not the current spec #1 balance. New
+acceptance evidence is recorded separately below. Evidence folders are under `evidence/integration/` (gitignored: screenshots of the running game); "flow" is
 `game/scenes/debug/flow_driver.tscn` playing the real game with injected keyboard and mouse input.
 
 | Check | How it is verified | Result (2026-10-13, integration) |
@@ -36,17 +37,42 @@ Evidence folders are under `evidence/integration/` (gitignored: screenshots of t
 | Death, results, restart | run-state tests; playtest of death -> results -> retry | `flow_full/14-20`: hands off the keys -> death, tombstone, results ("You died...", NEW BEST), Retry (mouse) -> a new run, Esc then "2" -> stage select with the best result, Esc -> title. `flow_clear/01-03`: CLEAR notice -> "Stage Clear!" results -> stage select. `import/01-05`: empty cache -> import screen -> folder typed -> Import (73 imgs, 0 warnings, 0 errors) -> title |
 | Responsive under density | `bench.sh` µs/tick at 100/300/600/1000 mobs; playtest frame-time p95 at 15:00 | Performance log below: with 200+ mobs the frame p95 is 2.8-3.5 ms with `--vsync=off` (target < 16.7 ms); up to 338 mobs alive. By default the frame rate is now capped at the display's refresh rate (60 fps on the dev PC's 59.95 Hz screen) |
 
+## Spec #1: difficulty overhaul
+
+The playable stages are Henesys Hunting Ground I and The Tree That Grew I; The Hill East of Henesys is retired.
+Both stages require all three scheduled bosses dead and the final bonus reward choice completed. The run continues
+past 15:00 while that finale is unresolved. This replaces the historical timer-only acceptance above.
+
+Tickets #3–26 are integrated: v83 player stats and hit model, basic weapons, climbing cast restrictions, MP
+costs/regeneration, separate potion inventory and tier cards, timed Guard/Armor/Recovery, polished choices,
+platform-aware spawns, conserved capped EXP drops, flyers, same-map portals and bot navigation, boss lifecycle,
+teleport/rewards, warning/bar presentation and the specified kits for all six bosses. The later pooled-identity fix keeps
+piercing contacts stable through slot reuse and relocation. Ticket #27 supplies balance and independent acceptance.
+
+| Current acceptance check | Status and evidence |
+|---|---|
+| New economy and threat | **Partial / open:** frozen `b230305` assessment on all 120 held-out runs. Both sensible groups meet progression, most-but-not-all clears and late-hit targets; Henesys random has 21/28 deaths in-window. Tree random has only **12/29 (41.4%)**, failing the majority target. No retuning from held-out results; `GAME_DESIGN.md` 4.2 records all outcomes, stocks and waits. |
+| Boss encounters | **Pass for sensible policy:** all six completed duration and whole/source-hit medians are in target windows. Completed, unfinished and unspawned denominators remain explicit; canonical WZ facts unchanged. |
+| Regression | Actual pacing 5/0/0 on unchanged training seeds 1/2/2026 and guards. Initial full suite exposed one stale 20-EXP UI fixture; `ab5d7fa` corrects it through the public EXP threshold. Final full suite: **482 tests, 0 failed, 0 skipped, 59 files**, 507.517 s (`t27-final-suite.log`). Root fresh-target Rust validation passed 45 tests, no skips; importer/manifest unchanged afterward. |
+| Visual integration | **Partial / open lookup:** seed2026 composites clear Henesys at 16:19 (Lv34) and Tree at 15:53 (Lv32), both with 351 maximum live mobs. Henesys has `missing: []`; original Tree capture records `Skill.wz/MobSkill.img/112/level/4/mob0`. Original evidence is preserved while the presentation lookup is diagnosed. Other captures were inspected by eye; earlier feature-specific evidence remains in `evidence/spec1/`. |
+| Performance | Pending final uncapped speed=1 measurement after all our heavy jobs finish; require a nonempty 200+ mob sample and p95 below 16.7 ms. Remaining unrelated Godot processes will be disclosed. |
+| Documentation | Live contracts and survivor constants/provenance reconciled; frozen training and all held-out tables distinguish the failed gate. Final performance numbers and lookup resolution remain pending. |
+
+Spec #1 / #27 acceptance is **not complete**: Tree careless held-out timing fails. The frozen profile remains
+unchanged while the user decides whether to amend the validation protocol or retain this result in a draft PR.
+All raw training, held-out and camper evidence is preserved locally under `evidence/acceptance/`; camper results
+are informational (21 reached their positions; 21 died). Historical Phase 1 acceptance above is not current proof.
 ## Phase 2: job and skill expansion
 
 Fire/Poison Wizard at 30 (Fire Arrow with the five listed upgrades incl. Burning DoT; Poison Breath with the
-canonical poison tick), Magic Claw/Energy Bolt polish, Teleport as a dash, second stage set (The Tree That Grew I,
-Henesys Hunting Ground II), more mobs (Green Mushroom, Horny Mushroom, Stumps), stage select with map previews.
+canonical poison tick), Magic Claw/Energy Bolt polish, Teleport as a dash, Henesys Hunting Ground II and further
+stage/mob sets, and stage select with map previews. The Tree That Grew I is already playable in Spec #1.
 
 ## Phase 3: expanded survivor systems
 
-Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, bosses (Mushmom, King Slime,
-Mano), elite waves and modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting
-configurations, persistent progression and achievements (local save file).
+Other Explorer paths (Warrior/Bowman/Thief/Pirate first jobs and skills), 3rd/4th job, additional bosses, elite wave
+modifiers, passive items, skill evolutions and synergies, run modifiers, unlockable starting configurations,
+persistent progression and achievements (local save file).
 
 ## Performance log
 

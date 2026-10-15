@@ -1,7 +1,7 @@
 class_name ExpCurve
 extends RefCounted
 ## Survivor EXP curve (docs/GAME_DESIGN.md section 5): exp_to_next(L) = round(a + b x L + c x L^2), tier C, from
-## `balance.json` `exp_curve` {a, b, c}. Defaults = the tuned design curve: L1 16, L7 256, L29 3600 (812 EXP to Lv 8,
+## `balance.json` `exp_curve` {a, b, c}. Missing-field defaults preserve the original tier C curve: L1 16, L7 256, L29 3600 (812 EXP to Lv 8,
 ## 37816 to Lv 30).
 
 var a := 4.0

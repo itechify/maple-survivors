@@ -15,7 +15,7 @@ extends SceneTree
 ## spawn or their last time inside it; a relocated mob keeps its time, mob_spawned.relocated_from): the idle queues,
 ## including mobs that idle off-screen until SpawnDirector relocates them.
 ##
-##   bash scripts/balance.sh                       # henesys_hg1, the held-out seeds, in parallel
+##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
@@ -91,7 +91,7 @@ func _init() -> void:
 			return
 		stage = CAMPER.STAGES[policy]
 	if seeds.is_empty():
-		seeds = [101]
+		seeds = [1] # tier C: training default; held-out runs are explicit after candidate freeze.
 	var data := DataRepo.load_all()
 	if patch_file != "":
 		var patch: Variant = JSON.parse_string(FileAccess.get_file_as_string(patch_file))
@@ -154,6 +154,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
 	var boss_hits: Array = []
+	var buff_casts: Array = []
 	var mp_short_seconds := 0.0
 	var reach := {}
 	var alive_min: Array = []
@@ -226,6 +227,16 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if seen.size() <= maxi(ms, from):
 						seen.resize(w.swarm.capacity())
 					seen[ms] = seen[from] if from >= 0 else w.time
+				"buff_cast":
+					# Tier C measurement: event-observation tick; normal runs drain each step.
+					var cast := {"time": w.time, "skill": String(e.skill), "skill_id": int(e.skill_id),
+						"level": int(e.level), "duration": float(e.duration), "effect_stat": "", "value": 0.0}
+					for buff: Dictionary in w.player_state.get("buffs", []):
+						if String(buff.skill) == String(e.skill):
+							cast.effect_stat = String(buff.effect_stat)
+							cast.value = float(buff.value)
+							break
+					buff_casts.append(cast)
 				"player_hit":
 					if not bool(e.miss):
 						hits += 1
@@ -280,7 +291,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	return {
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
 		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
-		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits,
+		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
 		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),

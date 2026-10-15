@@ -22,7 +22,8 @@ needs no server, account or internet connection.
    ```bash
    bash scripts/run.sh
    ```
-   Title -> Start -> pick a stage -> survive 15:00. Death or a clear shows the results; Retry or go back to the stage
+   Title -> Start -> pick a stage -> defeat its three bosses at 5:00, 10:00 and 15:00. The final fight continues past
+   15:00; death or a clear shows the results. Retry or go back to the stage
    select. Your best result per stage is kept in `%APPDATA%/MapleSurvivors/save.json`.
 4. Optional: `bash scripts/export.sh` builds a stand-alone Windows game in `game/export/` (`MapleSurvivors.exe` with
    `wzimport.exe` beside it; needs the Godot 4.7.2 export templates).
@@ -34,6 +35,7 @@ needs no server, account or internet connection.
 | Move | Left / Right arrows (or A / D) |
 | Jump | Left Alt (or Space, C) |
 | Climb a ladder or rope | Up / Down next to it (or W / S) |
+| Use a same-map portal | Hold Up inside its entrance |
 | Drop through a platform | Down + Jump |
 | Drink HP potion | Delete (or Q) |
 | Drink MP potion | End (or E) |
@@ -41,13 +43,18 @@ needs no server, account or internet connection.
 | Pause (Resume / Quit to stage select) | Esc |
 | Performance overlay | F3 |
 
-Skills cast on their own; you choose where to stand, what to pick up and which upgrades to take.
+Skills cast on their own; you choose where to stand, what to pick up and which upgrades to take. Hanging on a rope
+stops new casts and weapon swings; active buffs and Recovery continue. Job skills spend MP and wait when it is short.
 
 ## For developers
 
 `bash scripts/test.sh` runs the unit tests, `bash scripts/playtest.sh` plays a scripted run with screenshots and
 frame-time statistics into `evidence/`, and `bash scripts/balance.sh` reports the pacing over several seeds. See
 [`AGENTS.md`](AGENTS.md).
+
+Playtests allow up to 30:00 by default so the final boss can die. `--minutes` is an absolute run-time limit, including
+any `--warp` fast-forward. Balance defaults to training seeds 1–6. Tune only on 1–60 and 2026; after freezing a
+candidate, explicitly report `101..130` on both stages with `--policy=bot` and `--policy=random`.
 
 ## Docs
 

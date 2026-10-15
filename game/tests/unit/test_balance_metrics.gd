@@ -32,6 +32,31 @@ func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
 	assert_eq(r.state, "TIMEOUT")
 
 
+## The harness records actual canonical casts, rather than inferring active buffs from the final rank.
+func test_buff_cast_timeline_records_seeded_canonical_snapshots() -> void:
+	for rank: int in [1, 5]:
+		var data := RF.quiet_data()
+		data.balance.player.skills = []
+		data.balance.run_time_cap = 1.0
+		var w := RunWorld.new(RF.setup("quiet", 27, data))
+		RF.place_player(w, 400)
+		RF.change_job_bare(w, 200)
+		w.learn_skill("magic_guard")
+		w.loadout.set_rank("magic_guard", rank)
+		var r: Dictionary = BR.run_one(w, "bot", 27)
+		assert_true(r.has("buff_casts"), "cast timeline is part of the public record")
+		if not r.has("buff_casts"):
+			continue
+		assert_eq(r.buff_casts.size(), 1, "one inactive Guard cast in the one-second run")
+		var cast: Dictionary = r.buff_casts[0]
+		assert_near(cast.time, DT, 0.000001, "cast observed on the first fixed tick")
+		assert_eq(cast.skill, "magic_guard")
+		assert_eq(cast.skill_id, 2001002)
+		assert_eq(cast.level, 1 if rank == 1 else 20)
+		assert_eq(cast.duration, 111.0 if rank == 1 else 600.0, "canonical endpoint duration")
+		assert_eq(cast.effect_stat, "mp_guard")
+		assert_eq(cast.value, 11.0 if rank == 1 else 80.0, "cast-time canonical effect from the public snapshot")
+
 func test_boss_fight_record_is_spawn_to_death_and_timeout_is_censored() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 4.0

@@ -1,6 +1,6 @@
 class_name BossDirector
 extends RefCounted
-## Scheduled touch-only bosses, their warning/arrival/death events and the run's boss-clear condition.
+## Scheduled bosses, shared action timing, pursuit teleports, lifecycle events and the run's boss-clear condition.
 
 ## tier C: survivor encounter defaults; balance.bosses supplies the design values.
 const DEFAULT_RULES := {"warning_time": 3.0, "spawn_distance": 250.0,

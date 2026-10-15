@@ -320,16 +320,19 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 	return best
 
 
-## How much a sensible player wants card `c` (a choice_pending card) now; see the class doc.
+## How much a sensible player wants card `c`; optional survivor bot.card_scores override the final score, before fallback.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
+	var overrides: Dictionary = w.balance.get("bot", {}).get("card_scores", {})
+	if overrides.has(String(d.id)):
+		return float(overrides[String(d.id)])
 	var kind := String(d.get("kind", ""))
 	var effects: Array = d.get("effects", [])
 	var stat := String(effects[0].get("stat", "")) if not effects.is_empty() and effects[0] is Dictionary else ""
 	if kind == "potion_tier":
-		return SCORE_POTION_TIER
+		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
 	var key := String(d.get("skill", ""))
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))

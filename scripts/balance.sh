@@ -3,7 +3,7 @@
 # sensible picks of BotInput.pick_card_for; --policy=random: a careless player who takes a random card of the three),
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
-#   bash scripts/balance.sh                                # henesys_hg1, the held-out seeds 101..106
+#   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 101..130                       # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 101..112       # the careless player (random cards)
@@ -51,7 +51,7 @@ for a in "$@"; do
   esac
 done
 if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="tree_that_grew_1"; fi
-[[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(101 102 103 104 105 106)
+[[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(1 2 3 4 5 6)
 
 if [[ -n "${ISOLATE:-}" ]]; then
   DEST="$REPO/_scratch/godot_runs/$ISOLATE/game"
