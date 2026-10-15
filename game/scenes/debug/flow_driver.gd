@@ -6,12 +6,13 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   full    title (Enter) -> stage select (mouse click on Start) -> run played with the arrow keys / C (jump), the
+##   full    title (Enter) -> stage select (mouse click on Start) -> run played with the arrow keys / Space (jump), the
 ##           movement computed by BotInput.decide and sent as key presses -> level-up windows answered with the mouse
 ##           (first) and the digit keys (BotInput.pick_card_for's card) -> the job dialog (Magician by digit key, then
 ##           a key to skip the confirmation) -> Esc pause menu, Esc resume -> hands off the keys at --stop-at run s until
 ##           the character dies -> tombstone -> results -> Retry (mouse) -> a new run -> Esc, "2" (quit to stage
 ##           select) -> Esc (back to the title) -> Esc (quit).
+##           The bot's HP/MP potion decisions are injected as Q/E presses alongside movement.
 ##   clear   for a main.tscn started with --run=<stage> --autoplay --autopick --speed=N (no --quit-after): waits for the
 ##           stage clear and the results screen, then Stage select (mouse) -> title (Esc) -> quit (Esc).
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
@@ -22,11 +23,13 @@ extends Node
 ## effects too), --stop-at=<run s> (full: 300), --wz=<folder> (import).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
-## when a step times out.
+## when a step times out or the full scenario misses the Magician / pause-resume path. Full also writes summary.json
+## from RunScene's public snapshot, including the seed, potion totals, tier counts and missing assets.
 
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (the default bindings of project.godot: arrows and C for jump).
-const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C}
+## Keys the steering sends (project.godot defaults: arrows, Space jump and Q/E potions).
+const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_SPACE,
+	"drink_hp": KEY_Q, "drink_mp": KEY_E}
 
 var args := {}
 var shots_dir := ""
@@ -87,7 +90,7 @@ func _scenario_full() -> void:
 	await _shot("run_start")
 	# A few seconds of plain keyboard play before the steering takes over.
 	await _hold(KEY_RIGHT, 1.2)
-	await _key(KEY_C)
+	await _key(KEY_SPACE)
 	await _sleep(0.25)
 	await _shot("run_keyboard_jump")
 	await _hold(KEY_LEFT, 0.8)
@@ -95,6 +98,7 @@ func _scenario_full() -> void:
 	_steer = true
 	var windows := 0
 	var paused_once := false
+	var resumed_once := false
 	var job_seen := false
 	while is_instance_valid(run) and run.world != null and run.world.state != RunWorld.DEAD:
 		await get_tree().process_frame
@@ -143,10 +147,23 @@ func _scenario_full() -> void:
 			await _shot("pause_menu")
 			await _key(KEY_ESCAPE)
 			await _sleep(0.3)
-			print("flow_driver: resumed = %s" % (not run.paused))
+			resumed_once = not run.paused
+			print("flow_driver: resumed = %s" % resumed_once)
 	_steer = false
 	_release_all()
 	print("flow_driver: the character died at %.0f s, level %d" % [run.world.time, run.world.player_state.level])
+	var snapshot := run.perf_summary(run.build_summary())
+	snapshot["flow"] = {"windows": windows, "job_seen": job_seen, "pause_seen": paused_once, "resumed": resumed_once}
+	snapshot["card_tiers_offered"] = run.world.card_tiers_offered.duplicate()
+	snapshot["card_tiers_picked"] = run.world.card_tiers_picked.duplicate()
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(snapshot, "\t"))
+		file.close()
+	print("flow_driver: snapshot %s" % JSON.stringify(snapshot))
+	if not job_seen or int(snapshot.job_id) != 200 or not paused_once or not resumed_once:
+		_failed = true
+		push_error("flow_driver: full scenario did not complete the Magician and pause/resume path")
 	await _sleep(1.0)
 	await _shot("death_tombstone")
 	if not await _until(func() -> bool: return flow.current_name == "results", 30.0, "results"):
@@ -259,6 +276,8 @@ func _steer_run() -> void:
 	_set_key("up", mi.up)
 	_set_key("down", mi.down)
 	_set_key("jump", mi.jump_pressed)
+	_set_key("drink_hp", mi.drink_hp)
+	_set_key("drink_mp", mi.drink_mp)
 
 
 func _set_key(action: String, down: bool) -> void:

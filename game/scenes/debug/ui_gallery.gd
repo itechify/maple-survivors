@@ -7,6 +7,9 @@ extends Node2D
 ## --window=<name>:
 ##   levelup         level-up choice (3 cards)          levelup_missing  cards with "" / missing icons, long texts
 ##   levelup_rank    rank previews: Energy Bolt 4 -> 5, Nimble Feet 1 -> 2 (Speed), Improved MaxMP Increase 1 -> 2 (Max MP %)
+##   levelup_tiers   Normal / Rare / Epic previews from the real upgrade pool
+##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
+##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
@@ -170,7 +173,7 @@ func _show_window(which: String) -> void:
 	layer.layer = 10
 	add_child(layer)
 	match which:
-		"levelup", "levelup_missing", "levelup_rank":
+		"levelup", "levelup_missing", "levelup_rank", "levelup_tiers", "levelup_high", "levelup_dense":
 			var w := LevelUpWindow.new()
 			layer.add_child(w)
 			var cards: Array = SAMPLE_CARDS
@@ -178,7 +181,9 @@ func _show_window(which: String) -> void:
 				cards = MISSING_CARDS
 			elif which == "levelup_rank":
 				cards = _rank_cards()
-			w.open(cards, 8)
+			elif which in ["levelup_tiers", "levelup_high", "levelup_dense"]:
+				cards = _tier_cards(which)
+			w.open(cards, 8, args.has("bonus"))
 			w.card_chosen.connect(func(id: String) -> void: print("ui_gallery: card_chosen ", id))
 			window = w
 			if args.has("focus"):
@@ -227,6 +232,33 @@ func _rank_cards() -> Array:
 		world.loadout.set_rank(skill, 4 if skill == "energy_bolt" else 1)
 	return [world.upgrades.choice_card("energy_bolt_rank", world),
 		world.upgrades.choice_card("nimble_feet_rank", world), world.upgrades.choice_card("improved_max_mp_rank", world)]
+
+
+func _tier_cards(which: String) -> Array:
+	var imgs := {}
+	var lib := UiArt.lib()
+	if lib != null:
+		for book: String in ["000", "200"]:
+			var img := lib.img(DataRepo.skill_img_path(book))
+			if img != null:
+				imgs[book] = img.root
+	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
+	var owned := {"energy_bolt": 4, "improved_max_mp": 1}
+	var offers := [["energy_bolt_rank", "normal"], ["improved_max_mp_rank", "rare"], ["three_snails_count", "epic"]]
+	if which == "levelup_high":
+		owned = {"energy_bolt": 4, "magic_guard": 1}
+		offers = [["energy_bolt_rank", "unique"], ["magic_guard_rank", "legendary"], ["magic_claw_new", "legendary"]]
+	elif which == "levelup_dense":
+		owned = {"energy_bolt": 4, "recovery": 1, "nimble_feet": 1}
+		offers = [["energy_bolt_rank", "normal"], ["recovery_rank", "rare"], ["nimble_feet_rank", "rare"]]
+	for skill: String in owned:
+		world.loadout.add_skill(skill)
+		world.loadout.set_rank(skill, int(owned[skill]))
+	var cards: Array = []
+	for offer: Array in offers:
+		cards.append(world.upgrades.choice_card(String(offer[0]), world, String(offer[1])))
+	print("ui_gallery: offered cards ", JSON.stringify(cards))
+	return cards
 
 
 func _spawn_point(map: MapRenderer) -> Vector2:
@@ -311,4 +343,17 @@ func _take_shot() -> void:
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path)
 	print("ui_gallery: shot %s %dx%d err=%d" % [path, img.get_width(), img.get_height(), err])
+	if window is LevelUpWindow:
+		var lib := UiArt.lib()
+		var sfx := get_node_or_null("/root/Sfx") as AudioService
+		var cue := lib.sound(LevelUpWindow.SND_HIGH_TIER) if lib != null else null
+		var positions: Array = []
+		if sfx != null:
+			for child in sfx.get_children():
+				if child is AudioStreamPlayer:
+					var voice := child as AudioStreamPlayer
+					if voice.stream == cue and voice.playing:
+						positions.append(voice.get_playback_position())
+		print("ui_gallery: cue %s playback=%s output=%s missing=%s" % [LevelUpWindow.SND_HIGH_TIER,
+			positions, AudioServer.get_output_device(), lib.missing if lib != null else []])
 	get_tree().quit()

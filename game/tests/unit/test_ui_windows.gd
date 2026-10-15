@@ -175,6 +175,77 @@ func test_level_up_rank_text() -> void:
 		"skill_level_next": 2}), "Skill Lv. 1 → 2")
 
 
+func test_tiered_cards_show_the_offered_skill_level_and_consumed_steps() -> void:
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_new", "tier": "legendary", "magnitude": 5,
+		"rank_before": 0, "rank": 1, "max_rank": 1, "skill_level": 0, "skill_level_next": 5}),
+		"NEW  Skill Lv. 5", "the learn card's one consumed step is not its starting skill level")
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_rank", "tier": "unique", "magnitude": 5,
+		"rank_before": 3, "rank": 8, "max_rank": 20, "skill_level": 4, "skill_level_next": 9}),
+		"Skill Lv. 4 → 9", "rank previews use the final canonical skill level")
+	assert_eq(LevelUpWindow.rank_text({"kind": "skill_mod", "tier": "unique", "magnitude": 3,
+		"rank_before": 1, "rank": 4, "max_rank": 4}), "Lv. 1 → 4  MAX", "three modifier steps, not one")
+	assert_eq(LevelUpWindow.rank_text({"kind": "stat", "tier": "epic", "magnitude": 2,
+		"rank_before": 0, "rank": 2, "max_rank": 4}), "Lv. 0 → 2", "a first multi-step pick starts at zero")
+
+
+func test_high_tier_window_plays_one_cached_cue_per_open_including_boss_rewards() -> void:
+	if not require_cache():
+		return
+	var sfx := (Engine.get_main_loop() as SceneTree).root.get_node("Sfx") as AudioService
+	var lib := AssetLibrary.get_default()
+	var cue := lib.sound("Sound.wz/Game.img/mCardGet")
+	assert_true(cue != null and cue.get_length() > 0.0, "the selected v83 cue is decoded from the real cache")
+	for child in sfx.get_children():
+		if child is AudioStreamPlayer:
+			(child as AudioStreamPlayer).stop()
+	var offered: Array = CARDS.duplicate(true)
+	offered[0]["tier"] = "unique"
+	offered[1]["tier"] = "legendary"
+	var w := _add(LevelUpWindow.new()) as LevelUpWindow
+	w.open(offered, 8)
+	assert_eq(_playing_streams(sfx, cue), 1, "two high-tier cards produce one offer cue")
+	w.set_focus(1)
+	w.handle_input(key(KEY_2))
+	assert_eq(_playing_streams(sfx, cue), 1, "hovering and choosing do not replay the offer cue")
+	w.open(CARDS, 9)
+	assert_eq(_playing_streams(sfx, cue), 1, "ordinary offers have only their existing level-up sound")
+	w.open(offered, 9, true)
+	assert_eq(_playing_streams(sfx, cue), 2, "a new boss reward window plays the same cue once")
+	assert_eq(lib.missing.size(), 0, "the exact cue and UI audio lookups are present")
+	for child in sfx.get_children():
+		if child is AudioStreamPlayer:
+			(child as AudioStreamPlayer).stop()
+
+
+func _playing_streams(sfx: AudioService, stream: AudioStream) -> int:
+	var count := 0
+	for child in sfx.get_children():
+		if child is AudioStreamPlayer and (child as AudioStreamPlayer).stream == stream and (child as AudioStreamPlayer).playing:
+			count += 1
+	return count
+
+
+func test_dense_tiered_choices_fit_the_view_and_keep_the_mouse_targets() -> void:
+	var cards: Array = CARDS.duplicate(true)
+	for i in cards.size():
+		cards[i]["tier"] = ["normal", "rare", "epic"][i]
+		cards[i]["desc"] = "A stronger skill with higher attack, lower cost and a longer effect. Keep every canonical before and after value visible."
+		cards[i]["skill_changes"] = {"mad": {"before": 20, "after": 28}, "mastery": {"before": 15, "after": 25},
+			"mpCon": {"before": 6, "after": 9}, "time": {"before": 4, "after": 8}, "speed": {"before": 10, "after": 15}}
+	var w := _add(LevelUpWindow.new()) as LevelUpWindow
+	w.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	w.size = Vector2(800, 600)
+	w.card_chosen.connect(_record)
+	w.open(cards, 12)
+	assert_true(w.panel_origin().y >= 0.0, "the gained-level header stays inside the 600px view")
+	assert_true(w.panel_origin().y + w.panel_size.y <= 600.0, "the full last choice stays visible")
+	for i in cards.size():
+		assert_eq(w.cards[i].skill_changes, cards[i].skill_changes, "dense layout preserves every canonical preview")
+		assert_true(w.card_rect(i).end.y <= 600.0, "all three mouse targets remain on screen")
+	w._gui_input(click(w.card_rect(2).get_center()))
+	assert_eq(_got, ["c"], "the expanded third card is selectable with the mouse")
+
+
 func test_level_up_card_details_show_canonical_rank_changes() -> void:
 	var card := {"kind": "skill_rank", "desc": "Rank up Energy Bolt.", "skill_changes": {
 		"mad": {"before": 20, "after": 28}, "mastery": {"before": 15, "after": 25},
@@ -192,6 +263,12 @@ func test_level_up_card_details_show_canonical_rank_changes() -> void:
 	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"speed": {"before": 10, "after": 15},
 		Loadout.MAX_MP_PERCENT: {"before": 2, "after": 4}}}), PackedStringArray(["Speed: 10 → 15", "Max MP: 2% → 4%"]),
 		"Nimble Feet speed and the Improved MaxMP Increase percentage have readable lines")
+
+
+func test_rank_preview_uses_the_space_for_values_that_change() -> void:
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"mpCon": {"before": 6, "after": 6},
+		"time": {"before": 30, "after": 30}, "fixdamage": {"before": 10, "after": 25}}}),
+		PackedStringArray(["Damage: 10 → 25"]), "unchanged cost and duration do not crowd out the offered gain")
 
 
 func test_every_previewed_field_has_a_label() -> void:

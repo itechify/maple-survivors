@@ -1315,6 +1315,29 @@ cards once rather than ranks/steps. Queued level and boss windows are counted on
 The supplemental report sums them and reports `card_tier_runs`; legacy records without both fields contribute
 no rarity observation. No tuning evidence or held-out acceptance is claimed by this implementation ticket.
 
+Level-up and boss-reward cards retain the original v83 skill-row art and show the Potential tier in an inset pixel
+border and a labelled dark-blue band: Normal white, Rare blue, Epic purple, Unique gold and Legendary green.
+The label carries the meaning independently of colour. Exact accents are survivor presentation choices (tier C):
+`#FFFFFF / #77BBFF / #CC99FF / #FFCC44 / #77DD88`, on `#17344F`. Rank text uses the offered canonical before/after
+levels; new skills show their starting level (e.g. `NEW  Skill Lv. 5`), and stacking cards use the complete
+`rank_before -> rank` change. Descriptions retain the sim's scaled or compounded magnitude. Unchanged canonical
+values are omitted from the visual preview; changed values remain visible. Dense windows shorten prose first,
+use the already-blanked notice sentence area and target a panel 128 px shorter than the logical view, keeping the
+mascots and HUD clear in the normal 800x600 view (tier C layout choices).
+
+The owner selected `Sound.wz/Game.img/mCardGet` for a displayed Unique / Legendary offer. A window plays one cue
+even when several cards qualify; boss rewards use the same cue. Keyboard/mouse focus and selection never replay
+it, and automated picks without a displayed window remain silent. The stream is preloaded with the stage sounds.
+Real-cache tests and a WASAPI gallery run verified the exact stream, one advancing voice and no missing lookups;
+the agent cannot listen to audio in this environment, so ear verification remains unclaimed.
+
+Visual evidence for #44 is in `evidence/spec30/ui/`: `levelup_tiers.png` (Normal/Rare/Epic), `levelup_high.png`
+(Unique gain, Legendary max rank and new skill at level 5), `levelup_dense.png` (long current rank previews) and
+`boss_high_wide.png` (the same high tiers in a 1066x600 boss-reward view). All four were checked by eye.
+The debug gallery reproduces them with `--window=levelup_tiers|levelup_high|levelup_dense`; `--bonus` uses the
+boss heading. These previews come from the real `UpgradePool.choice_card` boundary, with tiers forced only in
+the debug scene. Proprietary screenshots stay gitignored.
+
 Beginner cards include Nimble Feet (1002) and Recovery (1001) learn/rank cards. Nimble Feet occupies a passive slot
 and auto-casts when inactive, off its canonical cooldown and affordable. It keeps the cast level's canonical speed
 bonus for the canonical duration, shows the v83 buff icon/countdown, and pays canonical MP. The 60-second cooldown
@@ -1490,6 +1513,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+1/+2/+3/max; new skill 1/1/2/3/5; per-card overrides | C | spec #30; upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
 | Card honesty / boss floor | highest fitting tier; max equal to a lower fitting gain downgrades; explicit Normal/Rare equal defaults retained; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
+| Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band and 1px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
+| High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | owner's cue selection; existing whole Game.img manifest; playback verified, ear check unavailable |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
