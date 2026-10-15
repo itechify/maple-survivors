@@ -175,6 +175,8 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 			return {"126": {"level": {"1": {"time": 10.0, "x": 50.0}}}}
 		if p == "Character.wz/Coat/01040002.img":
 			return {"info": {"incPDD": 3.0}}
+		if p.begins_with("Character.wz/Weapon/"):
+			return {"info": {"incPDD": 1.0, "afterImage": "swordOL"}}
 		return {"info": {"incPDD": 1.0}}
 	var s := DataRepo.build_setup(data, "henesys_hg1", 1, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
@@ -183,6 +185,7 @@ func test_setup_carries_canonical_equipment_and_mob_skills() -> void:
 	assert_eq(s.mob_skill_img["126"].level["1"].time, 10.0, "boss skill levels, untouched")
 	assert_eq(s.body_img.info.incPDD, 1.0, "body root reaches the sim untouched")
 	assert_eq(s.afterimage_imgs.swordOL.info.incPDD, 1.0, "afterimage root reaches the sim untouched")
+	assert_eq(s.afterimage_imgs.keys(), ["swordOL"], "only the afterimages the worn weapons name are loaded")
 
 
 func test_monster_damage_has_no_hidden_balance_scales() -> void:

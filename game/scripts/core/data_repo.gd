@@ -136,9 +136,13 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 	var body: Dictionary = img_loader.call("Character.wz/00002000.img")
 	if body.is_empty():
 		missing.append("Character.wz/00002000.img")
+	# The afterimages the worn weapons name in their canonical info (Sword swordOL, Wand mace).
 	var afterimages := {}
-	for name: String in ["swordOL", "mace"]:
-		var path := "Character.wz/Afterimage/%s.img" % name
+	for info: Dictionary in equipment_info.values():
+		var name := WeaponInfo.afterimage_name(info)
+		if name == "" or afterimages.has(name):
+			continue
+		var path := WeaponInfo.afterimage_img_path(name)
 		var image: Dictionary = img_loader.call(path)
 		if image.is_empty():
 			missing.append(path)
