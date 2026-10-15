@@ -33,6 +33,13 @@ of waiting occurs after 8:00. This diagnostic cap is a TIMEOUT, not an extra cle
 
 ## Reproduction and evidence
 
+Validation: Godot's `--check-only` passes for `balance_run.gd`. The focused `balance_metrics potions boss_rewards`
+suite passes all 22 tests with no skips. The full `scripts/test.sh` run completes 490 tests across 59 files:
+**1 test failed, 0 skipped**. `test_full_run_real_map` fails three existing pacing assertions: neither stage
+has at least two of seeds 1/2/2026 reach Lv30, and Tree seed 1 reaches Lv8 at 303.9 s, beyond its 270 s limit.
+These guards remain unchanged. The initial scarcity candidate is not ready as final calibrated balance;
+the draft PR records this regression for integration with #42. Standards/spec code review found no code defects.
+
 On the baseline checkout and then the candidate checkout, with the same asset cache:
 
 ```bash
