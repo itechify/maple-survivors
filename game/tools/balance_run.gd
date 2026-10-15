@@ -49,6 +49,8 @@ const CAMPER := preload("res://tools/camper_input.gd")
 const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henesys_rope", "camper_tree_top"]
 ## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
 const DEFAULT_RUN_CAP := 1800.0
+## tier C: late MP economy observation starts at eight minutes, matching the existing late-hit report.
+const LATE_MP_START := 480.0
 
 
 func _init() -> void:
@@ -156,6 +158,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var boss_hits: Array = []
 	var buff_casts: Array = []
 	var mp_short_seconds := 0.0
+	var late_mp_short_seconds := 0.0
+	var late_observed_seconds := 0.0
+	var potions_start := {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)}
 	var reach := {}
 	var alive_min: Array = []
 	var level_min: Array = []
@@ -163,6 +168,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var taken_min: Array = []
 	var exp_min: Array = []
 	var kills_min: Array = []
+	# tier C measurement: landed lifetime hits, attributed to the ordinary mob's death minute (first five minutes).
+	var kill_hits: Array = []
+	for minute in 5:
+		kill_hits.append({"hits": 0, "kills": 0, "mean": null})
+	var mob_lifetimes := {}
 	var near_min: Array = []
 	var drops_min: Array = []
 	var exp_total := 0
@@ -191,7 +201,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var max_alive := 0
 	var max_alive_t := 0.0
 	var job_t := -1.0
-	var ticks := ceili(cap / DT)
+	var ticks := maxi(0, ceili((cap - w.time) / DT - 1e-6))
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
@@ -200,8 +210,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			break
 		var idle := idle_after >= 0.0 and w.time >= idle_after
 		w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+		var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
+		late_observed_seconds += late_dt
 		if bool(w.player_state.get("mp_short",false)):
 			mp_short_seconds += DT
+			late_mp_short_seconds += late_dt
 		var a := w.swarm.alive_count()
 		alive_sum += a
 		near_sum += _near(w)
@@ -227,6 +240,27 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if seen.size() <= maxi(ms, from):
 						seen.resize(w.swarm.capacity())
 					seen[ms] = seen[from] if from >= 0 else w.time
+					# Replay lifetimes in event order: current swarm slots can already have been reused.
+					var lifetime: Dictionary = mob_lifetimes.get(from, {}).duplicate() if from >= 0 else {}
+					mob_lifetimes.erase(from)
+					if lifetime.is_empty():
+						var kind: MobKind = w.mob_kinds[int(w.kind_of_id[int(e.mob_id)])]
+						lifetime = {"hits": 0, "ordinary": not bool(e.elite) and not kind.boss}
+					mob_lifetimes[ms] = lifetime
+				"boss_spawned":
+					if mob_lifetimes.has(int(e.mob)):
+						mob_lifetimes[int(e.mob)].ordinary = false
+				"mob_hit":
+					if mob_lifetimes.has(int(e.mob)):
+						mob_lifetimes[int(e.mob)].hits += 1
+				"mob_died":
+					var lifetime: Dictionary = mob_lifetimes.get(int(e.mob), {})
+					var minute := maxi(0, floori((w.time - 1e-6) / 60.0))
+					if minute < 5 and bool(lifetime.get("ordinary", false)):
+						kill_hits[minute].hits += int(lifetime.hits)
+						kill_hits[minute].kills += 1
+						kill_hits[minute].mean = float(kill_hits[minute].hits) / int(kill_hits[minute].kills)
+					mob_lifetimes.erase(int(e.mob))
 				"buff_cast":
 					# Tier C measurement: event-observation tick; normal runs drain each step.
 					var cast := {"time": w.time, "skill": String(e.skill), "skill_id": int(e.skill_id),
@@ -295,15 +329,20 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
 		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
+		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
+		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
+		"ordinary_kill_hits_by_min": kill_hits,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
+		"potions_start": potions_start, "potions_left": {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)},
+		"warnings": Array(w.warnings),
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
@@ -435,14 +474,40 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 ## (counted over camper-policy runs only).
 static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
-		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0}
+		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
+		"ordinary_kill_hits_by_min": []}
+	for minute in 5:
+		result.ordinary_kill_hits_by_min.append({"hits": 0, "kills": 0, "mean": null})
 	var waits: Array = []
+	var deaths: Array = []
+	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
+	var late_waits: Array = []
+	var leftovers := {"hp": [], "mp": []}
+	result["late_mp_observed_runs"] = 0
+	result["late_mp_short_runs"] = 0
 	var magician_times: Array = []
 	var fractions: Array = []
 	var fight_samples := {}
 	var censored_samples := {}
 	var hit_samples := {}
 	for record: Dictionary in records:
+		var state := String(record.get("state", ""))
+		if result.outcomes.has(state):
+			result.outcomes[state] += 1
+		if state == "DEAD":
+			deaths.append(float(record.time))
+		if float(record.get("late_observed_seconds", 0.0)) > 0.0:
+			result.late_mp_observed_runs += 1
+			var late_wait := float(record.get("late_mp_short_seconds", 0.0))
+			late_waits.append(late_wait)
+			result.late_mp_short_runs += 1 if late_wait > 0.0 else 0
+		for kind: String in ["hp", "mp"]:
+			if record.get("potions_left", {}).has(kind):
+				leftovers[kind].append(int(record.potions_left[kind]))
+		var kill_hits: Array = record.get("ordinary_kill_hits_by_min", [])
+		for minute in mini(5, kill_hits.size()):
+			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
+			result.ordinary_kill_hits_by_min[minute].kills += int(kill_hits[minute].kills)
 		var job_time := float(record.get("job_t", -1.0))
 		if job_time >= 0.0:
 			magician_times.append(job_time)
@@ -489,10 +554,15 @@ static func aggregate(records: Array) -> Dictionary:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
 	result["mp_short_seconds"] = statistics(waits)
+	result["death_seconds"] = statistics(deaths)
+	result["late_mp_short_seconds"] = statistics(late_waits)
+	result["potions_left"] = {"hp": statistics(leftovers.hp), "mp": statistics(leftovers.mp)}
 	var mp_used := int(result.potions_used.mp)
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
 	result["boss_hit_fraction"] = statistics(fractions)
+	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
+		bucket.mean = float(bucket.hits) / int(bucket.kills) if int(bucket.kills) > 0 else null
 	return result
 
 
@@ -527,6 +597,14 @@ static func describe_metrics(summary: Dictionary) -> String:
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
 		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	lines.append("  outcomes %s; death-only seconds %s" % [summary.outcomes, _range(summary.death_seconds)])
+	lines.append("  MP-short after 8:00 seconds %s; %d/%d observed runs waited; final stock HP %s MP %s" % [
+		_range(summary.late_mp_short_seconds), int(summary.late_mp_short_runs), int(summary.late_mp_observed_runs),
+		_range(summary.potions_left.hp), _range(summary.potions_left.mp)])
+	for minute in summary.ordinary_kill_hits_by_min.size():
+		var bucket: Dictionary = summary.ordinary_kill_hits_by_min[minute]
+		lines.append("  minute %d ordinary hits/kill %s (%d hits / %d kills)" % [minute + 1,
+			"undefined" if bucket.mean == null else "%.3f" % float(bucket.mean), int(bucket.hits), int(bucket.kills)])
 	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
 	for id: String in summary.boss_fights:
 		var fight: Dictionary = summary.boss_fights[id]

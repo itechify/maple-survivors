@@ -180,6 +180,17 @@ as at least its elapsed seconds; `>=` marks a lower bound), and retain the boss-
 The per-policy `SYSTEMS` report also divides total MP potions collected by total MP potions used (not a mean of
 per-run ratios). `mp_collected_used_ratio` is JSON null, printed as `undefined (no MP used)`, when use totals zero.
 
+The #42 harness also reports `ordinary_kill_hits_by_min` for the first five run minutes: each bucket contains
+landed lifetime damage-line hits, ordinary kills and their ratio (null without kills). The death minute receives
+all hits on that mob, including earlier-minute hits; a death exactly on a minute boundary belongs to the preceding
+minute. Relocation preserves a lifetime's count and fresh slot reuse resets it. Elites, scheduled bosses and
+canonical boss kinds are excluded; ordinary summons/offspring are included. Magic Claw counts each landed line,
+basic attacks count, and immune contacts do not. Aggregation divides summed hits by summed kills.
+`late_mp_short_seconds` measures waiting ticks after 8:00; `late_observed_seconds` and reached/waiting run counts
+distinguish unobserved late time from observed zero shortage. Final `potions_left` includes starting stock,
+recorded separately in `potions_start`; collection totals exclude starters. `outcomes` keeps timeouts separate
+from clears and deaths, and `death_seconds` samples deaths alone. Run records retain simulation warnings.
+
 Since the buff-timeline diagnostic, `buff_casts` also records each observed cast tick, skill ID, canonical level,
 duration and active effect stat/value. This exposes the real cast snapshot, unlike a final rank or an absorbed
 hit fraction (which available MP may clip). It changes no gameplay or RNG. Old records without the field cannot
