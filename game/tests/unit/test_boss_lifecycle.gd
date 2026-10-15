@@ -314,11 +314,15 @@ func test_elite_schedule_uses_the_ramped_interval_after_the_last_keyframe() -> v
 
 
 func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
-	var examples: Array = DataRepo.load_all().stages.stages.henesys_hg1.bosses
-	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0}
+	var stages: Dictionary = DataRepo.load_all().stages.stages
+	var examples: Array = stages.henesys_hg1.bosses + stages.tree_that_grew_1.bosses
+	# Canonical v83 contact PADamage (checked against the real cache in test_boss_hit_bands).
+	var attacks := {2220000: 90.0, 6130101: 200.0, 9400205: 450.0, 3220000: 125.0, 9300003: 130.0, 6220000: 190.0}
 	for entry: Dictionary in examples:
 		var setup := _setup([0.5])
 		setup.data.stages.stages.quiet.bosses = [entry.duplicate(true)]
+		# Contact only: the synthetic img has no attack nodes.
+		setup.data.stages.stages.quiet.bosses[0].erase("attacks")
 		setup.data.stages.stages.quiet.bosses[0].time = 0.5
 		setup.data.balance.player.hp = float(entry.typical_hp)
 		setup.data.balance.player.stats.dex = 0
@@ -348,16 +352,13 @@ func test_boss_touch_uses_explicit_multiplier_and_hit_source_identity() -> void:
 		assert_eq(hit.mob_id, id)
 		assert_eq(hit.max_hp, int(entry.typical_hp), "HP pool is captured at hit time")
 		assert_true(int(hit.damage) > 0, "the identified touch inflicts damage")
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 1903
-		var fractions: Array[float] = []
-		for roll in 1000:
-			var damage := CombatMath.monster_hit(attacks[id], false, "", {"pdd": float(entry.typical_pdd)},
-				rng, float(entry.dmg_mult))
-			fractions.append(float(damage) / float(entry.typical_hp))
-		fractions.sort()
-		assert_between((fractions[499] + fractions[500]) * 0.5, 0.4, 0.5,
-			"typical seeded touch hits take 40–50%; individual rolls vary")
+		assert_between(float(hit.damage) / float(entry.typical_hp), 0.4, 0.5, "the landed touch is in the band")
+		# The whole roll range, not just a typical roll: 85% and 100% of PAD after defense, at the shipped multiplier.
+		var low := CombatMath.monster_damage(attacks[id], 0.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
+		var high := CombatMath.monster_damage(attacks[id], 1.0, float(entry.typical_pdd), 0.0, float(entry.dmg_mult))
+		assert_between(int(hit.damage), low, high, "the landed touch is one roll of that range")
+		assert_true(float(low) / float(entry.typical_hp) >= 0.4 and float(high) / float(entry.typical_hp) <= 0.5,
+			"%d touch %d..%d of %d HP lies in 40-50%%" % [id, low, high, int(entry.typical_hp)])
 
 
 func test_balance_harness_reports_timeout_and_boss_lifecycle_record() -> void:

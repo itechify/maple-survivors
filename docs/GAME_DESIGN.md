@@ -622,14 +622,19 @@ Survivor settings (tier C; canonical stats and attack timings/boxes remain uncha
 |---|---|---|---|---|---|
 | Mano | 2,000 | 3,600 | 1.8 | 1.15 | — |
 | Mushmom | 20,000 | 4,800 | 0.24 | 0.85 | 0.55 |
-| Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.70 |
-| Stumpy | 7,000 | 3,150 | 0.45 | 0.8 | 0.74 |
-| King Slime | 8,000 | 8,800 | 1.1 | 1.4 | 1.1 |
-| Dyle | 31,000 | 8,060 | 0.26 | 1.15 | — |
+| Blue Mushmom | 200,000 | 7,000 | 0.035 | 0.48 | 0.72 |
+| Stumpy | 7,000 | 3,150 | 0.45 | 0.83 | 0.77 |
+| King Slime | 8,000 | 8,800 | 1.1 | 1.36 | 1.06 |
+| Dyle | 31,000 | 8,060 | 0.26 | 1.14 | — |
 
 Calibration uses measured training builds rather than the former assumed HP300/550/800 and full Armor defense.
 `stage.bosses` stores the multipliers; `typical_hp/pdd` are illustrative inputs only, never adaptive runtime scaling.
 The target is typical whole-hit source medians of 40–50%, with individual-hit/build variation reported separately.
+At the documented `typical_hp`/`typical_pdd` the whole roll range of every contact hit and selected attack (85% and
+100% of PAD after defense, rounded) lies in 40–50% (`test_boss_hit_bands`). The 2026-10-14 review pass moved six
+multipliers by the smallest 0.01 step that does this (Blue Mushmom slam 0.70→0.72, Stumpy touch 0.8→0.83 and
+attacks 0.74→0.77, King Slime touch 1.4→1.36 and slam 1.1→1.06, Dyle touch 1.15→1.14; medians moved at most 1.8
+points); the measured results in 4.2 predate this change.
 Completed fights target 30/60/90 seconds, each ±50%; unfinished encounters are not zero-duration observations.
 `balance.bosses` stores warning time, placement and spawn reduction. The mobs a boss summons (MobSkill 200 at the
 levels its `info/skill` lists) and its `info/revive` list are read from the canonical data at load time (`StageRoster`)
@@ -680,13 +685,13 @@ the damage impact; neither timeline is retimed to conceal this canonical differe
 an initial 8 s start-to-start interval when in range and the shared action gate is free (tier C; WZ has no interval).
 
 Slam scaling is separate from touch scaling because both mushrooms' slam attack is 300 while their contact attack
-is 200 / 450. Mushmom and Blue Mushmom use separate attack scales 0.55/0.70 and contact scales 0.85/0.48,
+is 200 / 450. Mushmom and Blue Mushmom use separate attack scales 0.55/0.72 and contact scales 0.85/0.48,
 calibrated against actual training HP pools. No attack-local canonical value is changed to achieve those fractions.
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
 The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00.
-Stumpy uses HP ×0.45 (3,150), touch ×0.8 and attack ×0.74. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
+Stumpy uses HP ×0.45 (3,150), touch ×0.83 and attack ×0.77. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
 `r ×600/bulletSpeed` ms maximum flight (857.14 ms), hence 233.33 px/s over 200 px. This conversion and using r
@@ -703,15 +708,15 @@ mob0 effect retains its 1,100 ms blank lead-in; it plays from cast, while HP res
 The heal notice reports actual restored HP, and the boss bar follows it immediately. No reference source code
 was copied. Encounter scaling is survivor data; all heal bounds, gates, intervals and effect timing stay canonical.
 
-King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×1.1 gives 8,800; touch ×1.4
-and slam ×1.1 are separate training-calibrated scales. Its type 0 slam
+King Slime keeps canonical maxHP 8,000, touch 130 and slam 165. Survivor HP ×1.1 gives 8,800; touch ×1.36
+and slam ×1.06 are separate training-calibrated scales. Its type 0 slam
 uses canonical attackAfter 900 ms, effectAfter 300 ms, 500×150 area and jumpAttack 1; grounded players in the area
 are hit only at impact, airborne players can dodge. Skill 200/2 waits 50 s, HP ≤50%, summons the original three
 210100 Slimes with summonEffect 3, and caps living encounter-owned summons at 15. Its eleven-entry info/revive
 list spawns eleven ordinary canonical Slimes on death, independently of that cast limit. Relocations preserve
 ownership and fresh slots reset it. King Slime lacks info/boss and hpTag colours in v83: the survivor no_flinch
 override and existing 1/5 MobGage colour override supply scheduled-boss behavior without modifying WZ facts.
-Dyle retains canonical maxHP 31,000 (survivor ×0.26=8,060) and touch 190 (survivor ×1.15).
+Dyle retains canonical maxHP 31,000 (survivor ×0.26=8,060) and touch 190 (survivor ×1.14).
 Heal 114/17 uses HP ≤90%, interval 20 s and effectAfter 0: restoration occurs on the casting tick. Each cast
 restores the canonical x 5,000 (y 500 unused; tier C, the same rule as Stumpy), clamped at max HP.
 Immunity 140/8 uses HP ≤80%, interval 30 s and duration 5 s. We interpret this as self
@@ -1069,9 +1074,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Boss rewards | canonical EXP ×5 in 12 drops, spread ±120 px; current-tier HP3/MP6 bundles (Mano HP6, second bosses HP1; MP6 throughout) at ±30 px; one bonus upgrade before clear, preserving level queue | C (multipliers/design); A (base EXP) | survivor reward data; v83 Mob.wz |
 | Bonus choice layout | first row at 52 px below reward title/instruction, canonical card rows and panel fill | C | ours; LevelUpWindow |
 | Boss stun and push immunity | every scheduled boss: no stun/push, regardless of pushed or info/boss; kinds with info/boss or `no_flinch` also never flinch | A flag / C behavior | v83 info/boss, survivor encounter rule (`MobSwarm.steady`) |
-| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.70; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
-| Stumpy HP/contact/attack | ×0.45 / ×0.8 / ×0.74; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
-| King Slime / Dyle HP and hit scaling | HP ×1.1/×0.26; King touch×1.4/slam×1.1, Dyle touch×1.15; King8s cadence | C | training calibration; canonical stats and attack delays A |
+| Mushroom slam cadence / scaling / dodge | 8 s; separate attack ×0.55 / ×0.72; airborne at impact dodges jumpAttack; captured ground anchor/facing | C | survivor choice and lore; canonical attack300, range, attackAfter1050ms, frames and effectAfter0 are A |
+| Stumpy HP/contact/attack | ×0.45 / ×0.83 / ×0.77; attacks every 8 s when eligible; Tree Branch EXP icon | C | training calibration; canonical stats/art A |
+| King Slime / Dyle HP and hit scaling | HP ×1.1/×0.26; King touch×1.36/slam×1.06, Dyle touch×1.14; King8s cadence | C | training calibration; canonical stats and attack delays A |
 | King Slime stance / death list | no_flinch override;24px offspring spacing, unconditional canonical eleven-entry revive list | C (stance/placement), A (list/IDs) | ours; original v83 info/boss absent, info/revive untouched |
 | Dyle heal / weapon immunity | canonical x 5,000 heal (y unused); timed self physical immunity, consumed blocked shell; pos2 body-top anchor; Tree Branch EXP icon | C (interpretations), A (bounds/gates/durations/art) | ours; original Skill114/17 and140/8; spec "canonical amount" |
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
