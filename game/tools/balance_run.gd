@@ -335,7 +335,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	return {
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
 		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
-		"bosses": w.bosses.records.duplicate(true), "boss_hits": boss_hits, "buff_casts": buff_casts,
+		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
 		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
 		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
@@ -445,6 +445,15 @@ static func _json(root: String, path: String) -> Dictionary:
 		return {}
 	var d: Variant = JSON.parse_string(FileAccess.get_file_as_string(file))
 	return d if d is Dictionary else {}
+
+
+static func _boss_snapshots(world: RunWorld) -> Array:
+	var snapshots: Array = world.bosses.records.duplicate(true)
+	for record: Dictionary in snapshots:
+		# No route observation yet: preserve null in JSON without changing the live infinity sentinel.
+		if not is_finite(float(record.get("best_distance", 0.0))):
+			record.best_distance = null
+	return snapshots
 
 
 ## Completed spawn-to-death durations; unfinished fights keep duration -1 and report elapsed/censor status.

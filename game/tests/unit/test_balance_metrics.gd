@@ -2,7 +2,43 @@ extends TestCase
 ## Deterministic balance records and aggregation through seeded worlds and the public harness seam.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const BR := preload("res://tools/balance_run.gd")
+const REPORT := preload("res://tools/balance_report.gd")
 const DT := 1.0/60.0
+
+
+func test_unspawned_boss_diagnostics_round_trip_as_finite_json_without_mutating_the_world() -> void:
+	var data := RF.quiet_data()
+	data.balance.run_time_cap = DT
+	data.stages.stages.quiet.bosses = [{"time": 300.0, "mob_id": 2220000}]
+	var world := RunWorld.new(RF.setup("quiet", 26, data))
+	var record := BR.run_one(world, "bot", 26)
+	var encoded := JSON.stringify(record)
+	assert_false(encoded.contains("1e99999"), "unobserved distance is nullable rather than an overflowing JSON number")
+	if encoded.contains("1e99999"):
+		return
+	var parser := JSON.new()
+	assert_eq(parser.parse(encoded), OK, "a public run record round-trips through JSON")
+	var decoded: Dictionary = parser.data
+	assert_eq(decoded.bosses[0].best_distance, null)
+	assert_eq(decoded.boss_fights[0].status, "not_spawned")
+	assert_eq(decoded.state, "TIMEOUT")
+	assert_true(is_inf(float(world.bosses.records[0].best_distance)), "the live simulation keeps its route sentinel")
+
+
+func test_report_reader_normalizes_only_legacy_nonfinite_boss_diagnostics() -> void:
+	var old := '{"bosses":[{"best_distance":1e99999}],"state":"DEAD","time":612.5,"seed":26}'
+	var parsed: Dictionary = REPORT.parse_record(old)
+	assert_eq(parsed.error, "", "preserved legacy records are readable")
+	if parsed.error != "":
+		return
+	assert_eq(parsed.normalized_diagnostics, 1)
+	assert_eq(parsed.record.bosses[0].best_distance, null)
+	assert_eq(parsed.record.time, 612.5, "actual measurements are untouched")
+	assert_eq(parsed.record.state, "DEAD")
+	assert_true(old.contains("1e99999"), "normalization leaves source text intact")
+	var current: Dictionary = REPORT.parse_record('{"bosses":[{"best_distance":42.25}],"state":"TIMEOUT"}')
+	assert_eq(current.normalized_diagnostics, 0)
+	assert_eq(current.record.bosses[0].best_distance, 42.25)
 
 
 func test_record_counts_waiting_seconds_and_whole_boss_hit_fraction() -> void:
