@@ -254,7 +254,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if lv in MILESTONES and not reach.has(str(lv)):
 						reach[str(lv)] = snappedf(w.time, 0.1)
 				"job_changed":
-					job_t = snappedf(w.time, 0.1)
+					if int(e.job_id) == 200 and job_t < 0.0:
+						job_t = snappedf(w.time, 0.1)
 		if w.time >= next_min - 1e-6:
 			next_min += 60.0
 			var n := maxi(1, alive_n)
@@ -434,10 +435,14 @@ static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_started": 0, "camper_reached": 0}
 	var waits: Array = []
+	var magician_times: Array = []
 	var fractions: Array = []
 	var fight_samples := {}
 	var hit_samples := {}
 	for record: Dictionary in records:
+		var job_time := float(record.get("job_t", -1.0))
+		if job_time >= 0.0:
+			magician_times.append(job_time)
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
 		for key: String in ["potions_collected", "potions_used"]:
 			for kind: String in ["hp", "mp"]:
@@ -473,6 +478,7 @@ static func aggregate(records: Array) -> Dictionary:
 			sources[source] = statistics(hit_samples[id].sources[source])
 		result.boss_hits[id] = {"whole_fraction": statistics(hit_samples[id].all), "by_source": sources}
 	result["mp_short_seconds"] = statistics(waits)
+	result["magician_seconds"] = statistics(magician_times)
 	result["boss_hit_fraction"] = statistics(fractions)
 	return result
 
@@ -482,6 +488,7 @@ static func describe_metrics(summary: Dictionary) -> String:
 	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s; campers reached %d/%d started" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
 		_range(summary.mp_short_seconds), int(summary.camper_reached), int(summary.camper_started)]])
+	lines.append("  Magician seconds " + _range(summary.magician_seconds))
 	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
 	for id: String in summary.boss_fights:
 		var fight: Dictionary = summary.boss_fights[id]
