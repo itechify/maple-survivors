@@ -362,6 +362,18 @@ func advance_frame(delta: float) -> void:
 # --- setup ---------------------------------------------------------------------------------------------------
 
 func _build_presentation() -> void:
+	_build_map_and_camera()
+	_build_mob_layers()
+	_build_actors()
+	_build_top_layer()
+	_place_player_layer(_base_layer)
+	player_group.position = world.player.pos.round()
+	cam.target = avatar
+	_build_overlays()
+
+
+## The world root, the map and the camera clamped to the run's bounds.
+func _build_map_and_camera() -> void:
 	world_root = Node2D.new()
 	world_root.name = "World"
 	add_child(world_root)
@@ -375,6 +387,10 @@ func _build_presentation() -> void:
 	world_root.add_child(cam)
 	cam.make_current()
 	map.camera = cam
+
+
+## One MobRenderer per floor layer of the footholds (mobs draw on the layer of the floor they stand on).
+func _build_mob_layers() -> void:
 	var fhm := world.fhm
 	var floor_layers := PackedInt32Array()
 	for i in fhm.count():
@@ -392,6 +408,10 @@ func _build_presentation() -> void:
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
+
+
+## Drops, the behind-the-player effects and the player's avatar (placed on its layer by _place_player_layer).
+func _build_actors() -> void:
 	drops = PickupRenderer.new()
 	drops.name = "Drops"
 	drops.library = library
@@ -406,7 +426,10 @@ func _build_presentation() -> void:
 	avatar.name = "Player"
 	avatar.library = library
 	player_group.add_child(avatar)
-	# The top container: drawn after every actor layer's content (projectiles, effects, numbers, tags).
+
+
+## The top container, drawn after every actor layer's content: shots, monster balls, effects, numbers and name tags.
+func _build_top_layer() -> void:
 	_top = Node2D.new()
 	_top.name = "Top"
 	map.actor_layer(MapRenderer.LAYER_COUNT - 1).add_child(_top)
@@ -431,9 +454,10 @@ func _build_presentation() -> void:
 	_top.add_child(player_tag)
 	_tag_source = _TagSource.new()
 	_kind_names = NameTags.names_for(world.mob_kinds, library)
-	_place_player_layer(_base_layer)
-	player_group.position = world.player.pos.round()
-	cam.target = avatar
+
+
+## Screen-space layers: the HUD, stage/boss notices, windows and the perf overlay.
+func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
