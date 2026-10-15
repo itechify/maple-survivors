@@ -49,7 +49,7 @@
 			"max_rank": 1, "weight": 8, "requires": {"jobs": [200], "skills": ["energy_bolt"]}, "effects": []},
 		{"id": "magic_guard_rank", "kind": "skill_rank", "skill": "magic_guard", "name": "Magic Guard",
 			"desc": "Magic Guard +1 rank: more damage moves to MP.", "icon": "Skill.wz/200.img/skill/2001002/icon",
-			"max_rank": 4, "weight": 12, "requires": {"jobs": [200]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+			"max_rank": 4, "weight": 8, "requires": {"jobs": [200]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 		{"id": "magic_armor_new", "kind": "skill_new", "skill": "magic_armor", "name": "Magic Armor",
 			"desc": "Learn Magic Armor: higher weapon defence.", "icon": "Skill.wz/200.img/skill/2001003/icon",
 			"max_rank": 1, "weight": 3, "requires": {"jobs": [200], "min_rank": {"magic_guard": 2}}, "effects": []},
