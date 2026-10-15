@@ -421,17 +421,18 @@ seeded outcomes, and fixed regression seed 1 on Henesys then died at 592 s, fail
 "a death comes late in the run" (>= 600 s); with the shared stream it had died at 950 s. The stream fix and the guard
 stay. **Change (tier C, survivor data only):** the Henesys keyframe at 9:00 (`t` 540) gets `normal_hp_drop_chance`
 0.002 instead of 0, so the 0.2% ordinary HP chance of 8:00 holds to 9:00 and trickles to 0% at 11:00 instead of
-reaching 0% at 9:00. Rationale: it is the smallest supply change that clears the guard. Everything before 9:00 is
-bit-identical (no roll is drawn while the chance is 0, so only stream-7 rolls after 9:00 change), the extra supply
+reaching 0% at 9:00. Rationale: it is the smallest supply change that clears the guard. Runs are bit-identical before
+8:00; from 8:00 to 9:00 the same stream-7 rolls are drawn against a flat 0.2% instead of one falling to 0%; after
+9:00 the HP rolls that were skipped at 0% are drawn, which also shifts the later MP rolls on stream 7. The extra supply
 is about one Red Potion per run (HP potions collected on 1–60: sensible 1909 -> 1979, careless 1414 -> 1438 in
 total), and Tree data are untouched.
 
-Selection used only training seeds (1, 2, 2026 as a gate, then 1–60). Rejected: holding 1.2% to 8:00 (the 8:00
-keyframe at 0.012 or 0.016) also passed, but raised sensible clears from 37 to 45 and 48 of 60, an easing that
-belongs to the planned Henesys rebalance (#42); 0.004–0.010 at 8:00 and Mano's HP bundle 6 -> 7 left seed 1 dying
-before 600 s or within 2 s of it. In the test harness seed 1 now dies at 610 s; seeds 2 and 2026 clear (Lv30 at
-828 s and 770 s). Before = HEAD before this change, after = with it; Tree was run with the Henesys-only patch and
-is identical row for row.
+Selection used only training seeds (1, 2, 2026 as a gate, then 1–60). Rejected: raising the 8:00
+keyframe to 1.2% (holding the 6:00 value) or 1.6% also passed, but raised sensible clears from 37 to 45 and 48 of
+60, an easing that belongs to the planned Henesys rebalance (#42); 0.4–1.0% at 8:00 and Mano's HP bundle 6 -> 7
+left seed 1 dying before 600 s or within 2 s of it. In the test harness seed 1 now dies at 610 s, a thin 10 s
+margin over the guard; seeds 2 and 2026 clear (Lv30 at 828 s and 770 s). Before = HEAD before this change, after =
+with it; Tree 1–30 rerun on the committed data is identical row for row.
 
 | Training seeds, policy | Clear / dead / timeout | Deaths early / 9–12 / late | Death median | Mage median (reaches) | Lv30 median (reaches) |
 |---|---|---|---|---|---|
