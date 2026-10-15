@@ -224,3 +224,18 @@ func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -
 	assert_eq(w.player_state.mp, 94)
 	assert_eq(w.player_state.potions.mp.count, 0)
 	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "cast").size(), 1)
+
+
+func test_potion_rolls_have_their_own_stream_independent_of_basic_attack_stances() -> void:
+	var a := _world(31)
+	var b := _world(31)
+	var streams: Array[RandomNumberGenerator] = [b.rng, b.spawn_rng, b.card_rng, b.drop_rng, b.basic_rng,
+		b.reward_rng, b.potion_rng]
+	var seeds := {}
+	for s in streams:
+		seeds[s.seed] = true
+	assert_eq(seeds.size(), streams.size(), "every RunWorld RNG stream has its own seed")
+	for i in 50:
+		b.basic_rng.randi_range(0, 4)
+	for i in 20:
+		assert_eq(b.potion_rng.randf(), a.potion_rng.randf(), "basic swings never shift potion drop rolls")

@@ -30,8 +30,7 @@ func push_message(text: String, color: Color = SYSTEM_YELLOW) -> void:
 	_messages.append({"text": text, "color": color, "age": 0.0})
 	while _messages.size() > MSG_MAX:
 		_messages.pop_front()
-	if _canvas != null:
-		_canvas.queue_redraw()
+	queue_redraw()
 
 
 ## Shows "+N EXP" (GAME_DESIGN section 5); nothing for n <= 0.
@@ -72,8 +71,7 @@ func advance_messages(dt: float) -> void:
 	for notice in _notices:
 		notice.age = float(notice.age) + dt
 	_notices = _notices.filter(func(n: Dictionary) -> bool: return float(n.age) < float(n.life))
-	if _canvas != null:
-		_canvas.queue_redraw()
+	queue_redraw()
 
 func _process(delta: float) -> void:
 	advance_messages(delta)

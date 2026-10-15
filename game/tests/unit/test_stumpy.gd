@@ -89,7 +89,7 @@ func test_stumpy_heal_waits_for_interval_hp_gate_and_canonical_effect_delay() ->
 	assert_eq(healed.size(), 1)
 	if healed.is_empty():
 		return
-	assert_between(int(healed[0].amount), 200, 700, "documented uniform interpretation of canonical y/x bounds")
+	assert_eq(int(healed[0].amount), 700, "restores exactly the canonical x (y is unused)")
 	assert_eq(w.swarm.hp[slot], before + int(healed[0].amount))
 	assert_near(float(healed[0].time) - cast_time, 1.5, DT)
 
@@ -111,18 +111,18 @@ func _heal_trace(seed_value: int) -> Array:
 	return trace
 
 
-func test_heal_interval_and_random_amount_replay_are_deterministic() -> void:
+func test_heal_interval_and_canonical_amount_are_deterministic() -> void:
 	var first := _heal_trace(2403)
 	assert_eq(first, _heal_trace(2403))
-	assert_ne(first, _heal_trace(2404), "independent skill RNG varies amounts with the run seed")
+	assert_eq(first, _heal_trace(2404), "the amount is the canonical x, not a seeded roll")
 	assert_eq(first.size(), 4, "two casts and two resolutions")
 	if first.size() == 4:
 		assert_eq(first[0].cast, 30.5)
 		assert_eq(first[2].cast, 60.5)
 		assert_eq(first[1].time, 32.0)
 		assert_eq(first[3].time, 62.0)
-		assert_between(first[1].heal, 200, 700)
-		assert_between(first[3].heal, 200, 700)
+		assert_eq(first[1].heal, 700, "canonical x")
+		assert_eq(first[3].heal, 700, "canonical x again (800 HP still missing)")
 
 
 func test_stumpy_slam_reuses_delayed_grounded_handler() -> void:

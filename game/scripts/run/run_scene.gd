@@ -10,9 +10,10 @@ extends Node2D
 ## Options (configure()): autoplay (BotInput drives the player), autopick (BotInput's choices are taken at once and
 ## no window opens: the first available job and BotInput.pick_card_for's card; automated runs and benchmarks), speed
 ## (sim ticks per 60 Hz frame; implemented as Engine.time_scale so effects keep pace), shots_dir + shot_every (PNG
-## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json and
-## quits the app), perf (perf overlay on at start with autoplay), name (character name), use_flow (default true;
-## false = only emit run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
+## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json, saves
+## final.png when a frame is drawn within FINAL_SHOT_TIMEOUT real seconds (else logs that it was skipped) and quits),
+## perf (perf overlay on at start with autoplay), name (character name), use_flow (default true; false = only emit
+## run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
 ## with BotInput's choice after that long; demos and evidence runs), warp (run seconds: before the first frame the sim is
 ## fast-forwarded to that time by BotInput with autopick, nothing drawn; perf runs of the late game in real time).
 ##
@@ -26,7 +27,8 @@ extends Node2D
 ## 10); while one is open the fixed-tick loop holds (the sim is also held by its CHOOSING_* state). The level-up window
 ## opens WINDOW_DELAY s after the LevelUp effect starts, and after a job advancement only once the JobChanged effect
 ## has played; several queued levels open their windows one after another. The windows' art is loaded during setup
-## (_warm_ui) so the first window does not stall a frame.
+## (_warm_ui) so the first window does not stall a frame; _warm_stage likewise loads the job-change sounds and every
+## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
@@ -84,6 +86,9 @@ const PLAYER_KEY := 1 << 20
 const PERF_WINDOW := 2.0
 const PERF_REFRESH := 0.25
 const PERF_WARMUP_FRAMES := 60
+## Real seconds an automated run waits for a drawn frame to save final.png before quitting without it (an occluded or
+## minimized window draws nothing, so RenderingServer.frame_post_draw never fires). Ignores Engine.time_scale.
+const FINAL_SHOT_TIMEOUT := 5.0
 
 ## Configuration (configure()).
 var stage_key := "henesys_hg1"
@@ -256,6 +261,7 @@ func _ready() -> void:
 			_next_shot = (floorf(world.time / _shot_every + 1e-6) + 1.0) * _shot_every
 	_build_presentation()
 	_warm_ui()
+	_warm_stage()
 	_apply_job_look(int(world.player_state.job_id))
 	handle_events(world.drain_events())
 	_start_title()
@@ -360,6 +366,18 @@ func advance_frame(delta: float) -> void:
 # --- setup ---------------------------------------------------------------------------------------------------
 
 func _build_presentation() -> void:
+	_build_map_and_camera()
+	_build_mob_layers()
+	_build_actors()
+	_build_top_layer()
+	_place_player_layer(_base_layer)
+	player_group.position = world.player.pos.round()
+	cam.target = avatar
+	_build_overlays()
+
+
+## The world root, the map and the camera clamped to the run's bounds.
+func _build_map_and_camera() -> void:
 	world_root = Node2D.new()
 	world_root.name = "World"
 	add_child(world_root)
@@ -373,6 +391,10 @@ func _build_presentation() -> void:
 	world_root.add_child(cam)
 	cam.make_current()
 	map.camera = cam
+
+
+## One MobRenderer per floor layer of the footholds (mobs draw on the layer of the floor they stand on).
+func _build_mob_layers() -> void:
 	var fhm := world.fhm
 	var floor_layers := PackedInt32Array()
 	for i in fhm.count():
@@ -390,6 +412,10 @@ func _build_presentation() -> void:
 		map.actor_layer(layer).add_child(mr)
 		mob_renderers.append(mr)
 		mob_layers.append(layer if floor_layers.size() > 1 else -1)
+
+
+## Drops, the behind-the-player effects and the player's avatar (placed on its layer by _place_player_layer).
+func _build_actors() -> void:
 	drops = PickupRenderer.new()
 	drops.name = "Drops"
 	drops.library = library
@@ -404,7 +430,10 @@ func _build_presentation() -> void:
 	avatar.name = "Player"
 	avatar.library = library
 	player_group.add_child(avatar)
-	# The top container: drawn after every actor layer's content (projectiles, effects, numbers, tags).
+
+
+## The top container, drawn after every actor layer's content: shots, monster balls, effects, numbers and name tags.
+func _build_top_layer() -> void:
 	_top = Node2D.new()
 	_top.name = "Top"
 	map.actor_layer(MapRenderer.LAYER_COUNT - 1).add_child(_top)
@@ -429,9 +458,10 @@ func _build_presentation() -> void:
 	_top.add_child(player_tag)
 	_tag_source = _TagSource.new()
 	_kind_names = NameTags.names_for(world.mob_kinds, library)
-	_place_player_layer(_base_layer)
-	player_group.position = world.player.pos.round()
-	cam.target = avatar
+
+
+## Screen-space layers: the HUD, stage/boss notices, windows and the perf overlay.
+func _build_overlays() -> void:
 	hud = Hud.new()
 	hud.library = library
 	add_child(hud)
@@ -461,8 +491,8 @@ func _build_presentation() -> void:
 
 
 ## Loads what the first level-up / job / pause window and the level-up effect draw (the UI imgs, the Magician
-## instructor NPC and its name, the fonts), and what a job advancement swaps in at once (the job's weapon and the job
-## skills' projectile / hit / effect art), so none of it is decoded in the middle of a run.
+## instructor NPC and its name, the fonts), and what a job advancement or a skill rank swaps in at once (the job's
+## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t"]:
@@ -483,14 +513,82 @@ func _warm_ui() -> void:
 		if wimg != null:
 			for i in wimg.pages.size():
 				wimg.page_texture(i)
+	# Every rank's art of every skill (Three Snails reaches canonical levels 2/3 automatically at Lv 3/6), at each
+	# character-level art threshold.
 	for key: String in world.book.defs:
-		if int(world.book.def(key).get("job", 0)) == 0:
+		var char_levels: Array = [1, 10]
+		var cl: Variant = world.book.def(key).get("char_level")
+		if cl is Dictionary:
+			char_levels.append_array(cl.get("thresholds", []))
+		for rank in range(1, world.book.max_rank(key) + 1):
+			var level := world.book.canonical_level(key, rank)
+			for field: String in ["ball", "hit", "effect"]:
+				for char_level: Variant in char_levels:
+					var path := world.book.visual(key, field, level, int(char_level))
+					if path != "":
+						library.find_anim(path)
+
+
+## Loads what the job advancement and the scheduled bosses first show or play, so their first appearance does not
+## decode atlas pages or audio mid-run: the level-up / job-change sounds; per boss its skill and attack stances, the
+## enabled MobSkill effect / recipient / affected / status / summon art, attack effect, ball and hit art, its sounds,
+## its String.wz name and boss-bar MobGage icon and colour strips; and the BasicEff Summoned arrival effect.
+func _warm_stage() -> void:
+	if library == null:
+		return
+	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED]:
+		_warm_sound(path)
+	library.find_anim("Effect.wz/BasicEff.img/Summoned")
+	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
+		_warm_frame(HudBossBar.ART + frame)
+	var enabled: Array = world.balance.get("mob_skills", {}).get("enabled_ids", [])
+	for entry: Dictionary in world.stage.get("bosses", []):
+		var id := int(entry.mob_id)
+		var img: Dictionary = world.setup.get("mob_imgs", {}).get(id, {})
+		if img.is_empty():
 			continue
-		for field: String in ["ball", "hit", "effect"]:
-			for char_level: int in [1, 10]:
-				var path := world.book.visual(key, field, world.book.canonical_level(key, 1), char_level)
-				if path != "":
-					library.find_anim(path)
+		library.string_name("Mob", id)
+		var info: Dictionary = img.get("info", {})
+		var ui: Dictionary = data.get("mobs", {}).get("mobs", {}).get(str(id), {}).get("boss_ui", {})
+		_warm_frame(HudBossBar.ART + "Mob/%d" % int(ui.get("icon_id", id)))
+		for tag: String in ["%d/0" % int(ui.get("hp_tag_color", info.get("hpTagColor", 1))),
+				"%d/1" % int(ui.get("hp_tag_bgcolor", info.get("hpTagBgcolor", 5)))]:
+			_warm_frame(HudBossBar.ART + "Gage/" + tag)
+		var stances := library.mob_anim_img_path(id)
+		for sound: String in ["Damage", "Die"]:
+			_warm_sound(SND_MOB % [id, sound])
+		for attack: Variant in entry.get("attacks", []):
+			library.find_anim(stances + "/" + String(attack))
+			for part: String in ["effect", "ball", "hit"]:
+				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
+			var a := String(attack)
+			_warm_sound(SND_MOB % [id, a.left(1).to_upper() + a.substr(1)])
+		if not (float(id) in enabled or id in enabled):
+			continue
+		for skill: Variant in info.get("skill", {}).values():
+			if not (skill is Dictionary):
+				continue
+			var action := "skill%d" % int(skill.get("action", 1))
+			library.find_anim(stances + "/" + action)
+			_warm_sound(SND_MOB % [id, action.replace("skill", "Skill")])
+			var base := "Skill.wz/MobSkill.img/%d/level/%d" % [int(skill.get("skill", 0)), int(skill.get("level", 0))]
+			for part: String in ["effect", "mob0", "affected", "mob"]:
+				library.find_anim(base + "/" + part)
+			var spec: Variant = library.find(base)
+			if spec is Dictionary and spec.has("summonEffect"):
+				library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
+
+
+## Caches a sound's stream when the node exists (absent optional sounds are not recorded as missing).
+func _warm_sound(path: String) -> void:
+	if library.find(path) != null:
+		library.sound(path)
+
+
+## Caches a UI canvas and its atlas page when it exists.
+func _warm_frame(path: String) -> void:
+	if library.find(path) != null:
+		library.frame(path)
 
 
 func _play_bgm() -> void:
@@ -626,7 +724,7 @@ func handle_events(events: Array) -> void:
 
 func _on_boss_skill(e: Dictionary) -> void:
 	var source := int(e.mob)
-	if int(e.skill_id) == 140:
+	if int(e.skill_id) == MobSkillRunner.SKILL_WEAPON_IMMUNITY:
 		_event_shot("dyle_immunity.png", 0.15)
 	if String(e.effect) != "":
 		# tier C: heal mob0 pos0 uses feet; MobSkill pos3 effect art uses the canonical body-box center.
@@ -700,7 +798,7 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## The character look for a job: the default clothes plus the configured canonical weapon.
+## A job's look: the worn starter outfit (balance.player.equipment) plus the job's canonical weapon.
 func _apply_job_look(job_id: int) -> void:
 	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
 	var weapon := int(weapons.get("0", 0))
@@ -708,7 +806,9 @@ func _apply_job_look(job_id: int) -> void:
 		if weapons.has(str(ancestor)):
 			weapon = int(weapons[str(ancestor)])
 			break
-	var equips: Array = AvatarRenderer.DEFAULT_LOOK.equips.duplicate()
+	var equips: Array = []
+	for id: Variant in world.balance.player.get("equipment", AvatarRenderer.DEFAULT_LOOK.equips):
+		equips.append(int(id))
 	if weapon > 0:
 		equips.append(weapon)
 	avatar.set_look({"equips": equips})
@@ -1181,8 +1281,19 @@ func _automation_end(summary: Dictionary) -> void:
 	if _shots_dir != "" and DisplayServer.get_name() != "headless":
 		_quit_after_capture = true
 		_request_shot("final.png")
+		get_tree().create_timer(FINAL_SHOT_TIMEOUT, true, false, true).timeout.connect(_quit_without_final_shot)
 	else:
 		get_tree().quit()
+
+
+## --quit-after fallback: no frame was drawn in FINAL_SHOT_TIMEOUT real seconds, so quit without final.png.
+func _quit_without_final_shot() -> void:
+	if not _quit_after_capture:
+		return
+	_quit_after_capture = false
+	print("RunScene: final.png skipped: no frame was drawn within %.0f s (window occluded or minimized?)"
+		% FINAL_SHOT_TIMEOUT)
+	get_tree().quit()
 
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
@@ -1262,6 +1373,7 @@ func _capture() -> void:
 	_shot_queue.clear()
 	_skip_perf_frames = 2
 	if _quit_after_capture:
+		_quit_after_capture = false
 		get_tree().quit()
 
 

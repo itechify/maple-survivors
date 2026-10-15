@@ -44,6 +44,36 @@ static func from_wz(map_img: Dictionary, map_id: int, options: Dictionary = {}) 
 	return s
 
 
+## Where a run starts: a random spawn portal (pn "sp", drawn with `rng`) dropped onto the floor below it; else the
+## middle of the widest platform; else the centre of `bounds`.
+static func start_point(map_img: Dictionary, fhm: FootholdMap, bounds: Rect2, rng: RandomNumberGenerator) -> Vector2:
+	var pts: Array = []
+	var portals: Variant = map_img.get("portal", {})
+	if portals is Dictionary:
+		for k: String in portals:
+			var p: Variant = portals[k]
+			if p is Dictionary and String(p.get("pn", "")) == "sp":
+				pts.append(Vector2(float(p.get("x", 0)), float(p.get("y", 0))))
+	while not pts.is_empty():
+		var i := rng.randi_range(0, pts.size() - 1)
+		var p: Vector2 = pts[i]
+		var f := fhm.find_below(p.x, p.y)
+		if f >= 0:
+			return Vector2(p.x, fhm.y_at(f, p.x))
+		pts.remove_at(i)
+	var best := -1
+	for p in fhm.platform_count():
+		var s := fhm.platform_span(p)
+		if best < 0 or s.y - s.x > fhm.platform_span(best).y - fhm.platform_span(best).x:
+			best = p
+	if best < 0:
+		return bounds.get_center()
+	var mid := fhm.platform_span(best)
+	var cx := (mid.x + mid.y) * 0.5
+	var f := fhm.platform_fh_at(best, cx)
+	return Vector2(cx, fhm.y_at(f, cx)) if f >= 0 else bounds.get_center()
+
+
 ## Counts down the cooldown and returns {portal, target, pos} for one warp, or {} when none activates.
 func step(dt: float, feet: Vector2, up: bool) -> Dictionary:
 	cooldown_left = maxf(0.0, cooldown_left - dt)

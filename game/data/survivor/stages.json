@@ -1,5 +1,5 @@
 {
-	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. original_life is the map's own spawn list (shown on the stage card). Optional normal_hp_drop_chance clamps each endpoint to [0,1], uses global normal HP fallback when missing, interpolates linearly, and holds outside the frame range without post-duration ramping; elite/MP chances remain global. All numbers tier C (ours).",
+	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. original_life is the map's own spawn list (shown on the stage card). Optional normal_hp_drop_chance clamps each endpoint to [0,1], uses global normal HP fallback when missing, interpolates linearly, and holds outside the frame range without post-duration ramping; elite/MP chances remain global. Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
 	"stages": {
 		"henesys_hg1": {
 			"map_id": 104040000,
@@ -8,17 +8,17 @@
 			"hard_cap": 400,
 			"_bosses": "Tier C: survivor arrival times and separate HP/contact/attack multipliers, calibrated on training runs 1..60 and 2026. Canonical stats, attack boxes and timing remain in Mob.wz; typical_hp/pdd are illustrative build inputs, not runtime scaling.",
 			"bosses": [
-				{"time": 300, "mob_id": 2220000, "summon_ids": [100100, 100101, 130101], "rewards": {"potions":{"mp":6,"hp":6}}, "hp_mult": 1.8, "dmg_mult": 1.15, "typical_hp": 196, "typical_pdd": 7},
+				{"time": 300, "mob_id": 2220000, "rewards": {"potions":{"mp":6,"hp":6}}, "hp_mult": 1.8, "dmg_mult": 1.15, "typical_hp": 196, "typical_pdd": 7},
 				{"time": 600, "mob_id": 6130101, "rewards": {"potions":{"hp":1,"mp":6}}, "hp_mult": 0.24, "dmg_mult": 0.85, "typical_hp": 340, "typical_pdd": 7,
 					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.55,
 					"_attacks": "tier C: 8 s start-to-start cadence and separate slam scaling; canonical type0 attack300/attackAfter1050ms/range remain unchanged"},
 				{"time": 900, "mob_id": 9400205, "hp_mult": 0.035, "dmg_mult": 0.48, "typical_hp": 448, "typical_pdd": 7,
-					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.7,
+					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.72,
 					"_attacks": "tier C: contact450 and slam300 receive separate survivor scales calibrated against actual training buildHP; canonical attack values unchanged"}
 
 
 			],
-			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes at one quarter pace until every boss dies.",
+			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes, the burst-size slope and (via the rate ratio) the elite frequency at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,
 			"keyframes": [
 				{"t": 0, "rate": 0.6, "max_alive": 15, "hp": 1, "speed": 1.0, "normal_hp_drop_chance": 0.018,
@@ -35,7 +35,7 @@
 					"pool": {"100101": 1, "130101": 2, "120100": 3, "210100": 3, "1210100": 2, "1210102": 3, "9300063": 1, "9300062": 1}},
 				{"t": 480, "rate": 8.2666666667, "max_alive": 143.3333333333, "hp": 2.97916667, "speed": 1.1533333333, "normal_hp_drop_chance": 0.002,
 					"pool": {"100101": 1, "130101": 2, "120100": 3, "210100": 3, "1210100": 2, "1210102": 3, "9300063": 1, "9300062": 1, "9300064": 1}},
-				{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.25, "speed": 1.18, "normal_hp_drop_chance": 0,
+				{"t": 540, "rate": 9.4, "max_alive": 165, "hp": 3.25, "speed": 1.18, "normal_hp_drop_chance": 0.002,
 					"pool": {"130101": 1, "120100": 2, "210100": 3, "1210100": 3, "1210102": 3, "1110100": 1, "9300063": 1, "9300062": 1, "9300064": 1}},
 				{"t": 660, "rate": 12.1333333333, "max_alive": 215, "hp": 3.91666667, "speed": 1.2466666667, "normal_hp_drop_chance": 0,
 					"pool": {"130101": 1, "120100": 2, "210100": 3, "1210100": 3, "1210102": 3, "1110100": 1, "9300063": 1, "9300062": 1, "9300064": 1, "2300100": 1}},
@@ -54,15 +54,15 @@
 			"name": "The Tree That Grew I",
 			"duration": 900,
 			"hard_cap": 400,
-			"bosses": [{"time": 300, "mob_id": 3220000, "rewards": {"potions":{"mp":6,"hp":3}}, "hp_mult": 0.45, "dmg_mult": 0.8,
+			"bosses": [{"time": 300, "mob_id": 3220000, "rewards": {"potions":{"mp":6,"hp":3}}, "hp_mult": 0.45, "dmg_mult": 0.83,
 				"typical_hp": 208, "typical_pdd": 7, "attacks": ["attack1", "attack2"],
-				"attack_interval": 8.0, "attack_dmg_mult": 0.74,
+				"attack_interval": 8.0, "attack_dmg_mult": 0.77,
 				"_tier": "tier C: 3150 HP and separate contact/attack scales; 8 s cadence; canonical stats and attack/skill metadata unchanged"},
-				{"time": 600, "mob_id": 9300003, "rewards": {"potions":{"hp":1,"mp":6}}, "hp_mult": 1.1, "dmg_mult": 1.4,
+				{"time": 600, "mob_id": 9300003, "rewards": {"potions":{"hp":1,"mp":6}}, "hp_mult": 1.1, "dmg_mult": 1.36,
 					"typical_hp": 340, "typical_pdd": 7, "attacks": ["attack1"], "attack_interval": 8.0,
-					"attack_dmg_mult": 1.1, "summon_ids": [210100], "revive_ids": [210100],
+					"attack_dmg_mult": 1.06,
 					"_tier": "tier C: 8800 HP, separate touch130/slam165 scaling and 8 s cadence; canonical slam900ms/summon/revive metadata unchanged"},
-				{"time": 900, "mob_id": 6220000, "hp_mult": 0.26, "dmg_mult": 1.15,
+				{"time": 900, "mob_id": 6220000, "hp_mult": 0.26, "dmg_mult": 1.14,
 					"typical_hp": 424, "typical_pdd": 7,
 					"_tier": "tier C: 8060 HP and contact scaling; canonical heal114 and immunity140 gates/intervals/durations unchanged"}],
 			"post_duration_slope": 0.25,

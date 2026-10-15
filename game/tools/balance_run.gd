@@ -406,7 +406,7 @@ static func fight_records(world: RunWorld) -> Array:
 		fights.append({"boss_index": int(record.boss_index), "mob_id": int(record.mob_id), "spawn_time": spawn, "death_time": death,
 			"duration": death-spawn if bool(record.dead) and spawn>=0.0 else -1.0,
 			"elapsed": maxf(0.0, (death if bool(record.dead) else world.time)-spawn) if spawn>=0.0 else 0.0,
-			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "not_spawned"})
+			"status": "dead" if bool(record.dead) else "alive" if spawn>=0.0 else "skipped" if bool(record.get("skipped", false)) else "not_spawned"})
 	return fights
 
 
@@ -429,13 +429,16 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 	return CAMPER.decide(world, policy, memo, camp_after) if CAMPER.STAGES.has(policy) else BotInput.decide(world, memo)
 
 
-## Aggregates observed run records: completed fights only, whole-hit fractions per boss/source and potion totals.
+## Aggregates observed run records: per boss the completed fight statistics, the completed/spawned count and a
+## censored median (censored_median), whole-hit fractions per boss/source, potion totals and camper arrivals
+## (counted over camper-policy runs only).
 static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
-		"boss_fights": {}, "boss_hits": {}, "camper_started": 0, "camper_reached": 0}
+		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0}
 	var waits: Array = []
 	var fractions: Array = []
 	var fight_samples := {}
+	var censored_samples := {}
 	var hit_samples := {}
 	for record: Dictionary in records:
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
@@ -443,17 +446,23 @@ static func aggregate(records: Array) -> Dictionary:
 			for kind: String in ["hp", "mp"]:
 				result[key][kind] += int(record.get(key, {}).get(kind, 0))
 		var camper: Dictionary = record.get("camper", {})
-		result.camper_started += 1 if float(camper.get("started_time", -1.0))>=0 else 0
-		result.camper_reached += 1 if bool(camper.get("reached", false)) else 0
+		if String(camper.get("policy", "")) != "":
+			result.camper_runs += 1
+			result.camper_started += 1 if float(camper.get("started_time", -1.0))>=0 else 0
+			result.camper_reached += 1 if bool(camper.get("reached", false)) else 0
 		for fight: Dictionary in record.get("boss_fights", []):
 			var id := str(int(fight.mob_id))
 			if not result.boss_fights.has(id):
-				result.boss_fights[id] = {"alive": 0, "not_spawned": 0}
+				result.boss_fights[id] = {"alive": 0, "not_spawned": 0, "skipped": 0}
 				fight_samples[id] = []
+				censored_samples[id] = []
 			if String(fight.status) == "dead":
 				fight_samples[id].append(float(fight.duration))
+				censored_samples[id].append(Vector2(float(fight.duration), 0.0))
 			else:
 				result.boss_fights[id][String(fight.status)] += 1
+				if String(fight.status) == "alive":
+					censored_samples[id].append(Vector2(float(fight.get("elapsed", 0.0)), 1.0))
 		for hit: Dictionary in record.get("boss_hits", []):
 			var id := str(int(hit.mob_id))
 			var source := String(hit.get("source_kind", "other"))
@@ -467,6 +476,8 @@ static func aggregate(records: Array) -> Dictionary:
 			hit_samples[id].sources[source].append(fraction)
 	for id: String in result.boss_fights:
 		result.boss_fights[id]["completed"] = statistics(fight_samples[id])
+		result.boss_fights[id]["spawned"] = censored_samples[id].size()
+		result.boss_fights[id]["censored_median"] = censored_median(censored_samples[id])
 	for id: String in hit_samples:
 		var sources := {}
 		for source: String in hit_samples[id].sources:
@@ -477,20 +488,61 @@ static func aggregate(records: Array) -> Dictionary:
 	return result
 
 
-## Readable supplemental systems summary; ranges are min/median/max and include their observation count.
+## Median fight length over every spawned fight, an unfinished one counting as at least its elapsed seconds (right
+## censored). `samples` holds Vector2(seconds, 1 if unfinished else 0). The median is exact when no unfinished fight
+## sorts at or below the (upper) middle rank; otherwise the true median can only be larger and `lower_bound` is true
+## (reported as ">=").
+static func censored_median(samples: Array) -> Dictionary:
+	if samples.is_empty():
+		return {"count": 0, "censored": 0, "median": null, "lower_bound": false}
+	var sorted := samples.duplicate()
+	sorted.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
+	var n := sorted.size()
+	var median: float = sorted[n / 2].x if n % 2 else (sorted[n / 2 - 1].x + sorted[n / 2].x) * 0.5
+	var censored := 0
+	var lower := false
+	for i in n:
+		if sorted[i].y > 0.0:
+			censored += 1
+			# Only an unfinished fight at or below the (upper) middle rank can still move the median.
+			if i <= n / 2:
+				lower = true
+	return {"count": n, "censored": censored, "median": median, "lower_bound": lower}
+
+
+## Readable supplemental systems summary; ranges are min/median/max and include their observation count. Fight lines
+## put the completed count next to the spawned count and add the censored median, so a median over completed fights
+## alone cannot hide unfinished ones.
 static func describe_metrics(summary: Dictionary) -> String:
-	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s; campers reached %d/%d started" % [
+	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP-short seconds %s%s" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		_range(summary.mp_short_seconds), int(summary.camper_reached), int(summary.camper_started)]])
+		_range(summary.mp_short_seconds), _campers(summary)]])
 	lines.append("  boss whole-hit HP percent " + _range(summary.boss_hit_fraction, 100.0))
 	for id: String in summary.boss_fights:
 		var fight: Dictionary = summary.boss_fights[id]
-		lines.append("  boss %s fight seconds %s; unfinished %d; not spawned %d" % [id, _range(fight.completed), int(fight.alive), int(fight.not_spawned)])
+		lines.append("  boss %s fight seconds %s; completed %d/%d spawned; censored median %s; unfinished %d; not spawned %d; skipped %d" % [
+			id, _range(fight.completed), int(fight.completed.count), int(fight.get("spawned", fight.completed.count)),
+			_censored(fight.get("censored_median", {})), int(fight.alive), int(fight.not_spawned), int(fight.get("skipped", 0))])
 	for id: String in summary.boss_hits:
 		lines.append("  boss %s whole-hit HP percent %s" % [id, _range(summary.boss_hits[id].whole_fraction, 100.0)])
 		for source: String in summary.boss_hits[id].by_source:
 			lines.append("    %s HP percent %s" % [source, _range(summary.boss_hits[id].by_source[source], 100.0)])
 	return "\n".join(lines)
+
+
+## "; campers reached R/N runs (S started)" when camper-policy runs are present, "" otherwise (no "0/0" line).
+static func _campers(summary: Dictionary) -> String:
+	var runs := int(summary.get("camper_runs", 0))
+	if runs == 0:
+		return ""
+	return "; campers reached %d/%d runs (%d started)" % [int(summary.camper_reached), runs, int(summary.camper_started)]
+
+
+static func _censored(stats: Dictionary) -> String:
+	if int(stats.get("count", 0)) == 0:
+		return "none (n=0)"
+	return "%s%.2f (n=%d, %d unfinished)" % [">=" if bool(stats.lower_bound) else "", float(stats.median),
+		int(stats.count), int(stats.censored)]
 
 
 static func _range(stats: Dictionary, scale: float = 1.0) -> String:
