@@ -125,24 +125,28 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
-time t by weight. Values interpolate linearly between keyframes. Spec #29's Henesys balance candidate for
-Henesys Hunting Ground I (104040000), selected using training seeds only; independent acceptance follows freeze:
+time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) after the owner
+review of spec #29 (vanilla single-shot skills, the v83 5-MP opening); a coarse pass on training seeds only, with
+final tuning deferred until later specs land:
 
 | Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
 |---|---|---|---|---|---|
-| 0:00 | 1.0 | 25 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
-| 2:00 | 2.5 | 60 | + Red Snail 3, Shroom 3 | 1.0 | 1.0 |
-| 3:00 | 3.2 | 72 | + PQ Stirge 1 | 1.75 | 1.025 |
-| 4:00 | 4.2 | 90 | + Slime 3 | 2.25 | 1.05 |
-| 5:00 | 5.8 | 105 | + Flyeye 1 | 2.5 | 1.075 |
-| 6:00 | 6.0 | 110 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 2.75 | 1.1 |
+| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
+| 2:00 | 0.4 | 8 | + Red Snail 3, Shroom 3 | 1.0 | 1.0 |
+| 3:00 | 0.6 | 12 | + PQ Stirge 1 | 1.0 | 1.025 |
+| 4:00 | 1.0 | 20 | + Slime 3 | 1.0 | 1.05 |
+| 5:00 | 2.5 | 50 | + Flyeye 1 | 1.25 | 1.075 |
+| 6:00 | 4.5 | 85 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.75 | 1.1 |
 | 8:00 | 8.267 | 143.333 | + Goblin Fire 1 | 3.2 | 1.1533 |
 | 9:00 | 9.4 | 165 | + Green Mushroom 1 | 3.25 | 1.18 |
 | 12:00 | 13.5 | 240 | full pool (Green Mushroom 3) | 4.25 | 1.28 |
 | 15:00 | 20 | 330 | final boss | 6.875 | 1.4 |
 
-Density rises first; HP stays at one through 2:00 so a level-one build can establish its finite MP economy, then
-ramps above one. Canonical mob HP and skill damage/costs remain unchanged. Tree stage data are unchanged.
+The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
+the basic attack, so until 4:00 only a few mobs are alive, ordinary HP drops are generous (8% falling to 3%), no
+elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
+Density and HP then ramp from 5:00 into the unchanged mid/late curve. Canonical mob HP and skill damage/costs remain
+unchanged. Tree stage data are unchanged.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
 defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
@@ -233,11 +237,12 @@ careless runs must actually observe some MP waiting after 8:00. First-five-minut
 their denominators report whether early durability is meaningful; mid-game mobs should typically need 2–3 hits.
 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from population
-acceptance. Henesys retains Mage/Lv10 median **180–330 s**, individual 150–360 s, and Lv30 median 720–900 s when reached,
-individual 600–1080 s. At least one of the three regression runs must reach Lv30 under the new 40–50% clear target.
-Denser opening waves move the separate Lv8 window to median 135–210 s, individual 120–270 s. These windows apply
-only to reached milestones, with at least two of the three fixed runs reaching Lv8/Lv10/Magician and every reach
-count printed. Occasional early deaths remain valid outcomes under the new population target; they are never filtered.
+acceptance. Henesys retains Mage/Lv10 median **180–330 s**, individual 150–360 s. The coarse owner-review pass
+(sword-paced v83 Beginner, 2.5x stage EXP) moves Lv30 to median 540–720 s when reached, individual 480–1080 s, and
+Lv8 to median 210–270 s, individual 180–300 s; Lv30 near 10:00 is earlier than the 12:00–15:00 goal and is left for
+the final tuning pass. At least one of the three regression runs must reach Lv30 under the 40–50% clear target.
+These windows apply only to reached milestones, with at least two of the three fixed runs reaching
+Lv8/Lv10/Magician and every reach count printed. Occasional early deaths remain valid outcomes under the new population target; they are never filtered.
 Spawning each minute (including after 15:00), crowd growth, EXP/kill/event consistency, all-boss finale, no lost mobs,
 the inherited 30% engagement floor and late 200+ density remain active in Henesys. Runs observed for at least a full
 minute after 8:00 must include at least five ordinary nonmiss hits; boss hits and misses cannot satisfy that check.
@@ -253,14 +258,54 @@ or fresh evidence.
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
-`game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground, walks to EXP
-drops and climbs a ladder or rope to drops left on a platform above, and takes the first available job. Card
+`game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
+lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
+rope to drops left on a platform above, and takes the first available job. Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### Spec #29 / #42 Henesys rebalance: chosen training profile
+#### Owner review of #51: vanilla skills and the v83 opening (coarse pass, current)
+
+The owner rejected the C21 profile's survivor projectile coverage and opening pool: every skill starts as its vanilla
+v83 form (one Three Snails shell, one Energy Bolt; more only from cards, later rarity) and the opening pool stays the
+v83 Beginner's 5 MP with no starter Blues. With canonical MP costs a Beginner then casts Three Snails about once per
+10 s regeneration pulse, so C21's data killed all twelve 1..12 sensible runs before 1:40, and lighter waves alone
+still died before 4:00: the bot fled every nearby mob (its sword only swings while standing) and drained potions
+that mostly overflowed the small pools. The owner chose a sword-paced opening, a bot sword duel (a lone ordinary mob
+while no attack skill can fire) and a potion waste guard (drink only when half of one restore fits) instead of raw
+80% / 30% thresholds; final tuning waits until later specs change the game again, so this is a coarse pass with no
+held-out report (601–630 stays reserved and unused).
+
+Levers, training seeds only: the 0:00–6:00 keyframes (table in 4.1) with HP drops 8% → 3% before 4:00, Henesys
+elites from 4:00 and bursts from 5:00, Henesys ordinary EXP 2.5x, and MP drops 10% normal / 60% elite. Each policy ran
+all **61 training seeds, 1–60 and 2026**, unpatched, 800 × 600 view, 1,800 s cap:
+
+| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Magician median (reaches) | Lv30 median (reaches) |
+|---|---|---|---|---|---|
+| Sensible | 27 / 34 / 0 | **44.26%** | **760.4 s** (34) | 276.7 s (61/61) | 600 s (56/61) |
+| Random | 2 / 59 / 0 | **3.28%** | **329.4 s** (59) | 281.3 s (42/61) | 574 s (8/61) |
+
+| Policy | MP collected / used | Ratio of totals | MP stock median | Late MP-wait runs / observed |
+|---|---|---|---|---|
+| Sensible | 15,652 / 9,971 | **1.570** | 84 | 0 / 59 |
+| Random | 4,466 / 3,458 | 1.291 | 3 | **2 / 24** |
+
+| Run minute | Sensible mean hits/ordinary kill (hits / kills) | Random mean (hits / kills) |
+|---|---|---|
+| 1 | 1.667 (732 / 439) | 1.706 (701 / 411) |
+| 2 | 1.362 (1,282 / 941) | 1.454 (1,147 / 789) |
+| 3 | 1.413 (1,837 / 1,300) | 1.515 (1,353 / 893) |
+| 4 | 1.171 (3,465 / 2,960) | 1.308 (2,345 / 1,793) |
+| 5 | 1.433 (8,682 / 6,057) | 1.441 (6,265 / 4,349) |
+
+Sensible clears and both death medians are inside the 4.1.1 bands. Known coarse deviations, left for the final pass:
+careless clears 3.28% (band 5–15%), sensible MP ratio 1.57 (band 1.2–1.5), Lv30 near 10:00 (goal 12:00–15:00; the
+2.5x EXP applies all run), and early ordinary kills averaging 1.2–1.7 hits rather than two by minute five. The
+regression seeds 1/2/2026 give Henesys one clear and two deaths with Lv8/Lv10/Magician 3/3 and Lv30 2/3.
+
+#### Spec #29 / #42 Henesys rebalance: chosen training profile (superseded by the owner review above)
 
 C21, gameplay/data commit `cec3fe8`, meets every new training target in 4.1.1. Each policy includes all **61 seeds,
 1–60 and 2026**, an 800 × 600 view and a 1,800 s safety cap. No held-out results informed selection. Sensible runs
@@ -970,22 +1015,21 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 ## 5. Experience and levels
 
 Potions are separate persistent pickups, pulled in by the same magnet as EXP. Stock is unlimited and a run starts
-with five Red Potions (2000000) and five Blue Potions (2000003). Delete/Q drinks HP,
+with five Red Potions (2000000) and no Blue Potions (2000003). Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 4% independently; elites roll HP 15% and MP 30%. Normal MP
-is one third less frequent than the original 6%; elite MP is less than half the former 65%, and boss bundles are 3 rather
-than 6. These choices and starter stock
+Normal kills use a global fallback of HP 1.2% and MP 10% independently; elites roll HP 15% and MP 60%. With every
+skill in its single-shot vanilla form at canonical MP, Blue Potions are the main MP income once regeneration (3 MP per
+10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
-EXP cap/absorption path. Both card policies drink below 60% HP or 30% MP, with thresholds in the same survivor data.
-An eligible ready skill's observed MP affordability failure also prompts a sip on the next tick, provided the pool
-is not full. This avoids waiting at two of five MP (40%) when a canonical three-MP shell is ready.
+EXP cap/absorption path. Both card policies drink a potion only when the missing HP or MP is at least half of one
+current potion's canonical restore (`balance.potions.bot.min_restore_fraction`, tier C), so a sip never mostly
+overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
 
-The survivor opening pool is 30 MP rather than 5, with 50 HP unchanged and no ordinary level-up refill. The old
-five-MP pool clipped 88–92% of the first twenty Blue sips in diagnostic runs; forty starter Blues masked that
-capacity problem. Thirty MP plus five Blues gives a finite bridge with much less waste. Against a continuously
-available target the first sip arrives before eight seconds, restoring 24 of canonical 100 MP; the pool remains
-scarce and capacity clipping is still a deliberate tradeoff. Real-run sip restoration/waste is recorded per event.
+The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision), with no ordinary level-up refill. Three
+Snails at its canonical 3 MP therefore casts about once per 10 s regeneration pulse, and the Beginner phase is
+sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
+per event.
 The optional stage-keyframe `normal_hp_drop_chance` is tier C survivor supply tuning: clamp each endpoint to [0, 1],
 interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance for
 missing endpoints. Elite HP, all MP rolls and fixed boss bundles keep their existing settings. This curve is
@@ -1156,10 +1200,10 @@ existing shots finish separately from carry-over projectile kills.
 
 | Skill (id) | Job | Behaviour | Rank -> canonical level | Upgrades |
 |---|---|---|---|---|
-| Three Snails (1000) | Beginner | Throws three shells (`level/N/ball`) within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact; one canonical MP cost per cast | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage; the skill reaches level 2 at character Lv 3 and level 3 at Lv 6 on its own (`level_ranks`: the SP a v83 Beginner puts into it); there is no card for it (owner decision 2026-10-14: a card that only buys what Lv 6 gives for free is a wasted pick) | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Rapid Snails (+25% speed, ×3) |
+| Three Snails (1000) | Beginner | Throws one shell (`level/N/ball`) within 420 px every 1.1 s; 400 px/s; `level/N/hit/0` on impact; one canonical MP cost per cast | ranks 1-3 = levels 1-3: green -> blue -> red shell, 10 -> 25 -> 40 damage; the skill reaches level 2 at character Lv 3 and level 3 at Lv 6 on its own (`level_ranks`: the SP a v83 Beginner puts into it); there is no card for it (owner decision 2026-10-14: a card that only buys what Lv 6 gives for free is a wasted pick) | Additional Shell (+1 shell, ×4), Faster Snails (-12% cooldown, ×4), Piercing Shells (+1 pierce, ×3), Rapid Snails (+25% speed, ×3) |
 | Recovery (1001) | Beginner | Auto-cast below the data HP threshold; heals `x` every 5 s for canonical duration, with canonical MP cost/cooldown | ranks 1–3 = canonical levels 1–3: 5/10/15 MP, 4/8/12 HP per pulse, 30 s duration, 120 s cooldown | learn, then two rank cards |
 | Nimble Feet (1002) | Beginner | Targetless speed buff; canonical speed +10/+15/+20 for 4/8/12 s, costing 4/7/10 MP; 60 s cooldown from cast | ranks 1–3 = levels 1–3 | learn/rank |
-| Energy Bolt (2001004) | Magician | Two `ball` projectiles every 0.9 s; 450 px/s; `hit/0`; one canonical MP cost per cast | ranks 1–20 = levels 1–20 | learn/rank; Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
+| Energy Bolt (2001004) | Magician | One `ball` projectile every 0.9 s; 450 px/s; `hit/0`; one canonical MP cost per cast | ranks 1–20 = levels 1–20 | learn/rank; Extra Bolt (+1, ×3), Bolt Pierce (+1, ×2), Overcharge (+20% damage, ×3) |
 | Magic Claw (2001005) | Magician | Instant 2-hit claw (`attackCount` 2) on the nearest mob within 260 px every 1.25 s; `effect` on caster, `hit/0` on target (`CharLevel` variant by level) | ranks 1–20 = levels 1–20 | learn/rank; Twin Claw (+1 target, ×2), Quick Claw (-12% cooldown, ×3) |
 | Magic Guard (2001002) | Magician | Timed damage-to-MP split (`x`%) | ranks 1–20 = levels 1–20 | learn/rank |
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
@@ -1307,7 +1351,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 |---|---|---|---|
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot thresholds | start 5 Red/5 Blue; normal HP .012 fallback (stage curve in §5)/MP .04, elite HP .15/MP .30; drink below HP .6/MP .3 or observed MP shortage; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
@@ -1368,7 +1412,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Projectile speeds/ranges | §7 | C | ours |
 | Projectile hit exclusion identity | packed 64-bit run-local spawn identity; fresh spawns differ, relocation preserves it | C | our pool bookkeeping; no canonical or balance values changed |
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
-| Player start | 50 HP, 30 MP, STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours; finite opening pool reduces potion capacity waste |
+| Player start | 50 HP, 5 MP (v83 Beginner, owner decision), STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
 | Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |
 | INT MP growth | Magician adds floor(INT / 10) to base growth, before assigning the new level's AP | B | pre-Big-Bang formula compilations, refs/research/v83-mechanics |
 | Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
@@ -1385,11 +1429,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
 | Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
-| Bot MP affordability sip | drink on the next tick after an eligible ready skill reports insufficient MP, even above the configured fraction threshold; never drink into a full pool | C | #42; BotInput, shared by sensible and random card policies |
+| Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
+| Bot sword duel | a lone ordinary mob within 160 px and 40 px of the feet while no attack skill is ready and affordable: stand facing it so the basic attack swings; flee from two or more | C | owner review of #29; BotInput, shared by every movement policy that uses it |
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
-| Survivor projectile coverage | Three Snails base count 3, Energy Bolt base count 2; canonical per-hit damage and per-cast MP unchanged | C | #29 balance pass after density, stage HP and potion calibration; skills.json |
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
@@ -1406,7 +1450,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Spawn rings | first the floors beside the view (within 160 px of its sides, `band`, and 48 px of its height, `band_y`), then within 480 px of the view, then the map within 1170 px of the player; 12 samples per ring, looking first for a point whose way to the player is at most half the view width + 48 + 160 px (`prefer_route`, 608 px on an 800 px view: no longer than the walk in from the ring's outer edge), then for any point that reaches the player, before an unreachable spot; never where a wall that crosses a platform stands anywhere on the way to the player (followed edge by edge onto the player's platform) | C | ours |
 | Spawn trail margin | spawns stay 32 px further out (`trail_margin`) on the side a moving player (horizontal speed > 1 px/s) runs away from: the camera lags about 125 / 6 + 8 = 29 px behind a running player (smoothing 6/s, 8 px dead zone) | C | ours |
 | Mob relocation | silent, never on screen (only from outside the view + 48 + 32 px on every side: the camera can lag either way) and never elites: a mob that has not come 1 px closer along its way while itself moving 1 px for 3 s (`stall_time`, `stall_progress`; a mob standing still on screen keeps counting and is moved once off screen), or that is farther than 1300 px or cannot reach the player 160 px off-screen for 3 s, is moved to a fresh spawn point, preferring the side the player is moving toward (its horizontal speed > 1 px/s), with its HP; only when no point is found is it recycled (removed) | C | ours |
-| Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15, then every 60 s | C | ours |
+| Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15 (Henesys 4:00), then every 60 s; first burst at 1:30 (Henesys 5:00), then every 90 s | C | ours; the Henesys delays keep them out of the sword-paced Beginner phase |
+| Henesys stage EXP | 2.5x canonical mob EXP for ordinary kills (`stages.henesys_hg1.exp_mult`) | C | coarse #29 pass so a sword-paced Beginner reaches Magician near 4:40 |
 | Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
 | Magician advancement level | survivor level 10; canonical level 8 and INT 20 stay unchanged | C | owner choice, #40; `data/survivor/jobs.json` |
 | Background auto-scroll axis | types 4-7: no camera term on the scrolling axis (screen x = x + rx·5·t + W/2), parallax on the other | C | ours (reading of "auto-scroll X, parallax Y") |

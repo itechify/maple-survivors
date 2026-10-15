@@ -3,8 +3,9 @@ extends RefCounted
 ## Unlimited per-kind potion stock and canonical item restore amounts. Survivor data chooses the current item and
 ## starting count; the item spec comes unchanged from setup.item_info. This module never reads files.
 
-## tier C: fallback starter choices match balance.potions; restoration never falls back to a guessed amount.
-const START := {"hp": {"item_id": 2000000, "start": 5}, "mp": {"item_id": 2000003, "start": 5}}
+## Potion kinds and their fallback starter items (Red 2000000, Blue 2000003, as balance.potions). Starting counts live
+## only in balance.potions (0 without data); restoration never falls back to a guessed amount.
+const DEFAULT_ITEMS := {"hp": 2000000, "mp": 2000003}
 
 var stock := {}
 var item_info: Dictionary
@@ -14,9 +15,9 @@ var used := {"hp": 0, "mp": 0}
 
 func _init(tuning: Dictionary = {}, canonical_items: Dictionary = {}) -> void:
 	item_info = canonical_items
-	for kind: String in START:
-		var entry: Dictionary = tuning.get(kind, START[kind])
-		stock[kind] = {"item_id": int(entry.get("item_id", START[kind].item_id)), "count": int(entry.get("start", 0))}
+	for kind: String in DEFAULT_ITEMS:
+		var entry: Dictionary = tuning.get(kind, {})
+		stock[kind] = {"item_id": int(entry.get("item_id", DEFAULT_ITEMS[kind])), "count": int(entry.get("start", 0))}
 
 
 ## Snapshot exposed to presentation as player_state.potions.
@@ -44,13 +45,21 @@ func upgrade(kind: String, item_id: int) -> bool:
 	return true
 
 
+## Canonical amount one current `kind` potion restores (0 for an unknown kind or a missing restore spec).
+func restore_amount(kind: String) -> int:
+	if not stock.has(kind):
+		return 0
+	var id := int(stock[kind].item_id)
+	var item: Dictionary = item_info.get(id, item_info.get(str(id), {}))
+	return int(item.get("spec", {}).get(kind, 0))
+
+
 ## Consumes one potion and returns its canonical restore spec and remaining count, or {} when unavailable.
 func consume(kind: String) -> Dictionary:
 	if not stock.has(kind) or int(stock[kind].count) <= 0:
 		return {}
 	var id := int(stock[kind].item_id)
-	var item: Dictionary = item_info.get(id, item_info.get(str(id), {}))
-	var amount := int(item.get("spec", {}).get(kind, 0))
+	var amount := restore_amount(kind)
 	if amount <= 0:
 		return {}
 	stock[kind].count = int(stock[kind].count) - 1

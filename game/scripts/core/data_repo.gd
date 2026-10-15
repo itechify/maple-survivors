@@ -87,7 +87,7 @@ static func starter_equipment_ids(data: Dictionary) -> PackedInt32Array:
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
-	for kind: String in PotionInventory.START:
+	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
 	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
 		if String(c.get("kind", "")) == "potion_tier":

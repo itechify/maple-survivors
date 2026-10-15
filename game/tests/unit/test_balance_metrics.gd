@@ -350,6 +350,8 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 1.0
+	# Harness recording, not drinking policy: let the bot sip as soon as one point is missing.
+	data.balance.potions.bot.min_restore_fraction = 0.01
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
 	w.spawn_potion("hp", w.player.pos-Vector2(0, 25), 2)

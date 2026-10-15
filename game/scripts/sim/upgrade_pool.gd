@@ -15,6 +15,9 @@ extends RefCounted
 ## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
 ## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
 
+## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]
+
 var cards: Array = []
 ## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
 var pity_draws := 0
@@ -149,7 +152,8 @@ static func is_power(c: Dictionary) -> bool:
 ## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
 ## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
-## {before, after}; mastery is a percent, other values are original WZ numbers except the survivor max_mp_percent), skill_effect_stat (the skill's
+## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
+## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
 func choice_card(id: String, state: RunWorld) -> Dictionary:
 	var c := card(id)
@@ -175,7 +179,7 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
-			for field: String in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]:
+			for field: String in PREVIEW_FIELDS:
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))
@@ -184,10 +188,11 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
-			if String(passive.get("stat", "")) == "max_mp_percent":
-				# tier C: this skill previews the owner-selected percentage, not canonical MP gained per level.
-				var percent := float(passive.get("per_level", 0.0)) * 100.0
-				changes = {"max_mp_percent": {"before": roundi(percent * level), "after": roundi(percent * level_next)}}
+			if passive.has("per_level"):
+				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
+				# not the canonical fields it reinterprets.
+				changes = {String(passive.stat): {"before": roundi(lo.passive_value(skill, level, passive) * 100.0),
+					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
 	return {
 		"id": id,
 		"kind": kind,
@@ -214,8 +219,8 @@ static func _rank_step(c: Dictionary) -> int:
 	return maxi(1, n)
 
 
-## Applies card `id` to the run (learn / rank up / modifiers / potion tier / fallback healing), emits upgrade_applied (and skill_learned for
-## skill_new) and returns the card's new rank (0 when the card is unknown).
+## Applies card `id` to the run (learn / rank up / modifiers / potion tier / fallback healing), emits
+## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld) -> int:
 	var c := card(id)
 	if c.is_empty():

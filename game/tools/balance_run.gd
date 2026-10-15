@@ -51,6 +51,50 @@ const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henes
 const DEFAULT_RUN_CAP := 1800.0
 ## tier C: late MP economy observation starts at eight minutes, matching the existing late-hit report.
 const LATE_MP_START := 480.0
+## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
+const EARLY_MINUTES := 5
+
+
+## tier C measurement: landed lifetime hits per ordinary (non-elite, non-boss) kill, bucketed by the minute of the
+## kill over the first EARLY_MINUTES. Lifetimes replay in event order, since swarm slots can already have been reused.
+class KillHits:
+	## One {hits, kills, mean} per early minute.
+	var buckets: Array = empty_buckets()
+	var _lifetimes := {}
+
+	## One empty {hits, kills, mean} bucket per early minute (also the aggregate's starting point).
+	static func empty_buckets() -> Array:
+		var out: Array = []
+		for minute in EARLY_MINUTES:
+			out.append({"hits": 0, "kills": 0, "mean": null})
+		return out
+
+	## Updates lifetimes and buckets from one drained run event at run time `now`.
+	func observe(e: Dictionary, w: RunWorld, now: float) -> void:
+		var mob := int(e.get("mob", -1))
+		match String(e.type):
+			"mob_spawned":
+				var from := int(e.get("relocated_from", -1))
+				var lifetime: Dictionary = _lifetimes.get(from, {}).duplicate() if from >= 0 else {}
+				_lifetimes.erase(from)
+				if lifetime.is_empty():
+					var kind: MobKind = w.mob_kinds[int(w.kind_of_id[int(e.mob_id)])]
+					lifetime = {"hits": 0, "ordinary": not bool(e.elite) and not kind.boss}
+				_lifetimes[mob] = lifetime
+			"boss_spawned":
+				if _lifetimes.has(mob):
+					_lifetimes[mob].ordinary = false
+			"mob_hit":
+				if _lifetimes.has(mob):
+					_lifetimes[mob].hits += 1
+			"mob_died":
+				var lifetime: Dictionary = _lifetimes.get(mob, {})
+				var minute := maxi(0, floori((now - 1e-6) / 60.0))
+				if minute < EARLY_MINUTES and bool(lifetime.get("ordinary", false)):
+					buckets[minute].hits += int(lifetime.hits)
+					buckets[minute].kills += 1
+					buckets[minute].mean = float(buckets[minute].hits) / int(buckets[minute].kills)
+				_lifetimes.erase(mob)
 
 
 func _init() -> void:
@@ -171,11 +215,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var taken_min: Array = []
 	var exp_min: Array = []
 	var kills_min: Array = []
-	# tier C measurement: landed lifetime hits, attributed to the ordinary mob's death minute (first five minutes).
-	var kill_hits: Array = []
-	for minute in 5:
-		kill_hits.append({"hits": 0, "kills": 0, "mean": null})
-	var mob_lifetimes := {}
+	var kill_hits := KillHits.new()
 	var near_min: Array = []
 	var drops_min: Array = []
 	var exp_total := 0
@@ -235,6 +275,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		if w.time > 60.0:
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		for e: Dictionary in w.drain_events():
+			kill_hits.observe(e, w, w.time)
 			match String(e.type):
 				"mob_spawned":
 					# A relocated mob is the same mob: it keeps the time it was last inside the box.
@@ -243,27 +284,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if seen.size() <= maxi(ms, from):
 						seen.resize(w.swarm.capacity())
 					seen[ms] = seen[from] if from >= 0 else w.time
-					# Replay lifetimes in event order: current swarm slots can already have been reused.
-					var lifetime: Dictionary = mob_lifetimes.get(from, {}).duplicate() if from >= 0 else {}
-					mob_lifetimes.erase(from)
-					if lifetime.is_empty():
-						var kind: MobKind = w.mob_kinds[int(w.kind_of_id[int(e.mob_id)])]
-						lifetime = {"hits": 0, "ordinary": not bool(e.elite) and not kind.boss}
-					mob_lifetimes[ms] = lifetime
-				"boss_spawned":
-					if mob_lifetimes.has(int(e.mob)):
-						mob_lifetimes[int(e.mob)].ordinary = false
-				"mob_hit":
-					if mob_lifetimes.has(int(e.mob)):
-						mob_lifetimes[int(e.mob)].hits += 1
-				"mob_died":
-					var lifetime: Dictionary = mob_lifetimes.get(int(e.mob), {})
-					var minute := maxi(0, floori((w.time - 1e-6) / 60.0))
-					if minute < 5 and bool(lifetime.get("ordinary", false)):
-						kill_hits[minute].hits += int(lifetime.hits)
-						kill_hits[minute].kills += 1
-						kill_hits[minute].mean = float(kill_hits[minute].hits) / int(kill_hits[minute].kills)
-					mob_lifetimes.erase(int(e.mob))
 				"buff_cast":
 					# Tier C measurement: event-observation tick; normal runs drain each step.
 					var cast := {"time": w.time, "skill": String(e.skill), "skill_id": int(e.skill_id),
@@ -346,7 +366,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
-		"ordinary_kill_hits_by_min": kill_hits,
+		"ordinary_kill_hits_by_min": kill_hits.buckets,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
@@ -494,9 +514,7 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
-		"ordinary_kill_hits_by_min": []}
-	for minute in 5:
-		result.ordinary_kill_hits_by_min.append({"hits": 0, "kills": 0, "mean": null})
+		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
 	var waits: Array = []
 	var deaths: Array = []
 	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
@@ -524,7 +542,7 @@ static func aggregate(records: Array) -> Dictionary:
 			if record.get("potions_left", {}).has(kind):
 				leftovers[kind].append(int(record.potions_left[kind]))
 		var kill_hits: Array = record.get("ordinary_kill_hits_by_min", [])
-		for minute in mini(5, kill_hits.size()):
+		for minute in mini(EARLY_MINUTES, kill_hits.size()):
 			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
 			result.ordinary_kill_hits_by_min[minute].kills += int(kill_hits[minute].kills)
 		var job_time := float(record.get("job_t", -1.0))

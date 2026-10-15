@@ -170,13 +170,15 @@ func test_drink_press_works_while_climbing_and_empty_stock_does_nothing() -> voi
 	assert_true(w.drain_events().is_empty())
 
 
-func test_bot_drink_threshold_comes_from_survivor_data() -> void:
+func test_bot_drinks_only_when_most_of_a_potion_lands() -> void:
 	var w := _world()
 	w.take_hit(200.0, false, "", w.player.pos - Vector2(10, 0))
-	assert_true(BotInput.decide(w, {}).drink_hp, "hurt bot drinks below configured 50 percent HP")
-	w.balance.potions.bot.hp_threshold = 0.2
-	assert_false(BotInput.decide(w, {}).drink_hp, "a lower data threshold changes the decision")
-	w.balance.potions.bot.hp_threshold = 0.5
+	var missing := float(w.player_state.max_hp) - float(w.player_state.hp)
+	assert_true(missing >= 25.0, "the hit leaves at least half a Red Potion missing")
+	assert_true(BotInput.decide(w, {}).drink_hp, "missing HP takes at least half of the canonical 50")
+	w.balance.potions.bot.min_restore_fraction = missing / 50.0 + 0.1
+	assert_false(BotInput.decide(w, {}).drink_hp, "the survivor-data guard holds a sip that would mostly overflow")
+	w.balance.potions.bot.min_restore_fraction = 0.5
 	for i in 5:
 		w.drink_potion("hp")
 	assert_false(BotInput.decide(w, {}).drink_hp, "no stock means no drink request")
@@ -197,9 +199,7 @@ func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -
 	w.step(DT, MoveInput.new())
 	assert_true(w.player_state.mp_short)
 	assert_eq(w.player_state.potions.mp.count, 2)
-	assert_true(BotInput.decide(w, {}).drink_mp, "bot drinks below the configured MP threshold")
-	w.balance.potions.bot.mp_threshold = 0.01
-	assert_true(BotInput.decide(w, {}).drink_mp, "an observed affordability failure also prompts a sip")
+	assert_true(BotInput.decide(w, {}).drink_mp, "a near-empty large pool takes a whole Blue Potion")
 	w.drain_events()
 	assert_true(w.drink_potion("mp"))
 	assert_eq(w.player_state.mp, 105, "Blue Potion restores exactly canonical 100 MP immediately")
@@ -210,9 +210,11 @@ func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -
 	assert_eq(casts[0].skill, "energy_bolt")
 	assert_eq(w.player_state.mp, 99, "100 restored, then canonical 6 spent")
 	assert_false(w.player_state.mp_short)
-	assert_false(BotInput.decide(w, {}).drink_mp, "without a shortage the lower MP threshold applies")
-	w.balance.potions.bot.mp_threshold = 0.3
-	assert_true(BotInput.decide(w, {}).drink_mp, "the configured fraction still applies before shortage")
+	var missing := float(w.player_state.max_mp) - float(w.player_state.mp)
+	w.balance.potions.bot.min_restore_fraction = missing / 100.0 + 0.1
+	assert_false(BotInput.decide(w, {}).drink_mp, "a guard above the missing share holds the sip")
+	w.balance.potions.bot.min_restore_fraction = 0.5
+	assert_true(BotInput.decide(w, {}).drink_mp, "the default guard drinks once half a Blue fits")
 	assert_eq(w.potions.used.mp, 1)
 	assert_eq(events[0].type, "potion_used")
 	assert_eq(events[0].restored, 100)

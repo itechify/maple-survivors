@@ -5,7 +5,8 @@ extends TestCase
 ## The fresh held-out matrix is a separate frozen-candidate assessment in GAME_DESIGN 4.2.
 ## Checks include spawning/engagement, kills/EXP, progression/event consistency, ordinary late landed hits,
 ## no lost mobs and all scheduled bosses dead before clear. Individual progression windows allow build spread;
-## Henesys stage sample medians use Mage at Lv10 180–330s and Lv30 720–900s when reached.
+## Henesys stage sample medians use Lv8 210–270s, Mage at Lv10 180–330s and Lv30 540–720s when reached (coarse #29
+## pass for the sword-paced v83 Beginner; final pacing waits for later specs).
 ## Tree records outcomes without judging its pacing; both stages retain event, cache and finale invariants.
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -96,7 +97,9 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 		var third := maxi(1, floori(alive.size() / 3.0))
 		assert_true(_mean(alive, alive.size() - third, alive.size()) > _mean(alive, 0, third),
 			"%s: the mean alive count grows (%s)" % [label, _per_minute(alive)])
-		assert_true(int(st.killers.get("three_snails", 0)) > 20, "%s: Three Snails killed mobs %s" % [label, st.killers])
+		# The v83 Beginner kills with Three Snails (one cast per MP pulse) and, mostly, the basic attack.
+		assert_true(int(st.killers.get("three_snails", 0)) + int(st.killers.get("basic_attack", 0)) > 20,
+			"%s: Three Snails and the basic attack killed mobs %s" % [label, st.killers])
 	assert_true(int(st.exp) > 0, "%s: EXP collected" % label)
 	assert_eq(int(st.exp), w.pickups.collected_exp, "%s: collected EXP matches its events" % label)
 	var kill_events := 0
@@ -132,7 +135,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 
 
 func test_full_run_synthetic_map() -> void:
-	var w := RunWorld.new(RF.setup("henesys_hg1", 2026))
+	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 2026)))
 	assert_true(w.warnings.is_empty(), "every pool mob has an img: %s" % [w.warnings])
 	_assert_run(w, _run(w), "synthetic")
 
@@ -183,14 +186,14 @@ func test_full_run_real_map() -> void:
 			assert_true(lv8.size() >= 2 and lv10.size() >= 2 and magician.size() >= 2,
 				"%s: at least2/3 predetermined runs reach the early milestones" % stage)
 			if not lv8.is_empty():
-				assert_between(_median(lv8), 135.0, 210.0, "%s: Lv8 median135–210s (n%d/3)" % [stage, lv8.size()])
+				assert_between(_median(lv8), 210.0, 270.0, "%s: Lv8 median210–270s (n%d/3)" % [stage, lv8.size()])
 			if not magician.is_empty():
 				assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s (n%d/3)" % [stage, magician.size()])
 			if not lv10.is_empty():
 				assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s (n%d/3)" % [stage, lv10.size()])
 			assert_true(lv30.size() >= 1, "%s: at least1 of3 predetermined runs reachesLv30; population clear target40–50%%" % stage)
 			if not lv30.is_empty():
-				assert_between(_median(lv30), 720.0, 900.0, "%s: Lv30 median720–900s (n%d/3)" % [stage, lv30.size()])
+				assert_between(_median(lv30), 540.0, 720.0, "%s: Lv30 median540–720s (n%d/3)" % [stage, lv30.size()])
 
 
 ## Median of a nonempty regression sample; the caller checks milestone reach separately.
@@ -204,7 +207,7 @@ static func _median(values: Array[float]) -> float:
 ## The tuned pacing on the real map, per seed (docs/GAME_DESIGN.md 4.1, 5); windows with some slack for the bot.
 func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
 	if float(st.lv8_time) > 0.0:
-		assert_between(float(st.lv8_time), 120.0, 270.0, "%s: reached Lv8 between2:00 and4:30" % label)
+		assert_between(float(st.lv8_time), 180.0, 300.0, "%s: reached Lv8 between3:00 and5:00" % label)
 	if float(st.job_time) > 0.0:
 		assert_between(float(st.job_time), 150.0, 360.0, "%s: reached Magician between2:30 and6:00" % label)
 		# _run drains the accepted job event after the next fixed tick; allow floating-point accumulation error.
@@ -212,7 +215,7 @@ func _assert_pacing(w: RunWorld, st: Dictionary, label: String) -> void:
 	if float(st.lv10_time) > 0.0:
 		assert_between(float(st.lv10_time), 150.0, 360.0, "%s: reached Lv10 between2:30 and6:00" % label)
 	if float(st.lv30_time) > 0.0:
-		assert_between(float(st.lv30_time), 600.0, 1080.0, "%s: individual Lv30 in10:00–18:00; sample median12:00–15:00" % label)
+		assert_between(float(st.lv30_time), 480.0, 1080.0, "%s: individual Lv30 in8:00–18:00; sample median9:00–12:00" % label)
 	assert_true(int(w.player_state.level) < 50, "%s: far below the old Lv 50+ at the end (%d)" % [label,
 		int(w.player_state.level)])
 	var alive: PackedInt32Array = st.alive
@@ -311,7 +314,7 @@ func _short_run(w: RunWorld, label: String) -> void:
 
 func test_other_stages_synthetic() -> void:
 	for stage: String in ["tree_that_grew_1"]:
-		_short_run(RunWorld.new(RF.setup(stage, 77)), stage)
+		_short_run(RunWorld.new(RF.with_basic_attack(RF.setup(stage, 77))), stage)
 
 
 func test_other_stages_real_maps() -> void:

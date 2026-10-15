@@ -5,6 +5,13 @@ Each reported full training cohort contains one full record for seeds 1–60 and
 timeouts, never clears. All earlier probes and exact console output are retained with their patches and runtime
 context; exploratory subsets do not stand in for population acceptance.
 
+> **Superseded (owner review of PR #51, 2026-10-15).** The owner rejected this profile's survivor projectile
+> coverage (three shells, two bolts) and its 30-MP / five-Blue opening: skills start vanilla and the opening pool is
+> the v83 5 MP. The coarse replacement pass (sword-paced opening, bot sword duel and potion waste guard, 2.5x
+> Henesys EXP, 10% / 60% MP drops) and its 61-seed training results are in `docs/GAME_DESIGN.md` 4.2 "Owner review
+> of #51". Final tuning is deferred until later specs land, so no held-out range was spent; 601–630 stays reserved.
+> The record below is kept as history.
+
 ## Configuration and policy
 
 The levers were applied in order: denser opening waves; stage HP above one after 2:00; finite potion economy;

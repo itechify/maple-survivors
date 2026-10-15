@@ -10,6 +10,9 @@ extends RefCounted
 ## base numbers with the modifiers, the damage range for the current INT / magic attack, and the visual paths.
 ## `version` increments on every change so callers can cache stats().
 
+## Passive stat of Improved MaxMP Increase: a fraction of the computed Max MP (tier C survivor reinterpretation).
+const MAX_MP_PERCENT := "max_mp_percent"
+
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
 var ranks := {}
@@ -173,7 +176,7 @@ func stats(key: String) -> Dictionary:
 		"action_time": float(d.get("action_time", 0.0)),
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
-		"passive_value": _passive_value(key, lv, passive),
+		"passive_value": passive_value(key, lv, passive),
 		"icon": String(d.get("icon", "")),
 		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
@@ -190,14 +193,16 @@ func passive_total(passive_stat: String) -> float:
 	for k: String in order:
 		var p: Dictionary = book.def(k).get("passive", {})
 		if String(p.get("stat", "")) == passive_stat:
-			t += _passive_value(k, level(k), p)
+			t += passive_value(k, level(k), p)
 	return t
 
 
-func _passive_value(key: String, level: int, passive: Dictionary) -> float:
+## Effect of skill `key`'s `passive` at canonical `skill_level`: its survivor `per_level` value times the level, else
+## the canonical `field` of that level (0 without a passive).
+func passive_value(key: String, skill_level: int, passive: Dictionary) -> float:
 	if passive.has("per_level"):
-		return float(passive.per_level) * level
-	return book.canonical(key, level, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0
+		return float(passive.per_level) * skill_level
+	return book.canonical(key, skill_level, String(passive.get("field", "")), 0.0) if not passive.is_empty() else 0.0
 
 
 static func _stack(m: Vector2, op: String, value: float) -> Vector2:

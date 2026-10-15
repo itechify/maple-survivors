@@ -206,10 +206,8 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	assert_eq(float(b.mob_skills.summon_spacing), RunWorld.DEFAULT_SUMMON_SPACING, "RunWorld.DEFAULT_SUMMON_SPACING")
 	for key: String in BossDirector.DEFAULT_RULES:
 		assert_eq(float(b.bosses[key]), float(BossDirector.DEFAULT_RULES[key]), "BossDirector.DEFAULT_RULES.%s" % key)
-	for kind: String in PotionInventory.START:
-		for field: String in PotionInventory.START[kind]:
-			assert_eq(int(b.potions[kind][field]), int(PotionInventory.START[kind][field]),
-				"PotionInventory.START.%s.%s" % [kind, field])
+	for kind: String in PotionInventory.DEFAULT_ITEMS:
+		assert_eq(int(b.potions[kind].item_id), int(PotionInventory.DEFAULT_ITEMS[kind]), "PotionInventory.DEFAULT_ITEMS.%s" % kind)
 	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
 	var outfit: Array = []
 	for id: Variant in b.player.equipment:

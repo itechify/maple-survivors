@@ -76,12 +76,17 @@ func test_seeded_run_parked_mid_rope_from_one_minute_has_no_new_skill_kills() ->
 		if world.ladders.is_ladder[i] == 0:
 			rope = i
 	assert_true(rope >= 0)
-	world.player.pos = Vector2(world.ladders.x[rope], (world.ladders.y1[rope] + world.ladders.y2[rope]) * 0.5)
-	world.player.fh = -1
-	world.player.vel = Vector2.ZERO
 	var up := MoveInput.new()
 	up.up = true
-	world.step(DT, up)
+	# A level-up window or a hit in progress at 1:00 can delay the grab a few ticks; retry from the rope's middle.
+	for attempt in 60:
+		if world.player.ladder == rope:
+			break
+		RF.auto_choose(world)
+		world.player.pos = Vector2(world.ladders.x[rope], (world.ladders.y1[rope] + world.ladders.y2[rope]) * 0.5)
+		world.player.fh = -1
+		world.player.vel = Vector2.ZERO
+		world.step(DT, up)
 	assert_eq(world.player.ladder, rope, "the run parks on the rope at 1:00")
 	var hanging_casts := 0
 	var hanging_kills := 0

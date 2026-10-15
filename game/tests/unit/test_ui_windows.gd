@@ -189,6 +189,15 @@ func test_level_up_card_details_show_canonical_rank_changes() -> void:
 		PackedStringArray(["HP / pulse: 4 → 8"]), "a healing buff's x is HP per pulse (skills.json buff.stat hp)")
 	assert_eq(LevelUpWindow.change_lines({"skill_changes": x_change, "skill_effect_stat": "mp_guard"}),
 		PackedStringArray(["MP absorption: 4% → 8%"]), "Magic Guard's x is the percent MP absorbs")
+	assert_eq(LevelUpWindow.change_lines({"skill_changes": {"speed": {"before": 10, "after": 15},
+		Loadout.MAX_MP_PERCENT: {"before": 2, "after": 4}}}), PackedStringArray(["Speed: 10 → 15", "Max MP: 2% → 4%"]),
+		"Nimble Feet speed and the Improved MaxMP Increase percentage have readable lines")
+
+
+func test_every_previewed_field_has_a_label() -> void:
+	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
+		if field != "x":
+			assert_true(LevelUpWindow.FIELD_LABELS.has(field), "label for previewed field %s" % field)
 
 
 # --- JobAdvanceWindow --------------------------------------------------------------------------------------------

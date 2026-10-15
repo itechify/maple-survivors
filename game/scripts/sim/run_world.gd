@@ -598,7 +598,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	var old_hp := _max_hp
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
-	var mp_percent := loadout.passive_total("max_mp_percent")
+	var mp_percent := loadout.passive_total(Loadout.MAX_MP_PERCENT)
 	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp

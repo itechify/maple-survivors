@@ -687,7 +687,7 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
 	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
-	assert_eq(mp.count, 7, "five starter Blues plus two collected potions")
+	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End / E")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
