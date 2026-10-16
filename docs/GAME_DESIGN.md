@@ -165,6 +165,30 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
+Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run tier list:
+`[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
+Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
+the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
+unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Ordinary mobs use contact
+damage only; Tauro magic attacks and Jr. Boogie statuses belong to #76. Cross-map exits west00/east00 and NPC
+9201133 use the existing drawn, inert handling. The original spawn list is 9 Horny Mushrooms, 7 Zombie Mushrooms
+and 35 Stirges (tier A, original Map.wz).
+
+| Time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
+|---|---|---|---|---|---|
+| 0:00 | 3 | 50 | 2110200:4, 2230101:4, 2300100:1 | 1 | 1 |
+| 2:00 | 4.5 | 80 | 2110200:3, 2230101:3, 2300100:1, 2230100:3 | 1 | 1.05 |
+| 5:00 | 7 | 130 | 2110200:2, 2230101:2, 2300100:1, 2230100:3, 3230100:3, 3230300:1 | 1.15 | 1.1 |
+| 8:00 | 10 | 180 | 2230101:2, 2300100:1, 2230100:3, 3230100:4, 3230300:2 | 1.3 | 1.15 |
+| 10:00 | 12 | 220 | 2230101:1, 2300100:1, 2230100:2, 3230100:4, 3230300:2, 7130100:2 | 1.4 | 1.2 |
+| 13:00 | 15 | 280 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:2 | 1.5 | 1.25 |
+| 15:00 | 18 | 330 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:3 | 1.6 | 1.3 |
+
+All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, repeat every 90 s and grow from
+10 to 40 mobs; elites start at 75 s, repeat every 60 s and use HP/EXP/contact multipliers 8/5/1.5 (tier C,
+existing stage conventions). Global potion chances apply. The interim empty boss list clears a surviving round
+at 900 s; #73 owns the three bosses and final-fight lifecycle. These values are not a balance calibration.
+
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
 time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
 the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
@@ -1934,6 +1958,15 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Dark Cave addition (#72) | Values | Tier | Evidence / rationale |
+|---|---|---|---|
+| Run tier list | `[[henesys_hg1, tree_that_grew_1], [dark_cave]]`, index 0 = tier 1 | C | Owner #32 decision; binding spec32 decisions section 3 |
+| Map and original spawns | 105050400; Horny 2110200 ×9, Zombie 2230101 ×7, Stirge 2300100 ×35; 14 ladders; NPC 9201133; exits 105050300/105060000 | A | Original v83 Map.wz/Map/Map1/105050400.img; loaded through the normal cache |
+| Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; contact only until #76 |
+| First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
+| Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; empty boss schedule clears at 900 s | C | Existing stage conventions; interim ending until #73 |
+| Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
 
 | Constant | Value | Tier | Source |
 |---|---|---|---|
