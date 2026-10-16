@@ -192,6 +192,7 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 
 
 func _build_npcs() -> void:
+	# tier C: owner #71 draws all four NPCs, including the hidden Maple TV; none accepts interactions.
 	for life: Dictionary in map.map_root.get("life", {}).values():
 		if String(life.get("type", "")) != "n":
 			continue

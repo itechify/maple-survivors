@@ -15,7 +15,7 @@ func _init(map_img: Dictionary = {}, physics: Dictionary = {}, balance: Dictiona
 	ladders = LadderSet.from_wz(map_img)
 	bounds = MapBounds.from_map(map_img, fhm)
 	player = PlayerMotion.new(PhysicsConstants.from_wz(physics))
-	# Only the hub's scripted exit is enabled. Room portals stay inert even if malformed data names a local target.
+	# tier C: owner #32/#71 enables only out00; rooms stay inert even if malformed data names a local target.
 	var local := map_img.duplicate(true)
 	var nodes: Dictionary = local.get("portal", {})
 	for key: String in nodes.keys():

@@ -365,6 +365,15 @@ and spawn Mano. Tree's known early deaths remain record-only.
 | Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
 | Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
 
+After merging #74 (`0c72c68`), reran its chain and Dark Cave fixture modes on seeds 1/2/2026, bot/random,
+under the same private cache/isolation and no tuning. These 12 additional seed records / 14 rounds also match
+#74 exactly: only seed 1 feeds tier 2 (1/3 per policy), bot Lv41 -> 52 dying at 685.2 s, random Lv43 -> 64
+dying at 1240.1 s; neither clears or reaches Lv70. The Lv38 F/P fixture dies at 789.3 / 780.7 / 807.8 s
+(bot, final Lv58/61/60) and 609.5 / 595.6 / 754.0 s (random, Lv51/50/55), no clears/Lv70. All 14 added rounds
+report `warnings=[]`, `missing=[]`; no smoke log has a script/engine error. Combined: 24 seed records / 26 rounds.
+The tier-2 deaths are unchanged first-pass evidence, not a reason to tune in this feature ticket. Exact records
+and console/SYSTEMS output are ignored under `evidence/t71/chain_fixture/`.
+
 Exact seed records, console/SYSTEMS output and aggregates are ignored under `evidence/t71/smoke/`.
 The real-map `free_market_driver` supplies a completed-round summary with the committed Lv38 F/P fixture,
 then verifies autosaved arrival, Esc pause, Save & quit, disk reload/Continue, inert room entry, fixed-tick
