@@ -5,13 +5,13 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func _world(key := "teleport_fp", job := 210) -> RunWorld:
+func _world(key := "teleport_fp", job := 210, upper_y := -120) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 200
 	var setup := RF.setup("quiet", 60, data)
 	setup.map_img = RF.map_from_segments([
 		{"x1": 0, "y1": 0, "x2": 1000, "y2": 0},
-		{"x1": 0, "y1": -120, "x2": 1000, "y2": -120}])
+		{"x1": 0, "y1": upper_y, "x2": 1000, "y2": upper_y}])
 	var id := 2301001 if job == 230 else job * 10000 + 1002
 	setup.skill_imgs[str(job)] = {"skill": {str(id): {"level": {
 		"1": {"mpCon": 60, "range": 130}, "2": {"mpCon": 57, "range": 131},
@@ -83,6 +83,24 @@ func test_rank_card_previews_canonical_range_and_mp_cost() -> void:
 	var card := w.upgrades.choice_card("teleport_fp_rank", w)
 	assert_eq(card.skill_changes.get("range", {}), {"before": 130, "after": 131})
 	assert_eq(card.skill_changes.mpCon, {"before": 60, "after": 57})
+
+
+func test_airborne_left_blink_and_out_of_range_vertical_are_atomic() -> void:
+	var w := _world("teleport_fp", 210, -160)
+	var input := MoveInput.new()
+	input.teleport_pressed = true
+	input.up = true
+	var mp := int(w.player_state.mp)
+	w.step(DT, input)
+	assert_eq(w.player.pos, Vector2(400, 0))
+	assert_eq(int(w.player_state.mp), mp, "nearest higher platform is 160 px away, beyond canonical 130")
+	w.player.place(Vector2(400, -40), w.fhm)
+	input.up = false
+	input.left = true
+	w.step(DT, input)
+	assert_eq(w.player.pos, Vector2(270, 0), "airborne left blink lands on the floor")
+	assert_eq(w.player.facing, -1)
+	assert_eq(int(w.player_state.mp), mp - 60)
 
 
 func test_horizontal_destination_uses_range_and_lands_on_slope() -> void:

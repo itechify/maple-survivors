@@ -680,7 +680,7 @@ func handle_events(events: Array) -> void:
 				_on_cast(e)
 			"teleport":
 				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
-				_sound(String(world.book.def(String(e.skill)).sounds.use))
+				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
 				if String(e.phase) == "arrival":
 					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"boss_skill":
@@ -874,11 +874,12 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
-## Plays a sound once per frame per path (a swarm hit by a piercing shell is one sound, not twenty).
-func _sound(path: String) -> void:
-	if path == "" or _frame_sounds.has(path):
+## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
+func _sound(path: String, phase: String = "") -> void:
+	var key := path + ":" + phase
+	if path == "" or _frame_sounds.has(key):
 		return
-	_frame_sounds[path] = true
+	_frame_sounds[key] = true
 	var sfx := _sfx_service()
 	if sfx != null and sfx.play(path):
 		counters.sounds += 1
