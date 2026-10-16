@@ -357,6 +357,10 @@ death times and potion totals match the preceding #53/foundations smoke. Henesys
 boss in 3/3 runs per policy. Each policy's surviving seed 1 selects Cleric (230); the other seeds die before
 second job, so this smoke establishes regression safety, not Fire/Poison balance. Tree remains record-only.
 Exact console output and JSON records stay in ignored `_scratch/t55/balance/` and `evidence/t55/`.
+After fetching/merging the integration branch (already up to date), the final full suite passes **599 tests,
+0 failed, 0 skipped, 66 files**; focused F/P, data-file and upgrade checks pass **42 tests, 0 failed, 0 skipped**.
+The shared synthetic book now includes a separate Poison Breath fixture; the existing pity regression exhausts
+all current-job power cards instead of assuming Fire Arrow's rank cap exhausts the whole F/P attack pool.
 
 | #55 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used |
 |---|---|---|---|
