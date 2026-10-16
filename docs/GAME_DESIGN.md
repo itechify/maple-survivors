@@ -341,6 +341,29 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #68 save-model regression smoke (2026-10-16)
+
+Revision `f55e89e`, based on integration `2b139cd`; `ISOLATE=t68`, training seeds 1/2/2026,
+both existing stages and bot/random, shared real cache (read only), default branches, 1,800 s cap, no PATCH or tuning.
+All 12 finish with no crashes, script errors or world warnings. Henesys reaches Magician and spawns Mano in all
+six runs. Outcomes/end times, final levels, potion totals and MP-wait means exactly match the #67 smoke below;
+Tree's early deaths remain record-only. No gameplay or asset changes. Exact console output, seed records and
+SYSTEMS reports are ignored under `evidence/t68/smoke/`; no private cache or import was needed.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+After fetching and merging `origin/t3/issue-32-implementation` (`2b139cd`, already current), the full
+`ISOLATE=t68 bash scripts/test.sh` passes **693 tests, 0 failed, 0 skipped, 77 files** (362.055 s).
+All real-cache checks execute. The 11 new save tests cover conversion, corrupt-file preservation, slot/seed
+round trips, all endings/history, capacity, validation, combined round/best writes, failed-write rollback and
+missing-primary recovery. Final log: ignored `_scratch/t68-full-final.log`. No visual criteria or renderer changes:
+no screenshots or rendering `missing` collection were needed; balance setup reports no missing-asset errors.
+
 #### #32 / #67 carried-character regression smoke (2026-10-16)
 
 Revision `8a7dae5` simulation, fixture/tests `8826fe3`; `ISOLATE=t67`, training seeds 1/2/2026,
@@ -2020,6 +2043,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+The spec #32 save contract (#68, tier C owner decision) uses save format 2 and three living character slots.
+Run wrappers use the three phases `free_market` / `map_select` / `round` and zero-based next-tier indexes;
+history endings are `died` / `victory` / `deleted`. Names use the owner's 4-12 ASCII letters/digits rule;
+living names compare without case (our interpretation of uniqueness). Dates and round seeds come from callers.
+These are persistence/creation rules, with no balance or canonical-data changes.
 
 The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
 growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
