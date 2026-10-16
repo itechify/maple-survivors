@@ -240,7 +240,7 @@ func test_build_setup_and_paths() -> void:
 	var s := DataRepo.build_setup(data, "henesys_hg1", 5, Vector2(800, 600), loader, mob_loader, missing)
 	assert_eq(s.map_img, {"stub": "Map.wz/Map/Map1/104040000.img"})
 	assert_eq(s.physics_img, {"stub": "Map.wz/Physics.img"})
-	assert_eq(s.skill_imgs.keys().size(), DataRepo.skill_books(data).size(), "all defined skill books")
+	assert_eq(s.skill_imgs.keys().size(), DataRepo.skill_books(data).size(), "every shipped skill book is loaded")
 	assert_true(s.skill_imgs.has("000") and s.skill_imgs.has("200"))
 	assert_has(s.skill_imgs, "220", "Ice/Lightning Wizard book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
