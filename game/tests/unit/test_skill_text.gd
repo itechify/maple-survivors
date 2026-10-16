@@ -119,3 +119,96 @@ func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 	assert_eq(SkillText.fill("{count|bolt|bolts}", {"count": 3.0}), "3 bolts")
 	assert_eq(SkillText.fill("cooldown {cooldown} sec.", {"cooldown": 0.968}), "cooldown 0.97 sec.")
 	assert_eq(SkillText.fill("{nope} stays", {}), "{nope} stays", "an unknown name is left for the tests to find")
+
+
+# --- every player-visible skill and card text ----------------------------------------------------------------------
+
+## Fields a v83 skill level node can carry, so every override template can resolve without the cache.
+const LEVEL_FIELDS := ["mpCon", "mad", "mastery", "attackCount", "fixdamage", "x", "y", "time", "prop", "pdd", "mdd",
+	"acc", "eva", "mobCount", "range", "speed", "cooltime", "hp"]
+
+
+func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders() -> void:
+	var data := DataRepo.load_all()
+	var imgs := {}
+	var strings := {}
+	for key: String in data.skills.skills:
+		var d: Dictionary = data.skills.skills[key]
+		var id := "%07d" % int(d.skill_id)
+		var levels := {}
+		var s := {"name": String(d.name), "desc": "[Master Level : 20]\\nSynthetic %s. \\n#cTerms between skills : 1 min.#\\nRequired Skill : #cAt least Level 1 on X#" % key}
+		for lv in range(1, d.ranks.size() + 1):
+			var node := {"hs": "h%d" % lv, "lt": {"$v": [-100.0, -50.0]}, "rb": {"$v": [100.0, 50.0]}}
+			for f: String in LEVEL_FIELDS:
+				node[f] = float(lv)
+			levels[str(lv)] = node
+			s["h%d" % lv] = "MP -%d;\\r\\nsynthetic line" % lv
+		if not imgs.has(String(d.book)):
+			imgs[String(d.book)] = {"skill": {}}
+		imgs[String(d.book)].skill[id] = {"level": levels}
+		strings[id] = s
+	_check_all_text(imgs, strings, "synthetic")
+
+
+func test_real_v83_skill_and_card_text_is_clean() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.get_default()
+	var data := DataRepo.load_all()
+	var imgs := {}
+	for book: String in DataRepo.skill_books(data):
+		var img := lib.img(DataRepo.skill_img_path(book))
+		if img != null:
+			imgs[book] = img.root
+	_check_all_text(imgs, lib.find("String.wz/Skill.img"), "v83")
+
+
+## Every skill at every level (desc and level line) and every card of upgrades.json at every tier, dressed for the
+## level-up window: present, no "canonical", only well-formed #c...# markup, no unfilled {placeholder}.
+func _check_all_text(imgs: Dictionary, strings: Variant, label: String) -> void:
+	var setup := RF.setup("quiet", 7, RF.quiet_data())
+	setup.skill_imgs = imgs
+	var w := RunWorld.new(setup)
+	var text := SkillText.new(w.book, strings)
+	for key: String in w.book.defs:
+		_check_text(text.desc(key), "%s %s desc" % [label, key], true)
+		for r in range(1, w.book.max_rank(key) + 1):
+			var line := text.level_line(key, w.book.canonical_level(key, r), w.loadout.stats(key, r))
+			_check_text(line, "%s %s level %d" % [label, key, r], true)
+	var root: Dictionary = DataRepo.load_all().upgrades
+	var all_cards: Array = root.cards.duplicate()
+	all_cards.append(root.fallback)
+	for c: Dictionary in all_cards:
+		_check_text(String(c.name), "%s card %s name" % [label, c.id], true)
+	for c: Dictionary in root.cards:
+		var skill := String(c.get("skill", ""))
+		var kind := String(c.kind)
+		if skill != "" and kind != "skill_new" and not w.loadout.has(skill):
+			w.loadout.add_skill(skill)
+		if skill != "" and kind == "skill_new" and w.loadout.has(skill):
+			w.loadout.ranks.erase(skill)
+			w.loadout.order.erase(skill)
+		for tier: String in UpgradePool.TIERS:
+			var offered := w.upgrades.choice_card(String(c.id), w, tier)
+			var where := "%s card %s (%s)" % [label, c.id, tier]
+			_check_text(String(offered.desc), where + " data desc (shown without String.wz)", true)
+			var card: Dictionary = LevelUpWindow.dress([offered], text, w.loadout)[0]
+			_check_text(String(card.desc), where + " desc", true)
+			_check_text(String(card.get("detail", "")), where + " detail", kind == "skill_new")
+			for line: String in LevelUpWindow.change_lines(card):
+				_check_text(line, where + " change", true)
+			_check_text(LevelUpWindow.rank_text(card), where + " rank", false)
+		if kind == "skill_rank":
+			for r in range(1, w.book.max_rank(skill)):
+				w.loadout.set_rank(skill, r)
+				var card: Dictionary = LevelUpWindow.dress([w.upgrades.choice_card(String(c.id), w)], text, w.loadout)[0]
+				_check_text(String(card.desc), "%s card %s at rank %d" % [label, c.id, r], true)
+
+
+func _check_text(s: String, where: String, required: bool) -> void:
+	if required:
+		assert_ne(s.strip_edges(), "", "%s: has text" % where)
+	assert_false("canonical" in s.to_lower(), "%s says canonical: %s" % [where, s])
+	var unmarked := RegEx.create_from_string("#c[^#\\n]*#").sub(s, "", true)
+	assert_false("#" in unmarked, "%s: raw # markup: %s" % [where, s])
+	assert_true(RegEx.create_from_string("\\{[^}]*\\}").search(s) == null, "%s: unfilled placeholder: %s" % [where, s])
