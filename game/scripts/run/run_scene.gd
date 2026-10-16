@@ -1303,7 +1303,8 @@ func _finish() -> void:
 		return
 	var flow := get_node_or_null("/root/Flow")
 	if flow != null and flow.has_method("finish_run") and bool(options.get("use_flow", true)):
-		flow.call("finish_run", summary, world.character_snapshot() if flow.active_slot >= 0 else {})
+		flow.call("finish_run", summary,
+			world.character_snapshot() if flow.active_slot >= 0 and world.state == RunWorld.CLEARED else {})
 
 
 ## Screenshots every shot_every s of run time; quit_after ends an automated run (summary.json, final shot, quit).

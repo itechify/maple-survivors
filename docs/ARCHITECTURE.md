@@ -80,6 +80,10 @@ It saves phase `free_market` on a non-final clear,
 with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
 seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
 coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
+The outgoing CharacterSnapshot is required only on clears. Terminal death archives the last saved boundary
+character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
+bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
+for both RunWorld and the Free Market.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
 draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while

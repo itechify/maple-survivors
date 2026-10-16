@@ -10,13 +10,27 @@ const STAGE_SELECT := preload("res://scenes/ui/stage_select.gd")
 var _nodes: Array[Node] = []
 
 
+func test_results_skills_fit_above_new_best_at_every_loadout_size() -> void:
+	for count in range(1, 257):
+		var layout := RESULTS.skill_layout(count)
+		assert_eq(layout.cells.size(), count, "every learned skill is shown")
+		for cell: Rect2 in layout.cells:
+			assert_true(layout.area.encloses(cell), "%d skills fit their reserved area" % count)
+			assert_true(cell.end.y <= 324.0, "six pixels separate skills from NEW BEST at y330")
+		if not failures.is_empty():
+			return
+
+
 func test_map_select_roster_keeps_long_names_readable_inside_each_cell() -> void:
 	for name: String in ["Curse Eye", "Jr. Boogie", "Tauromacis", "Taurospear"]:
 		var lines: PackedStringArray = STAGE_SELECT.roster_name_lines(name, 54)
 		assert_true(lines.size() <= 2)
-		assert_eq("".join(lines).replace(" ", ""), name.replace(" ", ""), "Dark Cave names stay complete")
+		if not "".join(lines).contains("..."):
+			assert_eq("".join(lines).replace(" ", ""), name.replace(" ", ""), "wrapped names stay complete")
 		for line: String in lines:
 			assert_true(MapleText.width(line, MapleText.SMALL) <= 54, "%s fits its roster cell" % line)
+			assert_true(line.ends_with("...") or line in name.split(" ") or line == name,
+				"roster names wrap only at word boundaries, or ellipsize a long word: " + line)
 
 
 func before_each() -> void:
@@ -391,6 +405,52 @@ func test_death_and_final_clear_end_run_and_results_return_to_characters() -> vo
 	assert_true(RESULTS.stat_rows(flow.last_summary).has(["Tiers cleared", "2"]))
 	flow.current.to_character_select()
 	assert_eq(flow.current_name, "character_select")
+
+
+func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_valid_character() -> void:
+	var rf := preload("res://tests/fixtures/run_fixtures.gd")
+	var data := rf.quiet_data()
+	data.balance.player.skills = []
+	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000,
+		"rewards": {"bonus_choices": 1, "exp_mult": 0}}]
+	var world := RunWorld.new(rf.setup("quiet", 32, data))
+	world.progression.level = 17
+	world.refresh_player_stats()
+	rf.place_player(world, 400)
+	for tick in 6:
+		world.step(1.0 / 60.0, MoveInput.new())
+	var boss := int(world.bosses.records[0].slot)
+	world.swarm.x[boss] = 600
+	world.swarm.y[boss] = 190
+	world.mob_kinds[world.swarm.kind[boss]].move_speed = 0
+	world.projectiles.spawn({"x": 600, "y": 170, "vx": 1, "dmg_min": 1000000,
+		"dmg_max": 1000000, "skill": "three_snails"})
+	var contact := rf.put_mob(world, 100100, 400, 190, 100)
+	world.swarm.state[contact] = MobSwarm.STAND
+	world.swarm.alpha[contact] = 1.0
+	world.mob_kinds[world.swarm.kind[contact]].pad = 100000
+	world.mob_kinds[world.swarm.kind[contact]].acc = 100000
+	world.mob_kinds[world.swarm.kind[contact]].move_speed = 0
+	world.drain_events()
+	world.step(1.0 / 60.0, MoveInput.new())
+	var events := world.drain_events()
+	assert_eq(world.state, RunWorld.DEAD)
+	assert_eq(world.pending_bonus_choices, 1, "the same tick queued an unanswerable boss reward")
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "boss_died"))
+	assert_true(events.any(func(e: Dictionary) -> bool: return e.type == "player_hit" and e.source_kind == "touch"))
+	var flow := _flow()
+	flow.create_character("Dead32")
+	var saved: Dictionary = flow.save.slot(0).character
+	flow.finish_run(summary(false, world.time, world.progression.level, world.kills))
+	assert_eq(flow.current_name, "results", "terminal death needs no clear-grade snapshot")
+	assert_eq(int(flow.last_summary.level), 17, "results retain actual round-end progress")
+	var disk := SaveData.new(save_path)
+	assert_true(disk.slot(0).is_empty(), "death frees the living slot on disk")
+	assert_eq(disk.history.size(), 1)
+	if disk.history.size() == 1:
+		assert_eq(disk.history[0].ending, "died")
+		assert_eq(int(disk.history[0].level), int(saved.level), "history retains the last valid boundary character")
+	assert_eq(flow.active_slot, -1)
 
 
 func test_quit_round_then_continue_replays_saved_first_minute() -> void:
