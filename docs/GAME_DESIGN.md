@@ -374,6 +374,35 @@ After merging the current integration branch, the full suite passes **599 tests,
 (312.975 s). Focused Ice/Lightning, advancement and data-file validation passes **32 tests, 0 failed, 0 skipped**;
 the real-cache test executes, so no SKIP is counted as coverage. No shared simulation or presentation paths change.
 
+#### #55 Fire/Poison attack regression smoke (2026-10-15)
+
+`ISOLATE=t55 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, unforced branches,
+no patches or tuning: all 12 records completed with no crashes, script errors or world warnings. Outcomes,
+death times and potion totals match the preceding #53/foundations smoke. Henesys reaches Magician and the first
+boss in 3/3 runs per policy. Each policy's surviving seed 1 selects Cleric (230); the other seeds die before
+second job, so this smoke establishes regression safety, not Fire/Poison balance. Tree remains record-only.
+Exact console output and JSON records stay in ignored `_scratch/t55/balance/` and `evidence/t55/`.
+After fetching/merging the integration branch (already up to date), the final full suite passes **599 tests,
+0 failed, 0 skipped, 66 files**; focused F/P, data-file and upgrade checks pass **42 tests, 0 failed, 0 skipped**.
+The shared synthetic book now includes a separate Poison Breath fixture; the existing pity regression exhausts
+all current-job power cards instead of assuming Fire Arrow's rank cap exhausts the whole F/P attack pool.
+
+| #55 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) |
+
+The separate forced-210 seed-1 visual run (warp 480 s, speed 8) clears at 919.933 s with Fire Arrow rank 14,
+Poison Breath rank 9 and `missing: []`. `evidence/t55/playtest_210_s1/t646.png` shows Fire Arrow's projectile
+and caster effect. A temporary real Flow/RunScene driver stages each attack alone against a durable stationary
+mob for closer inspection; its screenshots and sound/asset counters stay in `evidence/t55/focused_visuals/`.
+Checked by eye: `poison_breath_03.png` (green orb and caster effect), `poison_breath_05.png` (expanding green hit
+cloud on the pig), and `fire_arrow_03.png` (caster bow/fire effect and impact). Both staged summaries have empty
+missing lists and successful sound calls; the cached Use/Hit streams also decode in the focused test.
+This is visual evidence only, not a balance run. The initial occluded playtest attempt produced no screenshots;
+the successful run uses Godot's always-on-top window option. No importer or shared cache changes were needed.
+
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
@@ -1423,8 +1452,11 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Improved MP Recovery (2000000) | Magician | Adds `floor(character level × skill level / 10)` MP to each 10 s pulse | ranks 1–16 = levels 1–16 | learn/rank |
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
-| Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
+| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
+| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
 | MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
+| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
+| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
 
 MP Eater registers on the shared player-hit listener, after on-hit statuses and before lethal damage/kill handling.
 It reads the passive's current canonical level at impact; physical basic attacks, Three Snails, poison pulses and
@@ -1435,9 +1467,6 @@ the shared `player_restored` MP number. A separate `mp_eater_absorbed: {mob, amo
 canonical 700 ms effect on every absorb, including zero player gain; it does not duplicate the restoration event.
 The cache has all three effects and icons. Original v83 Sound.wz has no MP Eater entry, so presentation quietly
 probes for an optional use sound and otherwise stays silent without a missing-asset lookup.
-| Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
-| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
-| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
 
 Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
 Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
@@ -1445,6 +1474,13 @@ Behaviour steps share the first-job Potential magnitudes and remaining-headroom 
 modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
 has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
 Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
+
+Fire/Poison attack cards require current job 210. Both learn/rank cards and all five behaviour cards are power
+cards. Behaviour caps count modifier steps, so three Extra Fire Arrow steps produce four shots. Poison Breath
+uses the shared on-hit status block and its projectile's cast-level snapshot; poison ticks, immunity and boss
+rejection retain the status system's existing rules (section 3). Canonical poison duration is used unchanged,
+including level 29's 58 seconds (level 30 has 40). Both attacks use their canonical skill-node elements, never a
+survivor element override. Existing bot scores classify these projectile attacks and their cards automatically.
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
@@ -1788,6 +1824,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
+| Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
+| Fire/Poison cards (#55) | Fire Arrow +1 shot ×3, +1 pierce ×2, cooldown ×0.88 ×3; Poison Breath +1 pierce ×3, cooldown ×0.88 ×3; weights learn/rank/mod 4/3/2; exact job 210, all power; existing bot scores learn 100, rank 62, count 75, pierce 58, cooldown 54 plus 12 job bonus on rank/mod | C | issue #55 / owner #31; first-job modifier steps and score defaults; no rarity overrides or tuning |
 | Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
 | Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
 | Face blink | `blink` every 2-5 s (seeded) | C | ours |
