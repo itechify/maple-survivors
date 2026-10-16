@@ -46,7 +46,14 @@ static func skill_imgs() -> Dictionary:
 			"ball": _anim(3, 30.0, 84, 20), "hit": {"0": _anim(5, 90.0, 60, 60)},
 			"level": _levels(30, {"mpCon": [14.0, 28.0], "mad": [33.0, 120.0], "mastery": [1.0, 10.0]})},
 	}}
-	return {"000": b000, "200": b200, "210": b210}
+	var imgs := {"000": b000, "200": b200, "210": b210}
+	# MP Eater's three branch copies (#59). Synthetic tables match the independently cache-checked endpoints.
+	for job: int in [210, 220, 230]:
+		var book := str(job)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	return imgs
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).

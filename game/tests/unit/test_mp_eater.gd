@@ -119,3 +119,4 @@ func test_real_cache_mp_eater_levels_effects_and_monster_pools() -> void:
 		var kind := MobKind.from_wz(img.root, id)
 		assert_eq(kind.max_mp, {100100: 0, 100101: 15, 210100: 35}[id])
 	assert_eq(library.missing, PackedStringArray(), "all required MP Eater assets are cached")
+	library.free()
