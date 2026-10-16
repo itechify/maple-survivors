@@ -118,7 +118,7 @@
 			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
 			"icon": "Skill.wz/210.img/skill/2100000/icon", "damage": "none",
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (server-reference interpretation).",
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
 			"effect": "Skill.wz/210.img/skill/2100000/effect", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
@@ -128,7 +128,7 @@
 			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
 			"icon": "Skill.wz/220.img/skill/2200000/icon", "damage": "none",
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (server-reference interpretation).",
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
 			"effect": "Skill.wz/220.img/skill/2200000/effect", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
@@ -138,7 +138,7 @@
 			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
 			"icon": "Skill.wz/230.img/skill/2300000/icon", "damage": "none",
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
-			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (server-reference interpretation).",
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
 			"action": "", "action_time": 0.0, "ball": "", "hit": "",
 			"effect": "Skill.wz/230.img/skill/2300000/effect", "rotate": false,
 			"sounds": {"use": "", "hit": ""}

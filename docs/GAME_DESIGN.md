@@ -1375,6 +1375,16 @@ existing shots finish separately from carry-over projectile kills.
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
 | Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
 | MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
+
+MP Eater registers on the shared player-hit listener, after on-hit statuses and before lethal damage/kill handling.
+It reads the passive's current canonical level at impact; physical basic attacks, Three Snails, poison pulses and
+elementally immune hits cannot absorb. It consumes no proc RNG when unlearned, depleted, or unable to absorb even
+one whole MP. Absorb truncates `maxMP × x / 100` to whole points (tier C integer interpretation), caps at remaining
+monster MP, and drains that pool even when player MP is full. `restore_player` supplies the actual capped gain and
+the shared `player_restored` MP number. A separate `mp_eater_absorbed: {mob, amount, skill, pos}` event shows the
+canonical 700 ms effect on every absorb, including zero player gain; it does not duplicate the restoration event.
+The cache has all three effects and icons. Original v83 Sound.wz has no MP Eater entry, so presentation quietly
+probes for an optional use sound and otherwise stays silent without a missing-asset lookup.
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
@@ -1696,6 +1706,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
 | MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
+| MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

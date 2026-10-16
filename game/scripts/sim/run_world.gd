@@ -34,12 +34,15 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+## tier A: branch copies of canonical MP Eater (2100000 / 2200000 / 2300000).
+const MP_EATER_KEYS := ["mp_eater_fp", "mp_eater_il", "mp_eater_cleric"]
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
+	"mp_eater_absorbed": ["mob", "amount", "skill", "pos"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
@@ -234,6 +237,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_directors()
 	_init_player_motion()
 	_init_player()
+	add_hit_listener(_mp_eater_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -901,6 +905,26 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 ## Registers a listener(slot, hit) after on-hit statuses and before damage/kill resolution, once per damaging line.
 func add_hit_listener(listener: Callable) -> void:
 	_hit_listeners.append(listener)
+
+
+func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
+	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
+		return
+	for key: String in MP_EATER_KEYS:
+		var level := loadout.level(key)
+		if level <= 0:
+			continue
+		var chance := book.canonical(key, level, "prop")
+		# tier C: truncate fractional MP to whole points (integer interpretation).
+		var amount := mini(swarm.mp[slot], int(swarm.mob_kind(slot).max_mp * book.canonical(key, level, "x") / 100.0))
+		if chance <= 0.0 or amount <= 0:
+			continue
+		if chance < 100.0 and rng.randf() * 100.0 >= chance:
+			continue
+		swarm.mp[slot] -= amount
+		restore_player("mp", amount, key)
+		# tier C: absorb art also plays at full player MP; gain numbers use player_restored's actual capped gain.
+		emit("mp_eater_absorbed", {"mob": slot, "amount": amount, "skill": key, "pos": player.pos})
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
