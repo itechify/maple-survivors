@@ -15,7 +15,14 @@ extends Node2D
 const DEALT := 0
 const CRIT := 1
 const TAKEN := 2
-const SETS := {DEALT: ["NoRed1", "NoRed0"], CRIT: ["NoCri1", "NoCri0"], TAKEN: ["NoViolet1", "NoViolet0"]}
+const HP_GAIN := 3
+const MP_GAIN := 4
+## tier A: complete NoBlue recovery-shaped digit sets in v83 BasicEff; tier C: HP/MP presentation assignment.
+const SETS := {DEALT: ["NoRed1", "NoRed0"], CRIT: ["NoCri1", "NoCri0"], TAKEN: ["NoViolet1", "NoViolet0"],
+	HP_GAIN: ["NoBlue1", "NoBlue0"], MP_GAIN: ["NoBlue1", "NoBlue0"]}
+## tier C: distinguish MP gains with a cyan tint; missing recovery art falls back to green-tinted Violet digits.
+const MP_TINT := Color(0.65, 1.0, 1.0)
+const GAIN_FALLBACK_TINT := Color(0.55, 1.0, 0.55)
 const BASE := "Effect.wz/BasicEff.img/"
 ## tier B: 400 ms hold, 600 ms fade, 30 px rise (v95 RE via Harepacker docs).
 const HOLD := 0.4
@@ -39,6 +46,7 @@ var _effects: Array[RID] = []
 var _born: PackedFloat32Array = []
 var _base: PackedVector2Array = []
 var _crit: PackedByteArray = []
+var _tint := PackedColorArray()
 var _active: PackedByteArray = []
 var _free: PackedInt32Array = []
 var _glyphs: Dictionary = {}
@@ -61,6 +69,7 @@ func _free_items() -> void:
 	_born.clear()
 	_base.clear()
 	_crit.clear()
+	_tint.clear()
 	_active.clear()
 	_free.clear()
 
@@ -122,7 +131,7 @@ static func fade_at(age: float) -> Vector2:
 	return Vector2(1.0 - k, RISE * k)
 
 
-## Shows a number at `pos` (mob head / player head). `kind` DEALT, CRIT or TAKEN; numbers with the same `key` >= 0
+## Shows a number at `pos` (mob head / player head). `kind` DEALT, CRIT, TAKEN, HP_GAIN or MP_GAIN; same `key` >= 0
 ## spawned within STACK_WINDOW stack upward. Returns the slot, or -1 when the digit art is missing.
 func spawn(value: int, pos: Vector2, kind: int = DEALT, key: int = -1) -> int:
 	return _spawn(str(maxi(value, 0)), pos, kind, key)
@@ -159,7 +168,9 @@ func advance(dt: float) -> void:
 			_free.append(i)
 			continue
 		RenderingServer.canvas_item_set_transform(_items[i], Transform2D(0.0, _base[i] - Vector2(0.0, roundf(fr.y))))
-		RenderingServer.canvas_item_set_modulate(_items[i], Color(1, 1, 1, fr.x))
+		var tint := _tint[i]
+		tint.a = fr.x
+		RenderingServer.canvas_item_set_modulate(_items[i], tint)
 		if _crit[i] == 1:
 			RenderingServer.canvas_item_set_visible(_effects[i], age >= CRIT_EFFECT_DELAY)
 
@@ -168,6 +179,11 @@ func _spawn(text: String, pos: Vector2, kind: int, key: int) -> int:
 	var sets: Array = SETS.get(kind, SETS[DEALT])
 	var large := _glyph_set(sets[0])
 	var small := _glyph_set(sets[1])
+	var tint := MP_TINT if kind == MP_GAIN else Color.WHITE
+	if kind in [HP_GAIN, MP_GAIN] and (large.is_empty() or small.is_empty()):
+		large = _glyph_set("NoViolet1")
+		small = _glyph_set("NoViolet0")
+		tint = GAIN_FALLBACK_TINT if kind == HP_GAIN else MP_TINT
 	var placed := layout_number(text, large, small)
 	if placed.is_empty():
 		return -1
@@ -201,8 +217,9 @@ func _spawn(text: String, pos: Vector2, kind: int, key: int) -> int:
 	_base[i] = pos.round() - Vector2(0.0, lift)
 	_born[i] = _now
 	_active[i] = 1
+	_tint[i] = tint
 	RenderingServer.canvas_item_set_transform(ci, Transform2D(0.0, _base[i]))
-	RenderingServer.canvas_item_set_modulate(ci, Color.WHITE)
+	RenderingServer.canvas_item_set_modulate(ci, tint)
 	RenderingServer.canvas_item_set_visible(ci, true)
 	return i
 
@@ -222,6 +239,7 @@ func _alloc() -> int:
 	_born.append(0.0)
 	_base.append(Vector2.ZERO)
 	_crit.append(0)
+	_tint.append(Color.WHITE)
 	_active.append(0)
 	return _items.size() - 1
 
