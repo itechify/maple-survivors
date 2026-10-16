@@ -1,4 +1,4 @@
-# Spec #30 / #45: rarity balance training
+# Spec #30 / #45: rarity balance training and frozen assessment
 
 The new Potential tiers make sensible card choices much stronger. This pass first evaluates the rarity system
 with the prior stage data, then tests odds and survivor potion supply. Canonical stats, skill costs, restoration,
@@ -22,8 +22,10 @@ The final data ports `c46-late-mp-hp-shift/patch.json` exactly, with documentati
 Historical C46 rejection below records the original strict decision before this owner acceptance. Later C47–C50
 experiments are not selected. C50's full sensible cohort was stopped at owner steering after three completed
 seed logs; `c50-hp-trough-mp-tail/full/aborted.json` marks it incomplete/owner-stop and it supplies no acceptance
-result. No further tuning or fresh held-out runs follow this decision. Final selected-data full suite/rendered
-fixed matrix remain pending root validation; 601–630 is reserved and unused.
+result. No further tuning follows this decision. After final selected-data suite, rendered matrix and both review
+axes passed, the originally planned frozen verification ran once on 601–630, as recorded below. The training
+decision predates that assessment; held-out outcomes characterize the frozen candidate and do not drive tuning.
+**601–630 is now spent. Fresh 701–730 is reserved for a later frozen feature candidate, not this pass.**
 
 | Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
 |---|---|---|---|---|
@@ -53,6 +55,155 @@ fixed matrix remain pending root validation; 601–630 is reserved and unused.
 |---|---|---|---|---|---|
 | Sensible | 1.66 (734/442) | 1.34 (1286/959) | 1.39 (1789/1286) | 1.18 (3464/2948) | 1.43 (8580/5985) |
 | Random | 1.7 (700/411) | 1.46 (1201/821) | 1.5 (1410/939) | 1.28 (2591/2029) | 1.43 (6501/4560) |
+
+## Final frozen validation and held-out characterization
+
+Final executable/data runtime is **`1b154207242672de00130cf1d63b710433892d00`**. The source bridge is historical
+training `599590a9d86bb64dc8c6b5299df6f606fe828721` → inactive EXP cleanup
+`79f9d3fd1a56aba670303e20c9c440a89a5a0508` → upstream status/elemental merge
+`12b7ae81446361e380b60a48671c05565b0530b5` → final `1b154207`. Cleanup retains constant stage/global EXP,
+the shared HP/MP probability curves and RNG ordering; 62 focused tests pass before and after. No shipped skill
+applies the new statuses. On final source, three complete Henesys sensible records match historical C46 bytes:
+
+| Fixed training seed | State / seconds | Historical and final full-record SHA-256 |
+|---|---|---|
+| 1 | DEAD / 756.1 | `4ba18ad2865bfcdff44272a9ca93d06787d302d71176126d56384dc0c698d68c` |
+| 2 | DEAD / 936.9 | `261cb0a09e382cfac423d618d99994bdb4907c590034b7f03b80bb63add4d133` |
+| 2026 | CLEARED / 995.7 | `cc79cc740c21541367915f13d832033e73d0535f879c3ec0b68638e8426792fa` |
+
+This exact-record bridge covers these three neutral Henesys runs, not all six rendered cases or arbitrary status
+configurations. Final selected-data validation passes **570 tests, zero failures, zero skips, 62 files, 270,135 ms**.
+The unchanged full-run guards cover fixed 1/2/2026 on both stages. Independent Spec and Standards reviews of
+source plus selected data each report **zero findings** against base `9c42d93a99692e209dc19597adafd9879b3ea1e2`.
+
+All six rendered cases exit successfully with **`missing=[]`**: Henesys seeds 1/2/2026 give DEAD/DEAD/CLEARED,
+and Tree gives DEAD/DEAD/DEAD. By-eye checks include Henesys seed 1 `t600.png` and `levelup_30.png`, Henesys
+seed 2 `boss_windup_2.png`, and Tree seed 1 `hit_first.png`; sprites, effects, HUD and final-boss art are intact.
+The Henesys 2026 clear is established by its summary. Its final capture was skipped after five seconds without
+a drawn frame, so this report claims no clear PNG. Earlier frames and seed 2's final-boss frame provide the
+visual coverage. Concurrent x32/vsync-off runs are asset/flow verification, not normal-speed performance data.
+Dedicated rarity UI/input-flow evidence remains under `evidence/spec30/ui/`.
+
+The released assessment uses fresh seeds **601–630 once per policy**, after those gates passed. The archived runner uses
+an exclusive `execution-started.json` marker and rejects replay. Both processes exit zero, on final source with
+**no PATCH**, Godot 4.7.2 (`ed1daf0bf`), fixed 1/60 s, 800 × 600 view, 1,800 s cap and JOBS=12. Start UTC is
+2026-10-16T03:18:44.165151+00:00 (owner local date 2026-10-15). Every one of 60 unique records matches its
+sole `BALANCE` console record, contains no world warning, has no logged runtime error/warning, and satisfies
+starting stock + collected − used = final stock. All 30 runs per policy report tier counts. No deaths are
+filtered and no timeout is counted as a clear.
+
+**This characterization does not meet every original target.** Sensible clears **19/30 (63.33%)**, above 50%,
+with death median **943 s**, above 900 s. Random clears **4/30 (13.33%)** with median **433.6 s**, both within
+their bands, but **0/16** observed late runs show MP waiting; the training observation **7/41** does not
+generalize to this sample. Both MP ratios remain 1.2–1.5, and sensible final MP median 60.5 remains below the
+former 117 reference. These findings are reported without pooling with training, replay, retuning or changing
+guards/targets. The owner's earlier acceptance applies to the documented training deviations; it is not
+reinterpreted as acceptance of unmeasured held-out outcomes. Balance will be revisited after more features.
+
+| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
+|---|---|---|---|---|
+| Sensible | 19 / 11 / 0 | 63.33% | 943 s (11) | 275.8 s (30) / 233.7 s (30) / 595.75 s (30) |
+| Random | 4 / 26 / 0 | 13.33% | 433.6 s (26) | 282.2 s (24) / 253.65 s (24) / 573.9 s (11) |
+
+| Policy | MP collected / used; ratio | MP stock median / empty runs | HP collected / used; stock median / empty runs | Late MP-wait runs / observed; seconds waited / observed |
+|---|---|---|---|---|
+| Sensible | 7,403 / 5,688; 1.30151 | 60.5 / 4 of 30 | 1,110 / 1,003; 3.5 / 12 of 30 | 4/30; 245.766 / 14,952.401 |
+| Random | 3,628 / 2,677; 1.35525 | 5.0 / 3 of 30 | 534 / 670; 0.0 / 28 of 30 | 0/16; 0.000 / 4,552.784 |
+
+| Policy / boss ID | Completed median seconds (completed / spawned) | Censored median seconds (spawned) | Unfinished / not spawned / skipped |
+|---|---|---|---|
+| Sensible / 2220000 | 23.76 (30/30) | 23.76 (30) | 0 / 0 / 0 |
+| Sensible / 6130101 | 66.98 (29/30) | 67.09 (30) | 1 / 0 / 0 |
+| Sensible / 9400205 | 91.42 (19/27) | >=89.83 (27) | 8 / 3 / 0 |
+| Random / 2220000 | 45.77 (18/24) | >=30.77 (24) | 6 / 6 / 0 |
+| Random / 6130101 | 73.97 (8/12) | >=50.56 (12) | 4 / 18 / 0 |
+| Random / 9400205 | 71.17 (4/7) | >=56.55 (7) | 3 / 23 / 0 |
+
+| Policy | Tiers offered: Normal / Rare / Epic / Unique / Legendary | Tiers picked: Normal / Rare / Epic / Unique / Legendary | Observed runs |
+|---|---|---|---|
+| Sensible | 3035 / 484 / 125 / 63 / 19 | 1040 / 144 / 39 / 15 / 4 | 30/30 |
+| Random | 1727 / 221 / 62 / 31 / 14 | 581 / 69 / 24 / 9 / 2 | 30/30 |
+
+| Policy | Minute 1 hits/kills | Minute 2 | Minute 3 | Minute 4 | Minute 5 |
+|---|---|---|---|---|---|
+| Sensible | 1.65 (372/225) | 1.32 (621/471) | 1.33 (882/662) | 1.16 (1626/1397) | 1.42 (4275/3013) |
+| Random | 1.73 (352/204) | 1.41 (563/398) | 1.52 (693/455) | 1.33 (1092/820) | 1.44 (3561/2468) |
+
+| Policy / boss ID / source | Whole-hit HP fraction %, median [min–max] (hits) |
+|---|---|
+| Sensible / 2220000 / touch | 47.87 [41.5–52.13] (53) |
+| Sensible / 6130101 / attack | 36.54 [31.68–38.94] (27) |
+| Sensible / 6130101 / touch | 36.14 [30.39–40.84] (123) |
+| Sensible / 9400205 / attack | 36.94 [33.04–43.91] (22) |
+| Sensible / 9400205 / touch | 37.88 [30.12–45.91] (104) |
+| Random / 2220000 / touch | 47.73 [36.86–55.11] (47) |
+| Random / 6130101 / attack | 33.51 [30.39–36.45] (8) |
+| Random / 6130101 / touch | 34.96 [30.25–39.6] (40) |
+| Random / 9400205 / attack | 31.79 [31.79–31.79] (1) |
+| Random / 9400205 / touch | 35.13 [31.64–37.86] (24) |
+
+| Seed | Sensible offered / picked (N,R,E,U,L) | Random offered / picked (N,R,E,U,L) |
+|---|---|---|
+| 601 | 99,12,6,1,2 / 37,3,0,0,0 | 86,5,2,0,0 / 27,2,2,0,0 |
+| 602 | 91,16,1,0,0 / 30,6,0,0,0 | 21,6,0,0,0 / 8,1,0,0,0 |
+| 603 | 110,19,5,4,0 / 38,5,1,2,0 | 64,6,1,1,0 / 22,0,1,1,0 |
+| 604 | 100,17,4,2,0 / 32,7,1,1,0 | 68,5,1,1,0 / 23,2,0,0,0 |
+| 605 | 96,21,7,2,0 / 33,5,3,1,0 | 106,17,6,2,1 / 38,5,1,0,0 |
+| 606 | 100,18,7,4,0 / 35,5,2,1,0 | 24,1,3,2,0 / 6,1,2,1,0 |
+| 607 | 110,15,6,1,0 / 33,6,4,1,0 | 127,15,2,0,0 / 44,3,1,0,0 |
+| 608 | 106,12,5,2,1 / 38,4,0,0,0 | 25,1,0,1,0 / 9,0,0,0,0 |
+| 609 | 105,16,4,0,1 / 35,5,2,0,0 | 59,9,2,1,1 / 21,3,0,0,0 |
+| 610 | 111,15,3,0,0 / 37,5,1,0,0 | 115,16,2,1,1 / 35,8,2,0,0 |
+| 611 | 110,11,3,2,0 / 39,3,0,0,0 | 59,6,6,0,1 / 18,3,3,0,0 |
+| 612 | 104,15,6,2,2 / 39,3,1,0,0 | 90,15,5,3,1 / 34,3,0,1,0 |
+| 613 | 75,8,5,1,1 / 28,1,1,0,0 | 11,0,2,2,0 / 4,0,1,0,0 |
+| 614 | 106,20,5,4,0 / 35,6,3,1,0 | 99,20,5,4,1 / 33,7,1,2,0 |
+| 615 | 100,19,6,4,0 / 33,7,1,2,0 | 25,4,1,0,0 / 9,0,1,0,0 |
+| 616 | 91,14,3,3,0 / 31,4,1,1,0 | 27,2,1,0,0 / 10,0,0,0,0 |
+| 617 | 91,23,1,1,1 / 31,7,1,0,0 | 106,16,0,0,1 / 35,6,0,0,0 |
+| 618 | 114,18,2,3,1 / 39,5,1,0,1 | 11,1,0,0,0 / 4,0,0,0,0 |
+| 619 | 106,19,7,3,0 / 38,6,1,0,0 | 74,9,8,2,0 / 26,2,3,0,0 |
+| 620 | 100,21,2,2,1 / 33,7,1,0,1 | 76,11,3,2,1 / 25,5,1,0,0 |
+| 621 | 97,20,3,3,3 / 35,6,1,0,0 | 13,2,0,0,0 / 5,0,0,0,0 |
+| 622 | 102,16,7,1,0 / 33,5,3,1,0 | 11,1,0,0,0 / 4,0,0,0,0 |
+| 623 | 92,15,3,5,2 / 32,3,3,1,0 | 116,16,1,5,3 / 39,5,1,2,0 |
+| 624 | 102,18,3,3,0 / 36,6,0,0,0 | 9,0,3,0,0 / 3,0,1,0,0 |
+| 625 | 131,15,2,6,2 / 44,4,1,1,2 | 53,2,0,1,1 / 19,0,0,0,0 |
+| 626 | 98,10,3,0,0 / 33,3,1,0,0 | 30,0,0,0,0 / 10,0,0,0,0 |
+| 627 | 91,13,6,1,0 / 30,5,2,0,0 | 12,0,0,0,0 / 4,0,0,0,0 |
+| 628 | 106,13,4,0,0 / 36,3,2,0,0 | 39,4,2,0,0 / 13,2,0,0,0 |
+| 629 | 101,21,5,1,1 / 36,5,1,1,0 | 105,22,6,0,2 / 31,9,3,0,2 |
+| 630 | 90,14,1,2,1 / 31,4,0,1,0 | 66,9,0,3,0 / 22,2,0,2,0 |
+
+Tier order in the per-run table is Normal, Rare, Epic, Unique, Legendary. These are actual displayed/picked
+tiers, including floor-constrained bonus offers; they are not independent Fortune-zero distribution samples.
+HP collection excludes the five starter HP potions per run (150 per policy); final stock includes them. MP
+ratios divide collection totals by use totals. Late-wait observations require time after 8:00 and retain their
+observed-run and observed-seconds denominators. Completed fight medians include only completed observations;
+the completed/spawned and censored counts prevent survivor-only interpretation. Boss-hit fractions use the
+whole hit before Guard's MP split, with actual HP at that hit; their observed spread is distinct from the fixed
+typical-HP damage regression. First-five-minute hits/kill divides lifetime hit sums by ordinary kill sums.
+
+The final hash context is `game/data` tree `6fc008daa47371aac78636328632f44ce0d7d8bc` and sim tree
+`6199b3083c3059baec6fd2db2447a8bcc68617bc`. Full-run guard blob
+`4eb7f63a48b47e8f13f1bc347ebe26989fe83a99` and boss-hit guard blob
+`b39ba91682a7368bfc57c5b8d74b393a9b16d058` are unchanged. Runtime pin `1b154207` precedes the documentation
+closure and script-header-only seed reservation update; executable script/game/sim/data bytes remain frozen.
+
+| Preserved evidence | Location | SHA-256 |
+|---|---|---|
+| Original 122-record training seal | `evidence/spec30/balance/c46-late-mp-hp-shift/freeze.json` | `b2d4416114b27194eb4509b41f66e470265b9bbefdf586121ee77b875f790cb7` |
+| Final suite log | `evidence/spec30/tests/final_suite.log` | `e786f4ca317eed480e2e0192177dd368cccb26e098f34e0e975fa2c2cc386d85` |
+| Six-case rendered matrix | `evidence/spec30/final_render/matrix.json` | `0ffcd27b5a7a5dd4e8bfa9e4832728415ac49fc51c8587c21a46e647145e7269` |
+| By-eye review | `evidence/spec30/final_render/visual_review.txt` | `eb37911d6b993355f1b2d506ffb08766bc236d63ae7fbad835cd59b184120c4a` |
+| Exact neutral record bridge | `evidence/spec30/final_bridge/comparison.json` | `d4aab16ee899c6d6f86c6592f5a4bb68a1c4676c0072323b5cadd3693435ed94` |
+| Held-out 134-artifact seal | `evidence/spec30/balance/c46-heldout-frozen/heldout-seal.json` | `19371fd9d5f25188b18e593d836817e08b6ac4b4f77801dc5fba62578285cc25` |
+
+`evidence/spec30/frozen_validation.json` seals the final gate artifacts and source/data reviews. The held-out
+directory preserves raw JSON/per-seed logs, exact bot/random consoles, machine-readable aggregate JSON and
+exact report logs, assessments, `per-run-tiers.csv`, the table above, source/configuration context, start/finish
+markers and the archived exclusive runner. Its seal hashes 134 artifacts and links the original training and
+final-validation seals. Evidence remains ignored and local; no proprietary cache or screenshots are committed.
 
 ## Evidence and targets
 
@@ -649,7 +800,7 @@ Missing earlier endpoints retain2.5, so interpolation starts at660 s, reaches2.2
 Normal MP remains10% through660 s, tapers to5% at720 s and holds; this provides supply margin above C35's
 ratio-deficient4.5% profile. Rarity86/8/3.8/1.7/0.5, C28 HP endpoints and Mano damage1.0 remain. All opening
 stats, starters, canonical EXP, progression formulas, card magnitudes, policies and fixed guards stay unchanged.
-Both complete populations test a10% late progression reduction with the original opening; acceptance is pending.
+Both complete populations test a 10% late progression reduction with the original opening; the completed results below reject it.
 
 | C36 policy | Clear / dead / timeout | Death-only median (deaths) | Mage / Lv30 medians (reaches) | MP collected / used | MP stock median | Late MP-wait runs / observed |
 |---|---|---|---|---|---|---|
@@ -912,14 +1063,16 @@ If the next MP collection decline matched the prior 57, fixed-use ratio would be
 must still pass. Source stays 79f9d3fd; four diagnostics gate direct full sensible before any full random.
 
 The exact C46 full training profile is frozen by owner acceptance, including the explicitly documented sensible
-clear/death deviations. The separate selected-data full suite and rendered fixed matrix remain validation gates.
-**601–630 remains reserved and unused; held-out scope is undecided until frozen validation.**
-Spent or retired ranges 101–130, 201–212, 301–330, 401–430 and 501–530 are not used for tuning or fresh evidence.
-If later authorized, each fresh held-out policy matrix runs once and no further tuning follows.
+clear/death deviations. Final selected-data suite, six-case rendered matrix, exact three-record source bridge
+and both independent review axes pass as recorded above. The released one-time 601–630 assessment is complete;
+its larger sensible clear/death misses and absent random late waits are characterization, not a tuning input.
+**601–630 is spent. Fresh 701–730 is reserved for a later feature candidate frozen before assessment.**
+Spent or retired 101–130, 201–212, 301–330, 401–430, 501–530 and 601–630 are not reused for tuning or fresh
+evidence. No further tuning follows this assessment, and no 701–730 run belongs to this pass.
 
 ## Reproduction
 
-Run the committed candidate from the integration worktree with its v83 cache installed. Unpatched commands use
+The following commands use **training seeds only**. Run the committed candidate from the integration worktree with its v83 cache installed. Unpatched commands use
 the shipped survivor data; a historical probe additionally sets `PATCH` to its preserved `patch.json` and checks
 out the immutable source commit in its context manifest. `ISOLATE` keeps this job's project mirror separate from
 other Godot processes.
@@ -939,3 +1092,28 @@ The fixed full-run test executes seeds 1/2/2026 on both stages and retains the e
 event, engagement, population, no-lost-mob
 and all-boss finale guards. Presentation `missing` requires the separate rendered RunScene matrix; headless
 balance records alone do not establish asset lookup completeness.
+
+The completed held-out execution is an immutable historical record, not a replay recipe. Seeds 601–630 are spent;
+701–730 remains reserved and unexecuted for this pass. To inspect existing evidence without launching Godot,
+run this read-only hash check from the integration worktree that contains the ignored artifacts:
+
+```bash
+py - <<'PY'
+import hashlib
+import json
+from pathlib import Path
+root = Path.cwd()
+seal_path = root / "evidence/spec30/balance/c46-heldout-frozen/heldout-seal.json"
+assert hashlib.sha256(seal_path.read_bytes()).hexdigest() == "19371fd9d5f25188b18e593d836817e08b6ac4b4f77801dc5fba62578285cc25"
+seal = json.loads(seal_path.read_text(encoding="utf-8"))
+for path, expected in seal["files_sha256"].items():
+    assert hashlib.sha256((root / path).read_bytes()).hexdigest() == expected, path
+assert hashlib.sha256((root / "evidence/spec30/frozen_validation.json").read_bytes()).hexdigest() == seal["frozen_validation_sha256"]
+assert hashlib.sha256((root / "evidence/spec30/balance/c46-late-mp-hp-shift/freeze.json").read_bytes()).hexdigest() == seal["training_seal_sha256"]
+print(f"Verified {len(seal['files_sha256'])} preserved artifacts; no simulations launched.")
+PY
+```
+
+Read `bot/henesys_hg1_bot_summary.json`, `random/henesys_hg1_random_summary.json` and the matching exact
+`*_summary.log` reports under that directory for existing aggregates. Original raw records, hashes and markers
+remain unchanged. Recomputing a display from those stored records is distinct from replaying their spent seeds.
