@@ -62,7 +62,7 @@ changing gameplay.
 
 ```bash
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
-bash scripts/run.sh                                   # play (title -> stage select -> run -> results)
+bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
@@ -98,13 +98,30 @@ no frames, so screenshots are not saved; the run still quits at `--quit-after` (
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
 
-The whole menu flow with injected keyboard/mouse input (title, stage select, a run steered with the arrow keys, the
-level-up / job / pause windows, death, results, retry, quit) is `game/scenes/debug/flow_driver.tscn`:
+The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
+movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
 `bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
-(scenarios `full`, `clear`, `import`, `title`, and the in-run windows `windows` (#85), `skill` (#86), `keys` (#87); see
-the script header).
+Use `--scenario=rounds` for creation -> real tier-1 clear (warp) -> Free Market out00 -> tier-2 map select ->
+Save & quit -> Continue -> Quit round -> same-seed Continue -> death -> deletion/history. All controls use injected
+input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
+boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
+under `evidence/`; saves go to its `driver_save.json`.
+Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
+`keys` (#87); see the script header. Use `ISOLATE=<name>` with
+`scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
+
+Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
+Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
+Continue replays the saved stage/seed from its beginning. Death, final-tier victory and confirmed deletion archive
+the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays tool-only and never writes saves/bests.
 
 ### Balance (`scripts/balance.sh`)
+
+`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-1
+`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`); omitted means a fresh Beginner.
+The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
+its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
@@ -160,6 +177,21 @@ alone. Unfinished/not-spawned/skipped fights are counted separately; no complete
 summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, with exact report output in the matching
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
+
+`--tier=2` chains a tier-1 clear into tier 2 headless; `--stage=<tier-1 key>` selects the first round (default
+Henesys). `--tier=N` continues through N, choosing the first stage of each later `stages.json` `tiers` entry.
+Only CLEARED after all choices feeds the next round; death/TIMEOUT stops the chain. `--cap` applies per round.
+Tier 1 keeps the run seed; later round seeds are derived deterministically. Chain files use
+`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include start/end levels,
+Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss observations. See the
+`scripts/balance.sh` header for the seed formula and record/report contract.
+
+`--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
+`--stage=dark_cave` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
+F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
+`tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
+use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture
+modes on seeds 1/2/2026, bot/random. Record first-pass Dark Cave deaths; tuning belongs to #77.
 
 ## Git
 

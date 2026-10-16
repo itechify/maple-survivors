@@ -7,6 +7,38 @@ const BF := preload("res://tests/fixtures/basic_attack_fixtures.gd")
 const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
 
 
+func test_carried_beginner_uses_each_creation_weapon_and_advancement_replaces_it() -> void:
+	# Invented stats/sounds on real creation IDs; this tests data flow, not canonical weapon facts.
+	for spec: Array in [[1302000, 23, 2, "fixture_sword", "fixture_sword", 0.60],
+			[1322005, 29, 7, "fixture_club", "fixture_club", 0.87], [1312004, 31, 8, "fixture_axe", "fixture_axe", 0.90]]:
+		var source := BF.world(70)
+		var character := source.character_snapshot()
+		character.beginner_weapon = spec[0]
+		var setup := source.setup.duplicate(true)
+		setup.character = character
+		setup.afterimage_imgs[spec[3]] = setup.afterimage_imgs.swordOL.duplicate(true)
+		setup.equipment_info[spec[0]] = {"incPAD": spec[1], "attackSpeed": spec[2],
+			"afterImage": spec[3], "sfx": spec[4]}
+		var world := RunWorld.new(setup)
+		RF.place_player(world, 400)
+		world.player.facing = 1
+		world.god = true
+		_target(world)
+		world.step(DT, MoveInput.new())
+		var starts := _starts(world)
+		assert_eq(world.weapon_id(), spec[0])
+		assert_eq(int(world.weapon_info().incPAD), spec[1])
+		assert_eq(starts.size(), 1)
+		if starts.size() == 1:
+			assert_eq(starts[0].weapon_id, spec[0])
+			assert_near(float(starts[0].interval), float(spec[5]), 1e-9)
+			assert_true(String(starts[0].afterimage).contains(String(spec[3])))
+		world.change_job(200)
+		assert_eq(world.weapon_id(), 1372005, "Magician always swaps to its job weapon")
+		assert_eq(world.character_snapshot().beginner_weapon, spec[0], "selection survives advancement")
+		source = null
+
+
 
 
 func _target(world: RunWorld, x: float = 450.0) -> int:

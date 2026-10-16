@@ -51,6 +51,16 @@ static func load_json(path: String) -> Variant:
 	return json.data
 
 
+## Reads an explicit one-off character file. Invalid/missing files report an error; never substitute a Beginner.
+static func load_character(path: String, errors: PackedStringArray) -> Dictionary:
+	var value: Variant = load_json(path)
+	var error := CharacterSnapshot.validation_error(value)
+	if error != "":
+		errors.append("character '%s': %s" % [path, error])
+		return {}
+	return value
+
+
 ## Cache path of a map img: "Map.wz/Map/Map1/104040000.img" (the folder digit is the first of the 9-digit id).
 static func map_img_path(map_id: int) -> String:
 	var s := "%09d" % map_id
@@ -72,14 +82,34 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 
 
 ## The starter outfit and every job weapon the run can wear (balance.player `equipment`, then `weapon_by_job` in job
-## order), without duplicates: the equipment whose canonical info a setup loads.
-static func starter_equipment_ids(data: Dictionary) -> PackedInt32Array:
+## order), plus MakeCharInfo's Beginner weapons, without duplicates: the canonical info a setup loads.
+static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {}) -> PackedInt32Array:
 	var pb: Dictionary = data.get("balance", {}).get("player", {})
 	var ids := PackedInt32Array()
 	for id: Variant in pb.get("equipment", []) + pb.get("weapon_by_job", {}).values():
 		if int(id) > 0 and not (int(id) in ids):
 			ids.append(int(id))
+	var creation := CharacterCreation.new(creation_img)
+	for gender in CharacterCreation.GENDERS.size():
+		for id: int in creation.options(gender, "weapon"):
+			_add_id(ids, id)
 	return ids
+
+
+## Shared player drawing for rounds, Free Market and slots. Empty look means AvatarRenderer.DEFAULT_LOOK.
+## The character's outfit is carried verbatim; every old weapon is replaced by the simulation's weapon rule.
+static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
+	var look := AvatarRenderer.DEFAULT_LOOK.duplicate(true)
+	look.merge(character.get("look", {}), true)
+	var equips: Array = look.equips.filter(func(id: Variant) -> bool:
+		return WeaponInfo.type_of(int(id)) not in range(130, 171))
+	var weapon := CharacterSnapshot.weapon_id(int(character.get("job_id", 0)),
+		int(character.get("beginner_weapon", 0)), data.get("balance", {}).get("player", {}).get("weapon_by_job", {}),
+		JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})))
+	if weapon > 0:
+		equips.append(weapon)
+	look.equips = equips
+	return look
 
 
 ## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
@@ -153,7 +183,8 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		else:
 			missing.append(skill_img_path(book))
 	var equipment_info := {}
-	for id in starter_equipment_ids(data):
+	var creation_img: Dictionary = img_loader.call(CharacterCreation.IMG)
+	for id in starter_equipment_ids(data, creation_img):
 		var equip_path := AvatarRenderer.part_img_path(id)
 		var equip: Variant = img_loader.call(equip_path)
 		if equip is Dictionary and equip.get("info") is Dictionary:

@@ -17,7 +17,7 @@ extends Node2D
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
-##                   run (autoplay, windows answered after 1 s) -> results (from the run's own summary) -> retry; a
+##                   run (autoplay, windows answered after 1 s) -> results (from the round's own summary) -> character select; a
 ##                   screenshot of each step into --shots=<dir>; saves to user://_test_cache/gallery_save.json
 ##   import --wz=<folder> --autostart   runs the importer from the import screen; the shot is taken when it ends
 ##                   (point MAPLE_SURVIVORS_CACHE at a scratch folder to leave the real cache alone)
@@ -26,6 +26,7 @@ extends Node2D
 ## --shot=<png>    save the logical viewport after --frames=N (default 40) or --at=<seconds>, and quit
 ## --focus=<i>     focus entry i (windows)             --map=<id>   map behind the windows (104040000)
 ## --quit=<n>      quit after n frames          --size=WxH   window size (e.g. 1920x1080: a 1066x600 view)
+## --full-loadout  results: show every shipped skill at its last rank (tier C: diagnostic layout stress case)
 
 const SAMPLE_CARDS := [
 	{"id": "energy_bolt_new", "kind": "skill_new", "skill": "energy_bolt", "name": "Energy Bolt",
@@ -138,6 +139,14 @@ func _show_screen(which: String) -> void:
 					{"key": "magic_guard", "name": "Magic Guard", "icon": "Skill.wz/200.img/skill/2001002/icon",
 						"rank": 1},
 				]}
+			if args.has("full-loadout"):
+				var book := SkillBook.from_data(DataRepo.load_all().skills, {})
+				summary.skills = []
+				for key: String in book.defs:
+					var skill := book.def(key)
+					summary.skills.append({"key": key, "name": skill.get("name", key),
+						"icon": skill.get("icon", ""), "rank": book.max_rank(key)})
+				print("ui_gallery: full loadout skills=%d" % summary.skills.size())
 			scene.configure(summary, not dead, {"time": 900.0, "cleared": true, "level": 33, "kills": 3300})
 	add_child(scene)
 	if which == "stage_select" and args.has("focus"):
@@ -336,8 +345,8 @@ func _run_flow() -> void:
 	var steps: Array = [
 		[0.0, func() -> void: flow.goto_title()],
 		[9.0, _shot_to.bind(dir.path_join("flow_1_title.png"))],
-		[9.5, func() -> void: flow.goto_stage_select()],
-		[11.5, _shot_to.bind(dir.path_join("flow_2_stage_select.png"))],
+		[9.5, func() -> void: flow.goto_character_select()],
+		[11.5, _shot_to.bind(dir.path_join("flow_2_characters.png"))],
 		[12.0, func() -> void: flow.start_run("tree_that_grew_1", 11, {"autoplay": true, "window_autopick": 1.0,
 			"speed": 4})],
 		[30.0, _shot_to.bind(dir.path_join("flow_3_run.png"))],
@@ -349,9 +358,9 @@ func _run_flow() -> void:
 		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("tree_that_grew_1"))],
 		[34.0, func() -> void:
 			var res := flow.current
-			if res != null and res.has_method("retry"):
-				res.retry()],
-		[38.0, _shot_to.bind(dir.path_join("flow_5_retry.png"))],
+			if res != null and res.has_method("to_character_select"):
+				res.to_character_select()],
+		[38.0, _shot_to.bind(dir.path_join("flow_5_characters.png"))],
 		[38.5, func() -> void: print("ui_gallery: flow done, current = ", flow.current_name); get_tree().quit()],
 	]
 	for s: Array in steps:
@@ -377,6 +386,7 @@ func _take_shot() -> void:
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path)
 	print("ui_gallery: shot %s %dx%d err=%d" % [path, img.get_width(), img.get_height(), err])
+	print("ui_gallery: missing=%s" % (UiArt.lib().missing if UiArt.lib() != null else []))
 	if window is LevelUpWindow:
 		var lib := UiArt.lib()
 		var sfx := get_node_or_null("/root/Sfx") as AudioService

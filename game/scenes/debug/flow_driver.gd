@@ -6,42 +6,46 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   full    title (Enter) -> stage select (mouse click on Start) -> run played with the arrow keys / Space (jump), the
-##           movement computed by BotInput.decide and sent as key presses -> level-up windows answered with the mouse
-##           (first) and the digit keys (BotInput.pick_card_for's card) -> the job dialog (Magician by digit key, then
-##           a key to skip the confirmation) -> Esc pause menu, Esc resume -> hands off the keys at --stop-at run s until
-##           the character dies -> tombstone -> results -> Retry (mouse) -> a new run -> Esc, "4" (quit to stage
-##           select) -> Esc (back to the title) -> Esc (quit).
-##           The bot's HP/MP potion decisions are injected as Q/E presses alongside movement.
-##   clear   for a main.tscn started with --run=<stage> --autoplay --autopick --speed=N (no --quit-after): waits for the
-##           stage clear and the results screen, then Stage select (mouse) -> title (Esc) -> quit (Esc).
+##   rounds  creates two characters through the v83 signboard/form, clears tier 1 (fixed-tick warp), walks to
+##           Free Market out00, saves/reloads map select, starts tier 2, quits/reloads the same boundary/seed,
+##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
+##           makes ONLY tier 2 invulnerable and applies diagnostic lethal boss hits after 15:00 to inspect victory;
+##           this is presentation evidence, not balance evidence. Bosses/rewards still finish through RunWorld.
+##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
+##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
+##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
+##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.
+##   clear   --run tool one-off: waits for clear -> results -> character select -> title -> quit; never saves.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
-##   windows the in-run window system (#85): title -> stage select -> run; S opens the Stat window (the sim is checked
-##           to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an EXP drop levels
-##           the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks a card; the
-##           status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
+##   windows the in-run window system (#85): title -> new character -> map select -> run; S opens the Stat window (the
+##           sim is checked to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an
+##           EXP drop levels the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks;
+##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
 ##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
-##   skill   the Skill window (#86): title -> stage select -> run; the build is set up directly (Magician, then Wizard
-##           (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm, Magnet x2); K opens Skill on the 2nd-job tab
-##           (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left switches to the Magician
-##           tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a click opens the star tab
-##           and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a level-up choice (1 switches
-##           the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots: skill_window,
-##           skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
-##   keys    Key Config and Options (#87): title -> stage select -> run (no bot); Esc pauses, 2 opens Key Config over the
-##           pause menu, the jump icon is dragged from Space onto F, OK; Esc resumes; Space no longer jumps, F does;
-##           Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does; Options -> Arrows,
-##           Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up first and restored
-##           before the driver quits, also on failure. Shots: key_config, key_config_rebound, options, options_wasd.
+##   skill   the Skill window (#86): title -> new character -> map select -> run; the build is set up directly
+##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm, Magnet x2); K opens Skill
+##           on the 2nd-job tab (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left
+##           switches to the Magician tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a
+##           click opens the star tab and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a
+##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
+##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
+##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
+##           Key Config over the pause menu, the jump icon is dragged from Space onto F, OK; Esc resumes; Space no
+##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
+##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
+##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
+##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
-## effects too), --stop-at=<run s> (full: 300), --wz=<folder> (import).
+## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
 ## when a step times out or the full scenario misses the Magician / pause-resume path. Full also writes summary.json
 ## from RunScene's public snapshot, including the seed, potion totals, tier counts and missing assets.
+## tier C: diagnostic names, seeds 1 (full) and 4 (rounds), 1800s combat cap, 600-tick yields, 100s progress logs,
+## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
 const MAIN := "res://scenes/main.tscn"
 ## Keys the steering sends (project.godot defaults: arrows, Space jump and Q/E potions).
@@ -56,6 +60,8 @@ var _steer := false
 var _held := {}
 var _memo := {}
 var _failed := false
+var _missing := PackedStringArray()
+var _rounds: Array[Dictionary] = []
 ## The keys scenario: user://settings.cfg as it was before the run (null = there was none), restored on every exit.
 var _settings_backup: Variant = null
 var _settings_saved := false
@@ -70,8 +76,12 @@ func _ready() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(shots_dir)
 	flow = get_node_or_null("/root/Flow") as SceneFlow
+	# The scripted UI creates/deletes real slots, always in ignored evidence, never the player's save.
+	flow.save = SaveData.new(shots_dir.path_join("driver_save.json"))
 	add_child((load(MAIN) as PackedScene).instantiate())
 	match String(args.get("scenario", "full")):
+		"rounds":
+			_scenario_rounds()
 		"clear":
 			_scenario_clear()
 		"import":
@@ -84,8 +94,10 @@ func _ready() -> void:
 			_scenario_skill()
 		"keys":
 			_scenario_keys()
-		_:
+		"full":
 			_scenario_full()
+		_:
+			_fail("unknown scenario: " + String(args.get("scenario")))
 
 
 func _process(_delta: float) -> void:
@@ -95,6 +107,232 @@ func _process(_delta: float) -> void:
 
 # --- scenarios ---------------------------------------------------------------------------------------------------
 
+func _scenario_rounds() -> void:
+	# tier C: training seed 4, a bot Henesys clear after #79 (seed 1 no longer clears); --seed overrides it.
+	if not args.has("seed"):
+		args["seed"] = "4"
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _key(KEY_ENTER)
+	if not await _create_character("Spare75"):
+		return
+	await _click(flow.current.get("back_button") as Control)
+	if not await _create_character("Rounds75"):
+		return
+	await _sleep(2.0)
+	await _shot("map_select_tier1")
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "tier 1"):
+		return
+	await _shot("tier1_start")
+	if not await _warp_round():
+		return
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after real clear"):
+		return
+	var boundary := flow.save.slot(flow.active_slot)
+	if not _expect(boundary.phase == "free_market" and int(boundary.tier) == 1
+			and int(boundary.rounds_played) == 1, "tier-1 clear did not save the next boundary"):
+		return
+	await _sleep(0.5)
+	await _shot("free_market_arrival")
+	# Also check hub Save & quit and disk reload, through the real pause controls.
+	await _key(KEY_ESCAPE)
+	await _shot("free_market_save_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	# Mouse selects the spare, Right selects the carried character; Start is the shared v83 signboard button.
+	await _click(flow.current.slot_buttons[0])
+	if not _expect(flow.current.selected == 0, "mouse character selection failed"):
+		return
+	await _key(KEY_RIGHT)
+	if not _expect(flow.current.selected == 1, "keyboard character selection failed"):
+		return
+	await _shot("selected_carried_character")
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var hub := flow.current as FreeMarket
+	var exit_pos := Vector2.ZERO
+	for portal: Dictionary in hub.motion.portals.links:
+		if portal.name == "out00":
+			exit_pos = portal.pos
+	# No teleport or direct scene call: hold arrows from the canonical arrival to the real exit.
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 30000:
+			_fail("walking to out00 timed out")
+			return
+		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
+		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
+		await get_tree().process_frame
+	_release_all()
+	await _shot("free_market_out00")
+	_collect_missing(hub)
+	await _key(KEY_UP)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
+		return
+	await _sleep(2.0)
+	if not _expect(flow.current.stages.size() == 1 and flow.current.stages[0].key == "dark_cave",
+			"tier 2 offered a stage outside Dark Cave"):
+		return
+	await _shot("map_select_tier2")
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved map select"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[1])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "continued map select"):
+		return
+	await _sleep(2.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "tier 2"):
+		return
+	var saved := flow.save.slot(flow.active_slot)
+	var bytes := FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json"))
+	await _sleep(1.0)
+	await _shot("dark_cave_start")
+	await _quit_round_ui()
+	if _failed:
+		return
+	if not _expect(FileAccess.get_file_as_bytes(shots_dir.path_join("driver_save.json")) == bytes,
+			"Quit round changed the boundary file"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[1])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued tier 2"):
+		return
+	var run := flow.current as RunScene
+	# Disk JSON turns numeric fields into floats; compare both snapshots in the same representation.
+	var normalized: Dictionary = JSON.parse_string(JSON.stringify(saved))
+	var resumed: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(flow.active_slot)))
+	if resumed != normalized:
+		print("flow_driver: boundary before ", JSON.stringify(normalized))
+		print("flow_driver: boundary resumed ", JSON.stringify(resumed))
+	print("flow_driver: resumed level %s / saved %s" % [run.world.player_state.level, saved.character.level])
+	if not _expect(run.run_seed == int(saved.round_seed) and run.stage_key == saved.stage,
+			"Continue changed stage or round seed"):
+		return
+	if not _expect(run.world.player_state.level == int(saved.character.level)
+			and resumed == normalized,
+			"Continue changed the boundary character"):
+		return
+	await _shot("dark_cave_replayed")
+	if String(args.get("diagnostic-victory", "0")) == "1":
+		run.world.god = true
+	if not await _warp_round():
+		return
+	if not await _until(func() -> bool: return flow.current_name == "results", 15.0, "run ending"):
+		return
+	await _sleep(1.0)
+	var ending := "victory" if String(args.get("diagnostic-victory", "0")) == "1" else "died"
+	if not _expect(flow.last_summary.ending == ending, "unexpected run ending"):
+		return
+	await _shot("results_" + ending)
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "ended character removed"):
+		return
+	if not _expect(flow.save.slot(1).is_empty(), "ended run still occupies a slot"):
+		return
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.delete_button)
+	await _shot("delete_confirmation")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	if not _expect(not flow.save.slot(0).is_empty(), "cancel deleted the spare"):
+		return
+	await _click(flow.current.delete_button)
+	await _sleep(0.3) # Respect the same modal input guard when reopening after Cancel.
+	await _key(KEY_ENTER)
+	if not await _until(func() -> bool: return flow.save.slot(0).is_empty(), 10.0, "confirmed deletion"):
+		return
+	await _sleep(0.5)
+	await _click(flow.current.find_child("RunHistory", true, false) as Control)
+	if not await _until(func() -> bool: return flow.current_name == "history", 10.0, "History entry"):
+		return
+	await _sleep(1.0)
+	await _shot("history_" + ending)
+	var history := flow.save.history
+	if not _expect(history.size() == 2 and history[0].ending == ending
+			and history[0].name == "Rounds75" and int(history[0].rounds_played) == 2
+			and history[1].ending == "deleted" and history[1].name == "Spare75", "history did not archive both runs"):
+		return
+	_collect_missing(flow.current)
+	if not _expect(_missing.is_empty(), "missing assets: %s" % _missing):
+		return
+	var report := {"scenario": "rounds", "diagnostic_victory": ending == "victory", "rounds": _rounds,
+		"replayed_seed": saved.round_seed, "history": history, "missing": Array(_missing), "failures": []}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: rounds PASSED ", JSON.stringify(report))
+	get_tree().quit()
+
+
+## Warps actual fixed ticks with the existing bot/choice policy; never fabricates a clear or character.
+## UI navigation remains injected input. End events still go through RunScene's normal presentation/Flow path.
+func _warp_round() -> bool:
+	var run := flow.current as RunScene
+	run.set_process(false)
+	var memo := {}
+	var ticks := 0
+	while run.world.time < 1800.0 and run.world.state not in [RunWorld.DEAD, RunWorld.CLEARED]:
+		BotInput.auto_choose(run.world)
+		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
+			run.handle_events(run.world.drain_events())
+			break
+		if run.world.state != RunWorld.PLAYING:
+			continue
+		if run.world.god and run.stage_key == "dark_cave" and run.world.time >= run.world.duration:
+			# tier C: supplemental victory-screen staging, not a naturally won round or a balance candidate.
+			# Use the real damage/death/reward path; never fabricate a summary or bypass pending choices.
+			for record: Dictionary in run.world.bosses.records:
+				var slot := int(record.slot)
+				if not bool(record.dead) and slot >= 0 and run.world.swarm.is_live(slot):
+					run.world.hit_mob(slot, {"skill": "three_snails", "magic": true, "damage_min": 1e9,
+						"damage_max": 1e9, "crit": 0.0, "crit_mult": 1.0}, -1)
+		run.world.step(RunScene.DT, BotInput.decide(run.world, memo))
+		var events := run.world.drain_events()
+		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
+			run.handle_events(events)
+		ticks += 1
+		if ticks % 600 == 0:
+			await get_tree().process_frame
+		if ticks % 6000 == 0:
+			print("flow_driver: warp %.0f s / Lv %d" % [run.world.time, run.world.player_state.level])
+	if not _expect(run.world.state in [RunWorld.DEAD, RunWorld.CLEARED], "round timed out during warp"):
+		return false
+	run._apply_job_look(int(run.world.player_state.job_id))
+	run._present(0.0)
+	_collect_missing(run)
+	_rounds.append(run.build_summary())
+	if not _expect(run.world.warnings.is_empty(), "world warnings during warp"):
+		return false
+	await _shot("round_" + run.world.state_name().to_lower())
+	run.set_process(true)
+	return true
+
+
+func _quit_round_ui() -> void:
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	await _key(KEY_4)
+	await _shot("quit_round_warning")
+	await _key(KEY_4)
+	await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "Quit round")
+
+
+func _reload_save() -> void:
+	flow.save = SaveData.new(shots_dir.path_join("driver_save.json"))
+
+
+func _expect(ok: bool, message: String) -> bool:
+	if not ok:
+		_fail(message)
+	return ok
+
 func _scenario_full() -> void:
 	var ts := float(args.get("time-scale", "3"))
 	var stop_at := float(args.get("stop-at", "300"))
@@ -103,12 +341,12 @@ func _scenario_full() -> void:
 	await _sleep(9.0)
 	await _shot("title")
 	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+	if not await _create_character("Flow69"):
 		return
 	await _sleep(3.0)
-	await _shot("stage_select")
+	await _shot("map_select")
 	var sel: Node = flow.current
-	await _click(sel.get("start_button") as Control)
+	await _start_selected(sel)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
 	var run := flow.current as RunScene
@@ -177,6 +415,8 @@ func _scenario_full() -> void:
 			print("flow_driver: resumed = %s" % resumed_once)
 	_steer = false
 	_release_all()
+	# Capture the tomb before the accelerated end hold can dispose of the round.
+	Engine.time_scale = 1.0
 	print("flow_driver: the character died at %.0f s, level %d" % [run.world.time, run.world.player_state.level])
 	var snapshot := run.perf_summary(run.build_summary())
 	snapshot["flow"] = {"windows": windows, "job_seen": job_seen, "pause_seen": paused_once, "resumed": resumed_once}
@@ -197,24 +437,58 @@ func _scenario_full() -> void:
 	Engine.time_scale = 1.0
 	await _sleep(3.0)
 	await _shot("results_death")
-	await _click(flow.current.get("retry_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "retry run"):
+	await _click(flow.current.get("back_button") as Control)
+	if not await _create_character("Quit69"):
 		return
 	await _sleep(3.0)
-	await _shot("retry_run")
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "new character round"):
+		return
+	await _sleep(3.0)
+	var round_seed := (flow.current as RunScene).run_seed
+	await _shot("new_round")
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
-	await _shot("retry_pause")
 	await _key(KEY_4)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select (quit)"):
+	await _sleep(0.5)
+	await _shot("quit_round_warning")
+	await _key(KEY_4)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters after quit"):
 		return
-	await _sleep(3.0)
-	await _shot("stage_select_after_quit")
+	await _sleep(1.0)
+	await _shot("characters_after_quit")
+	await _click(flow.current.get("select_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued round"):
+		return
+	if (flow.current as RunScene).run_seed != round_seed:
+		_fail("Continue changed the saved round seed")
+		return
+	await _sleep(1.0)
+	await _shot("continued_round")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	await _key(KEY_4)
+	await _key(KEY_4)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters"):
+		return
+	await _click(flow.current.find_child("RunHistory", true, false) as Control)
+	await _sleep(1.0)
+	await _shot("history")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
 	await _key(KEY_ESCAPE)
 	if not await _until(func() -> bool: return flow.current_name == "title", 10.0, "title (back)"):
 		return
 	await _sleep(2.0)
 	await _shot("title_again")
+	_collect_missing(flow.current)
+	snapshot["missing"] = Array(_missing)
+	file = FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(snapshot, "\t"))
+		file.close()
+	if not _expect(_missing.is_empty(), "full scenario missing assets: %s" % _missing):
+		return
 	print("flow_driver: done (%d level-up windows answered, job dialog %s)" % [windows, job_seen])
 	await _key(KEY_ESCAPE)
 	await _sleep(2.0)
@@ -222,12 +496,17 @@ func _scenario_full() -> void:
 
 
 func _scenario_clear() -> void:
+	var save_path := shots_dir.path_join("driver_save.json")
+	var before := FileAccess.get_file_as_bytes(save_path) if FileAccess.file_exists(save_path) else PackedByteArray()
 	if not await _until(func() -> bool: return flow.current_name == "run", 20.0, "run"):
 		return
 	var run := flow.current as RunScene
 	if not await _until(func() -> bool: return run.world != null and run.world.state == RunWorld.CLEARED, 1800.0,
 			"stage clear"):
 		return
+	# Keep a detached result before any await can let Flow dispose of this accelerated one-off scene.
+	var summary := run.build_summary()
+	Engine.time_scale = 1.0
 	await _sleep(0.8)
 	await _shot("clear_notice")
 	if not await _until(func() -> bool: return flow.current_name == "results", 30.0, "results"):
@@ -235,10 +514,19 @@ func _scenario_clear() -> void:
 	await _sleep(3.5)
 	await _shot("results_clear")
 	await _click(flow.current.get("back_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
 		return
-	await _sleep(3.0)
-	await _shot("stage_select_best")
+	await _sleep(1.0)
+	await _shot("characters_after_one_off_clear")
+	var after := FileAccess.get_file_as_bytes(save_path) if FileAccess.file_exists(save_path) else PackedByteArray()
+	if not _expect(before == after and flow.save.history.is_empty(), "one-off clear wrote persistent progress"):
+		return
+	if not _expect(_missing.is_empty(), "clear scenario missing assets: %s" % _missing):
+		return
+	summary["missing"] = Array(_missing)
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(summary, "\t"))
+	file.close()
 	await _key(KEY_ESCAPE)
 	await _until(func() -> bool: return flow.current_name == "title", 10.0, "title")
 	await _sleep(2.0)
@@ -247,16 +535,50 @@ func _scenario_clear() -> void:
 	get_tree().quit(1 if _failed else 0)
 
 
-func _scenario_windows() -> void:
+## Keeps the real Start click while fixing only the boundary seed for reproducible keyboard steering.
+func _start_selected(screen: Node) -> void:
+	var button: WzButton = screen.get("start_button")
+	button.pressed.disconnect(screen.start_selected)
+	button.pressed.connect(func() -> void:
+		# tier C: diagnostic training seed; --seed overrides it. Production map select still randomizes.
+		flow.start_round(String(screen.stages[screen.selected].key), int(args.get("seed", "1"))))
+	await _click(button)
+
+
+func _create_character(character_name: String) -> bool:
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return false
+	await _sleep(0.5)
+	await _shot("character_select")
+	await _click(flow.current.get("create_button") as Control)
+	await _sleep(0.5)
+	var creation: Control = flow.current.get("creation")
+	await _shot("creation_gender")
+	await _click(creation.get("create_button") as Control)
+	await _shot("creation_name")
+	await _click(creation.get("name_edit") as Control)
+	await _type(character_name)
+	await _click(creation.get("create_button") as Control)
+	await _shot("creation_look")
+	await _click(creation.get("create_button") as Control)
+	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
+
+
+## Title (Enter) -> a new character -> map select -> Start: the way into a round for the in-run window scenarios.
+func _enter_round(character_name: String) -> bool:
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
+		return false
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
-		return
+	if not await _create_character(character_name):
+		return false
 	await _sleep(1.5)
-	await _click(flow.current.get("start_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+	await _start_selected(flow.current)
+	return await _until(func() -> bool: return flow.current_name == "run", 10.0, "run")
+
+
+func _scenario_windows() -> void:
+	if not await _enter_round("Windows85"):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
@@ -340,15 +662,7 @@ func _scenario_windows() -> void:
 
 
 func _scenario_skill() -> void:
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
-		return
-	await _sleep(1.5)
-	await _click(flow.current.get("start_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+	if not await _enter_round("Skill86"):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
@@ -447,15 +761,7 @@ func _scenario_keys() -> void:
 	if settings == null:
 		_fail("no Settings autoload")
 		return
-	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
-		return
-	await _sleep(2.0)
-	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
-		return
-	await _sleep(1.5)
-	await _click(flow.current.get("start_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+	if not await _enter_round("Keys87"):
 		return
 	var run := flow.current as RunScene
 	await _sleep(3.0)
@@ -810,12 +1116,49 @@ func _until(cond: Callable, timeout: float, what: String) -> bool:
 
 
 func _shot(step: String) -> void:
-	await RenderingServer.frame_post_draw
+	# The collaborative desktop may occlude the window; explicitly render this evidence frame.
+	# tier C: let the existing modal input guard and 0.15s open transition finish before the next input/capture.
+	await _sleep(0.35)
+	await get_tree().process_frame
+	RenderingServer.force_draw()
+	_collect_missing(flow.current)
 	_n += 1
 	var path := shots_dir.path_join("%02d_%s.png" % [_n, step])
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path) if img != null else ERR_CANT_CREATE
 	print("flow_driver: shot %s %s err=%d" % [path.get_file(), img.get_size() if img != null else Vector2i.ZERO, err])
+	if err != OK:
+		_failed = true
+		push_error("flow_driver: could not save screenshot " + path)
+
+
+## Retains misses before scene disposal, including renderer/UI lookups outside AssetLibrary.missing.
+func _collect_missing(node: Node) -> void:
+	if node == null:
+		return
+	if node is RunScene:
+		for path: String in node.setup_missing:
+			if not path in _missing:
+				_missing.append(path)
+	if node is WzImage and not node.has_art() and not node.path in _missing:
+		_missing.append(node.path)
+	if node is WzButton and not node.has_art() and not node.base_path in _missing:
+		_missing.append(node.base_path)
+	if node.has_method("missing_paths"):
+		for path: String in node.call("missing_paths"):
+			if not path in _missing:
+				_missing.append(path)
+	for property: Dictionary in node.get_property_list():
+		if property.name == "missing":
+			for item: Variant in node.get("missing"):
+				var path := "Mob.wz/%07d.img" % int(item) if node is MobRenderer else String(item)
+				if not path in _missing:
+					_missing.append(path)
+	for child: Node in node.get_children():
+		_collect_missing(child)
+	for path: String in AssetLibrary.get_default().missing:
+		if not path in _missing:
+			_missing.append(path)
 
 
 func _fail(msg: String) -> void:

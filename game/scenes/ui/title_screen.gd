@@ -1,7 +1,7 @@
 extends Node2D
 ## Title screen (docs/ARCHITECTURE.md 4.1): the v83 login scene (LoginBackdrop at the title section, BGM
 ## BgmUI/Title, the book frame) with the game's buttons on the wooden login signboard: Start (Login.img/CharSelect/
-## BtSelect, the wooden "Start") goes to the stage select, Quit (Login.img/Title/BtQuit) exits. "Re-import WZ data" on
+## BtSelect, the wooden "Start") goes to character select, Quit (Login.img/Title/BtQuit) exits. "Re-import WZ data" on
 ## the middle plank re-runs the WZ import: a small wooden plate of the same signboard (Login.img/Title/BtLoginIDLost,
 ## "Find login ID", widened from its text-free left columns so it carries our label instead; its own mouseOver and
 ## pressed art). Keys: Enter = Start, Esc = Quit.
@@ -14,22 +14,25 @@ const BT_QUIT := "UI.wz/Login.img/Title/BtQuit"
 ## The small signboard plate behind the re-import label, and its text-free left columns (measured: the words start at
 ## column 7 of the 82 px plate in every state).
 const BT_PLATE := "UI.wz/Login.img/Title/BtLoginIDLost"
-const PLATE_LEFT := 5.0
-const PLATE_PAD := 9.0
+const PLATE_LEFT := 5.0 # tier C: text-free Title/BtLoginIDLost columns, existing offline plate treatment.
+const PLATE_PAD := 9.0 # tier C: offline Re-import label padding, same art.
 const PLATE_TEXT := Color8(255, 238, 204)
 const PLATE_OUTLINE := Color8(68, 34, 0)
 ## The login signboard (Map.wz/Obj/login.img/Title/signboard/0, placed at (137, 21) by MapLogin.img, 368x236 with its
 ## origin at the centre). Start goes on the (covered) top plank, the re-import link on the middle plank, Quit on the
 ## big bottom plank; plank centres in sign-local px.
-const SIGN_CENTER := Vector2(137, 21)
+const SIGN_CENTER := Vector2(137, 21) # tier A: MapLogin.img Title/signboard object position.
 const SIGN := "Map.wz/Obj/login.img/Title/signboard/0/0"
 ## Sign-local rects: the labels and fields to cover, and the blank wood used to cover them.
-const SIGN_FIELDS := Rect2(60, 7, 206, 77)
-const SIGN_WOOD := Rect2(266, 7, 92, 77)
-const SIGN_SIZE := Vector2(368, 236)
-const PLANK_TOP := Vector2(208, 46)
-const PLANK_MID := Vector2(208, 104)
-const PLANK_LOW := Vector2(208, 151)
+const SIGN_FIELDS := Rect2(60, 7, 206, 77) # tier C: remove account ink from original Title/signboard.
+const SIGN_WOOD := Rect2(266, 7, 92, 77) # tier C: blank original sign wood used for the offline patch.
+const SIGN_SIZE := Vector2(368, 236) # tier A: Title/signboard canvas.
+## tier C: offline Start in the original Login region (TL590,243), Re-import on the middle plank,
+## Quit at TL590,354. Private spec32/v83-login-refs/layout.md Title, title_1.png / title_2.png;
+## localized/undated captures do not establish exact GMS v83 placement.
+const PLANK_TOP := Vector2(315, 44)
+const PLANK_MID := Vector2(183, 106)
+const PLANK_LOW := Vector2(307, 159)
 
 var backdrop: LoginBackdrop
 var ui: CanvasLayer
@@ -118,7 +121,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_start() -> void:
 	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.goto_stage_select()
+		flow.goto_character_select()
 
 
 func _on_quit() -> void:

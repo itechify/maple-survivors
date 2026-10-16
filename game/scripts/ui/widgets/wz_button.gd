@@ -1,7 +1,7 @@
 class_name WzButton
 extends BaseButton
 ## A MapleStory button drawn from a WZ button node: `<base>/normal/0`, `mouseOver/<n>`, `pressed/0`, `disabled/0` and
-## the optional `keyFocused/<n>` (drawn instead of normal while the button has the keyboard highlight). Every state may
+## the optional `keyFocused/<n>` (replaces normal, or overlays it when key_focus_overlay is set, while highlighted). Every state may
 ## animate (several numbered canvases, WZ delays). Every state canvas is drawn with its origin where the normal
 ## canvas's origin is (normal top-left = the button's 0, 0), so keyFocused frames with origin (1, 1) grow one pixel
 ## around the normal art like the client, and centre-origin buttons (Login.img/BtOk) line up too.
@@ -43,6 +43,8 @@ var label_outline_color := Color(0, 0, 0, 0.9)
 var plate_width := 0.0
 var plate_left := 0.0
 ## Show the keyFocused art (keyboard highlight driven by the owning window).
+## Login CharSelect keyFocused canvases contain only a pointer: draw them over normal art.
+var key_focus_overlay := false
 var key_focused := false:
 	set(v):
 		key_focused = v
@@ -64,6 +66,21 @@ func _init(p_base: String = "", p_label: String = "") -> void:
 	mouse_exited.connect(queue_redraw)
 	button_down.connect(queue_redraw)
 	button_up.connect(queue_redraw)
+
+
+## Constructs a keyboard-focusable action button; the owning screen supplies its art and geometry.
+static func for_action(path: String, fallback: String, fallback_box: Vector2, action: Callable,
+		focus_overlay: bool = false) -> WzButton:
+	var button := WzButton.new(path)
+	button.fallback_size = fallback_box
+	if not button.has_art():
+		button.label = fallback
+	button.focus_mode = Control.FOCUS_ALL
+	button.key_focus_overlay = focus_overlay
+	button.focus_entered.connect(func() -> void: button.key_focused = true)
+	button.focus_exited.connect(func() -> void: button.key_focused = false)
+	button.pressed.connect(action)
+	return button
 
 
 ## Plate mode: draws the art `width` px wide from its columns [0, left) and column `left` repeated (its baked words
@@ -114,6 +131,8 @@ func _draw() -> void:
 	if a != null and plate_width > 0.0:
 		TiledFrame.draw_h_slices(self, Vector2.ZERO, a.frame_at(_t, true), plate_left, plate_left, plate_width)
 	elif a != null:
+		if s == "keyFocused" and key_focus_overlay:
+			UiArt.blit_origin(self, (_anims.normal as SpriteAnim).frame_at(_t, true), _origin)
 		UiArt.blit_origin(self, a.frame_at(_t, true), _origin)
 	elif not has_art():
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(238, 136, 51) if s != "disabled" else Color8(170, 170, 170))

@@ -68,8 +68,34 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 
 ### 4.1 Scene flow
 
-`main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `StageSelect` ->
-`RunScene` -> `ResultsScreen` -> back to `StageSelect` or a restart of the same stage.
+`main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `CharacterSelect` ->
+`StageSelect` (map select for this character's next tier) -> `RunScene` (one round). Non-final clears carry the
+character to the Free Market hub, whose out00 exit opens the next tier's map select;
+death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
+There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
+
+`SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+It saves phase `free_market` on a non-final clear,
+`map_select` on exit/first creation and phase `round`
+with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
+seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
+coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
+The outgoing CharacterSnapshot is required only on clears. Terminal death archives the last saved boundary
+character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
+bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
+for both RunWorld and the Free Market.
+`FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
+there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
+draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while
+PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
+life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
+`--run` calls `start_run`, an independent one-off with no save writes.
+
+The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
+creation, pause and History input. It warps real fixed simulation ticks through combat, walks the hub to out00,
+reloads the evidence-only save from disk and checks byte-preserving Quit round and same-stage/seed Continue.
+Its optional tier-2 victory probe uses invulnerability and diagnostic boss hits after 15:00, then resolves real
+rewards and clear events. It checks presentation only; natural outcomes belong to balance smokes.
 
 ### 4.2 Autoloads
 
@@ -78,9 +104,33 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
 | `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child (`goto_title`, `goto_stage_select`, `goto_import`, `start_run`, `finish_run` -> results + best result in `SaveData`), `--run=<stage>` command line |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
+
+`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`.
+The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
+`character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
+`map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.
+The caller supplies dates and seeds. Outside a round, retain the last stage for deletion history.
+
+`slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
+(or -1, with `last_error`); `update_slot(index, snapshot, round_summary := {})` returns `Error`.
+`end_run(index, ending, date, final_snapshot := {}, round_summary := {})` frees the slot and appends
+`{name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}` in one write. It resolves the job
+name from canonical jobs; pass the final run wrapper for terminal progress, or omit it to delete the saved character.
+`ending` is `died`, `victory` or `deleted`. Supplying a finished-round summary to either mutation counts that round
+and compares its best in the same transaction. Supply it once; do not also call `record` for that round.
+The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helpers retain their existing behavior;
+#69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
+
+Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
+Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation
+failure blocks writes. Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`,
+copy the previous file to `.bak`, then replace the primary. In-memory mutations commit only after success.
+Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/windows/dir_access_windows.cpp#L288-L327)
+removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
+A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
 
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
@@ -90,7 +140,7 @@ in-run window (Stat, Skill, Menu popup) holds the run the same way.
 
 ### 4.3 Simulation / presentation split
 
-A run is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
+A round is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
 accumulator. It never touches nodes, input, time or files. Each tick it consumes a `MoveInput` and appends events
 (`{"type": "mob_hit", ...}`) to `RunWorld.events`. The presentation layer drains the events every frame to spawn damage
 numbers, hit effects and sounds, and reads the struct-of-arrays state directly to draw mobs, projectiles and pickups.
@@ -293,11 +343,21 @@ seconds). It reads attack-local PADamage/MADamage rather than contact attack and
 `source_kind = attack`. `attack_dmg_mult` is separate from contact `dmg_mult`; `attack_interval` is a survivor
 start-to-start cadence because these attack nodes contain no interval. A canonical `jumpAttack` flag opts into
 the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack frames/metadata remain as cached.
+An explicit `magic=1` also selects magic damage, falling back to mob MADamage when no local attack value exists.
+Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
+The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
+
+Type 1 is a targeted direct strike (tier C, not verified v83 RE): acquisition checks the character body centre
+within `range/r` of the mirrored `range/sp`. Once admitted, the single character is locked; `attackAfter`
+resolves through normal take_hit regardless of escape or jumping, without a projectile or second range test.
+Death/fade cancellation, defence, avoid, invincibility and Magic Guard still apply. The canonical effect plays
+at the caster at effectAfter, the hit art at the character on impact. Details: `docs/research/dark-cave-boss-attacks.md`.
 
 For type 2, `range/r` is the acquisition radius and travel range; `range/sp` is the mirrored muzzle offset.
 At attackAfter, a ball aims at the player's current body centre and travels straight (tier C). The adopted unit
 conversion is `bulletSpeed × 1000/600` px/s, equivalent to `r × 600/bulletSpeed` ms flight; this interpretation
 is tier C, inspired by a later-client reference, not verified v83 client RE. WZ fields remain unchanged.
+Absent/nonpositive bulletSpeed uses `balance.mob_projectiles.default_speed` (320 px/s, tier C) instead.
 Balls store source attack/accuracy/multiplier independently of the live mob, expire at range, and use swept
 segment-vs-player-body contact with a survivor collision radius. RunScene's separate `mob_shots` renderer uses
 the existing batched ProjectileRenderer and `RunWorld.visual_paths`. No per-projectile Nodes are introduced.
@@ -518,6 +578,16 @@ What the tables above leave open; the class doc comments have the rest.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
+`RunWorld` accepts an optional `setup.character` format-1 `CharacterSnapshot` and exposes
+`character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
+it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
+skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look and Beginner weapon.
+Resolved attributes/Fortune are also included for consumers. Each new world refills computed HP/MP and creates
+fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
+choice push an error, return empty in release and assert in debug. With no character the original setup/event
+path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
+RunScene's `options.character` path and `tools/balance_run.gd --character=<abs path>`.
+
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
 policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
@@ -551,7 +621,7 @@ score setting. Both knobs are tier C survivor tuning.
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
 | `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the pure `sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. The one HUD control that takes the mouse is the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`, process mode ALWAYS so it works while the HUD is frozen). |
-| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, stage select, results and import are scenes under `scenes/ui/`. |
+| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 `RunScene.boss_bars()` builds presentation-only snapshots from live encounter records and swarm HP, independently

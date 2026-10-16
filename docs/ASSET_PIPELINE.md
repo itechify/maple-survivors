@@ -109,6 +109,15 @@ effect. The removed Max HP card no longer needs the extra `Skill.wz/100.img/skil
 
 ## 5. Cache format (contract)
 
+Character creation (#70) imports `Etc.wz/MakeCharInfo.img` `Info/CharMale`, `Info/CharFemale` and their `Name`
+subtrees through the generic img importer (no archive-specific decoder). The numeric columns are face, hair,
+hair colour, skin, top, bottom, shoes and weapon, in that order (tier A, original v83 data). `CharacterCreation`
+reads these at runtime; the manifest selects every allowed face, all base-hair/colour combinations, four body/head
+skins, clothes and weapons. The existing whole `UI.wz/Login.img` selection supplies CharSelect, NewChar and Gender.
+`DataRepo.build_setup` reads the same MakeCharInfo weapon column to load each weapon's original info and afterimage.
+Synthetic Rust import coverage checks Etc numeric columns and names; real-cache Godot coverage checks all variants.
+
+
 ```
 <cache_root>/                                       %APPDATA%/MapleSurvivors/asset_cache/v83 by default
   cache.json                                        index (below)
@@ -196,6 +205,12 @@ The agent verified actual playback through these checks. On 2026-10-15 the owner
 and approved its fit for Unique / Legendary offers, completing listening acceptance.
 
 ## 6. Runtime consumption (Godot)
+
+Free Market (#71) selects map 910000000. The map expansion includes its backgrounds, objects, tiles, portal art,
+FreeMarket mark and `Sound.wz/Bgm00.img/FloralLife`. NPCs are explicit manifest entries (maps expand life mobs,
+not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names.
+Spec #32 branch imports use private caches per the binding decisions; #71 uses
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71`. No decoded assets are committed.
 
 `Assets` (`scripts/assets/asset_library.gd`):
 

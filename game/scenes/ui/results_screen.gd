@@ -3,13 +3,9 @@ extends Node2D
 ## select, unrolled with the run's results. Left: the headline ("Stage Clear!" or "You died", with the v83 tombstone
 ## Effect.wz/Tomb.img/land/0), the map, time survived, level, job, kills, damage dealt and a NEW BEST marker; right: the
 ## skills owned (Skill.wz icons with Basic.img/ItemNo rank digits, as on the HUD) and the previous best.
-## Buttons: RETRY (UIWindow.img/RpsGame/BtRetry, the v83 mini-game's green "RETRY" button; the wooden "Start" read as
-## "start" next to "Back") plays the same stage again with a new seed; Back (Login.img/Common/BtStart) returns to the
-## stage select. Keys: Enter = retry, Esc = stage select.
-##
-##   results.configure(summary, new_best, previous_best)   # before add_child (Flow.finish_run does this)
+## The single Back button returns to character select; Enter and Esc do the same. Persistent last-tier clears
+## say Victory and show tiers cleared; tool-only clears still say Stage Clear. No retry creates a parallel run.
 
-const BT_RETRY := "UI.wz/UIWindow.img/RpsGame/BtRetry"
 const BT_BACK := "UI.wz/Login.img/Common/BtStart"
 const ROLLED := "WorldSelect/signboard/2"
 const SCROLL_WORLD_POS := Vector2(-214, -829)
@@ -36,15 +32,16 @@ var previous_best: Dictionary = {}
 
 var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
-var retry_button: WzButton
+var flow: SceneFlow
 var back_button: WzButton
 
 
 ## Sets the data to show (call before the screen enters the tree).
-func configure(p_summary: Dictionary, p_new_best: bool, p_previous_best: Dictionary = {}) -> void:
+func configure(p_summary: Dictionary, p_new_best: bool, p_previous_best: Dictionary = {}, p_flow: SceneFlow = null) -> void:
 	summary = p_summary
 	new_best = p_new_best
 	previous_best = p_previous_best
+	flow = p_flow
 
 
 func _ready() -> void:
@@ -64,39 +61,29 @@ func _ready() -> void:
 	ui.add_child(scroll)
 	scroll.draw_content.connect(_draw_parchment)
 	scroll.opened.connect(func() -> void: backdrop.hide_objs(ROLLED))
-	retry_button = WzButton.new(BT_RETRY)
-	retry_button.name = "Retry"
-	retry_button.fallback_size = Vector2(99, 31)
-	retry_button.label = "" if retry_button.has_art() else "Retry"
-	retry_button.pressed.connect(retry)
-	scroll.content.add_child(retry_button)
 	back_button = WzButton.new(BT_BACK)
-	back_button.name = "StageSelect"
+	back_button.name = "CharacterSelect"
 	back_button.fallback_size = Vector2(124, 52)
-	back_button.label = "" if back_button.has_art() else "Stage select"
-	back_button.pressed.connect(to_stage_select)
+	back_button.label = "" if back_button.has_art() else "Character select"
+	back_button.pressed.connect(to_character_select)
 	ui.add_child(back_button)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	scroll.unroll()
 
 
-## Plays the same stage again with a new seed.
-func retry() -> void:
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
+## Returns to the living character slots after an ended run or a one-off round.
+func to_character_select() -> void:
+	if flow == null:
+		flow = get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.start_run(String(summary.get("stage", flow.last_stage)), -1)
-
-
-## Returns to the stage select.
-func to_stage_select() -> void:
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
-	if flow != null:
-		flow.goto_stage_select()
+		flow.goto_character_select()
 
 
 ## Headline of a summary.
 static func headline(p_summary: Dictionary) -> String:
+	if p_summary.get("ending") == "victory":
+		return "Victory!"
 	return "Stage Clear!" if bool(p_summary.get("cleared", false)) else "You died..."
 
 
@@ -105,13 +92,16 @@ static func stat_rows(p_summary: Dictionary) -> Array:
 	var t := float(p_summary.get("time", 0.0))
 	var d := float(p_summary.get("duration", 0.0))
 	var time_s := Hud.format_time(t) + (" / " + Hud.format_time(d) if d > 0.0 else "")
-	return [
+	var rows := [
 		["Time", time_s],
 		["Level", str(int(p_summary.get("level", 1)))],
 		["Job", String(p_summary.get("job_name", ""))],
 		["Kills", group_digits(int(p_summary.get("kills", 0)))],
 		["Damage dealt", group_digits(int(p_summary.get("damage_dealt", 0)))],
 	]
+	if p_summary.has("tiers_cleared"):
+		rows.append(["Tiers cleared", str(int(p_summary.tiers_cleared))])
+	return rows
 
 
 ## 1234567 -> "1,234,567".
@@ -121,7 +111,7 @@ static func group_digits(n: int) -> String:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if MapleWindow.is_confirm(event):
-		retry_button.pressed.emit()
+		back_button.pressed.emit()
 		get_viewport().set_input_as_handled()
 	elif MapleWindow.key_pressed(event, KEY_ESCAPE):
 		back_button.pressed.emit()
@@ -132,8 +122,6 @@ func _layout() -> void:
 	var view := get_viewport_rect().size
 	var o := ((view - Vector2(GameSettings.BASE_VIEW)) * 0.5).floor()
 	scroll.position = (view * 0.5 + SCROLL_WORLD_POS - LoginBackdrop.WORLD_SELECT).floor()
-	var r := ParchmentScroll.PARCHMENT
-	retry_button.position = Vector2(LEFT_X + floorf((LEFT_W - retry_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
 
 
@@ -179,19 +167,35 @@ func _draw_left(ci: Control, r: Rect2) -> void:
 		y += 15.0
 
 
+## Layout of learned skills, bounded above the best-result block in scroll-local coordinates.
+static func skill_layout(count: int) -> Dictionary:
+	# tier C: retain two named rows; larger loadouts use compact icons above a 6px best-block gap.
+	var r := ParchmentScroll.PARCHMENT
+	var area := Rect2(RIGHT_X, r.position.y + 26.0, RIGHT_W, r.size.y - 26.0 - 34.0 - 22.0 - 6.0)
+	var names := count <= 8
+	var cols := 4 if names else maxi(6, ceili(sqrt(float(count) * area.size.x / area.size.y)))
+	var rows := maxi(1, ceili(float(count) / cols))
+	var cell := SKILL_CELL if names else Vector2(area.size.x / cols, minf(36.0, area.size.y / rows)).floor()
+	var side := minf(cell.x, cell.y)
+	var icon_size := 32.0 if names else minf(32.0, side - minf(4.0, side * 0.1))
+	var cells: Array[Rect2] = []
+	for i in count:
+		cells.append(Rect2(area.position + Vector2((i % cols) * cell.x, int(i / cols) * cell.y), cell))
+	return {"area": area, "cells": cells, "names": names, "icon_size": icon_size}
+
+
 func _draw_right(ci: Control, r: Rect2) -> void:
 	var x := RIGHT_X
 	var y := r.position.y + 6.0
 	MapleText.draw(ci, Vector2(x, y), "Skills", INK, MapleText.SIZE, true)
 	y += 20.0
 	var skills: Array = summary.get("skills", [])
-	var cols := int(RIGHT_W / SKILL_CELL.x)
+	var layout := skill_layout(skills.size())
 	for i in skills.size():
 		if not (skills[i] is Dictionary):
 			continue
 		var s: Dictionary = skills[i]
-		var cell := Vector2(x + (i % cols) * SKILL_CELL.x, y + int(i / cols) * SKILL_CELL.y)
-		_draw_skill(ci, s, cell)
+		_draw_skill(ci, s, layout.cells[i], layout.names, layout.icon_size)
 	if skills.is_empty():
 		MapleText.draw(ci, Vector2(x, y), "No skills.", INK_SOFT, MapleText.SMALL)
 	var by := r.end.y - 34.0
@@ -203,9 +207,10 @@ func _draw_right(ci: Control, r: Rect2) -> void:
 		MapleText.SMALL)
 
 
-func _draw_skill(ci: Control, s: Dictionary, cell: Vector2) -> void:
-	var icon_pos := cell + Vector2(floorf((SKILL_CELL.x - 32.0) * 0.5), 0)
-	UiArt.blit_icon(ci, UiArt.icon_or_fallback(String(s.get("icon", ""))), icon_pos)
+func _draw_skill(ci: Control, s: Dictionary, cell: Rect2, names: bool, icon_size: float) -> void:
+	var icon_pos := cell.position + Vector2(floorf((cell.size.x - icon_size) * 0.5), 0)
+	ci.draw_set_transform(icon_pos, 0.0, Vector2.ONE * (icon_size / 32.0))
+	UiArt.blit_icon(ci, UiArt.icon_or_fallback(String(s.get("icon", ""))), Vector2.ZERO)
 	var rank := str(int(s.get("rank", 0)))
 	var frames: Array[SpriteFrame] = []
 	var w := 0.0
@@ -214,13 +219,16 @@ func _draw_skill(ci: Control, s: Dictionary, cell: Vector2) -> void:
 		if f != null:
 			frames.append(f)
 			w += f.region.size.x
-	var rx := icon_pos.x + 32.0 - w
+	var rx := 32.0 - w
 	for f in frames:
-		UiArt.blit(ci, f, Vector2(rx, icon_pos.y + 32.0 - f.region.size.y))
+		UiArt.blit(ci, f, Vector2(rx, 32.0 - f.region.size.y))
 		rx += f.region.size.x
-	var y := cell.y + 34.0
-	for line in MapleText.wrap(String(s.get("name", "")), SKILL_CELL.x - 8.0, MapleText.SMALL).slice(0, 2):
-		MapleText.draw_centered(ci, cell.x, y, SKILL_CELL.x, line, INK, MapleText.SMALL)
+	ci.draw_set_transform(Vector2.ZERO)
+	if not names:
+		return
+	var y := cell.position.y + 34.0
+	for line in MapleText.wrap(String(s.get("name", "")), cell.size.x - 8.0, MapleText.SMALL).slice(0, 2):
+		MapleText.draw_centered(ci, cell.position.x, y, cell.size.x, line, INK, MapleText.SMALL)
 		y += MapleText.LINE_SMALL - 1.0
 
 

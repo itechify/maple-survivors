@@ -212,6 +212,10 @@ var _job_mp := 0.0
 var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
+var _base_fortune := 0.0
+## Carried appearance and the canonical weapon chosen at character creation.
+var character_look := {}
+var beginner_weapon := 0
 var _dead := false
 var basic: BasicAttack
 var basic_rng: RandomNumberGenerator
@@ -334,6 +338,29 @@ func _init_player_motion() -> void:
 ## Name of the current state ("PLAYING", ...).
 func state_name() -> String:
 	return STATE_NAMES[state]
+
+
+## Returns independent round-boundary data; unresolved rewards/jobs/advancement draws are an error, never dropped.
+## In release returns {} after push_error; debug also asserts so callers cannot silently discard a choice.
+func character_snapshot() -> Dictionary:
+	if state in [CHOOSING_JOB, CHOOSING_UPGRADE] or progression.has_pending() or pending_bonus_choices > 0 \
+			or choice_bonus or choice_advancement or not pending_jobs.is_empty() or not pending_cards.is_empty():
+		push_error("RunWorld.character_snapshot: a character choice is pending")
+		assert(false, "RunWorld.character_snapshot: a character choice is pending")
+		return {}
+	var skills := {}
+	for key: String in loadout.order:
+		skills[key] = {"rank": loadout.rank(key),
+			"mods": CharacterSnapshot.encode_mods(loadout.skill_mods.get(key, {}))}
+	return {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
+		"job_id": progression.job_id, "attributes": _attributes.duplicate(),
+		"base_attributes": _base_stats.duplicate(), "earned_ap": _earned_ap,
+		"base_hp": _base_hp, "base_mp": _base_mp, "job_mp": _job_mp,
+		"skills": skills, "skill_order": loadout.order.duplicate(),
+		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
+		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
+		"fortune": float(player_state.fortune), "base_fortune": _base_fortune,
+		"look": character_look.duplicate(true), "beginner_weapon": beginner_weapon}
 
 
 ## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
@@ -918,9 +945,10 @@ func start_action(action: String, seconds: float, airborne: bool = false) -> voi
 	upkeep.start_action(action, seconds, airborne)
 
 
-## Canonical starter weapon selected by the current job's survivor-data rule.
+## Chosen Beginner weapon, otherwise the current job's survivor-data weapon rule.
 func weapon_id() -> int:
-	return int(_job_value(balance.get("player", {}).get("weapon_by_job", {}), 0))
+	return CharacterSnapshot.weapon_id(progression.job_id, beginner_weapon,
+		balance.get("player", {}).get("weapon_by_job", {}), jobs)
 
 
 ## The current weapon's canonical info node (empty when absent).
@@ -1076,6 +1104,7 @@ func _init_player() -> void:
 	var pb: Dictionary = balance.get("player", {})
 	_base_hp = float(pb.get("hp", 50.0))
 	_base_mp = float(pb.get("mp", 5.0))
+	_base_fortune = float(pb.get("fortune", 0.0))
 	var starting: Dictionary = pb.get("stats", {})
 	for stat: String in _base_stats:
 		_base_stats[stat] = int(starting.get(stat, _base_stats[stat]))
@@ -1085,12 +1114,38 @@ func _init_player() -> void:
 	cast_height = float(pb.get("cast_height", DEFAULT_CAST_HEIGHT))
 	cast_forward = float(pb.get("cast_forward", DEFAULT_CAST_FORWARD))
 	player.place(PortalSet.start_point(setup.get("map_img", {}), fhm, bounds, spawn_rng), fhm)
+	if setup.has("character"):
+		_restore_character(setup.character)
 	refresh_player_stats()
 	_hp = _max_hp
 	_mp = _max_mp
-	for key: Variant in pb.get("skills", []):
-		learn_skill(String(key))
+	if not setup.has("character"):
+		for key: Variant in pb.get("skills", []):
+			learn_skill(String(key))
 	_action = player.stance()
+
+
+func _restore_character(character: Dictionary) -> void:
+	assert(int(character.get("format", 0)) == CharacterSnapshot.FORMAT, "Unsupported CharacterSnapshot format")
+	progression.level = int(character.level)
+	progression.exp = int(character.exp)
+	progression.job_id = int(character.job_id)
+	_base_stats = CharacterSnapshot.integers(character.base_attributes)
+	_earned_ap = int(character.earned_ap)
+	_base_hp = float(character.base_hp)
+	_base_mp = float(character.base_mp)
+	_job_mp = float(character.job_mp)
+	_base_fortune = float(character.base_fortune)
+	CharacterSnapshot.restore_loadout(character, loadout)
+	for kind: String in potions.stock:
+		potions.stock[kind] = CharacterSnapshot.integers(character.potions[kind])
+	character_look = character.get("look", {}).duplicate(true)
+	for field: String in ["skin", "face", "hair"]:
+		if character_look.has(field):
+			character_look[field] = int(character_look[field])
+	if character_look.has("equips"):
+		character_look.equips = character_look.equips.map(func(id: Variant) -> int: return int(id))
+	beginner_weapon = int(character.get("beginner_weapon", 0))
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
@@ -1345,7 +1400,7 @@ func _equipment_total(field: String) -> float:
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var pb: Dictionary = balance.get("player", {})
 	var ids: Array = pb.get("equipment", []).duplicate()
-	var weapon := int(_job_value(pb.get("weapon_by_job", {}), 0))
+	var weapon := weapon_id()
 	if weapon > 0 and not (weapon in ids):
 		ids.append(weapon)
 	var total := 0.0
@@ -1409,7 +1464,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
 	# Canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
 	player_state["acc"] = buffs.effect_total("acc")
-	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", float(balance.get("player", {}).get("fortune", 0.0))))
+	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", _base_fortune))
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t

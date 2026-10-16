@@ -9,6 +9,41 @@ extends TestCase
 
 const DT := 1.0 / 60.0
 
+
+func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
+	if not require_cache():
+		return
+	var original := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
+	original.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
+	original.beginner_weapon = 1322005
+	scene = _make("henesys_hg1", 70, {"character": original})
+	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
+		"equips": [1041011, 1061008, 1072038, 1322005]})
+	scene.world.change_job(200)
+	_frames(1)
+	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
+		"equips": [1041011, 1061008, 1072038, 1372005]})
+	_assert_nothing_missing(scene, "selected look and job weapon")
+
+
+func test_one_off_character_file_option_restores_character() -> void:
+	if not require_cache():
+		return
+	var original := preload("res://tests/fixtures/run_fixtures.gd").quiet_world()
+	original.change_job(210)
+	var character := original.character_snapshot()
+	character.level = 35
+	character.exp = 17
+	var path := ProjectSettings.globalize_path(test_dir("one off character.json"))
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(character))
+	file.close()
+	scene = _make("henesys_hg1", 1, {"character": path, "autoplay": true, "autopick": true})
+	assert_eq(scene.world.character_snapshot(), character)
+	assert_eq(int(scene.world.player_state.level), 35)
+	_assert_nothing_missing(scene, "one-off character file")
+
 var lib: AssetLibrary
 var scene: RunScene
 var finished: Array = []
@@ -272,7 +307,7 @@ func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 	var sounds := int(scene.counters.sounds)
 	var effects := scene.fx.active_count()
 	scene.handle_events([{"type": "boss_attack", "phase": "start", "boss_index": 1,
-		"sound": "Sound.wz/Mob.img/6130101/Attack1"},
+		"sound": "Sound.wz/Mob.img/6130101/Attack1", "attack": "attack1", "time": 0.0, "impact_time": 1.05},
 		{"type": "boss_attack", "phase": "effect", "boss_index": 1,
 		"effect": effect, "pos": pos, "facing": -1}])
 	assert_eq(scene.counters.sounds, sounds + 1)
@@ -512,8 +547,11 @@ func test_pause_holds_the_run() -> void:
 	assert_true(w.time > t, "running again")
 	scene.open_pause()
 	pm = scene.window as PauseMenu
-	assert_true(pm != null and pm.activate(3), "Quit to stage select")
-	assert_eq(finished.size(), 1, "quitting ends the run (without Flow: run_finished)")
+	assert_true(pm != null and pm.activate(3), "Quit round asks for confirmation")
+	assert_eq(finished.size(), 0, "the warning leaves the round paused")
+	assert_true(scene.paused)
+	assert_true(pm.activate(3), "confirm Quit round")
+	assert_eq(finished.size(), 1, "confirmed quit without Flow emits run_finished")
 	_assert_nothing_missing(scene, "pause")
 
 

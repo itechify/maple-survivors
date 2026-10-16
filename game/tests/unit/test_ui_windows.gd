@@ -395,12 +395,16 @@ func test_pause_menu_keys() -> void:
 	assert_false(w.is_open())
 	w.open()
 	w.handle_input(key(KEY_4))
-	assert_eq(_got, ["resumed", "quit"], "4 quits")
+	assert_eq(_got, ["resumed"], "Quit round requires confirmation")
+	assert_true(w.is_open())
+	w.handle_input(key(KEY_4))
+	assert_eq(_got, ["resumed", "quit"], "confirmed Quit round")
 	w.open()
 	w.handle_input(key(KEY_UP))
 	assert_eq(w.focus, 3, "Up from Resume wraps to Quit")
 	w.handle_input(key(KEY_ENTER))
-	assert_eq(_got[2], "quit", "Up + Enter quits")
+	w.handle_input(key(KEY_ENTER))
+	assert_eq(_got[2], "quit", "Up + Enter confirms quit")
 	w.open()
 	assert_eq(w.focus, 0, "open focuses Resume")
 	w.handle_input(key(KEY_ENTER))
@@ -413,14 +417,17 @@ func test_pause_menu_mouse_and_buttons() -> void:
 	w.quit_requested.connect(_record.bind("quit"))
 	w.open()
 	w._gui_input(click(w.choice_rect(3).get_center()))
-	assert_eq(_got, ["quit"], "click on Quit")
+	assert_eq(_got, [], "click on Quit asks first")
+	w._gui_input(click(w.choice_rect(3).get_center()))
+	assert_eq(_got, ["quit"], "click on confirmation")
 	w.open()
 	w._bt_cancel.pressed.emit()
 	assert_eq(_got, ["quit", "resumed"], "CANCEL resumes")
 	w.open()
 	w.focus = 3
 	w._bt_ok.pressed.emit()
-	assert_eq(_got[2], "quit", "OK takes the focused choice")
+	w._bt_ok.pressed.emit()
+	assert_eq(_got[2], "quit", "OK confirms the focused choice")
 
 
 func test_pause_menu_opens_key_config_and_options_and_stays_open() -> void:
@@ -428,7 +435,7 @@ func test_pause_menu_opens_key_config_and_options_and_stays_open() -> void:
 	w.window_requested.connect(_record)
 	w.resumed.connect(_record.bind("resumed"))
 	w.open()
-	assert_eq(PauseMenu.CHOICES, ["Resume", "Key Config", "Options", "Quit to stage select"])
+	assert_eq(PauseMenu.CHOICES, ["Resume", "Key Config", "Options", "Quit round"])
 	w.handle_input(key(KEY_2))
 	assert_eq(_got, ["key_config"], "2: Key Config")
 	assert_true(w.is_open(), "the pause menu stays open under the window")
@@ -437,3 +444,18 @@ func test_pause_menu_opens_key_config_and_options_and_stays_open() -> void:
 	assert_true(w.is_open())
 	w.handle_input(key(KEY_ESCAPE))
 	assert_eq(_got[2], "resumed")
+
+
+func test_boundary_pause_menu_lists_only_resume_and_save_and_quit() -> void:
+	var w := _add(PauseMenu.new()) as PauseMenu
+	w.boundary_mode = true
+	w.window_requested.connect(_record)
+	w.quit_requested.connect(_record.bind("quit"))
+	w.open()
+	assert_eq(w.choices(), ["Resume", "Save & quit"])
+	w.handle_input(key(KEY_3))
+	assert_eq(_got, [], "the hub has no Options choice")
+	w.handle_input(key(KEY_UP))
+	assert_eq(w.focus, 1, "Up from Resume wraps to Save & quit")
+	w.handle_input(key(KEY_2))
+	assert_eq(_got, ["quit"], "Save & quit needs no confirmation")

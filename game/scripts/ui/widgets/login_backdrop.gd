@@ -4,8 +4,8 @@ extends Node2D
 ## Map.wz/Back/login.img, layer objs from Map.wz/Obj/login.img, BGM BgmUI/Title), seen through the classic book frame
 ## UI.wz/Login.img/Common/frame (800x600, centred; the rest of a wider view is black, like the 800x600 client).
 ##
-## Sections of the login map (camera centres, measured from the map's backs and objs): the title with the logo at
-## (0, 0) (TITLE), the world select at (0, -600) (WORLD_SELECT), the character select at (0, -1200) (CHAR_SELECT).
+## Sections of the login map (tier C camera centres inferred from captures and map composition): the title with the logo at
+## (28, -11) (TITLE), the world select at (0, -600) (WORLD_SELECT), the character select at (28, -1208) (CHAR_SELECT).
 ## The camera is not clamped: MapBounds of this map (its miniMap rect) would push the title section off-centre.
 ##
 ## The title logo (Obj login.img/Title/logo/0) fades in over its first frame (8 s, a0 0 -> 255); its second frame has
@@ -16,9 +16,12 @@ const MAP_IMG := "UI.wz/MapLogin.img"
 const FRAME := "UI.wz/Login.img/Common/frame"
 const BGM := "Sound.wz/BgmUI.img/Title"
 const BGM_SELECT := "Sound.wz/BgmUI.img/WCSelect"
-const TITLE := Vector2(0, 0)
-const WORLD_SELECT := Vector2(0, -600)
-const CHAR_SELECT := Vector2(0, -1200)
+const TITLE := Vector2(28, -11) # tier C: matched to title_1.png, localized v62; private spec32/v83-login-refs.
+const WORLD_SELECT := Vector2(0, -600) # tier C: MapLogin section inference; same layout.md, World/channel.
+## tier C: matched to charselect_1.png signboard/bridge/house; private spec32/v83-login-refs/wz-layout-notes.md.
+const CHAR_SELECT := Vector2(28, -1208)
+## tier C: matched to period newchar_1.png mushroom cap / branch; private spec32/v83-login-refs, not stored camera data.
+const NEW_CHAR := Vector2(37, -3007)
 const LOGO := "Title/logo"
 
 ## The map renderer (null until _ready).

@@ -9,19 +9,35 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 
 ## 1. The run
 
-1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
-2. **Start.** Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
-   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). The map's own BGM plays.
+1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
+   look and weapon choices. Map select offers one stage from the next tier: Henesys Hunting Ground I or The Tree
+   That Grew I in tier 1, then Dark Cave in tier 2.
+2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
+   random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
+   White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). Later rounds restore the carried
+   character with full HP/MP. The map's own BGM plays.
 3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
 5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
-   their bonus reward choices answered. Results show time, level, job, kills, damage dealt and owned skills;
-   Retry or Stage select.
+   their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
+   results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
-Runs are independent: level, job and skills reset every run. Persistent progression is Phase 3.
+Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+Level, partial EXP, job/branch, AP, skill ranks/mods, potions, Fortune, look and weapon carry; HP/MP refill and
+buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
+Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round.
+Death, victory and confirmed deletion end the run, free its slot and enter history; results have no Retry.
+A non-final clear autosaves the carried
+character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
+The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking, jumping, its two ladders and
+existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
+and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
+tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
+Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
 
 ## 2. Controls
 
@@ -38,7 +54,7 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
 | Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
-| Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit to stage select |
+| Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
 There is no attack key: attacks cast automatically. Teleport is manual on X.
@@ -198,6 +214,30 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
+Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run tier list:
+`[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
+Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
+the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
+unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Ordinary mobs use contact
+damage only; Tauro magic attacks and Jr. Boogie statuses belong to #76. Cross-map exits west00/east00 and NPC
+9201133 use the existing drawn, inert handling. The original spawn list is 9 Horny Mushrooms, 7 Zombie Mushrooms
+and 35 Stirges (tier A, original Map.wz).
+
+| Time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
+|---|---|---|---|---|---|
+| 0:00 | 3 | 50 | 2110200:4, 2230101:4, 2300100:1 | 1 | 1 |
+| 2:00 | 4.5 | 80 | 2110200:3, 2230101:3, 2300100:1, 2230100:3 | 1 | 1.05 |
+| 5:00 | 7 | 130 | 2110200:2, 2230101:2, 2300100:1, 2230100:3, 3230100:3, 3230300:1 | 1.15 | 1.1 |
+| 8:00 | 10 | 180 | 2230101:2, 2300100:1, 2230100:3, 3230100:4, 3230300:2 | 1.3 | 1.15 |
+| 10:00 | 12 | 220 | 2230101:1, 2300100:1, 2230100:2, 3230100:4, 3230300:2, 7130100:2 | 1.4 | 1.2 |
+| 13:00 | 15 | 280 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:2 | 1.5 | 1.25 |
+| 15:00 | 18 | 330 | 2300100:1, 3230100:3, 3230300:2, 7130100:3, 7130101:3 | 1.6 | 1.3 |
+
+All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, repeat every 90 s and grow from
+10 to 40 mobs; elites start at 75 s, repeat every 60 s and use HP/EXP/contact multipliers 8/5/1.5 (tier C,
+existing stage conventions). Global potion chances apply. All three bosses and every reward choice must finish
+before the round clears (#73). These values are not a balance calibration.
+
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
 time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
 the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
@@ -349,6 +389,397 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #32 merged with main after #79 (2026-10-16)
+
+Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
+outcome and end time equals the #79 combined smoke below (Henesys bot 0/3, random 1/3 on seed 1; Tree 0/3), so #32
+adds no simulation change to a fresh Beginner. The fresh-character event-stream hash in `test_character_baseline` was
+re-captured on main `3f7e4b7` and matches the merge. Chains: bot feeds tier 2 in 0/3; random 1/3 (Lv 44 -> 63, died).
+The #32/#75 numbers below are from before #79. Seed 1 no longer gives a bot Henesys clear, so the flow driver's
+`rounds` scenario defaults to training seed 4 (bot clears: 4, 5, 6, 13 of 3..14); it passes with `missing=[]`.
+
+#### #32 / #75 whole-flow QA and regression smoke (2026-10-16)
+
+Implementation `89de7fa`, integration `dba59a9`; `ISOLATE=t75`, existing cache-t70 reused read-only, no import.
+Training seeds 1/2/2026, bot/random, default branches, 1800s cap per round; no PATCH, tuning or held-out seeds.
+All **24 seed records / 26 rounds** finish without crashes, script/engine errors or world warnings, with
+`missing=[]`. Outcomes, end times, levels and tier-1 MP-wait means match #71/#74 below exactly. Every Henesys
+round reaches Magician and Mano; Tree's early deaths remain record-only. Tier-2 outcomes remain first-pass data for #77.
+
+| Group / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Start → end levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 1 → 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 1 → 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Chain tier 2 bot | 0 / 1 / 0 | 685.2 / — / — | 41 → 52 |
+| Chain tier 2 random | 0 / 1 / 0 | 1240.1 / — / — | 43 → 64 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 38 → 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 38 → 51 / 50 / 55 |
+
+Each chain policy feeds tier 2 from **1/3** tier-1 clears (seed 1 only), starts/clears **1/0**, Lv70 **0/1**;
+fixture Lv70 **0/3** per policy. Chain Zombie Mushmom completes in 121.75s bot / 51.68s random, each **1/1
+completed/spawned**, censored median the same (n=1, no unfinished fights). Snack Bar completes none (n=0),
+**0/1 spawned** per policy, censored medians **>=85.20s / >=640.12s** (n=1, one unfinished each).
+Jr. Balrog bot has **0/0 spawned**, no completed or censored observation (n=0), one not spawned;
+random has **0/1 spawned**, none completed (n=0), censored median **>=340.12s** (n=1, one unfinished).
+No bosses are skipped. Fixture boss metrics reproduce #73/#74; full console/SYSTEMS output and seed/configuration
+records stay ignored under `evidence/t75/smoke/`.
+
+The injected `rounds` scenario creates two characters through the v83 controls, really clears Henesys at
+967.817s/Lv41, resumes the hub from disk, walks to out00, saves/resumes map select, quits/replays Dark Cave
+seed 1 without changing the boundary bytes, dies at 841.583s/Lv58, cancels then confirms the spare's deletion,
+and checks both history rows. Its tier-2 seed is deliberately the driver's seed 1, not the chain harness seed.
+This verifies flow, not balance. Evidence, limitations and QA defects are in
+[ticket-75-audit.md](research/ticket-75-audit.md).
+The full suite after the final integration fetch/merge passes **732 tests, 0 failed, 0 skipped, 81 files**
+(365.466s). Final natural/staged-victory rounds, full flow and one-off clear have `missing=[]`; all seven boss
+attack probes also have empty missing/warnings. Import is checked in screen-only mode, without re-importing assets.
+
+#### #32 / #71 Free Market regression smoke (2026-10-16)
+
+Revision `96cb046`; training seeds 1/2/2026, both original stages, bot/random, default branches and 1800 s cap,
+no PATCH or tuning. Every Godot run uses `ISOLATE=t71` and private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71` (copied once, then imported with #71's
+manifest; 108 imgs, 12 written, zero warnings/errors). All 12 finish without crashes, script errors or world
+warnings. Outcomes, levels, times and MP-wait means match #69 exactly; all six Henesys runs reach Magician
+and spawn Mano. Tree's known early deaths remain record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+After merging #74 (`0c72c68`), reran its chain and Dark Cave fixture modes on seeds 1/2/2026, bot/random,
+under the same private cache/isolation and no tuning. These 12 additional seed records / 14 rounds also match
+#74 exactly: only seed 1 feeds tier 2 (1/3 per policy), bot Lv41 -> 52 dying at 685.2 s, random Lv43 -> 64
+dying at 1240.1 s; neither clears or reaches Lv70. The Lv38 F/P fixture dies at 789.3 / 780.7 / 807.8 s
+(bot, final Lv58/61/60) and 609.5 / 595.6 / 754.0 s (random, Lv51/50/55), no clears/Lv70. All 14 added rounds
+report `warnings=[]`, `missing=[]`; no smoke log has a script/engine error. Combined: 24 seed records / 26 rounds.
+The tier-2 deaths are unchanged first-pass evidence, not a reason to tune in this feature ticket. Exact records
+and console/SYSTEMS output are ignored under `evidence/t71/chain_fixture/`.
+
+Exact seed records, console/SYSTEMS output and aggregates are ignored under `evidence/t71/smoke/`.
+The real-map `free_market_driver` supplies a completed-round summary with the committed Lv38 F/P fixture,
+then verifies autosaved arrival, Esc pause, Save & quit, disk reload/Continue, inert room entry, fixed-tick
+walking right to the real out00, keyboard Up and tier-2-only map select. This is a boundary probe, not a full
+two-round playtest. Checked `evidence/t71/hub/01_arrival.png`, `02_npcs.png`, `03_save_quit.png`,
+`04_continue.png`, `05_rooms.png`, `06_out00.png`, `07_next_tier.png` by eye: canonical map/room art, all four NPCs,
+the character's outfit/weapon, full HP/MP status, readable instruction plate and boundary pause. Report:
+`failures=[]`, `missing=[]`. Focused tests pass 23/23 with zero failures/skips; coverage includes all 22 room
+portals, the two real ladders, normal jump/climb/same-map portal behavior, snapshot immutability, look/weapon
+resolution, pool agreement with RunWorld, pause holding motion, clear/resume/exit saves and final-tier victory.
+
+After the final fetch/merge of integration `0c72c68` and correction of the old stage-only manifest assertion,
+the full `ISOLATE=t71 bash scripts/test.sh` passes **721 tests, 0 failed, 0 skipped, 80 files** (326.337 s).
+All real-cache checks execute; none is skipped. Log: ignored `evidence/t71/full_suite_final.log`.
+Final focused data/hub/flow checks pass **41 tests, 0 failed, 0 skipped** (`evidence/t71/focused_final.log`).
+The #70/#71 integration replaces the temporary `FreeMarket.character_look(character, data)` resolution with
+`DataRepo.character_look`. It reads only CharacterSnapshot.look and resolves the job weapon (nonzero
+beginner_weapon for a Beginner, otherwise weapon_by_job), without changing the snapshot.
+
+#### #32 / #70 rework audit and visual verification (2026-10-16)
+
+Rework code `0cdfc7e` / `8c1a0b2`, merged #71 integration `d4eaf94` via `44ce69d`. Audited every desired behavior
+and acceptance criterion from the current ticket against source and a fresh baseline windowed run; the full table
+is [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md). Runtime MakeCharInfo options, variant imports, name rules,
+authoritative look carry and canonical Beginner weapon behavior were already correct. Fixed the invented roster
+composition, shared-action/selection behavior, v83 option-row presentation, phased Gender/name/appearance surfaces,
+delete notice, history entry placement, class badge mapping and keyboard focus overlay. No sim/balance changes.
+
+`ISOLATE=t70`, private cache `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. The merged manifest
+was imported from the local original v83 install: 157 imgs (12 written, 145 current), 13636 canvases, 163 pages,
+164 sounds; zero unresolved UOLs, warnings or errors. Shared cache untouched. **No balance smoke rerun**, per the
+owner's rework instruction because weapon/gameplay code is unchanged; the original #70 smoke remains below.
+
+| Verification | Result |
+|---|---|
+| Full Godot suite after integration merge | 732 tests, 0 failed, 0 skipped, 81 files (336.368 s); every real-cache test executed |
+| Focused UI/creation/basic attack/hub/widgets | 53 tests, 0 failed, 0 skipped |
+| Rust importer | 47 tests pass; all 17 real-data integration tests separately execute with MAPLE_WZ_ROOT set (0 failures/skips) |
+| Visual character driver | 19 required states, missing=[]; real Right key changes selection while Start holds focus |
+| Full injected keyboard/mouse flow | Pass: creation, Magician/cards, pause/resume, death/results, confirmed Quit round, same-seed Continue, history, title; missing=[] |
+
+Checked the screenshots under `evidence/t70r2/review_fix/` by eye: empty/one/three slots, changed selection and keyboard
+focus, deletion confirmation, history entry/list, Gender and name steps, invalid name, default and changed male/female
+previews (black -> brown hair, face, skin, clothes, shoes, weapon), created look in an actual launched round, and the same
+look in the Free Market. The hub capture supplies a completed boundary for presentation, not a claim of a Lv1 clear.
+The probe cycles every option for each gender and every hair/colour pair, and explicitly requires every WzImage and
+WzButton's art because UiArt normally tolerates absent optional art. Final `summary.json` has missing=[].
+
+The full flow's training seed 1 at x3 reaches Magician, answers 14 level windows, resumes from pause, and dies at
+379.5 s / Lv13 before checking replay/history. This is a flow check, not pacing evidence. Exact console/summary and 25
+flow captures are ignored under `evidence/t70r2/flow/` and `flow.log`.
+The independent finish reviewer scored all four corrections resolved (badges, keyboard focus, weapon readability,
+provenance docs), disposition ship at that fix-list scope. Documentation finish check preserves the existing v83
+identity. Full-suite console output is `evidence/t70r2/full_suite.log`; all checks used `ISOLATE=t70`.
+Exact v83-executable screen positions remain unverified; tier A/B/C boundaries are recorded in section11.
+
+#### #32 / #70 character creation and weapon regression smoke (2026-10-16)
+
+Creation/weapon code `72f2dfd`, followed by #74 harness integration `bb933f1`; `ISOLATE=t70`, private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. Report-only training seeds 1/2/2026,
+1800 s cap, default branches, no PATCH, tuning or held-out seeds. Each weapon uses an otherwise identical fresh
+Beginner snapshot with an empty look (the default outfit); the extra standard matrix uses fresh one-off rounds.
+All 21 rounds finish without crashes, script errors or world warnings. All nine weapon runs and all six standard
+Henesys runs reach Magician and spawn Mano. The standard matrix's outcomes, end times and levels exactly match
+the preceding #69 smoke; Tree's early deaths remain record-only. Sword's carried snapshot reproduces the fresh
+Beginner baseline. Club and Axe change the deterministic journey as expected; no data was tuned.
+
+| Stage / policy / weapon | Lv10 seconds (1 / 2 / 2026) | End seconds (C = clear, D = died; 1 / 2 / 2026) | Final levels |
+|---|---|---|---|
+| Henesys bot / Sword 1302000 | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys bot / Club 1322005 | 281.5 / 274.7 / 273.9 | C987.0 / D851.1 / C961.8 | 38 / 28 / 39 |
+| Henesys bot / Axe 1312004 | 271.3 / 279.6 / 271.3 | C1024.8 / D960.6 / C938.9 | 39 / 32 / 38 |
+| Henesys bot / default | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys random / default | 263.2 / 278.3 / 276.0 | C974.6 / D714.8 / D329.0 | 43 / 27 / 11 |
+| Tree bot / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+| Tree random / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+
+Ignored evidence: `evidence/t70/smoke/` preserves per-seed configuration/records, exact console output and SYSTEMS
+aggregates; the identical fresh weapon snapshots are in `_scratch/t70/weapon_<id>.json`. The private import writes
+148 imgs (49 new/changed), with zero errors/warnings/unresolved UOLs. Rust passes 47 tests (including all 17
+real-data tests with MAPLE_WZ_ROOT set). Checked `three_characters.png`, both `creation_*.png`, `invalid_name.png`,
+`delete_confirmation.png`, `history.png` and `round_chosen_look.png` under `evidence/t70/` by eye. They show three
+distinct carried appearances with job weapons, gender-specific choices and live preview, recoverable validation,
+deletion confirmation, dated endings, and the chosen look/Club in a round. `character_driver` reports `missing=[]`.
+The updated injected keyboard/mouse `flow_driver --scenario=full --seed=1 --stop-at=330` also passes: new creation,
+map select, Magician and 16 card windows, pause/resume, death/results, another creation, confirmed Quit round,
+same-seed Continue, history and return to title. It dies at 387.5 s / Lv15; its summary has `missing=[]`.
+Screenshots, summary and exact log are under `evidence/t70/flow/` and `evidence/t70/flow.log`.
+
+After merging #74, the added spec-32 chain/fixture matrix runs the same seeds and both policies: **12 more seed
+records / 14 rounds**, giving **33 records / 35 rounds** overall, with zero crashes, script errors, world warnings
+or missing setup assets. Each chain has only seed 1 feeding tier 2 (1/3); bot dies at 685.2 s / Lv52 and random
+at 1240.1 s / Lv64. Dark Cave fixture deaths are bot 789.3 / 780.7 / 807.8 s (Lv58/61/60) and random
+609.5 / 595.6 / 754.0 s (Lv51/50/55). These exactly match #74; no chain or fixture reaches Lv70, and the small
+conditional tier-2 sample is not a balance assessment. Exact records/console/SYSTEMS output remain in
+`evidence/t70/smoke/chain/` and `fixture/`.
+
+After the integration merge, code `ca02312` passes the full `ISOLATE=t70 bash scripts/test.sh`: **722 tests,
+0 failed, 0 skipped, 80 files** (366.672 s), including every real-cache test. Log: `evidence/t70/full_suite.log`.
+Creation/persistence focused checks also pass 22/0/0; the reloaded-look assertion accounts for JSON numbers
+becoming floats. No skipped check is being treated as evidence.
+
+#### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
+
+Revision `8ef2fb0`, based on integration `eca037d`; `ISOLATE=t74`, training seeds **1/2/2026**, bot/random,
+default branches, 1800 s cap **per round**, no PATCH, tuning or held-out seeds. The existing Lv38 F/P fixture
+(`lv35_magician_2nd.json`, #67 seed-1 forced-F/P Henesys clear) is reused unchanged. Cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73` is reused read-only; no import or new cache.
+All **24 seed records / 26 rounds** finish with no crashes, engine/script errors or world warnings;
+every round's validated setup reports `missing=[]` (headless, not a rendering lookup trace).
+Original-stage and fixture outcomes/end times match #73 below exactly. Henesys reaches Magician and Mano
+in all six one-off rounds; Tree's early deaths and fixture deaths before Jr. Balrog remain record-only.
+
+| Round group / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Start → end levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 1 → 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 1 → 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Chain tier 2 bot | 0 / 1 / 0 | 685.2 / — / — | 41 → 52 |
+| Chain tier 2 random | 0 / 1 / 0 | 1240.1 / — / — | 43 → 64 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 38 → 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 38 → 51 / 50 / 55 |
+
+**Conditional chain sample:** each policy has **1/3 tier-1 clears feeding tier 2**, seed 1 only, with a Cleric
+(job230); seeds 2/2026 die in tier 1 and contribute no tier-2 death or boss observations. All six chain tier-1
+records exactly equal their one-off counterparts, including choices and combat metrics. Seed 1's second-round
+seed is **2260174940**, derived independently from earlier RNG consumption. Tier 2 starts/clears are **1/0** per
+policy. **Lv70 reached: 0/1** per chain policy and **0/3** per fixture policy. These small conditional samples do
+not assess the deferred #77 clear-rate or end-level targets. No balance changes follow the smoke.
+
+Chain Zombie Mushmom completes in **121.75 s bot / 51.68 s random**, each **1/1 completed/spawned**, censored
+median the same (**n=1, 0 unfinished**). Snack Bar has **none completed (n=0), 0/1 spawned** per policy,
+censored median **>=85.20 s bot / >=640.12 s random** (**n=1, 1 unfinished** each). Jr. Balrog bot has
+**none completed (n=0), 0/0 spawned**, censored median **none (n=0)** and 1 not spawned; random has
+**none completed (n=0), 0/1 spawned**, censored median **>=340.12 s (n=1, 1 unfinished)**. No bosses are skipped.
+Fixture boss-fight counts, completed durations and censored medians reproduce the #73 record below; none of
+those six fixture rounds reaches Jr. Balrog. Exact console output, seed records and per-tier SYSTEMS JSON/logs
+remain ignored under `evidence/t74/smoke/`. No visual criteria or presentation changes: screenshots are not applicable.
+
+After fetching and merging `origin/t3/issue-32-implementation` (`eca037d`, already current), the full
+`ISOLATE=t74 bash scripts/test.sh` passes **708 tests, 0 failed, 0 skipped, 79 files** (408.674 s).
+All real-cache checks execute; final log: ignored `_scratch/t74-full-final.log`. Focused chain/metrics/fixture
+checks pass **33 tests, 0 failed, 0 skipped**. They exercise deterministic seeded records and round seeds,
+clear-only carry versus timeout, conditional/empty tier-2 samples, Lv70 reporting, selectable first stage,
+the actual CLI replay and invalid flag combinations, plus fixture starting level/job/ordered loadout/mods.
+
+#### #32 / #69 persistent-flow regression smoke (2026-10-16)
+
+Revision `babd8ec`, including integration `eca037d` (#67/#68/#72/#73); `ISOLATE=t69`, training seeds
+1/2/2026, both original stages and bot/random, 1800 s cap, default branches, no PATCH or tuning. Read #73's
+completed cache `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73` without importing or writing it.
+All 12 finish without crashes, script errors or world warnings. Outcomes, times, levels and MP-wait means exactly
+match the #68 baseline below: all six Henesys runs reach Magician and spawn Mano; Tree remains record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+Ignored evidence: `evidence/t69/smoke/` holds exact console/SYSTEMS output, aggregate JSON and seed records.
+The real `full` flow driver (training seed 1, default x3, hands off at 330 s) passes creation, map select,
+Magician/cards, pause/resume, death (390.9 s, Lv15), results, confirmed Quit round, same-seed Continue, history
+and return to title, with `missing=[]`. Checked the screenshots under `evidence/t69/full_pass/` by eye, including
+the fully wrapped warning and the occupied slot after quitting. The driver fixes its diagnostic seed and forces
+screenshot draws so desktop occlusion cannot hang the capture; production map selection still randomizes its seed.
+The `clear` one-off scenario (seed 1, warp 900, x4) clears at 967.8 s / Lv41 Cleric and creates no driver save;
+checked `clear/01_clear_notice.png` and `02_results_clear.png`. The cache-less `import` screen probe passes without
+running an import. A local boundary presentation probe supplies completed summaries (not a two-round playtest),
+checking tier-2-only map select, victory with two tiers, delete confirmation and victory/deleted history under
+`evidence/t69/boundaries/`; its collected `missing=[]`. The full two-round scenario remains #75's work.
+After the integration merge, the full `ISOLATE=t69 bash scripts/test.sh` passes **707 tests, 0 failed, 0 skipped,
+78 files** (417.280 s), including every real-cache check. Log: `evidence/t69/full_suite.log`. Flow tests cover
+boundary carry/refill, death/victory/history, tier filtering, Save & quit, deletion, a real first-minute fixed-tick
+same-seed replay after Quit round, and save-byte preservation for fresh and supplied-character one-off rounds.
+
+#### #32 / #68 save-model regression smoke (2026-10-16)
+
+Revision `f55e89e`, based on integration `2b139cd`; `ISOLATE=t68`, training seeds 1/2/2026,
+both existing stages and bot/random, shared real cache (read only), default branches, 1,800 s cap, no PATCH or tuning.
+All 12 finish with no crashes, script errors or world warnings. Henesys reaches Magician and spawns Mano in all
+six runs. Outcomes/end times, final levels, potion totals and MP-wait means exactly match the #67 smoke below;
+Tree's early deaths remain record-only. No gameplay or asset changes. Exact console output, seed records and
+SYSTEMS reports are ignored under `evidence/t68/smoke/`; no private cache or import was needed.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+After fetching and merging `origin/t3/issue-32-implementation` (`2b139cd`, already current), the full
+`ISOLATE=t68 bash scripts/test.sh` passes **693 tests, 0 failed, 0 skipped, 77 files** (362.055 s).
+All real-cache checks execute. The 11 new save tests cover conversion, corrupt-file preservation, slot/seed
+round trips, all endings/history, capacity, validation, combined round/best writes, failed-write rollback and
+missing-primary recovery. Final log: ignored `_scratch/t68-full-final.log`. No visual criteria or renderer changes:
+no screenshots or rendering `missing` collection were needed; balance setup reports no missing-asset errors.
+
+#### #32 / #67 carried-character regression smoke (2026-10-16)
+
+Revision `8a7dae5` simulation, fixture/tests `8826fe3`; `ISOLATE=t67`, training seeds 1/2/2026,
+both existing stages and bot/random, real shared cache, unforced branches, 1,800 s cap, no PATCH or tuning.
+All 12 finish without crashes, script errors or world warnings. Henesys reaches Magician and spawns Mano
+in all six runs; outcomes/end times match the post-Teleport-rule smoke. Tree's early deaths remain unchanged
+and record-only. End times below use seed order; C marks a clear, all other times are deaths.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026) | MP collected / used | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 380 / 359 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 428 / 300 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 7 / 0 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 7 / 0 | 98.956 |
+
+Raw records/console/system reports: ignored `evidence/t67/smoke/`. The committed fixture
+`tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38, job210, from the seed-1 forced-F/P bot
+clear at 930.1 s (all bosses dead, all choices resolved); `_doc` records the generation revision and policy.
+`tools/character_fixture.gd` reproduces it without balance edits. A 15 s seed-2 one-off using that fixture,
+`--character=<absolute path>`, reports `missing: []`; inspected `evidence/t67/fixture-playtest/t5.png` and
+`final.png` show the character, eight skill icons, Wizard label, full HP, potion tiers/stock and new buff timers.
+A separate one-second `scripts/balance.sh` flag check with spaces in the path starts at Lv38/job210,
+HP stock9/MP stock19, no warnings, and correctly reports TIMEOUT. The 20-minute synthetic seed-1 event-byte
+digest matches pre-change integration `bf26c5d`; resumed JSON/direct snapshots replay identically for three minutes.
+After fetching/merging `origin/t3/issue-32-implementation` (already current at `bf26c5d`), the full
+`ISOLATE=t67 bash scripts/test.sh` passes **676 tests, 0 failed, 0 skipped, 75 files** (313.720 s).
+Real-cache checks execute; final log: ignored `_scratch/t67-full-final.log`.
+
+#### Spec #32 / #73 bosses and #72 pending fixture checks (2026-10-16)
+
+Report-only regression after `c50d511` merged integration `2b139cd` (#67 and #72), `ISOLATE=t73`, private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73`. Seeds **1/2/2026**, bot/random, 1800 s cap,
+default branch choices, no PATCH, tuning candidates or held-out seeds. Original stages start fresh; Dark Cave
+uses committed `lv35_magician_2nd.json` (its actual character is **Lv38 F/P**, job210). Encounter data was frozen
+before measurement: HP x0.8/1/3; contact/attack x0.8/1/1.25; canonical attacks with 8 s per-attack cadence.
+All **18 rounds** finish without crashes, script errors or world warnings. Henesys still reaches Magician and
+Mano in 3/3 per policy; both original stages reproduce #72's previous smoke exactly. Tree deaths remain record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Final levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 51 / 50 / 55 |
+
+Dark Cave boss fights, seconds as **min / median / max**, completed observations always shown with spawned count:
+bot Zombie Mushmom **31.02 / 39.63 / 48.43 (3/3 completed/spawned)**, censored median **39.63 (n=3, 0 unfinished)**;
+random **64.27 / 117.12 / 128.53 (3/3)**, censored median **117.12 (n=3, 0 unfinished)**.
+Snack Bar bot completed **none (n=0), 0/3 spawned**, censored median **>=189.28 (n=3, 3 unfinished)**;
+random completed **none (n=0), 0/2 spawned**, censored median **>=81.75 (n=2, 2 unfinished)**, 1 not spawned.
+Jr. Balrog completed **none (n=0), 0/0 spawned**, censored median **none (n=0)**; 3 not spawned per policy.
+No bosses were skipped. None of these six rounds cleared or reached the final boss, so the smoke cannot measure
+Jr. Balrog's fight difficulty; its final-boss strength is the explicit highest scales/effective HP, not a tuning claim.
+Dark Cave bot/random MP collected/used is **1.039 / 0.993**; MP-wait seconds/run min/median/max are
+**0 / 1.67 / 7.95** and **0 / 0 / 37.20** (n=3 each). Exact console output, per-seed records and SYSTEMS aggregates
+remain ignored under `evidence/t73/smoke/`; no balance adjustments followed these measurements.
+
+**#72 pending items:** the ordinary one-off `--run=dark_cave --character=<fixture>` at seed1, x16, reaches death
+at **789.283 s (13:09.3), Lv58**, with **missing=[]** and no game/world warnings. Checked by eye:
+`evidence/t73/fixture-round/t60.png` (Horny/Zombie Mushrooms, flying Stirges, carried Magician and cave ladders),
+`t780.png` (Tauros, Eyes/Jr. Boogies and Snack Bar) and `death_land.png`. The fixture smoke is folded into the
+table above, completing the stage ticket's previously unmeasured carried-character check. An additional normal-damage
+seed2026 fixture playtest fast-forwards without drawing to 780 s, then runs at x1 to death at **807.817 s, Lv60**,
+missing=[] and no warnings. Checked `evidence/t73/fixture-late/t795.png` / `t805.png` by eye: both Tauromacis
+and Taurospear, mixed Eyes/Boogies/Stirges and Snack Bar's beam are visible. The fast-forward does not skip sim ticks.
+
+**#73 visuals:** checked all fourteen `<id>_<attack>_windup.png` / `_impact.png` images under
+`evidence/t73/boss-attacks/`: Zombie Mushmom's slam, Snack Bar's physical hit/fire/long beam, and Jr. Balrog's
+targeted fire strike, ball and slash. Separate `evidence/t73/balrog-ball/` flight/contact images show the moving
+fireball and canonical hit effect. All seven probe records and the ball repeat have **missing=[]**, warnings=[];
+the private import reports 0 warnings/errors. The committed debug driver uses real fixture/map/cache and attack
+events, with normal waves suppressed, skill cooldowns held and god mode solely to show every attack; it is not
+survival evidence. Seeded tests cover damage, admission/escape/jump/death, delayed effects, arrivals and clear
+only after all bosses/reward picks finish. Type-1 targeting remains an explicit **tier-C interpretation**, not
+verified v83 RE; the lead must flag that caveat on #73 (the implementer brief forbids issue comments).
+
+After the final integration fetch/merge check (`2b139cd`, already up to date), the full isolated suite passes
+**690 tests, 0 failed, 0 skipped, 77 files**; all real-cache checks execute. Output is preserved in ignored
+`evidence/t73/final-full-suite.log`. The focused boss attack tests previously pass **16 tests, 0 failed, 0 skipped**.
+
+#### Spec #32 / #72 Dark Cave stage data (2026-10-16)
+
+The pending carried-character checks below are completed by the #73 follow-up immediately above this record.
+
+Report-only regression started at `1d69662` (the subsequent `8a46f7d` only restores catalog order and updates tests;
+no pacing or sim values change), private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t72`, `ISOLATE=t72`, seeds **1/2/2026**,
+both existing stages and bot/random, default branch selection, 1,800 s cap, no PATCH or tuning candidates.
+All 12 runs finish without crashes, script errors or world warnings. Henesys reaches Magician and Mano in 3/3
+per policy; seed 1 advances to Cleric. Results exactly match the prior post-Teleport-fix Cleric smoke recorded below
+(including 967.8/974.6 s clears); Tree's existing early deaths are unchanged and record-only. No new stop gate.
+Exact console output, seed records and SYSTEMS aggregates are ignored under `evidence/t72/smoke/`.
+
+| Stage / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Final levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+
+**Pending #67:** the fetched integration branch still lacks the fixture, `--character` consumer and sim snapshot
+input. Therefore the carried-character Dark Cave one-off round, its early/late screenshots and the requested
+Dark Cave bot/random fixture smoke are not measured. No parallel snapshot mechanism or balance substitute was
+introduced. First-pass stage data remains frozen for the eventual smoke; tier-2 tuning belongs to #77.
+
+Supplemental rendering only: an ignored debug harness uses a fresh Beginner with damage disabled, not a carried
+character. It reaches the interim bossless clear at **900.0 s**, max alive **336**, `missing: []`, with no warnings.
+Checked `evidence/t72/visual-probe/t60.png` by eye (cave terrain/ladders, Horny/Zombie Mushrooms, flying Stirges).
+The window stopped drawing after 7:00, so a separate late-wave probe starts its clock at 13:00 and captures
+`evidence/t72/late-probe.png` at 13:30: both Tauros, Curse Eyes, Jr. Boogies and Stirges render correctly;
+its `missing` is also empty. These diagnostic images do not satisfy the carried-character acceptance check.
+
+After the final integration merge check (`bf26c5d`, already up to date), the full isolated suite passes
+**669 tests, 0 failed, 0 skipped, 73 files**; all real-cache checks execute. Focused stage/data/UI coverage:
+**34 tests, 0 failed, 0 skipped**. Final suite output remains in `evidence/t72/final-full-suite.log`.
 
 #### #79 combined smoke (UI tickets #82, #85, #86, #87, after review fixes) (2026-10-16)
 
@@ -2124,11 +2555,129 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
-- Results: RETRY is the v83 mini-game's green button (`UIWindow.img/RpsGame/BtRetry`), Back the login book's banner.
+- Results: the login book's Back banner returns to character select; death/victory frees the ended character's slot.
 - Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Free Market rule | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Hub tick and catch-up | 1/60 s, at most 4 ticks/frame, matching RunScene | C | Existing engine scheduling rule |
+| Hub arrival | PortalSet.start_point with RNG seed 0; position is not saved | C | Ours; stable boundary arrival |
+| Hub exit / rooms / NPCs | out00 type 7 opens map select on Up using existing portal reach/cooldown; room portals inert; all four NPCs drawn, including hidden Maple TV | C (policy), A (IDs/positions/type) | Owner #32/#71; original v83 map/life nodes |
+| Hub identity / pause | Existing status bar only (full pools, EXP, level/job/name), instruction inset (12,12); existing pause with Resume / Save & quit and no loss warning | C | Ours / owner #32 boundary flow |
+
+Character creation (#70) reads the Explorer male/female options and their hair/colour/skin names from
+`Etc.wz/MakeCharInfo.img` at runtime. Its eight numeric columns, gender-specific option lists and hair-colour suffix
+are tier A, checked in the original v83 files. Sword 1302000 has WATK 17 / speed 4; Wooden Club 1322005 WATK 19 /
+speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interval conversion yields 0.72 / 0.75 /
+0.75 seconds. No new balance values are introduced. Clothing choices change the drawing; the existing survivor
+starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
+the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
+
+`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
+presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
+with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
+shape). The snapshot's `beginner_weapon` persists even after advancement.
+
+The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
+Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
+clickable slots, one selected-character details scroll, and the signboard's single Start/Create/Delete set.
+`CharSelect/character/0` supplies the ground animation and `character/1` the empty silhouette; nameTag/0 and /1
+supply the unselected/selected three-piece tags. Selected characters walk in place, others stand. Both page arrows
+are visible at full opacity but inert because this mode has only three slots. History reuses the left-edge
+View All Characters plaque at (0,375), relabelled Run history,
+with H as a shortcut; its list retains name/job/level, tiers, rounds, ending and UTC date. Deletion uses the existing
+Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.delete_character.
+
+| Character UI fact / decision | Tier | Evidence / value |
+|---|---|---|
+| Login book, signboard, option-row labels, character/empty art, nameTag pieces, details cells, animation origins/delays | A | Original v83 Login.img, MapLogin.img and Map.wz/Obj/login.img; runtime lookups, no exported art committed |
+| Character-select camera / signboard | C | Camera (28,-1208), signboard anchor (625,250), canvas TL(559,131), matched to v0.83 charselect_1.png in private spec32/v83-login-refs/wz-layout-notes.md; no stored WZ camera table |
+| Title camera | C | (28,-11), matched to localized v0.62 title_1.png forest/mushrooms, mean channel error 0.004 over the comparison patch. Screenshot placement inference, not a WZ camera value |
+| Explorer creation camera | C | (37,-3007), matched to period 2009 newchar_1.png mushroom cap/branch; compressed/rescaled capture, approximate |
+| NewChar layout | C | Matched to period newchar_1.png: settings(470,95), rows(481,198), pitch19, arrows539/667, OK(508,425), Cancel(582,425), roughly +/-2px. Name canvas(480,95), input(510,198,140,24), OK/Cancel(508,273)/(582,273), matched to newchar_name_1.png +/-2-3px. Preview feet(398,335) eyeballed; option value box x556,width109 authored. Sources: private v83-login-refs/layout.md and wz-layout-notes.md |
+| Selection stance / tags | C | walk1/stand1 selection integration and tags starting at feet y370 matched to charselect_1.png; width58 minimum / padding18 are reimplementation choices |
+| Roster / action anchors | C | Adventure lamps at(252,370)/(377,370)/(502,370), shared by characters, shadows and tags; Create(576,185), Delete(576,234), Select(576,149), matched to charselect_1.png (Select wording differs) |
+| Selected details / light | C (placement/policy), A (canvas/origin) | Scroll follows feet+(-108,-235), label inset(17,20), value cells and unavailable ranking matched to period charselect_2.png. Light/sparkle anchor feet-(0,337) uses WZ beam height but unverified effect registration. Fame0 and unavailable online ranking are offline policy |
+| Page arrows / left navigation | C (placement/copy), A (art) | pageL(155,330), pageR(604,331), Back(0,425), history(0,375), Step(0,33) and Tab hint(270,40,220,40) matched to charselect_1.png. Back has zero sampled channel error; that remains screenshot inference. Select step Common/step/2 and creation /3 identities are verified in WZ. ViewAllChar/BtVAC frame/arrow are original art; patch vertices(10,17)/(102,8)/(104,30)/(12,39), label(12,19), angle-0.10,width88, colours, hint copy and pale-blue alpha0.8/4px corners are authored |
+| Creation flow / gender placement | C | Gender -> name OK validation -> appearance; name Cancel returns to gender, appearance Cancel to name. Centered Gender parchment(219,174), text(245,198), native dropdown over baked field(378,270,48,19), OK/Cancel(355,346)/(430,346). WZ text field is at local(133,72); no trustworthy period gender capture, so absolute placement and native OptionButton interaction remain C. Appearance Gender row still changes it; AP automatic, Beginner only |
+| Creation advisory / weapon / feedback | C | Advisory rectangle(120,160,195,200) matched to period newchar_1.png; offline facts, 8px padding and pale-blue alpha0.8 plate are authored. Weapon strip(120,380,195,45), feedback(475,365,215,45) avoid preview/settings/buttons |
+| Offline title controls | C | Start TL(590,243) substitutes for Login at the right of the top plank; Re-import uses the middle plank (sign-local center183,106), Quit TL(590,354) the right of the lower plank. Sign-local centers315,44 and307,159; account ink covered with original wood. title_1.png/title_2.png establish composition, no dated GMS v83 title capture proves these offline substitutions |
+| Map-select roster names (#90, #32r) | C | 2px inner gutter per 58px cell, two lines; wrap only at spaces, ellipsize words wider than the cell. Survivor-only screen, no canonical stats/name changes |
+| Results skill grid (#32r) | C | 232px column above a 6px gap before NEW BEST; up to eight skills retain 58px named cells, larger loadouts use at least six columns and compact icons/ranks, scaling to the available 150px height |
+| Terminal death history (#32r) | C | Death requires no outgoing CharacterSnapshot; RunScene supplies none, so history retains the last saved boundary character's level/job. Results and the best-score record retain actual round-end summary stats; the slot is freed regardless of pending rewards/jobs/cards |
+| Keyboard focus | A/C | Login keyFocused pointer overlays normal button art (A: Login.img button canvases/origins); focus/activation retained, roster arrows consumed before Godot focus navigation (C integration). The compact period details variant has no extra class badge |
+| Shared notice / labels | A (art/width), C (placement/copy) | YesNo3 pieces, Basic OK/Cancel and 266px canvas width are WZ data. Text inset(20,17), buttons 14px from right / 31px from bottom / 4px apart reuse survivor PauseMenu placement. Deletion wording, shortcuts, compact weapon description and error ink153/34/0 are C |
+
+Provenance follows AGENTS.md: A = verified in v83 data; B = third-party reverse engineering of an official
+client; C = reimplementation inference or our own tuning. A placement matched to a screenshot is C,
+even when the original WZ art registers exactly; only values actually read from WZ are A.
+The private references are at `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/v83-login-refs/`;
+their research A/B confidence notation is distinct from our provenance tiers. Compressed period measurements
+remain approximate. This is an original implementation using v83 assets, not a claim of verified pixel-for-pixel
+v83 executable behavior. The local source
+inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md).
+The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
+tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market
+capture supplies a completed boundary to SceneFlow (a visual carry check, not a played stage clear).
+
+The #75 flow driver's diagnostic names, seed 1, 1800s combat cap, 600-tick yields, 100s progress logs,
+30s/8px exit-walk guard, 0.35s capture settling and other UI waits/timeouts are tier C automation choices.
+Its optional tier-2 victory path uses invulnerability and 1e9 neutral magic boss hits after 15:00, through the real
+death/reward/clear path. This is presentation staging only; shipped data and smoke outcomes stay unchanged.
+
+The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
+Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
+the first stage of each later `stages.json` tier; `--stage` overrides tier 1. Lv70 reach is a diagnostic from
+the monotonically increasing level, never a clear condition or a calibrated target. Only a cleared round after
+all reward/job choices exports a character into the next tier; no sample is imputed for an unstarted round.
+
+The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
+Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,
+with its stage and seed; Quit round confirms that progress will be lost and preserves those bytes. Continue replays
+the round from its start. Death and final-tier victory end the run in history; other clears carry the character
+through the single `SceneFlow._after_round_cleared` seam. Tool-only `--run` rounds never write slots/history/bests.
+The #70 character screen replaces #69's temporary plain slot/name/history presentation. Map select keeps
+the existing parchment, adds the character/tier heading at y=32 and labels Back as Save & quit (tier C, layout).
+The exact Quit round confirmation is owner #32 copy: "You'll lose this round's progress. Continue later to restart
+the round from its beginning." Victory results show the tiers cleared and return to character select (tier C).
+
+| Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
+|---|---|---|---|
+| Schedule / first-pass HP | Zombie Mushmom 6300005 at 300 s, HP x0.8 (28000); Snack Bar 8220009 at 600 s, HP x1 (110000); Jr. Balrog 8130100 at 900 s, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
+| Contact / attack scales, cadence, rewards | Contact and attack x0.8 / x1 / x1.25; each attack 8 s start-to-start; each death 3 HP / 3 MP plus existing global EXP and choice rewards | C | First-pass survivor encounter data in stages.json; final boss has greatest damage multipliers |
+| Boss canonical facts | HP 35000 / 110000 / 50000; all seven attacks and delays/ranges/damage/element flags; no mob skills; Balrog S1H3 | A | Original v83 Mob.wz; [field inventory](research/dark-cave-boss-attacks.md), real-cache tests |
+| Type-1 targeted direct rule | Admit body centre within r250 of mirrored sp(-28,-69); locked character takes magic hit at 1300 ms even after moving/jumping; effect at caster 700 ms, hit art at character; death/fade cancels | C | Later-client HaCreator targeted-direct description; **not verified v83 RE**, lead must flag this caveat on #73; research note above |
+| Missing ball speed | 320 px/s only for absent/nonpositive bulletSpeed; positive authored values retain x1000/600 conversion | C | balance.mob_projectiles.default_speed; reference-inspired fallback for Balrog attack2; finite swept flight/range |
+| Magic and delayed effects | magic=1 uses mob MADamage unless attack overrides it; effectAfter remains independent of attackAfter (Balrog attack3 500/400 ms); direct hit art at character impact | A fields/timings; C resolution/presentation | WZ field inventory and seeded tests; canonical values remain untouched |
+| Boss icons and EXP pickups | Snack Bar borrows Zombie Mushmom icon and colours 1/5; EXP icons 4000008 / 4000011 / 4000028 | C | Original Snack Bar lacks gauge icon/colours; reuse imported signature art, not a drop-table claim |
+| Attack evidence capture | Per-attack windup at min(0.85 s, half windup), at least one fixed tick; per-attack impact +0.12 s | C | Capture short ball windup before launch and keep seven distinct attack images |
+| Debug encounter probe | Arrival 0.5 s, 8 s ceiling, 60 s skill wait, no ordinary spawns, god mode; offsets 100 px (200 ball / 300 beam); fixed 1/60 ticks; windup halfway capped 0.85 s, contact +0.12 s, ball flight launch +0.2 s | C | Diagnostic visual staging only, dark_cave_boss_driver; no shipped gameplay data is changed |
+
+The spec #32 save contract (#68, tier C owner decision) uses save format 2 and three living character slots.
+Run wrappers use the three phases `free_market` / `map_select` / `round` and zero-based next-tier indexes;
+history endings are `died` / `victory` / `deleted`. Names use the owner's 4-12 ASCII letters/digits rule;
+living names compare without case (our interpretation of uniqueness). Dates and round seeds come from callers.
+These are persistence/creation rules, with no balance or canonical-data changes.
+
+The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
+growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
+refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
+player statuses and map entities restart. Format 1 is a serialization version, not balance tuning. Fixture float
+fields round to six decimal places for readable committed JSON; generation never changes the survivor data.
+
+| Dark Cave addition (#72) | Values | Tier | Evidence / rationale |
+|---|---|---|---|
+| Run tier list | `[[henesys_hg1, tree_that_grew_1], [dark_cave]]`, index 0 = tier 1 | C | Owner #32 decision; binding spec32 decisions section 3 |
+| Map and original spawns | 105050400; Horny 2110200 ×9, Zombie 2230101 ×7, Stirge 2300100 ×35; 14 ladders; NPC 9201133; exits 105050300/105060000 | A | Original v83 Map.wz/Map/Map1/105050400.img; loaded through the normal cache |
+| Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; contact only until #76 |
+| First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
+| Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle |
+| Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
 
 | Constant | Value | Tier | Source |
 |---|---|---|---|

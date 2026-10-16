@@ -44,6 +44,9 @@ extends Node2D
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
+## options.character is a carried CharacterSnapshot Dictionary (Flow) or an absolute JSON path (--character).
+## Persistent clears pass the boundary character to Flow; deaths retain the last saved boundary for history.
+## One-off rounds never persist.
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
 signal run_finished(summary: Dictionary)
@@ -68,8 +71,7 @@ const SND_MOB := "Sound.wz/Mob.img/%07d/%s"
 const SND_SKILL_USE := "Sound.wz/Skill.img/%07d/Use"
 ## Cast stance used when the body lacks the skill's action (docs/GAME_DESIGN.md section 7).
 const DEFAULT_ACTION := "swingO1"
-## Weapon held per job branch (job id / 100): the Magician's Wooden Wand 1372005 (tier A: the item; GAME_DESIGN 11).
-## Beginners hold nothing (GAME_DESIGN section 1, AvatarRenderer.DEFAULT_LOOK).
+## tier C: name of the character in tool-only one-off rounds unless supplied in options.
 const DEFAULT_NAME := "MapleHero"
 
 ## tier C (ours): seconds of the LevelUp effect before the upgrade window opens (about the pillar's peak; the whole
@@ -285,6 +287,20 @@ func _ready() -> void:
 		setup_missing)
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
+	if options.has("character"):
+		var character_errors := PackedStringArray()
+		var character: Dictionary
+		if options.character is Dictionary:
+			character = (options.character as Dictionary).duplicate(true)
+			var error := CharacterSnapshot.validation_error(character)
+			if not error.is_empty():
+				character_errors.append(error)
+		else:
+			character = DataRepo.load_character(String(options.character), character_errors)
+		if not character_errors.is_empty():
+			_fail("; ".join(character_errors))
+			return
+		setup["character"] = character
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -843,13 +859,14 @@ func handle_events(events: Array) -> void:
 			"boss_attack":
 				if e.phase == "start":
 					_sound(String(e.sound))
-					# tier C: evidence capture during the jump frame of the canonical mushroom windup.
-					_event_shot("boss_windup_%d.png" % int(e.boss_index), 0.85)
-				elif e.phase == "effect" and String(e.effect) != "":
+					# tier C: capture each attack before its impact, at half windup (capped at the mushroom jump frame).
+					var delay := minf(0.85, maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
+					_event_shot("boss_windup_%d_%s.png" % [int(e.boss_index), String(e.attack)], delay)
+				elif e.phase in ["effect", "hit"] and String(e.effect) != "":
 					fx.play(String(e.effect), e.pos, int(e.facing) > 0)
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
-					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
+					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"cast":
 				_on_cast(e)
 			"teleport":
@@ -1001,20 +1018,11 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## A job's look: the worn starter outfit (balance.player.equipment) plus the job's canonical weapon.
+## Carries the snapshot's look and resolves the drawn weapon through the same rule as the simulation.
 func _apply_job_look(job_id: int) -> void:
-	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
-	var weapon := int(weapons.get("0", 0))
-	for ancestor in world.jobs.lineage(job_id):
-		if weapons.has(str(ancestor)):
-			weapon = int(weapons[str(ancestor)])
-			break
-	var equips: Array = []
-	for id: Variant in world.balance.player.get("equipment", AvatarRenderer.DEFAULT_LOOK.equips):
-		equips.append(int(id))
-	if weapon > 0:
-		equips.append(weapon)
-	avatar.set_look({"equips": equips})
+	avatar.set_look(DataRepo.character_look({"look": world.character_look,
+		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
+		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
@@ -1219,8 +1227,8 @@ func resume() -> void:
 func _on_quit_requested() -> void:
 	resume()
 	var flow := get_node_or_null("/root/Flow")
-	if flow != null and flow.has_method("goto_stage_select") and bool(options.get("use_flow", true)):
-		flow.call("goto_stage_select")
+	if flow != null and flow.has_method("quit_round") and bool(options.get("use_flow", true)):
+		flow.call("quit_round")
 	else:
 		_finish()
 
@@ -1511,7 +1519,8 @@ func _finish() -> void:
 		return
 	var flow := get_node_or_null("/root/Flow")
 	if flow != null and flow.has_method("finish_run") and bool(options.get("use_flow", true)):
-		flow.call("finish_run", summary)
+		flow.call("finish_run", summary,
+			world.character_snapshot() if flow.active_slot >= 0 and world.state == RunWorld.CLEARED else {})
 
 
 ## Screenshots every shot_every s of run time; quit_after ends an automated run (summary.json, final shot, quit).
