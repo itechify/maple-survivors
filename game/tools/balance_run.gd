@@ -36,6 +36,10 @@ extends SceneTree
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
+## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
+## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
+## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
+## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
 
 const DT := 1.0 / 60.0
 const MILESTONES := [8, 10, 20, 30, 40, 50]
@@ -54,6 +58,7 @@ const DEFAULT_RUN_CAP := 1800.0
 const LATE_MP_START := 480.0
 ## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
 const EARLY_MINUTES := 5
+const LEVEL_TARGET := 70 # tier C: spec #32 requested reach metric; no success/clear rule or tuning target.
 
 
 ## tier C measurement: landed lifetime hits per ordinary (non-elite, non-boss) kill, bucketed by the minute of the
@@ -110,6 +115,8 @@ func _init() -> void:
 	var branch := 0
 	var character_file := ""
 	var has_character := false
+	var chain := false
+	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
@@ -121,6 +128,9 @@ func _init() -> void:
 		elif a.begins_with("--character="):
 			character_file = a.substr(12)
 			has_character = true
+		elif a.begins_with("--tier="):
+			chain = true
+			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
 		elif a == "--first-card":
 			policy = "first"
 		elif a.begins_with("--policy="):
@@ -161,33 +171,89 @@ func _init() -> void:
 		deep_merge(data, patch)
 	if cap > 0.0:
 		data.balance["run_time_cap"] = cap
-	var missing := PackedStringArray()
-	var root := AssetCachePaths.resolve_cache_root()
-	var setup_base := DataRepo.build_setup(data, stage, 0, Vector2(800, 600),
-		func(p: String) -> Dictionary: return _json(root, p),
-		func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id),
-		missing)
-	if not missing.is_empty() or setup_base.get("map_img", {}).is_empty():
-		print("balance_run: the asset cache lacks %s (root %s)" % [missing, root])
-		quit(1)
+	var tiers: Array = data.stages.get("tiers", [])
+	if chain and (target_tier < 2 or target_tier > tiers.size() or has_character or CAMPER.STAGES.has(policy)):
+		print("balance_run: --tier must be 2..%d; cannot combine with --character or camper policies" % tiers.size())
+		quit(2)
 		return
+	if chain and not stage_explicit:
+		stage = String(tiers[0][0])
+	if not data.stages.stages.has(stage) or (chain and stage not in tiers[0]):
+		print("balance_run: unknown stage or --tier requires a tier-1 --stage: " + stage)
+		quit(2)
+		return
+	var stages: Array = [stage]
+	if chain:
+		for tier_index in range(1, target_tier):
+			stages.append(String(tiers[tier_index][0]))
+	var character := {}
 	if has_character:
 		var errors := PackedStringArray()
-		setup_base["character"] = DataRepo.load_character(character_file, errors)
+		character = DataRepo.load_character(character_file, errors)
 		if not errors.is_empty():
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
 			return
+	var root := AssetCachePaths.resolve_cache_root()
+	var setups: Array = []
+	for stage_key: String in stages:
+		var missing := PackedStringArray()
+		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
+			func(p: String) -> Dictionary: return _json(root, p),
+			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing)
+		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
+			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
+			quit(1)
+			return
+		if has_character:
+			setup.character = character
+		setups.append(setup)
 	for s in seeds:
-		var setup := setup_base.duplicate()
-		setup.seed = s
-		var r := run_one(RunWorld.new(setup), policy, s, idle_after, camp_after, branch)
-		r["seed"] = s
-		r["stage"] = stage
-		r["policy"] = policy
+		var r: Dictionary
+		if chain:
+			r = run_chain(setups, policy, s, idle_after, camp_after, branch)
+		else:
+			var setup: Dictionary = setups[0].duplicate()
+			setup.seed = s
+			var world := RunWorld.new(setup)
+			var start_character := world.character_snapshot()
+			r = run_one(world, policy, s, idle_after, camp_after, branch)
+			r.merge({"seed": s, "stage": stage, "policy": policy, "start_character": start_character, "missing": []})
+			for tier_index in tiers.size():
+				if stage in tiers[tier_index]:
+					r["tier"] = tier_index + 1
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
+
+
+## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
+static func round_seed(run_seed: int, tier_index: int) -> int:
+	# tier C: harness stream namespace, independent of card/job/combat RNG consumption in earlier rounds.
+	return run_seed if tier_index == 0 else hash("balance-round-%d-%d" % [run_seed, tier_index])
+
+
+## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
+static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
+		camp_after := 60.0, branch := 0) -> Dictionary:
+	var rounds: Array = []
+	var character := {}
+	for tier_index in setups.size():
+		var setup: Dictionary = setups[tier_index].duplicate()
+		setup.seed = round_seed(run_seed, tier_index)
+		if tier_index > 0:
+			setup.character = character
+		var world := RunWorld.new(setup)
+		var start_character := world.character_snapshot()
+		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, branch)
+		record["start_character"] = start_character
+		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
+		rounds.append(record)
+		if record.state != "CLEARED":
+			break
+		character = record.character
+	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
+		"target_tier": setups.size(), "rounds": rounds}
 
 
 ## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
@@ -377,6 +443,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
 	return {
+		"lv70_reached": int(w.player_state.level) >= LEVEL_TARGET,
+		"character": w.character_snapshot() if w.state == RunWorld.CLEARED else {},
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
 		"timeout": w.state == RunWorld.PLAYING, "run_time_cap": cap,
 		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
@@ -459,6 +527,13 @@ static func deep_merge(into: Dictionary, patch: Dictionary) -> void:
 
 ## A readable multi-line summary of one record.
 static func describe(r: Dictionary) -> String:
+	if r.get("mode", "") == "chain":
+		var lines := PackedStringArray(["CHAIN seed %d (%s): %d/%d rounds started" % [
+			int(r.seed), String(r.policy), r.rounds.size(), int(r.target_tier)]])
+		for record: Dictionary in r.rounds:
+			lines.append("ROUND tier %d stage %s" % [int(record.tier), String(record.stage)])
+			lines.append(describe(record))
+		return "\n".join(lines)
 	var reach: Dictionary = r.reach
 	var parts := PackedStringArray()
 	for lv: int in MILESTONES:
@@ -540,6 +615,8 @@ static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_aft
 ## censored median (censored_median), whole-hit fractions per boss/source, potion totals and camper arrivals
 ## (counted over camper-policy runs only).
 static func aggregate(records: Array) -> Dictionary:
+	if not records.is_empty() and records[0].get("mode", "") == "chain":
+		return aggregate_chain(records)
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
@@ -559,7 +636,16 @@ static func aggregate(records: Array) -> Dictionary:
 	var fight_samples := {}
 	var censored_samples := {}
 	var hit_samples := {}
+	var start_levels: Array = []
+	var end_levels: Array = []
+	result["lv70_reached"] = 0
+	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
+		if record.get("start_character", {}).has("level"):
+			start_levels.append(int(record.start_character.level))
+		if record.has("level"):
+			end_levels.append(int(record.level))
+		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
 		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
 		if not result.branches.has(branch_key):
 			result.branches[branch_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
@@ -643,8 +729,28 @@ static func aggregate(records: Array) -> Dictionary:
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
 	result["boss_hit_fraction"] = statistics(fractions)
+	result["start_level"] = statistics(start_levels)
+	result["end_level"] = statistics(end_levels)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
 		bucket.mean = float(bucket.hits) / int(bucket.kills) if int(bucket.kills) > 0 else null
+	return result
+
+
+## Aggregates each tier separately; unstarted rounds never enter outcome, death or boss denominators.
+static func aggregate_chain(records: Array) -> Dictionary:
+	var groups := {}
+	var result := {"mode": "chain", "runs": records.size(), "tier1_clears": 0, "tiers": {}}
+	for record: Dictionary in records:
+		for tier in range(1, int(record.target_tier) + 1):
+			if not groups.has(str(tier)):
+				groups[str(tier)] = []
+		for round_record: Dictionary in record.rounds:
+			groups[str(int(round_record.tier))].append(round_record)
+			if int(round_record.tier) == 1 and round_record.state == "CLEARED":
+				result.tier1_clears += 1
+	for tier: String in groups:
+		result.tiers[tier] = aggregate(groups[tier])
+		result.tiers[tier].tier = int(tier)
 	return result
 
 
@@ -674,10 +780,21 @@ static func censored_median(samples: Array) -> Dictionary:
 ## put the completed count next to the spawned count and add the censored median, so a median over completed fights
 ## alone cannot hide unfinished ones.
 static func describe_metrics(summary: Dictionary) -> String:
+	if summary.get("mode", "") == "chain":
+		var chain_lines := PackedStringArray(["SUMMARY chain %d runs; tier-1 clears feeding tier 2: %d/%d" % [
+			int(summary.runs), int(summary.tier1_clears), int(summary.runs)]])
+		for tier: String in summary.tiers:
+			chain_lines.append(describe_metrics(summary.tiers[tier]))
+		return "\n".join(chain_lines)
 	var mp_ratio := "undefined (no MP used)" if summary.mp_collected_used_ratio == null else "%.3f" % float(summary.mp_collected_used_ratio)
-	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP collected/used %s; MP-short seconds %s%s" % [
+	var lines := PackedStringArray()
+	if int(summary.get("tier", 0)) > 0:
+		lines.append("SUMMARY tier %d: %d started, %d cleared; start level %s; end level %s; Lv70 reached %d/%d" % [
+			int(summary.tier), int(summary.runs), int(summary.outcomes.CLEARED), _range(summary.start_level),
+			_range(summary.end_level), int(summary.lv70_reached), int(summary.runs)])
+	lines.append("SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP collected/used %s; MP-short seconds %s%s" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
-		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)]])
+		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)])
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))

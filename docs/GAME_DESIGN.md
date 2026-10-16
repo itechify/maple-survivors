@@ -2100,6 +2100,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
+Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
+the first stage of each later `stages.json` tier; `--stage` overrides tier 1. Lv70 reach is a diagnostic from
+the monotonically increasing level, never a clear condition or a calibrated target. Only a cleared round after
+all reward/job choices exports a character into the next tier; no sample is imputed for an unstarted round.
+
 | Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
 |---|---|---|---|
 | Schedule / first-pass HP | Zombie Mushmom 6300005 at 300 s, HP x0.8 (28000); Snack Bar 8220009 at 600 s, HP x1 (110000); Jr. Balrog 8130100 at 900 s, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
