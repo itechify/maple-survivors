@@ -357,6 +357,13 @@ SYSTEMS reports are ignored under `evidence/t68/smoke/`; no private cache or imp
 | Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
 | Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
 
+After fetching and merging `origin/t3/issue-32-implementation` (`2b139cd`, already current), the full
+`ISOLATE=t68 bash scripts/test.sh` passes **693 tests, 0 failed, 0 skipped, 77 files** (362.055 s).
+All real-cache checks execute. The 11 new save tests cover conversion, corrupt-file preservation, slot/seed
+round trips, all endings/history, capacity, validation, combined round/best writes, failed-write rollback and
+missing-primary recovery. Final log: ignored `_scratch/t68-full-final.log`. No visual criteria or renderer changes:
+no screenshots or rendering `missing` collection were needed; balance setup reports no missing-asset errors.
+
 #### #32 / #67 carried-character regression smoke (2026-10-16)
 
 Revision `8a7dae5` simulation, fixture/tests `8826fe3`; `ISOLATE=t67`, training seeds 1/2/2026,
