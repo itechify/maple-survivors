@@ -297,6 +297,15 @@ func _scenario_windows() -> void:
 	await _sleep(0.4)
 	_check(run.ui_windows.ids() == PackedStringArray(["stat"]), "Menu -> Stat opened Stat (%s)" % [run.ui_windows.ids()])
 	await _shot("menu_stat")
+	# The Menu button still works while a window holds the run; a press elsewhere closes the popup only.
+	await _click(run.hud.menu_button)
+	await _sleep(0.3)
+	_check(run.ui_windows.ids() == PackedStringArray(["stat", "menu"]),
+		"the Menu button opens its popup while Stat is open (%s)" % [run.ui_windows.ids()])
+	await _click_at(Vector2(get_viewport().get_visible_rect().size.x - 120.0, 150.0))
+	await _sleep(0.3)
+	_check(run.ui_windows.ids() == PackedStringArray(["stat"]),
+		"a press outside closed the popup and kept Stat (%s)" % [run.ui_windows.ids()])
 	await _key(KEY_ESCAPE)
 	await _sleep(0.3)
 	_check(not run.ui_windows.has_windows(), "Esc closed Stat")
