@@ -28,6 +28,7 @@ extends RefCounted
 ##   bounds: Rect2 (MapBounds; default foothold box + 300 above/100 below)
 ##   speed_mult: float (stage speed multiplier, default 1)   physics: PhysicsConstants (default v83)
 ##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
+##   events: Array receiving status expiry and poison mob_hit events (RunWorld's current event list)
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
 ## `kinds` must hold the MobKind of every `kind` index used (RunWorld shares its mob_kinds array). Their fields are
 ## re-read at every step(), so replacing or editing a kind (elite or speed overrides) takes effect on the next tick.
@@ -38,6 +39,22 @@ const JUMP := 2
 const HIT := 3
 const DIE := 4
 const FREE := 5
+## tier C: v83 server-reference poison rule; tier B (v95 RE) supports the 1-second display clock only.
+## Formula/rounding limits and pinned sources: docs/research/monster-status-effects.md.
+const POISON_INTERVAL := 1.0
+const POISON_LEVEL_BASE := 70
+const POISON_DAMAGE_CAP := 32767
+## tier C: numerical tolerance for double status clocks at the fixed-tick boundary.
+const STATUS_EPSILON := 1e-9
+## Player-inflicted statuses: index into the flattened per-slot status table (slot * STATUS_COUNT + status).
+const SLOW := 0
+const POISON := 1
+const FREEZE := 2
+const STATUS_COUNT := 3
+## Status names used by apply_status and the mob_status_* events, in table order.
+const STATUS_NAMES := ["slow", "poison", "freeze"]
+## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
+const STATUS_ELEMENTS := ["", "S", "I"]
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -81,6 +98,21 @@ var active := PackedByteArray()
 ## Travel cost (px) left to the player at the last grounded step: the walk on the player's platform, else the chosen
 ## route's (NavGraph.route_cost); INF = no way there (or not computed yet). Kept while airborne.
 var route_len := PackedFloat32Array()
+## Player-inflicted status table, index slot * STATUS_COUNT + status: seconds left (doubles, so a canonical whole
+## second expires after exactly 60 fixed ticks) and seconds since application (the status art clock).
+var status_left := PackedFloat64Array()
+var status_elapsed := PackedFloat32Array()
+## Canonical signed Slow x scales pursuit speed by (100 + x) / 100; 1 when not slowed.
+var slow_factor := PackedFloat32Array()
+var _poison_pulse := PackedFloat64Array()
+var _poison_damage := PackedInt32Array()
+var _poison_skill := PackedStringArray()
+## Actual nonlethal poison damage, included in RunWorld's player damage credit.
+var poison_dealt := 0
+## Slots carrying at least one status, unordered (the status tick visits only these); _status_at[slot] is the slot's
+## index in it, or -1.
+var _status_slots := PackedInt32Array()
+var _status_at := PackedInt32Array()
 
 var kinds: Array = []
 var fhm: FootholdMap
@@ -149,6 +181,22 @@ func is_settled(i: int) -> bool:
 	return is_live(i) and alpha[i] >= 1.0
 
 
+## Seconds left on status `s` (SLOW, POISON or FREEZE) of slot i; 0 when it is not active.
+func status_time(i: int, s: int) -> float:
+	return status_left[i * STATUS_COUNT + s]
+
+
+## Gate for monster touch damage and starting attacks/skills: fully visible and not frozen (tier B later-client RE
+## for attacks/skills; tier C owner choice for touch damage).
+func can_act(i: int) -> bool:
+	return is_settled(i) and status_left[i * STATUS_COUNT + FREEZE] <= 0.0
+
+
+## Whether any slot has a player-inflicted status; presentation can skip status work when false.
+func has_statuses() -> bool:
+	return not _status_slots.is_empty()
+
+
 ## The MobKind of the mob in slot i.
 func mob_kind(i: int) -> MobKind:
 	return kinds[kind[i]]
@@ -193,6 +241,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	fading_out[i] = 0
 	steady[i] = 0
 	active[i] = 1
+	slow_factor[i] = 1.0
 	_stop_x[i] = INF
 	_route_e[i] = -1
 	route_len[i] = INF
@@ -217,11 +266,48 @@ func despawn(i: int) -> bool:
 	return true
 
 
+## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key);
+## `params.element` overrides the status's own element (STATUS_ELEMENTS). Refreshes without stacking (tier C, issue
+## #54); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
+## digit 4) against the status element reject it. Appends application/expiry events to the supplied simulation event list. Removal/death/
+## relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
+func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
+	var s := STATUS_NAMES.find(status)
+	var time := float(params.get("time", 0.0))
+	if s < 0 or not is_live(i) or time <= 0.0:
+		return false
+	var mk := mob_kind(i)
+	# tier C: the v83 server reference rejects player statuses on bosses (Cosmic Monster.applyStatus boss gate).
+	if mk.boss or steady[i] != 0:
+		return false
+	# tier C: the same reference rejects a status whose element the monster is immune, strong or neutral (4) against.
+	if mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s]))):
+		return false
+	if s == POISON:
+		var level := int(params.get("level", 0))
+		if level <= 0 or level >= POISON_LEVEL_BASE:
+			return false
+		_poison_pulse[i] = POISON_INTERVAL
+		_poison_damage[i] = mini(POISON_DAMAGE_CAP, ceili(float(max_hp[i]) / (POISON_LEVEL_BASE - level)))
+		_poison_skill[i] = String(params.get("skill", STATUS_NAMES[POISON]))
+	elif s == SLOW:
+		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
+		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
+	var j := i * STATUS_COUNT + s
+	if _status_at[i] < 0:
+		_status_at[i] = _status_slots.size()
+		_status_slots.append(i)
+	status_left[j] = time
+	status_elapsed[j] = 0.0
+	events.append({"type": "mob_status_applied", "mob": i, "mob_id": mk.id, "status": status, "duration": time})
+	return true
+
+
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
 ## Dying or free slots ignore hits. Scheduled-boss slots (`steady`) and kinds with canonical info/boss or the survivor
 ## no_flinch override ignore stun/push; other mobs require damage >= canonical pushed.
 func apply_hit(i: int, dmg: int, dir: int) -> bool:
-	if i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
+	if dmg <= 0 or i < 0 or i >= capacity() or state[i] == DIE or state[i] == FREE:
 		return false
 	var k := kind[i]
 	var mk: MobKind = kinds[k] if k >= 0 and k < kinds.size() else null
@@ -234,9 +320,12 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		if fh[i] >= 0:
 			vx[i] = 0.0
 		active[i] = 0
+		_clear_statuses(i)
 		_alive -= 1
 		return true
-	if steady[i] != 0 or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
+	# tier C: a frozen monster keeps its frozen pose instead of starting the hit stun or push.
+	if status_left[i * STATUS_COUNT + FREEZE] > 0.0 or steady[i] != 0 \
+			or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
 		return false
 	state[i] = HIT
 	state_t[i] = 0.0
@@ -315,11 +404,21 @@ func step(dt: float, ctx: Dictionary) -> void:
 	var action_state: Dictionary = ctx.get("boss_actions", {})
 	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
 	var action_facings: PackedInt32Array = action_state.get("facings", PackedInt32Array())
+	var statuses_active := not _status_slots.is_empty()
 	for i in _hi:
 		var st := state[i]
 		if st == FREE:
 			continue
 		var k := kind[i]
+		# tier B: later-client RE holds frozen movement and attacks; both animation clocks stay fixed as well. Tier C
+		# (owner): a monster frozen mid-air still falls straight down and a fading-in one keeps fading in.
+		if statuses_active and st != DIE and status_left[i * STATUS_COUNT + FREEZE] > 0.0:
+			if fading_out[i] == 0 and alpha[i] < 1.0:
+				alpha[i] = minf(1.0, alpha[i] + dt / regen)
+			if fh[i] < 0 and _k_fly[k] == 0:
+				vx[i] = 0.0
+				_air(i, dt, m, grav, fall, lim, bottom)
+			continue
 		var t := state_t[i] + dt
 		state_t[i] = t
 		anim_t[i] += dt
@@ -340,7 +439,10 @@ func step(dt: float, ctx: Dictionary) -> void:
 				facing[i] = action_facings[i]
 			continue
 		if _k_fly[k] != 0:
-			_fly(i, dt, _k_speed[k] * smult, target, bounds)
+			var fly_speed := _k_speed[k] * smult
+			if statuses_active:
+				fly_speed *= slow_factor[i]
+			_fly(i, dt, fly_speed, target, bounds)
 			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
 			continue
 		var f := fh[i]
@@ -359,6 +461,8 @@ func step(dt: float, ctx: Dictionary) -> void:
 		var p := platform[i]
 		var cx := x[i]
 		var spd := _k_speed[k] * smult
+		if statuses_active:
+			spd *= slow_factor[i]
 		var want := 0
 		var wander := false
 		if p == tp or (p == lowp and _k_jump[k] == 0):
@@ -483,6 +587,76 @@ func step(dt: float, ctx: Dictionary) -> void:
 		fh[i] = f
 		if st != MOVE:
 			_set_state(i, MOVE)
+	if not _status_slots.is_empty():
+		_step_statuses(dt, ctx.get("events", []))
+
+
+func _step_statuses(dt: float, events: Array) -> void:
+	# Backwards: a slot whose last status ends swaps the list's (already visited) last slot into its place.
+	for k in range(_status_slots.size() - 1, -1, -1):
+		var i := _status_slots[k]
+		var base := i * STATUS_COUNT
+		var poison := status_left[base + POISON]
+		if poison > 0.0:
+			_poison_pulse[i] -= minf(dt, poison)
+			while _poison_pulse[i] <= STATUS_EPSILON:
+				_poison_pulse[i] += POISON_INTERVAL
+				_poison_tick(i, events)
+		for s in STATUS_COUNT:
+			var left := status_left[base + s]
+			if left <= 0.0:
+				continue
+			status_elapsed[base + s] += minf(dt, left)
+			left = maxf(0.0, left - dt)
+			if left > STATUS_EPSILON:
+				status_left[base + s] = left
+				continue
+			status_left[base + s] = 0.0
+			_end_status(i, s)
+			events.append({"type": "mob_status_expired", "mob": i, "mob_id": mob_kind(i).id,
+				"status": STATUS_NAMES[s]})
+
+
+## One poison pulse on slot i: its snapshot damage, never below 1 HP and without stun/push.
+func _poison_tick(i: int, events: Array) -> void:
+	# tier C: v83 server poison leaves at least 1 HP and never causes stun/push.
+	var damage := mini(_poison_damage[i], maxi(0, hp[i] - 1))
+	if damage <= 0:
+		return
+	hp[i] -= damage
+	poison_dealt += damage
+	var mk := mob_kind(i)
+	events.append({"type": "mob_hit", "mob": i, "mob_id": mk.id, "damage": damage, "crit": false,
+		"pos": Vector2(x[i], y[i] + mk.hitbox.position.y), "hit_visual": "", "skill": _poison_skill[i]})
+
+
+## Resets the side data of status `s` of slot i, whose timer already reads 0, and drops the slot from the status
+## list once it carries none.
+func _end_status(i: int, s: int) -> void:
+	if s == SLOW:
+		slow_factor[i] = 1.0
+	elif s == POISON:
+		_poison_pulse[i] = 0.0
+		_poison_damage[i] = 0
+		_poison_skill[i] = ""
+	var base := i * STATUS_COUNT
+	if status_left[base + SLOW] > 0.0 or status_left[base + POISON] > 0.0 or status_left[base + FREEZE] > 0.0:
+		return
+	var at := _status_at[i]
+	var last := _status_slots[_status_slots.size() - 1]
+	_status_slots[at] = last
+	_status_at[last] = at
+	_status_slots.resize(_status_slots.size() - 1)
+	_status_at[i] = -1
+
+
+func _clear_statuses(i: int) -> void:
+	var base := i * STATUS_COUNT
+	for s in STATUS_COUNT:
+		if status_left[base + s] > 0.0:
+			status_left[base + s] = 0.0
+			_end_status(i, s)
+		status_elapsed[base + s] = 0.0
 
 
 ## Ballistic step of an airborne mob: gravity, a drop's drift stop, walls, the void guard, ceilings, landing,
@@ -614,6 +788,7 @@ func _set_state(i: int, s: int) -> void:
 
 
 func _release(i: int) -> void:
+	_clear_statuses(i)
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -667,6 +842,16 @@ func _grow(n: int) -> void:
 	_stop_x.resize(n)
 	_route_e.resize(n)
 	route_len.resize(n)
+	status_left.resize(n * STATUS_COUNT)
+	status_elapsed.resize(n * STATUS_COUNT)
+	slow_factor.resize(n)
+	_poison_pulse.resize(n)
+	_poison_damage.resize(n)
+	_poison_skill.resize(n)
+	_status_at.resize(n)
+	for i in range(old, n):
+		slow_factor[i] = 1.0
+		_status_at[i] = -1
 	for i in range(n - 1, old - 1, -1):
 		state[i] = FREE
 		active[i] = 0

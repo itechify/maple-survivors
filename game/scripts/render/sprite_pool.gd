@@ -17,6 +17,7 @@ var _pos: PackedVector2Array = []
 var _flip: PackedByteArray = []
 var _rot: PackedFloat32Array = []
 var _alpha: PackedFloat32Array = []
+var _tint := PackedColorArray()
 var _shown: PackedByteArray = []
 
 
@@ -48,6 +49,7 @@ func ensure(n: int) -> void:
 	_flip.resize(n)
 	_rot.resize(n)
 	_alpha.resize(n)
+	_tint.resize(n)
 	_shown.resize(n)
 	for i in range(old, n):
 		var ci := RenderingServer.canvas_item_create()
@@ -63,7 +65,8 @@ func ensure(n: int) -> void:
 
 
 ## Shows slot `i` with frame `f` anchored at `pos` (whole pixels expected), mirrored when `flip`.
-func show(i: int, f: SpriteFrame, pos: Vector2, flip: bool, alpha: float = 1.0, rot: float = 0.0) -> void:
+func show(i: int, f: SpriteFrame, pos: Vector2, flip: bool, alpha: float = 1.0, rot: float = 0.0,
+		tint: Color = Color.WHITE) -> void:
 	var ci := items[i]
 	if _frames[i] != f:
 		_frames[i] = f
@@ -77,9 +80,10 @@ func show(i: int, f: SpriteFrame, pos: Vector2, flip: bool, alpha: float = 1.0, 
 		_flip[i] = fl
 		_rot[i] = rot
 		RenderingServer.canvas_item_set_transform(ci, Transform2D(rot, Vector2(-1.0 if flip else 1.0, 1.0), 0.0, pos))
-	if _alpha[i] != alpha:
+	if _alpha[i] != alpha or _tint[i] != tint:
 		_alpha[i] = alpha
-		RenderingServer.canvas_item_set_modulate(ci, Color(1, 1, 1, alpha))
+		_tint[i] = tint
+		RenderingServer.canvas_item_set_modulate(ci, Color(tint, tint.a * alpha))
 	if _shown[i] == 0:
 		_shown[i] = 1
 		RenderingServer.canvas_item_set_visible(ci, true)
@@ -121,4 +125,5 @@ func free_all() -> void:
 	_flip.clear()
 	_rot.clear()
 	_alpha.clear()
+	_tint.clear()
 	_shown.clear()

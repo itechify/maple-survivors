@@ -53,6 +53,10 @@ var boss := false
 ## Survivor stance immunity for scheduled bosses whose original info/boss is absent.
 var no_flinch := false
 var elem_attr := ""
+## Parsed canonical elemAttr letter -> damage multiplier (tier A: v83 Cold Beam String.wz text).
+var elements := {}
+## Parsed canonical elemAttr letter -> raw effectiveness digit ("1" immune, "2" strong, "3" weak, "4" neutral).
+var element_codes := {}
 ## Survivor EXP pickup item id (0 = none set).
 var exp_item := 0
 
@@ -80,6 +84,12 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.boss = int(info.get("boss", 0)) != 0
 	k.no_flinch = bool(overrides.get("no_flinch", false))
 	k.elem_attr = String(info.get("elemAttr", ""))
+	for at in range(0, k.elem_attr.length() - 1, 2):
+		var letter := k.elem_attr.substr(at, 1).to_upper()
+		var code := k.elem_attr.substr(at + 1, 1)
+		k.element_codes[letter] = code
+		if code in ["1", "2", "3"]:
+			k.elements[letter] = {"1": 0.0, "2": 0.5, "3": 1.5}[code]
 	k.flies = mob_img.get("fly") is Dictionary
 	k.can_jump = bool(overrides.get("can_jump", mob_img.get("jump") is Dictionary))
 	var stat := k.fly_speed_stat if k.flies and info.has("flySpeed") else k.speed_stat
@@ -89,6 +99,17 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.hit_time = float(overrides.get("hit_time", DEFAULT_HIT_TIME))
 	k.exp_item = int(overrides.get("exp_item", 0))
 	return k
+
+
+## Damage multiplier for a skill's canonical element letter; empty/unlisted elements are neutral.
+func element_multiplier(element: String) -> float:
+	return float(elements.get(element.to_upper(), 1.0)) if element != "" else 1.0
+
+
+## Whether a status of canonical element letter `element` fails on this kind: Mob.wz digit 1 (immune), 2 (strong) or
+## 4 (neutral) for it (tier C: the v83 server reference rejects all three). Elementless statuses never fail here.
+func resists_status(element: String) -> bool:
+	return element != "" and String(element_codes.get(element.to_upper(), "")) in ["1", "2", "4"]
 
 
 ## Total duration in seconds of a stance node: the sum of its numbered frames' delays (missing delay = 100 ms).
