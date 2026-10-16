@@ -103,7 +103,9 @@ func test_manual_rule_never_auto_casts_or_scores_as_an_attack() -> void:
 	var w := _world()
 	w.loadout.add_skill_mod("teleport_fp", "range", "add", 500)
 	RF.put_mob(w, 100100, 500, 0, 100)
-	w.step(DT, MoveInput.new())
+	# The starter attack takes the first ready slot; the next tick must still exclude Teleport.
+	for tick in 2:
+		w.step(DT, MoveInput.new())
 	for event: Dictionary in w.drain_events():
 		assert_false(event.type == "cast" and event.skill == "teleport_fp", "manual skill excluded from automatic scan")
 	assert_near(BotInput.card_score(w, w.upgrades.card("teleport_fp_rank")), BotInput.SCORE_RANK_PASSIVE + BotInput.SCORE_JOB_BONUS)
