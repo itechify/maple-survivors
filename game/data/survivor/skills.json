@@ -168,6 +168,7 @@
 			"name": "Fire Arrow", "desc": "Fire/Poison Wizard. Shoots a flaming arrow at the nearest monster.",
 			"icon": "Skill.wz/210.img/skill/2101004/icon",
 			"damage": "magic",
+			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr f and 30 levels. Tier C: nearest auto-cast, cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, action time 0.8 s, projectile rotation.",
 			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
 			"action": "shoot1", "action_time": 0.8,
@@ -176,6 +177,20 @@
 			"effect": "Skill.wz/210.img/skill/2101004/effect",
 			"rotate": true,
 			"sounds": {"use": "Sound.wz/Skill.img/2101004/Use", "hit": ""}
+		},
+		"poison_breath": {
+			"skill_id": 2101005, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
+			"name": "Poison Breath", "desc": "Fires a poisonous orb at the nearest monster, with a chance to poison on hit.",
+			"icon": "Skill.wz/210.img/skill/2101005/icon", "damage": "magic",
+			"_tier": "Tier A: canonical mad/mastery/mpCon, elemAttr s, prop/time and 30 levels; swingO3 action and cached visuals/sounds. Tier C: nearest auto-cast, cooldown 1.25 s, range 450 px, speed 400 px/s, count 1, pierce 0, radius 14 px, action time 0.8 s, no projectile rotation; existing status-system poison rules apply.",
+			"cooldown": 1.25, "range": 450, "speed": 400, "count": 1, "pierce": 0, "radius": 14,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"on_hit": {"status": "poison", "chance_field": "prop", "duration_field": "time"},
+			"action": "swingO3", "action_time": 0.8,
+			"ball": "Skill.wz/210.img/skill/2101005/ball",
+			"hit": "Skill.wz/210.img/skill/2101005/hit/0",
+			"effect": "Skill.wz/210.img/skill/2101005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2101005/Use", "hit": "Sound.wz/Skill.img/2101005/Hit"}
 		}
 	}
 }
