@@ -4,6 +4,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 
+## The owner's ordinary roster and tier list are available through the normal data boundary.
 func test_dark_cave_roster_and_run_tiers() -> void:
 	var data := DataRepo.load_all()
 	var stage: Dictionary = data.stages.stages.get("dark_cave", {})
@@ -18,6 +19,7 @@ func test_dark_cave_roster_and_run_tiers() -> void:
 		"tier indices start at zero")
 
 
+## Pacing introduces each phase in order and spans the standard round.
 func test_keyframes_introduce_the_roster_in_owner_order() -> void:
 	var stage: Dictionary = DataRepo.load_all().stages.stages.get("dark_cave", {})
 	var frames: Array = stage.get("keyframes", [])
@@ -40,6 +42,7 @@ func test_keyframes_introduce_the_roster_in_owner_order() -> void:
 	assert_near(previous, 900.0, 1e-6, "pacing reaches the round duration")
 
 
+## Every ordinary mob has its signature pickup and import selections.
 func test_signature_exp_items_and_manifest_cover_the_stage() -> void:
 	# Tier A: names/IDs verified in original v83 String.wz/Etc.img; tier C: signature EXP icon association.
 	var expected := {2110200: 4000015, 2230101: 4000008, 2300100: 4000042, 2230100: 4000007,
@@ -55,6 +58,7 @@ func test_signature_exp_items_and_manifest_cover_the_stage() -> void:
 	assert_eq(npc_imgs.size(), 1, "draw Dark Cave's inert NPC with the existing renderer")
 
 
+## A deterministic bossless round crosses the duration boundary exactly once.
 func test_bossless_round_clears_at_fifteen_minutes() -> void:
 	# Synthetic mob art/stats, real stage data; seed and fixed ticks make the duration boundary reproducible.
 	var setup := RF.setup("dark_cave", 72)
@@ -78,6 +82,7 @@ func test_bossless_round_clears_at_fifteen_minutes() -> void:
 	assert_true(w.drain_events().is_empty(), "finished round stays finished")
 
 
+## The real cache preserves canonical stats, geometry and existing cross-map exit handling.
 func test_real_map_roster_stats_and_inert_cross_map_portals() -> void:
 	if not require_cache():
 		return

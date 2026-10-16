@@ -341,6 +341,40 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #32 / #72 Dark Cave stage data (2026-10-16)
+
+Report-only regression started at `1d69662` (the subsequent `8a46f7d` only restores catalog order and updates tests;
+no pacing or sim values change), private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t72`, `ISOLATE=t72`, seeds **1/2/2026**,
+both existing stages and bot/random, default branch selection, 1,800 s cap, no PATCH or tuning candidates.
+All 12 runs finish without crashes, script errors or world warnings. Henesys reaches Magician and Mano in 3/3
+per policy; seed 1 advances to Cleric. Results exactly match the prior post-Teleport-fix Cleric smoke recorded below
+(including 967.8/974.6 s clears); Tree's existing early deaths are unchanged and record-only. No new stop gate.
+Exact console output, seed records and SYSTEMS aggregates are ignored under `evidence/t72/smoke/`.
+
+| Stage / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Final levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+
+**Pending #67:** the fetched integration branch still lacks the fixture, `--character` consumer and sim snapshot
+input. Therefore the carried-character Dark Cave one-off round, its early/late screenshots and the requested
+Dark Cave bot/random fixture smoke are not measured. No parallel snapshot mechanism or balance substitute was
+introduced. First-pass stage data remains frozen for the eventual smoke; tier-2 tuning belongs to #77.
+
+Supplemental rendering only: an ignored debug harness uses a fresh Beginner with damage disabled, not a carried
+character. It reaches the interim bossless clear at **900.0 s**, max alive **336**, `missing: []`, with no warnings.
+Checked `evidence/t72/visual-probe/t60.png` by eye (cave terrain/ladders, Horny/Zombie Mushrooms, flying Stirges).
+The window stopped drawing after 7:00, so a separate late-wave probe starts its clock at 13:00 and captures
+`evidence/t72/late-probe.png` at 13:30: both Tauros, Curse Eyes, Jr. Boogies and Stirges render correctly;
+its `missing` is also empty. These diagnostic images do not satisfy the carried-character acceptance check.
+
+After the final integration merge check (`bf26c5d`, already up to date), the full isolated suite passes
+**669 tests, 0 failed, 0 skipped, 73 files**; all real-cache checks execute. Focused stage/data/UI coverage:
+**34 tests, 0 failed, 0 skipped**. Final suite output remains in `evidence/t72/final-full-suite.log`.
+
 #### #31 / #61 second-job QA (2026-10-15)
 
 Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
