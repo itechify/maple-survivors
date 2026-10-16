@@ -350,6 +350,28 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #79 combined smoke (UI tickets #82, #85, #86, #87, after review fixes) (2026-10-16)
+
+`ISOLATE=fix79 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, real
+cache, unforced branches, 1,800 s cap, no PATCH or tuning, on the integration tree with every #79 ticket merged plus
+the review fixes. All 12 runs finish with no crashes, script errors or world warnings; the one clear has all three
+scheduled bosses dead. The four `<stage>_<policy>_summary.json` files are byte-identical to the same smoke on the
+integration head before the review fixes (`d13cfff`), so the fixes change no simulation. Against the #80 record
+("after" column, measured before #83/#84 merged) the differences come from the gameplay merges, not the UI tickets.
+Raw records: ignored `_scratch/fix79_smoke/`.
+
+| Stage / policy | Clear/dead #80 -> now | End seconds (seed order 1/2/2026) #80 -> now | MP collected/used #80 -> now | MP-short s, mean/run #80 -> now |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 972.8/809.1/692.8 -> 780.4/791.1/907.5 | 181/181 -> 158/158 | 154.8 -> 220.9 |
+| Henesys random | 1/2 -> 1/2 | C965/468.6/538.8 -> C967.5/437.8/624.0 | 147/147 -> 168/168 | 112.8 -> 100.3 |
+| Tree bot | 0/3 -> 0/3 | 639.2/638.4/128.3 -> 652.3/677.4/128.3 | 119/119 -> 136/136 | 121.5 -> 136.0 |
+| Tree random | 0/3 -> 0/3 | 762.7/165.0/88.4 -> 617.5/165.0/88.4 | 116/97 -> 80/77 | 93.5 -> 93.5 |
+
+Henesys reaches Magician in 3/3 per policy (265.4–274.7 s) and spawns Mano in 3/3; Mano completes 3/3 (bot) and
+2/3 (random). Tree (record-only): 3/6 runs reach Magician (217.8–249.6 s) and Stumpy (3220000) completes in every
+spawned fight (3/3); the rest die before 3:00. No stop-and-ask gate. Full isolated suite: **747 tests, 0 failed,
+0 skipped, 80 files**; real-cache tests execute.
+
 #### #80 level-up MP refill / normal MP 3% flat regression smoke (2026-10-16)
 
 `ISOLATE=t80after3 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
@@ -2297,7 +2319,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill; fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
-| Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText, LevelUpWindow.dress |
+| Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 
 ## 12. Later phases
