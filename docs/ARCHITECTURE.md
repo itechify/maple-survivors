@@ -102,7 +102,7 @@ Format 1 converts on load and writes back with empty slots/history, retaining pl
 Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation
 failure blocks writes. Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`,
 copy the previous file to `.bak`, then replace the primary. In-memory mutations commit only after success.
-Godot's [Windows rename implementation](https://github.com/godotengine/godot/blob/master/drivers/windows/dir_access_windows.cpp#L295-L333)
+Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/windows/dir_access_windows.cpp#L288-L327)
 removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
 A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
 

@@ -341,6 +341,22 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #68 save-model regression smoke (2026-10-16)
+
+Revision `f55e89e`, based on integration `2b139cd`; `ISOLATE=t68`, training seeds 1/2/2026,
+both existing stages and bot/random, shared real cache (read only), default branches, 1,800 s cap, no PATCH or tuning.
+All 12 finish with no crashes, script errors or world warnings. Henesys reaches Magician and spawns Mano in all
+six runs. Outcomes/end times, final levels, potion totals and MP-wait means exactly match the #67 smoke below;
+Tree's early deaths remain record-only. No gameplay or asset changes. Exact console output, seed records and
+SYSTEMS reports are ignored under `evidence/t68/smoke/`; no private cache or import was needed.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
 #### #32 / #67 carried-character regression smoke (2026-10-16)
 
 Revision `8a7dae5` simulation, fixture/tests `8826fe3`; `ISOLATE=t67`, training seeds 1/2/2026,
