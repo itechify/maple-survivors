@@ -6,16 +6,17 @@ extends RefCounted
 ##
 ##   var text := SkillText.new(world.book, library.find("String.wz/Skill.img"))
 ##   text.desc("thunder_bolt")                                       # "Attacks surrounding monsters ..."
-##   text.level_line("thunder_bolt", 3, lo.stats("thunder_bolt"))     # "MP -20; ... up to 8 monsters"
-##   text.level_line(key, lo.level(key) + 1, lo.stats(key, lo.rank(key) + 1))   # the next level
+##   text.level_line(key, lo.level(key), lo.stats(key))              # the owned level: "... up to 8 monsters"
+##   var r := lo.rank(key) + 1                                       # the next level (rank r = canonical level r)
+##   text.level_line(key, lo.book.canonical_level(key, r), lo.stats(key, r))
 ##
 ## Sources, per skill (survivor key of skills.json):
-## - desc: the survivor override `text.desc` in skills.json, else String.wz/Skill.img/<7-digit id>/desc.
+## - desc: the survivor override `text.desc` in skills.json (plain text), else String.wz/Skill.img/<7-digit id>/desc.
 ## - level line: the override template `text.h`, else the WZ line the level node names (`hs`, else "h<level>").
 ## WZ text is cleaned: its literal "\n" / "\r\n" escapes become line breaks; the "[Master Level : N]" line and the
 ## "Required Skill : ..." lines go (tier C: the level text shows the cap, and WZ prerequisites are ignored, #31).
 ##
-## Templates (override `h` and `desc`): `{name}` is replaced by a number, `{name|monster|monsters}` by the number and
+## Templates (override `h` only): `{name}` is replaced by a number, `{name|monster|monsters}` by the number and
 ## the singular or plural word. Names resolve, in order, from the effective `stats` passed in (Loadout.stats: count,
 ## mob_count, pierce, mp_cost, cooldown, duration, level, ... including behaviour cards), then the canonical fields of
 ## that level node (mad, x, time, prop, ...; so `speed` and `range` mean the effective projectile values), then

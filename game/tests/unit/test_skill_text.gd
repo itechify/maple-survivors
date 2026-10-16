@@ -1,7 +1,7 @@
 extends TestCase
 ## SkillText: the one source of player-visible skill text (v83 String.wz desc / hN lines, survivor overrides filled
 ## from effective stats), the level-up cards dressed with it, and the MapleText markup it is drawn with. String.wz data
-## here is synthetic.
+## here is synthetic, except the require_cache() pass over the real v83 strings.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
