@@ -794,7 +794,7 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 
 
 ## Moves live mob i to pos on foothold fh like a new spawn (SpawnDirector relocation): the slot is freed and the same
-## kind spawned there with its logical identity, HP, max HP and elite flag, fading in; emits mob_spawned with relocated_from =
+## kind spawned there with its logical identity, HP, max HP, remaining MP and elite flag, fading in; emits mob_spawned with relocated_from =
 ## i (new spawns have -1). Returns the new slot (-1 when i is not a live mob).
 func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	if i < 0 or i >= swarm.capacity() or swarm.active[i] == 0:
@@ -803,6 +803,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var identity := swarm.identity[i]
 	var hp := swarm.hp[i]
 	var mhp := swarm.max_hp[i]
+	var mp := swarm.mp[i]
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
 	var summon_owner := mob_summon_owner[i]
@@ -810,6 +811,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
 	swarm.identity[j] = identity
 	swarm.hp[j] = hp
+	swarm.mp[j] = mp
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
