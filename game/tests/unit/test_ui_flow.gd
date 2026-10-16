@@ -307,12 +307,19 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	character.job_id = 210
 	character.potions.hp.count = 9
 	flow.finish_run(summary(true, 900, 35, 3000), character)
-	assert_eq(flow.current_name, "stage_select")
+	assert_eq(flow.current_name, "free_market")
 	var boundary := SaveData.new(save_path).slot(0)
+	assert_eq(boundary.phase, "free_market", "arrival autosaves the hub boundary")
 	assert_eq(int(boundary.tier), 1)
 	assert_eq(int(boundary.tiers_cleared), 1)
 	assert_eq(int(boundary.rounds_played), 1)
 	assert_eq(boundary.character, JSON.parse_string(JSON.stringify(character)))
+	flow.save_and_quit()
+	assert_eq(flow.current_name, "character_select")
+	flow.save = SaveData.new(save_path)
+	flow.continue_character(0)
+	assert_eq(flow.current_name, "free_market", "Continue returns to the saved hub")
+	flow.goto_stage_select()
 	assert_eq(flow.current.stages.size(), 1, "single-stage tiers still show map select")
 	assert_eq(flow.current.stages[0].key, "dark_cave")
 	var setup := preload("res://tests/fixtures/run_fixtures.gd").setup("henesys_hg1", 7)
@@ -323,6 +330,26 @@ func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
 	assert_eq(next.progression.exp, 17)
 	assert_eq(next.potions.snapshot().hp.count, 9)
 	assert_eq(flow.save.runs_for("henesys_hg1"), 1)
+
+
+func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.create_character("Market71")
+	flow.finish_run(summary(true, 900, 35, 3000), flow.save.slot(0).character)
+	var hub := flow.current as FreeMarket
+	assert_true(hub.has_method("step_input"), "the hub accepts the normal fixed-tick movement input")
+	if not hub.has_method("step_input"):
+		return
+	hub.set_process(false)
+	hub.motion.player.place(Vector2(-650, 34), hub.motion.fhm)
+	for tick in 65:
+		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
+	hub.step_input(1.0 / 60.0, MoveInput.make(false, false, true))
+	assert_eq(flow.current_name, "stage_select")
+	assert_eq(SaveData.new(save_path).slot(0).phase, "map_select")
+	assert_eq(flow.current.stages[0].key, "dark_cave")
 
 
 

@@ -10,13 +10,12 @@ extends Node
 ## Shared #70/#71 drawing: DataRepo.character_look(snapshot.character, DataRepo.load_all()) -> AvatarRenderer look.
 ## CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs) is the shared pure weapon resolver.
 ## Only snapshot.character.look is authoritative; the old wrapper look is accepted for compatibility and ignored.
-## #71 seam: EVERY persistent non-final clear calls _after_round_cleared(snapshot). It currently persists
-## phase=map_select and enters goto_stage_select(); replace that destination/phase with free_market there and
-## handle that phase in continue_character(). The hub's out00 calls goto_stage_select(). No other clear route exists.
+## EVERY persistent non-final clear calls _after_round_cleared(snapshot), which saves free_market before arrival.
+## Continue resumes that phase; the hub's out00 calls goto_stage_select(). No other clear route exists.
 ##
-## SaveData format 2 slots hold the boundary character, tier (0-based), phase=map_select|round, stage and round_seed.
+## SaveData format 2 slots hold the boundary character, tier (0-based), phase=free_market|map_select|round, stage and round_seed.
 ## start_round(stage) persists phase=round and a seed BEFORE launch; continue_character restarts it unchanged.
-## quit_round never writes. save_and_quit returns map select to the slots. RunScene passes finish_run(summary,
+## quit_round never writes. save_and_quit returns the hub/map select to the slots. RunScene passes finish_run(summary,
 ## character) only when active_slot >= 0; a carried Dictionary reaches RunScene.configure via options.character.
 ##
 ## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
@@ -26,7 +25,7 @@ extends Node
 ## damage_dealt, skills: [{key, name, icon, rank}], seed}; persistent endings add ending and tiers_cleared.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
-## Emitted after a scene was swapped in ("title", "character_select", "history", "stage_select", "run", "results", "import", "error").
+## Emitted after a scene swap (title, character_select, history, free_market, stage_select, run, results, import, error).
 signal scene_changed(scene_name: String)
 
 const CHARACTER_SELECT := "res://scenes/ui/character_select.tscn"
@@ -35,6 +34,7 @@ const STAGE_SELECT := "res://scenes/ui/stage_select.tscn"
 const RESULTS := "res://scenes/ui/results_screen.tscn"
 const IMPORT := "res://scenes/ui/import_screen.tscn"
 const RUN := "res://scenes/run/run_scene.tscn"
+const FREE_MARKET := "res://scenes/run/free_market.tscn"
 ## Run option names for the command-line flags (others pass through with "-" -> "_").
 const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after"}
 const BOOL_OPTIONS := ["autoplay", "autopick"]
@@ -160,7 +160,7 @@ func start_round(stage_key: String, p_seed: int = -1) -> void:
 	_resume_round(snapshot)
 
 
-## Resumes a living character at map select or at the beginning of its stored round.
+## Resumes a living character in the hub, at map select or at the beginning of its stored round.
 func continue_character(index: int) -> void:
 	var snapshot := save_data().slot(index)
 	if snapshot.is_empty():
@@ -168,6 +168,8 @@ func continue_character(index: int) -> void:
 	active_slot = index
 	if snapshot.phase == "round":
 		_resume_round(snapshot)
+	elif snapshot.phase == "free_market":
+		_open_free_market(snapshot)
 	else:
 		goto_stage_select()
 
@@ -177,7 +179,7 @@ func quit_round() -> void:
 	goto_character_select()
 
 
-## Saves at map select, then returns to the character slots.
+## Saves at a hub/map-select boundary, then returns to the character slots.
 func save_and_quit() -> void:
 	var snapshot := save_data().slot(active_slot)
 	if not snapshot.is_empty() and save_data().update_slot(active_slot, snapshot) != OK:
@@ -247,14 +249,19 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	_swap_to(results, "results")
 
 
-## The sole non-final-clear seam for #71: save the carried boundary, then enter map select.
-## #71 changes this destination/phase to free_market and lets its out00 portal call goto_stage_select().
+## Saves the carried non-final boundary before entering the Free Market.
 func _after_round_cleared(snapshot: Dictionary) -> void:
-	snapshot.phase = "map_select"
+	snapshot.phase = "free_market"
 	if save_data().update_slot(active_slot, snapshot, last_summary) != OK:
 		_swap_to(error_screen("Could not save the cleared round."), "error")
 		return
-	goto_stage_select()
+	_open_free_market(snapshot)
+
+
+func _open_free_market(snapshot: Dictionary) -> void:
+	var screen := _instance(FREE_MARKET)
+	screen.configure(snapshot, self)
+	_swap_to(screen, "free_market")
 
 
 ## The save file (user://save.json unless a test assigned another).
