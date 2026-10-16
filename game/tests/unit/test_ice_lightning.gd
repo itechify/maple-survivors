@@ -135,7 +135,9 @@ func test_thunder_bolt_target_card_raises_hits_in_a_crowded_box_by_two_per_step(
 		assert_eq(hit_mobs.size(), 6 + 2 * steps, "%d card steps: distinct monsters hit by one cast" % steps)
 		assert_eq(mp_before - int(w.player_state.mp), 20, "one cost for the whole cast at %d steps" % steps)
 	var w := _world()
+	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "needs Thunder Bolt learned")
 	w.upgrades.apply("thunder_bolt_new", w)
+	assert_has(w.upgrades.eligible(w), "thunder_bolt_targets")
 	for step in 3:
 		w.upgrades.apply("thunder_bolt_targets", w)
 	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "three steps cap the card")
