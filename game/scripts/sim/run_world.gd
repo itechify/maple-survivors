@@ -745,7 +745,22 @@ func mob_center(m: int) -> Vector2:
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
 
 
-## All live bodies intersecting a canonical feet-relative, left-facing skill box; nearest centre first, then slot.
+## True when slot m holds a scheduled boss (a BossDirector encounter); elites and boss offspring are not.
+func is_scheduled_boss(m: int) -> bool:
+	return m >= 0 and m < mob_boss.size() and mob_boss[m] >= 0
+
+
+## Target order shared by every player targeting rule: scheduled bosses first, then nearer `d2`, then lower slot.
+## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it.
+func targets_before(a: int, da: float, b: int, db: float) -> bool:
+	var boss_a := is_scheduled_boss(a)
+	if boss_a != is_scheduled_boss(b):
+		return boss_a
+	return da < db if da != db else a < b
+
+
+## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
+## centre, then slot (targets_before).
 ## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
 func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
 	if not box.has_area():
@@ -770,9 +785,7 @@ func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32
 		matches.append(m)
 	var origin := cast_origin()
 	matches.sort_custom(func(a: int, b: int) -> bool:
-		var da := mob_center(a).distance_squared_to(origin)
-		var db := mob_center(b).distance_squared_to(origin)
-		return da < db if da != db else a < b)
+		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
 	return PackedInt32Array(matches)
 
 
