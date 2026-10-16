@@ -9,7 +9,7 @@ extends RefCounted
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
 
 
-## Skill.wz-shaped imgs keyed by book ("000", "200", "210") like setup.skill_imgs.
+## Skill.wz-shaped imgs keyed by book ("000", "200", "210", "220") like setup.skill_imgs.
 static func skill_imgs() -> Dictionary:
 	var snails := {}
 	var fix := [10.0, 25.0, 40.0]
@@ -46,7 +46,22 @@ static func skill_imgs() -> Dictionary:
 			"ball": _anim(3, 30.0, 84, 20), "hit": {"0": _anim(5, 90.0, 60, 60)},
 			"level": _levels(30, {"mpCon": [14.0, 28.0], "mad": [33.0, 120.0], "mastery": [1.0, 10.0]})},
 	}}
-	var imgs := {"000": b000, "200": b200, "210": b210}
+	var thunder_levels := _levels(30, {"mpCon": [20.0, 40.0], "mad": [2.0, 60.0],
+		"mastery": [1.0, 10.0], "mobCount": [6.0, 6.0]})
+	for level: String in thunder_levels:
+		# Synthetic box interpolation, like the numeric endpoint interpolation above.
+		var extent := lerpf(150.0, 170.0, float(int(level) - 1) / 29.0)
+		thunder_levels[level].lt = {"$v": [-extent, -(extent - 100.0)]}
+		thunder_levels[level].rb = {"$v": [extent, extent - 100.0]}
+	var b220 := {"skill": {
+		"2201004": {"icon": _canvas(32, 32), "elemAttr": "i", "effect": _anim(4, 100.0, 70, 80),
+			"hit": {"0": _anim(5, 100.0, 80, 80)},
+			"level": _levels(30, {"mpCon": [12.0, 24.0], "mad": [13.0, 100.0], "mastery": [1.0, 10.0],
+				"x": [-100.0, -100.0], "time": [1.0, 2.0]})},
+		"2201005": {"icon": _canvas(32, 32), "elemAttr": "l", "effect": _anim(7, 100.0, 90, 90),
+			"hit": {"0": _anim(5, 100.0, 80, 80)}, "level": thunder_levels},
+	}}
+	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):
