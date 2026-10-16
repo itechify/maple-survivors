@@ -109,6 +109,13 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 		state = ST_STAND
 
 
+## Queries a grounded blink destination without changing motion; climbing cannot teleport.
+func teleport_destination(direction: Vector2, distance: float, fhm: FootholdMap, bounds: Rect2) -> Dictionary:
+	if ladder >= 0 or state == ST_LADDER:
+		return {}
+	return fhm.teleport_destination(pos, direction, distance, bounds)
+
+
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
 ## rect (an empty Rect2 means only the foothold extent limits x). Returns EV_* flags of what happened.
 func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bounds: Rect2) -> int:

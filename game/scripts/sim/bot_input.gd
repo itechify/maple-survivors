@@ -96,6 +96,19 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
+	var teleport := w.teleport_skill()
+	if teleport != "" and w.can_cast() and w.teleport_affordable():
+		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
+		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
+		# tier C: blink from threats within 60 px, or within flee distance when less than one blink from an edge.
+		var cornered := minf(room[0], room[1]) < reach and minf(nearest[0], nearest[1]) < FLEE_DIST
+		if cornered or minf(nearest[0], nearest[1]) < threat_distance:
+			var escape := (1 if room[1] > room[0] else -1) if cornered else (-1 if danger[0] < danger[1] else 1)
+			if not w.player.teleport_destination(Vector2(escape, 0), reach, w.fhm, w.bounds).is_empty():
+				mi.left = escape < 0
+				mi.right = escape > 0
+				mi.teleport_pressed = true
+				return mi
 	var dir := 0
 	var down := false
 	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
@@ -211,7 +224,7 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
 			continue
 		var st := w.runner.stats_of(w, key)
-		if String(st.kind) != "buff" and float(w.player_state.mp) >= int(st.mp_cost):
+		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and float(w.player_state.mp) >= int(st.mp_cost):
 			return false
 	return true
 
@@ -362,7 +375,8 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
 	var sd := w.book.def(key)
-	var attack := String(sd.get("kind", "")) in ["projectile", "instant"] or String(sd.get("cast", {}).get("rule", "")) == "box"
+	var rule := String(sd.get("cast", {}).get("rule", ""))
+	var attack := rule != "manual" and (String(sd.get("kind", "")) in ["projectile", "instant"] or rule == "box")
 	var sj := int(sd.get("job", -1))
 	var pj := w.progression.job_id
 	var bonus := SCORE_JOB_BONUS if sj == pj or (sj > 0 and w.jobs.is_descendant(pj, sj)) else 0.0

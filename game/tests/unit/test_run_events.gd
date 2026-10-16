@@ -81,7 +81,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "max_mp_percent"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "max_mp_percent"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -251,6 +251,15 @@ func test_every_event_matches_the_schema() -> void:
 	for tick in 60:
 		statuses.step(DT, MoveInput.new())
 	for event: Dictionary in statuses.drain_events():
+		_check(event, seen)
+	var teleporter := RF.quiet_world(400, 60)
+	teleporter.change_job(210)
+	teleporter.heal_fraction("mp", 1.0)
+	teleporter.learn_skill("teleport_fp")
+	var blink := MoveInput.new()
+	blink.teleport_pressed = true
+	teleporter.step(DT, blink)
+	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
 	# Shared restoration has no live skill consumer until the second-job tickets land.
 	var restored := RF.quiet_world()

@@ -12,6 +12,9 @@ var jump_held := false
 ## Potion presses are consumed once by a sim tick; holding the key does not repeatedly drink.
 var drink_hp := false
 var drink_mp := false
+## Manual skill press consumed once; held intent requests repeats after the survivor delay.
+var teleport_pressed := false
+var teleport_held := false
 
 
 ## Convenience constructor.

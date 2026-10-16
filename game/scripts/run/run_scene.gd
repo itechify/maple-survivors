@@ -144,6 +144,7 @@ var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
 var _drink_mp_latch := false
+var _teleport_latch := false
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -294,7 +295,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
 	if not _autoplay and not event.is_echo():
-		if event.is_action_pressed("drink_hp"):
+		if event.is_action_pressed("teleport"):
+			_teleport_latch = true
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("drink_mp"):
@@ -348,6 +352,7 @@ func advance_frame(delta: float) -> void:
 		_jump_latch = false
 		_drink_hp_latch = false
 		_drink_mp_latch = false
+		_teleport_latch = false
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	_auto_resolve_window(delta)
@@ -625,10 +630,13 @@ func _read_input(first_tick: bool) -> MoveInput:
 	mi.up = Input.is_action_pressed("move_up")
 	mi.down = Input.is_action_pressed("move_down")
 	mi.jump_held = Input.is_action_pressed("jump")
+	mi.teleport_held = Input.is_action_pressed("teleport")
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
 	if first_tick:
+		mi.teleport_pressed = _teleport_latch
+		_teleport_latch = false
 		mi.drink_hp = _drink_hp_latch
 		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
@@ -670,6 +678,11 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
 			"cast":
 				_on_cast(e)
+			"teleport":
+				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
+				if String(e.phase) == "arrival":
+					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"boss_skill":
 				_on_boss_skill(e)
 			"mob_projectile_spawned":
@@ -865,11 +878,12 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
-## Plays a sound once per frame per path (a swarm hit by a piercing shell is one sound, not twenty).
-func _sound(path: String) -> void:
-	if path == "" or _frame_sounds.has(path):
+## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
+func _sound(path: String, phase: String = "") -> void:
+	var key := path + ":" + phase
+	if path == "" or _frame_sounds.has(key):
 		return
-	_frame_sounds[path] = true
+	_frame_sounds[key] = true
 	var sfx := _sfx_service()
 	if sfx != null and sfx.play(path):
 		counters.sounds += 1
@@ -1208,7 +1222,15 @@ func run_time() -> float:
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key)})
+		var manual := world.book.def(key).has("teleport")
+		var label := ""
+		if manual:
+			for binding: InputEvent in InputMap.action_get_events("teleport"):
+				if binding is InputEventKey:
+					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
+					break
+		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
+			"key_label": label, "affordable": world.teleport_affordable() if manual else true})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills}

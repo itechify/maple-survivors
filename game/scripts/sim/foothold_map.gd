@@ -259,6 +259,62 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 	return false
 
 
+## Finds a Teleport landing {pos, fh}, or {}. Vertical blinks choose the nearest floor strictly in that direction.
+## tier C: horizontal blinks choose the furthest floor point within range and snap vertically by at most range;
+## walls stop the blink at the existing collision epsilon. No unsupported air destination is returned.
+func teleport_destination(origin: Vector2, direction: Vector2, distance: float, limits: Rect2) -> Dictionary:
+	if distance <= 0.0 or direction == Vector2.ZERO:
+		return {}
+	var best := {}
+	var best_score := INF
+	var lo := bounds().position.x
+	var hi := bounds().end.x
+	if limits.has_area():
+		lo = maxf(lo, limits.position.x)
+		hi = minf(hi, limits.end.x)
+	var horizontal := direction.x != 0.0
+	var side := signf(direction.x)
+	var target_x := clampf(origin.x + side * distance, lo, hi)
+	if horizontal:
+		var wall := wall_hit(origin.x, origin.y, target_x, origin.y)
+		if wall >= 0:
+			target_x = x1[wall] - side * EPS
+	for f in count():
+		if not is_floor(f):
+			continue
+		var x := origin.x
+		if horizontal:
+			x = clampf(target_x, maxf(lo, x1[f]), minf(hi, x2[f]))
+			if x1[f] > hi or x2[f] < lo or (x - origin.x) * side <= EPS:
+				continue
+			if absf(x - origin.x) > absf(target_x - origin.x) + EPS:
+				continue
+		elif x < x1[f] or x > x2[f] or x < lo or x > hi:
+			continue
+		var y := y_at(f, x)
+		if horizontal:
+			var wall := wall_hit(origin.x, origin.y, x, y)
+			if wall >= 0:
+				x = x1[wall] - side * EPS
+				if x < x1[f] or x > x2[f] or (x - origin.x) * side <= EPS:
+					continue
+				y = y_at(f, x)
+		var dy := y - origin.y
+		if absf(dy) > distance + EPS:
+			continue
+		if limits.has_area() and (y < limits.position.y or y > limits.end.y):
+			continue
+		if not horizontal and dy * direction.y <= EPS:
+			continue
+		if horizontal and wall_hit(origin.x, origin.y, x, y) >= 0:
+			continue
+		var score := absf(target_x - x) if horizontal else absf(dy)
+		if score < best_score or (score == best_score and absf(dy) < absf(float(best.pos.y) - origin.y)):
+			best_score = score
+			best = {"pos": Vector2(x, y), "fh": f}
+	return best
+
+
 ## The first floor at or below (x, y): the spanning floor with the smallest surface y >= y. Skips foothold `ignore`
 ## and every foothold of platform `ignore_platform`. Returns -1 when there is none.
 func find_below(x: float, y: float, ignore: int = -1, ignore_platform: int = -1) -> int:

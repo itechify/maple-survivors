@@ -67,7 +67,14 @@ static func skill_imgs() -> Dictionary:
 		"2201005": {"icon": _canvas(32, 32), "elemAttr": "l", "effect": _anim(7, 100.0, 90, 90),
 			"hit": {"0": _anim(5, 100.0, 80, 80)}, "level": thunder_levels},
 	}}
-	return {"000": b000, "200": b200, "210": b210, "220": b220}
+	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220}
+	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
+	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
+		if not imgs.has(pair[0]):
+			imgs[pair[0]] = {"skill": {}}
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32),
+			"level": _levels(20, {"mpCon": [60.0, 13.0], "range": [130.0, 150.0]})}
+	return imgs
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
