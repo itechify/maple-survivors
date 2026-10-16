@@ -120,7 +120,7 @@ func test_project_input_map_has_the_game_design_controls() -> void:
 		assert_true(InputMap.has_action(a), a)
 	var s := GameSettings.new(cfg_path)
 	assert_true(KEY_ALT in s.binding_keys("jump") and KEY_SPACE in s.binding_keys("jump"), "jump: Left Alt, Space")
-	assert_true(KEY_LEFT in s.binding_keys("move_left") and KEY_A in s.binding_keys("move_left"))
+	assert_eq(s.binding_keys("move_left"), PackedInt32Array([KEY_LEFT]), "movement: the arrows (WASD is a setting)")
 	assert_true(KEY_ESCAPE in s.binding_keys("pause"))
 	s.free()
 
@@ -139,3 +139,92 @@ func test_frame_cap_follows_the_refresh_rate() -> void:
 	var t := GameSettings.new(cfg_path)
 	assert_eq(t.max_fps, 120, "persisted")
 	t.free()
+
+
+# --- movement keys (Arrows / WASD) -------------------------------------------------------------------------------
+
+const MOVES := ["move_left", "move_right", "move_up", "move_down"]
+const ARROWS := [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN]
+const WASD := [KEY_A, KEY_D, KEY_W, KEY_S]
+
+var _saved_map: Dictionary = {}
+
+
+## The global InputMap is shared with the live Settings autoload: every movement test restores it.
+func _save_input_map() -> void:
+	_saved_map = {}
+	for a: StringName in InputMap.get_actions():
+		_saved_map[a] = InputMap.action_get_events(a).duplicate()
+
+
+func _restore_input_map() -> void:
+	for a: StringName in _saved_map:
+		if InputMap.has_action(a):
+			InputMap.action_erase_events(a)
+			for e: InputEvent in _saved_map[a]:
+				InputMap.action_add_event(a, e)
+	_saved_map = {}
+
+
+## Actions other than move_* (and Godot's ui_*) that hold `key`.
+func _others_on(s: GameSettings, key: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	for a: StringName in InputMap.get_actions():
+		if String(a) in MOVES or String(a).begins_with("ui_"):
+			continue
+		if key in s.binding_keys(a):
+			out.append(String(a))
+	return out
+
+
+func test_window_hotkeys_default_to_s_and_k() -> void:
+	var s := GameSettings.new(cfg_path)
+	assert_eq(s.binding_keys("stat_window"), PackedInt32Array([KEY_S]), "Stat: S")
+	assert_eq(s.binding_keys("skill_window"), PackedInt32Array([KEY_K]), "Skill: K")
+	s.free()
+
+
+func test_movement_defaults_to_arrows_and_only_that_set_drives_move() -> void:
+	_save_input_map()
+	var s := GameSettings.new(cfg_path)
+	assert_eq(s.movement_keys, "arrows", "default: Arrows")
+	s.apply_movement()
+	for i in MOVES.size():
+		assert_eq(s.binding_keys(MOVES[i]), PackedInt32Array([ARROWS[i]]), "%s: the arrow only" % MOVES[i])
+	s.set_movement_keys("wasd")
+	for i in MOVES.size():
+		assert_eq(s.binding_keys(MOVES[i]), PackedInt32Array([WASD[i]]), "%s: WASD only" % MOVES[i])
+	var t := GameSettings.new(cfg_path)
+	assert_eq(t.movement_keys, "wasd", "persisted")
+	t.set_movement_keys("arrows")
+	for i in MOVES.size():
+		assert_eq(t.binding_keys(MOVES[i]), PackedInt32Array([ARROWS[i]]), "%s: back to the arrow" % MOVES[i])
+	var cfg := ConfigFile.new()
+	cfg.load(cfg_path)
+	assert_false(cfg.has_section_key("controls", "movement"), "the default is not written")
+	s.set_movement_keys("joystick")
+	assert_eq(s.movement_keys, "wasd", "unknown schemes are ignored (s still holds its last choice)")
+	s.free()
+	t.free()
+	_restore_input_map()
+
+
+func test_switching_to_wasd_unbinds_whatever_was_on_wasd() -> void:
+	_save_input_map()
+	var s := GameSettings.new(cfg_path)
+	s.set_binding("drink_hp", PackedInt32Array([KEY_DELETE, KEY_Q, KEY_W]))
+	assert_eq(_others_on(s, KEY_S), PackedStringArray(["stat_window"]), "Arrows: S is free for Stat")
+	s.set_movement_keys("wasd")
+	for k: int in WASD:
+		assert_eq(_others_on(s, k), PackedStringArray(), "%s holds no other action" % OS.get_keycode_string(k))
+	assert_eq(s.binding_keys("drink_hp"), PackedInt32Array([KEY_DELETE, KEY_Q]), "W taken off the HP potion")
+	assert_eq(s.binding_keys("stat_window"), PackedInt32Array(), "S taken off Stat")
+	var t := GameSettings.new(cfg_path)
+	assert_eq(t.bindings.get("stat_window"), PackedInt32Array(), "the unbinding is saved")
+	t.free()
+	s.set_movement_keys("arrows")
+	for k: int in ARROWS:
+		assert_eq(_others_on(s, k), PackedStringArray(), "the arrows hold only movement")
+	assert_eq(s.binding_keys("stat_window"), PackedInt32Array(), "switching back does not rebind (Key Config does)")
+	s.free()
+	_restore_input_map()

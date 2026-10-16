@@ -105,6 +105,7 @@ var _blocks: Array[Dictionary] = []
 
 func _init() -> void:
 	super._init()
+	window_hotkeys = true
 	name = "LevelUpWindow"
 	panel_size = ART_SIZE
 

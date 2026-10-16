@@ -12,16 +12,27 @@ extends Control
 ## Subclasses override `handle_input(event) -> bool` and `_panel_gui_input(event, local_pos)`.
 ## `process_mode` is ALWAYS so the windows keep working if the tree is paused.
 ##
+## In-run windows (WindowStack) can sit above a modal window: while `input_blocked` is set (RunScene sets it whenever
+## a stack window is open) the window ignores keys (they go on to the run) and eats mouse presses without acting.
+## With `window_hotkeys` (the level-up and job windows) the Stat / Skill window hotkeys (HOTKEY_ACTIONS) are never
+## consumed, so they reach RunScene while the choice is up.
+##
 ## Tests: set `transition_seconds = 0` and `input_delay = 0`, add the window to the tree and call `handle_input()` /
 ## `_gui_input()` with synthetic events (no frames are needed).
 
 ## Panel drop distance of the open transition (px). tier C: ours.
 const SLIDE := 10.0
+## Input actions of the in-run windows that pass through windows with `window_hotkeys`.
+const HOTKEY_ACTIONS := ["stat_window", "skill_window"]
 
 ## Open/close transition length (s); 0 = instant. tier C: ours.
 var transition_seconds := 0.15
 ## Keys are ignored for this long after open() (s). tier C: ours.
 var input_delay := 0.2
+## True while an in-run window (WindowStack) is above this one: keys pass on, mouse presses do nothing.
+var input_blocked := false
+## Let the in-run window hotkeys (HOTKEY_ACTIONS) through (level-up / job choices).
+var window_hotkeys := false
 ## The drawn window, centred in the view.
 var panel: Control
 ## Size of the panel art.
@@ -133,10 +144,22 @@ func _process(delta: float) -> void:
 		_since_open += delta
 
 
+## True when `event` is an in-run window hotkey this window lets through (`window_hotkeys`).
+func passes_hotkey(event: InputEvent) -> bool:
+	if not window_hotkeys:
+		return false
+	for action: String in HOTKEY_ACTIONS:
+		if _action(event, action):
+			return true
+	return false
+
+
 func _input(event: InputEvent) -> void:
-	if not _open or not visible:
+	if not _open or not visible or input_blocked:
 		return
 	if not (event is InputEventKey or event is InputEventJoypadButton):
+		return
+	if passes_hotkey(event):
 		return
 	if _since_open < input_delay:
 		if event.is_pressed():
@@ -148,6 +171,9 @@ func _input(event: InputEvent) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if not _open:
+		return
+	if input_blocked:
+		accept_event()
 		return
 	if event is InputEventMouse:
 		_panel_gui_input(event, (event as InputEventMouse).position - panel.position)

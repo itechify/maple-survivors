@@ -27,17 +27,30 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 
 | Action | Keys (MapleStory defaults first) |
 |---|---|
-| Move | Left / Right arrows (also A / D) |
+| Move | Left / Right arrows (the movement setting switches to W / A / S / D; only one set moves) |
 | Jump | Left Alt (also Space, C) |
-| Climb ladder/rope | Up / Down near a ladder (W / S) |
-| Use a same-map portal | Hold Up in its entrance (also W) |
+| Climb ladder/rope | Up / Down near a ladder |
+| Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
 | Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
-| Pause | Esc |
+| Stat window | S (also Menu -> Stat) |
+| Skill window | K (the window itself lands with #86) |
+| Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
+| Pause | Esc (closes the front window first; pauses only when none is open) |
 
 There is no attack key: attacks cast automatically. Teleport is manual on X.
+
+Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
+drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
+opening Stat until it is rebound). The Options window (#87) exposes the toggle.
+
+In-run windows (Stat, the Menu popup, later Skill / Key Config / Options) are draggable by their title bar and
+stack (a click brings one to the front). The run is paused while any is open, as with the pause menu. Stat and Skill
+also open over a level-up, job or advancement choice; they draw above it, and the choice ignores input until they are
+closed. The Stat window is the v83 one (`UIWindow.img/Stat` with its detail panel), read-only: AP is spent
+automatically, so there are no +AP buttons, and stats the game does not model (guild, fame, hands) show "-".
 
 ## 3. Movement (MapleStory physics)
 
@@ -1988,7 +2001,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   opt-in "fill window" setting fills large windows with more map instead of black bars (see View fit below).
 - HUD: independent status-bar, counter, skill-icon and message widgets receive state from RunScene. The original
   gauges, level, job name, timer, kill count and skill icons keep their layout. Decorative controls on the bar's
-  right side are removed to reserve a potion quickslot; separate buff and boss widgets reserve space below the
+  right side are removed to reserve a potion quickslot, except the Menu button at the bar's right end; separate buff and boss widgets reserve space below the
   kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
   advancement, boss-only completion, late ordinary hits and no lost mobs (4.1.1).
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
@@ -2179,6 +2192,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Sound throttle | each sound path plays at most once per frame (a piercing shell through 20 mobs is one Damage sound) | C | ours |
 | Character name tag | the character name under the feet in the elite name-tag style | C | ours |
 | UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
+| In-run windows (#85) | stacked above the modal windows (CanvasLayer 11); 20 px title strip drags; 40 px of a window always stay in the view; first open centred above the status bar, then reopened where it was dragged; sim held while any is open | C | ours |
+| Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
+| Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
+| Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 

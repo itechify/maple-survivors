@@ -4,9 +4,15 @@ extends Node
 ##
 ## Sections/keys: [assets] wz_root, cache_dir (read by AssetCachePaths too); [audio] master, bgm, sfx (linear 0..1);
 ## [display] window_scale (0 = project default 1600x1200), fill_window (bool), max_fps (0 = the display's refresh rate,
-## -1 = uncapped, N = at most N frames/s; see apply_frame_cap); [input] <action> = physical keycodes
+## -1 = uncapped, N = at most N frames/s; see apply_frame_cap); [controls] movement ("arrows" default or "wasd", see
+## apply_movement); [input] <action> = physical keycodes
 ## (only rebound actions; the rest keep the project's input map). Loading never writes the file: it is saved only when
 ## a setter is called, so a missing file keeps every default (and never pins a cache_dir for other tools).
+##
+## Movement keys: only the chosen set (MOVEMENT_SETS) drives move_*, so the other set is free to bind (S opens the
+## Stat window on Arrows). Applying a set also takes its keys off every other action (saved as bindings), so with WASD
+## nothing else sits on W/A/S/D; switching back does not rebind them (the Key Config window's Default button does).
+## Key Config / Options (later tickets) call set_binding / reset_binding / set_movement_keys.
 ##
 ## View (docs/ARCHITECTURE.md 4.5): by default the project's own stretch applies - 800x600 grown to the window's
 ## aspect ("expand", e.g. 1066x600 on 16:9), whole-pixel integer scale, black bars around the rest (1920x1080: 1x with
@@ -26,6 +32,13 @@ const BASE_VIEW := Vector2i(800, 600)
 ## 60 Hz whatever the frame rate; frames past the refresh rate are never shown, they only heat the machine.
 const FALLBACK_FPS := 144
 const MIN_FPS := 30
+## Movement key sets: scheme -> move action -> physical keycode. tier A: the v83 client moves with the arrows; WASD is
+## our option (tier C).
+const MOVEMENT_SETS := {
+	"arrows": {"move_left": KEY_LEFT, "move_right": KEY_RIGHT, "move_up": KEY_UP, "move_down": KEY_DOWN},
+	"wasd": {"move_left": KEY_A, "move_right": KEY_D, "move_up": KEY_W, "move_down": KEY_S},
+}
+const DEFAULT_MOVEMENT := "arrows"
 
 var wz_root := ""
 var cache_dir := ""
@@ -37,6 +50,8 @@ var window_scale := 0
 var fill_window := false
 ## Frame-rate cap: 0 = the display's refresh rate (FALLBACK_FPS when unknown), -1 = uncapped, N = N frames/s.
 var max_fps := 0
+## Movement key set: a MOVEMENT_SETS key ("arrows" or "wasd").
+var movement_keys := DEFAULT_MOVEMENT
 ## Rebound actions: action name -> PackedInt32Array of physical keycodes (absent = the project's input map).
 var bindings: Dictionary = {}
 
@@ -52,6 +67,7 @@ func _init(p_path: String = PATH) -> void:
 
 func _ready() -> void:
 	apply_bindings()
+	apply_movement()
 	apply_window_scale()
 	apply_frame_cap(max_fps)
 	var root := get_tree().root
@@ -116,6 +132,8 @@ func load_settings() -> void:
 	window_scale = maxi(0, int(cfg.get_value("display", "window_scale", window_scale)))
 	fill_window = bool(cfg.get_value("display", "fill_window", fill_window))
 	max_fps = int(cfg.get_value("display", "max_fps", max_fps))
+	var scheme := String(cfg.get_value("controls", "movement", movement_keys))
+	movement_keys = scheme if MOVEMENT_SETS.has(scheme) else DEFAULT_MOVEMENT
 	bindings = {}
 	if cfg.has_section("input"):
 		for action in cfg.get_section_keys("input"):
@@ -139,6 +157,7 @@ func save_settings() -> Error:
 	_put(cfg, "display", "window_scale", window_scale, 0)
 	_put(cfg, "display", "fill_window", fill_window, false)
 	_put(cfg, "display", "max_fps", max_fps, 0)
+	_put(cfg, "controls", "movement", movement_keys, DEFAULT_MOVEMENT)
 	if cfg.has_section("input"):
 		cfg.erase_section("input")
 	for action: String in bindings:
@@ -223,6 +242,47 @@ func set_binding(action: String, keys: PackedInt32Array) -> void:
 	apply_bindings()
 	save_settings()
 	changed.emit()
+
+
+## Picks the movement key set ("arrows" or "wasd"; others are ignored), applies it and saves.
+func set_movement_keys(scheme: String) -> void:
+	if not MOVEMENT_SETS.has(scheme):
+		return
+	movement_keys = scheme
+	apply_movement()
+	save_settings()
+	changed.emit()
+
+
+## Binds move_* to the movement_keys set only and takes those keys off every other action (Godot's ui_* excepted);
+## the stripped actions are recorded in `bindings` (saved by the next save_settings).
+func apply_movement() -> void:
+	var moves: Dictionary = MOVEMENT_SETS.get(movement_keys, MOVEMENT_SETS[DEFAULT_MOVEMENT])
+	var taken := PackedInt32Array()
+	for code: int in moves.values():
+		taken.append(code)
+	var stripped := false
+	for action: StringName in InputMap.get_actions():
+		var a := String(action)
+		if moves.has(a) or a.begins_with("ui_"):
+			continue
+		var keys := binding_keys(a)
+		var kept := PackedInt32Array()
+		for k in keys:
+			if not (k in taken):
+				kept.append(k)
+		if kept.size() != keys.size():
+			bindings[a] = kept
+			stripped = true
+	if stripped:
+		apply_bindings()
+	for a: String in moves:
+		if not InputMap.has_action(a):
+			continue
+		InputMap.action_erase_events(a)
+		var ev := InputEventKey.new()
+		ev.physical_keycode = moves[a] as Key
+		InputMap.action_add_event(a, ev)
 
 
 ## Restores an action's project default keys and saves.
