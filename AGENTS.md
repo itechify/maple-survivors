@@ -105,6 +105,16 @@ level-up / job / pause windows, death, results, retry, quit) is `game/scenes/deb
 
 ### Balance (`scripts/balance.sh`)
 
+**Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
+or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
+`random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
+Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
+previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
+`docs/GAME_DESIGN.md` 4.2. Don't change balance data, run tuning candidates, or spend held-out seeds. Don't commit
+long tuning logs. If the smoke shows a feature clearly breaking the game (e.g. every run dies before the first boss,
+or every run clears with no deaths), stop and ask the owner. Even if a ticket's text asks for the full tuning
+process below, do the smoke instead and say so. The rest of this section is the procedure for the balance pass.
+
 `bash scripts/balance.sh [seeds | a..b] [--stage=<key>] [--policy=bot|random|first]` plays whole runs headless on the
 real map (one Godot process per seed, at most `JOBS` (12) at once; ~1 min for 12 seeds) with the kiting bot and a card
 policy (`bot`: BotInput.pick_card_for, the sensible player; `random`: a careless player taking a random card of the
@@ -113,10 +123,10 @@ Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits b
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
-2026) only; the default is training seeds 1..6. The held-out ranges 101..130, 201..212, 301..330, 401..430 and 501..530
-are spent or retired: the historical 401..406 smoke overlaps the last range. They must not be reused for tuning
-or as fresh evidence. Freeze the candidate before reporting on the next fresh held-out range, 601..630; never
-tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
+2026) only; the default is training seeds 1..6. The held-out ranges 101..130, 201..212, 301..330, 401..430, 501..530
+and 601..630 are spent or retired; #30 consumed 601..630 in its frozen assessment. They must not be reused for
+tuning or as fresh evidence. Reserve fresh 701..730 for the balance pass's frozen candidate, before its one-time
+assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 

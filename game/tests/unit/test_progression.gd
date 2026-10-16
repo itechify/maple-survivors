@@ -5,8 +5,8 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "rank", "max_rank", "skill", "skill_name", "skill_level",
-	"skill_level_next", "skill_changes", "skill_effect_stat"]
+const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "tier", "magnitude", "rank_before", "rank", "max_rank", "skill", "skill_name", "skill_level",
+	"skill_level_next", "skill_level_max", "skill_changes", "skill_effect_stat"]
 const JOB_OPTION_KEYS := ["job_id", "name", "available", "reason"]
 
 

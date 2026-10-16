@@ -233,8 +233,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
 | `job_changed` | `job_id`, `name` |
-| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes, skill_effect_stat}]`; `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `speed` Nimble Feet, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`, `speed`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent. Improved MaxMP Increase instead exposes `max_mp_percent`, the survivor per-level percentage, never canonical MP growth |
-| `upgrade_applied` | `id`, `rank` |
+| `choice_pending` | `bonus` (bool), `cards`: `[{id, kind, name, desc, icon, tier, magnitude, rank_before, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_level_max, skill_changes, skill_effect_stat}]`; `skill_level_max` is the skill's canonical level cap (0 without a skill; the window marks a learn at the cap MAX); `tier` is lowercase `normal/rare/epic/unique/legendary` after the headroom clamp; `magnitude` is granted ranks, modifier steps or starting skill rank. `rank_before/rank` are consumed card steps before/after (learn/potion cards consume one). `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `speed` Nimble Feet, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`, `speed`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent. Improved MaxMP Increase instead exposes `max_mp_percent`, the survivor per-level percentage, never canonical MP growth |
+| `upgrade_applied` | `id`, `rank`, `tier` (displayed Potential tier), `magnitude` (actual ranks/steps/starting rank) |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
 | `stage_cleared` | `time` |
@@ -335,6 +335,7 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 `RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
 `RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, an eligible ready skill failed affordability), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
+`fortune` (survivor card-tier stat from `balance.player.fortune`, separate from LUK),
 `invincible_t`, `action`, `action_t`, `dead`, plus detached `buffs`, `slow` and `potions` snapshots described below).
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
@@ -489,9 +490,10 @@ What the tables above leave open; the class doc comments have the rest.
   `drink_potion(kind) -> bool` consumes one and restores `spec.hp` or `spec.mp`, clamped to max. Empty stock is inert.
   Drink presses run before movement and casting, including on ropes; no cooldown applies.
   `balance.potions` selects starter IDs/counts, independent normal/elite per-kind drop chances and bot thresholds.
-  Stage keyframes may override ordinary HP rolls with `normal_hp_drop_chance`. Each endpoint uses the global normal
-  HP chance when missing, clamps to [0, 1], and interpolates linearly in run time; outside the frame range the nearest
-  endpoint holds (no post-duration spawn ramp). Elite and MP chances remain global; boss bundles bypass these rolls.
+  Stage keyframes may override ordinary HP/MP rolls with `normal_hp_drop_chance` / `normal_mp_drop_chance`.
+  Each endpoint uses that kind's global normal chance when missing, clamps to [0, 1], and interpolates linearly in
+  run time; outside the frame range the nearest endpoint holds (no post-duration spawn ramp). Elite chances remain
+  global; fixed boss bundles bypass both curves. An absent curve preserves the seeded ordinary drop sequence.
   `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
   current canonical item icons, counts and keys.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,

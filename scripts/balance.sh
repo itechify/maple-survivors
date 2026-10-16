@@ -17,8 +17,10 @@
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
 #
-# Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430 and 501..530 are spent or retired
-# (historical smoke used 401..406). Report a frozen candidate on fresh 601..630; never tune on it (AGENTS.md "Balance").
+# Feature tickets run only a smoke (1 2 2026, both stages and policies) and never tune (AGENTS.md "Balance").
+# Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430, 501..530 and 601..630 are spent
+# or retired (#30 consumed 601..630). Reserve fresh 701..730 for the balance pass's frozen candidate's one-time
+# assessment; never tune on it (AGENTS.md "Balance").
 #
 # Prints a table (time of Lv 8/10/20/30, level at 4/8/12 min, alive mobs at 4/8/12 min, mobs near the player at
 # 4/8/12 min, hits taken before 6:00 and after 8:00, EXP drops on the map at 8 min, how the run ended; then, in %, the
@@ -28,6 +30,7 @@
 # full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP collected/used, MP wait, completed boss
 # fight times, time to Magician, final potion stock, late MP waits with observation counts, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
+# Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"

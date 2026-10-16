@@ -7,6 +7,7 @@
 	"player": {
 		"_start": "Tier C: survivor starter stats, the v83 Beginner 50 HP / 5 MP and Three Snails rank 1 (owner: keep the v83 opening pool).",
 		"hp": 50, "mp": 5,
+		"fortune": 0, "_fortune": "Tier C: card-tier odds only; equipment/NX sources are deferred. This is separate from canonical LUK.",
 		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
 		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
 		"ap_per_level": 5,

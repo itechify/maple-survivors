@@ -536,7 +536,7 @@ func _warm_ui() -> void:
 func _warm_stage() -> void:
 	if library == null:
 		return
-	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED]:
+	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED, LevelUpWindow.SND_HIGH_TIER]:
 		_warm_sound(path)
 	library.find_anim("Effect.wz/BasicEff.img/Summoned")
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
@@ -951,7 +951,14 @@ func _close_window() -> void:
 
 
 func _on_card_chosen(card_id: String) -> void:
-	if _window_kind != "cards" or not world.apply_choice(card_id):
+	if _window_kind != "cards":
+		return
+	if not world.apply_choice(card_id):
+		# The window already hid itself: offer the same cards again rather than leave the sim choosing unseen.
+		var req := _window_req
+		_close_window()
+		_pending_window = req
+		_service_windows()
 		return
 	_close_window()
 	handle_events(world.drain_events())

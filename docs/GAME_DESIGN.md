@@ -165,28 +165,38 @@ implementations remain sibling work.
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
-time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) after the owner
-review of spec #29 (vanilla single-shot skills, the v83 5-MP opening); a coarse pass on training seeds only, with
-final tuning deferred until later specs land:
+time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
+the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
+tuning waits for the dedicated balance pass (section 4.2).
+for now; balance will be revisited after more features (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
-|---|---|---|---|---|---|
-| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
-| 2:00 | 0.4 | 8 | + Red Snail 3, Shroom 3 | 1.0 | 1.0 |
-| 3:00 | 0.6 | 12 | + PQ Stirge 1 | 1.0 | 1.025 |
-| 4:00 | 1.0 | 20 | + Slime 3 | 1.0 | 1.05 |
-| 5:00 | 2.5 | 50 | + Flyeye 1 | 1.25 | 1.075 |
-| 6:00 | 4.5 | 85 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.75 | 1.1 |
-| 8:00 | 8.267 | 143.333 | + Goblin Fire 1 | 3.2 | 1.1533 |
-| 9:00 | 9.4 | 165 | + Green Mushroom 1 | 3.25 | 1.18 |
-| 12:00 | 13.5 | 240 | full pool (Green Mushroom 3) | 4.25 | 1.28 |
-| 15:00 | 20 | 330 | final boss | 6.875 | 1.4 |
+| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance | Normal MP chance |
+|---|---|---|---|---|---|---|---|
+| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 | 8% | 10% |
+| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 | 5% | 10% |
+| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 | 4% | 10% |
+| 4:00 | 1 | 20 | Slime | 1 | 1.05 | 3% | 10% |
+| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 | 1.2% | 10% |
+| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 | 0.8% | 10% |
+| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 | 0.8% | 10% |
+| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 | 0.7% | 10% |
+| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 | 0.7% | 10% |
+| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 | 0.805% | 4% |
+| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 | 1.035% | 4% |
+| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 | 1.2075% | 4% |
 
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
 the basic attack, so until 4:00 only a few mobs are alive, ordinary HP drops are generous (8% falling to 3%), no
 elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
-Density and HP then ramp from 5:00 into the unchanged mid/late curve. Canonical mob HP and skill damage/costs remain
+Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
 unchanged. Tree stage data are unchanged.
+
+The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point. MP stays 10% through 11:00,
+then interpolates to 4% at 12:00; the extra late HP support also begins after 11:00. Both potion curves hold
+after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
+0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
+extrapolation. Global normal MP 10% remains the fallback, elite MP stays 60%, and elite HP/boss bundles are
+unchanged. Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
 defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
@@ -279,8 +289,8 @@ their denominators report whether early durability is meaningful; mid-game mobs 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from population
 acceptance. Henesys retains Mage/Lv10 median **180–330 s**, individual 150–360 s. The coarse owner-review pass
 (sword-paced v83 Beginner, 2.5x stage EXP) moves Lv30 to median 540–720 s when reached, individual 480–1080 s, and
-Lv8 to median 210–270 s, individual 180–300 s; Lv30 near 10:00 is earlier than the 12:00–15:00 goal and is left for
-the final tuning pass. At least one of the three regression runs must reach Lv30 under the 40–50% clear target.
+Lv8 to median 210–270 s, individual 180–300 s; Lv30 near 10:00 is earlier than the original 12:00–15:00 aspiration; the owner accepts the current
+progression for now and will revisit it after more features. The regression windows remain unchanged. At least one of the three regression runs must reach Lv30 under the 40–50% clear target.
 These windows apply only to reached milestones, with at least two of the three fixed runs reaching
 Lv8/Lv10/Magician and every reach count printed. Occasional early deaths remain valid outcomes under the new population target; they are never filtered.
 Spawning each minute (including after 15:00), crowd growth, EXP/kill/event consistency, all-boss finale, no lost mobs,
@@ -291,9 +301,9 @@ Tree outcomes and clear rate are recorded without judging pacing or difficulty. 
 required cache data, no simulation warnings, EXP/kill/level event consistency, no lost mobs, correct deaths and
 all scheduled bosses dead before a clear. A living Tree run at the cap is a timeout, never a clear. Earlier Tree
 pacing tables and guards below are historical information. Freeze candidate data and guards before the full suite
-and any fresh held-out assessment. **501–530 is now consumed** by the frozen report below; the next reserved
-fresh range is **601–630**. Spent or retired 101–130/201–212/301–330/401–430/501–530 are never reused for tuning
-or fresh evidence.
+and any fresh held-out assessment. **601–630 is consumed** by #30's frozen assessment below. Reserve fresh
+**701–730** for the dedicated balance pass after its data and guards freeze. Spent or retired
+101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
@@ -306,7 +316,41 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### Owner review of #51: vanilla skills and the v83 opening (coarse pass, current)
+#### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
+
+Rarity tiers were calibrated on training seeds 1–60 and 2026 to the C46 profile: card weights 86/8/3.5/1.7/0.8,
+the older 1/1/2/3/max stacking and 1/1/2/3/5 new-skill ladders, and the Henesys late HP multipliers, HP support and
+ordinary MP taper in the 4.1 table. The owner accepted that state for the current features, then restored the spec
+weights **75/18/5/1.7/0.3** and a ladder in which every tier gives more than the one below (section 8.1). The stage
+data stays C46 and is **not re-tuned** for those changes: feature tickets now run a regression smoke only, and tuning
+waits for the dedicated balance pass (AGENTS.md "Balance"). The C46 figures below therefore describe the measured
+C46 weights, not the shipped odds.
+
+| C46 (86/8/3.5/1.7/0.8 weights) | Sensible clears | Sensible death median | Careless clears | MP collected / used |
+|---|---|---|---|---|
+| Training 1–60 + 2026 | 32/61 (52.46%) | 902.3 s (29 deaths) | 4/61 (6.56%) | 1.21 sensible / 1.25 careless |
+| Held-out 601–630 (consumed) | 19/30 (63.33%) | 943 s (11 deaths) | 4/30 (13.33%) | 1.30 sensible / 1.36 careless |
+
+Sensible clears exceed the 40–50% band (slightly in training, clearly held out); the careless late MP-wait requirement was observed in 7/41 training
+and 0/16 held-out runs. These are known deviations for the balance pass. A short summary of the C46 search and how
+to reproduce it is in [research/spec30-rarity-balance.md](research/spec30-rarity-balance.md).
+
+Regression smoke after the owner's changes (spec odds, new ladder, untouched C46 stage data), 2026-10-15, seeds
+1/2/2026, compared with the same seeds on the C46 PR head. No crashes or world warnings. Full suite on the final head: 571 tests, 0 failed, 0 skipped.
+
+| Stage / policy | Clears (now) | Deaths (now) | Clears (C46) | Deaths (C46) |
+|---|---|---|---|---|
+| Henesys sensible | 1/3 | 5:28, 15:31 | 1/3 | 12:36, 15:36 |
+| Henesys careless | 2/3 | 12:25 | 0/3 | 10:28, 12:03, 12:19 |
+| Tree, either policy | 0/3 | 1:17, 2:21, 2:21 | 0/3 | 1:17, 2:10, 2:21 |
+
+Henesys still reaches Magician at 4:23–4:43 and Lv 30 near 9–10:30; MP collected/used 1.17 sensible, 1.40 careless.
+Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/63/12/1/0, careless 289/72/9/3/2.
+Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
+not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
+
+#### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
+
 
 The owner rejected the C21 profile's survivor projectile coverage and opening pool: every skill starts as its vanilla
 v83 form (one Three Snails shell, one Energy Bolt; more only from cards, later rarity) and the opening pool stays the
@@ -316,7 +360,8 @@ still died before 4:00: the bot fled every nearby mob (its sword only swings whi
 that mostly overflowed the small pools. The owner chose a sword-paced opening, a bot sword duel (a lone ordinary mob
 while no attack skill can fire) and a potion waste guard (drink only when half of one restore fits) instead of raw
 80% / 30% thresholds; final tuning waits until later specs change the game again, so this is a coarse pass with no
-held-out report (601–630 stays reserved and unused).
+held-out report. At that historical pass, 601–630 remained reserved and unused; #30's later assessment above
+consumes that range.
 
 Levers, training seeds only: the 0:00–6:00 keyframes (table in 4.1) with HP drops 8% → 3% before 4:00, Henesys
 elites from 4:00 and bursts from 5:00, Henesys ordinary EXP 2.5x, and MP drops 10% normal / 60% elite. Each policy ran
@@ -431,7 +476,8 @@ bands**: sensible is above 50%, random below 5%. It is reported without retuning
 Completed/spawned boss counts, censored medians, hit fractions, timestamps and all raw-record hashes are retained
 in [the detailed record](research/spec29-henesys-balance.md) and `evidence/spec29/balance/issue42/final/heldout/`.
 The amended freeze manifest SHA256 is `6d12b85a5c86b4b107571ff77df7ca2958495030addeaf8c7b4936d7d960767b`.
-The next fresh reserved range is **601–630**; none of these results may be used as fresh tuning evidence.
+At this historical #29 assessment, the next reserved range was **601–630**; #30 later consumes it above.
+None of these results may be used as fresh tuning evidence.
 
 The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
 earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.
@@ -1070,10 +1116,12 @@ The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision), with no or
 Snails at its canonical 3 MP therefore casts about once per 10 s regeneration pulse, and the Beginner phase is
 sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
 per event.
-The optional stage-keyframe `normal_hp_drop_chance` is tier C survivor supply tuning: clamp each endpoint to [0, 1],
-interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance for
-missing endpoints. Elite HP, all MP rolls and fixed boss bundles keep their existing settings. This curve is
-independent of card policy.
+The optional stage-keyframe `normal_hp_drop_chance` / `normal_mp_drop_chance` fields are tier C survivor supply
+tuning: clamp each endpoint to [0, 1], interpolate linearly, hold the nearest endpoint outside the range, and
+substitute that kind's global normal chance for missing endpoints. Elite rolls and fixed boss bundles keep their
+existing settings. Both curves are independent of card policy. The MP curve permits late scarcity while retaining
+the v83 Beginner phase's existing supply and seeded behavior; changing a global MP chance also changes which
+ground pickups the bot approaches during the opening.
 
 Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
@@ -1082,8 +1130,8 @@ Optional final card-score overrides set Guard learning to 110 and ranks to 109, 
 entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Normal HP supply interpolates by stage: HG 0.6% through 6:00, 0.54% at 8:00, 0.24% at 9:00, 0.30% at 11:00, 0.36% at 12:00,
-1.2% at 13:00 and 1.4% at 15:00. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
+Current Henesys normal HP/MP supply follows the C46 endpoint table in section 4.1; both curves interpolate and hold.
+Global normal MP remains 10%, elite MP 60%, with scheduled boss bundles unchanged. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
@@ -1299,13 +1347,68 @@ Draw rules:
    the item identity, art and 100% restoration are tier A.
 4. Applying a card takes effect immediately.
    Rank cards declare `max_rank` as the canonical skill cap; eligibility also checks the owned skill level.
-   A skill learned at level 1 therefore needs N−1 rank-card picks to reach level N. The window marks the final
-   skill level `MAX`, independently of the card's own pick count.
+   A skill learned at level 1 therefore needs N−1 **Normal** rank-card picks to reach level N; higher tiers grant
+   several levels. The window marks the final skill level `MAX`, independently of consumed card steps.
 5. The level-up window keeps the "You've gained a Level!" header and mascots, masks the baked-in skill-raising
    sentence for every card, and reads "LEVEL n". Rank cards show the canonical level change ("Skill Lv. 2 → 3")
    and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
+
+### 8.1 Fortune and Potential tiers (#30 / #43)
+
+Fortune is a survivor run stat in `player_state.fortune`, separate from canonical LUK. Its base is
+`balance.player.fortune` (0); this spec adds no equipment or NX sources. It changes only card rarity, leaving
+drop and critical rolls untouched. Every scalable offered card, including a job-advance guarantee, rolls a tier
+using the existing seeded card RNG stream 3 after card identities are selected. A choice retains its final `tier`
+and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
+
+| Potential tier | Normal | Rare | Epic | Unique | Legendary |
+|---|---|---|---|---|---|
+| Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
+| Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
+| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | all remaining steps |
+| New skill starting rank | 1 | 2 | 3 | 4 | 5 |
+
+All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the spec #30
+weights (the owner restored them on 2026-10-15 after the C46 calibration had used 86/8/3.5/1.7/0.8; tuning waits for
+the balance pass). Every non-Normal weight is multiplied by `1 + max(0, Fortune) × upgrades.rarity.fortune_scale`
+(0.02), then weights normalize together: at Fortune 100 the weights total 150, i.e. 50/36/10/3.4/0.6%.
+`upgrades.magnitudes` holds the per-kind tables; every default tier gives more than the one below it (owner,
+2026-10-15). An individual card's `magnitudes` can override any tier, with unspecified tiers retaining their kind
+defaults. Legendary can max a 20-rank attack or buff in one pick.
+
+A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, and any tier whose
+gain equals a lower tier's (Legendary's `max` spending the last steps, or an equal per-card entry) wears the lowest
+such label, so a label never overstates the card: a rank card at 17/20 rolling Legendary shows Epic (+3), at 15/20
+Unique (+5), at 16/20 Legendary (+4); an Epic at 18/20 shows Rare (+2). Stacking cards cap at 2–4 steps, so a fresh
+cap-2 card shows at most Rare, a cap-4 card at most Unique, and no current stacking card can show Legendary.
+Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card downgrades a `max` roll to
+its highest finite tier. All tier C.
+
+Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
+omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
+are always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
+
+Stacking magnitudes consume several card steps, preserving the card cap. Additive effects add their value once per
+step; multiplicative effects compound (four cooldown ×0.88 steps reduce cooldown by 40.03%). Card text shows
+compounded percentages to two decimals; application keeps full precision. `choice_card` previews the final skill
+level and canonical before/after values at the complete gain; `rank_before/rank` show consumed card steps.
+
+The balance record has `card_tiers_offered` and `card_tiers_picked` per run (displayed tier after clamping, one
+count per card); the SYSTEMS summary sums them.
+
+Level-up and boss-reward cards keep the v83 skill-row art and show the tier with a 2 px frame and a label band
+tinted with the tier colour: Normal white, Rare blue, Epic purple, Unique gold, Legendary green
+(`#FFFFFF / #77BBFF / #CC99FF / #FFCC44 / #77DD88` over `#17344F` at 30%; tier C). The label carries the meaning
+independently of colour. New skills show their starting level in the rank line (`NEW  Skill Lv. 5`, plus `MAX` when
+that is the cap). Unchanged canonical values are omitted from the preview. Dense windows shorten prose first and
+keep the panel 128 px shorter than the view so the mascots and HUD stay clear (tier C layout).
+
+A window with a Unique or Legendary offer plays `Sound.wz/Game.img/mCardGet` once when it opens (owner-approved by
+ear on 2026-10-15; `EnchantSuccess` is reserved for future scrolling). Automated picks without a window are silent.
+The debug gallery shows the tiers with `--window=levelup_tiers|levelup_high|levelup_dense` (`--bonus` for the boss
+heading); screenshots stay in ignored `evidence/spec30/ui/`.
 
 Beginner cards include Nimble Feet (1002) and Recovery (1001) learn/rank cards. Nimble Feet occupies a passive slot
 and auto-casts when inactive, off its canonical cooldown and affordable. It keeps the cast level's canonical speed
@@ -1315,15 +1418,15 @@ climbing; its active effect and cooldown keep advancing there. Its original effe
 is imposed because v83 provides no action node. Auto-casting and slot/lifecycle rules are tier C; the skill values
 and assets are tier A. The former flat +6 speed card and Max HP +10% card are removed.
 
-Magnet +25% radius stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at level 1 and rank it one
-level per card through level 10. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
+Magnet's Normal step is +25% radius and stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at
+their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
 Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant. The canonical
 skill instead raises MP gained per level; no canonical values are edited. The old flat +25 Max MP card is removed.
 Rank previews show the survivor Max MP percentage rather than the canonical per-level gain.
 
-Improved MP Recovery (2000000) is an owned canonical passive skill, learned at level 1 and ranked one level per card through level 16,
+Improved MP Recovery (2000000) is an owned canonical passive skill, learned/ranked by the tier tables through level 16,
 adding the level-scaled pulse bonus in section 6.2.
 
 Recovery casts only below 50% HP and when off cooldown, paying canonical MP. Its duration is 30 seconds, with
@@ -1393,6 +1496,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
+| Ordinary MP supply curve | Optional `normal_mp_drop_chance` stage endpoints; the same clamp, interpolation, per-endpoint global fallback and endpoint holding as HP; no effect on elite rolls or fixed boss bundles | C | ours; SpawnDirector.normal_mp_drop_chance_at; #30 calibration preserves opening supply |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
@@ -1487,7 +1591,13 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
 | Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
-| Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (one level per card) | v83 Skill.wz level tables; owner choice #39 |
+| Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
+| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 weights (owner restored them over C46 on 2026-10-15; untuned); upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
+| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
+| Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
+| Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
+| Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
+| High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |

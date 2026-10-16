@@ -14,20 +14,36 @@ extends RefCounted
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
 ## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
 ## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
+## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
+## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]
+## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
+const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
 var cards: Array = []
 ## Draws in a row without a power card after which a power card is guaranteed (0 = no pity).
 var pity_draws := 0
+var _rarity := {}
+var _magnitudes := {}
 var _by_id := {}
 var _fallback_id := ""
+
+
+## Fresh zero counts for every Potential tier, in ladder order.
+static func empty_tier_counts() -> Dictionary:
+	var counts := {}
+	for tier: String in TIERS:
+		counts[tier] = 0
+	return counts
 
 
 ## Builds the pool from the upgrades.json root ({cards: [...], fallback: card}). The fallback is never weighted.
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()
+	p._rarity = root.get("rarity", {})
+	p._magnitudes = root.get("magnitudes", {})
 	var pity: Variant = root.get("pity", {})
 	if pity is Dictionary:
 		p.pity_draws = maxi(0, int(pity.get("draws", 0)))
@@ -50,7 +66,7 @@ func card(id: String) -> Dictionary:
 	return _by_id.get(id, {})
 
 
-## Times card `id` was taken in this run.
+## Consumed rank/modifier steps of card `id`; a one-time learn or potion card consumes one.
 func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
@@ -110,6 +126,11 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 ## Draws up to n distinct eligible cards, adding one fallback alternative when short (see choice_card for fields).
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
+	if state.choice_bonus:
+		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. Potion and
+		# Elixir are explicitly Normal exceptions to the boss floor, so an exhausted reward still opens a window.
+		pool = pool.filter(func(id: String) -> bool:
+			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
 	var g: Dictionary = state.guarantee
 	if g.is_empty() and pity_draws > 0 and state.power_dry >= pity_draws:
@@ -137,7 +158,9 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 	var out: Array = []
 	var power := false
 	for id: String in picked:
-		out.append(choice_card(id, state))
+		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
+		out.append(offered)
+		state.card_tiers_offered[String(offered.tier)] += 1
 		power = power or is_power(card(id))
 	state.power_dry = 0 if power else state.power_dry + 1
 	return out
@@ -148,35 +171,41 @@ static func is_power(c: Dictionary) -> bool:
 	return bool(c.get("power", false))
 
 
-## The choice_pending entry of card `id` for the current run: {id, kind, name, desc, icon, rank (the card's rank once
-## taken), max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
+## The choice_pending entry of card `id` for the current run: {id, kind, name, desc, icon, tier (honest lowercase
+## Potential tier), magnitude (ranks/steps/starting rank), rank_before, rank (consumed steps after taking it),
+## max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
-## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
+## does not change the level: skill_new and skill_rank cards only), skill_level_max (the skill's canonical level cap, 0
+## for cards without a skill), skill_changes (rank cards: canonical field ->
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
-func choice_card(id: String, state: RunWorld) -> Dictionary:
+func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
 	var c := card(id)
-	var desc := String(c.get("desc", ""))
+	tier = _honest_tier(c, state, tier)
+	var magnitude := _magnitude(c, state, tier)
+	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
 	if c.has("value"):
-		desc = desc.replace("{value}", _fmt(c.value))
+		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
 	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	var skill_name := ""
 	var level := 0
 	var level_next := 0
+	var level_max := 0
 	var changes := {}
 	var effect_stat := ""
 	var lo: Loadout = state.loadout
 	if skill != "" and lo.book.has(skill):
 		skill_name = String(lo.book.def(skill).get("name", skill))
+		level_max = lo.book.canonical_level(skill, lo.book.max_rank(skill))
 		effect_stat = String(lo.book.def(skill).get("buff", {}).get("stat", ""))
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":
-			level_next = lo.book.canonical_level(skill, 1)
+			level_next = lo.book.canonical_level(skill, magnitude)
 		elif kind == "skill_rank" and r > 0:
-			level_next = lo.book.canonical_level(skill, r + _rank_step(c))
+			level_next = lo.book.canonical_level(skill, r + magnitude)
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
 			for field: String in PREVIEW_FIELDS:
@@ -195,16 +224,20 @@ func choice_card(id: String, state: RunWorld) -> Dictionary:
 					"after": roundi(lo.passive_value(skill, level_next, passive) * 100.0)}}
 	return {
 		"id": id,
+		"tier": tier,
+		"magnitude": magnitude,
 		"kind": kind,
 		"name": String(c.get("name", id)),
 		"desc": desc,
 		"icon": String(c.get("icon", "")),
-		"rank": rank(id, state) + 1,
+		"rank": rank(id, state) + _consumed_steps(c, magnitude),
+		"rank_before": rank(id, state),
 		"max_rank": int(c.get("max_rank", 1)),
 		"skill": skill,
 		"skill_name": skill_name,
 		"skill_level": level,
 		"skill_level_next": level_next,
+		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
 	}
@@ -219,37 +252,134 @@ static func _rank_step(c: Dictionary) -> int:
 	return maxi(1, n)
 
 
-## Applies card `id` to the run (learn / rank up / modifiers / potion tier / fallback healing), emits
+func _magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
+	if _always_normal(c):
+		return 1
+	var headroom := _headroom(c, state)
+	var value := _requested_magnitude(c, state, tier)
+	return mini(headroom, value) if headroom >= 0 else value
+
+
+func _tier_value(c: Dictionary, tier: String) -> Variant:
+	var kind := String(c.get("kind", ""))
+	var defaults: Dictionary = _magnitudes.get("stacking" if _is_stacking(c) else kind, {})
+	var table: Dictionary = c.get("magnitudes", {})
+	return table.get(tier, defaults.get(tier, _rank_step(c) if kind == "skill_rank" else 1))
+
+
+func _headroom(c: Dictionary, state: RunWorld) -> int:
+	var kind := String(c.get("kind", ""))
+	var max_rank := int(c.get("max_rank", 0))
+	var card_left := maxi(0, max_rank - rank(String(c.get("id", "")), state)) if max_rank > 0 else -1
+	if kind == "skill_rank":
+		var skill_left := state.book.max_rank(String(c.get("skill", ""))) - state.loadout.rank(String(c.get("skill", "")))
+		return mini(skill_left, card_left) if card_left >= 0 else skill_left
+	if kind == "skill_new":
+		return state.book.max_rank(String(c.get("skill", "")))
+	return card_left
+
+
+func _requested_magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
+	var value: Variant = _tier_value(c, tier)
+	return _headroom(c, state) if str(value) == "max" else maxi(1, int(value))
+
+
+func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
+	if _always_normal(c):
+		return "normal"
+	var headroom := _headroom(c, state)
+	var index := maxi(0, TIERS.find(tier))
+	while index > 0:
+		var requested := _requested_magnitude(c, state, TIERS[index])
+		if requested < 1 or (headroom >= 0 and requested > headroom):
+			index -= 1
+			continue
+		# tier C: a tier that merely equals a lower one (a jackpot spending the last few steps, or an equal per-card
+		# table entry) wears the lowest tier giving the same gain, so a label never overstates the card.
+		var label := index
+		for lower in range(index - 1, -1, -1):
+			if _requested_magnitude(c, state, TIERS[lower]) == requested:
+				label = lower
+		return TIERS[label]
+	return "normal"
+
+
+static func _always_normal(c: Dictionary) -> bool:
+	return String(c.get("kind", "")) in ["potion_tier", "filler"]
+
+
+static func _is_stacking(c: Dictionary) -> bool:
+	return String(c.get("kind", "")) in ["skill_mod", "stat", "passive"]
+
+
+## A pick consumes its tier's ranks/modifier steps, while learn, potion and filler cards consume one.
+static func _consumed_steps(c: Dictionary, magnitude: int) -> int:
+	return magnitude if String(c.get("kind", "")) == "skill_rank" or _is_stacking(c) else 1
+
+
+static func _description_value(c: Dictionary, magnitude: int) -> float:
+	if _is_stacking(c):
+		for effect: Dictionary in c.get("effects", []):
+			if String(effect.get("op", "add")) == "mul":
+				# tier C: show the compounded percentage to two decimals; application keeps full precision.
+				return snappedf(absf(pow(float(effect.value), magnitude) - 1.0) * 100.0, 0.01)
+	return float(c.value) * magnitude
+
+
+func _roll_tier(state: RunWorld, rng: RandomNumberGenerator) -> String:
+	var weights: Dictionary = _rarity.get("weights", {"normal": 1.0})
+	var shift := 1.0 + maxf(0.0, float(state.player_state.get("fortune", 0.0))) * float(_rarity.get("fortune_scale", 0.0))
+	var total := 0.0
+	for tier: String in TIERS:
+		total += maxf(0.0, float(weights.get(tier, 0.0))) * (1.0 if tier == "normal" else shift)
+	var value := rng.randf() * total
+	for tier: String in TIERS:
+		value -= maxf(0.0, float(weights.get(tier, 0.0))) * (1.0 if tier == "normal" else shift)
+		if value < 0.0:
+			return "rare" if state.choice_bonus and tier == "normal" else tier
+	return "rare" if state.choice_bonus else "normal"
+
+
+## Applies card `id` at its honest `tier` (default Normal) to the run (learn / rank / modifier steps / potion / heal), emits
 ## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
-func apply(id: String, state: RunWorld) -> int:
+func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var c := card(id)
 	if c.is_empty():
 		return 0
+	tier = _honest_tier(c, state, tier)
 	var kind := String(c.get("kind", ""))
 	if kind == "potion_tier":
 		if not is_eligible(c, state) or not state.upgrade_potion(String(c.get("potion_kind", "")), int(c.get("item_id", 0))):
 			return 0
 	var lo: Loadout = state.loadout
-	var r := rank(id, state) + 1
+	var magnitude := _magnitude(c, state, tier)
+	if magnitude <= 0:
+		return 0
+	var r := rank(id, state) + _consumed_steps(c, magnitude)
 	lo.card_ranks[id] = r
 	var skill := String(c.get("skill", ""))
 	if kind == "skill_new":
 		state.learn_skill(skill)
+		lo.set_rank(skill, magnitude)
+	elif kind == "skill_rank":
+		lo.set_rank(skill, lo.rank(skill) + magnitude)
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
 		var value := float(e.get("value", 0.0))
+		if _is_stacking(c):
+			value = pow(value, magnitude) if op == "mul" else value * magnitude
 		if kind == "filler" and op == "heal":
 			state.heal_fraction(stat, value)
 		elif kind in ["skill_new", "skill_rank", "skill_mod"] and skill != "":
-			if stat == "rank":
+			if stat == "rank" and kind != "skill_rank":
 				lo.set_rank(skill, lo.rank(skill) + int(value))
-			else:
+			elif stat != "rank":
 				lo.add_skill_mod(skill, stat, op, value)
 		else:
 			lo.add_player_mod(stat, op, value)
 	state.refresh_player_stats()
-	state.emit("upgrade_applied", {"id": id, "rank": r})
+	state.emit("upgrade_applied", {"id": id, "rank": r, "tier": tier, "magnitude": magnitude})
 	return r
 
 

@@ -377,6 +377,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
+		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
 
 
@@ -450,6 +451,7 @@ static func describe(r: Dictionary) -> String:
 	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
 	lines.append("  camper %s" % [r.get("camper",{})])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
+	lines.append("  card tiers offered %s; picked %s" % [r.get("card_tiers_offered", {}), r.get("card_tiers_picked", {})])
 	return "\n".join(lines)
 
 
@@ -515,6 +517,9 @@ static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
+	result["card_tier_runs"] = 0
+	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
+	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
 	var waits: Array = []
 	var deaths: Array = []
 	result["outcomes"] = {"CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
@@ -528,6 +533,11 @@ static func aggregate(records: Array) -> Dictionary:
 	var censored_samples := {}
 	var hit_samples := {}
 	for record: Dictionary in records:
+		if record.has("card_tiers_offered") and record.has("card_tiers_picked"):
+			result.card_tier_runs += 1
+			for key: String in ["card_tiers_offered", "card_tiers_picked"]:
+				for tier: String in UpgradePool.TIERS:
+					result[key][tier] += int(record[key].get(tier, 0))
 		var state := String(record.get("state", ""))
 		if result.outcomes.has(state):
 			result.outcomes[state] += 1
@@ -634,6 +644,10 @@ static func describe_metrics(summary: Dictionary) -> String:
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
 		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
+	for tier: String in UpgradePool.TIERS:
+		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),
+			int(summary.card_tiers_picked[tier])])
 	lines.append("  outcomes %s; death-only seconds %s" % [summary.outcomes, _range(summary.death_seconds)])
 	lines.append("  MP-short after 8:00 seconds %s; %d/%d observed runs waited; final stock HP %s MP %s" % [
 		_range(summary.late_mp_short_seconds), int(summary.late_mp_short_runs), int(summary.late_mp_observed_runs),
