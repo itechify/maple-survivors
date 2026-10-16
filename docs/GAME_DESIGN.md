@@ -375,6 +375,11 @@ and teleport_no_mp.png show the X icon and affordability tint. Its missing list 
 Effect.wz/BasicEff.img/Teleport: that canonical subtree is absent from the shared cache. The manifest now requests
 it, but #60 did not run the prohibited import. The effect-frame test explicitly SKIPs while this prerequisite is
 missing; that SKIP does not verify the effect. Canonical effect visual acceptance remains unverified pending import.
+This smoke was recorded before the #56 merge; its unforced second advancements are Cleric, so it does not assess
+I/L branch pacing. After merging #56 and preserving both sets of fixtures/data, the final full suite reports
+**612 tests: 611 passed, 0 failed, 1 skipped (67 files)**. The only SKIP is
+`test_teleport::test_real_cache_teleport_effect_frames`, for that missing canonical art. Final log:
+`_scratch/t60-full-merged-final.log`; focused Teleport/advancement/I-L/data checks: 48 tests, 0 failed, 1 same SKIP.
 
 #### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
 
