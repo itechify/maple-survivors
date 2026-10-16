@@ -6,21 +6,17 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   full    title (Enter) -> stage select (mouse click on Start) -> run played with the arrow keys / Space (jump), the
-##           movement computed by BotInput.decide and sent as key presses -> level-up windows answered with the mouse
-##           (first) and the digit keys (BotInput.pick_card_for's card) -> the job dialog (Magician by digit key, then
-##           a key to skip the confirmation) -> Esc pause menu, Esc resume -> hands off the keys at --stop-at run s until
-##           the character dies -> tombstone -> results -> Retry (mouse) -> a new run -> Esc, "2" (quit to stage
-##           select) -> Esc (back to the title) -> Esc (quit).
-##           The bot's HP/MP potion decisions are injected as Q/E presses alongside movement.
-##   clear   for a main.tscn started with --run=<stage> --autoplay --autopick --speed=N (no --quit-after): waits for the
-##           stage clear and the results screen, then Stage select (mouse) -> title (Esc) -> quit (Esc).
+##   full    title -> plain character creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
+##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
+##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
+##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.
+##   clear   --run tool one-off: waits for clear -> results -> character select -> title -> quit; never saves.
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
-## effects too), --stop-at=<run s> (full: 300), --wz=<folder> (import).
+## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1), --wz=<folder> (import).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
 ## when a step times out or the full scenario misses the Magician / pause-resume path. Full also writes summary.json
@@ -50,6 +46,8 @@ func _ready() -> void:
 		return
 	DirAccess.make_dir_recursive_absolute(shots_dir)
 	flow = get_node_or_null("/root/Flow") as SceneFlow
+	# The scripted UI creates/deletes real slots, always in ignored evidence, never the player's save.
+	flow.save = SaveData.new(shots_dir.path_join("driver_save.json"))
 	add_child((load(MAIN) as PackedScene).instantiate())
 	match String(args.get("scenario", "full")):
 		"clear":
@@ -77,12 +75,12 @@ func _scenario_full() -> void:
 	await _sleep(9.0)
 	await _shot("title")
 	await _key(KEY_ENTER)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+	if not await _create_character("Flow69"):
 		return
 	await _sleep(3.0)
-	await _shot("stage_select")
+	await _shot("map_select")
 	var sel: Node = flow.current
-	await _click(sel.get("start_button") as Control)
+	await _start_selected(sel)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
 	var run := flow.current as RunScene
@@ -171,19 +169,45 @@ func _scenario_full() -> void:
 	Engine.time_scale = 1.0
 	await _sleep(3.0)
 	await _shot("results_death")
-	await _click(flow.current.get("retry_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "retry run"):
+	await _click(flow.current.get("back_button") as Control)
+	if not await _create_character("Quit69"):
 		return
 	await _sleep(3.0)
-	await _shot("retry_run")
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "new character round"):
+		return
+	await _sleep(3.0)
+	var round_seed := (flow.current as RunScene).run_seed
+	await _shot("new_round")
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
-	await _shot("retry_pause")
 	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select (quit)"):
+	await _sleep(0.5)
+	await _shot("quit_round_warning")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters after quit"):
 		return
-	await _sleep(3.0)
-	await _shot("stage_select_after_quit")
+	await _sleep(1.0)
+	await _shot("characters_after_quit")
+	await _click(flow.current.find_child("Continue0", true, false) as Control)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued round"):
+		return
+	if (flow.current as RunScene).run_seed != round_seed:
+		_fail("Continue changed the saved round seed")
+		return
+	await _sleep(1.0)
+	await _shot("continued_round")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	await _key(KEY_2)
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters"):
+		return
+	flow.goto_history()
+	await _sleep(1.0)
+	await _shot("history")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
 	await _key(KEY_ESCAPE)
 	if not await _until(func() -> bool: return flow.current_name == "title", 10.0, "title (back)"):
 		return
@@ -209,16 +233,37 @@ func _scenario_clear() -> void:
 	await _sleep(3.5)
 	await _shot("results_clear")
 	await _click(flow.current.get("back_button") as Control)
-	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
 		return
-	await _sleep(3.0)
-	await _shot("stage_select_best")
+	await _sleep(1.0)
+	await _shot("characters_after_one_off_clear")
 	await _key(KEY_ESCAPE)
 	await _until(func() -> bool: return flow.current_name == "title", 10.0, "title")
 	await _sleep(2.0)
 	await _key(KEY_ESCAPE)
 	await _sleep(2.0)
 	get_tree().quit(1 if _failed else 0)
+
+
+## Keeps the real Start click while fixing only the boundary seed for reproducible keyboard steering.
+func _start_selected(screen: Node) -> void:
+	var button: WzButton = screen.get("start_button")
+	button.pressed.disconnect(screen.start_selected)
+	button.pressed.connect(func() -> void:
+		# tier C: diagnostic training seed; --seed overrides it. Production map select still randomizes.
+		flow.start_round(String(screen.stages[screen.selected].key), int(args.get("seed", "1"))))
+	await _click(button)
+
+
+func _create_character(character_name: String) -> bool:
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return false
+	await _sleep(0.5)
+	await _shot("character_select")
+	await _click(flow.current.get("name_edit") as Control)
+	await _type(character_name)
+	await _click(flow.current.get("create_button") as Control)
+	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
 
 
 func _scenario_title() -> void:
@@ -379,7 +424,9 @@ func _until(cond: Callable, timeout: float, what: String) -> bool:
 
 
 func _shot(step: String) -> void:
-	await RenderingServer.frame_post_draw
+	# The collaborative desktop may occlude the window; explicitly render this evidence frame.
+	await get_tree().process_frame
+	RenderingServer.force_draw()
 	_n += 1
 	var path := shots_dir.path_join("%02d_%s.png" % [_n, step])
 	var img := get_viewport().get_texture().get_image()

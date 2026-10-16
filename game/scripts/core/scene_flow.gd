@@ -1,26 +1,32 @@
 class_name SceneFlow
 extends Node
-## Scene flow between the menus and the run (autoload "Flow"; docs/ARCHITECTURE.md 4.1):
-## main -> ImportScreen (no cache) -> TitleScreen -> StageSelect -> RunScene -> ResultsScreen -> StageSelect / retry.
+## Run-of-rounds coordinator (autoload Flow): title -> character_select -> tiered stage_select -> round.
+## A non-final clear carries the character to the next tier; death/victory -> results -> character_select.
+## host owns exactly one screen. Swaps are deferred so callbacks may replace their screen safely.
 ##
-## The flow swaps the single child of its `host` (main.tscn's root registers itself); without a host it swaps the
-## tree's current scene. Swaps are deferred by default so a screen may call the flow from its own button callback.
+## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, weapon),
+## continue_character(slot), delete_character(slot) AFTER confirmation, and goto_history(). Creation returns its
+## slot or -1 with action_error; it creates a Beginner via the same sim defaults as any fresh round.
+## #71 seam: EVERY persistent non-final clear calls _after_round_cleared(snapshot). It currently persists
+## phase=map_select and enters goto_stage_select(); replace that destination/phase with free_market there and
+## handle that phase in continue_character(). The hub's out00 calls goto_stage_select(). No other clear route exists.
 ##
-##   Flow.goto_title()  Flow.goto_stage_select()  Flow.goto_import()
-##   Flow.start_run("henesys_hg1")                # seed -1 = a random seed; options -> RunScene.configure()
-##   Flow.finish_run(summary)                     # called by the RunScene: records the best result, shows results
+## SaveData format 2 slots hold the boundary character, tier (0-based), phase=map_select|round, stage and round_seed.
+## start_round(stage) persists phase=round and a seed BEFORE launch; continue_character restarts it unchanged.
+## quit_round never writes. save_and_quit returns map select to the slots. RunScene passes finish_run(summary,
+## character) only when active_slot >= 0; a carried Dictionary reaches RunScene.configure via options.character.
 ##
-## Summary (from the RunScene): {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id,
-## job_name, kills, damage_dealt, skills: [{key, name, icon, rank}], seed}.
-##
-## Command line (main.gd): `--run=<stage>` starts that stage straight away; `--seed=N --autoplay --autopick --speed=N
-## --shots=<dir> --shot-every=<s> --quit-after=<s> --perf[=N] --warp=<s> --window-autopick=<s>` (and any other
-## `--key[=value]`) become the run options (RunScene.configure).
-## The autoload does nothing on its own: `_ready` is empty, so test runs and other scenes are unaffected.
+## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
+## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
+## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
+## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
+## damage_dealt, skills: [{key, name, icon, rank}], seed}; persistent endings add ending and tiers_cleared.
+## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
-## Emitted after a scene was swapped in ("title", "stage_select", "run", "results", "import", "error").
+## Emitted after a scene was swapped in ("title", "character_select", "history", "stage_select", "run", "results", "import", "error").
 signal scene_changed(scene_name: String)
 
+const CHARACTER_SELECT := "res://scenes/ui/character_select.tscn"
 const TITLE := "res://scenes/ui/title_screen.tscn"
 const STAGE_SELECT := "res://scenes/ui/stage_select.tscn"
 const RESULTS := "res://scenes/ui/results_screen.tscn"
@@ -40,9 +46,12 @@ var current: Node
 var current_name := ""
 ## Swap on the next idle frame (true) or at once (tests).
 var deferred_swaps := true
-## Best results; created on first use (tests may assign their own).
+## Local saves; created on first persistent/menu use (tests may assign their own).
 var save: SaveData
-## Last run: its stage key and summary, and whether it was a new best.
+## Living character slot, or -1 for tools and ended runs.
+var active_slot := -1
+## User-facing validation or persistence error from the last character action.
+var action_error := ""
 var last_stage := ""
 var last_summary: Dictionary = {}
 var last_new_best := false
@@ -53,9 +62,67 @@ func goto_title() -> void:
 	_swap_to(_instance(TITLE), "title")
 
 
-## Shows the stage select.
+## Shows the three living character slots. No round progress is saved here.
+func goto_character_select() -> void:
+	active_slot = -1
+	var screen := _instance(CHARACTER_SELECT)
+	screen.configure(self)
+	_swap_to(screen, "character_select")
+
+
+## Opens ended-run history through a small replaceable character-screen entry point (#70).
+func goto_history() -> void:
+	var screen := _instance(CHARACTER_SELECT)
+	screen.configure(self, true)
+	_swap_to(screen, "history")
+
+
+## Deletes a confirmed character, archiving its last boundary as deleted.
+func delete_character(index: int) -> bool:
+	if save_data().end_run(index, "deleted", _date()) != OK:
+		action_error = "Could not delete the character. Check that the save folder is writable."
+		return false
+	goto_character_select()
+	return true
+
+
+## Creates a fresh Beginner and enters its first map select; -1 with action_error on failure.
+## #70 supplies look/weapon here without changing the round flow.
+func create_character(character_name: String, look: Dictionary = {}, beginner_weapon: int = 0) -> int:
+	var character := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
+	character.look = look.duplicate(true)
+	character.beginner_weapon = beginner_weapon
+	var snapshot := {"name": character_name, "look": look.duplicate(true), "created": _date(),
+		"character": character, "tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}
+	var index := save_data().create_slot(snapshot)
+	action_error = "" if index >= 0 else "Use a unique name of 4-12 letters and digits and an empty slot. Check that the save folder is writable."
+	if index >= 0:
+		active_slot = index
+		goto_stage_select()
+	return index
+
+
+## Shows map select for the active character and autosaves the boundary.
 func goto_stage_select() -> void:
-	_swap_to(_instance(STAGE_SELECT), "stage_select")
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty():
+		return
+	snapshot.phase = "map_select"
+	if save_data().update_slot(active_slot, snapshot) != OK:
+		_swap_to(error_screen("Could not save the round boundary."), "error")
+		return
+	var screen := _instance(STAGE_SELECT)
+	screen.configure(snapshot, self)
+	_swap_to(screen, "stage_select")
+
+
+## Ordered stage keys per tier, from survivor data; works for any number of tiers.
+static func tiers() -> Array:
+	return DataRepo.load_all().get("stages", {}).get("tiers", [])
+
+
+static func _date() -> String:
+	return Time.get_datetime_string_from_system(true)
 
 
 ## Shows the importer screen.
@@ -63,9 +130,62 @@ func goto_import() -> void:
 	_swap_to(_instance(IMPORT), "import")
 
 
-## Starts a run of `stage_key` (seed -1 = random). The RunScene gets configure(stage_key, seed, options) before it
-## enters the tree. Without the run scene an error screen is shown instead.
+## Starts a tool-only one-off round; does not read or write any save state.
 func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) -> void:
+	active_slot = -1
+	_launch_round(stage_key, p_seed, options)
+
+
+## Saves the selected stage and seed before launching a persistent round. Rejects stages outside this tier.
+func start_round(stage_key: String, p_seed: int = -1) -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty() or snapshot.phase != "map_select":
+		return
+	var ordered := tiers()
+	var tier := int(snapshot.tier)
+	if tier >= ordered.size() or stage_key not in ordered[tier]:
+		return
+	snapshot.phase = "round"
+	snapshot.stage = stage_key
+	snapshot.round_seed = make_seed() if p_seed < 0 else p_seed
+	if save_data().update_slot(active_slot, snapshot) != OK:
+		_swap_to(error_screen("Could not save the round's stage and seed."), "error")
+		return
+	_resume_round(snapshot)
+
+
+## Resumes a living character at map select or at the beginning of its stored round.
+func continue_character(index: int) -> void:
+	var snapshot := save_data().slot(index)
+	if snapshot.is_empty():
+		return
+	active_slot = index
+	if snapshot.phase == "round":
+		_resume_round(snapshot)
+	else:
+		goto_stage_select()
+
+
+## Leaves a round without altering its last saved boundary; Continue restarts that same stage/seed.
+func quit_round() -> void:
+	goto_character_select()
+
+
+## Saves at map select, then returns to the character slots.
+func save_and_quit() -> void:
+	var snapshot := save_data().slot(active_slot)
+	if not snapshot.is_empty() and save_data().update_slot(active_slot, snapshot) != OK:
+		_swap_to(error_screen("Could not save the round boundary."), "error")
+		return
+	goto_character_select()
+
+
+func _resume_round(snapshot: Dictionary) -> void:
+	_launch_round(String(snapshot.stage), int(snapshot.round_seed),
+		{"character": snapshot.character, "name": snapshot.name})
+
+
+func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
 	last_stage = stage_key
 	if p_seed < 0:
 		p_seed = make_seed()
@@ -82,17 +202,53 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 	_swap_to(run, "run")
 
 
-## Ends a run: records it (SaveData best result) and shows the results.
-func finish_run(summary: Dictionary) -> void:
+## Ends a round. RunScene supplies the final CharacterSnapshot only for a persistent run.
+## Non-final clears have exactly one exit (_after_round_cleared); one-off rounds never access SaveData.
+func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	last_summary = summary.duplicate(true)
 	last_stage = String(summary.get("stage", last_stage))
-	var sd := save_data()
-	var before := sd.best_for(last_stage).duplicate()
-	last_new_best = sd.record(summary)
+	var before := {}
+	last_new_best = false
+	if active_slot >= 0:
+		var sd := save_data()
+		var snapshot := sd.slot(active_slot)
+		if snapshot.is_empty() or not CharacterSnapshot.validation_error(character).is_empty():
+			_swap_to(error_screen("Missing final character at the round boundary."), "error")
+			return
+		before = sd.best_for(last_stage).duplicate(true)
+		snapshot.character = character.duplicate(true)
+		snapshot.look = character.look.duplicate(true)
+		snapshot.stage = last_stage
+		snapshot.rounds_played = int(snapshot.rounds_played) + 1
+		var cleared := bool(summary.get("cleared", false))
+		if cleared:
+			snapshot.tier = int(snapshot.tier) + 1
+			snapshot.tiers_cleared = int(snapshot.tiers_cleared) + 1
+			if int(snapshot.tier) < tiers().size():
+				_after_round_cleared(snapshot)
+				return
+		var ending := "victory" if cleared else "died"
+		if sd.end_run(active_slot, ending, _date(), snapshot, summary) != OK:
+			_swap_to(error_screen("Could not save the end of the run."), "error")
+			return
+		last_new_best = SaveData.is_better(SaveData.record_from(summary), before)
+		last_summary["ending"] = ending
+		last_summary["tiers_cleared"] = snapshot.tiers_cleared
+		active_slot = -1
 	var results := _instance(RESULTS)
 	if results != null and results.has_method("configure"):
-		results.configure(last_summary, last_new_best, before)
+		results.configure(last_summary, last_new_best, before, self)
 	_swap_to(results, "results")
+
+
+## The sole non-final-clear seam for #71: save the carried boundary, then enter map select.
+## #71 changes this destination/phase to free_market and lets its out00 portal call goto_stage_select().
+func _after_round_cleared(snapshot: Dictionary) -> void:
+	snapshot.phase = "map_select"
+	if save_data().update_slot(active_slot, snapshot, last_summary) != OK:
+		_swap_to(error_screen("Could not save the cleared round."), "error")
+		return
+	goto_stage_select()
 
 
 ## The save file (user://save.json unless a test assigned another).

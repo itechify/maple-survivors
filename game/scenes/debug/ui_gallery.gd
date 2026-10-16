@@ -15,7 +15,7 @@ extends Node2D
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
-##                   run (autoplay, windows answered after 1 s) -> results (from the run's own summary) -> retry; a
+##                   run (autoplay, windows answered after 1 s) -> results (from the round's own summary) -> character select; a
 ##                   screenshot of each step into --shots=<dir>; saves to user://_test_cache/gallery_save.json
 ##   import --wz=<folder> --autostart   runs the importer from the import screen; the shot is taken when it ends
 ##                   (point MAPLE_SURVIVORS_CACHE at a scratch folder to leave the real cache alone)
@@ -302,8 +302,8 @@ func _run_flow() -> void:
 	var steps: Array = [
 		[0.0, func() -> void: flow.goto_title()],
 		[9.0, _shot_to.bind(dir.path_join("flow_1_title.png"))],
-		[9.5, func() -> void: flow.goto_stage_select()],
-		[11.5, _shot_to.bind(dir.path_join("flow_2_stage_select.png"))],
+		[9.5, func() -> void: flow.goto_character_select()],
+		[11.5, _shot_to.bind(dir.path_join("flow_2_characters.png"))],
 		[12.0, func() -> void: flow.start_run("tree_that_grew_1", 11, {"autoplay": true, "window_autopick": 1.0,
 			"speed": 4})],
 		[30.0, _shot_to.bind(dir.path_join("flow_3_run.png"))],
@@ -315,9 +315,9 @@ func _run_flow() -> void:
 		[33.5, func() -> void: print("ui_gallery: flow best = ", flow.save.best_for("tree_that_grew_1"))],
 		[34.0, func() -> void:
 			var res := flow.current
-			if res != null and res.has_method("retry"):
-				res.retry()],
-		[38.0, _shot_to.bind(dir.path_join("flow_5_retry.png"))],
+			if res != null and res.has_method("to_character_select"):
+				res.to_character_select()],
+		[38.0, _shot_to.bind(dir.path_join("flow_5_characters.png"))],
 		[38.5, func() -> void: print("ui_gallery: flow done, current = ", flow.current_name); get_tree().quit()],
 	]
 	for s: Array in steps:

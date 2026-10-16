@@ -3,13 +3,9 @@ extends Node2D
 ## select, unrolled with the run's results. Left: the headline ("Stage Clear!" or "You died", with the v83 tombstone
 ## Effect.wz/Tomb.img/land/0), the map, time survived, level, job, kills, damage dealt and a NEW BEST marker; right: the
 ## skills owned (Skill.wz icons with Basic.img/ItemNo rank digits, as on the HUD) and the previous best.
-## Buttons: RETRY (UIWindow.img/RpsGame/BtRetry, the v83 mini-game's green "RETRY" button; the wooden "Start" read as
-## "start" next to "Back") plays the same stage again with a new seed; Back (Login.img/Common/BtStart) returns to the
-## stage select. Keys: Enter = retry, Esc = stage select.
-##
-##   results.configure(summary, new_best, previous_best)   # before add_child (Flow.finish_run does this)
+## The single Back button returns to character select; Enter and Esc do the same. Persistent last-tier clears
+## say Victory and show tiers cleared; tool-only clears still say Stage Clear. No retry creates a parallel run.
 
-const BT_RETRY := "UI.wz/UIWindow.img/RpsGame/BtRetry"
 const BT_BACK := "UI.wz/Login.img/Common/BtStart"
 const ROLLED := "WorldSelect/signboard/2"
 const SCROLL_WORLD_POS := Vector2(-214, -829)
@@ -36,15 +32,16 @@ var previous_best: Dictionary = {}
 
 var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
-var retry_button: WzButton
+var flow: SceneFlow
 var back_button: WzButton
 
 
 ## Sets the data to show (call before the screen enters the tree).
-func configure(p_summary: Dictionary, p_new_best: bool, p_previous_best: Dictionary = {}) -> void:
+func configure(p_summary: Dictionary, p_new_best: bool, p_previous_best: Dictionary = {}, p_flow: SceneFlow = null) -> void:
 	summary = p_summary
 	new_best = p_new_best
 	previous_best = p_previous_best
+	flow = p_flow
 
 
 func _ready() -> void:
@@ -64,39 +61,29 @@ func _ready() -> void:
 	ui.add_child(scroll)
 	scroll.draw_content.connect(_draw_parchment)
 	scroll.opened.connect(func() -> void: backdrop.hide_objs(ROLLED))
-	retry_button = WzButton.new(BT_RETRY)
-	retry_button.name = "Retry"
-	retry_button.fallback_size = Vector2(99, 31)
-	retry_button.label = "" if retry_button.has_art() else "Retry"
-	retry_button.pressed.connect(retry)
-	scroll.content.add_child(retry_button)
 	back_button = WzButton.new(BT_BACK)
-	back_button.name = "StageSelect"
+	back_button.name = "CharacterSelect"
 	back_button.fallback_size = Vector2(124, 52)
-	back_button.label = "" if back_button.has_art() else "Stage select"
-	back_button.pressed.connect(to_stage_select)
+	back_button.label = "" if back_button.has_art() else "Character select"
+	back_button.pressed.connect(to_character_select)
 	ui.add_child(back_button)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	scroll.unroll()
 
 
-## Plays the same stage again with a new seed.
-func retry() -> void:
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
+## Returns to the living character slots after an ended run or a one-off round.
+func to_character_select() -> void:
+	if flow == null:
+		flow = get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.start_run(String(summary.get("stage", flow.last_stage)), -1)
-
-
-## Returns to the stage select.
-func to_stage_select() -> void:
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
-	if flow != null:
-		flow.goto_stage_select()
+		flow.goto_character_select()
 
 
 ## Headline of a summary.
 static func headline(p_summary: Dictionary) -> String:
+	if p_summary.get("ending") == "victory":
+		return "Victory!"
 	return "Stage Clear!" if bool(p_summary.get("cleared", false)) else "You died..."
 
 
@@ -105,13 +92,16 @@ static func stat_rows(p_summary: Dictionary) -> Array:
 	var t := float(p_summary.get("time", 0.0))
 	var d := float(p_summary.get("duration", 0.0))
 	var time_s := Hud.format_time(t) + (" / " + Hud.format_time(d) if d > 0.0 else "")
-	return [
+	var rows := [
 		["Time", time_s],
 		["Level", str(int(p_summary.get("level", 1)))],
 		["Job", String(p_summary.get("job_name", ""))],
 		["Kills", group_digits(int(p_summary.get("kills", 0)))],
 		["Damage dealt", group_digits(int(p_summary.get("damage_dealt", 0)))],
 	]
+	if p_summary.has("tiers_cleared"):
+		rows.append(["Tiers cleared", str(int(p_summary.tiers_cleared))])
+	return rows
 
 
 ## 1234567 -> "1,234,567".
@@ -121,7 +111,7 @@ static func group_digits(n: int) -> String:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if MapleWindow.is_confirm(event):
-		retry_button.pressed.emit()
+		back_button.pressed.emit()
 		get_viewport().set_input_as_handled()
 	elif MapleWindow.key_pressed(event, KEY_ESCAPE):
 		back_button.pressed.emit()
@@ -132,8 +122,6 @@ func _layout() -> void:
 	var view := get_viewport_rect().size
 	var o := ((view - Vector2(GameSettings.BASE_VIEW)) * 0.5).floor()
 	scroll.position = (view * 0.5 + SCROLL_WORLD_POS - LoginBackdrop.WORLD_SELECT).floor()
-	var r := ParchmentScroll.PARCHMENT
-	retry_button.position = Vector2(LEFT_X + floorf((LEFT_W - retry_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
 
 
