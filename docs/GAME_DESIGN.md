@@ -349,6 +349,30 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #31 / #58 support regression smoke (2026-10-15)
+
+`ISOLATE=t58 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, real cache, unforced branches,
+1,800 s cap, no patches/tuning. All 12 runs finish without crashes, script errors or world warnings. Outcomes and
+death times match #56 below; Henesys reaches Magician and spawns its first boss in all six runs. Tree is unchanged
+and record-only. Raw records and exact console output are ignored under `_scratch/t58-balance/` and
+`_scratch/t58-balance-*.log`. The full second-job branch smoke remains #61's responsibility.
+
+| #58 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used | Mean MP-wait seconds/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 376 / 317 (1.186) | 205.1 |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 425 / 269 (1.580) | 178.5 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7 / 0 (undefined) | 99.0 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7 / 0 (undefined) | 99.0 |
+
+Visible seed-1 playtests on branches 210/220/230 use `--warp=840 --speed=8 --minutes=16`, saved under
+`evidence/t58/branch_<id>/`; all report `missing: []` and remain PLAYING at the cap (no clear claimed).
+Checked by eye: `branch_210/t890.png` (late-game rendering), `branch_230/t950.png` (Invincible buff row).
+Temporary real-cache RunScene probes learn only this ticket's support skills at rank 20. Inspected
+`focus_210/support_8.png` and `focus_220/support_25.png` show Meditation's icon/cast art; each probe records six
+slowed mobs at speed factor 0.6. Closer `close_210/support_115.png` and `close_220/support_100.png` show Slow's
+white monster rings without damage numbers; `focus_230/support_25.png` shows Bless and Invincible icons with
+separate timers and canonical cast art. Probe summaries also report `missing: []`. No cache nodes are missing.
+
 #### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
 
 `ISOLATE=t56`, training seeds 1/2/2026, both stages and `bot`/`random`, unforced branches, real cache,
