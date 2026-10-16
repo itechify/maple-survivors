@@ -10,16 +10,17 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 ## 1. The run
 
 1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
-2. **Start.** Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
-   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). The map's own BGM plays.
+2. **Start.** A fresh character is a Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
+   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). Later rounds restore the
+   carried character with full HP/MP. The map's own BGM plays.
 3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
 5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
-   their bonus reward choices answered. Results show time, level, job, kills, damage dealt and owned skills;
-   Retry or Stage select.
+   their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
+   results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
 Runs carry one named character through one stage per tier (ADR 0001). A non-final clear autosaves the carried
 character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
@@ -347,6 +348,33 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #32 / #71 Free Market regression smoke (2026-10-16)
+
+Revision `96cb046`; training seeds 1/2/2026, both original stages, bot/random, default branches and 1800 s cap,
+no PATCH or tuning. Every Godot run uses `ISOLATE=t71` and private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71` (copied once, then imported with #71's
+manifest; 108 imgs, 12 written, zero warnings/errors). All 12 finish without crashes, script errors or world
+warnings. Outcomes, levels, times and MP-wait means match #69 exactly; all six Henesys runs reach Magician
+and spawn Mano. Tree's known early deaths remain record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+Exact seed records, console/SYSTEMS output and aggregates are ignored under `evidence/t71/smoke/`.
+The real-map `free_market_driver` supplies a completed-round summary with the committed Lv38 F/P fixture,
+then verifies autosaved arrival, Esc pause, Save & quit, disk reload/Continue, inert room entry, fixed-tick
+walking right to the real out00, keyboard Up and tier-2-only map select. This is a boundary probe, not a full
+two-round playtest. Checked `evidence/t71/hub/01_arrival.png`, `02_npcs.png`, `03_save_quit.png`,
+`04_continue.png`, `05_rooms.png`, `06_out00.png`, `07_next_tier.png` by eye: canonical map/room art, all four NPCs,
+the character's outfit/weapon, full HP/MP status, readable instruction plate and boundary pause. Report:
+`failures=[]`, `missing=[]`. Focused tests pass 23/23 with zero failures/skips; coverage includes all 22 room
+portals, the two real ladders, normal jump/climb/same-map portal behavior, snapshot immutability, look/weapon
+resolution, pool agreement with RunWorld, pause holding motion, clear/resume/exit saves and final-tier victory.
 
 #### #32 / #69 persistent-flow regression smoke (2026-10-16)
 
