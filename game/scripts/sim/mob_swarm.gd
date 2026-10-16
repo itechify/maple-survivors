@@ -46,6 +46,8 @@ const POISON_LEVEL_BASE := 70
 const POISON_DAMAGE_CAP := 32767
 ## tier C: numerical tolerance for double status clocks at the fixed-tick boundary.
 const STATUS_EPSILON := 1e-9
+## tier C interpretation of the canonical two-consecutive-uses text; shared across branch copies.
+const SLOW_CONSECUTIVE_LIMIT := 2
 ## Player-inflicted statuses: index into the flattened per-slot status table (slot * STATUS_COUNT + status).
 const SLOW := 0
 const POISON := 1
@@ -107,8 +109,8 @@ var status_elapsed := PackedFloat32Array()
 ## Canonical signed Slow x scales pursuit speed by (100 + x) / 100; 1 when not slowed.
 var slow_factor := PackedFloat32Array()
 ## tier C: consecutive successful Slow auto-casts on this logical mob; expiry does not reset the sequence.
-var slow_cast_serial := PackedInt32Array()
-var slow_cast_streak := PackedByteArray()
+var _slow_cast_serial := PackedInt32Array()
+var _slow_cast_streak := PackedByteArray()
 var _poison_pulse := PackedFloat64Array()
 var _poison_damage := PackedInt32Array()
 var _poison_skill := PackedStringArray()
@@ -248,8 +250,8 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	steady[i] = 0
 	active[i] = 1
 	slow_factor[i] = 1.0
-	slow_cast_serial[i] = -1
-	slow_cast_streak[i] = 0
+	_slow_cast_serial[i] = -1
+	_slow_cast_streak[i] = 0
 	_stop_x[i] = INF
 	_route_e[i] = -1
 	route_len[i] = INF
@@ -271,6 +273,43 @@ func despawn(i: int) -> bool:
 	if state[i] != DIE:
 		_alive -= 1
 	_release(i)
+	return true
+
+
+## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP and Slow cast history.
+## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
+func relocate(i: int, pos: Vector2, f: int) -> int:
+	if not is_live(i):
+		return -1
+	var k := kind[i]
+	var old_identity := identity[i]
+	var slow_serial := _slow_cast_serial[i]
+	var slow_streak := _slow_cast_streak[i]
+	var old_hp := hp[i]
+	var old_max_hp := max_hp[i]
+	var old_mp := mp[i]
+	despawn(i)
+	var j := spawn(k, pos.x, pos.y, f, old_max_hp)
+	identity[j] = old_identity
+	_slow_cast_serial[j] = slow_serial
+	_slow_cast_streak[j] = slow_streak
+	hp[j] = old_hp
+	mp[j] = old_mp
+	return j
+
+
+## Whether a crowd Slow may include slot i after the last successful global Slow cast `serial`.
+func can_slow_cast(i: int, serial: int) -> bool:
+	return accepts_status(i, "slow") and status_time(i, SLOW) <= 0.0 \
+		and (_slow_cast_serial[i] != serial or _slow_cast_streak[i] < SLOW_CONSECUTIVE_LIMIT)
+
+
+## Applies an admitted Slow cast and records its serial only if status application succeeds.
+func apply_slow_cast(i: int, serial: int, params: Dictionary, events: Array) -> bool:
+	if not apply_status(i, "slow", params, events):
+		return false
+	_slow_cast_streak[i] = _slow_cast_streak[i] + 1 if _slow_cast_serial[i] == serial - 1 else 1
+	_slow_cast_serial[i] = serial
 	return true
 
 
@@ -858,8 +897,8 @@ func _grow(n: int) -> void:
 	status_left.resize(n * STATUS_COUNT)
 	status_elapsed.resize(n * STATUS_COUNT)
 	slow_factor.resize(n)
-	slow_cast_serial.resize(n)
-	slow_cast_streak.resize(n)
+	_slow_cast_serial.resize(n)
+	_slow_cast_streak.resize(n)
 	_poison_pulse.resize(n)
 	_poison_damage.resize(n)
 	_poison_skill.resize(n)
