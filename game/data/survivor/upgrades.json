@@ -1,5 +1,5 @@
 {
-	"_doc": "Upgrade cards (docs/GAME_DESIGN.md section 8), drawn by UpgradePool. power: true marks a card that raises an attack skill's damage output (a new attack skill, its rank, more shots/targets, damage, cooldown); pity.draws = N: after N draws in a row without a power card the next draw starts with one (0 = off). kind: skill_new (learn `skill` at the tier starting rank), skill_rank (tier canonical-level gain of `skill`), skill_mod (modifies `skill`), passive / stat (player modifiers), potion_tier (changes potion_kind to item_id, preserves stock). requires (all optional): jobs (the player's current job equals one of these), skills (owned skill keys), min_rank ({skill: rank}), min_level, potions ({kind: current item ID}). skill_rank and skill_mod cards also require owning `skill`; skill_new requires not owning it and a free slot of the skill's kind. max_rank 0 = unlimited; skill_rank cards use the canonical skill cap, with the owned skill level also gating offers (a Normal learn starts at level 1, so N-1 Normal rank-card picks reach N). effects: {stat, op, value} applied once per rank taken; op add sums, op mul multiplies (compounds per rank), Potion tier cards have no stat effects. fallback is a separate filler card, excluded from weighted draws and offered once when fewer than 3 cards remain; its heal effects restore a fraction of the relevant maximum. Skill stats: count, cooldown, pierce, speed, range, damage (multiplier), crit (chance, additive). Player stat cards: magnet (radius); removed Max HP, flat Max MP and flat speed cards are replaced by owned skills. rarity: seeded Potential tier weights and Fortune scaling. magnitudes: per-kind tier tables (stacking covers skill_mod/stat/passive), overridden per tier by each card magnitudes table; max spends remaining headroom. desc: {magnitude} is the actual rank/step/starting-rank gain; {value} scales additive values or displays a compounded multiplicative percentage (two decimal places). Canonical skill caps and WZ skill prerequisites are tier A; card weights, modifiers and offer rules are tier C (ours). Icons are WZ paths, all imported by the asset manifest: potion tiers use Item.wz/Consume 2000001/2000002/2000006 (items[]), skill cards use their own canonical Skill.wz icon, and Magnet the Meso Magnet pet equip 1812000 (Character.wz/PetEquip).",
+	"_doc": "Upgrade cards (docs/GAME_DESIGN.md section 8), drawn by UpgradePool. power: true marks a card that raises an attack skill's damage output (a new attack skill, its rank, more shots/targets, damage, cooldown); pity.draws = N: after N draws in a row without a power card the next draw starts with one (0 = off). kind: skill_new (learn `skill` at the tier starting rank), skill_rank (tier canonical-level gain of `skill`), skill_mod (modifies `skill`), passive / stat (player modifiers), potion_tier (changes potion_kind to item_id, preserves stock). requires (all optional): jobs (the player's current job equals one of these), skills (owned skill keys), min_rank ({skill: rank}), min_level, potions ({kind: current item ID}). skill_rank and skill_mod cards also require owning `skill`; skill_new requires not owning it; there are no skill slot caps. max_rank 0 = unlimited; skill_rank cards use the canonical skill cap, with the owned skill level also gating offers (a Normal learn starts at level 1, so N-1 Normal rank-card picks reach N). effects: {stat, op, value} applied once per rank taken; op add sums, op mul multiplies (compounds per rank), Potion tier cards have no stat effects. fallback is a separate filler card, excluded from weighted draws and offered once when fewer than 3 cards remain; its heal effects restore a fraction of the relevant maximum. Skill stats: count, cooldown, pierce, speed, range, damage (multiplier), crit (chance, additive). Player stat cards: magnet (radius); removed Max HP, flat Max MP and flat speed cards are replaced by owned skills. rarity: seeded Potential tier weights and Fortune scaling. magnitudes: per-kind tier tables (stacking covers skill_mod/stat/passive), overridden per tier by each card magnitudes table; max spends remaining headroom. desc: {magnitude} is the actual rank/step/starting-rank gain; {value} scales additive values or displays a compounded multiplicative percentage (two decimal places). Canonical skill caps are tier A; WZ skill prerequisites are ignored (tier C owner choice #31); card weights, modifiers and offer rules are tier C (ours). Icons are WZ paths, all imported by the asset manifest: potion tiers use Item.wz/Consume 2000001/2000002/2000006 (items[]), skill cards use their own canonical Skill.wz icon, and Magnet the Meso Magnet pet equip 1812000 (Character.wz/PetEquip).",
 	"pity": {"draws": 1},
 	"rarity": {"_tier": "Tier C: spec #30 survivor card odds (owner restored the spec weights over C46 on 2026-10-15; tuning waits for the dedicated balance pass); non-Normal weights multiply by 1 + max(0, Fortune) * fortune_scale, then all weights normalize.",
 		"weights": {"normal": 75, "rare": 18, "epic": 5, "unique": 1.7, "legendary": 0.3}, "fortune_scale": 0.02},
@@ -43,7 +43,7 @@
 
 		{"id": "magic_claw_new", "power": true, "kind": "skill_new", "skill": "magic_claw", "name": "Magic Claw",
 			"desc": "Learn Magic Claw: rakes the nearest monster twice.", "icon": "Skill.wz/200.img/skill/2001005/icon",
-			"max_rank": 1, "weight": 4, "requires": {"jobs": [200], "skills": ["energy_bolt"]}, "effects": []},
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [200]}, "effects": []},
 		{"id": "magic_claw_rank", "power": true, "kind": "skill_rank", "skill": "magic_claw", "name": "Magic Claw",
 			"desc": "Magic Claw +{magnitude} rank: higher skill level, more magic attack and mastery.", "icon": "Skill.wz/200.img/skill/2001005/icon",
 			"max_rank": 20, "weight": 3, "requires": {"jobs": [200]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
@@ -56,23 +56,73 @@
 
 		{"id": "magic_guard_new", "kind": "skill_new", "skill": "magic_guard", "name": "Magic Guard",
 			"desc": "Learn Magic Guard: part of the damage you take is paid with MP.", "icon": "Skill.wz/200.img/skill/2001002/icon",
-			"max_rank": 1, "weight": 8, "requires": {"jobs": [200], "skills": ["energy_bolt"]}, "effects": []},
+			"max_rank": 1, "weight": 8, "requires": {"jobs": [200]}, "effects": []},
 		{"id": "magic_guard_rank", "kind": "skill_rank", "skill": "magic_guard", "name": "Magic Guard",
 			"desc": "Magic Guard +{magnitude} rank: more damage moves to MP.", "icon": "Skill.wz/200.img/skill/2001002/icon",
 			"max_rank": 20, "weight": 8, "requires": {"jobs": [200]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 		{"id": "magic_armor_new", "kind": "skill_new", "skill": "magic_armor", "name": "Magic Armor",
 			"desc": "Learn Magic Armor: higher weapon defence.", "icon": "Skill.wz/200.img/skill/2001003/icon",
-			"max_rank": 1, "weight": 3, "requires": {"jobs": [200], "min_rank": {"magic_guard": 3}}, "effects": []},
+			"max_rank": 1, "weight": 3, "requires": {"jobs": [200]}, "effects": []},
 		{"id": "magic_armor_rank", "kind": "skill_rank", "skill": "magic_armor", "name": "Magic Armor",
 			"desc": "Magic Armor +{magnitude} rank: even higher weapon defence.", "icon": "Skill.wz/200.img/skill/2001003/icon",
 			"max_rank": 20, "weight": 2, "requires": {"jobs": [200]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 
 		{"id": "fire_arrow_new", "power": true, "kind": "skill_new", "skill": "fire_arrow", "name": "Fire Arrow",
-			"desc": "Learn Fire Arrow (Fire/Poison Wizard, Phase 2).", "icon": "Skill.wz/210.img/skill/2101004/icon",
+			"desc": "Learn Fire Arrow: a fire projectile at the nearest monster.", "icon": "Skill.wz/210.img/skill/2101004/icon",
 			"max_rank": 1, "weight": 4, "requires": {"jobs": [210]}, "effects": []},
 		{"id": "fire_arrow_rank", "power": true, "kind": "skill_rank", "skill": "fire_arrow", "name": "Fire Arrow",
 			"desc": "Fire Arrow +{magnitude} skill level: higher magic attack and mastery.", "icon": "Skill.wz/210.img/skill/2101004/icon",
 			"max_rank": 30, "weight": 3, "requires": {"jobs": [210]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "fire_arrow_count", "power": true, "kind": "skill_mod", "skill": "fire_arrow", "name": "Extra Fire Arrow",
+			"_tier": "Tier C: +1 projectile per step, at most 3 steps, weight 2; first-job attack-card convention.",
+			"desc": "Fire Arrow fires +{value} arrow.", "value": 1, "icon": "Skill.wz/210.img/skill/2101004/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "count", "op": "add", "value": 1}]},
+		{"id": "fire_arrow_pierce", "power": true, "kind": "skill_mod", "skill": "fire_arrow", "name": "Fire Arrow Pierce",
+			"_tier": "Tier C: +1 pierce per step, at most 2 steps, weight 2; first-job attack-card convention.",
+			"desc": "Fire Arrows pass through +{value} more monster.", "value": 1, "icon": "Skill.wz/210.img/skill/2101004/icon",
+			"max_rank": 2, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "pierce", "op": "add", "value": 1}]},
+		{"id": "fire_arrow_cooldown", "power": true, "kind": "skill_mod", "skill": "fire_arrow", "name": "Quick Fire Arrow",
+			"_tier": "Tier C: cooldown x0.88 per step, at most 3 steps, weight 2; first-job attack-card convention.",
+			"desc": "Fire Arrow cooldown -{value}%.", "value": 12, "icon": "Skill.wz/210.img/skill/2101004/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+
+		{"id": "poison_breath_new", "power": true, "kind": "skill_new", "skill": "poison_breath", "name": "Poison Breath",
+			"_tier": "Tier A: 30 canonical levels. Tier C: learn weight 4, rank weight 3, matching first-job attacks.",
+			"desc": "Learn Poison Breath: a projectile with a chance to poison on hit.", "icon": "Skill.wz/210.img/skill/2101005/icon",
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [210]}, "effects": []},
+		{"id": "poison_breath_rank", "power": true, "kind": "skill_rank", "skill": "poison_breath", "name": "Poison Breath",
+			"desc": "Poison Breath +{magnitude} skill level: higher magic attack, mastery and poison chance.", "icon": "Skill.wz/210.img/skill/2101005/icon",
+			"max_rank": 30, "weight": 3, "requires": {"jobs": [210]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "poison_breath_pierce", "power": true, "kind": "skill_mod", "skill": "poison_breath", "name": "Poison Breath Pierce",
+			"_tier": "Tier C: +1 pierce per step, at most 3 steps, weight 2; first-job attack-card convention.",
+			"desc": "Poison Breath passes through +{value} more monster.", "value": 1, "icon": "Skill.wz/210.img/skill/2101005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "pierce", "op": "add", "value": 1}]},
+		{"id": "poison_breath_cooldown", "power": true, "kind": "skill_mod", "skill": "poison_breath", "name": "Quick Poison Breath",
+			"_tier": "Tier C: cooldown x0.88 per step, at most 3 steps, weight 2; first-job attack-card convention.",
+			"desc": "Poison Breath cooldown -{value}%.", "value": 12, "icon": "Skill.wz/210.img/skill/2101005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+
+		{"id": "holy_arrow_new", "power": true, "kind": "skill_new", "skill": "holy_arrow", "name": "Holy Arrow",
+			"desc": "Learn Holy Arrow: a holy projectile at the nearest monster.", "icon": "Skill.wz/230.img/skill/2301005/icon",
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [230]}, "effects": []},
+		{"id": "holy_arrow_rank", "power": true, "kind": "skill_rank", "skill": "holy_arrow", "name": "Holy Arrow",
+			"desc": "Holy Arrow +{magnitude} rank: higher magic attack and mastery.", "icon": "Skill.wz/230.img/skill/2301005/icon",
+			"max_rank": 30, "weight": 3, "requires": {"jobs": [230]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "holy_arrow_count", "power": true, "kind": "skill_mod", "skill": "holy_arrow", "name": "Extra Holy Arrow",
+			"desc": "Holy Arrow fires +{value} projectile.", "value": 1, "icon": "Skill.wz/230.img/skill/2301005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [230]}, "effects": [{"stat": "count", "op": "add", "value": 1}]},
+		{"id": "holy_arrow_pierce", "kind": "skill_mod", "skill": "holy_arrow", "name": "Holy Arrow Pierce",
+			"desc": "Holy Arrows pass through +{value} more monster.", "value": 1, "icon": "Skill.wz/230.img/skill/2301005/icon",
+			"max_rank": 2, "weight": 2, "requires": {"jobs": [230]}, "effects": [{"stat": "pierce", "op": "add", "value": 1}]},
+		{"id": "holy_arrow_cooldown", "power": true, "kind": "skill_mod", "skill": "holy_arrow", "name": "Quick Holy Arrow",
+			"desc": "Holy Arrow cooldown -{value}%.", "value": 12, "icon": "Skill.wz/230.img/skill/2301005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [230]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+		{"id": "heal_new", "power": true, "kind": "skill_new", "skill": "heal", "name": "Heal",
+			"desc": "Learn Heal: restore HP below half health, or strike nearby undead.", "icon": "Skill.wz/230.img/skill/2301002/icon",
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [230]}, "effects": []},
+		{"id": "heal_rank", "power": true, "kind": "skill_rank", "skill": "heal", "name": "Heal",
+			"desc": "Heal +{magnitude} rank: stronger recovery and undead damage.", "icon": "Skill.wz/230.img/skill/2301002/icon",
+			"max_rank": 30, "weight": 3, "requires": {"jobs": [230]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
 
 		{"id": "nimble_feet", "kind": "skill_new", "skill": "nimble_feet", "name": "Nimble Feet",
 			"desc": "Learn Nimble Feet: a temporary speed boost with its canonical MP cost and cooldown.",
@@ -104,6 +154,56 @@
 			"desc": "Higher skill level restores more MP every 10 seconds: floor(character level × skill level / 10).",
 			"icon": "Skill.wz/200.img/skill/2000000/icon", "max_rank": 16, "weight": 2,
 			"requires": {"jobs": [200], "skills": ["improved_mp_recovery"]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "mp_eater_fp_new", "kind": "skill_new", "skill": "mp_eater_fp", "name": "MP Eater",
+			"desc": "Learn MP Eater: magic hits may absorb monster MP.", "icon": "Skill.wz/210.img/skill/2100000/icon",
+			"max_rank": 1, "weight": 2, "requires": {"jobs": [210]}, "effects": []},
+		{"id": "mp_eater_fp_rank", "kind": "skill_rank", "skill": "mp_eater_fp", "name": "MP Eater",
+			"desc": "MP Eater +{magnitude} skill level: greater absorb chance and MP recovered.", "icon": "Skill.wz/210.img/skill/2100000/icon",
+			"max_rank": 20, "weight": 2, "requires": {"jobs": [210]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "mp_eater_il_new", "kind": "skill_new", "skill": "mp_eater_il", "name": "MP Eater",
+			"desc": "Learn MP Eater: magic hits may absorb monster MP.", "icon": "Skill.wz/220.img/skill/2200000/icon",
+			"max_rank": 1, "weight": 2, "requires": {"jobs": [220]}, "effects": []},
+		{"id": "mp_eater_il_rank", "kind": "skill_rank", "skill": "mp_eater_il", "name": "MP Eater",
+			"desc": "MP Eater +{magnitude} skill level: greater absorb chance and MP recovered.", "icon": "Skill.wz/220.img/skill/2200000/icon",
+			"max_rank": 20, "weight": 2, "requires": {"jobs": [220]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "mp_eater_cleric_new", "kind": "skill_new", "skill": "mp_eater_cleric", "name": "MP Eater",
+			"desc": "Learn MP Eater: magic hits may absorb monster MP.", "icon": "Skill.wz/230.img/skill/2300000/icon",
+			"max_rank": 1, "weight": 2, "requires": {"jobs": [230]}, "effects": []},
+		{"id": "mp_eater_cleric_rank", "kind": "skill_rank", "skill": "mp_eater_cleric", "name": "MP Eater",
+			"desc": "MP Eater +{magnitude} skill level: greater absorb chance and MP recovered.", "icon": "Skill.wz/230.img/skill/2300000/icon",
+			"max_rank": 20, "weight": 2, "requires": {"jobs": [230]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "cold_beam_new", "power": true, "kind": "skill_new", "skill": "cold_beam", "name": "Cold Beam",
+			"_tier": "Tier C: learn offer weight 4; shared rarity starting ranks. Tier A: canonical 30-level cap.",
+			"desc": "Learn Cold Beam: freezes the nearest monster with an icy beam.", "icon": "Skill.wz/220.img/skill/2201004/icon",
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [220]}, "effects": []},
+		{"id": "cold_beam_rank", "power": true, "kind": "skill_rank", "skill": "cold_beam", "name": "Cold Beam",
+			"_tier": "Tier C: rank offer weight 3; shared rarity rank gains. Tier A: canonical 30-level cap.",
+			"desc": "Cold Beam +{magnitude} rank: higher magic attack, mastery and freeze duration.", "icon": "Skill.wz/220.img/skill/2201004/icon",
+			"max_rank": 30, "weight": 3, "requires": {"jobs": [220]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "cold_beam_targets", "power": true, "kind": "skill_mod", "skill": "cold_beam", "name": "Spreading Frost",
+			"_tier": "Tier C: +1 target per step, at most 3 steps; offer weight 2.",
+			"desc": "Cold Beam strikes +{value} more monster.", "value": 1, "icon": "Skill.wz/220.img/skill/2201004/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [220]}, "effects": [{"stat": "count", "op": "add", "value": 1}]},
+		{"id": "cold_beam_cooldown", "power": true, "kind": "skill_mod", "skill": "cold_beam", "name": "Quick Frost",
+			"_tier": "Tier C: cooldown x0.88 per step, at most 3 steps; offer weight 2.",
+			"desc": "Cold Beam cooldown -{value}%.", "value": 12, "icon": "Skill.wz/220.img/skill/2201004/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [220]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+		{"id": "thunder_bolt_new", "power": true, "kind": "skill_new", "skill": "thunder_bolt", "name": "Thunder Bolt",
+			"_tier": "Tier C: learn offer weight 4; shared rarity starting ranks. Tier A: canonical 30-level cap.",
+			"desc": "Learn Thunder Bolt: strikes nearby monsters with lightning.", "icon": "Skill.wz/220.img/skill/2201005/icon",
+			"max_rank": 1, "weight": 4, "requires": {"jobs": [220]}, "effects": []},
+		{"id": "thunder_bolt_rank", "power": true, "kind": "skill_rank", "skill": "thunder_bolt", "name": "Thunder Bolt",
+			"_tier": "Tier C: rank offer weight 3; shared rarity rank gains. Tier A: canonical 30-level cap.",
+			"desc": "Thunder Bolt +{magnitude} rank: higher magic attack and mastery.", "icon": "Skill.wz/220.img/skill/2201005/icon",
+			"max_rank": 30, "weight": 3, "requires": {"jobs": [220]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "thunder_bolt_area", "power": true, "kind": "skill_mod", "skill": "thunder_bolt", "name": "Wider Storm",
+			"_tier": "Tier C: canonical lt/rb offsets x1.2 per step, at most 3 steps; offer weight 2.",
+			"desc": "Thunder Bolt reach +{value}% on both axes.", "value": 20, "icon": "Skill.wz/220.img/skill/2201005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [220]}, "effects": [{"stat": "area", "op": "mul", "value": 1.2}]},
+		{"id": "thunder_bolt_cooldown", "power": true, "kind": "skill_mod", "skill": "thunder_bolt", "name": "Quick Storm",
+			"_tier": "Tier C: cooldown x0.88 per step, at most 3 steps; offer weight 2.",
+			"desc": "Thunder Bolt cooldown -{value}%.", "value": 12, "icon": "Skill.wz/220.img/skill/2201005/icon",
+			"max_rank": 3, "weight": 2, "requires": {"jobs": [220]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
 		{"id": "magnet", "kind": "stat", "skill": "", "name": "Magnet",
 			"desc": "Pick-up radius +{value}%.", "value": 25, "icon": "Character.wz/PetEquip/01812000.img/info/icon",
 			"max_rank": 4, "weight": 1, "requires": {}, "effects": [{"stat": "magnet", "op": "mul", "value": 1.25}]},
@@ -119,6 +219,240 @@
 		{"id": "mana_elixir", "kind": "potion_tier", "skill": "", "name": "Mana Elixirs",
 			"desc": "Upgrade all MP stock and future drops to Mana Elixirs (300 MP).",
 			"icon": "Item.wz/Consume/0200.img/02000006/info/icon", "potion_kind": "mp", "item_id": 2000006,
-			"max_rank": 1, "weight": 2, "requires": {"min_level": 20, "potions": {"mp": 2000003}}, "effects": []}
+			"max_rank": 1, "weight": 2, "requires": {"min_level": 20, "potions": {"mp": 2000003}}, "effects": []},
+		{
+			"id": "meditation_fp_new",
+			"kind": "skill_new",
+			"skill": "meditation_fp",
+			"name": "Meditation",
+			"desc": "Learn Meditation: Temporarily increases your magic attack.",
+			"icon": "Skill.wz/210.img/skill/2101001/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					210
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "meditation_fp_rank",
+			"kind": "skill_rank",
+			"skill": "meditation_fp",
+			"name": "Meditation",
+			"desc": "Meditation +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/210.img/skill/2101001/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					210
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "meditation_il_new",
+			"kind": "skill_new",
+			"skill": "meditation_il",
+			"name": "Meditation",
+			"desc": "Learn Meditation: Temporarily increases your magic attack.",
+			"icon": "Skill.wz/220.img/skill/2201001/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					220
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "meditation_il_rank",
+			"kind": "skill_rank",
+			"skill": "meditation_il",
+			"name": "Meditation",
+			"desc": "Meditation +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/220.img/skill/2201001/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					220
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "bless_new",
+			"kind": "skill_new",
+			"skill": "bless",
+			"name": "Bless",
+			"desc": "Learn Bless: Temporarily increases defence, accuracy and avoid. Accuracy has no combat effect yet.",
+			"icon": "Skill.wz/230.img/skill/2301004/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					230
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "bless_rank",
+			"kind": "skill_rank",
+			"skill": "bless",
+			"name": "Bless",
+			"desc": "Bless +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/230.img/skill/2301004/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					230
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "invincible_new",
+			"kind": "skill_new",
+			"skill": "invincible",
+			"name": "Invincible",
+			"desc": "Learn Invincible: Temporarily reduces weapon and touch damage taken; magic damage is unaffected.",
+			"icon": "Skill.wz/230.img/skill/2301003/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					230
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "invincible_rank",
+			"kind": "skill_rank",
+			"skill": "invincible",
+			"name": "Invincible",
+			"desc": "Invincible +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/230.img/skill/2301003/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					230
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "slow_fp_new",
+			"kind": "skill_new",
+			"skill": "slow_fp",
+			"name": "Slow",
+			"desc": "Learn Slow: Slows up to six eligible monsters when at least three unslowed monsters are in the skill box.",
+			"icon": "Skill.wz/210.img/skill/2101003/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					210
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "slow_fp_rank",
+			"kind": "skill_rank",
+			"skill": "slow_fp",
+			"name": "Slow",
+			"desc": "Slow +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/210.img/skill/2101003/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					210
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "slow_il_new",
+			"kind": "skill_new",
+			"skill": "slow_il",
+			"name": "Slow",
+			"desc": "Learn Slow: Slows up to six eligible monsters when at least three unslowed monsters are in the skill box.",
+			"icon": "Skill.wz/220.img/skill/2201003/icon",
+			"max_rank": 1,
+			"weight": 3,
+			"requires": {
+				"jobs": [
+					220
+				]
+			},
+			"effects": []
+		},
+		{
+			"id": "slow_il_rank",
+			"kind": "skill_rank",
+			"skill": "slow_il",
+			"name": "Slow",
+			"desc": "Slow +{magnitude} skill level: canonical effects, duration and MP cost.",
+			"icon": "Skill.wz/220.img/skill/2201003/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					220
+				]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{"id":"teleport_fp_new","kind":"skill_new","skill":"teleport_fp","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":1,"weight":2,"requires":{"jobs":[210]},"effects":[]},
+		{"id":"teleport_fp_rank","kind":"skill_rank","skill":"teleport_fp","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":20,"weight":2,"requires":{"jobs":[210],"skills":["teleport_fp"]},"effects":[{"stat":"rank","op":"add","value":1}]},
+		{"id":"teleport_il_new","kind":"skill_new","skill":"teleport_il","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":1,"weight":2,"requires":{"jobs":[220]},"effects":[]},
+		{"id":"teleport_il_rank","kind":"skill_rank","skill":"teleport_il","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":20,"weight":2,"requires":{"jobs":[220],"skills":["teleport_il"]},"effects":[{"stat":"rank","op":"add","value":1}]},
+		{"id":"teleport_cleric_new","kind":"skill_new","skill":"teleport_cleric","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":1,"weight":2,"requires":{"jobs":[230]},"effects":[]},
+		{"id":"teleport_cleric_rank","kind":"skill_rank","skill":"teleport_cleric","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":20,"weight":2,"requires":{"jobs":[230],"skills":["teleport_cleric"]},"effects":[{"stat":"rank","op":"add","value":1}]}
 	]
 }

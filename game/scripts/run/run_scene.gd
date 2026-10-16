@@ -8,7 +8,7 @@ extends Node2D
 ##   add_child(run)
 ##
 ## Options (configure()): autoplay (BotInput drives the player), autopick (BotInput's choices are taken at once and
-## no window opens: the first available job and BotInput.pick_card_for's card; automated runs and benchmarks), speed
+## no window opens: a seeded branch and BotInput.pick_card_for's card; automated runs and benchmarks), speed
 ## (sim ticks per 60 Hz frame; implemented as Engine.time_scale so effects keep pace), shots_dir + shot_every (PNG
 ## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json, saves
 ## final.png when a frame is drawn within FINAL_SHOT_TIMEOUT real seconds (else logs that it was skipped) and quits),
@@ -144,6 +144,7 @@ var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
 var _drink_mp_latch := false
+var _teleport_latch := false
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -294,7 +295,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
 	if not _autoplay and not event.is_echo():
-		if event.is_action_pressed("drink_hp"):
+		if event.is_action_pressed("teleport"):
+			_teleport_latch = true
+			get_viewport().set_input_as_handled()
+		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("drink_mp"):
@@ -348,6 +352,7 @@ func advance_frame(delta: float) -> void:
 		_jump_latch = false
 		_drink_hp_latch = false
 		_drink_mp_latch = false
+		_teleport_latch = false
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	_auto_resolve_window(delta)
@@ -625,10 +630,13 @@ func _read_input(first_tick: bool) -> MoveInput:
 	mi.up = Input.is_action_pressed("move_up")
 	mi.down = Input.is_action_pressed("move_down")
 	mi.jump_held = Input.is_action_pressed("jump")
+	mi.teleport_held = Input.is_action_pressed("teleport")
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
 	if first_tick:
+		mi.teleport_pressed = _teleport_latch
+		_teleport_latch = false
 		mi.drink_hp = _drink_hp_latch
 		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
@@ -670,6 +678,11 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
 			"cast":
 				_on_cast(e)
+			"teleport":
+				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
+				if String(e.phase) == "arrival":
+					_event_shot("teleport.png", 0.08) # tier C: capture the canonical 80 ms effect frame.
 			"boss_skill":
 				_on_boss_skill(e)
 			"mob_projectile_spawned":
@@ -695,6 +708,19 @@ func handle_events(events: Array) -> void:
 				_sound(SND_MOB % [int(e.mob_id), "Die"])
 			"player_hit":
 				_on_player_hit(e)
+			"player_restored":
+				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
+				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN if e.stat == "hp" else DamageNumbers.MP_GAIN, PLAYER_KEY)
+				counters.numbers += 1
+			"mp_eater_absorbed":
+				var key := String(e.skill)
+				fx.play(world.book.visual(key, "effect", world.loadout.level(key), int(world.player_state.level)),
+					Vector2.ZERO, world.player.facing > 0, avatar)
+				# tier A: v83 has no MP Eater Sound.wz entry; quietly probe any optional cached use sound.
+				var sound := SND_SKILL_USE % world.book.skill_id(key)
+				if library.find(sound) is Dictionary:
+					_sound(sound)
+				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":
@@ -718,7 +744,7 @@ func handle_events(events: Array) -> void:
 			"job_changed":
 				_on_job_changed(int(e.job_id))
 			"choice_pending":
-				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
+				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -821,7 +847,7 @@ func _apply_job_look(job_id: int) -> void:
 ## events are dropped. Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world)
+		BotInput.auto_choose(world, false, int(options.get("branch", 0)))
 		if world.state != RunWorld.PLAYING:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
@@ -861,11 +887,12 @@ func _advance_end(delta: float) -> void:
 		_finish()
 
 
-## Plays a sound once per frame per path (a swarm hit by a piercing shell is one sound, not twenty).
-func _sound(path: String) -> void:
-	if path == "" or _frame_sounds.has(path):
+## Plays once per frame per path/phase (Teleport preserves both endpoints; swarm hits still coalesce).
+func _sound(path: String, phase: String = "") -> void:
+	var key := path + ":" + phase
+	if path == "" or _frame_sounds.has(key):
 		return
-	_frame_sounds[path] = true
+	_frame_sounds[key] = true
 	var sfx := _sfx_service()
 	if sfx != null and sfx.play(path):
 		counters.sounds += 1
@@ -886,7 +913,7 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_job(req.options)
+				var j := BotInput.pick_job(req.options, world.job_rng, int(options.get("branch", 0)))
 				if j < 0 or not world.apply_job(j):
 					world.decline_job()
 				handle_events(world.drain_events())
@@ -905,11 +932,11 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level, bool(req.get("bonus", false)))
+			lw.open(req.cards, level, bool(req.get("bonus", false)), bool(req.get("advancement", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
-## card BotInput.pick_card_for prefers, the first available job; demos and evidence runs: the window is shown, then
+## card BotInput.pick_card_for prefers, a seeded branch; demos and evidence runs: the window is shown, then
 ## answered through the same handlers as its signals).
 func _auto_resolve_window(delta: float) -> void:
 	if _window_auto <= 0.0 or window == null or (_window_kind != "cards" and _window_kind != "job"):
@@ -923,7 +950,7 @@ func _auto_resolve_window(delta: float) -> void:
 	if _window_kind == "cards":
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
-		var j := BotInput.pick_job(_window_req.get("options", []))
+		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, int(options.get("branch", 0)))
 		if j < 0:
 			_on_job_declined()
 		else:
@@ -937,7 +964,7 @@ func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -
 	_window_open_t = 0.0
 	counters.windows += 1
 	if kind != "pause":
-		_event_shot("window_%s_%d.png" % [kind, level], 0.6)
+		_event_shot("window_%s_%d.png" % ["advancement" if bool(req.get("advancement", false)) else kind, level], 0.6)
 	windows_layer.add_child(w)
 
 
@@ -1204,7 +1231,15 @@ func run_time() -> float:
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key)})
+		var manual := world.book.def(key).has("teleport")
+		var label := ""
+		if manual:
+			for binding: InputEvent in InputMap.action_get_events("teleport"):
+				if binding is InputEventKey:
+					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
+					break
+		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
+			"key_label": label, "affordable": world.teleport_affordable() if manual else true})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills}
@@ -1246,7 +1281,7 @@ func build_summary() -> Dictionary:
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
-		"skills": skills, "seed": run_seed,
+		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
 	}
 
 

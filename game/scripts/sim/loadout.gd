@@ -82,11 +82,6 @@ func slot_count(slot_name: String) -> int:
 	return n
 
 
-## True when another skill of that slot fits.
-func has_free_slot(slot_name: String) -> bool:
-	return slot_count(slot_name) < int(book.slots.get(slot_name, 6))
-
-
 ## Stacks one effect on skill `key` (op "add" or "mul").
 func add_skill_mod(key: String, stat: String, op: String, value: float) -> void:
 	if not skill_mods.has(key):
@@ -126,10 +121,11 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
-## crit, crit_mult, cooldown, range,
+## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
+## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
+## passive_value, icon, duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
 func stats(key: String) -> Dictionary:
 	var d := book.def(key)
 	var r := maxi(1, rank(key))
@@ -149,6 +145,17 @@ func stats(key: String) -> Dictionary:
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
+	var heal: Dictionary = d.get("heal", {})
+	var cast: Dictionary = d.get("cast", {})
+	var node := book.level_node(key, lv)
+	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
+	var area := skill_stat(key, "area", 1.0)
+	var box := Rect2()
+	if has_box:
+		var lt: Array = node.lt.get("$v", [0.0, 0.0])
+		var rb: Array = node.rb.get("$v", [0.0, 0.0])
+		var start := Vector2(float(lt[0]), float(lt[1])) * area
+		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -156,7 +163,15 @@ func stats(key: String) -> Dictionary:
 		"slot": book.slot(key),
 		"rank": r,
 		"level": lv,
+		"cast_rule": String(cast.get("rule", "")),
+		"cast_params": cast.duplicate(true),
+		"has_box": has_box,
+		"area": area,
+		"box": box,
+		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
+		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
+		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
 		"damage_min": lo,
 		"damage_max": hi,
@@ -165,7 +180,7 @@ func stats(key: String) -> Dictionary:
 		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance),
 		"crit_mult": crit_mult,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(d.get("cooldown", 1.0)))),
+		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))),
 		"range": skill_stat(key, "range", float(d.get("range", 0.0))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", 1))))),
@@ -183,10 +198,21 @@ func stats(key: String) -> Dictionary:
 		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
+		"buff_effects": _buff_effects(key, lv, buff),
 		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 	}
+
+
+func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
+	var effects := {}
+	if buff.has("stat"):
+		effects[String(buff.stat)] = book.canonical(key, lv, String(buff.get("field", "")), 0.0)
+	for effect: Dictionary in buff.get("effects", []):
+		var stat := String(effect.stat)
+		effects[stat] = float(effects.get(stat, 0.0)) + book.canonical(key, lv, String(effect.field), 0.0)
+	return effects
 
 
 ## Sum of owned passive effects: canonical fields or survivor per-level values from skills.json.

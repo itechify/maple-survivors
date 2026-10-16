@@ -46,6 +46,8 @@ const POISON_LEVEL_BASE := 70
 const POISON_DAMAGE_CAP := 32767
 ## tier C: numerical tolerance for double status clocks at the fixed-tick boundary.
 const STATUS_EPSILON := 1e-9
+## tier C interpretation of the canonical two-consecutive-uses text; shared across branch copies.
+const SLOW_CONSECUTIVE_LIMIT := 2
 ## Player-inflicted statuses: index into the flattened per-slot status table (slot * STATUS_COUNT + status).
 const SLOW := 0
 const POISON := 1
@@ -77,6 +79,8 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var hp := PackedInt32Array()
 var max_hp := PackedInt32Array()
+## Remaining canonical monster MP; fresh spawns reset it, relocation preserves it.
+var mp := PackedInt32Array()
 var state := PackedInt32Array()
 ## Seconds in the current state / current animation (the latter restarts when the shown stance changes).
 var state_t := PackedFloat32Array()
@@ -104,6 +108,9 @@ var status_left := PackedFloat64Array()
 var status_elapsed := PackedFloat32Array()
 ## Canonical signed Slow x scales pursuit speed by (100 + x) / 100; 1 when not slowed.
 var slow_factor := PackedFloat32Array()
+## tier C: consecutive successful Slow auto-casts on this logical mob; expiry does not reset the sequence.
+var _slow_cast_serial := PackedInt32Array()
+var _slow_cast_streak := PackedByteArray()
 var _poison_pulse := PackedFloat64Array()
 var _poison_damage := PackedInt32Array()
 var _poison_skill := PackedStringArray()
@@ -231,6 +238,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	vy[i] = 0.0
 	hp[i] = h
 	max_hp[i] = h
+	mp[i] = kinds[k].max_mp if k >= 0 and k < kinds.size() else 0
 	state[i] = STAND if f >= 0 else JUMP
 	state_t[i] = 0.0
 	anim_t[i] = 0.0
@@ -242,6 +250,8 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	steady[i] = 0
 	active[i] = 1
 	slow_factor[i] = 1.0
+	_slow_cast_serial[i] = -1
+	_slow_cast_streak[i] = 0
 	_stop_x[i] = INF
 	_route_e[i] = -1
 	route_len[i] = INF
@@ -266,6 +276,43 @@ func despawn(i: int) -> bool:
 	return true
 
 
+## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP and Slow cast history.
+## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
+func relocate(i: int, pos: Vector2, f: int) -> int:
+	if not is_live(i):
+		return -1
+	var k := kind[i]
+	var old_identity := identity[i]
+	var slow_serial := _slow_cast_serial[i]
+	var slow_streak := _slow_cast_streak[i]
+	var old_hp := hp[i]
+	var old_max_hp := max_hp[i]
+	var old_mp := mp[i]
+	despawn(i)
+	var j := spawn(k, pos.x, pos.y, f, old_max_hp)
+	identity[j] = old_identity
+	_slow_cast_serial[j] = slow_serial
+	_slow_cast_streak[j] = slow_streak
+	hp[j] = old_hp
+	mp[j] = old_mp
+	return j
+
+
+## Whether a crowd Slow may include slot i after the last successful global Slow cast `serial`.
+func can_slow_cast(i: int, serial: int) -> bool:
+	return accepts_status(i, "slow") and status_time(i, SLOW) <= 0.0 \
+		and (_slow_cast_serial[i] != serial or _slow_cast_streak[i] < SLOW_CONSECUTIVE_LIMIT)
+
+
+## Applies an admitted Slow cast and records its serial only if status application succeeds.
+func apply_slow_cast(i: int, serial: int, params: Dictionary, events: Array) -> bool:
+	if not apply_status(i, "slow", params, events):
+		return false
+	_slow_cast_streak[i] = _slow_cast_streak[i] + 1 if _slow_cast_serial[i] == serial - 1 else 1
+	_slow_cast_serial[i] = serial
+	return true
+
+
 ## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key);
 ## `params.element` overrides the status's own element (STATUS_ELEMENTS). Refreshes without stacking (tier C, issue
 ## #54); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
@@ -274,14 +321,7 @@ func despawn(i: int) -> bool:
 func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
 	var s := STATUS_NAMES.find(status)
 	var time := float(params.get("time", 0.0))
-	if s < 0 or not is_live(i) or time <= 0.0:
-		return false
-	var mk := mob_kind(i)
-	# tier C: the v83 server reference rejects player statuses on bosses (Cosmic Monster.applyStatus boss gate).
-	if mk.boss or steady[i] != 0:
-		return false
-	# tier C: the same reference rejects a status whose element the monster is immune, strong or neutral (4) against.
-	if mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s]))):
+	if time <= 0.0 or not accepts_status(i, status, params):
 		return false
 	if s == POISON:
 		var level := int(params.get("level", 0))
@@ -299,8 +339,18 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 		_status_slots.append(i)
 	status_left[j] = time
 	status_elapsed[j] = 0.0
-	events.append({"type": "mob_status_applied", "mob": i, "mob_id": mk.id, "status": status, "duration": time})
+	events.append({"type": "mob_status_applied", "mob": i, "mob_id": mob_kind(i).id, "status": status, "duration": time})
 	return true
+
+
+## Non-mutating status eligibility, shared by cast admission and application. Duration/value checks stay in apply_status.
+func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
+	var s := STATUS_NAMES.find(status)
+	if s < 0 or not is_live(i):
+		return false
+	var mk := mob_kind(i)
+	# tier C: v83 server reference rejects boss statuses and immune/strong/neutral status elements.
+	return not mk.boss and steady[i] == 0 and not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
@@ -789,6 +839,7 @@ func _set_state(i: int, s: int) -> void:
 
 func _release(i: int) -> void:
 	_clear_statuses(i)
+	mp[i] = 0
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -827,6 +878,7 @@ func _grow(n: int) -> void:
 	vy.resize(n)
 	hp.resize(n)
 	max_hp.resize(n)
+	mp.resize(n)
 	state.resize(n)
 	identity.resize(n)
 	state_t.resize(n)
@@ -845,6 +897,8 @@ func _grow(n: int) -> void:
 	status_left.resize(n * STATUS_COUNT)
 	status_elapsed.resize(n * STATUS_COUNT)
 	slow_factor.resize(n)
+	_slow_cast_serial.resize(n)
+	_slow_cast_streak.resize(n)
 	_poison_pulse.resize(n)
 	_poison_damage.resize(n)
 	_poison_skill.resize(n)

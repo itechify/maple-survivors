@@ -30,6 +30,7 @@ var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat32Array()
 var _shortages := {}
+var _slow_serial := 0
 
 
 func _init() -> void:
@@ -67,7 +68,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
 	for key: String in lo.order:
-		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6:
+		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
+				and String(stats_of(world, key).cast_rule) != "manual":
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
 		var ca := float(cooldowns.get(a, 0.0))
@@ -78,11 +80,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
-		if is_buff and not world.can_start_buff(key, st):
-			_shortages.erase(key)
-			continue
-		var n := 1 if is_buff and float(st.duration) > 0 else _find_targets(world, origin, float(st.range), int(st.count))
-		if n == 0:
+		var plan := _admit_cast(world, key, st, origin)
+		if plan.is_empty():
 			_shortages.erase(key)
 			continue
 		if not world.spend_mp(int(st.mp_cost)):
@@ -94,16 +93,126 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			continue
 		_shortages.erase(key)
 		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
-		if is_buff:
-			casts += 1
-			fired_this_tick = true
-			world.start_buff(key, st)
-			world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
-				"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
-			world.start_action(String(st.action), float(st.action_time))
-		else:
-			_fire(world, key, st, origin, n)
+		_resolve_cast(world, key, st, origin, plan)
 		break
+
+
+func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	match String(st.cast_rule):
+		"", "nearest":
+			return _admit_nearest(world, key, st, origin)
+		"box":
+			return _admit_box(world, st)
+		"crowd":
+			return _admit_crowd(world, st)
+		"hp_or_undead":
+			return _admit_hp_or_undead(world, key, st)
+		"manual":
+			return {}
+	return {}
+
+
+func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	if String(st.kind) == "buff":
+		if not world.can_start_buff(key, st):
+			return {}
+		if float(st.duration) > 0.0:
+			return {"go": true}
+	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
+		return {}
+	return {"targets": _tgt.duplicate()}
+
+
+func _admit_box(world: RunWorld, st: Dictionary) -> Dictionary:
+	if not bool(st.has_box):
+		return {}
+	var targets := world.skill_box_targets(st.box)
+	# tier C: a box cast defaults to one eligible target; skill data may require a crowd.
+	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
+		return {}
+	return {"targets": targets}
+
+
+func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
+	var targets := PackedInt32Array()
+	if bool(st.has_box):
+		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
+	var heal: Dictionary = world.book.def(key).get("heal", {})
+	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))
+	return {"targets": targets} if injured or not targets.is_empty() else {}
+
+
+func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
+	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
+	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
+		world.face_toward(world.mob_center(targets[0]).x)
+	casts += 1
+	fired_this_tick = true
+	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
+		world.start_buff(key, st)
+	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
+		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
+	world.start_action(String(st.action), float(st.action_time))
+	match String(st.cast_rule):
+		"box":
+			_resolve_instant_targets(world, st, targets, int(st.mob_count), int(st.attack_count),
+				world.visual_index(String(st.hit)))
+		"crowd":
+			_resolve_crowd(world, key, st, targets)
+		"hp_or_undead":
+			_resolve_hp_or_undead(world, key, st, targets)
+		"", "nearest":
+			if String(st.kind) != "buff":
+				_resolve_nearest(world, key, st, origin, targets)
+
+
+func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
+	if not bool(st.has_box):
+		return {}
+	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
+		return world.swarm.can_slow_cast(slot, _slow_serial))
+	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
+	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
+		return {}
+	return {"targets": targets}
+
+
+func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
+	_slow_serial += 1
+	var params := {"x": world.book.canonical(key, int(st.level), "x"),
+		"time": world.book.canonical(key, int(st.level), "time")}
+	for i in mini(int(st.mob_count), targets.size()):
+		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+
+
+func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
+		limit: int, lines: int, hv: int) -> void:
+	for i in mini(limit, targets.size()):
+		var slot := targets[i]
+		for line in lines:
+			# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
+			if world.swarm.active[slot] == 0:
+				break
+			world.hit_mob(slot, st, hv)
+
+
+func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
+	var heal: Dictionary = world.book.def(key).get("heal", {})
+	var power := world.book.canonical(key, int(st.level), String(heal.get("field", "hp")))
+	var lo := world.loadout
+	var luk := float(world.player_state.luk)
+	var recovery := CombatMath.heal_recovery_range(lo.int_stat, luk, lo.matk, power)
+	world.restore_player("hp", floori(CombatMath.roll_range(recovery, world.rng)), key)
+	var damage := CombatMath.heal_damage_range(lo.int_stat, luk, lo.matk, power, targets.size() + 1)
+	var hit := st.duplicate()
+	hit.damage_min = damage.x
+	hit.damage_max = damage.y
+	hit.magic = true
+	hit.element = "h" # tier B: Heal's holy undead attack; canonical node has no elemAttr, research/cleric-heal.md.
+	var hv := world.visual_index(String(st.hit))
+	# tier C: ticket #57 requires every undead in the box, without the original six-target cap.
+	for slot: int in targets:
+		world.hit_mob(slot, hit, hv)
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
@@ -135,24 +244,15 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 	return _tgt.size()
 
 
-func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int) -> void:
-	casts += 1
-	fired_this_tick = true
-	var first := world.mob_center(_tgt[0])
-	world.face_toward(first.x)
-	var level := int(st.level)
+func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:
+	var n := targets.size()
 	var hv := world.visual_index(String(st.hit))
-	world.emit("cast", {
-		"skill": key, "skill_id": int(st.skill_id), "level": level, "pos": world.player.pos,
-		"facing": world.player.facing, "action": String(st.action), "effect": String(st.effect),
-	})
-	world.start_action(String(st.action), float(st.action_time))
 	if String(st.kind) == "projectile":
 		var vis := world.visual_index(String(st.ball))
 		var count := int(st.count)
 		var speed := float(st.speed)
 		for k in count:
-			var m := _tgt[k % n]
+			var m := targets[k % n]
 			var reuse := floorf(float(k) / float(n))
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			var start := world.shot_origin(aim)
@@ -168,14 +268,7 @@ func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int
 				"range": float(st.range), "radius": float(st.radius), "visual": vis, "hit_visual": hv,
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
-				"pierce": int(st.pierce), "skill": key, "element": String(st.element),
+				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 			})
 	else:
-		var targets := mini(int(st.count), n)
-		var lines := int(st.attack_count)
-		for k in targets:
-			var m := _tgt[k]
-			for h in lines:
-				if world.swarm.active[m] == 0:
-					break
-				world.hit_mob(m, st, hv)
+		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)

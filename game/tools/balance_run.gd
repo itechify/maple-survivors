@@ -20,13 +20,13 @@ extends SceneTree
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
 ##
-## Card policies (jobs: always the first available job, as BotInput.pick_job):
+## Card policies (jobs: seeded random branch, overridden by --branch=210|220|230):
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the
 ##           same as with any other policy until the choices differ). This is the "careless player" of the tuning
 ##           record; it does not favour the first slot, where UpgradePool puts a guaranteed card.
 ##   first   always the first card offered (--first-card is the same). Not a random player: guaranteed cards (the
-##           Magician's Energy Bolt, pity cards) are always drawn first, so this policy always takes them.
+##           advancement attacks, pity cards) are always drawn first, so this policy always takes them.
 ##
 ## Camper movement policies: camper_henesys_top, camper_henesys_rope, camper_tree_top (sensible cards/potions).
 ## --camp-after=S: begin parking after S seconds (default 60); Tree reaches its top branch through portals.
@@ -106,10 +106,13 @@ func _init() -> void:
 	var cap := -1.0
 	var camp_after := 60.0
 	var stage_explicit := false
+	var branch := 0
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
 			stage_explicit = true
+		elif a.begins_with("--branch="):
+			branch = int(a.substr(9))
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a == "--first-card":
@@ -126,6 +129,10 @@ func _init() -> void:
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
 			seeds.append(int(a))
+	if branch not in [0, 210, 220, 230]:
+		print("balance_run: --branch must be 210, 220 or 230")
+		quit(2)
+		return
 	if not (policy in POLICIES):
 		print("balance_run: unknown --policy=%s (%s)" % [policy, POLICIES])
 		quit(2)
@@ -161,7 +168,7 @@ func _init() -> void:
 	for s in seeds:
 		var setup := setup_base.duplicate()
 		setup.seed = s
-		var r := run_one(RunWorld.new(setup), policy, s, idle_after, camp_after)
+		var r := run_one(RunWorld.new(setup), policy, s, idle_after, camp_after, branch)
 		r["seed"] = s
 		r["stage"] = stage
 		r["policy"] = policy
@@ -171,12 +178,12 @@ func _init() -> void:
 
 
 ## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
-static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array) -> void:
+static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, branch := 0) -> void:
 	var guard := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := BotInput.pick_job(w.pending_jobs)
+			var job := BotInput.pick_job(w.pending_jobs, w.job_rng, branch)
 			if job < 0 or not w.apply_job(job):
 				w.decline_job()
 			continue
@@ -193,7 +200,7 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 
 
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0) -> Dictionary:
+static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, branch := 0) -> Dictionary:
 	var memo := {}
 	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
@@ -240,6 +247,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var recycled0 := 0
 	var hp_low := 1.0
 	var hits := 0
+	var teleports := 0
 	var taken := 0
 	var max_alive := 0
 	var max_alive_t := 0.0
@@ -248,7 +256,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
-		choose(w, policy, rng, cards_taken)
+		choose(w, policy, rng, cards_taken, branch)
 		if w.state != RunWorld.PLAYING:
 			break
 		var idle := idle_after >= 0.0 and w.time >= idle_after
@@ -277,6 +285,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		for e: Dictionary in w.drain_events():
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):
+				"teleport":
+					if String(e.phase) == "arrival":
+						teleports += 1
 				"mob_spawned":
 					# A relocated mob is the same mob: it keeps the time it was last inside the box.
 					var ms := int(e.mob)
@@ -342,7 +353,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			kills_min.append(w.kills)
 			hits = 0
 			taken = 0
-	choose(w, policy, rng, cards_taken)
+	choose(w, policy, rng, cards_taken, branch)
 	var eng_min: Array = []
 	var stale_min: Array = []
 	for m in range(1, int(w.time / 60.0) + 1):
@@ -358,12 +369,14 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
 		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
+		"teleports": teleports,
 		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
 		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
-		"job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
+		"branch": w.progression.job_id if w.progression.job_id in [210, 220, 230] else 0,
+		"forced_branch": branch, "job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -517,6 +530,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var result := {"runs": records.size(), "potions_collected": {"hp": 0, "mp": 0}, "potions_used": {"hp": 0, "mp": 0},
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
+	result["branches"] = {}
 	result["card_tier_runs"] = 0
 	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
@@ -533,6 +547,14 @@ static func aggregate(records: Array) -> Dictionary:
 	var censored_samples := {}
 	var hit_samples := {}
 	for record: Dictionary in records:
+		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
+		if not result.branches.has(branch_key):
+			result.branches[branch_key] = {"runs": 0, "CLEARED": 0, "DEAD": 0, "TIMEOUT": 0}
+		var group: Dictionary = result.branches[branch_key]
+		group.runs += 1
+		var outcome := String(record.get("state", ""))
+		if group.has(outcome):
+			group[outcome] += 1
 		if record.has("card_tiers_offered") and record.has("card_tiers_picked"):
 			result.card_tier_runs += 1
 			for key: String in ["card_tiers_offered", "card_tiers_picked"]:
@@ -643,6 +665,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	var lines := PackedStringArray(["SYSTEMS %d runs: potions collected HP %d MP %d; used HP %d MP %d; MP collected/used %s; MP-short seconds %s%s" % [
 		int(summary.runs), int(summary.potions_collected.hp), int(summary.potions_collected.mp), int(summary.potions_used.hp), int(summary.potions_used.mp),
 		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)]])
+	for branch_key: String in summary.get("branches", {}):
+		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
 	for tier: String in UpgradePool.TIERS:

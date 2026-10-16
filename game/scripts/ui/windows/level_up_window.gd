@@ -22,13 +22,14 @@ extends MapleWindow
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
-const X_LABELS := {"hp": ["HP / pulse", ""]}
+const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon reduction", "%"], "slow": ["Move speed", "%"]}
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", Loadout.MAX_MP_PERCENT: "Max MP"}
+	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy (unused)", "eva": "Avoid",
+	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
-const PERCENT_FIELDS := ["mastery", Loadout.MAX_MP_PERCENT]
+const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -92,6 +93,8 @@ var cards: Array = []
 var level := 0
 ## Boss rewards use the same card-choice interface without the gained-level notice.
 var bonus := false
+## Extra new-job skill draw, independent of the queued level and boss reward.
+var advancement := false
 ## Index of the focused card (-1 = none).
 var focus := -1
 
@@ -107,10 +110,11 @@ func _init() -> void:
 
 
 ## Opens the window with the cards of a choice_pending event and the new level.
-func open(p_cards: Array, p_level: int, p_bonus: bool = false) -> void:
+func open(p_cards: Array, p_level: int, p_bonus: bool = false, p_advancement: bool = false) -> void:
 	cards = p_cards.duplicate(true)
 	level = p_level
 	bonus = p_bonus
+	advancement = p_advancement
 	focus = 0 if not cards.is_empty() else -1
 	_build_layout()
 	_show_window()
@@ -189,6 +193,8 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 		if values.before == values.after:
 			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
+		if field == "range":
+			suffix = " px"
 		if field in PERCENT_FIELDS:
 			suffix = "%"
 		elif field == "x":
@@ -231,13 +237,13 @@ func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
 
 
 func _build_layout() -> void:
-	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus else ART_SIZE.y
+	var minimum := BONUS_ROWS_TOP + BOTTOM_H if bonus or advancement else ART_SIZE.y
 	var height := minimum
 	var view_h := size.y if size.y > 0.0 else Vector2(GameSettings.BASE_VIEW).y
 	# tier C: dense previews shorten prose before hiding any tier, magnitude or changed canonical value.
 	for desc_limit in range(DESC_MAX_LINES, 0, -1):
 		_blocks.clear()
-		var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
+		var y := BONUS_ROWS_TOP if bonus or advancement else ROWS_TOP
 		for c: Variant in cards:
 			var card: Dictionary = c if c is Dictionary else {}
 			var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 8.0, MapleText.SMALL)
@@ -257,7 +263,7 @@ func _build_layout() -> void:
 
 
 func _draw_panel(ci: Control) -> void:
-	if bonus:
+	if bonus or advancement:
 		_draw_bonus_art(ci, UiArt.frame(ART))
 	else:
 		_draw_art_without_sentence(ci, UiArt.frame(ART))
@@ -279,8 +285,8 @@ func _draw_bonus_art(ci: Control, f: SpriteFrame) -> void:
 			UiArt.blit_part(ci, f, Rect2(0, MID_Y, f.region.size.x, h), Vector2(0, y))
 			y += h
 		UiArt.blit_part(ci, f, Rect2(0, bottom_y, f.region.size.x, bottom_h), Vector2(0, end))
-	MapleText.draw_centered(ci, 0, 12, panel_size.x, "Boss Reward", MapleText.WHITE, MapleText.SIZE, true)
-	MapleText.draw_centered(ci, 0, 30, panel_size.x, "Choose an upgrade", MapleText.WHITE, MapleText.SMALL)
+	MapleText.draw_centered(ci, 0, 12, panel_size.x, "Job Advancement" if advancement else "Boss Reward", MapleText.WHITE, MapleText.SIZE, true)
+	MapleText.draw_centered(ci, 0, 30, panel_size.x, "Choose a new skill" if advancement else "Choose an upgrade", MapleText.WHITE, MapleText.SMALL)
 
 
 ## The window art like TiledFrame.draw_v_slices, with the notice sentence's words (SENTENCE_BANDS) replaced by the

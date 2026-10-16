@@ -16,7 +16,8 @@ func has(skill: String) -> bool:
 func start(skill: String, stats: Dictionary) -> void:
 	active[skill] = {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"icon": String(stats.icon), "remaining": float(stats.duration), "duration": float(stats.duration),
-		"effect_stat": String(stats.buff_stat), "value": float(stats.buff_value)}
+		"effect_stat": String(stats.buff_stat), "value": float(stats.buff_value),
+		"effects": stats.get("buff_effects", {String(stats.buff_stat): float(stats.buff_value)}).duplicate(true)}
 	if float(stats.pulse_interval) > 0:
 		_periodic[skill] = {"interval": float(stats.pulse_interval), "elapsed": 0.0}
 
@@ -47,8 +48,7 @@ func step(dt: float, events: Array) -> int:
 func effect_total(stat: String) -> float:
 	var total := 0.0
 	for buff: Dictionary in active.values():
-		if buff.effect_stat == stat:
-			total += float(buff.value)
+		total += float(buff.effects.get(stat, 0.0))
 	return total
 
 

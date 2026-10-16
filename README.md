@@ -39,11 +39,12 @@ needs no server, account or internet connection.
 | Drop through a platform | Down + Jump |
 | Drink HP potion | Delete (or Q) |
 | Drink MP potion | End (or E) |
+| Teleport (after learning it) | X + direction; hold X to repeat; facing if no direction |
 | Pick an upgrade / job | Mouse, 1 / 2 / 3, or Up / Down + Enter |
 | Pause (Resume / Quit to stage select) | Esc |
 | Performance overlay | F3 |
 
-Skills cast on their own; you choose where to stand, what to pick up and which upgrades to take. Hanging on a rope
+Attacks cast on their own; Teleport uses X after you learn it. You choose where to stand, what to pick up and which upgrades to take. Hanging on a rope
 stops new casts and weapon swings; active buffs and Recovery continue. Job skills spend MP and wait when it is short.
 
 ## For developers

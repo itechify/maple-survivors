@@ -33,10 +33,11 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Use a same-map portal | Hold Up in its entrance (also W) |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
+| Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Pause | Esc |
 
-There is no attack key: skills cast automatically.
+There is no attack key: attacks cast automatically. Teleport is manual on X.
 
 ## 3. Movement (MapleStory physics)
 
@@ -310,11 +311,119 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
-rope to drops left on a platform above, and takes the first available job. Card
+rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #31 / #61 second-job QA (2026-10-15)
+
+Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
+210/220/230, both stages and bot/random, rarity active, real cache, 800x600, 1,800 s cap, no patches/tuning.
+All 36 runs finish without crashes, script errors or world warnings. Per-seed records, exact console output,
+systems reports and screenshots remain ignored under `evidence/spec31_qa/<branch>/`. Detailed milestones,
+completed/censored boss durations and counts, potions, MP waits and cards by job/tier are in the draft
+`research/spec31/qa-61.md`; the separate follow-up draft is `qa-61-defects.md` (external spec31 research folder).
+
+| Henesys branch / policy | Clear / dead / timeout | Death seconds (seed order) | Lv at 15:00 (observed n) | HP collected/used; MP collected/used | MP-short seconds, mean/run |
+|---|---|---|---|---|---|
+| 210 bot | 0 / 3 / 0 | 949.7, 812.3, 322.7 | 35 (n=1) | 58/73; 360/360 | 260.5 |
+| 210 random | 1 / 2 / 0 | 714.8, 329.0 | 43 (n=1) | 79/81; 435/335 | 178.5 |
+| 220 bot | 0 / 3 / 0 | 926.5, 812.3, 322.7 | 35 (n=1) | 57/72; 359/359 | 252.6 |
+| 220 random | 1 / 2 / 0 | 714.8, 329.0 | 42 (n=1) | 80/83; 433/310 | 178.5 |
+| 230 bot | 0 / 3 / 0 | 920.2, 812.3, 322.7 | 35 (n=1) | 57/72; 363/363 | 246.1 |
+| 230 random | 1 / 2 / 0 | 714.8, 329.0 | 42 (n=1) | 80/83; 428/300 | 178.5 |
+
+Henesys reaches Magician/Mano in 3/3 per group. Lv10: bot 270.6–283.2 s, random 263.2–278.3 s (n=3);
+only seed 1 reaches Lv30, at 614.9 / 557.8 s (n=1). Completed Mano medians: 37.55 / 33.69 s (2/3 spawned;
+censored >=27.62 / >=29.00 s, n=3). Final boss: bot none (0/1 spawned each); random 37.70/103.35/74.55 s
+for 210/220/230 (1/1 spawned each). Earlier deaths and missing 15:00 samples are not zero observations.
+
+| Tree branch / policy | Clear / dead / timeout | Death seconds (seed order) | Lv at 15:00 (observed n) | HP collected/used; MP collected/used | MP-short seconds, mean/run |
+|---|---|---|---|---|---|
+| 210 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 210 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 220 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 220 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 230 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 230 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+
+Tree matches the prior smoke: no Magician/Lv10/Lv30 reaches or bosses (completed durations none, n=0).
+Henesys picked tiers N/R/E/U/L, branch order: bot 60/16/0/1/0, 62/14/0/1/0, 61/15/0/1/0; random
+60/21/6/0/0, 59/21/6/0/0, 59/21/6/0/0. Tree: 4/1/0/0/0 per group. Counts mean picks, not rank steps.
+
+**Teleport MP starvation:** seed-1 bots learn rank-1 Teleport at 614.93 s and use it 257/263/298 times;
+MP-short totals are 310.733/286.950/267.550 s, with 49.6%/45.7%/40.3% of post-learning ticks short.
+Non-learners (seeds 2/2026) use zero and wait 276.450/194.383 s over shorter lives. Observer-only replays
+exactly match the official seed-1 outcomes/cards/skills/milestones/potions/fights. Separate matched diagnostics
+suppress only Teleport input: F/P/Cleric clear at 989.4/971.9 s with zero post-learning MP shortage; I/L dies
+later at 1163.8 s with fewer shortages. These are diagnostic policies, not extra smoke observations or tuning.
+The #60 bot-clear drift persists (0/3 per branch versus earlier 1/3); autoplay MP use is a drafted follow-up.
+
+**Owner stop-and-ask gate:** no Henesys branch dies entirely before its first boss or clears untouched.
+Tree's all-before-first-boss pattern is present in all 18 runs, but unchanged, before second job, and remains
+AGENTS.md's explicit record-only owner rework; flagged in the draft comment. No new feature-induced gate.
+Close probes check every branch skill, real advancement cards, stacked buffs, Teleport endpoints/grey X icon,
+and all 15 HUD icons fitting two rows at 800x600; all report `missing: []`. No confirmed blocking defect.
+All configured Use sounds load; audible identity/mix needs human listening, so audio acceptance is unverified.
+Full isolated suite: **656 tests, 0 failed, 0 skipped, 71 files** (299.020 s); real-cache tests execute.
+Normal seed-1 playtests (`--warp=540 --speed=8 --window-autopick=1`, 18-minute absolute cap) reach real
+advancement windows and die at 949.733/926.483/920.233 s (210/220/230), Lv35 each, all `missing: []`;
+checked advancement cards, the final-boss/MP views and final tombstones under each branch’s `playtest/`.
+
+**After the bot Teleport rule fix (#60 follow-up, 2026-10-15):** one Henesys-only 18-run smoke on `574da80`,
+`ISOLATE=bott bash scripts/balance.sh 1 2 2026 --stage=henesys_hg1 --branch=<210|220|230> --policy=<bot|random>`,
+real cache, rarity active, 1,800 s cap, no PATCH. The reserve (max of 25% max MP and two most-expensive learned
+auto-attack costs), 5 s interval and tighter same-height emergency rule were chosen and committed before measurement;
+no values were iterated. Player Teleport, costs and all game data are unchanged. Tree was excluded by the follow-up
+brief because no smoke run reaches second job there. Records, exact console output and systems summaries remain
+ignored under `evidence/bot_teleport/<branch>/<policy>/`; `teleports` counts successful arrival events, once per blink.
+
+Below, before is QA #61 above; lists use seed order 1/2/2026. C = clear (time shown for new bot clears), other end
+times are deaths; no timeouts. MP-short is the whole-run mean, so different lifetimes remain a comparison limit.
+
+| Henesys branch / policy | Clear/dead before -> after | End seconds before -> after | MP-short seconds, mean/run before -> after | Teleports before -> after |
+|---|---|---|---|---|
+| 210 bot | 0/3 -> 1/2 | 949.7/812.3/322.7 -> C930.1/812.3/322.7 | 260.5 -> 205.1 | 257/0/0 -> 58/0/0 |
+| 210 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+| 220 bot | 0/3 -> 0/3 | 926.5/812.3/322.7 -> 1081.9/812.3/322.7 | 252.6 -> 231.5 | 263/0/0 -> 68/0/0 |
+| 220 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+| 230 bot | 0/3 -> 1/2 | 920.2/812.3/322.7 -> C967.8/812.3/322.7 | 246.1 -> 205.1 | 298/0/0 -> 66/0/0 |
+| 230 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+
+Bot seed-1 MP-short totals: 310.733/286.950/267.550 -> 144.567/223.583/144.567 s (branch order 210/220/230).
+Bot seeds 2/2026 remain 276.450/194.383 s; all random groups remain 155.733/179.050/200.583 s in seed order
+(QA's rounded 155.7/179.1/200.6). Random seed-1 clears occur at 937.7/1003.4/974.6 s by branch.
+All 18 runs reach Magician and spawn Mano, all clears have every scheduled boss dead, and none clears untouched.
+No crashes, script errors or world warnings; no new stop gate. The bot still uses Teleport, with far fewer blinks
+and less total MP wait on the three learners; I/L still dies. This is fixed-seed regression evidence, not balance
+tuning. Pre-merge isolated suite: **661 tests, 0 failed, 0 skipped, 72 files**; real-cache tests execute.
+After merging integration `84d1782` (review-fix ownership refactors; both records preserved), the full
+`ISOLATE=bott bash scripts/test.sh` suite passes **663 tests, 0 failed, 0 skipped, 72 files**. The smoke above
+remains the single measurement on `574da80`; no additional smoke or outcome-driven changes followed the merge.
+
+#### Spec #31 review-fix equivalence (2026-10-15)
+
+Behaviour-preserving ownership refactors, baseline `34c04e1`: Slow history/admission/application and relocation
+live in MobSwarm; box/nearest instant casts share their capped line resolver; MP Eater reads `absorb_mp` definitions
+in learned order (section 7). No tuning. Ran `ISOLATE=rfix bash scripts/balance.sh 1 2 2026
+--stage=henesys_hg1 --policy=bot --branch=<210|220|230>` before and after, with separate absolute `BALANCE_OUT`
+directories under `_scratch/spec31-review-fixes/{before,after}/<branch>`. All nine complete JSON records were
+byte-identical, including outcomes, end times, levels, kills and every boss spawn/death/duration/elapsed field;
+no crashes or world warnings. Values below are identical before/after: outcome / end seconds / level / kills.
+
+| Forced branch | Seed 1 | Seed 2 | Seed 2026 |
+|---|---|---|---|
+| 210 | DEAD / 949.7 / 35 / 2204 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+| 220 | DEAD / 926.5 / 35 / 2138 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+| 230 | DEAD / 920.2 / 35 / 2220 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+
+Only seed 1 reaches the forced second job; seeds 2/2026 end as Magician. These card picks do not learn Slow or
+MP Eater. Focused seeded support/skill-foundation/MP Eater tests cover Slow's consecutive-use history across
+relocation and fresh spawns, lethal-line hit order/RNG, and live-rank absorption with configured fields/learned
+order: 43 passed, 0 failed, 0 SKIP. The full `ISOLATE=rfix bash scripts/test.sh` suite passed: 658 passed,
+0 failed, 0 SKIP across 71 files. Raw records/logs and the field-by-field comparison remain in ignored scratch.
 
 #### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
 
@@ -348,6 +457,235 @@ Henesys still reaches Magician at 4:23–4:43 and Lv 30 near 9–10:30; MP colle
 Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/63/12/1/0, careless 289/72/9/3/2.
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
+
+#### #31 / #58 support regression smoke (2026-10-15)
+
+`ISOLATE=t58 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, real cache, unforced branches,
+1,800 s cap, no patches/tuning. All 12 runs finish without crashes, script errors or world warnings. Outcomes and
+death times match #56 below; Henesys reaches Magician and spawns its first boss in all six runs. Tree is unchanged
+and record-only. Raw records and exact console output are ignored under `_scratch/t58-balance/` and
+`_scratch/t58-balance-*.log`. The full second-job branch smoke remains #61's responsibility.
+
+| #58 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used | Mean MP-wait seconds/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 376 / 317 (1.186) | 205.1 |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 425 / 269 (1.580) | 178.5 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7 / 0 (undefined) | 99.0 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7 / 0 (undefined) | 99.0 |
+
+Visible seed-1 playtests on branches 210/220/230 use `--warp=840 --speed=8 --minutes=16`, saved under
+`evidence/t58/branch_<id>/`; all report `missing: []` and remain PLAYING at the cap (no clear claimed).
+Checked by eye: `branch_210/t890.png` (late-game rendering), `branch_230/t950.png` (Invincible buff row).
+Temporary real-cache RunScene probes learn only this ticket's support skills at rank 20. Inspected
+`focus_210/support_8.png` and `focus_220/support_25.png` show Meditation's icon/cast art; each probe records six
+slowed mobs at speed factor 0.6. Closer `close_210/support_115.png` and `close_220/support_100.png` show Slow's
+white monster rings without damage numbers; `focus_230/support_25.png` shows Bless and Invincible icons with
+separate timers and canonical cast art. Probe summaries also report `missing: []`. No cache nodes are missing.
+`evidence/t58/cards/cards.png` was checked for readable, fitting Bless/Invincible/Slow rank previews and the
+accuracy-without-combat-effect label. After merging integration at `f8af37b`, the full isolated suite passes
+**610 tests, 0 failed, 0 skipped, 67 files** (300.672 s); the real-cache tests execute. Focused support,
+advancement and data checks pass **36 tests, 0 failed, 0 skipped**. No held-out seeds or tuning were used.
+
+#### #60 Teleport regression smoke (2026-10-15)
+
+No tuning: ISOLATE=t60, training seeds 1/2/2026, both stages and bot/random, 800 x 600, 1,800 s cap,
+unforced branches, no patch. All 12 records completed without crashes, script errors or world warnings. Henesys
+reaches Magician and spawns Mano in 3/3 for each policy. Compared with Foundations, sensible clears fall 1/3 to 0/3
+(seed 1 now dies at 955.3 s with Cleric Teleport rank 13); random remains 1/3. Earlier deaths and Tree outcomes
+are unchanged. This is feature drift for #61, not a tuning pass; no held-out seeds were used.
+
+| Stage / policy (3 runs each) | Clear / dead / timeout | Death seconds | Magician reaches | MP collected / used | MP-wait median (n=3) |
+|---|---|---|---|---|---|
+| Henesys bot | 0 / 3 / 0 | 955.3, 812.3, 322.7 | 3/3 | 365/365 (1.000) | 225.200 s |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 | 419/419 (1.000) | 179.050 s |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+
+Raw records and regenerated absolute-path systems reports: ignored _scratch/t60_balance/; console output:
+_scratch/t60-smoke-*.log. The initial relative BALANCE_OUT reached all runs but the supplemental reporter could
+not locate those paths from its project directory; reports were regenerated from the same records, without reruns.
+The branch-210 seed-1 playtest (warp 480, speed 8, cap 780 s) reaches Lv35, remains PLAYING, and reports missing: [].
+Its inspected evidence/t60/playtest_fp_seed1/t780.png shows the late run; this bot did not learn Teleport.
+The close driver learns Teleport through its card and injects X. Inspected evidence/t60/close_fp/teleport.png
+and teleport_no_mp.png show the X icon and affordability tint. Its missing list contains only
+Effect.wz/BasicEff.img/Teleport: that canonical subtree is absent from the shared cache. The manifest now requests
+it, but #60 did not run the prohibited import. The effect-frame test explicitly SKIPs while this prerequisite is
+missing; that SKIP does not verify the effect. Canonical effect visual acceptance remains unverified pending import.
+This smoke was recorded before the #56 merge; its unforced second advancements are Cleric, so it does not assess
+I/L branch pacing. After merging #56 and preserving both sets of fixtures/data, the final full suite reports
+**612 tests: 611 passed, 0 failed, 1 skipped (67 files)**. The only SKIP is
+`test_teleport::test_real_cache_teleport_effect_frames`, for that missing canonical art. Final log:
+`_scratch/t60-full-merged-final.log`; focused Teleport/advancement/I-L/data checks: 48 tests, 0 failed, 1 same SKIP.
+
+**#60 effect-import follow-up (2026-10-15):** the owner authorized one import. A fresh original-v83
+dump confirms `Effect.wz/BasicEff.img/Teleport`, four 80 ms frames (tier A; dimensions/origins recorded
+in `docs/research/wz-inventory.md` section 7). The ticket manifest already selected that subtree.
+The incremental import reports 84 imgs: 1 written, 83 up to date; 10,800 canvases (+4), 87 pages,
+131 sounds, 112,434,965 bytes; 0 warnings, errors or unresolved UOLs. All 84 prior img entries and
+prior BasicEff subtrees remain present; only `Teleport` was added. Of 319 prior cache files, only
+BasicEff JSON/atlas and cache.json changed; none were removed. Evidence: `evidence/t60/import.log`
+and `cache-*-comparison.json`.
+
+The close real-map driver learns `teleport_fp` through its card and injects X: departure
+(1200, 37.6531), arrival (1330, 95). Inspected `evidence/t60/close_fp_imported/teleport.png` shows
+both blue endpoint effects and the X skill label; `teleport_no_mp.png` shows the grey unaffordable
+icon at 0 MP. Its summary reports `missing: []`, resolving the earlier visual-acceptance gap.
+The additional normal autoplay playtest (Henesys, seed 1, branch 230, warp 930, speed 8, cap 990 s)
+ends DEAD at 955.35 s, level 36, Teleport rank 13, `missing: []`; records are in
+`evidence/t60/playtest_cleric_imported/`. No gameplay or balance data changed, so the prior smoke
+was not repeated. The real-cache effect test now fails rather than SKIPs when a present cache lacks
+this required animation; focused Teleport checks pass 16/16, with no failures or SKIPs.
+After `git merge origin/t3/issue-31-implementation` (already up to date), the full
+`ISOLATE=t60 bash scripts/test.sh` passes **612/612 tests, 0 failed, 0 skipped, 67 files**
+in 279.597 s. Log: `_scratch/t60-full-imported.log`.
+
+#### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
+
+`ISOLATE=t56`, training seeds 1/2/2026, both stages and `bot`/`random`, unforced branches, real cache,
+1,800 s cap, no patches or tuning. All 12 runs finish without crashes, script errors or world warnings.
+Outcomes and death times match the Foundations/#53 smoke below. Henesys reaches Magician and spawns its first
+boss in all six runs; Tree's early deaths remain record-only. The two second advancements in this fixed sample
+choose 230, so this is an existing-run regression check; #61 owns the full second-job branch smoke.
+Raw records and exact console output remain ignored under `_scratch/t56_smoke/` and `_scratch/t56_smoke_*.log`.
+
+| #56 stage / policy | Clear / dead / timeout | Death seconds | Magician / first-boss reaches |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 3/3 / 3/3 |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 / 3/3 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+
+A separate visible Henesys run uses `--branch=220 --seed=1 --warp=480 --speed=8 --minutes=20 --shot-every=1`.
+It clears at 996.567 s, Lv39, with Cold Beam and Thunder Bolt both at rank 9 and `missing: []`.
+Checked by eye: `evidence/t56/branch220/t700.png` (Cold Beam's ice impact) and `t740.png` (Thunder Bolt's
+lightning columns on both sides, with ice impacts also visible). Both skills' cached use sounds and art load
+in the real-cache test, and the normal RunScene cast path plays those sounds; no missing cache nodes found.
+After merging the current integration branch, the full suite passes **599 tests, 0 failed, 0 skipped, 66 files**
+(312.975 s). Focused Ice/Lightning, advancement and data-file validation passes **32 tests, 0 failed, 0 skipped**;
+the real-cache test executes, so no SKIP is counted as coverage. No shared simulation or presentation paths change.
+
+#### #55 Fire/Poison attack regression smoke (2026-10-15)
+
+`ISOLATE=t55 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, unforced branches,
+no patches or tuning: all 12 records completed with no crashes, script errors or world warnings. Outcomes,
+death times and potion totals match the preceding #53/foundations smoke. Henesys reaches Magician and the first
+boss in 3/3 runs per policy. Each policy's surviving seed 1 selects Cleric (230); the other seeds die before
+second job, so this smoke establishes regression safety, not Fire/Poison balance. Tree remains record-only.
+Exact console output and JSON records stay in ignored `_scratch/t55/balance/` and `evidence/t55/`.
+After fetching/merging the integration branch (already up to date), the final full suite passes **599 tests,
+0 failed, 0 skipped, 66 files**; focused F/P, data-file and upgrade checks pass **42 tests, 0 failed, 0 skipped**.
+The shared synthetic book now includes a separate Poison Breath fixture; the existing pity regression exhausts
+all current-job power cards instead of assuming Fire Arrow's rank cap exhausts the whole F/P attack pool.
+
+| #55 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) |
+
+The separate forced-210 seed-1 visual run (warp 480 s, speed 8) clears at 919.933 s with Fire Arrow rank 14,
+Poison Breath rank 9 and `missing: []`. `evidence/t55/playtest_210_s1/t646.png` shows Fire Arrow's projectile
+and caster effect. A temporary real Flow/RunScene driver stages each attack alone against a durable stationary
+mob for closer inspection; its screenshots and sound/asset counters stay in `evidence/t55/focused_visuals/`.
+Checked by eye: `poison_breath_03.png` (green orb and caster effect), `poison_breath_05.png` (expanding green hit
+cloud on the pig), and `fire_arrow_03.png` (caster bow/fire effect and impact). Both staged summaries have empty
+missing lists and successful sound calls; the cached Use/Hit streams also decode in the focused test.
+This is visual evidence only, not a balance run. The initial occluded playtest attempt produced no screenshots;
+the successful run uses Godot's always-on-top window option. No importer or shared cache changes were needed.
+
+#### Spec #31 foundations smoke
+
+Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
+both stages and `bot`/`random`, no patches/tuning, repeated after merging #53 at `a248aba`. All 12 final records
+completed without crashes or world warnings; outcomes and death times match #53's smoke below. Henesys reaches
+Magician in all six runs and spawns its first boss in all six; Tree's unchanged early deaths remain recorded only.
+Foundations adds no second-job skill/card data. Final raw records/console output remain under ignored
+`_scratch/foundations_balance_merged/`; the preliminary pre-#53 smoke in `_scratch/foundations_balance/`
+matched the preceding current-odds results. Full merged suite: **592 tests, 0 failed, 0 skipped** (65 files).
+
+| Foundations stage / policy | Clears | Deaths | Magician reaches | MP collected / used |
+|---|---|---|---|---|
+| Henesys bot | 1/3 | 5:22, 13:32 | 3/3 (4:30–4:43) | 376/315 (1.194) |
+| Henesys random | 1/3 | 5:29, 11:54 | 3/3 (4:23–4:38) | 426/268 (1.590) |
+| Tree bot / random (each) | 0/3 | 1:17, 2:21, 2:21 | 0/3 | 7/0 (undefined) |
+
+Restoration presentation was triggered through the real Flow/RunScene with a temporary evidence driver;
+`evidence/foundations/gain_numbers.png` was checked by eye (HP/MP digits, placement and stacking; missing assets
+empty). Synthetic seam and cached gain-number tests: 15 tests, 0 failed, 0 skipped.
+The existing all-event schema test needed one new restoration scenario (and `stat` String validation) because it
+requires every `EVENT_FIELDS` entry to be exercised. Its previous assertions and scenarios are unchanged.
+
+#### #31 / #59 MP Eater regression smoke (2026-10-15)
+
+No tuning: `ISOLATE=t59 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, real cache,
+unforced seeded branches, no patch, 1,800 s cap. Feature head `24ff1be` includes Foundations `e51d6b7`;
+this smoke precedes later sibling-ticket integration. All 12 runs completed without crashes, script errors or
+world warnings. Outcomes and death times match the Foundations smoke: Henesys reaches Magician and the first
+boss in all six runs (Magician 263.2–283.2 s). Tree remains record-only and unchanged. No held-out seeds were used.
+
+| MP Eater stage / policy | Clear / dead / timeout | Death seconds | MP collected / used | Foundations MP collected / used |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 378/314 (1.204) | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 430/214 (2.009) | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) | 7/0 (undefined) |
+
+Each surviving Henesys seed-1 run advances to Cleric and learns MP Eater; the other seeds die before second job.
+Bot seed 1 clears at 1087.7 s and random seed 1 at 998.2 s. The changed MP collection/use ratio is feature
+evidence for #61 and the later balance pass, not a tuning result. Raw records and console output stay in ignored
+`_scratch/t59_balance/` and `_scratch/t59-smoke-*.log`. Windowed playtests forced 210 and 230 (seed 1, warp 480,
+speed 8); both have `missing=[]`. F/P clears at 995.2 s without learning MP Eater; Cleric owns rank 17 and is
+still PLAYING at the 18-minute cap (not a clear). Checked-by-eye evidence: `evidence/t59/branch230/mp_eater.png`
+and the focused real-hit captures `evidence/t59/focused/mp_eater_{fp,il,cleric}.png`: canonical absorb art and cyan
+14-MP gain numbers for every branch, all `missing=[]`. v83 has no MP Eater sound entry; no required cache data is missing.
+After merging integration `f8af37b` (I/L attacks) and retaining both tickets' data/fixtures, the final
+`ISOLATE=t59 bash scripts/test.sh` passes **616 tests, 0 failed, 0 skipped** (67 files); no cache checks skipped.
+
+#### #31 / #53 advancement regression smoke (2026-10-15)
+
+No balance tuning. `ISOLATE=t53 bash scripts/balance.sh 1 2 2026` ran on both stages with both policies,
+with the real cache, 800 x 600 view, 1,800 s cap, no patch and unforced seeded branches. No crashes, script errors
+or world warnings. Henesys reaches Magician and the first boss in 3/3 for each policy; Lv30 in 1/3 for each.
+Compared with the preceding current-odds smoke, sensible clears remain 1/3 and careless clears fall from 2/3 to 1/3.
+Tree is record-only and unchanged. Branch 0 means no second advancement yet.
+
+| Stage / policy | Clear / dead / timeout | Death seconds | Branch counts | Previous clears |
+|---|---|---|---|---|
+| Henesys sensible | 1 / 2 / 0 | 812.3, 322.7 | 230: 1; 0: 2 | 1/3 |
+| Henesys careless | 1 / 2 / 0 | 714.8, 329.0 | 230: 1; 0: 2 | 2/3 |
+| Tree sensible | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0: 3 | 0/3 |
+| Tree careless | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0: 3 | 0/3 |
+
+The requested Henesys drift sample (training 1-6 and 2026) clears 5/7 sensible and 1/7 careless; Lv10 medians
+270.7 s (7/7) and 277.6 s (5/7), conditional Lv30 medians 574.6 s (5/7) and 561.55 s (2/7). The owner-requested
+external `drift-53.md` preserves per-seed results and comparisons with #42's published frozen C21 training and
+held-out figures; the superseded opening, rarity changes and different cohorts prevent attributing that historical
+difference to #53 alone. No held-out seeds were run and no data were retuned. A visible seed-1 run forced 210,
+cleared with `missing: []`, and its inspected `evidence/t53/job_window/window_job_30.png` shows all three branches selectable.
+
+#### #31 / #57 Cleric attacks regression smoke (2026-10-15)
+
+No tuning. Seeds 1/2/2026, both stages, bot/random policies, real cache, 800 × 600, 1,800 s cap,
+unforced seeded branches, `ISOLATE=t57`, no patch. All 12 records have empty world warnings; no crashes or
+script errors. Henesys reaches Magician and the first boss in 3/3 per policy, and Cleric in 1/3 per policy.
+Clear counts and death times match the preceding #53 smoke; Tree remains record-only.
+After merging #56's integration changes and retaining both skill families, the full `ISOLATE=t57` suite passed
+**608 tests, 0 failed, 0 skipped, 67 files** in 297.667 s. No SKIP is counted as coverage.
+
+| Stage / policy | Clear / dead / timeout | Death seconds | Cleric clear / skill ranks |
+|---|---|---|---|
+| Henesys sensible | 1 / 2 / 0 | 812.3, 322.7 | 1008.5 s; Holy Arrow 8, Heal 14 |
+| Henesys careless | 1 / 2 / 0 | 714.8, 329.0 | 962.7 s; Holy Arrow 8, Heal 8 |
+| Tree sensible | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+| Tree careless | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+
+Logs/records and systems aggregates are ignored under `_scratch/t57_smoke/`. The first sensible report invocation
+used relative record paths and failed to open them; the report was rerun successfully with absolute paths, without
+replaying or changing the runs. The visible seed-1 forced-230 playtest cleared at 1008.5 s, `missing: []`.
+Inspected `evidence/t57/cleric_s1/t700.png` and `t938.png` show Holy Arrow; the focused controlled RunScene captures
+`evidence/t57/focused/heal_gain.png` and `holy_arrow_flight.png` expose Heal's rising art/blue HP gain and the arrow
+without crowd occlusion. Both use the actual cache and sounds; the focused summary also has no missing assets.
+The seed-2026 attempt ended before its 480 s warp target and the existing warp path did not finish the dead run;
+it was stopped and replaced by seed 1. Exact v83 recovery remains unverified, as detailed in the #57 research note.
 
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
@@ -1266,7 +1604,46 @@ remain canonical. No Summon.img sound1 exists, so summons use Mano's canonical S
 canvas items. Evidence facts: original v83 Mob.wz/2220000 and Skill.wz/MobSkill.img; local research/stage-bosses/out/
 bosses_2220000.json confirms the same fields. The real-import test checks the canonical rows and the summon art.
 
-## 7. Skills (auto-cast)
+## 7. Skills (auto-cast and manual)
+
+Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
+
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` resolves to
+  `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
+  nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  Admission prepares targets before the existing single MP payment/cooldown/cast; later rules extend the same
+  `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+- Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
+  `skill_mod` effects with `stat: "area", op: "mul"` multiply that scale (the planned ×1.2 card step is tier C).
+  `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
+  `RunWorld.skill_box_targets(box, filter = Callable())` anchors at player feet, mirrors canonical left-facing x
+  offsets when facing right, broad-phases through the spatial hash and intersects live bodies. It returns all
+  matches ordered by body-centre distance from the cast origin, then slot. Minimum edges include touching bodies;
+  maximum edges exclude them. Optional `filter(slot) -> bool` runs before sorting/capping.
+- Optional `on_hit: {"status": "poison"|"freeze"|"slow", "chance_field": "prop", "duration_field": "time"}`
+  reads canonical fields at the cast level (missing `chance_field`: guaranteed attempt; signed Slow `x` stays
+  canonical). Projectiles retain that level in a packed array. Both impact paths call `RunWorld._on_player_hit`
+  once per damaging line, apply the status through `MobSwarm.apply_status`, then invoke registered
+  `add_hit_listener(callable)` listeners with `(slot, {skill, level, magic, damage, element})`, before HP/kill
+  resolution. Damage is after elements; physical hits participate, poison ticks and zero-damage immunity do not.
+  Existing zero-damage `mob_hit` events for elemental immunity are retained for compatibility with the existing
+  tests/presentation; the hook is suppressed regardless of that legacy event.
+  Listeners must consume RNG only when their effect can apply.
+- Optional `absorb_mp: {"chance_field": "prop", "percent_field": "x"}` enables monster MP absorption on
+  damaging magic hits. The listener visits owned skills in loadout (learned) order and reads these canonical
+  fields at each passive's current level: chance in percent, transfer as a percent of the monster's maximum MP.
+  It truncates to whole MP, caps at remaining monster MP and consumes no proc RNG unless a positive transfer
+  is possible. Branch-exclusive MP Eater learn cards allow only one copy per normal run, so this order matches
+  the previous fixed F/P, I/L, Cleric key scan after unowned skills were skipped. Synthetic multi-passive loadouts
+  follow learned order. Canonical values, restoration and absorb events are unchanged.
+- `RunWorld.restore_player(stat: String, amount: int, skill: String) -> int` caps positive HP/MP gains, updates
+  public pools and emits `player_restored: {stat, amount, skill, pos}` only for an actual positive integer pool
+  change. The returned amount matches the displayed pool gain (HP rounds up, MP down, as elsewhere). Recovery
+  and potions retain their existing paths. `DamageNumbers.HP_GAIN` uses cached `BasicEff/NoBlue1` then `NoBlue0`;
+  `MP_GAIN` uses the same art tinted cyan. These digit sets exist in the v83 cache (tier A); assigning Blue to HP
+  recovery remains tier C because the cache does not prove usage. Without Blue, tinted Violet is the tier C
+  fallback. RunScene draws restoration events above the player's head using the existing number pool/timing.
 
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
@@ -1274,7 +1651,7 @@ without skips. Learning starts at level 1 and each rank card adds one level. Ene
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
 The smaller per-card steps are intentional; canonical skill values remain untouched.
 All skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
-costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick casts at most
+costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick auto-casts at most
 one skill, oldest-ready first; learned order breaks a tie. A ready skill without a target or sufficient MP waits
 without restarting its cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
 per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting
@@ -1297,8 +1674,43 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Improved MP Recovery (2000000) | Magician | Adds `floor(character level × skill level / 10)` MP to each 10 s pulse | ranks 1–16 = levels 1–16 | learn/rank |
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
-| Fire Arrow (2101004) | F/P Wizard | Phase 2, job unavailable | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
-| Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
+| Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
+| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
+| Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
+| Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
+| Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
+| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
+| Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
+| Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
+
+| Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
+| MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
+| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
+| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
+
+MP Eater registers on the shared player-hit listener, after on-hit statuses and before lethal damage/kill handling.
+It reads the passive's current canonical level at impact; physical basic attacks, Three Snails, poison pulses and
+elementally immune hits cannot absorb. It consumes no proc RNG when unlearned, depleted, or unable to absorb even
+one whole MP. Absorb truncates `maxMP × x / 100` to whole points (tier C integer interpretation), caps at remaining
+monster MP, and drains that pool even when player MP is full. `restore_player` supplies the actual capped gain and
+the shared `player_restored` MP number. A separate `mp_eater_absorbed: {mob, amount, skill, pos}` event shows the
+canonical 700 ms effect on every absorb, including zero player gain; it does not duplicate the restoration event.
+The cache has all three effects and icons. Original v83 Sound.wz has no MP Eater entry, so presentation quietly
+probes for an optional use sound and otherwise stays silent without a missing-asset lookup.
+
+Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
+Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
+`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
+modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
+has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
+Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
+
+Fire/Poison attack cards require current job 210. Both learn/rank cards and all five behaviour cards are power
+cards. Behaviour caps count modifier steps, so three Extra Fire Arrow steps produce four shots. Poison Breath
+uses the shared on-hit status block and its projectile's cast-level snapshot; poison ticks, immunity and boss
+rejection retain the status system's existing rules (section 3). Canonical poison duration is used unchanged,
+including level 29's 58 seconds (level 30 has 40). Both attacks use their canonical skill-node elements, never a
+survivor element override. Existing bot scores classify these projectile attacks and their cards automatically.
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
@@ -1316,8 +1728,26 @@ cast's skill level. L1 Guard costs 6 MP for 111 s at 11% absorption; L1 Armor co
 They recast on expiry when affordable. Their timers and effects continue while climbing; no cast starts there.
 Effects are snapshots of the cast rank, so a rank upgrade changes the next cast. Active Guard alone splits damage;
 active Armor alone adds its canonical PDD through the hit-defense hook. The HUD shows v83 skill icons and countdowns.
-Rank cards preview duration, absorption/defense and MP cost. Both occupy passive slots but share the one-cast-per-tick
+Rank cards preview duration, absorption/defense and MP cost. Both are passive-category skills without slot caps and share the one-cast-per-tick
 readiness ordering with attacks. The alert2 stance comes from v83 skill action data; its 800 ms hold is tier C.
+
+Second-job support (#58): `buff.effects` accepts multiple canonical stat/field pairs alongside legacy scalar
+`stat`/`field`; every skill retains one timer/icon and snapshots all effects at cast rank. Meditation, Bless and
+Invincible use their canonical `alert2`, effect and Use sound. Their self-only auto-cast, expiry, affordable recast
+and climbing gate follow Guard/Armor. Bless's active avoid feeds each miss roll; active PDD/MDD feed hit defence.
+Invincible scales the already-resolved whole weapon hit, rounds to nearest and keeps minimum 1 before Guard.
+No player-accuracy formula is introduced: Bless `acc` is exposed in buff effects/player state, with no combat effect.
+
+Slow uses the shared box query with a status-eligible, unslowed filter before charging MP. Canonical or scheduled
+bosses cannot count toward the crowd. It applies through `MobSwarm.apply_status`, deals no hit damage and does not
+invoke damaging-hit listeners. Tier A String.wz text limits consecutive uses on the same monsters to two; our
+tier C auto-cast reading counts consecutive **successful Slow casts affecting each logical mob**, shared across
+the two branch copies. A third consecutive application is ineligible until a successful Slow cast excludes that
+mob. Time, other skill casts, insufficient MP and failed admission do not break that sequence. Relocation preserves
+the history; fresh spawns reset it. The status interface itself still allows refresh for other callers.
+Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3/2 are untuned survivor choices.
+All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
+damaging attack cards. No behaviour cards are added.
 
 ## 8. Upgrades
 
@@ -1332,12 +1762,12 @@ Draw rules:
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
-   `skill_new` also needs a free slot of the skill's kind (6 actives, 6 passives).
+   `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
    more shots or targets, damage, cooldown). When a draw offered no power card, the next draw starts with one
    (`pity.draws` = 1), so a run's damage cannot stall on unlucky offers (a reviewed seed never saw an attack card
-   before Lv 8 and fell behind for good). Both pity and the job-advance guarantee select only eligible cards
+   before Lv 8 and fell behind for good). Both pity and the advancement draw select only eligible cards
    from the current pool; if no eligible power card exists, pity adds none.
 3. With fewer than three eligible cards, offer those cards plus **one Power Elixir** alternative (item 2000005).
    With no eligible cards, offer Power Elixir alone. This applies to normal level-ups and boss rewards; every
@@ -1359,7 +1789,7 @@ Draw rules:
 
 Fortune is a survivor run stat in `player_state.fortune`, separate from canonical LUK. Its base is
 `balance.player.fortune` (0); this spec adds no equipment or NX sources. It changes only card rarity, leaving
-drop and critical rolls untouched. Every scalable offered card, including a job-advance guarantee, rolls a tier
+drop and critical rolls untouched. Every scalable offered card, including every advancement-draw skill, rolls a tier
 using the existing seeded card RNG stream 3 after card identities are selected. A choice retains its final `tier`
 and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 
@@ -1445,9 +1875,18 @@ The ladders, level gates and weights are tier C entries in `upgrades.json` (`pot
 the configured `potions.bot.tier_score` (currently 112), with fallback 52 when absent; first/random policies can
 offer and take them normally.
 
-Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
-1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 3). Magic Guard also
-waits for Energy Bolt (survivor rule), so the first Magician skill is always Energy Bolt.
+Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
+job requirement and rank/modifier cards still require the skill they upgrade. Skills learned in an earlier job keep
+working after advancement; their job-restricted cards leave the pool.
+
+Accepting any job opens an **advancement draw** before the normal level draw, without consuming the queued level.
+It offers every eligible new attack (`skill_new`, `power: true`, `requires.jobs` containing the new job), even if there
+are more than three. If fewer than three attacks exist, seeded weighted draws fill the remaining places with that
+job's other eligible new skills. Sparse draws include one Power Elixir; an exhausted job pool offers it alone.
+Each scalable card rolls the usual rarity tier and contributes to offered/picked tier telemetry. No skill is granted.
+`choice_pending.advancement` identifies this draw independently of `bonus`; the window reads "Job Advancement".
+"Not now" goes directly to the normal level draw.
+
 
 ## 9. Jobs
 
@@ -1464,13 +1903,19 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Levels 8–9: ordinary upgrade choices; no job window.
 - Level 10: Magician is playable; Warrior, Bowman, Thief and Pirate are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
-- Advancing: job becomes 200, MP +120, Energy Bolt is learned at once (`grants.skills`: the first SP of a v83
-  Magician; a player who takes cards at random could otherwise stay a Magician without a Magician attack), and the
-  next card draw guarantees another Magician skill card (with the prerequisites of section 8: Magic Claw or Magic
-  Guard).
-- The JobChanged pillar and sound play on the character first; the level's upgrade window opens once the effect has
-  played (~1.3 s). A level-up window opens 1.2 s into the LevelUp effect.
-- Level 30: F/P Wizard (Phase 2), I/L Wizard and Cleric shown as not yet available.
+- Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
+  The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
+- The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
+  played (~1.3 s), then the level's normal draw follows. A level-up window opens 1.2 s into the LevelUp effect.
+- Level 30: Wizard (Fire, Poison) 210, Wizard (Ice, Lightning) 220 and Cleric 230 are all selectable at their canonical
+  level. Each adds +475 Max MP and teaches no skill. This fixed tier C bonus is the midpoint of the 450-500 range
+  in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
+  job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
+- The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
+  job consumes no branch roll. `balance.sh` and `playtest.sh --branch=210|220|230` force an available branch. Run records
+  store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
+- Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
+  fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
 
 ## 10. Presentation
 
@@ -1492,6 +1937,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 | Constant | Value | Tier | Source |
 |---|---|---|---|
+| Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
+| Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
+| Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD tint 0.35 grey; 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
+| Bot Teleport MP reserve | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.TELEPORT_MP_RESERVE_FRACTION` / `TELEPORT_ATTACK_RESERVE_CASTS` |
+| Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
+| Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
@@ -1578,6 +2029,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
+| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
@@ -1588,8 +2042,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
-| Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
-| Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
+| Advancement draws / skill counts | no skill grants; extra new-job attack-first draw with rarity before the normal level draw; no skill slot caps | C | owner decisions #31 / #53; sections 8?9 |
+| Second-job Max MP | +475 for 210/220/230, fixed midpoint of the reference 450-500 mage range; existing first-job +120 retained | C | server reimplementation, unverified against GMS; [research](research/cosmic-data.md), local `Character.java:1204` |
+| Bot branches / owned-skill HUD | independent seeded stream 8; optional forced branch; eight 24 px icons per row, 4 px gaps | C | #53 harness and presentation |
+| Upgrade prerequisites | canonical `req` and previous survivor skill prerequisites ignored; exact job gates and owned-skill rank/modifier requirements retained | C | owner decision #31 |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
 | Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 weights (owner restored them over C46 on 2026-10-15; untuned); upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
@@ -1600,6 +2056,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
+| MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
+| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
+| MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
@@ -1618,6 +2077,18 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
+| Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
+| Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
+| Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
+| Heal undead formula (#57) | bounds `(0.3×INT+LUK)` / `(1.2×INT+LUK)` × `(INT+matk)/1000` × `hp/100` × `(1.5+5/N)`; holy h; existing hit/defense/element path | B (pre-BB client RE, not directly v83) | Southperry #1033 posts 685–692; [derivation and worked example](research/cleric-heal.md) |
+| Heal recovery approximation (#57; unresolved verification) | historical LUK polynomial × `(INT+matk)` × INT × `hp/10`, lower bound ×0.8; single-target multiplier 1, uniform seeded roll truncated to HP, capped by restore_player; learn/rank weights 4/3 | B weak (historical coefficients); C (selecting this unverified fit, multiplier, RNG/rounding, weights) | [evidence gap and original observations](research/cleric-heal.md); exact v83 recovery acceptance criterion remains open |
+| Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
+| Fire/Poison cards (#55) | Fire Arrow +1 shot ×3, +1 pierce ×2, cooldown ×0.88 ×3; Poison Breath +1 pierce ×3, cooldown ×0.88 ×3; weights learn/rank/mod 4/3/2; exact job 210, all power; existing bot scores learn 100, rank 62, count 75, pierce 58, cooldown 54 plus 12 job bonus on rank/mod | C | issue #55 / owner #31; first-job modifier steps and score defaults; no rarity overrides or tuning |
+| Second-job support values and casts | Meditation mad/time/mpCon; Bless pdd/mdd/acc/eva/time/mpCon; Invincible x/time/mpCon; Slow signed x/time/mobCount/lt/rb; alert2, effect, Use sounds, 20 levels each | A | original v83 Skill.wz/210.img, 220.img, 230.img; cache checked at levels 1/20 |
+| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence (accuracy stored only); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
+| Slow crowd / consecutive uses | at least 3 eligible unslowed mobs, 1 s cooldown; 2 consecutive successful Slow casts per logical mob, reset by a successful cast excluding it; preserve across relocation, reset on fresh spawn | A text, C interpretation/trigger/cooldown | original String.wz/Skill.img Slow description; #58; survivor cast data and section 7 |
+| Support cards / bot | learn/rank only, weights 3/2; learn 50, rank 42 + job bonus 12 (including Slow); below attacks | C | #58 survivor cards; existing support score defaults |
+| Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
 | Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
 | Face blink | `blink` every 2-5 s (seeded) | C | ours |
 | Tombstone drop | `Tomb.img/fall` from 300 px above over its own duration (ease-in), then `land`, stays | C | ours |
@@ -1646,6 +2117,6 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 12. Later phases
 
-Phase 2: Fire/Poison Wizard (Fire Arrow, Poison Breath with DoT), more maps (Henesys Hunting Ground II), more mobs.
+Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
 The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
 additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.

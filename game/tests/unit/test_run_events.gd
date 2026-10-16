@@ -10,7 +10,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
 
 
 
@@ -81,7 +81,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "max_mp_percent"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -251,6 +251,32 @@ func test_every_event_matches_the_schema() -> void:
 	for tick in 60:
 		statuses.step(DT, MoveInput.new())
 	for event: Dictionary in statuses.drain_events():
+		_check(event, seen)
+	var teleporter := RF.quiet_world(400, 60)
+	teleporter.change_job(210)
+	teleporter.heal_fraction("mp", 1.0)
+	teleporter.learn_skill("teleport_fp")
+	var blink := MoveInput.new()
+	blink.teleport_pressed = true
+	teleporter.step(DT, blink)
+	for event: Dictionary in teleporter.drain_events():
+		_check(event, seen)
+	# Shared restoration has no live skill consumer until the second-job tickets land.
+	var restored := RF.quiet_world()
+	restored.spend_mp(3)
+	restored.restore_player("mp", 2, "synthetic")
+	for event: Dictionary in restored.drain_events():
+		_check(event, seen)
+	# MP Eater's effect event is distinct from actual capped player restoration (also shown at full player MP).
+	var eater := RF.quiet_world()
+	eater.change_job(210)
+	eater.learn_skill("mp_eater_fp")
+	eater.book.skill_imgs["210"].skill["2100000"].level["1"].prop = 100.0
+	eater.mob_kinds[0].max_mp = 200
+	var victim := eater.spawn_mob(0, eater.player.pos + Vector2(100, 0), eater.player.fh, 100, false)
+	eater.hit_mob(victim, {"skill": "magic_claw", "level": 1, "magic": true, "damage_min": 1.0,
+		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
+	for event: Dictionary in eater.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

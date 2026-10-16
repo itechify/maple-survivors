@@ -13,7 +13,7 @@ extends RefCounted
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
-## Choices (auto_choose): the first available job, and the upgrade card a sensible player would take (pick_card_for):
+## Choices (auto_choose): a seeded random available branch (optional forced branch), and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
 ## defence, then the rest; ties go to the earlier card. pick_card() is the plain "first card" policy.
 
@@ -23,6 +23,12 @@ const EDGE_DANGER := 4.0
 const FLEE_DIST := 160.0
 ## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
 const DUEL_DY := 40.0
+## tier C: keep a quarter of the pool for Magic Guard, or two most-expensive learned auto attacks, whichever is larger.
+const TELEPORT_MP_RESERVE_FRACTION := 0.25
+## tier C: one attack plus an equal combat margin, even for a small MP pool or costly learned attack.
+const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
+## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
+const TELEPORT_MIN_INTERVAL := 5.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -37,7 +43,8 @@ const SCORE_NEW_ATTACK := 100.0
 const SCORE_NEW_PASSIVE := 50.0
 const SCORE_RANK_ATTACK := 62.0
 const SCORE_RANK_PASSIVE := 42.0
-const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "cooldown": 54.0, "range": 30.0, "speed": 20.0}
+## tier C: area defaults to 58, like pierce (spec #31 foundations); other modifier scores retain their defaults.
+const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "area": 58.0, "cooldown": 54.0, "range": 30.0, "speed": 20.0}
 const SCORE_MOD_OTHER := 25.0
 ## Bonus for cards of a skill of the player's current job (a Magician invests in Magician skills).
 const SCORE_JOB_BONUS := 12.0
@@ -77,6 +84,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			memo.erase("climb_x")
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
+	var threat_nearest := [INF, INF]
 	var close := 0
 	var duel := -1
 	for i in s.capacity():
@@ -89,12 +97,32 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var side := 0 if dx < 0.0 else 1
 		danger[side] += 1.0 / (absf(dx) + 30.0)
 		nearest[side] = minf(nearest[side], absf(dx))
+		# tier C: emergency blinks use the existing duel-height band, not mobs on remote platforms.
+		if absf(dy) <= DUEL_DY:
+			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
 		if absf(dx) < FLEE_DIST:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
+	var teleport := w.teleport_skill()
+	if teleport != "" and w.can_cast() and w.teleport_affordable() and _teleport_keeps_reserve(w, teleport) \
+			and w.time - float(memo.get("teleport_at", -INF)) >= TELEPORT_MIN_INTERVAL - 1e-6:
+		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
+		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
+		# tier C: both retreat sides blocked by mobs within flee distance, or an imminent threat against an edge.
+		var cornered: bool = threat_nearest[0] < FLEE_DIST and threat_nearest[1] < FLEE_DIST
+		var edge_trapped: bool = (room[0] < threat_distance and threat_nearest[1] < threat_distance) \
+				or (room[1] < threat_distance and threat_nearest[0] < threat_distance)
+		if cornered or edge_trapped or minf(threat_nearest[0], threat_nearest[1]) < threat_distance:
+			var escape := (1 if room[1] > room[0] else -1) if edge_trapped else (-1 if danger[0] < danger[1] else 1)
+			if not w.player.teleport_destination(Vector2(escape, 0), reach, w.fhm, w.bounds).is_empty():
+				mi.left = escape < 0
+				mi.right = escape > 0
+				mi.teleport_pressed = true
+				memo["teleport_at"] = w.time
+				return mi
 	var dir := 0
 	var down := false
 	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
@@ -193,6 +221,17 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return mi
 
 
+static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
+	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
+	for key: String in w.loadout.order:
+		if not w.book.is_active(key):
+			continue
+		var stats := w.runner.stats_of(w, key)
+		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
+			reserve = maxf(reserve, float(stats.mp_cost) * TELEPORT_ATTACK_RESERVE_CASTS)
+	return float(w.player_state.mp) - float(w.runner.stats_of(w, teleport).mp_cost) >= reserve
+
+
 ## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical
 ## restore, so most of it lands below the pool cap.
 static func worth_drinking(w: RunWorld, kind: String, missing: float, guard: float) -> bool:
@@ -210,7 +249,7 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
 			continue
 		var st := w.runner.stats_of(w, key)
-		if String(st.kind) != "buff" and float(w.player_state.mp) >= int(st.mp_cost):
+		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and float(w.player_state.mp) >= int(st.mp_cost):
 			return false
 	return true
 
@@ -293,16 +332,16 @@ static func climb_ladder(w: RunWorld) -> int:
 	return best
 
 
-## Resolves an open window like a player who always takes the first available job (else "Not now") and the card
+## Resolves an open window using a seeded available branch (or forced branch) and the card
 ## pick_card_for() prefers (`first_card` = true: always the first card). Returns how many choices were made.
-static func auto_choose(w: RunWorld, first_card := false) -> int:
+static func auto_choose(w: RunWorld, first_card := false, branch := 0) -> int:
 	var guard := 0
 	var made := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := pick_job(w.pending_jobs)
+			var job := pick_job(w.pending_jobs, w.job_rng, branch)
 			if job < 0 or not w.apply_job(job):
 				w.decline_job()
 		else:
@@ -310,12 +349,17 @@ static func auto_choose(w: RunWorld, first_card := false) -> int:
 	return made
 
 
-## The option a first-available player takes in a job window: the first available job id, -1 = "Not now".
-static func pick_job(options: Array) -> int:
+## Seeded available branch, or the requested branch when available; -1 = "Not now". A single option consumes no RNG.
+static func pick_job(options: Array, rng: RandomNumberGenerator = null, branch := 0) -> int:
+	var available: Array[int] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
-			return int(o.job_id)
-	return -1
+			available.append(int(o.job_id))
+	if available.is_empty():
+		return -1
+	if branch in available:
+		return branch
+	return available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null else available[0]
 
 
 ## The card a first-card player takes ("" when there is none).
@@ -356,7 +400,10 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
 	var sd := w.book.def(key)
-	var attack := String(sd.get("kind", "")) in ["projectile", "instant"]
+	var rule := String(sd.get("cast", {}).get("rule", ""))
+	var attack := rule != "manual" and (String(sd.get("kind", "")) in ["projectile", "instant"] or rule == "box")
+	if String(sd.get("cast", {}).get("rule", "")) == "crowd":
+		attack = false # Slow uses existing support scores (tier C), below damaging attacks.
 	var sj := int(sd.get("job", -1))
 	var pj := w.progression.job_id
 	var bonus := SCORE_JOB_BONUS if sj == pj or (sj > 0 and w.jobs.is_descendant(pj, sj)) else 0.0

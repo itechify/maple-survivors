@@ -10,7 +10,7 @@ extends RefCounted
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
-## cards drawn when the window opens. apply_job(id) / decline_job() continue to that level's upgrade choice;
+## cards drawn when the window opens. apply_job(id) adds an advancement draw; decline_job() skips it;
 ## apply_choice(id) applies the card and moves to the next queued level or back to PLAYING. They return false (and
 ## change nothing) when called in the wrong state or with an id that is not on offer.
 ##
@@ -25,8 +25,8 @@ extends RefCounted
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls (8 is unused:
-## it held the old random mob heal rolls). Each stream has exactly one owner.
+## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices.
+## Each stream has exactly one owner.
 
 const PLAYING := 0
 const CHOOSING_JOB := 1
@@ -37,8 +37,11 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
+	"player_restored": ["stat", "amount", "skill", "pos"],
+	"mp_eater_absorbed": ["mob", "amount", "skill", "pos"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
@@ -61,7 +64,7 @@ const EVENT_FIELDS := {
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
-	"choice_pending": ["cards", "bonus"],
+	"choice_pending": ["cards", "bonus", "advancement"],
 	"upgrade_applied": ["id", "rank", "tier", "magnitude"],
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
@@ -107,6 +110,8 @@ var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
+## Independent seeded branch choices do not perturb card, combat or careless-card streams.
+var job_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -142,6 +147,7 @@ var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
+var _teleport_left := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -167,8 +173,8 @@ var visual_paths: Array = []
 ## Options / cards of the open window.
 var pending_jobs: Array = []
 var pending_cards: Array = []
-## The next card draw's guarantee ({kind, job}; {power: true} = a power card; {} = none), from the job just taken.
-var guarantee := {}
+## True while the extra new-job skill draw is open; it does not consume a queued level or boss reward.
+var choice_advancement := false
 ## Card draws in a row that offered no power card (UpgradePool pity).
 var power_dry := 0
 ## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
@@ -192,6 +198,7 @@ var cast_forward := DEFAULT_CAST_FORWARD
 var god := false
 
 var _hp := 0.0
+var _hit_listeners: Array[Callable] = []
 var _mp := 0.0
 var _max_hp := 1
 var _max_mp := 0
@@ -230,6 +237,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_directors()
 	_init_player_motion()
 	_init_player()
+	add_hit_listener(_mp_eater_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -243,6 +251,7 @@ func _init_rng_streams() -> void:
 	drop_rng = _stream(4)
 	potion_rng = _stream(7)
 	reward_rng = _stream(6)
+	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -382,6 +391,7 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
 func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)
+	_refresh_caster()
 	refresh_player_speed()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
@@ -421,16 +431,58 @@ func step(dt: float, input: MoveInput) -> void:
 
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
+	_teleport_left = maxf(0.0, _teleport_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
-	if not _take_portal(dt, input):
+	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## Owned branch Teleport key, or empty before learning it.
+func teleport_skill() -> String:
+	for key: String in loadout.order:
+		if book.def(key).has("teleport"):
+			return key
+	return ""
+
+
+## Whether an owned Teleport can currently be paid for (also used by the HUD and autoplay).
+func teleport_affordable() -> bool:
+	var key := teleport_skill()
+	return key != "" and _mp >= int(runner.stats_of(self, key).mp_cost)
+
+
+func _try_teleport(input: MoveInput) -> bool:
+	if not (input.teleport_pressed or input.teleport_held) or _teleport_left > 1e-6 or not can_cast():
+		return false
+	var key := teleport_skill()
+	if key == "":
+		return false
+	var stats := runner.stats_of(self, key)
+	# tier C: vertical intent wins a diagonal; opposing keys cancel, then fall back to facing.
+	var vertical := int(input.down) - int(input.up)
+	var direction := Vector2(0, vertical) if vertical != 0 else Vector2(input.dir(), 0)
+	if direction == Vector2.ZERO:
+		direction.x = player.facing
+	var dest := player.teleport_destination(direction, float(stats.teleport_range), fhm, bounds)
+	if dest.is_empty() or not spend_mp(int(stats.mp_cost)):
+		return false
+	var departure := player.pos
+	player.place(dest.pos, fhm)
+	if direction.x != 0:
+		player.facing = int(direction.x)
+	_teleport_left = float(stats.repeat_delay)
+	for phase: String in ["departure", "arrival"]:
+		emit("teleport", {"skill": key, "skill_id": int(stats.skill_id), "level": int(stats.level),
+			"phase": phase, "pos": departure if phase == "departure" else player.pos,
+			"facing": player.facing, "effect": String(stats.effect)})
+	return true
 
 
 ## Holding Up in a same-map portal's box places the player at its destination (emits portal_used); true when warped.
@@ -470,7 +522,7 @@ func _step_player_attacks(dt: float) -> void:
 		if swarm.active[slot] != 0:
 			_live_mdd[slot] = mob_defense(slot,true)
 			_live_physical_allowed[slot] = 1 if physical_hit_allowed(slot) else 0
-	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed)
+	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit)
 	for m in projectiles.kills:
 		_on_kill(m)
 
@@ -511,8 +563,11 @@ func apply_job(job_id: int) -> bool:
 		return false
 	pending_jobs = []
 	change_job(job_id)
-	state = PLAYING
-	_advance_queue()
+	choice_bonus = false
+	choice_advancement = true
+	pending_cards = upgrades.roll_advancement_choices(self, card_rng)
+	state = CHOOSING_UPGRADE
+	emit("choice_pending", {"cards": pending_cards.duplicate(true), "bonus": false, "advancement": true})
 	return true
 
 
@@ -541,7 +596,9 @@ func apply_choice(card_id: String) -> bool:
 	var tier := String(selected.get("tier", "normal"))
 	card_tiers_picked[tier] += 1
 	pending_cards = []
-	if choice_bonus:
+	if choice_advancement:
+		choice_advancement = false
+	elif choice_bonus:
 		pending_bonus_choices -= 1
 		choice_bonus = false
 	else:
@@ -553,20 +610,14 @@ func apply_choice(card_id: String) -> bool:
 	return true
 
 
-## Changes the job (stats, grants: max_mp, skills learned at once, the next draw's guarantee) and emits job_changed
-## (then skill_learned for each granted skill).
+## Changes the job and its Max MP grant, without learning skills; emits job_changed.
 func change_job(job_id: int) -> void:
 	progression.job_id = job_id
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})
 	_job_mp += float(grants.get("max_mp", 0.0))
-	var g: Variant = grants.get("guarantee")
-	if g is Dictionary and not g.is_empty():
-		guarantee = g.duplicate()
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
-	for key: Variant in grants.get("skills", []):
-		learn_skill(String(key))
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -595,6 +646,22 @@ func spend_mp(amount: int) -> bool:
 	_mp -= cost
 	_write_player_state(0.0)
 	return true
+
+
+## Restores HP or MP, clamped to its maximum; returns and emits the actual integer pool gain (no event at zero).
+func restore_player(stat: String, amount: int, skill: String) -> int:
+	if stat not in ["hp", "mp"] or amount <= 0:
+		return 0
+	var before := ceili(_hp) if stat == "hp" else floori(_mp)
+	if stat == "hp":
+		_hp = minf(_max_hp, _hp + amount)
+	else:
+		_mp = minf(_max_mp, _mp + amount)
+	_write_player_state(0.0)
+	var gain := int(player_state[stat]) - before
+	if gain > 0:
+		emit("player_restored", {"stat": stat, "amount": gain, "skill": skill, "pos": player.pos})
+	return gain
 
 
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
@@ -627,13 +694,17 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
 		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
-	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD"), progression.level)
+	_refresh_caster()
 	_write_player_state(0.0)
 
 
 ## Upgraded movement speed plus active canonical buff points, composed with the canonical-area slow.
 func player_speed_stat() -> float:
 	return (loadout.player_stat("speed", 100.0) + buffs.effect_total("speed")) * mob_skills.speed_multiplier(time)
+
+
+func _refresh_caster() -> void:
+	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD") + buffs.effect_total("matk"), progression.level)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points).
@@ -672,6 +743,37 @@ func shot_origin(aim: Vector2) -> Vector2:
 func mob_center(m: int) -> Vector2:
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
+
+
+## All live bodies intersecting a canonical feet-relative, left-facing skill box; nearest centre first, then slot.
+## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
+func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
+	if not box.has_area():
+		return PackedInt32Array()
+	if player.facing > 0:
+		box.position.x = -box.end.x
+	box.position += player.pos
+	var candidates := PackedInt32Array()
+	var n := mob_grid.query_rect(box.grow(body_pad), candidates)
+	var matches: Array[int] = []
+	for i in n:
+		var m := candidates[i]
+		if not swarm.is_live(m):
+			continue
+		var mk: MobKind = mob_kinds[swarm.kind[m]]
+		var body_box := mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])
+		if body_box.end.x < box.position.x or body_box.position.x >= box.end.x \
+				or body_box.end.y < box.position.y or body_box.position.y >= box.end.y:
+			continue
+		if filter.is_valid() and not bool(filter.call(m)):
+			continue
+		matches.append(m)
+	var origin := cast_origin()
+	matches.sort_custom(func(a: int, b: int) -> bool:
+		var da := mob_center(a).distance_squared_to(origin)
+		var db := mob_center(b).distance_squared_to(origin)
+		return da < db if da != db else a < b)
+	return PackedInt32Array(matches)
 
 
 ## The setup's Mob.wz img root of mob `id` (int or String keys); {} when absent.
@@ -792,22 +894,16 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 
 
 ## Moves live mob i to pos on foothold fh like a new spawn (SpawnDirector relocation): the slot is freed and the same
-## kind spawned there with its logical identity, HP, max HP and elite flag, fading in; emits mob_spawned with relocated_from =
+## kind spawned there with its logical identity, HP, max HP, remaining MP and elite flag, fading in; emits mob_spawned with relocated_from =
 ## i (new spawns have -1). Returns the new slot (-1 when i is not a live mob).
 func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	if i < 0 or i >= swarm.capacity() or swarm.active[i] == 0:
 		return -1
 	var k := swarm.kind[i]
-	var identity := swarm.identity[i]
-	var hp := swarm.hp[i]
-	var mhp := swarm.max_hp[i]
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
 	var summon_owner := mob_summon_owner[i]
-	swarm.despawn(i)
-	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
-	swarm.identity[j] = identity
-	swarm.hp[j] = hp
+	var j := swarm.relocate(i, pos, fh)
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
@@ -838,8 +934,58 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 		"hit_visual": String(visual_paths[hv]) if hv >= 0 else "", "skill": String(st.skill),
 	})
 	_instant_dealt += roll.x
+	if roll.x > 0:
+		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": bool(st.magic),
+			"damage": roll.x, "element": String(st.get("element", ""))})
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
+
+
+## Registers a listener(slot, hit) after on-hit statuses and before damage/kill resolution, once per damaging line.
+func add_hit_listener(listener: Callable) -> void:
+	_hit_listeners.append(listener)
+
+
+func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
+	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
+		return
+	# Branch-exclusive learn cards allow only one MP Eater per normal run, preserving the old proc order.
+	for key: String in loadout.order:
+		var absorb: Dictionary = book.def(key).get("absorb_mp", {})
+		if absorb.is_empty():
+			continue
+		var level := loadout.level(key)
+		if level <= 0:
+			continue
+		var chance := book.canonical(key, level, String(absorb.chance_field))
+		var percent := book.canonical(key, level, String(absorb.percent_field))
+		# tier C: truncate fractional MP to whole points (integer interpretation).
+		var amount := mini(swarm.mp[slot], int(swarm.mob_kind(slot).max_mp * percent / 100.0))
+		if chance <= 0.0 or amount <= 0:
+			continue
+		if chance < 100.0 and rng.randf() * 100.0 >= chance:
+			continue
+		swarm.mp[slot] -= amount
+		restore_player("mp", amount, key)
+		# tier C: absorb art also plays at full player MP; gain numbers use player_restored's actual capped gain.
+		emit("mp_eater_absorbed", {"mob": slot, "amount": amount, "skill": key, "pos": player.pos})
+
+
+func _on_player_hit(slot: int, hit: Dictionary) -> void:
+	var key := String(hit.skill)
+	var level := int(hit.level)
+	var status: Dictionary = book.def(key).get("on_hit", {})
+	if not status.is_empty():
+		var chance_field := String(status.get("chance_field", ""))
+		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
+		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
+			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
+			if String(hit.element) != "":
+				params["element"] = String(hit.element)
+			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	for listener: Callable in _hit_listeners:
+		listener.call(slot, hit)
 
 
 func _stream(n: int) -> RandomNumberGenerator:
@@ -899,7 +1045,10 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
+	var matk_before := buffs.effect_total("matk")
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
+	if buffs.effect_total("matk") != matk_before:
+		_refresh_caster()
 	refresh_player_speed()
 	if _dead:
 		return
@@ -1047,11 +1196,14 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	if _dead or god or upkeep.invincible_t > 0.0:
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
-	if CombatMath.roll_miss(player_avoid, float(source.get("accuracy", 0.0)), rng):
+	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
 		_emit_player_hit(0, 0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
 		hit_source_multiplier(source))
+	if not magic:
+		# tier C: apply canonical Invincible percent to the whole weapon hit, before Magic Guard; minimum 1.
+		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
 	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
@@ -1147,7 +1299,7 @@ func _advance_queue() -> void:
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true})
+		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true, "advancement": false})
 		return
 	while progression.has_pending():
 		var lvl := progression.front()
@@ -1162,7 +1314,7 @@ func _advance_queue() -> void:
 		var cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false})
+		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
 		return
 	state = PLAYING
 
@@ -1192,7 +1344,9 @@ func _write_player_state(dt: float) -> void:
 		player_state[stat] = _attributes[stat]
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
-	player_state["avoid"] = player_avoid
+	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
+	# Canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
+	player_state["acc"] = buffs.effect_total("acc")
 	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", float(balance.get("player", {}).get("fortune", 0.0))))
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action

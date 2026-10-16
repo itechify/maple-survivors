@@ -9,7 +9,7 @@ extends RefCounted
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
 
 
-## Skill.wz-shaped imgs keyed by book ("000", "200", "210") like setup.skill_imgs.
+## Skill.wz-shaped imgs keyed by book ("000", "200", "210", "220") like setup.skill_imgs.
 static func skill_imgs() -> Dictionary:
 	var snails := {}
 	var fix := [10.0, 25.0, 40.0]
@@ -46,7 +46,77 @@ static func skill_imgs() -> Dictionary:
 			"ball": _anim(3, 30.0, 84, 20), "hit": {"0": _anim(5, 90.0, 60, 60)},
 			"level": _levels(30, {"mpCon": [14.0, 28.0], "mad": [33.0, 120.0], "mastery": [1.0, 10.0]})},
 	}}
-	return {"000": b000, "200": b200, "210": b210}
+	# #55: separate Poison Breath fixture; endpoints are v83 facts, intermediate levels are synthetic interpolation.
+	b210.skill["2101005"] = {"icon": _canvas(32, 32), "elemAttr": "s", "action": {"0": "swingO3"},
+		"effect": _anim(5, 100.0, 98, 99), "ball": _anim(2, 100.0, 41, 26),
+		"hit": {"0": _anim(6, 90.0, 136, 124)},
+		"level": _levels(30, {"mpCon": [10.0, 20.0], "mad": [12.0, 70.0], "mastery": [1.0, 10.0],
+			"prop": [31.0, 60.0], "time": [4.0, 40.0]})}
+	var thunder_levels := _levels(30, {"mpCon": [20.0, 40.0], "mad": [2.0, 60.0],
+		"mastery": [1.0, 10.0], "mobCount": [6.0, 6.0]})
+	for level: String in thunder_levels:
+		# Synthetic box interpolation, like the numeric endpoint interpolation above.
+		var extent := lerpf(150.0, 170.0, float(int(level) - 1) / 29.0)
+		thunder_levels[level].lt = {"$v": [-extent, -(extent - 100.0)]}
+		thunder_levels[level].rb = {"$v": [extent, extent - 100.0]}
+	var b220 := {"skill": {
+		"2201004": {"icon": _canvas(32, 32), "elemAttr": "i", "effect": _anim(4, 100.0, 70, 80),
+			"hit": {"0": _anim(5, 100.0, 80, 80)},
+			"level": _levels(30, {"mpCon": [12.0, 24.0], "mad": [13.0, 100.0], "mastery": [1.0, 10.0],
+				"x": [-100.0, -100.0], "time": [1.0, 2.0]})},
+		"2201005": {"icon": _canvas(32, 32), "elemAttr": "l", "effect": _anim(7, 100.0, 90, 90),
+			"hit": {"0": _anim(5, 100.0, 80, 80)}, "level": thunder_levels},
+	}}
+	# #58 support fixtures: synthetic interpolation of canonical endpoints, separate from attack fixtures above.
+	for branch: int in [210, 220]:
+		var book: Dictionary = b210 if branch == 210 else b220
+		book.skill[str(branch * 10000 + 1001)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [10.0, 20.0], "time": [10.0, 200.0], "mad": [1.0, 20.0]})}
+		var slow_levels := _levels(20, {"mpCon": [8.0, 16.0], "time": [2.0, 40.0],
+			"x": [-2.0, -40.0], "mobCount": [6.0, 6.0]})
+		for level: String in slow_levels:
+			var extent := lerpf(200.0, 250.0, float(int(level) - 1) / 19.0)
+			slow_levels[level].lt = {"$v": [-extent, -150.0]}
+			slow_levels[level].rb = {"$v": [extent, 150.0]}
+		book.skill[str(branch * 10000 + 1003)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(4, 100.0, 60, 80), "mob": _anim(4, 100.0, 60, 80), "level": slow_levels}
+	var support_230 := {"skill": {
+		"2301003": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [15.0, 30.0], "time": [15.0, 300.0], "x": [11.0, 30.0]})},
+		"2301004": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [12.0, 24.0], "time": [10.0, 200.0],
+				"acc": [1.0, 20.0], "eva": [1.0, 20.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})},
+	}}
+	# Cleric-only fixture block (#57): synthetic intermediate nodes, with original-v83 endpoints.
+	var heal_levels := _levels(30, {"mpCon": [12.0, 24.0], "hp": [10.0, 300.0], "mobCount": [6.0, 6.0]})
+	for level: String in heal_levels:
+		var extent := lerpf(250.0, 300.0, float(int(level) - 1) / 29.0)
+		heal_levels[level].lt = {"$v": [-extent, -(extent - 100.0)]}
+		heal_levels[level].rb = {"$v": [extent, extent - 100.0]}
+	var b230 := {"skill": {
+		"2301005": {"icon": _canvas(32, 32), "elemAttr": "h", "action": {"0": "shoot1"},
+			"ball": _anim(3, 100.0, 70, 20), "hit": {"0": _anim(7, 100.0, 60, 60)},
+			"effect": _anim(7, 100.0, 70, 80),
+			"level": _levels(30, {"mpCon": [12.0, 24.0], "mad": [22.0, 80.0], "mastery": [1.0, 10.0]})},
+		"2301002": {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(10, 100.0, 50, 100), "hit": {"0": _anim(7, 100.0, 50, 60)}, "level": heal_levels},
+	}}
+	b230.skill.merge(support_230.skill)
+	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
+	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
+		if not imgs.has(pair[0]):
+			imgs[pair[0]] = {"skill": {}}
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32),
+			"level": _levels(20, {"mpCon": [60.0, 13.0], "range": [130.0, 150.0]})}
+	# MP Eater's three branch copies (#59). Synthetic tables match the independently cache-checked endpoints.
+	for job: int in [210, 220, 230]:
+		var book := str(job)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	return imgs
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
@@ -260,15 +330,9 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
-## Changes the job like RunWorld.change_job (MP, guarantee) but forgets the skills the job grants (jobs.json
-## grants.skills, e.g. the Magician's Energy Bolt), for tests of a Magician who has not learned them yet.
+## Changes job without learning skills (retained fixture alias for existing callers).
 static func change_job_bare(w: RunWorld, job_id: int) -> void:
 	w.change_job(job_id)
-	for key: Variant in w.jobs.job(job_id).get("grants", {}).get("skills", []):
-		w.loadout.ranks.erase(String(key))
-		w.loadout.order.erase(String(key))
-	w.loadout.version += 1
-	w.refresh_player_stats()
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.

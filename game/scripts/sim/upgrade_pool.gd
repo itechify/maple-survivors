@@ -5,11 +5,10 @@ extends RefCounted
 ##
 ## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
-## needs the skill unowned and a free slot of its kind; skill_rank / skill_mod need the skill owned (skill_rank also
-## below the skill's max rank). Potion tiers require a current item and level from data. A draw picks up to the
-## requested number of distinct eligible cards by weight with the given RNG; when the run has a pending `guarantee`
-## ({kind, job}) the first card is drawn among the eligible cards of that kind whose requires.jobs lists that job,
-## and the guarantee is consumed. Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
+## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
+## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
+## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
+## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
 ## the next draw's first card is drawn among the eligible power cards, so a run's damage cannot stall on bad offers.
 ## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
@@ -18,7 +17,7 @@ extends RefCounted
 ## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -112,7 +111,7 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var skill := String(c.get("skill", ""))
 	match String(c.get("kind", "")):
 		"skill_new":
-			if not lo.book.has(skill) or lo.has(skill) or not lo.has_free_slot(lo.book.slot(skill)):
+			if not lo.book.has(skill) or lo.has(skill):
 				return false
 		"skill_rank":
 			if not lo.has(skill) or lo.rank(skill) >= lo.book.max_rank(skill):
@@ -132,18 +131,11 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 		pool = pool.filter(func(id: String) -> bool:
 			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
-	var g: Dictionary = state.guarantee
-	if g.is_empty() and pity_draws > 0 and state.power_dry >= pity_draws:
-		g = {"power": true}
-	if not g.is_empty():
-		state.guarantee = {}
+	if pity_draws > 0 and state.power_dry >= pity_draws:
 		var gpool: Array = []
 		for id: String in pool:
 			var c := card(id)
-			if bool(g.get("power", false)):
-				if is_power(c):
-					gpool.append(id)
-			elif String(c.get("kind", "")) == String(g.get("kind", "")) and _lists_job(c, int(g.get("job", -1))):
+			if is_power(c):
 				gpool.append(id)
 		var gid := _weighted_pick(gpool, rng)
 		if gid != "":
@@ -153,6 +145,36 @@ func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Ar
 		var id := _weighted_pick(pool, rng)
 		picked.append(id)
 		pool.erase(id)
+	if picked.size() < n and _fallback_id != "":
+		picked.append(_fallback_id)
+	var out: Array = []
+	var power := false
+	for id: String in picked:
+		var offered := choice_card(id, state, "normal" if _always_normal(card(id)) else _roll_tier(state, rng))
+		out.append(offered)
+		state.card_tiers_offered[String(offered.tier)] += 1
+		power = power or is_power(card(id))
+	state.power_dry = 0 if power else state.power_dry + 1
+	return out
+
+
+## Extra job draw: every eligible new power skill, then seeded new-skill choices of that exact job up to n.
+## Tier C: no slot caps or prerequisites; a sparse draw includes the usual Elixir alternative.
+func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
+	var picked: Array = []
+	var other: Array = []
+	for id: String in eligible(state):
+		var c := card(id)
+		if String(c.get("kind", "")) != "skill_new" or not _lists_job(c, state.progression.job_id):
+			continue
+		if is_power(c):
+			picked.append(id)
+		else:
+			other.append(id)
+	while picked.size() < n and not other.is_empty():
+		var id := _weighted_pick(other, rng)
+		picked.append(id)
+		other.erase(id)
 	if picked.size() < n and _fallback_id != "":
 		picked.append(_fallback_id)
 	var out: Array = []
@@ -200,6 +222,11 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		skill_name = String(lo.book.def(skill).get("name", skill))
 		level_max = lo.book.canonical_level(skill, lo.book.max_rank(skill))
 		effect_stat = String(lo.book.def(skill).get("buff", {}).get("stat", ""))
+		var buff_effects: Array = lo.book.def(skill).get("buff", {}).get("effects", [])
+		if effect_stat == "" and not buff_effects.is_empty():
+			effect_stat = String(buff_effects[0].stat)
+		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
+			effect_stat = "slow"
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":
