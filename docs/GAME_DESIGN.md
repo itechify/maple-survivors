@@ -9,7 +9,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 
 ## 1. The run
 
-1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
+1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
+   look and weapon choices. Map select offers one stage from the next tier: Henesys Hunting Ground I or The Tree
+   That Grew I in tier 1, then Dark Cave in tier 2.
 2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
    random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
    White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). Later rounds restore the carried
@@ -23,7 +25,12 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
-Runs carry one named character through one stage per tier (ADR 0001). A non-final clear autosaves the carried
+Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+Level, partial EXP, job/branch, AP, skill ranks/mods, potions, Fortune, look and weapon carry; HP/MP refill and
+buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
+Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round.
+Death, victory and confirmed deletion end the run, free its slot and enter history; results have no Retry.
+A non-final clear autosaves the carried
 character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
 The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking, jumping, its two ladders and
 existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
@@ -2306,7 +2313,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
-- Results: RETRY is the v83 mini-game's green button (`UIWindow.img/RpsGame/BtRetry`), Back the login book's banner.
+- Results: the login book's Back banner returns to character select; death/victory frees the ended character's slot.
 - Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
@@ -2362,6 +2369,11 @@ inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticke
 The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
 tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market
 capture supplies a completed boundary to SceneFlow (a visual carry check, not a played stage clear).
+
+The #75 flow driver's diagnostic names, seed 1, 1800s combat cap, 600-tick yields, 100s progress logs,
+30s/8px exit-walk guard, 0.35s capture settling and other UI waits/timeouts are tier C automation choices.
+Its optional tier-2 victory path uses invulnerability and 1e9 neutral magic boss hits after 15:00, through the real
+death/reward/clear path. This is presentation staging only; shipped data and smoke outcomes stay unchanged.
 
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses

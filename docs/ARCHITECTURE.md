@@ -86,6 +86,12 @@ PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC
 life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
 `--run` calls `start_run`, an independent one-off with no save writes.
 
+The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
+creation, pause and History input. It warps real fixed simulation ticks through combat, walks the hub to out00,
+reloads the evidence-only save from disk and checks byte-preserving Quit round and same-stage/seed Continue.
+Its optional tier-2 victory probe uses invulnerability and diagnostic boss hits after 15:00, then resolves real
+rewards and clear events. It checks presentation only; natural outcomes belong to balance smokes.
+
 ### 4.2 Autoloads
 
 | Autoload | Script | Role |
@@ -128,7 +134,7 @@ Manual Esc pause leaves the sim state unchanged; RunScene stops its tick loop an
 
 ### 4.3 Simulation / presentation split
 
-A run is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
+A round is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
 accumulator. It never touches nodes, input, time or files. Each tick it consumes a `MoveInput` and appends events
 (`{"type": "mob_hit", ...}`) to `RunWorld.events`. The presentation layer drains the events every frame to spawn damage
 numbers, hit effects and sounds, and reads the struct-of-arrays state directly to draw mobs, projectiles and pickups.
