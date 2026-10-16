@@ -304,6 +304,30 @@ func test_mod_cards_preview_the_effective_stat_they_change() -> void:
 		"a box skill's targets are its canonical mobCount plus cards")
 
 
+func test_loadout_clone_copies_every_field_and_stays_independent() -> void:
+	var lo := RF.quiet_world().loadout
+	lo.add_skill_mod("three_snails", "count", "add", 1.0)
+	lo.add_player_mod("speed", "mul", 1.1)
+	lo.card_ranks["magnet"] = 2
+	lo.set_caster(31.0, 12.0, 17)
+	lo.crit_chance = 0.15
+	lo.crit_mult = 1.8
+	var c := lo.clone()
+	for field: String in ["ranks", "order", "skill_mods", "player_mods", "card_ranks", "int_stat", "matk", "char_level",
+			"crit_chance", "crit_mult", "version"]:
+		assert_eq(c.get(field), lo.get(field), field)
+	assert_true(c.book == lo.book, "the same skill book")
+	assert_eq(c.stats("three_snails"), lo.stats("three_snails"), "resolves the same numbers")
+	c.add_skill_mod("three_snails", "count", "add", 1.0)
+	c.add_player_mod("speed", "add", 5.0)
+	c.card_ranks["magnet"] = 3
+	c.order.append("energy_bolt")
+	assert_eq(lo.skill_mods.three_snails.count, Vector2(1.0, 1.0), "the original's skill mods are untouched")
+	assert_eq(lo.player_mods.speed, Vector2(0.0, 1.1), "and its player mods")
+	assert_eq(int(lo.card_ranks.magnet), 2, "and its card ranks")
+	assert_false("energy_bolt" in lo.order, "and its learned order")
+
+
 func test_real_stat_replacement_rank_previews_and_skill_caps() -> void:
 	var w := RF.quiet_world(400, 41)
 	w.upgrades.apply("nimble_feet", w)

@@ -65,8 +65,8 @@ func _star_rows() -> Array[Dictionary]:
 
 
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
-## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts as SkillRunner restarts
-## it; -1 for a passive), mp_cost (-1 for a passive), upgrades: [{id, name, steps, effect, text}] (every behaviour
+## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
+## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
 ## effective stats, so cards show in the numbers.
 func skill_tooltip(key: String) -> Dictionary:
@@ -84,8 +84,7 @@ func skill_tooltip(key: String) -> Dictionary:
 		tip.next = text.level_line(key, tip.next_level, loadout.stats(key, r + 1))
 	if kind != "passive":
 		tip.mp_cost = int(st.mp_cost)
-		# As SkillRunner restarts it: a buff waits out its duration or its canonical cooldown.
-		tip.cooldown = maxf(float(st.duration), float(st.buff_cooldown)) if kind == "buff" else float(st.cooldown)
+		tip.cooldown = SkillRunner.restart_cooldown(st)
 	var upgrades: Array[Dictionary] = []
 	for c: Dictionary in pool.cards:
 		var id := String(c.get("id", ""))
@@ -125,7 +124,7 @@ static func mod_effect(c: Dictionary, steps: int, skill_kind: String) -> String:
 		var sign := "+" if total >= 0.0 else "-"
 		match stat:
 			"count":
-				var noun := "shot" if skill_kind == "projectile" else "target"
+				var noun := SkillRunner.count_meaning(skill_kind).trim_suffix("s")
 				parts.append("%s%s %s%s" % [sign, SkillText.number(absf(total)), noun,
 					"" if is_equal_approx(absf(total), 1.0) else "s"])
 			"crit":

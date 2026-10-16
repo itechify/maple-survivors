@@ -39,6 +39,24 @@ func _init(p_book: SkillBook = null) -> void:
 	book = p_book if p_book != null else SkillBook.new()
 
 
+## An independent copy of every field (the same SkillBook): changing the copy never changes this loadout. Previews
+## stack a card's steps on a clone.
+func clone() -> Loadout:
+	var c := Loadout.new(book)
+	c.ranks = ranks.duplicate()
+	c.order = order.duplicate()
+	c.skill_mods = skill_mods.duplicate(true)
+	c.player_mods = player_mods.duplicate(true)
+	c.card_ranks = card_ranks.duplicate()
+	c.int_stat = int_stat
+	c.matk = matk
+	c.char_level = char_level
+	c.crit_chance = crit_chance
+	c.crit_mult = crit_mult
+	c.version = version
+	return c
+
+
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
 	if not book.has(key) or ranks.has(key):

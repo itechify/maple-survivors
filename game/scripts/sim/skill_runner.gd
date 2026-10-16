@@ -15,6 +15,10 @@ extends RefCounted
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
 const REUSE_SPREAD := 8.0
+## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
+## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
+const SHOTS := "shots"
+const TARGETS := "targets"
 
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
@@ -37,6 +41,25 @@ var _slow_serial := 0
 
 func _init() -> void:
 	_buf.resize(128)
+
+
+## SHOTS for a projectile skill kind, TARGETS otherwise.
+static func count_meaning(kind: String) -> String:
+	return SHOTS if kind == "projectile" else TARGETS
+
+
+## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
+## their mob_count (canonical mobCount plus count cards), the others `count`.
+static func strike_count(st: Dictionary) -> int:
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd"] else int(st.count)
+
+
+## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
+## buff cooldown, whichever is longer; any other skill its cooldown (cast_ready adds the tick's overshoot to it).
+static func restart_cooldown(st: Dictionary) -> float:
+	if String(st.kind) == "buff":
+		return maxf(float(st.duration), float(st.buff_cooldown))
+	return float(st.cooldown)
 
 
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
@@ -99,7 +122,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			_shortages[key] = true
 			continue
 		_shortages.erase(key)
-		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
+		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
@@ -163,7 +186,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	world.start_action(String(st.action), float(st.action_time))
 	match String(st.cast_rule):
 		"box":
-			_resolve_instant_targets(world, st, targets, int(st.mob_count), int(st.attack_count),
+			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
 				world.visual_index(String(st.hit)))
 		"crowd":
 			_resolve_crowd(world, key, st, targets)
@@ -189,7 +212,7 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 	_slow_serial += 1
 	var params := {"x": world.book.canonical(key, int(st.level), "x"),
 		"time": world.book.canonical(key, int(st.level), "time")}
-	for i in mini(int(st.mob_count), targets.size()):
+	for i in mini(strike_count(st), targets.size()):
 		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
 
 

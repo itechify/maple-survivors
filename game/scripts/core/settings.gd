@@ -339,6 +339,19 @@ static func _project_events(action: String) -> Array:
 
 ## The physical keycodes an action currently has in the InputMap (empty for an unknown action).
 func binding_keys(action: String) -> PackedInt32Array:
+	return _live_keys(action)
+
+
+## The HUD caption of an action's current keys (the live InputMap, KeyBindings.key_name per key), e.g. "Del / Q";
+## "-" when it has none. Callers cache it and re-read it on `changed`.
+static func action_label(action: String, sep: String = " / ") -> String:
+	var names := PackedStringArray()
+	for code in _live_keys(action):
+		names.append(KeyBindings.key_name(code))
+	return sep.join(names) if not names.is_empty() else "-"
+
+
+static func _live_keys(action: String) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	if not InputMap.has_action(action):
 		return out

@@ -194,6 +194,13 @@ var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
+var _hud_sig_scratch := PackedInt32Array()
+## Cached caption of the Teleport icon (_on_settings_changed; null until first read) and the reused per-frame
+## cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
+var _teleport_label: Variant = null
+var _cd_left := PackedFloat32Array()
+var _cd_total := PackedFloat32Array()
+var _cd_short := PackedByteArray()
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
@@ -602,17 +609,49 @@ func _build_ui_windows() -> void:
 	ui_layer.name = "UiWindows"
 	ui_layer.layer = UI_LAYER
 	add_child(ui_layer)
-	ui_windows = WindowStack.new()
-	ui_layer.add_child(ui_windows)
+	var stack := WindowStack.new()
+	ui_layer.add_child(stack)
+	use_window_stack(stack)
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
-	ui_windows.changed.connect(_on_ui_windows_changed)
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
 	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings))
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
+	if settings != null:
+		watch_settings(settings)
+
+
+## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
+## movement-set switch in Options), and the HUD redraws with them at once, even while the run is held.
+func watch_settings(s: GameSettings) -> void:
+	settings = s
+	if not s.changed.is_connected(_on_settings_changed):
+		s.changed.connect(_on_settings_changed)
+	_on_settings_changed()
+
+
+func _on_settings_changed() -> void:
+	_teleport_label = _first_key_label("teleport")
+	if hud == null or world == null:
+		return
+	hud.potion_slot.refresh_key_labels()
+	_hud_sig = PackedInt32Array()
+	_update_hud()
+
+
+## The caption of the first key bound to `action` ("" when unbound): a skill icon has room for one.
+static func _first_key_label(action: String) -> String:
+	var label := GameSettings.action_label(action, "\n").get_slice("\n", 0)
+	return "" if label == "-" else label
+
+
+## Makes `stack` the run's in-run window stack: while it has a window open the run is held (see the class doc).
+func use_window_stack(stack: WindowStack) -> void:
+	ui_windows = stack
+	stack.changed.connect(_on_ui_windows_changed)
 
 
 ## Holds / releases the run as in-run windows open and close (see the class doc).
@@ -1067,7 +1106,7 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(LevelUpWindow.dress(req.cards, skill_text, world.loadout), level, bool(req.get("bonus", false)),
+			lw.open(skill_text.dress(req.cards, world.loadout), level, bool(req.get("bonus", false)),
 				bool(req.get("advancement", false)))
 
 
@@ -1108,8 +1147,11 @@ func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -
 ## Forgets the open window; it is freed once its own fade-out (MapleWindow transition) has had time to play.
 func _close_window() -> void:
 	if window != null and is_instance_valid(window):
-		# Connected to the window itself: the connection goes away if the window is freed first (with the scene).
-		get_tree().create_timer(WINDOW_FREE_DELAY, true, false, true).timeout.connect(window.queue_free)
+		if is_inside_tree():
+			# Connected to the window itself: the connection goes away if the window is freed first (with the scene).
+			get_tree().create_timer(WINDOW_FREE_DELAY, true, false, true).timeout.connect(window.queue_free)
+		else:
+			window.queue_free() # a scene outside the tree (tests) has no timers and no fade to wait for
 	window = null
 	_window_kind = ""
 
@@ -1330,18 +1372,12 @@ func _update_hud() -> void:
 	var ps := world.player_state
 	# The encounter widget tracks damage every frame, independently of the status/timer snapshot signature.
 	hud.boss_bar.update(ps, {"bosses": boss_bars()})
-	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
-		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
-		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
-		int(bool(ps.get("mp_short", false)))])
-	for buff: Dictionary in ps.buffs:
-		sig.append(int(buff.skill_id))
-		sig.append(ceili(float(buff.remaining)))
-	if sig == _hud_sig:
-		# Cooldown sweeps move every tick, so the skill widget refreshes every frame even when the snapshot is unchanged.
-		hud.skills.update(ps, run_info())
+	if not _hud_snapshot_changed(ps):
+		# Cooldown sweeps move every tick: the skill icons take them every frame from reused buffers (no new arrays,
+		# dictionaries or strings) and redraw only when a sweep step or tint changed.
+		world.read_skill_cooldowns(_cd_left, _cd_total, _cd_short)
+		hud.skills.set_cooldowns(_cd_left, _cd_total, _cd_short)
 		return
-	_hud_sig = sig
 	var info := run_info()
 	hud.store_state(ps, info)
 	hud.status.update(ps, info)
@@ -1350,6 +1386,37 @@ func _update_hud() -> void:
 	hud.system_messages.update(ps, info)
 	hud.potion_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
+
+
+## Whether the status/timer snapshot differs from the one last shown (then it becomes the shown one). The signature
+## is written into a reused buffer, so an unchanged frame allocates nothing.
+func _hud_snapshot_changed(ps: Dictionary) -> bool:
+	var buffs: Array = ps.buffs
+	var sig := _hud_sig_scratch
+	sig.resize(16 + buffs.size() * 2)
+	sig[0] = int(ps.hp)
+	sig[1] = int(ps.mp)
+	sig[2] = int(ps.max_hp)
+	sig[3] = int(ps.max_mp)
+	sig[4] = int(ps.exp)
+	sig[5] = int(ps.exp_next)
+	sig[6] = int(ps.level)
+	sig[7] = int(ps.job_id)
+	sig[8] = int(run_time())
+	sig[9] = world.kills
+	sig[10] = world.loadout.version
+	sig[11] = int(ps.potions.hp.count)
+	sig[12] = int(ps.potions.mp.count)
+	sig[13] = int(ps.potions.hp.item_id)
+	sig[14] = int(ps.potions.mp.item_id)
+	sig[15] = int(bool(ps.get("mp_short", false)))
+	for i in buffs.size():
+		sig[16 + i * 2] = int(buffs[i].skill_id)
+		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
+	if sig == _hud_sig:
+		return false
+	_hud_sig = sig.duplicate()
+	return true
 
 
 ## Live encounter snapshots for the dedicated HUD bar; canonical hpTag values remain unchanged in the asset cache.
@@ -1376,16 +1443,14 @@ func run_time() -> float:
 	return snappedf(world.time, 0.001)
 
 
-## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with ranks, cooldown
-## left/total and whether each is waiting for MP.
+## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
 func run_info() -> Dictionary:
+	if _teleport_label == null:
+		_teleport_label = _first_key_label("teleport")
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		var manual := world.book.def(key).has("teleport")
-		var label := ""
-		if manual: # the first key the player bound (the icon has room for one caption)
-			label = KeyBindings.action_label("teleport", "\n").get_slice("\n", 0)
-			label = "" if label == "-" else label
+		var label: String = _teleport_label if world.book.def(key).has("teleport") else ""
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),

@@ -1,7 +1,8 @@
 class_name KeyBindings
 extends RefCounted
 ## The Key Config window's draft of the player's key bindings (no scene, no InputMap reads): which keys each bindable
-## action sits on. A key holds one action; an action may sit on several keys.
+## action sits on. A key holds one action; an action may sit on several keys. key_name() is the caption of one key;
+## the live bindings' captions are GameSettings.action_label().
 ##
 ##   var kb := KeyBindings.from_settings(Settings)   # the saved bindings (or the project defaults) and movement set
 ##   kb.bind("jump", KEY_F)       # F now jumps (whatever F did before loses it); false for a fixed or unknown key
@@ -39,17 +40,6 @@ static func key_name(code: int) -> String:
 	if SHORT_NAMES.has(code):
 		return String(SHORT_NAMES[code])
 	return OS.get_keycode_string(code as Key)
-
-
-## The HUD caption of an action's current keys (the live InputMap), e.g. "Del / Q"; "-" when it has none.
-static func action_label(action: String, sep: String = " / ") -> String:
-	var names := PackedStringArray()
-	if InputMap.has_action(action):
-		for e in InputMap.action_get_events(action):
-			if e is InputEventKey:
-				var k := e as InputEventKey
-				names.append(key_name(k.physical_keycode if k.physical_keycode != KEY_NONE else k.keycode))
-	return sep.join(names) if not names.is_empty() else "-"
 
 
 ## The keys of `action` (a copy; empty when unbound or not bindable).
