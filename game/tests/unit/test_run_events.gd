@@ -258,6 +258,17 @@ func test_every_event_matches_the_schema() -> void:
 	restored.restore_player("mp", 2, "synthetic")
 	for event: Dictionary in restored.drain_events():
 		_check(event, seen)
+	# MP Eater's effect event is distinct from actual capped player restoration (also shown at full player MP).
+	var eater := RF.quiet_world()
+	eater.change_job(210)
+	eater.learn_skill("mp_eater_fp")
+	eater.book.skill_imgs["210"].skill["2100000"].level["1"].prop = 100.0
+	eater.mob_kinds[0].max_mp = 200
+	var victim := eater.spawn_mob(0, eater.player.pos + Vector2(100, 0), eater.player.fh, 100, false)
+	eater.hit_mob(victim, {"skill": "magic_claw", "level": 1, "magic": true, "damage_min": 1.0,
+		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
+	for event: Dictionary in eater.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

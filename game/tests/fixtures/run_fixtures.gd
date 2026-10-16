@@ -103,7 +103,14 @@ static func skill_imgs() -> Dictionary:
 			"effect": _anim(10, 100.0, 50, 100), "hit": {"0": _anim(7, 100.0, 50, 60)}, "level": heal_levels},
 	}}
 	b230.skill.merge(support_230.skill)
-	return {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	# MP Eater's three branch copies (#59). Synthetic tables match the independently cache-checked endpoints.
+	for job: int in [210, 220, 230]:
+		var book := str(job)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	return imgs
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).

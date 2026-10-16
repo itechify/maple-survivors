@@ -77,6 +77,8 @@ var vx := PackedFloat32Array()
 var vy := PackedFloat32Array()
 var hp := PackedInt32Array()
 var max_hp := PackedInt32Array()
+## Remaining canonical monster MP; fresh spawns reset it, relocation preserves it.
+var mp := PackedInt32Array()
 var state := PackedInt32Array()
 ## Seconds in the current state / current animation (the latter restarts when the shown stance changes).
 var state_t := PackedFloat32Array()
@@ -234,6 +236,7 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	vy[i] = 0.0
 	hp[i] = h
 	max_hp[i] = h
+	mp[i] = kinds[k].max_mp if k >= 0 and k < kinds.size() else 0
 	state[i] = STAND if f >= 0 else JUMP
 	state_t[i] = 0.0
 	anim_t[i] = 0.0
@@ -797,6 +800,7 @@ func _set_state(i: int, s: int) -> void:
 
 func _release(i: int) -> void:
 	_clear_statuses(i)
+	mp[i] = 0
 	state[i] = FREE
 	active[i] = 0
 	fh[i] = -1
@@ -835,6 +839,7 @@ func _grow(n: int) -> void:
 	vy.resize(n)
 	hp.resize(n)
 	max_hp.resize(n)
+	mp.resize(n)
 	state.resize(n)
 	identity.resize(n)
 	state_t.resize(n)

@@ -453,6 +453,31 @@ empty). Synthetic seam and cached gain-number tests: 15 tests, 0 failed, 0 skipp
 The existing all-event schema test needed one new restoration scenario (and `stat` String validation) because it
 requires every `EVENT_FIELDS` entry to be exercised. Its previous assertions and scenarios are unchanged.
 
+#### #31 / #59 MP Eater regression smoke (2026-10-15)
+
+No tuning: `ISOLATE=t59 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, real cache,
+unforced seeded branches, no patch, 1,800 s cap. Feature head `24ff1be` includes Foundations `e51d6b7`;
+this smoke precedes later sibling-ticket integration. All 12 runs completed without crashes, script errors or
+world warnings. Outcomes and death times match the Foundations smoke: Henesys reaches Magician and the first
+boss in all six runs (Magician 263.2–283.2 s). Tree remains record-only and unchanged. No held-out seeds were used.
+
+| MP Eater stage / policy | Clear / dead / timeout | Death seconds | MP collected / used | Foundations MP collected / used |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 378/314 (1.204) | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 430/214 (2.009) | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) | 7/0 (undefined) |
+
+Each surviving Henesys seed-1 run advances to Cleric and learns MP Eater; the other seeds die before second job.
+Bot seed 1 clears at 1087.7 s and random seed 1 at 998.2 s. The changed MP collection/use ratio is feature
+evidence for #61 and the later balance pass, not a tuning result. Raw records and console output stay in ignored
+`_scratch/t59_balance/` and `_scratch/t59-smoke-*.log`. Windowed playtests forced 210 and 230 (seed 1, warp 480,
+speed 8); both have `missing=[]`. F/P clears at 995.2 s without learning MP Eater; Cleric owns rank 17 and is
+still PLAYING at the 18-minute cap (not a clear). Checked-by-eye evidence: `evidence/t59/branch230/mp_eater.png`
+and the focused real-hit captures `evidence/t59/focused/mp_eater_{fp,il,cleric}.png`: canonical absorb art and cyan
+14-MP gain numbers for every branch, all `missing=[]`. v83 has no MP Eater sound entry; no required cache data is missing.
+After merging integration `f8af37b` (I/L attacks) and retaining both tickets' data/fixtures, the final
+`ISOLATE=t59 bash scripts/test.sh` passes **616 tests, 0 failed, 0 skipped** (67 files); no cache checks skipped.
+
 #### #31 / #53 advancement regression smoke (2026-10-15)
 
 No balance tuning. `ISOLATE=t53 bash scripts/balance.sh 1 2 2026` ran on both stages with both policies,
@@ -1488,8 +1513,19 @@ existing shots finish separately from carry-over projectile kills.
 | Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
+| MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
 | Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
 | Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
+
+MP Eater registers on the shared player-hit listener, after on-hit statuses and before lethal damage/kill handling.
+It reads the passive's current canonical level at impact; physical basic attacks, Three Snails, poison pulses and
+elementally immune hits cannot absorb. It consumes no proc RNG when unlearned, depleted, or unable to absorb even
+one whole MP. Absorb truncates `maxMP × x / 100` to whole points (tier C integer interpretation), caps at remaining
+monster MP, and drains that pool even when player MP is full. `restore_player` supplies the actual capped gain and
+the shared `player_restored` MP number. A separate `mp_eater_absorbed: {mob, amount, skill, pos}` event shows the
+canonical 700 ms effect on every absorb, including zero player gain; it does not duplicate the restoration event.
+The cache has all three effects and icons. Original v83 Sound.wz has no MP Eater entry, so presentation quietly
+probes for an optional use sound and otherwise stays silent without a missing-asset lookup.
 
 Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
 Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
@@ -1843,6 +1879,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
+| MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
+| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
+| MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

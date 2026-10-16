@@ -80,6 +80,10 @@ func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
 			var eligible := w.upgrades.eligible(w)
 			assert_has(eligible, "bless_new")
 			assert_has(eligible, "invincible_new")
+		for card: Dictionary in w.pending_cards:
+			if card.kind != "filler":
+				assert_eq(card.kind, "skill_new", "advancement offers new branch skills")
+				assert_eq(int(w.book.def(card.skill).job), branch)
 		if not w.pending_cards.is_empty():
 			assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 			assert_eq(w.progression.front(), 30)
