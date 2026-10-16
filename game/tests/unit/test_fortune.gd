@@ -40,13 +40,21 @@ func test_seeded_fortune_distribution_and_base_run_stat() -> void:
 	assert_eq(float(zero.player_state.get("fortune", -1)), 0.0)
 	assert_eq(float(lucky.player_state.get("fortune", -1)), 100.0, "Fortune comes from survivor balance")
 	var counts := _counts(zero, 43, 20000)
-	var bounds := {"normal": [0.73, 0.77], "rare": [0.165, 0.195], "epic": [0.04, 0.06],
-		"unique": [0.012, 0.022], "legendary": [0.0015, 0.0045]}
+	# Literal bands follow the frozen design table, independently of the configured data under test.
+	var bounds := {"normal": [0.84, 0.88], "rare": [0.065, 0.095], "epic": [0.025, 0.045],
+		"unique": [0.012, 0.022], "legendary": [0.005, 0.011]}
 	for tier: String in TIERS:
 		var frequency := float(counts[tier]) / 20000.0
 		assert_true(frequency >= float(bounds[tier][0]) and frequency <= float(bounds[tier][1]),
-			"Fortune 0 %s frequency %.4f matches 75/18/5/1.7/0.3%%" % [tier, frequency])
+			"Fortune 0 %s frequency %.4f matches 86/8/3.5/1.7/0.8%%" % [tier, frequency])
 	var higher := _counts(lucky, 43, 20000)
+	# At Fortune 100 the documented normalized shares are 67.1875/18.75/8.203125/3.984375/1.875%.
+	var high_bounds := {"normal": [0.652, 0.692], "rare": [0.172, 0.202], "epic": [0.072, 0.092],
+		"unique": [0.033, 0.047], "legendary": [0.016, 0.022]}
+	for tier: String in TIERS:
+		var frequency := float(higher[tier]) / 20000.0
+		assert_true(frequency >= float(high_bounds[tier][0]) and frequency <= float(high_bounds[tier][1]),
+			"Fortune 100 %s frequency %.4f matches the documented normalized shares" % [tier, frequency])
 	assert_true(int(higher.normal) < int(counts.normal) - 3500, "Fortune 100 measurably raises non-Normal offers")
 	for tier: String in ["rare", "epic", "unique", "legendary"]:
 		assert_true(int(higher[tier]) > int(counts[tier]), "%s grows with Fortune" % tier)

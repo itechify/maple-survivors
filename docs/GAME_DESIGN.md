@@ -125,28 +125,38 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
-time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) after the owner
-review of spec #29 (vanilla single-shot skills, the v83 5-MP opening); a coarse pass on training seeds only, with
-final tuning deferred until later specs land:
+time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
+the #30 C46 calibration frozen by the owner on 2026-10-15 for the current features. It preserves the spec #29
+vanilla single-shot skills and v83 5-MP opening. The measured minor clear/death target deviations are accepted
+for now; balance will be revisited after more features (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
-|---|---|---|---|---|---|
-| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1.0 | 1.0 |
-| 2:00 | 0.4 | 8 | + Red Snail 3, Shroom 3 | 1.0 | 1.0 |
-| 3:00 | 0.6 | 12 | + PQ Stirge 1 | 1.0 | 1.025 |
-| 4:00 | 1.0 | 20 | + Slime 3 | 1.0 | 1.05 |
-| 5:00 | 2.5 | 50 | + Flyeye 1 | 1.25 | 1.075 |
-| 6:00 | 4.5 | 85 | + Pig 2, Orange Mushroom 3 (Snails phase out) | 1.75 | 1.1 |
-| 8:00 | 8.267 | 143.333 | + Goblin Fire 1 | 3.2 | 1.1533 |
-| 9:00 | 9.4 | 165 | + Green Mushroom 1 | 3.25 | 1.18 |
-| 12:00 | 13.5 | 240 | full pool (Green Mushroom 3) | 4.25 | 1.28 |
-| 15:00 | 20 | 330 | final boss | 6.875 | 1.4 |
+| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance | Normal MP chance |
+|---|---|---|---|---|---|---|---|
+| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 | 8% | 10% |
+| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 | 5% | 10% |
+| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 | 4% | 10% |
+| 4:00 | 1 | 20 | Slime | 1 | 1.05 | 3% | 10% |
+| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 | 1.2% | 10% |
+| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 | 0.8% | 10% |
+| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 | 0.8% | 10% |
+| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 | 0.7% | 10% |
+| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 | 0.7% | 10% |
+| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 | 0.805% | 4% |
+| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 | 1.035% | 4% |
+| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 | 1.2075% | 4% |
 
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
 the basic attack, so until 4:00 only a few mobs are alive, ordinary HP drops are generous (8% falling to 3%), no
 elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
-Density and HP then ramp from 5:00 into the unchanged mid/late curve. Canonical mob HP and skill damage/costs remain
+Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
 unchanged. Tree stage data are unchanged.
+
+The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point. MP stays 10% through 11:00,
+then interpolates to 4% at 12:00; the extra late HP support also begins after 11:00. Both potion curves hold
+after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
+0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
+extrapolation. Global normal MP 10% remains the fallback, elite MP stays 60%, and elite HP/boss bundles are
+unchanged. Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
 defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
@@ -239,8 +249,8 @@ their denominators report whether early durability is meaningful; mid-game mobs 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from population
 acceptance. Henesys retains Mage/Lv10 median **180–330 s**, individual 150–360 s. The coarse owner-review pass
 (sword-paced v83 Beginner, 2.5x stage EXP) moves Lv30 to median 540–720 s when reached, individual 480–1080 s, and
-Lv8 to median 210–270 s, individual 180–300 s; Lv30 near 10:00 is earlier than the 12:00–15:00 goal and is left for
-the final tuning pass. At least one of the three regression runs must reach Lv30 under the 40–50% clear target.
+Lv8 to median 210–270 s, individual 180–300 s; Lv30 near 10:00 is earlier than the original 12:00–15:00 aspiration; the owner accepts the current
+progression for now and will revisit it after more features. The regression windows remain unchanged. At least one of the three regression runs must reach Lv30 under the 40–50% clear target.
 These windows apply only to reached milestones, with at least two of the three fixed runs reaching
 Lv8/Lv10/Magician and every reach count printed. Occasional early deaths remain valid outcomes under the new population target; they are never filtered.
 Spawning each minute (including after 15:00), crowd growth, EXP/kill/event consistency, all-boss finale, no lost mobs,
@@ -266,7 +276,58 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### Owner review of #51: vanilla skills and the v83 opening (coarse pass, current)
+#### #30 / #45: owner-frozen C46 calibration (2026-10-15)
+
+The owner judged the current balance sufficient and asked to revisit it after more features. Freeze **C46
+exactly**, without further tuning. Its sensible clear rate is **32/61 = 52.46%**, above the 40–50% target by
+2.46 percentage points, and death median is **902.3 s**, 2.3 s above 900. These are explicit accepted deviations,
+not strict target passes. Targets and the boss-hit/full-run regression guards remain unchanged. Random clears,
+both death medians apart from that small sensible miss, and sensible MP ratio are reported below.
+
+Both policies use every training seed **1–60 and 2026**, real v83 cache, Godot 4.7.2 (`ed1daf0bf`), fixed 1/60 s,
+800 × 600 view and 1,800 s cap. No deaths are filtered and no timeout counts as a clear.
+
+| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
+|---|---|---|---|---|
+| Sensible | 32 / 29 / 0 | 52.46% | 902.3 s (29) | 277.7 s (60) / 235.9 s (60) / 618.8 s (57) |
+| Random | 4 / 57 / 0 | 6.56% | 551.1 s (57) | 280.8 s (45) / 244.4 s (45) / 597.3 s (15) |
+
+| Policy | MP collected / used; ratio | MP stock median / empty runs | HP collected / used; stock median / empty runs | Late MP-wait runs / observed; seconds waited / observed |
+|---|---|---|---|---|
+| Sensible | 13,104 / 10,817; 1.21143 | 30 / 15 of 61 | 2,052 / 1,887; 0 / 31 of 61 | 13/60; 1,331.950 / 27,359.964 |
+| Random | 6,220 / 4,976; 1.25000 | 4 / 19 of 61 | 1,044 / 1,339; 0 / 59 of 61 | 7/41; 167.749 / 7,494.134 |
+
+| Policy / boss ID | Completed median seconds (completed / spawned) | Censored median seconds (spawned) | Unfinished / not spawned / skipped |
+|---|---|---|---|
+| Sensible / 2220000 | 31.91 (60/60) | 31.91 (60) | 0 / 1 / 0 |
+| Sensible / 6130101 | 69.37 (53/59) | >=70.12 (59) | 6 / 2 / 0 |
+| Sensible / 9400205 | 86.87 (32/47) | >=83.95 (47) | 15 / 14 / 0 |
+| Random / 2220000 | 34.03 (41/45) | >=34.03 (45) | 4 / 16 / 0 |
+| Random / 6130101 | 63 (13/25) | >=45.95 (25) | 12 / 36 / 0 |
+| Random / 9400205 | 79.96 (4/5) | >=75.78 (5) | 1 / 56 / 0 |
+
+MP ratios divide total collected by total used. HP totals exclude the five starter HP potions per run (305 per
+cohort); stocks include them. Careless late waiting is actually observed in seven of 41 runs, not inferred from
+unused stock. Completed fight medians always retain their completed/spawned denominators; censored medians
+include unfinished encounters. First-five-minute ordinary hits/kill and tier counts are in the
+[complete training record](research/spec30-rarity-balance.md).
+
+C46 retunes nominal card weights 75/18/5/1.7/0.3 to **86/8/3.5/1.7/0.8**: fewer routine rank gains, preserved
+Unique weight and a meaningful Legendary jackpot (section 8.1). Fortune remains card-only, base zero and scale
+0.02. Survivor HP pressure/support and late MP supply use the table in 4.1; canonical stats, costs, magnitudes,
+policies, potion restoration/stock conversion, starter stock, bosses and Tree data are unchanged.
+
+The 122 immutable training records use source `599590a9d86bb64dc8c6b5299df6f606fe828721` and the preserved
+`c46-late-mp-hp-shift/patch.json`. Final source includes cleanup `79f9d3fd1a56aba670303e20c9c440a89a5a0508`,
+which removes the rejected unused EXP curve. The explicit data/math bridge and 62 passing focused tests before
+and after establish unchanged stage EXP, HP/MP behavior and RNG for this curve-free profile. Original training
+hashes, patch/configuration, exact consoles and the final freeze manifest remain under
+`evidence/spec30/balance/c46-late-mp-hp-shift/`; the bridge is `evidence/spec30/review-fixes/exp-cleanup/`.
+Final selected-data full suite and rendered fixed 1/2/2026 matrix are validation gates after this data freeze.
+**Fresh held-out 601–630 is still unused; no held-out execution is authorized by this record.**
+
+#### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
+
 
 The owner rejected the C21 profile's survivor projectile coverage and opening pool: every skill starts as its vanilla
 v83 form (one Three Snails shell, one Energy Bolt; more only from cards, later rarity) and the opening pool stays the
@@ -1044,8 +1105,8 @@ Optional final card-score overrides set Guard learning to 110 and ranks to 109, 
 entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Normal HP supply interpolates by stage: HG 0.6% through 6:00, 0.54% at 8:00, 0.24% at 9:00, 0.30% at 11:00, 0.36% at 12:00,
-1.2% at 13:00 and 1.4% at 15:00. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
+Current Henesys normal HP/MP supply follows the C46 endpoint table in section 4.1; both curves interpolate and hold.
+Global normal MP remains 10%, elite MP 60%, with scheduled boss bundles unchanged. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
@@ -1279,14 +1340,16 @@ and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 
 | Potential tier | Normal | Rare | Epic | Unique | Legendary |
 |---|---|---|---|---|---|
-| Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
+| Base weight at Fortune 0 | 86 | 8 | 3.5 | 1.7 | 0.8 |
 | Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
 | Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +1 | +2 | +3 | all remaining steps |
 | New skill starting rank | 1 | 1 | 2 | 3 | 5 |
 
 All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the weights;
 every non-Normal weight is multiplied by `1 + max(0, Fortune) × upgrades.rarity.fortune_scale` (0.02), then weights
-normalize together. At Fortune 100 the Normal share becomes 50%, with 36/10/3.4/0.6% for the higher tiers.
+normalize together. At Fortune 100 the weights total 128 and normalize to
+67.1875/18.75/8.203125/3.984375/1.875% for Normal/Rare/Epic/Unique/Legendary. These frozen C46 odds are tier C
+calibration, accepted by the owner for the current features on 2026-10-15; magnitudes remain the spec #30 ladder.
 `upgrades.magnitudes` holds the per-kind tables; an individual card's `magnitudes` can override any tier, with
 unspecified tiers retaining their kind defaults. Legendary can max a 20-rank attack or buff in one pick.
 
@@ -1527,7 +1590,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
-| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30; upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
+| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 86/8/3.5/1.7/0.8; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 / #45 C46, owner-frozen 2026-10-15; upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
 | Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+1/+2/+3/max; new skill 1/1/2/3/5; per-card overrides | C | spec #30; upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
 | Card honesty / boss floor | highest fitting tier; max equal to a lower fitting gain downgrades; explicit Normal/Rare equal defaults retained; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
