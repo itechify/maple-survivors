@@ -37,7 +37,8 @@ const SCORE_NEW_ATTACK := 100.0
 const SCORE_NEW_PASSIVE := 50.0
 const SCORE_RANK_ATTACK := 62.0
 const SCORE_RANK_PASSIVE := 42.0
-const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "cooldown": 54.0, "range": 30.0, "speed": 20.0}
+## tier C: area defaults to 58, like pierce (spec #31 foundations); other modifier scores retain their defaults.
+const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "area": 58.0, "cooldown": 54.0, "range": 30.0, "speed": 20.0}
 const SCORE_MOD_OTHER := 25.0
 ## Bonus for cards of a skill of the player's current job (a Magician invests in Magician skills).
 const SCORE_JOB_BONUS := 12.0
@@ -356,7 +357,7 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
 	var sd := w.book.def(key)
-	var attack := String(sd.get("kind", "")) in ["projectile", "instant"]
+	var attack := String(sd.get("kind", "")) in ["projectile", "instant"] or String(sd.get("cast", {}).get("rule", "")) == "box"
 	var sj := int(sd.get("job", -1))
 	var pj := w.progression.job_id
 	var bonus := SCORE_JOB_BONUS if sj == pj or (sj > 0 and w.jobs.is_descendant(pj, sj)) else 0.0

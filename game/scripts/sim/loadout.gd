@@ -126,7 +126,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
-## crit, crit_mult, cooldown, range,
+## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
+## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).

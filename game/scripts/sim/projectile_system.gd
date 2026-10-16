@@ -15,7 +15,7 @@ extends RefCounted
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
 ## rotate (bool), dmg_min, dmg_max, magic (bool), element (canonical elemAttr), crit (chance), crit_mult, pierce,
-## skill (survivor key).
+## skill (survivor key), level (canonical level at cast).
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
 const MAX_HITS := 16
@@ -47,6 +47,8 @@ var hit_count := PackedInt32Array()
 var hit_list := PackedInt64Array()
 var hit_visual := PackedInt32Array()
 var skill := PackedInt32Array()
+## Canonical skill level at launch; later rank changes do not alter on-hit status parameters.
+var level := PackedInt32Array()
 
 ## RunWorld.visual_paths (shared).
 var paths: Array = []
@@ -114,6 +116,7 @@ func spawn(spec: Dictionary) -> int:
 		si = skill_names.size()
 		skill_names.append(key)
 	skill[i] = si
+	level[i] = int(spec.get("level", 0))
 	_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
@@ -132,8 +135,9 @@ func despawn(i: int) -> void:
 
 ## Moves every shot by dt, resolves hits against `swarm` through `grid` (rebuilt this tick from swarm.x/y/active),
 ## appends mob_hit events and fills `kills`. Optional defense/immunity arrays describe this impact tick.
+## on_hit(slot, hit) runs once per damaging contact before apply_hit, with skill/level/magic/damage/element.
 func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array(),
-		physical_allowed: PackedByteArray = PackedByteArray()) -> void:
+		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
@@ -172,7 +176,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			_hit(i, m, swarm, events, live_mdd, physical_allowed)
+			_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit)
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -229,7 +233,8 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: flo
 	return Vector2i(maxi(1, roundi(dmg * element_mult)), 1 if is_crit else 0)
 
 
-func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray) -> void:
+func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray,
+		on_hit: Callable) -> void:
 	if hit_count[i] < MAX_HITS:
 		hit_list[i * MAX_HITS + hit_count[i]] = swarm.identity[m]
 		hit_count[i] += 1
@@ -250,6 +255,9 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		"skill": skill_names[skill[i]],
 	})
 	dealt += roll.x
+	if roll.x > 0 and on_hit.is_valid():
+		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": magic[i] != 0,
+			"damage": roll.x, "element": element[i]})
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 
@@ -279,7 +287,7 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	element.resize(n)

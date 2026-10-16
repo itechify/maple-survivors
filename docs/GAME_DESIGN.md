@@ -349,8 +349,25 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
-#### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
+#### Spec #31 foundations smoke
 
+Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
+both stages and `bot`/`random`, no patches/tuning. All 12 records completed without crashes or world warnings;
+outcomes and death times match the spec-odds smoke above. Henesys reaches Magician in all six runs and spawns
+its first boss in all six; Tree's unchanged early deaths remain recorded only. No second-job skill/card data
+was added. Raw records/console output remain under ignored `_scratch/foundations_balance/`.
+
+| Foundations stage / policy | Clears | Deaths | Magician reaches | MP collected / used |
+|---|---|---|---|---|
+| Henesys bot | 1/3 | 5:28, 15:31 | 3/3 (4:30–4:43) | 452/386 (1.171) |
+| Henesys random | 2/3 | 12:25 | 3/3 (4:23–4:38) | 796/567 (1.404) |
+| Tree bot / random (each) | 0/3 | 1:17, 2:21, 2:21 | 0/3 | 7/0 (undefined) |
+
+Restoration presentation was triggered through the real Flow/RunScene with a temporary evidence driver;
+`evidence/foundations/gain_numbers.png` was checked by eye (HP/MP digits, placement and stacking; missing assets
+empty). Synthetic seam and cached gain-number tests: 15 tests, 0 failed, 0 skipped.
+
+#### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
 The owner rejected the C21 profile's survivor projectile coverage and opening pool: every skill starts as its vanilla
 v83 form (one Three Snails shell, one Energy Bolt; more only from cards, later rarity) and the opening pool stays the
@@ -1268,6 +1285,36 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 ## 7. Skills (auto-cast)
 
+Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
+
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` resolves to
+  `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
+  nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
+  `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
+  Admission prepares targets before the existing single MP payment/cooldown/cast; later rules extend the same
+  `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+- Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
+  `skill_mod` effects with `stat: "area", op: "mul"` multiply that scale (the planned ×1.2 card step is tier C).
+  `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
+  `RunWorld.skill_box_targets(box, filter = Callable())` anchors at player feet, mirrors canonical left-facing x
+  offsets when facing right, broad-phases through the spatial hash and intersects live bodies. It returns all
+  matches ordered by body-centre distance from the cast origin, then slot. Minimum edges include touching bodies;
+  maximum edges exclude them. Optional `filter(slot) -> bool` runs before sorting/capping.
+- Optional `on_hit: {"status": "poison"|"freeze"|"slow", "chance_field": "prop", "duration_field": "time"}`
+  reads canonical fields at the cast level (missing `chance_field`: guaranteed attempt; signed Slow `x` stays
+  canonical). Projectiles retain that level in a packed array. Both impact paths call `RunWorld._on_player_hit`
+  once per damaging line, apply the status through `MobSwarm.apply_status`, then invoke registered
+  `add_hit_listener(callable)` listeners with `(slot, {skill, level, magic, damage, element})`, before HP/kill
+  resolution. Damage is after elements; physical hits participate, poison ticks and zero-damage immunity do not.
+  Listeners must consume RNG only when their effect can apply.
+- `RunWorld.restore_player(stat: String, amount: int, skill: String) -> int` caps positive HP/MP gains, updates
+  public pools and emits `player_restored: {stat, amount, skill, pos}` only for an actual positive integer pool
+  change. The returned amount matches the displayed pool gain (HP rounds up, MP down, as elsewhere). Recovery
+  and potions retain their existing paths. `DamageNumbers.HP_GAIN` uses cached `BasicEff/NoBlue1` then `NoBlue0`;
+  `MP_GAIN` uses the same art tinted cyan. These digit sets exist in the v83 cache (tier A); assigning Blue to HP
+  recovery remains tier C because the cache does not prove usage. Without Blue, tinted Violet is the tier C
+  fallback. RunScene draws restoration events above the player's head using the existing number pool/timing.
+
 Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
 without skips. Learning starts at level 1 and each rank card adds one level. Energy Bolt, Magic Claw, Magic Guard
@@ -1618,6 +1665,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
+| Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
+| Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
 | Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
 | Face blink | `blink` every 2-5 s (seeded) | C | ours |
 | Tombstone drop | `Tomb.img/fall` from 300 px above over its own duration (ease-in), then `land`, stays | C | ours |
