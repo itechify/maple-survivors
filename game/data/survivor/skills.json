@@ -113,6 +113,31 @@
 			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
 		},
+		"cold_beam": {
+			"skill_id": 2201004, "book": "220", "job": 220, "kind": "instant", "slot": "active",
+			"name": "Cold Beam", "desc": "Freezes the nearest monster with an icy beam.",
+			"icon": "Skill.wz/220.img/skill/2201004/icon", "damage": "magic",
+			"_survivor": "Tier C: nearest-target auto-cast, 1.25 s cooldown, 300 px range, one target, swingO1 stance held 0.8 s. Tier A: hit/effect only (no ball), elemAttr i, mad/mastery/mpCon and freeze time from the canonical level; no prop field, so every damaging hit attempts freeze through on_hit.",
+			"cooldown": 1.25, "range": 300, "count": 1,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"on_hit": {"status": "freeze", "duration_field": "time"},
+			"action": "swingO1", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/220.img/skill/2201004/hit/0",
+			"effect": "Skill.wz/220.img/skill/2201004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2201004/Use", "hit": ""}
+		},
+		"thunder_bolt": {
+			"skill_id": 2201005, "book": "220", "job": 220, "kind": "instant", "slot": "active",
+			"name": "Thunder Bolt", "desc": "Strikes nearby monsters with lightning.",
+			"icon": "Skill.wz/220.img/skill/2201005/icon", "damage": "magic",
+			"_survivor": "Tier C: auto-cast with at least one monster in the canonical box, 1.5 s cooldown, swingO1 stance held 0.8 s. Tier A: lt/rb/mobCount, mad/mastery/mpCon and elemAttr l from Skill.wz; hit/effect only (no ball).",
+			"cast": {"rule": "box"}, "cooldown": 1.5,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "swingO1", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/220.img/skill/2201005/hit/0",
+			"effect": "Skill.wz/220.img/skill/2201005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/2201005/Use", "hit": ""}
+		},
 		"fire_arrow": {
 			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
 			"name": "Fire Arrow", "desc": "Fire/Poison Wizard. Shoots a flaming arrow at the nearest monster.",

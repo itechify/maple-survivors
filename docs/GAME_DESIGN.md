@@ -1375,6 +1375,15 @@ existing shots finish separately from carry-over projectile kills.
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
 | Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
+| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
+| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
+
+Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
+Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
+`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
+modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
+has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
+Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
@@ -1669,6 +1678,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
+| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
