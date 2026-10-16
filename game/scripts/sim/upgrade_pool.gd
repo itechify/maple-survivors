@@ -18,6 +18,9 @@ extends RefCounted
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
+## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
+## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
+const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -201,14 +204,16 @@ static func is_power(c: Dictionary) -> bool:
 ## for cards without a skill), skill_changes (rank cards: canonical field ->
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
-## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
+## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
+## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
+## are taken, keys as MOD_PREVIEW names them: shots / targets / pierce / speed / range (whole numbers), cooldown
+## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
+## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
 	var c := card(id)
 	tier = _honest_tier(c, state, tier)
 	var magnitude := _magnitude(c, state, tier)
-	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
-	if c.has("value"):
-		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
+	var desc := describe(id, magnitude)
 	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	var skill_name := ""
@@ -267,7 +272,58 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
+		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
 	}
+
+
+## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value
+## (the level-up card and the Skill window's star tab both show it).
+func describe(id: String, magnitude: int) -> String:
+	var c := card(id)
+	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
+	if c.has("value"):
+		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
+	return desc
+
+
+## The effective values a skill_mod card's `magnitude` steps change, measured on a scratch copy of the loadout with
+## the steps stacked exactly as apply() stacks them.
+static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictionary:
+	var skill := String(c.get("skill", ""))
+	var preview := lo.clone()
+	var touched := []
+	for e: Dictionary in c.get("effects", []):
+		var stat := String(e.get("stat", ""))
+		var op := String(e.get("op", "add"))
+		if not stat in MOD_PREVIEW:
+			continue
+		var value := float(e.get("value", 0.0))
+		preview.add_skill_mod(skill, stat, op, pow(value, magnitude) if op == "mul" else value * magnitude)
+		touched.append(stat)
+	var before := lo.stats(skill)
+	var after := preview.stats(skill)
+	var out := {}
+	for stat: String in touched:
+		if stat == "count":
+			out[SkillRunner.count_meaning(String(before.kind))] = {"before": SkillRunner.strike_count(before),
+				"after": SkillRunner.strike_count(after)}
+		else:
+			out[stat] = {"before": _preview_value(stat, before, lo, skill),
+				"after": _preview_value(stat, after, preview, skill)}
+	return out
+
+
+static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
+	match stat:
+		"cooldown":
+			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
+		"area":
+			return roundi(float(st.area) * 100.0)
+		"damage":
+			return roundi(lo.skill_stat(skill, "damage", 1.0) * 100.0)
+		"crit":
+			return roundi(float(st.crit) * 100.0)
+	return roundi(float(st[stat]))
 
 
 ## Survivor ranks a skill_rank card adds (the sum of its "rank" effects, at least 1).

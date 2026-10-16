@@ -115,6 +115,95 @@ static func wrap(s: String, max_w: float, size: int = SIZE, bold: bool = false) 
 	return out
 
 
+## v83 string markup (skill descriptions, SkillText): `#c...#` is orange, any other `#x` code and a stray `#` are
+## dropped. One line as runs [[text, orange: bool], ...], consecutive runs of one colour merged.
+static func runs(line: String) -> Array:
+	var out: Array = []
+	var orange := false
+	var cur := ""
+	var i := 0
+	while i < line.length():
+		var ch := line[i]
+		if ch != "#":
+			cur += ch
+			i += 1
+			continue
+		var opens := not orange and i + 1 < line.length() and line[i + 1] == "c"
+		var closes := orange
+		if opens or closes:
+			if cur != "":
+				out.append([cur, orange])
+			cur = ""
+			orange = opens
+		i += 1 if closes or i + 1 >= line.length() else 2
+	if cur != "":
+		out.append([cur, orange])
+	var merged: Array = []
+	for r: Array in out:
+		if not merged.is_empty() and merged[-1][1] == r[1]:
+			merged[-1][0] += r[0]
+		else:
+			merged.append(r)
+	return merged
+
+
+## `s` without its markup codes.
+static func plain(s: String) -> String:
+	var lines := PackedStringArray()
+	for line in s.split("\n"):
+		var t := ""
+		for r: Array in runs(line):
+			t += String(r[0])
+		lines.append(t)
+	return "\n".join(lines)
+
+
+## Like wrap, for text with markup: each returned line is markup of its own (an orange run broken over lines is
+## reopened on the next one), measured by its plain text.
+static func wrap_markup(s: String, max_w: float, size: int = SIZE, bold: bool = false) -> PackedStringArray:
+	var out: PackedStringArray = []
+	for para in s.split("\n"):
+		var words: Array = []
+		var word_m := ""
+		var word_p := ""
+		for r: Array in runs(para):
+			var parts := String(r[0]).split(" ")
+			for k in parts.size():
+				if k > 0 and word_p != "":
+					words.append([word_m, word_p])
+					word_m = ""
+					word_p = ""
+				if parts[k] != "":
+					word_m += ("#c%s#" % parts[k]) if r[1] else parts[k]
+					word_p += parts[k]
+		if word_p != "":
+			words.append([word_m, word_p])
+		var line_m := ""
+		var line_p := ""
+		for wd: Array in words:
+			var cand := String(wd[1]) if line_p == "" else line_p + " " + String(wd[1])
+			if line_p != "" and width(cand, size, bold) > max_w:
+				out.append(line_m)
+				line_m = String(wd[0])
+				line_p = String(wd[1])
+			else:
+				line_m = String(wd[0]) if line_p == "" else line_m + " " + String(wd[0])
+				line_p = cand
+		out.append(line_m)
+	return out
+
+
+## Draws one line of markup like draw(): plain runs in `color`, `#c` runs in `highlight`.
+static func draw_markup(ci: CanvasItem, p: Vector2, line: String, color: Color = BLACK, size: int = SIZE,
+		bold: bool = false, outline: int = 0, outline_color: Color = Color(0, 0, 0, 0.9), shadow: bool = false,
+		highlight: Color = ORANGE) -> void:
+	var x := p.x
+	for r: Array in runs(line):
+		var t := String(r[0])
+		draw(ci, Vector2(x, p.y), t, highlight if r[1] else color, size, bold, outline, outline_color, shadow)
+		x += width(t, size, bold)
+
+
 ## `s` shortened with "..." so that it fits in `max_w` px.
 static func ellipsize(s: String, max_w: float, size: int = SIZE, bold: bool = false) -> String:
 	if width(s, size, bold) <= max_w:

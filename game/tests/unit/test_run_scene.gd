@@ -71,10 +71,19 @@ func _assert_nothing_missing(s: RunScene, label: String) -> void:
 	assert_eq(s.setup_missing.size(), 0, "%s: setup misses %s" % [label, s.setup_missing])
 
 
+## The skill icons show the run's skills (icon, rank, key) with the cooldown of the latest frame.
+func _assert_skill_icons_match(s: RunScene) -> void:
+	var expected: Array[Dictionary] = []
+	for row: Dictionary in s.run_info().skills:
+		expected.append({"icon": row.icon, "rank": row.rank, "key_label": row.key_label,
+			"sweep_step": HudSkills.sweep_step(row.cooldown_left, row.cooldown_total), "mp_short": row.mp_short})
+	assert_eq(s.hud.skills.displayed(), expected, "skill widget fed by the run scene")
+
+
 func _assert_hud_matches(s: RunScene) -> void:
 	assert_eq(s.hud.status.player_state, s.world.player_state, "status widget fed by the run scene")
 	assert_eq(s.hud.counters.run_info.kills, s.world.kills, "counter widget fed by the run scene")
-	assert_eq(s.hud.skills.run_info.skills, s.run_info().skills, "skill widget fed by the run scene")
+	_assert_skill_icons_match(s)
 	assert_eq(s.hud.potion_slot.get_parent(), s.hud, "quickslot has its own widget")
 	assert_eq(s.hud.buff_row.get_parent(), s.hud, "buffs have their own widget")
 	assert_eq(s.hud.boss_bar.get_parent(), s.hud, "boss bar has its own widget")
@@ -503,7 +512,7 @@ func test_pause_holds_the_run() -> void:
 	assert_true(w.time > t, "running again")
 	scene.open_pause()
 	pm = scene.window as PauseMenu
-	assert_true(pm != null and pm.activate(1), "Quit to stage select")
+	assert_true(pm != null and pm.activate(3), "Quit to stage select")
 	assert_eq(finished.size(), 1, "quitting ends the run (without Flow: run_finished)")
 	_assert_nothing_missing(scene, "pause")
 

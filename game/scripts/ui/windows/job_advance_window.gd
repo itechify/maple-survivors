@@ -70,6 +70,7 @@ var _options_y := 0.0
 
 func _init() -> void:
 	super._init()
+	window_hotkeys = true
 	name = "JobAdvanceWindow"
 	panel_size = Vector2(DLG_W, 246)
 	_npc = WzImage.new()

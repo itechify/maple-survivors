@@ -185,23 +185,41 @@ func test_regeneration_arrives_as_ten_second_hp_and_mp_pulses() -> void:
 	assert_eq(world.player_state.mp, mp + 3, "3 MP at 10 seconds")
 
 
-func test_level_up_increases_maxima_without_restoring_current_pools() -> void:
-	var world := _mage()
-	world.spend_mp(30)
-	var hp: int = world.player_state.hp
-	var mp: int = world.player_state.mp
-	var max_hp: int = world.player_state.max_hp
-	var max_mp: int = world.player_state.max_mp
-	world.pickups.spawn(world.player.pos, world.progression.exp_to_next(), 4000019)
+## Collects one EXP pickup worth the next `levels` level-ups (one EXP gain), stopping at the level-up window.
+func _collect_levels(world: RunWorld, levels: int) -> void:
+	var amount := 0
+	for k in levels:
+		amount += world.progression.curve.exp_to_next(world.progression.level + k)
+	world.pickups.spawn(world.player.pos, amount, 4000019)
 	for tick in 120:
 		world.step(DT, MoveInput.new())
 		if world.state != RunWorld.PLAYING:
 			break
+
+
+func test_level_up_refills_mp_to_the_new_maximum_and_leaves_hp() -> void:
+	var world := _mage()
+	world.spend_mp(30)
+	var hp: int = world.player_state.hp
+	var max_hp: int = world.player_state.max_hp
+	var max_mp: int = world.player_state.max_mp
+	assert_true(int(world.player_state.mp) < max_mp, "MP starts below its maximum")
+	_collect_levels(world, 1)
 	assert_eq(world.player_state.level, 2, "the pickup causes a real level-up")
 	assert_true(int(world.player_state.max_hp) > max_hp and int(world.player_state.max_mp) > max_mp,
 		"level growth raises both maxima")
+	assert_eq(world.player_state.mp, world.player_state.max_mp, "MP refilled to the new, raised maximum")
 	assert_eq(world.player_state.hp, hp, "no HP is added by either refill or maximum growth")
-	assert_eq(world.player_state.mp, mp, "no MP is added by either refill or maximum growth")
+
+
+func test_several_level_ups_from_one_exp_gain_leave_mp_at_the_final_maximum() -> void:
+	var world := _mage()
+	world.spend_mp(30)
+	var max_mp: int = world.player_state.max_mp
+	_collect_levels(world, 3)
+	assert_eq(world.player_state.level, 4, "one pickup gives three level-ups")
+	assert_true(int(world.player_state.max_mp) > max_mp, "growth raised the maximum")
+	assert_eq(world.player_state.mp, world.player_state.max_mp, "MP sits at the level-4 maximum")
 
 
 func test_improved_mp_recovery_uses_its_canonical_skill_level_per_pulse() -> void:

@@ -93,6 +93,9 @@ const AVOID_LUK_FACTOR := 0.5
 const DEFAULT_REGEN := PlayerUpkeep.DEFAULT_REGEN
 ## tier C: the survivor starter attributes; balance.player.stats overrides each one.
 const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
+## balance.level_up_refill fallback: fraction of the new maximum restored per level-up. MP tier B (v83 servers refill
+## it: Cosmic Character.levelUp calls changeHpMp(maxhp, maxmp)); HP tier C (owner choice: no heal on level-up).
+const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
 ## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
 const DEFAULT_SUMMON_SPACING := 24.0
 
@@ -148,6 +151,7 @@ var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
 var _teleport_left := 0.0
+var _teleport_total := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -447,7 +451,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 ## Owned branch Teleport key, or empty before learning it.
 func teleport_skill() -> String:
 	for key: String in loadout.order:
-		if book.def(key).has("teleport"):
+		if _is_teleport(key):
 			return key
 	return ""
 
@@ -456,6 +460,51 @@ func teleport_skill() -> String:
 func teleport_affordable() -> bool:
 	var key := teleport_skill()
 	return key != "" and _mp >= int(runner.stats_of(self, key).mp_cost)
+
+
+## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
+## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
+func skill_readiness(key: String) -> Dictionary:
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "mp_short": _mp_short(key)}
+
+
+## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
+## (resized in place; nothing is allocated once they have the right size): left, total and mp_short (0/1) as
+## skill_readiness reports them.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, mp_short: PackedByteArray) -> void:
+	var n := loadout.order.size()
+	left.resize(n)
+	total.resize(n)
+	mp_short.resize(n)
+	for i in n:
+		var key: String = loadout.order[i]
+		left[i] = _cooldown_left(key)
+		total[i] = _cooldown_total(key)
+		mp_short[i] = 1 if _mp_short(key) else 0
+
+
+func _is_teleport(key: String) -> bool:
+	var d: Variant = book.defs.get(key)
+	return d is Dictionary and (d as Dictionary).has("teleport")
+
+
+func _cooldown_left(key: String) -> float:
+	if _is_teleport(key):
+		return _teleport_left
+	return maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
+
+
+func _cooldown_total(key: String) -> float:
+	if _is_teleport(key):
+		return _teleport_total
+	return float(runner.cooldown_totals.get(key, 0.0))
+
+
+func _mp_short(key: String) -> bool:
+	if _is_teleport(key):
+		return _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()
+	return _cooldown_left(key) <= 1e-6 and runner.is_waiting_mp(key) \
+		and _mp < float(runner.stats_of(self, key).mp_cost)
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -478,6 +527,7 @@ func _try_teleport(input: MoveInput) -> bool:
 	if direction.x != 0:
 		player.facing = int(direction.x)
 	_teleport_left = float(stats.repeat_delay)
+	_teleport_total = _teleport_left
 	for phase: String in ["departure", "arrival"]:
 		emit("teleport", {"skill": key, "skill_id": int(stats.skill_id), "level": int(stats.level),
 			"phase": phase, "pos": departure if phase == "departure" else player.pos,
@@ -745,7 +795,22 @@ func mob_center(m: int) -> Vector2:
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
 
 
-## All live bodies intersecting a canonical feet-relative, left-facing skill box; nearest centre first, then slot.
+## True when slot m holds a scheduled boss (a BossDirector encounter); elites and boss offspring are not.
+func is_scheduled_boss(m: int) -> bool:
+	return m >= 0 and m < mob_boss.size() and mob_boss[m] >= 0
+
+
+## Target order shared by every player targeting rule: scheduled bosses first, then nearer `d2`, then lower slot.
+## tier C: ours (#83), so attacks reach a boss in range ahead of the swarm around it.
+func targets_before(a: int, da: float, b: int, db: float) -> bool:
+	var boss_a := is_scheduled_boss(a)
+	if boss_a != is_scheduled_boss(b):
+		return boss_a
+	return da < db if da != db else a < b
+
+
+## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
+## centre, then slot (targets_before).
 ## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
 func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
 	if not box.has_area():
@@ -770,9 +835,7 @@ func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32
 		matches.append(m)
 	var origin := cast_origin()
 	matches.sort_custom(func(a: int, b: int) -> bool:
-		var da := mob_center(a).distance_squared_to(origin)
-		var db := mob_center(b).distance_squared_to(origin)
-		return da < db if da != db else a < b)
+		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
 	return PackedInt32Array(matches)
 
 
@@ -1095,10 +1158,9 @@ func _on_kill(m: int) -> void:
 	var chances: Dictionary = balance.get("potions", {}).get("drops", {}).get("elite" if elite else "normal", {})
 	for kind: String in ["hp", "mp"]:
 		var chance := float(chances.get(kind, 0.0))
+		# Only HP has a stage curve; normal MP is one flat chance everywhere (owner, 2026-10-16, #80).
 		if kind == "hp" and not elite:
 			chance = director.normal_hp_drop_chance_at(time, chance)
-		elif kind == "mp" and not elite:
-			chance = director.normal_mp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
 
@@ -1248,9 +1310,9 @@ func _on_level_up(level: int) -> void:
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	refresh_player_stats(false)
-	var refill := float(balance.get("level_up_refill", 0.0))
-	_hp = minf(_max_hp, _hp + refill * _max_hp)
-	_mp = minf(_max_mp, _mp + refill * _max_mp)
+	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
+	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
+	_mp = minf(_max_mp, _mp + float(refill.get("mp", DEFAULT_LEVEL_UP_REFILL.mp)) * _max_mp)
 	emit("level_up", {"level": level})
 
 

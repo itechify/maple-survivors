@@ -101,7 +101,8 @@ screenshots; numbers alone do not show a broken sprite.
 The whole menu flow with injected keyboard/mouse input (title, stage select, a run steered with the arrow keys, the
 level-up / job / pause windows, death, results, retry, quit) is `game/scenes/debug/flow_driver.tscn`:
 `bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
-(scenarios `full`, `clear`, `import`; see the script header).
+(scenarios `full`, `clear`, `import`, `title`, and the in-run windows `windows` (#85), `skill` (#86), `keys` (#87); see
+the script header).
 
 ### Balance (`scripts/balance.sh`)
 

@@ -29,6 +29,18 @@ extends Node2D
 ## has played; several queued levels open their windows one after another. The windows' art is loaded during setup
 ## (_warm_ui) so the first window does not stall a frame; _warm_stage likewise loads the job-change sounds and every
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
+##
+## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
+## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
+## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
+## pause menu, the modal window below (if any) ignores input (MapleWindow.input_blocked), and no new level-up / job
+## window opens. Esc (handle_hotkey) closes the top window first; only with none open does it open the pause menu.
+## Stat / Skill open over a level-up or job choice (those windows pass the hotkeys on) but not while paused or once
+## the run is ending.
+## Key Config and Options (#87; `settings`, the Settings autoload) are Menu entries and pause-menu choices; from the pause
+## menu they open over it (PAUSE_WINDOWS) and Esc closes them back to it.
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
@@ -66,6 +78,12 @@ const WINDOW_DELAY := 1.2
 ## tier C (ours): seconds the JobChanged effect plays before the next window opens when its animation is missing
 ## (otherwise the animation's own length, ~1.3 s, is used).
 const JOB_WINDOW_DELAY := 1.3
+## Input action -> the in-run window it toggles (project.godot defaults S and K; rebindable in Settings).
+const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill"}
+## CanvasLayer of the in-run windows: above the modal windows (10), below the perf overlay (20).
+const UI_LAYER := 11
+## In-run windows that also open while the run is paused (from the pause menu, #87).
+const PAUSE_WINDOWS := ["key_config", "options"]
 ## Seconds a closed window is kept for its fade-out before it is freed (MapleWindow closes in 0.12 s).
 const WINDOW_FREE_DELAY := 0.5
 ## tier C (ours): seconds after the tombstone has landed before the run ends.
@@ -105,6 +123,9 @@ var map_id := 0
 var setup_missing := PackedStringArray()
 ## Why the run could not start ("" when it did).
 var error := ""
+## Player-visible skill text (String.wz/Skill.img with the survivor overrides) for the level-up cards and the skill
+## windows: text.desc(key), text.level_line(key, level, world.loadout.stats(key, rank)).
+var skill_text: SkillText
 
 ## Presentation nodes.
 var world_root: Node2D
@@ -129,6 +150,11 @@ var hud: Hud
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
+## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
+var ui_layer: CanvasLayer
+var ui_windows: WindowStack
+## The settings the Key Config and Options windows edit (the "Settings" autoload unless a test sets another first).
+var settings: GameSettings
 var perf_layer: CanvasLayer
 ## The open window (LevelUpWindow / JobAdvanceWindow / PauseMenu), null when none.
 var window: Node
@@ -168,6 +194,13 @@ var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
+var _hud_sig_scratch := PackedInt32Array()
+## Cached caption of the Teleport icon (_on_settings_changed; null until first read) and the reused per-frame
+## cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
+var _teleport_label: Variant = null
+var _cd_left := PackedFloat32Array()
+var _cd_total := PackedFloat32Array()
+var _cd_short := PackedByteArray()
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
@@ -253,6 +286,7 @@ func _ready() -> void:
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
 	world = RunWorld.new(setup)
+	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
 		push_warning("RunScene: " + w)
 	var warp := float(options.get("warp", 0.0))
@@ -310,12 +344,83 @@ func _unhandled_input(event: InputEvent) -> void:
 		_perf_refresh = 0.0
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("pause") and not event.is_echo():
+	if handle_hotkey(event):
 		get_viewport().set_input_as_handled()
+
+
+## The run's window keys: Esc ("pause") closes the top in-run window, else resumes / opens the pause menu; the Stat /
+## Skill actions toggle their windows (not while paused or once the run is ending); any other key (repeats too) goes to
+## the front in-run window (UiWindow.handle_key: the Skill window's arrows / 1-n). True when the event was used.
+func handle_hotkey(event: InputEvent) -> bool:
+	if world == null:
+		return false
+	if event.is_echo():
+		return _front_window_key(event)
+	if event.is_action_pressed("pause"):
+		if ui_windows != null and ui_windows.close_top():
+			return true
 		if paused:
 			resume()
 		elif window == null and _end_kind == "":
 			open_pause()
+		return true
+	for action: String in WINDOW_HOTKEYS:
+		if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
+			toggle_window(String(WINDOW_HOTKEYS[action]))
+			return true
+	return _front_window_key(event)
+
+
+func _front_window_key(event: InputEvent) -> bool:
+	var top := ui_windows.top() if ui_windows != null else null
+	return top != null and top.handle_key(event)
+
+
+## Opens or closes in-run window `id` (WindowStack.toggle); false when it cannot open now (paused - only Key Config and
+## Options open over the pause menu -, run ending, nothing registered under `id`) or when it was closed.
+func toggle_window(id: String) -> bool:
+	if ui_windows == null:
+		return false
+	if ui_windows.find_window(id) != null:
+		return ui_windows.toggle(id)
+	if (paused and not id in PAUSE_WINDOWS) or _end_kind != "":
+		return false
+	ui_windows.close("menu")
+	return ui_windows.toggle(id)
+
+
+## Opens or closes the status bar's Menu popup above hud.menu_button.
+func toggle_menu() -> void:
+	if ui_windows == null:
+		return
+	if ui_windows.close("menu") or paused or _end_kind != "":
+		return
+	var popup := GameMenuPopup.new()
+	popup.stack = ui_windows
+	var bt := hud.menu_button.get_global_rect()
+	popup.ignore_rect = bt
+	popup.position = Vector2(bt.end.x - popup.size.x, bt.position.y - popup.size.y).floor()
+	ui_windows.open(popup)
+
+
+## The Stat window's numbers (StatWindow): identity, pools and the v83 stats the sim has; rows it does not model
+## (guild, fame, hands) are left out and show "-". tier C: attack = the held weapon's incPAD, magic = INT + magic
+## attack (equipment incMAD and buffs), accuracy = buff accuracy only (the sim has no player accuracy rule).
+func stat_info() -> Dictionary:
+	var ps := world.player_state
+	var out := {"name": _player_name(), "job": world.jobs.name_of(int(ps.job_id)), "ap": 0,
+		"exp_next": int(ps.exp_next), "attack": int(float(world.weapon_info().get("incPAD", 0))),
+		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
+		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
+		"jump": world.player.jump_stat}
+	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
+		out[key] = int(ps.get(key, 0))
+	return out
+
+
+## True while an in-run window (Stat, the Menu popup, ...) is open.
+func ui_windows_open() -> bool:
+	return ui_windows != null and ui_windows.has_windows()
 
 
 ## One presentation frame of `delta` seconds (scaled by Engine.time_scale when called from _process): sim ticks,
@@ -326,7 +431,8 @@ func advance_frame(delta: float) -> void:
 	_frame_sounds.clear()
 	_last_delta = delta
 	world.view_size = _view_size()
-	if not paused and window == null and world.state == RunWorld.PLAYING:
+	var held := paused or ui_windows_open()
+	if not held and window == null and world.state == RunWorld.PLAYING:
 		_acc += delta
 		var budget := MAX_TICKS_PER_FRAME * _speed
 		var first := true
@@ -355,15 +461,16 @@ func advance_frame(delta: float) -> void:
 		_teleport_latch = false
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
-	_auto_resolve_window(delta)
-	if window == null and not paused:
+	if not held:
+		_auto_resolve_window(delta)
+	if window == null and not held:
 		_service_windows()
 	if _frame_exp > 0 and hud != null:
 		hud.show_exp(_frame_exp)
 		counters.exp_messages += 1
 	_frame_exp = 0
 	_advance_end(delta)
-	if not paused:
+	if not held:
 		_present(delta)
 	_automation()
 
@@ -486,6 +593,7 @@ func _build_overlays() -> void:
 	windows_layer.name = "Windows"
 	windows_layer.layer = 10
 	add_child(windows_layer)
+	_build_ui_windows()
 	perf_layer = CanvasLayer.new()
 	perf_layer.name = "Perf"
 	perf_layer.layer = 20
@@ -493,6 +601,72 @@ func _build_overlays() -> void:
 	_perf_canvas = Node2D.new()
 	perf_layer.add_child(_perf_canvas)
 	_perf_canvas.draw.connect(_draw_perf)
+
+
+## The in-run window layer and stack with every window factory (one register() per window), and the Menu button.
+func _build_ui_windows() -> void:
+	ui_layer = CanvasLayer.new()
+	ui_layer.name = "UiWindows"
+	ui_layer.layer = UI_LAYER
+	add_child(ui_layer)
+	var stack := WindowStack.new()
+	ui_layer.add_child(stack)
+	use_window_stack(stack)
+	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
+	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
+		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+	hud.menu_button.pressed.connect(toggle_menu)
+	if settings == null:
+		settings = get_node_or_null("/root/Settings") as GameSettings
+	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings))
+	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
+	if settings != null:
+		watch_settings(settings)
+
+
+## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
+## movement-set switch in Options), and the HUD redraws with them at once, even while the run is held.
+func watch_settings(s: GameSettings) -> void:
+	settings = s
+	if not s.changed.is_connected(_on_settings_changed):
+		s.changed.connect(_on_settings_changed)
+	_on_settings_changed()
+
+
+func _on_settings_changed() -> void:
+	_teleport_label = _first_key_label("teleport")
+	if hud == null or world == null:
+		return
+	hud.potion_slot.refresh_key_labels()
+	_hud_sig = PackedInt32Array()
+	_update_hud()
+
+
+## The caption of the first key bound to `action` ("" when unbound): a skill icon has room for one.
+static func _first_key_label(action: String) -> String:
+	var label := GameSettings.action_label(action, "\n").get_slice("\n", 0)
+	return "" if label == "-" else label
+
+
+## Makes `stack` the run's in-run window stack: while it has a window open the run is held (see the class doc).
+func use_window_stack(stack: WindowStack) -> void:
+	ui_windows = stack
+	stack.changed.connect(_on_ui_windows_changed)
+
+
+## Holds / releases the run as in-run windows open and close (see the class doc).
+func _on_ui_windows_changed() -> void:
+	var open := ui_windows_open()
+	if open:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_freeze(open or paused)
+	_sync_modal_input()
+
+
+## A modal window under an open in-run window ignores input until the in-run windows are closed.
+func _sync_modal_input() -> void:
+	if window is MapleWindow and is_instance_valid(window):
+		(window as MapleWindow).input_blocked = ui_windows_open()
 
 
 ## Loads what the first level-up / job / pause window and the level-up effect draw (the UI imgs, the Magician
@@ -932,7 +1106,8 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level, bool(req.get("bonus", false)), bool(req.get("advancement", false)))
+			lw.open(skill_text.dress(req.cards, world.loadout), level, bool(req.get("bonus", false)),
+				bool(req.get("advancement", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
@@ -966,13 +1141,17 @@ func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -
 	if kind != "pause":
 		_event_shot("window_%s_%d.png" % ["advancement" if bool(req.get("advancement", false)) else kind, level], 0.6)
 	windows_layer.add_child(w)
+	_sync_modal_input()
 
 
 ## Forgets the open window; it is freed once its own fade-out (MapleWindow transition) has had time to play.
 func _close_window() -> void:
 	if window != null and is_instance_valid(window):
-		# Connected to the window itself: the connection goes away if the window is freed first (with the scene).
-		get_tree().create_timer(WINDOW_FREE_DELAY, true, false, true).timeout.connect(window.queue_free)
+		if is_inside_tree():
+			# Connected to the window itself: the connection goes away if the window is freed first (with the scene).
+			get_tree().create_timer(WINDOW_FREE_DELAY, true, false, true).timeout.connect(window.queue_free)
+		else:
+			window.queue_free() # a scene outside the tree (tests) has no timers and no fade to wait for
 	window = null
 	_window_kind = ""
 
@@ -1016,7 +1195,17 @@ func open_pause() -> void:
 	_show_window(pm, "pause")
 	pm.resumed.connect(resume)
 	pm.quit_requested.connect(_on_quit_requested)
+	pm.window_requested.connect(_open_from_pause)
 	pm.open()
+
+
+## The pause menu's Key Config / Options choice: opens that window over the menu (or brings it to the front).
+func _open_from_pause(id: String) -> void:
+	var open := ui_windows.find_window(id) if ui_windows != null else null
+	if open != null:
+		ui_windows.bring_to_front(open)
+	else:
+		toggle_window(id)
 
 
 ## Closes the pause menu and continues the run.
@@ -1024,7 +1213,7 @@ func resume() -> void:
 	if _window_kind == "pause":
 		_close_window()
 	paused = false
-	_freeze(false)
+	_freeze(ui_windows_open())
 
 
 func _on_quit_requested() -> void:
@@ -1183,16 +1372,12 @@ func _update_hud() -> void:
 	var ps := world.player_state
 	# The encounter widget tracks damage every frame, independently of the status/timer snapshot signature.
 	hud.boss_bar.update(ps, {"bosses": boss_bars()})
-	var sig := PackedInt32Array([int(ps.hp), int(ps.mp), int(ps.max_hp), int(ps.max_mp), int(ps.exp),
-		int(ps.exp_next), int(ps.level), int(ps.job_id), int(run_time()), world.kills, world.loadout.version,
-		int(ps.potions.hp.count), int(ps.potions.mp.count), int(ps.potions.hp.item_id), int(ps.potions.mp.item_id),
-		int(bool(ps.get("mp_short", false)))])
-	for buff: Dictionary in ps.buffs:
-		sig.append(int(buff.skill_id))
-		sig.append(ceili(float(buff.remaining)))
-	if sig == _hud_sig:
+	if not _hud_snapshot_changed(ps):
+		# Cooldown sweeps move every tick: the skill icons take them every frame from reused buffers (no new arrays,
+		# dictionaries or strings) and redraw only when a sweep step or tint changed.
+		world.read_skill_cooldowns(_cd_left, _cd_total, _cd_short)
+		hud.skills.set_cooldowns(_cd_left, _cd_total, _cd_short)
 		return
-	_hud_sig = sig
 	var info := run_info()
 	hud.store_state(ps, info)
 	hud.status.update(ps, info)
@@ -1201,6 +1386,37 @@ func _update_hud() -> void:
 	hud.system_messages.update(ps, info)
 	hud.potion_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
+
+
+## Whether the status/timer snapshot differs from the one last shown (then it becomes the shown one). The signature
+## is written into a reused buffer, so an unchanged frame allocates nothing.
+func _hud_snapshot_changed(ps: Dictionary) -> bool:
+	var buffs: Array = ps.buffs
+	var sig := _hud_sig_scratch
+	sig.resize(16 + buffs.size() * 2)
+	sig[0] = int(ps.hp)
+	sig[1] = int(ps.mp)
+	sig[2] = int(ps.max_hp)
+	sig[3] = int(ps.max_mp)
+	sig[4] = int(ps.exp)
+	sig[5] = int(ps.exp_next)
+	sig[6] = int(ps.level)
+	sig[7] = int(ps.job_id)
+	sig[8] = int(run_time())
+	sig[9] = world.kills
+	sig[10] = world.loadout.version
+	sig[11] = int(ps.potions.hp.count)
+	sig[12] = int(ps.potions.mp.count)
+	sig[13] = int(ps.potions.hp.item_id)
+	sig[14] = int(ps.potions.mp.item_id)
+	sig[15] = int(bool(ps.get("mp_short", false)))
+	for i in buffs.size():
+		sig[16 + i * 2] = int(buffs[i].skill_id)
+		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
+	if sig == _hud_sig:
+		return false
+	_hud_sig = sig.duplicate()
+	return true
 
 
 ## Live encounter snapshots for the dedicated HUD bar; canonical hpTag values remain unchanged in the asset cache.
@@ -1227,19 +1443,18 @@ func run_time() -> float:
 	return snappedf(world.time, 0.001)
 
 
-## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with ranks.
+## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
 func run_info() -> Dictionary:
+	if _teleport_label == null:
+		_teleport_label = _first_key_label("teleport")
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		var manual := world.book.def(key).has("teleport")
-		var label := ""
-		if manual:
-			for binding: InputEvent in InputMap.action_get_events("teleport"):
-				if binding is InputEventKey:
-					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
-					break
+		var label: String = _teleport_label if world.book.def(key).has("teleport") else ""
+		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
-			"key_label": label, "affordable": world.teleport_affordable() if manual else true})
+			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
+			"mp_short": bool(ready.mp_short)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills}

@@ -89,6 +89,7 @@ func _spec(info: Dictionary, action: String) -> Dictionary:
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
 
 
+## The swing's single target in the facing box: a scheduled boss first, then nearest, then slot (targets_before).
 func _nearest(world: RunWorld, relative: Rect2, facing: int) -> int:
 	var box := relative
 	if facing > 0:
@@ -105,7 +106,7 @@ func _nearest(world: RunWorld, relative: Rect2, facing: int) -> int:
 		if not box.intersects(kind.hitbox_at(world.swarm.x[mob], world.swarm.y[mob], world.swarm.facing[mob])):
 			continue
 		var d := world.mob_center(mob).distance_squared_to(world.cast_origin())
-		if d < distance or (d == distance and mob < best):
+		if best < 0 or world.targets_before(mob, d, best, distance):
 			best = mob
 			distance = d
 	return best
