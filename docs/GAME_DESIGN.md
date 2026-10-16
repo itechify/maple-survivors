@@ -2044,6 +2044,17 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
+Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,
+with its stage and seed; Quit round confirms that progress will be lost and preserves those bytes. Continue replays
+the round from its start. Death and final-tier victory end the run in history; other clears carry the character
+through the single `SceneFlow._after_round_cleared` seam. Tool-only `--run` rounds never write slots/history/bests.
+The temporary plain character screen uses a dark blue background (RGB 25/44/58), three slot rows, name creation,
+continue, confirmed delete and a history entry point (tier C, #69; #70 replaces its presentation). Map select keeps
+the existing parchment, adds the character/tier heading at y=32 and labels Back as Save & quit (tier C, layout).
+The exact Quit round confirmation is owner #32 copy: "You'll lose this round's progress. Continue later to restart
+the round from its beginning." Victory results show the tiers cleared and return to character select (tier C).
+
 The spec #32 save contract (#68, tier C owner decision) uses save format 2 and three living character slots.
 Run wrappers use the three phases `free_market` / `map_select` / `round` and zero-based next-tier indexes;
 history endings are `died` / `victory` / `deleted`. Names use the owner's 4-12 ASCII letters/digits rule;

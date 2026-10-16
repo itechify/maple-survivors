@@ -213,6 +213,7 @@ func _layout() -> void:
 	var r := ParchmentScroll.PARCHMENT
 	start_button.position = Vector2(LIST_X + floorf((LIST_W - start_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
+	# tier C: #69 character/tier heading, above the existing parchment.
 	character_label.position = Vector2(floorf((view.x - character_label.get_minimum_size().x) * 0.5), 32)
 
 

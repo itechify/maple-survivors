@@ -68,8 +68,16 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 
 ### 4.1 Scene flow
 
-`main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `StageSelect` ->
-`RunScene` -> `ResultsScreen` -> back to `StageSelect` or a restart of the same stage.
+`main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `CharacterSelect` ->
+`StageSelect` (map select for this character's next tier) -> `RunScene` (one round). Non-final clears carry the
+character to the next tier's map select; death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
+There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
+
+`SceneFlow` owns the active slot and boundary persistence. It saves phase `map_select` on entry and phase `round`
+with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
+seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
+coordinator's header documents #70's small character-screen calls and #71's sole `_after_round_cleared` insertion
+point (Free Market is added by that ticket). `--run` calls `start_run`, an independent one-off with no save writes.
 
 ### 4.2 Autoloads
 
@@ -78,7 +86,7 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
 | `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
-| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child (`goto_title`, `goto_stage_select`, `goto_import`, `start_run`, `finish_run` -> results + best result in `SaveData`), `--run=<stage>` command line |
+| `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
@@ -96,7 +104,7 @@ name from canonical jobs; pass the final run wrapper for terminal progress, or o
 `ending` is `died`, `victory` or `deleted`. Supplying a finished-round summary to either mutation counts that round
 and compares its best in the same transaction. Supply it once; do not also call `record` for that round.
 The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helpers retain their existing behavior;
-#69 owns the scene-flow switch and skipping every persistence call for tool-only one-off rounds.
+#69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
 
 Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
 Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation

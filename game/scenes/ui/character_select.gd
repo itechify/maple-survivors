@@ -1,6 +1,12 @@
 extends Control
 ## Plain character slots and history for #69. #70 replaces this presentation; all actions go through SceneFlow.
 
+## tier C: temporary plain-screen dimensions and typography for #69; #70 replaces the screen.
+const COLUMN_WIDTH := 560.0
+const ROW_GAP := 14
+const HEADING_SIZE := 24
+const HISTORY_HEIGHT := 300.0
+
 var flow: SceneFlow
 var history_mode := false
 var name_edit: LineEdit
@@ -25,16 +31,16 @@ func _ready() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var column := VBoxContainer.new()
-	column.custom_minimum_size.x = 560
-	column.add_theme_constant_override("separation", 14)
+	column.custom_minimum_size.x = COLUMN_WIDTH
+	column.add_theme_constant_override("separation", ROW_GAP)
 	center.add_child(column)
 	var heading := Label.new()
 	heading.text = "Run history" if history_mode else "Character select"
-	heading.add_theme_font_size_override("font_size", 24)
+	heading.add_theme_font_size_override("font_size", HEADING_SIZE)
 	column.add_child(heading)
 	if history_mode:
 		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size.y = 300
+		scroll.custom_minimum_size.y = HISTORY_HEIGHT
 		column.add_child(scroll)
 		var entries := VBoxContainer.new()
 		scroll.add_child(entries)
@@ -55,7 +61,8 @@ func _ready() -> void:
 			slot.name, int(slot.character.level), JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(slot.character.job_id))]
 		row.add_child(label)
 		if not slot.is_empty():
-			_button(row, "Continue", func() -> void: flow.continue_character(i))
+			var resume_button := _button(row, "Continue", func() -> void: flow.continue_character(i))
+			resume_button.name = "Continue%d" % i
 			_button(row, "Delete", func() -> void: _confirm_delete(i))
 	name_edit = LineEdit.new()
 	name_edit.name = "CharacterName"
@@ -66,7 +73,7 @@ func _ready() -> void:
 	create_button.disabled = not flow.save_data().slots.has(null)
 	name_edit.text_submitted.connect(func(_text: String) -> void: _create())
 	message = Label.new()
-	message.custom_minimum_size.x = 560
+	message.custom_minimum_size.x = COLUMN_WIDTH
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(message)
 	_button(column, "Run history", flow.goto_history)
@@ -89,7 +96,9 @@ func _confirm_delete(index: int) -> void:
 	delete_dialog.popup_centered()
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	if delete_dialog != null and delete_dialog.visible:
+		return
 	if MapleWindow.key_pressed(event, KEY_ESCAPE):
 		if history_mode:
 			flow.goto_character_select()
@@ -110,4 +119,3 @@ func _button(parent: Node, text: String, action: Callable) -> Button:
 	button.pressed.connect(action)
 	parent.add_child(button)
 	return button
-

@@ -52,7 +52,7 @@ func _init() -> void:
 
 
 func _size_content() -> void:
-	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE) if confirming_quit else PackedStringArray(["The game is paused."])
+	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE, true) if confirming_quit else PackedStringArray(["The game is paused."])
 	_options_y = TEXT_Y + lines.size() * MapleText.LINE + 7.0
 	var content := _options_y + CHOICES.size() * OPTION_H + 2.0
 	var n := TiledFrame.center_count(content - 8.0 + BOTTOM_H, TOP_H, MID_H, BOTTOM_H)
@@ -149,7 +149,7 @@ func _draw_panel(ci: Control) -> void:
 		panel_size.y)
 	if h <= 0.0:
 		ci.draw_rect(Rect2(Vector2.ZERO, panel_size), Color8(68, 136, 187))
-	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE) if confirming_quit else PackedStringArray(["The game is paused."])
+	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE, true) if confirming_quit else PackedStringArray(["The game is paused."])
 	for i in lines.size():
 		MapleText.draw(ci, Vector2(TEXT_X, TEXT_Y + i * MapleText.LINE), lines[i], MapleText.WHITE, MapleText.SIZE, true, 0,
 			Color8(17, 85, 153), true)

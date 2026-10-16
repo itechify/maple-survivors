@@ -285,3 +285,39 @@ func _first_minute(world: RunWorld) -> String:
 		world.step(1.0 / 60.0, BotInput.decide(world, memo))
 		events += JSON.stringify(world.drain_events(), "", false, true)
 	return events
+
+
+func test_save_and_quit_continue_map_select_and_delete_history() -> void:
+	var flow := _flow()
+	flow.create_character("Slots69")
+	flow.start_round("dark_cave", 7)
+	assert_eq(flow.current_name, "stage_select", "a later tier cannot be selected early")
+	flow.save_and_quit()
+	assert_eq(flow.current_name, "character_select")
+	flow.continue_character(0)
+	assert_eq(flow.current_name, "stage_select")
+	assert_eq(flow.current.snapshot.name, "Slots69")
+	assert_true(flow.delete_character(0))
+	assert_eq(flow.current_name, "character_select")
+	assert_true(SaveData.new(save_path).slot(0).is_empty())
+	assert_eq(flow.save.history[0].ending, "deleted")
+	flow.goto_history()
+	assert_eq(flow.current_name, "history")
+
+
+func test_one_off_character_round_leaves_existing_save_bytes_unchanged() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.create_character("Tool69")
+	var bytes := FileAccess.get_file_as_string(save_path)
+	var path := ProjectSettings.globalize_path("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	flow.start_run("henesys_hg1", 7, {"character": path})
+	var run := flow.current as RunScene
+	assert_eq(int(run.world.player_state.level), 38)
+	assert_eq(flow.active_slot, -1)
+	flow.finish_run(summary(true, 900, 35, 3000))
+	assert_eq(flow.current_name, "results")
+	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
+	assert_eq(flow.save.runs_for("henesys_hg1"), 0)
+	assert_eq(flow.save.history.size(), 0)
