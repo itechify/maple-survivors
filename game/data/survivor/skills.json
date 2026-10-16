@@ -113,6 +113,36 @@
 			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
 		},
+		"mp_eater_fp": {
+			"skill_id": 2100000, "book": "210", "job": 210, "kind": "passive", "slot": "passive",
+			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
+			"icon": "Skill.wz/210.img/skill/2100000/icon", "damage": "none",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/210.img/skill/2100000/effect", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"mp_eater_il": {
+			"skill_id": 2200000, "book": "220", "job": 220, "kind": "passive", "slot": "passive",
+			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
+			"icon": "Skill.wz/220.img/skill/2200000/icon", "damage": "none",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/220.img/skill/2200000/effect", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"mp_eater_cleric": {
+			"skill_id": 2300000, "book": "230", "job": 230, "kind": "passive", "slot": "passive",
+			"name": "MP Eater", "desc": "Magic hits may absorb MP from a monster's remaining pool.",
+			"icon": "Skill.wz/230.img/skill/2300000/icon", "damage": "none",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"_passive": "Tier A: canonical prop chance, x percent of Mob.wz maxMP, and exhaustion. Tier C: survivor magic-hit listener; absorb truncates to whole MP (integer interpretation).",
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/230.img/skill/2300000/effect", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
 		"holy_arrow": {
 			"skill_id": 2301005, "book": "230", "job": 230, "kind": "projectile", "slot": "active",
 			"name": "Holy Arrow", "desc": "Cleric. Shoots a holy arrow at the nearest monster.",

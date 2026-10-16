@@ -78,6 +78,10 @@ func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
 			assert_has(ids, "teleport_cleric_new", "Cleric's new utility skill can fill the advancement draw")
 			assert_has(ids, "holy_arrow_new")
 			assert_has(ids, "heal_new")
+		for card: Dictionary in w.pending_cards:
+			if card.kind != "filler":
+				assert_eq(card.kind, "skill_new", "advancement offers new branch skills")
+				assert_eq(int(w.book.def(card.skill).job), branch)
 		if not w.pending_cards.is_empty():
 			assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 			assert_eq(w.progression.front(), 30)

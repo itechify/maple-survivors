@@ -88,6 +88,12 @@ static func skill_imgs() -> Dictionary:
 			imgs[pair[0]] = {"skill": {}}
 		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32),
 			"level": _levels(20, {"mpCon": [60.0, 13.0], "range": [130.0, 150.0]})}
+	# MP Eater's three branch copies (#59). Synthetic tables match the independently cache-checked endpoints.
+	for job: int in [210, 220, 230]:
+		var book := str(job)
+		if not imgs.has(book):
+			imgs[book] = {"skill": {}}
+		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
 	return imgs
 
 

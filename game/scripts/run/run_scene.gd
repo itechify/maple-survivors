@@ -712,6 +712,15 @@ func handle_events(events: Array) -> void:
 				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
 				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN if e.stat == "hp" else DamageNumbers.MP_GAIN, PLAYER_KEY)
 				counters.numbers += 1
+			"mp_eater_absorbed":
+				var key := String(e.skill)
+				fx.play(world.book.visual(key, "effect", world.loadout.level(key), int(world.player_state.level)),
+					Vector2.ZERO, world.player.facing > 0, avatar)
+				# tier A: v83 has no MP Eater Sound.wz entry; quietly probe any optional cached use sound.
+				var sound := SND_SKILL_USE % world.book.skill_id(key)
+				if library.find(sound) is Dictionary:
+					_sound(sound)
+				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":
