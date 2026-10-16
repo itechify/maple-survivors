@@ -155,6 +155,8 @@ func _slots() -> void:
 	history.pressed.connect(flow.goto_history)
 	_surface.add_child(history)
 	message = _label(_surface, "", Vector2(185, 472), Vector2(390, 18))
+	# tier C: keep keyboard instructions legible when the selected beam crosses the hint's screen region.
+	_surface.move_child(hint, _surface.get_child_count() - 1)
 	delete_dialog = CONFIRM.new()
 	delete_dialog.confirmed.connect(_delete_confirmed)
 	_ui.add_child(delete_dialog)
