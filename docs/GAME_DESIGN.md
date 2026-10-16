@@ -1887,6 +1887,45 @@ Each scalable card rolls the usual rarity tier and contributes to offered/picked
 `choice_pending.advancement` identifies this draw independently of `bonus`; the window reads "Job Advancement".
 "Not now" goes directly to the normal level draw.
 
+### 8.2 Skill and card text (#81)
+
+Player-visible skill text comes from one presentation source, `SkillText` (`game/scripts/ui/skill_text.gd`): a
+skill's v83 `String.wz/Skill.img` `desc` and its line for a level (`hN`, named by the level node's `hs`). A survivor
+override in `skills.json` (`text.desc`, `text.h`) replaces either one where this game behaves differently. A level-line
+override is a template filled from the skill's **effective** stats (`Loadout.stats(key, rank)`, so behaviour cards
+count: a +2 targets card on Thunder Bolt makes the line say 8), then the canonical fields of that level. The level-up
+window uses it now; the Skill window tooltips (#86) reuse it.
+
+- **Learn card:** the skill's desc and the line of its starting level (level 1 for Normal, higher for rarer tiers);
+  the line is never shortened.
+- **Rank card:** the next level's line, above the before → after values it already showed.
+- **Mod card:** its own effect text from `upgrades.json`, plus the effective value it changes, e.g. "Targets: 1 → 2",
+  "Cooldown: 1.1 s → 0.97 s" (`choice_pending` card `skill_mod_changes`, measured on a scratch loadout).
+- Cards keep their `upgrades.json` text where the cache has no String.wz (and for stat, potion and Elixir cards).
+- `#c…#` is drawn in the skill-window orange and `\n` breaks the line; other `#` codes are dropped, never drawn.
+- WZ descs lose their "[Master Level : N]" line (the level text already shows the cap) and their "Required Skill"
+  lines (WZ prerequisites are ignored, #31). No player-visible text says "canonical".
+
+Overridden skills (everything else shows the WZ text unchanged: Nimble Feet, Magic Guard, Magic Armor, the three
+MP Eaters, Invincible and both Slows):
+
+| Skill | Overrides | Why |
+|---|---|---|
+| Recovery (1001) | desc, h | WZ text says MP 10 and 10 min between uses; v83 data is `mpCon` 5 and `cooltime` 120, and here it fires below half HP, healing `x` HP every 5 s |
+| Three Snails (1000) | h | adds the shells per throw (Additional Shell cards) |
+| Energy Bolt (2001004) | desc, h | "one enemy": Extra Bolt cards fire more bolts |
+| Magic Claw (2001005) | desc, h | Twin Claw cards strike more monsters |
+| Fire Arrow (2101004), Holy Arrow (2301005) | desc, h | "a single monster": extra-arrow and pierce cards |
+| Poison Breath (2101005) | desc | "a single monster": pierce cards |
+| Cold Beam (2201004) | desc, h | Spreading Frost cards freeze more monsters |
+| Thunder Bolt (2201005) | desc, h | "all monsters in the range": it hits up to its mob count (canonical 6 plus cards) |
+| Improved MaxMP Increase (2000001) | desc, h | survivor reinterpretation: +2% Max MP per level, not MP per level-up / AP (its WZ desc is also malformed) |
+| Improved MP Recovery (2000000) | h | the WZ line has no number; states the floor(character level × skill level / 10) MP every 10 s |
+| Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
+| Meditation (2101001, 2201001) | desc, h | "party members": self-only |
+| Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
+| Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
+
 
 ## 9. Jobs
 
@@ -2113,6 +2152,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Character name tag | the character name under the feet in the elite name-tag style | C | ours |
 | UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
+| Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText, LevelUpWindow.dress |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 
 ## 12. Later phases

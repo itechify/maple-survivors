@@ -33,7 +33,7 @@ const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP co
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
 const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
-## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys), in display order.
+## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys), in display order. tier C: our wording.
 const MOD_LABELS := {"shots": ["Shots", ""], "targets": ["Targets", ""], "pierce": ["Pierce", ""],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
