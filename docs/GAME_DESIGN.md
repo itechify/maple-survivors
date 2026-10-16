@@ -341,6 +341,9 @@ clear at 930.1 s (all bosses dead, all choices resolved); `_doc` records the gen
 A separate one-second `scripts/balance.sh` flag check with spaces in the path starts at Lv38/job210,
 HP stock9/MP stock19, no warnings, and correctly reports TIMEOUT. The 20-minute synthetic seed-1 event-byte
 digest matches pre-change integration `bf26c5d`; resumed JSON/direct snapshots replay identically for three minutes.
+After fetching/merging `origin/t3/issue-32-implementation` (already current at `bf26c5d`), the full
+`ISOLATE=t67 bash scripts/test.sh` passes **676 tests, 0 failed, 0 skipped, 75 files** (313.720 s).
+Real-cache checks execute; final log: ignored `_scratch/t67-full-final.log`.
 
 #### #31 / #61 second-job QA (2026-10-15)
 
