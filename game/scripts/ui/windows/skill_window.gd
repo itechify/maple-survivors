@@ -205,7 +205,8 @@ func _place_tip() -> void:
 	if d.is_empty():
 		_tip.show_data({}, Vector2.ZERO)
 		return
-	var view := _view_size()
+	# The tooltip stays above the status bar.
+	var view := _view_size() - Vector2(0, HudWidget.BAR_H)
 	var anchor: Vector2
 	if _hover >= 0:
 		anchor = position + _mouse + Vector2(18, 14)
@@ -299,6 +300,8 @@ func _draw_rows() -> void:
 		else:
 			draw_rect(r, Color8(204, 221, 238) if learned else Color8(238, 238, 238))
 		if idx == selected or idx == _hover:
+			# tier C (ours): v83 marks no row; the keyboard needs a visible selection.
+			draw_rect(Rect2(r.position + Vector2(36, 0), r.size - Vector2(36, 0)), Color(1.0, 0.6, 0.0, 0.18))
 			draw_rect(r.grow(-0.5), Color8(255, 153, 0), false, 1.0)
 		# An unlearned skill uses its v83 iconDisabled; without one its icon is greyed.
 		var icon: SpriteFrame = null if learned else UiArt.frame(String(row.get("icon_disabled", "")))

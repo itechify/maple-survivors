@@ -31,7 +31,8 @@ extends Node2D
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
-## draggable Stat window (stat_window action, S) and the status bar's Menu popup (hud.menu_button); later windows
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
 ## pause menu, the modal window below (if any) ignores input (MapleWindow.input_blocked), and no new level-up / job

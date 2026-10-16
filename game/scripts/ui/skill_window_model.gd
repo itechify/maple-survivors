@@ -14,8 +14,9 @@ extends RefCounted
 ## Tab kinds.
 const JOB := "job"
 const STAR := "star"
-## tier C (ours): the star tab's name and banner text (v83 has no such tab).
+## tier C (ours): the star tab's name and its banner text (v83 has no such tab).
 const STAR_NAME := "Star"
+const STAR_BANNER := "Job-neutral Cards"
 
 var book: SkillBook
 var pool: UpgradePool
@@ -44,7 +45,7 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 		tabs.append({"kind": JOB, "name": String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
 			"book_name": String(names.get("bookName", "")) if names is Dictionary else "",
 			"book_icon": "Skill.wz/%s.img/info/icon" % bk if bk != "" else "", "rows": _skill_rows(id)})
-	tabs.append({"kind": STAR, "name": STAR_NAME, "job_id": -1, "tier": -1, "book_name": STAR_NAME, "book_icon": "",
+	tabs.append({"kind": STAR, "name": STAR_NAME, "job_id": -1, "tier": -1, "book_name": STAR_BANNER, "book_icon": "",
 		"rows": _star_rows()})
 
 

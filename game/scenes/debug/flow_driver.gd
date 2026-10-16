@@ -22,6 +22,13 @@ extends Node
 ##           the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks a card; the
 ##           status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
 ##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
+##   skill   the Skill window (#86): title -> stage select -> run; the build is set up directly (Magician, then Wizard
+##           (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm, Magnet x2); K opens Skill on the 2nd-job tab
+##           (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left switches to the Magician
+##           tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a click opens the star tab
+##           and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a level-up choice (1 switches
+##           the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots: skill_window,
+##           skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -65,6 +72,8 @@ func _ready() -> void:
 			_scenario_title()
 		"windows":
 			_scenario_windows()
+		"skill":
+			_scenario_skill()
 		_:
 			_scenario_full()
 
@@ -320,6 +329,108 @@ func _scenario_windows() -> void:
 	get_tree().quit(1 if _failed else 0)
 
 
+func _scenario_skill() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("start_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	# A build to show (debug setup, like the windows scenario's EXP drop): Magician, then Wizard (Ice, Lightning), with
+	# behaviour cards on Magic Claw and Thunder Bolt and a Magnet card for the star tab.
+	var w := run.world
+	w.change_job(200)
+	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_claw_targets", "magic_claw_targets",
+			"magic_claw_cooldown", "magnet", "magnet"]:
+		w.upgrades.apply(id, w)
+	w.change_job(220)
+	for id: String in ["thunder_bolt_new", "thunder_bolt_targets"]:
+		w.upgrades.apply(id, w)
+	await _sleep(0.5)
+	# K opens the Skill window on the current job's tab and holds the sim.
+	await _key(KEY_K)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
+		return
+	var sw := run.ui_windows.find_window("skill") as SkillWindow
+	var t0 := run.world.time
+	await _sleep(0.8)
+	_check(run.world.time == t0, "the sim holds while Skill is open")
+	_check(sw.tab == 2 and sw.model.tabs.size() == 4, "opened on the 2nd-job tab of Beginner / I / II / star")
+	await _shot("skill_window")
+	# Keyboard: Down moves the selection to Thunder Bolt (the last Ice & Lightning skill) with its tooltip; Left
+	# switches to the Magician tab.
+	for i in sw.rows().size():
+		await _key(KEY_DOWN)
+	await _sleep(0.3)
+	var tb := sw.tooltip()
+	_check(String(tb.get("key", "")) == "thunder_bolt" and not (tb.get("upgrades", []) as Array).is_empty(),
+		"Down selected Thunder Bolt with its Upgrades (%s)" % [tb.get("key", "")])
+	await _shot("skill_keyboard_tooltip")
+	await _key(KEY_LEFT)
+	await _sleep(0.3)
+	_check(sw.tab == 1, "Left switched to the Magician tab")
+	# Mouse: the wheel scrolls Magic Claw into view; hovering it shows the tooltip with its Upgrades.
+	var origin := sw.get_global_rect().position
+	var claw := -1
+	for i in sw.rows().size():
+		if String(sw.rows()[i].get("key", "")) == "magic_claw":
+			claw = i
+	for i in maxi(0, claw - SkillWindow.VISIBLE_ROWS + 1):
+		await _wheel(origin + sw.row_rect(1).get_center(), true)
+	_hover(origin + sw.row_rect(claw - sw.scroll).get_center())
+	await _sleep(0.4)
+	var tip := sw.tooltip()
+	_check(String(tip.get("key", "")) == "magic_claw" and (tip.get("upgrades", []) as Array).size() == 2,
+		"hovering Magic Claw shows Twin Claw and Quick Claw (%s)" % [tip.get("upgrades", [])])
+	await _shot("skill_tooltip_upgrades")
+	# The star tab with the mouse; hover Magnet.
+	await _click_at(origin + sw.tab_rect(3).get_center())
+	await _sleep(0.3)
+	_check(sw.tab == 3 and sw.rows().size() == 1, "clicked the star tab: Magnet")
+	_hover(origin + sw.row_rect(0).get_center())
+	await _sleep(0.4)
+	_check(String(sw.tooltip().get("id", "")) == "magnet", "Magnet's tooltip")
+	await _shot("skill_star_tab")
+	await _key(KEY_1)
+	await _sleep(0.2)
+	_check(sw.tab == 0, "1 switched to the Beginner tab")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed Skill without pausing")
+	_check(run.world.time > t0, "the sim runs again")
+	# Over a level-up choice: K opens it, 1 switches its tab instead of picking, Esc returns, 1 picks.
+	run.world.pickups.spawn(run.world.player.pos, run.world.progression.exp_to_next(), 4000019)
+	if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),
+			10.0, "level-up window"):
+		return
+	await _sleep(0.6)
+	var lw := run.window as LevelUpWindow
+	await _key(KEY_K)
+	await _sleep(0.4)
+	_check(run.ui_windows.top() is SkillWindow and lw.input_blocked, "Skill opened over the level-up choice")
+	await _key(KEY_1)
+	await _sleep(0.2)
+	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Skill window")
+	await _key(KEY_DOWN)
+	await _sleep(0.3)
+	await _shot("skill_over_levelup")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	_check(not run.ui_windows.has_windows() and run.window == lw and not lw.input_blocked, "Esc returned to the choice")
+	await _key(KEY_1)
+	if not await _until(func() -> bool: return run.world.state == RunWorld.PLAYING, 5.0, "card picked with 1"):
+		return
+	print("flow_driver: skill scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
 ## Records a scenario check (a failed one makes the driver exit 1 at the end).
 func _check(ok: bool, what: String) -> void:
 	print("flow_driver: %s %s" % ["ok" if ok else "FAILED", what])
@@ -464,6 +575,21 @@ func _click_at(p: Vector2) -> void:
 		var b := InputEventMouseButton.new()
 		b.button_index = MOUSE_BUTTON_LEFT
 		b.pressed = down
+		b.position = w
+		b.global_position = w
+		Input.parse_input_event(b)
+		await get_tree().process_frame
+
+
+## One mouse-wheel notch (down or up) at logical position `p`.
+func _wheel(p: Vector2, down: bool) -> void:
+	_hover(p)
+	await get_tree().process_frame
+	var w := get_tree().root.get_final_transform() * p
+	for pressed: bool in [true, false]:
+		var b := InputEventMouseButton.new()
+		b.button_index = MOUSE_BUTTON_WHEEL_DOWN if down else MOUSE_BUTTON_WHEEL_UP
+		b.pressed = pressed
 		b.position = w
 		b.global_position = w
 		Input.parse_input_event(b)
