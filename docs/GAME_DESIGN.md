@@ -1935,6 +1935,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
+growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
+refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
+player statuses and map entities restart. Format 1 is a serialization version, not balance tuning. Fixture float
+fields round to six decimal places for readable committed JSON; generation never changes the survivor data.
+
 | Constant | Value | Tier | Source |
 |---|---|---|---|
 | Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
