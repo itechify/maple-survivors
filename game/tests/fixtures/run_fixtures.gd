@@ -46,6 +46,12 @@ static func skill_imgs() -> Dictionary:
 			"ball": _anim(3, 30.0, 84, 20), "hit": {"0": _anim(5, 90.0, 60, 60)},
 			"level": _levels(30, {"mpCon": [14.0, 28.0], "mad": [33.0, 120.0], "mastery": [1.0, 10.0]})},
 	}}
+	# #55: separate Poison Breath fixture; endpoints are v83 facts, intermediate levels are synthetic interpolation.
+	b210.skill["2101005"] = {"icon": _canvas(32, 32), "elemAttr": "s", "action": {"0": "swingO3"},
+		"effect": _anim(5, 100.0, 98, 99), "ball": _anim(2, 100.0, 41, 26),
+		"hit": {"0": _anim(6, 90.0, 136, 124)},
+		"level": _levels(30, {"mpCon": [10.0, 20.0], "mad": [12.0, 70.0], "mastery": [1.0, 10.0],
+			"prop": [31.0, 60.0], "time": [4.0, 40.0]})}
 	return {"000": b000, "200": b200, "210": b210}
 
 

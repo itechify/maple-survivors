@@ -102,8 +102,12 @@ func test_advancement_and_power_pity_use_only_current_job_cards() -> void:
 	assert_eq(cards[0].kind, "skill_new", "advancement offers an eligible new current-job skill")
 	assert_eq(w.upgrades.card(cards[0].id).requires.jobs, [200.0])
 	w.change_job(210)
-	w.upgrades.apply("fire_arrow_new", w)
-	w.loadout.set_rank("fire_arrow", 30)  # Exhaust the current-job rank card as well as its learn card.
+	# Exhaust every current-job attack and behaviour card, including #55's second attack and future additions.
+	for card: Dictionary in w.upgrades.cards:
+		if not UpgradePool.is_power(card):
+			continue
+		while w.upgrades.is_eligible(card, w):
+			w.upgrades.apply(String(card.id), w, "legendary")
 	w.power_dry = w.upgrades.pity_draws
 	cards = w.upgrades.roll_choices(w, _rng(38))
 	assert_false(cards.is_empty(), "pity with no eligible power cards still draws ordinary choices")

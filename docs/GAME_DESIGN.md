@@ -349,6 +349,31 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #55 Fire/Poison attack regression smoke (2026-10-15)
+
+`ISOLATE=t55 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, unforced branches,
+no patches or tuning: all 12 records completed with no crashes, script errors or world warnings. Outcomes,
+death times and potion totals match the preceding #53/foundations smoke. Henesys reaches Magician and the first
+boss in 3/3 runs per policy. Each policy's surviving seed 1 selects Cleric (230); the other seeds die before
+second job, so this smoke establishes regression safety, not Fire/Poison balance. Tree remains record-only.
+Exact console output and JSON records stay in ignored `_scratch/t55/balance/` and `evidence/t55/`.
+
+| #55 stage / policy | Clear / dead / timeout | Death seconds | MP collected / used |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) |
+
+The separate forced-210 seed-1 visual run (warp 480 s, speed 8) clears at 919.933 s with Fire Arrow rank 14,
+Poison Breath rank 9 and `missing: []`. `evidence/t55/playtest_210_s1/t646.png` shows Fire Arrow's projectile
+and caster effect. A temporary real Flow/RunScene driver stages each attack alone against a durable stationary
+mob for closer inspection; its screenshots and sound/asset counters stay in `evidence/t55/focused_visuals/`.
+Checked by eye: `poison_breath_03.png` (green orb and caster effect), `poison_breath_05.png` (expanding green hit
+cloud on the pig), and `fire_arrow_03.png` (caster bow/fire effect and impact). Both staged summaries have empty
+missing lists and successful sound calls; the cached Use/Hit streams also decode in the focused test.
+This is visual evidence only, not a balance run. The initial occluded playtest attempt produced no screenshots;
+the successful run uses Godot's always-on-top window option. No importer or shared cache changes were needed.
+
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
