@@ -31,8 +31,6 @@ var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat32Array()
 var _shortages := {}
 var _slow_serial := 0
-## tier C interpretation of the canonical two-consecutive-uses text; shared across branch copies.
-const SLOW_CONSECUTIVE_LIMIT := 2
 
 
 func _init() -> void:
@@ -157,7 +155,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	world.start_action(String(st.action), float(st.action_time))
 	match String(st.cast_rule):
 		"box":
-			_resolve_box(world, st, targets)
+			_resolve_instant_targets(world, st, targets, int(st.mob_count), int(st.attack_count),
+				world.visual_index(String(st.hit)))
 		"crowd":
 			_resolve_crowd(world, key, st, targets)
 		"hp_or_undead":
@@ -171,9 +170,7 @@ func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 	if not bool(st.has_box):
 		return {}
 	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
-		var s := world.swarm
-		return s.accepts_status(slot, "slow") and s.status_time(slot, MobSwarm.SLOW) <= 0.0 \
-			and (s.slow_cast_serial[slot] != _slow_serial or s.slow_cast_streak[slot] < SLOW_CONSECUTIVE_LIMIT))
+		return world.swarm.can_slow_cast(slot, _slow_serial))
 	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
 	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
 		return {}
@@ -185,20 +182,18 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 	var params := {"x": world.book.canonical(key, int(st.level), "x"),
 		"time": world.book.canonical(key, int(st.level), "time")}
 	for i in mini(int(st.mob_count), targets.size()):
+		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+
+
+func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
+		limit: int, lines: int, hv: int) -> void:
+	for i in mini(limit, targets.size()):
 		var slot := targets[i]
-		var s := world.swarm
-		if s.apply_status(slot, "slow", params, world.events):
-			s.slow_cast_streak[slot] = s.slow_cast_streak[slot] + 1 if s.slow_cast_serial[slot] == _slow_serial - 1 else 1
-			s.slow_cast_serial[slot] = _slow_serial
-
-
-func _resolve_box(world: RunWorld, st: Dictionary, targets: PackedInt32Array) -> void:
-	var hv := world.visual_index(String(st.hit))
-	for i in mini(int(st.mob_count), targets.size()):
-		for line in int(st.attack_count):
-			if not world.swarm.is_live(targets[i]):
+		for line in lines:
+			# Both queries return valid slots. Keep nearest's active-mask check; is_live adds only bounds checks.
+			if world.swarm.active[slot] == 0:
 				break
-			world.hit_mob(targets[i], st, hv)
+			world.hit_mob(slot, st, hv)
 
 
 func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
@@ -276,11 +271,4 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 			})
 	else:
-		var count := mini(int(st.count), n)
-		var lines := int(st.attack_count)
-		for k in count:
-			var m := targets[k]
-			for h in lines:
-				if world.swarm.active[m] == 0:
-					break
-				world.hit_mob(m, st, hv)
+		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)
