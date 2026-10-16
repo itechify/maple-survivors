@@ -40,12 +40,15 @@ const MOVEMENT_SETS := {
 	"wasd": {"move_left": KEY_A, "move_right": KEY_D, "move_up": KEY_W, "move_down": KEY_S},
 }
 const DEFAULT_MOVEMENT := "arrows"
+## Default volumes (linear 0..1).
+const DEFAULT_BGM := 0.8
+const DEFAULT_SFX := 0.9
 
 var wz_root := ""
 var cache_dir := ""
 var master_volume := 1.0
-var bgm_volume := 0.8
-var sfx_volume := 0.9
+var bgm_volume := DEFAULT_BGM
+var sfx_volume := DEFAULT_SFX
 var window_scale := 0
 ## Fill the window with more map instead of black bars (see the class doc; off = docs/ARCHITECTURE.md 4.5).
 var fill_window := false
@@ -153,8 +156,8 @@ func save_settings() -> Error:
 	_put(cfg, "assets", "wz_root", wz_root, "")
 	_put(cfg, "assets", "cache_dir", cache_dir, "")
 	_put(cfg, "audio", "master", master_volume, 1.0)
-	_put(cfg, "audio", "bgm", bgm_volume, 0.8)
-	_put(cfg, "audio", "sfx", sfx_volume, 0.9)
+	_put(cfg, "audio", "bgm", bgm_volume, DEFAULT_BGM)
+	_put(cfg, "audio", "sfx", sfx_volume, DEFAULT_SFX)
 	_put(cfg, "display", "window_scale", window_scale, 0)
 	_put(cfg, "display", "fill_window", fill_window, false)
 	_put(cfg, "display", "max_fps", max_fps, 0)

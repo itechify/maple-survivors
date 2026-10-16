@@ -114,6 +114,13 @@ func apply_to(settings: GameSettings) -> void:
 	settings.set_bindings(keys)
 
 
+## Follows a movement-set change (Options): the new set's keys become fixed and leave their actions.
+func set_movement(scheme: String) -> void:
+	if GameSettings.MOVEMENT_SETS.has(scheme):
+		movement = scheme
+		_drop_fixed()
+
+
 func _drop_fixed() -> void:
 	var fixed := fixed_keys()
 	for a: String in BINDABLE:
