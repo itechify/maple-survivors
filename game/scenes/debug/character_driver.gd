@@ -30,21 +30,46 @@ func _ready() -> void:
 	flow.goto_character_select()
 	await _shot("empty_slots")
 	flow.current.show_creation()
-	await _shot("creation_male")
+	await _shot("gender")
 	var creation: Control = flow.current.creation
+	creation.create_button.pressed.emit()
+	await _shot("creation_name")
 	creation.name_edit.text = "bad!"
 	creation.create_button.pressed.emit()
 	await _shot("invalid_name")
-	creation.cycle_option("gender", 1)
-	for field: String in ["face", "hair", "hair_colour", "skin", "top", "bottom", "shoes", "weapon"]:
-		# Exercise every runtime option once to detect missing imported parts, not just the default preview.
-		for _i in creation.model.options(1, field).size():
-			creation.cycle_option(field, 1)
-		creation.cycle_option(field, -1)
+	creation.name_edit.text = "MapleBoy"
+	creation.create_button.pressed.emit()
+	for gender in 2:
+		await _shot("creation_%s_default" % ("male" if gender == 0 else "female"))
+		for field: String in CharacterCreation.FIELDS:
+			# Draw every allowed option for each gender; hair colours cross every base hair too.
+			for _i in creation.model.options(gender, field).size():
+				creation.find_child("Next_" + field, true, false).pressed.emit()
+				RenderingServer.force_draw()
+				if field == "hair":
+					for _c in creation.model.options(gender, "hair_colour").size():
+						creation.find_child("Next_hair_colour", true, false).pressed.emit()
+						RenderingServer.force_draw()
+			creation.find_child("Next_" + field, true, false).pressed.emit()
+			if field in ["hair_colour", "weapon"]:
+				await _shot("creation_%s_%s_changed" % ["male" if gender == 0 else "female", field])
+		missing.append_array(creation.avatar.missing)
+		if gender == 0:
+			creation.find_child("Next_gender", true, false).pressed.emit()
 	creation.name_edit.text = "MapleGirl"
-	await _shot("creation_female")
-	missing.append_array(creation.avatar.missing)
-	creation.cancelled.emit()
+	# Actually create through the form, then render the persisted look at select and in a round.
+	creation.create_button.pressed.emit()
+	await get_tree().process_frame
+	var created: Dictionary = flow.save.slot(0).character.duplicate(true)
+	flow.save_and_quit()
+	await _shot("one_character")
+	for avatar: AvatarRenderer in flow.current.avatars:
+		missing.append_array(avatar.missing)
+	flow.start_run("henesys_hg1", 70, {"character": created, "use_flow": false})
+	await _shot("round_created_look")
+	var run := flow.current as RunScene
+	_collect_run(run)
+	flow.save.end_run(0, "deleted", "2026-10-16T12:00:00")
 	var data := DataRepo.load_all()
 	var base := RunWorld.new({"data": data}).character_snapshot()
 	var model := CharacterCreation.new(Assets.img(CharacterCreation.IMG).root)
@@ -74,29 +99,33 @@ func _ready() -> void:
 	await _shot("three_characters")
 	for avatar: AvatarRenderer in flow.current.avatars:
 		missing.append_array(avatar.missing)
-	flow.current._confirm_delete(2)
+	flow.current.slot_buttons[1].pressed.emit()
+	await _shot("selection_changed")
+	flow.current.delete_button.pressed.emit()
 	await _shot("delete_confirmation")
-	flow.current.delete_dialog.hide()
-	flow.goto_history()
+	flow.current.delete_dialog.cancel()
+	await _shot("history_entry")
+	flow.current.find_child("RunHistory", true, false).pressed.emit()
 	await _shot("history")
-	var selected: Dictionary = DataRepo.load_json(shots.path_join("weapon_1322005.json"))
-	flow.start_run("henesys_hg1", 70, {"character": selected, "use_flow": false})
-	await _shot("round_chosen_look")
-	var run := flow.current as RunScene
-	missing.append_array(run.setup_missing)
-	missing.append_array(run.map.missing)
-	missing.append_array(run.avatar.missing)
-	for renderer: MobRenderer in run.mob_renderers:
-		for id in renderer.missing:
-			missing.append("Mob.wz/%07d.img" % id)
 	missing.append_array(Assets.missing)
 	_write("summary.json", {"missing": missing, "slots": flow.save.slots.size(), "history": flow.save.history.size()})
 	print("character_driver missing=", missing)
 	get_tree().quit(0 if missing.is_empty() else 1)
 
 
+func _collect_run(run: RunScene) -> void:
+	missing.append_array(run.setup_missing)
+	missing.append_array(run.map.missing)
+	missing.append_array(run.avatar.missing)
+	for renderer: MobRenderer in run.mob_renderers:
+		for id in renderer.missing:
+			missing.append("Mob.wz/%07d.img" % id)
+
+
 func _shot(name: String) -> void:
 	await get_tree().create_timer(0.5).timeout
+	if flow.current.get("backdrop") != null:
+		missing.append_array(flow.current.backdrop.map.missing)
 	RenderingServer.force_draw()
 	var error := get_viewport().get_texture().get_image().save_png(shots.path_join(name + ".png"))
 	print("character_driver shot ", name, " error=", error)

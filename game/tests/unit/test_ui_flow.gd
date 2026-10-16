@@ -160,6 +160,88 @@ func _flow() -> SceneFlow:
 	return flow
 
 
+func test_character_select_empty_selection_disables_shared_actions_and_can_create() -> void:
+	var flow := _flow()
+	flow.goto_character_select()
+	var select := flow.current.find_child("SelectCharacter", true, false) as BaseButton
+	assert_true(select != null, "one shared Start control belongs to the selected slot")
+	if select == null:
+		return
+	var delete := flow.current.find_child("DeleteCharacter", true, false) as BaseButton
+	assert_true(select.disabled)
+	assert_true(delete.disabled)
+	assert_false(flow.current.create_button.disabled)
+	flow.current.create_button.pressed.emit()
+	assert_true(flow.current.creation != null)
+	flow.current.creation.cancelled.emit()
+	assert_eq(flow.current.creation, null)
+
+
+func test_creation_arrows_change_every_live_preview_field_for_both_genders() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	assert_true(creation.find_child("Next_hair_colour", true, false) != null, "real arrow controls drive the preview")
+	if creation.find_child("Next_hair_colour", true, false) == null:
+		return
+	# Move through the Gender and name surfaces using their visible controls.
+	creation.create_button.pressed.emit()
+	creation.name_edit.text = "Preview70"
+	creation.create_button.pressed.emit()
+	for gender in 2:
+		for field: String in CharacterCreation.FIELDS:
+			var values: Array = creation.model.options(gender, field)
+			for option in values.size():
+				var before: Dictionary = creation.avatar.look.duplicate(true)
+				(creation.find_child("Next_" + field, true, false) as BaseButton).pressed.emit()
+				var after: Dictionary = creation.avatar.look
+				assert_ne(after, before, "%s gender %d option %d really changes the rendered look" % [field, gender, option])
+				assert_eq(after, DataRepo.character_look({"job_id": 0, "look": creation.model.look(gender, creation.choices),
+					"beginner_weapon": creation.model.weapon(gender, creation.choices)}, DataRepo.load_all()))
+		(creation.find_child("Next_gender", true, false) as BaseButton).pressed.emit()
+
+
+func test_character_selection_click_keys_details_delete_cancel_and_history() -> void:
+	var flow := _flow()
+	for i in 3:
+		assert_eq(flow.create_character("Select70%d" % i), i)
+	flow.goto_character_select()
+	var screen: Control = flow.current
+	assert_true(screen.create_button.disabled, "three slots disable New")
+	assert_eq(screen.selected, 0)
+	(screen.find_child("CharacterSlot2", true, false) as BaseButton).pressed.emit()
+	assert_eq(screen.selected, 2)
+	assert_eq(screen.selected_info.name, "Select702")
+	assert_eq(screen.selected_info.level, 1)
+	assert_eq(screen.selected_info.attributes, flow.save.slot(2).character.attributes)
+	if require_cache():
+		assert_eq(screen.avatars[2].stance, "walk1")
+		assert_eq(screen.avatars[0].stance, "stand1")
+	var left := InputEventKey.new()
+	left.keycode = KEY_LEFT
+	left.pressed = true
+	screen._unhandled_input(left)
+	assert_eq(screen.selected, 1)
+	var saved := FileAccess.get_file_as_string(save_path)
+	screen.delete_button.pressed.emit()
+	assert_true(screen.delete_dialog is MapleWindow, "deletion uses v83 notice art")
+	assert_true(screen.delete_dialog.is_open())
+	screen.delete_dialog.transition_seconds = 0
+	screen.delete_dialog.cancel()
+	assert_eq(FileAccess.get_file_as_string(save_path), saved, "cancel writes nothing")
+	screen.delete_button.pressed.emit()
+	screen.delete_dialog.accept()
+	assert_eq(flow.current_name, "character_select")
+	assert_true(flow.save.slot(1).is_empty())
+	assert_eq(flow.save.history[0].name, "Select701")
+	assert_eq(flow.save.history[0].ending, "deleted")
+	(flow.current.find_child("RunHistory", true, false) as BaseButton).pressed.emit()
+	assert_eq(flow.current_name, "history")
+
+
 func test_error_screen_and_goto_without_host() -> void:
 	var e := SceneFlow.error_screen("The run scene is missing (x).")
 	_nodes.append(e)

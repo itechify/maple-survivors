@@ -19,6 +19,8 @@ const BGM_SELECT := "Sound.wz/BgmUI.img/WCSelect"
 const TITLE := Vector2(0, 0)
 const WORLD_SELECT := Vector2(0, -600)
 const CHAR_SELECT := Vector2(0, -1200)
+## tier A: Explorer backs 15/16/17 at -3233/-2918/-3056 occupy the section centred at y=-3000.
+const NEW_CHAR := Vector2(0, -3000)
 const LOGO := "Title/logo"
 
 ## The map renderer (null until _ready).
