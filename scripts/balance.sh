@@ -6,6 +6,11 @@
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
+#   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
+#   bash scripts/balance.sh 1 --tier=2 --stage=tree_that_grew_1  # select tier 1 (default Henesys)
+#   # --tier=N reads stages.json tiers, selecting the first stage of each later tier through N.
+#   # No --character/camper with --tier. First-round seed = run seed; later seed = Godot's
+#   # hash("balance-round-<run seed>-<zero-based tier>"). No saves or UI; only CLEARED feeds the next tier.
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
@@ -33,6 +38,10 @@
 # fight times, time to Magician, final potion stock, late MP waits with observation counts, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
+# Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,
+# showing tier-1 feed count, rounds started/cleared, start/end levels and Lv70 reach alongside death/boss metrics.
+# Each round records tier (1-based), stage, seed, start_character and lv70_reached; character is the outgoing
+# snapshot only on CLEARED ({} otherwise). missing=[] confirms setup asset validation, not rendering lookups.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"
@@ -44,6 +53,7 @@ EXTRA_IDLE=""
 EXTRA_CAP=""
 EXTRA_CAMP=""
 EXTRA_CHARACTER=""
+EXTRA_TIER=""
 SEEDS=()
 for a in "$@"; do
   case "$a" in
@@ -56,12 +66,18 @@ for a in "$@"; do
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
     --character=*) EXTRA_CHARACTER="$a" ;;
+    --tier=*) EXTRA_TIER="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
   esac
 done
 if [[ "$STAGE_EXPLICIT" -eq 0 && "$POLICY" == "camper_tree_top" ]]; then STAGE="tree_that_grew_1"; fi
 [[ ${#SEEDS[@]} -gt 0 ]] || SEEDS=(1 2 3 4 5 6)
+RUN_KEY="${STAGE}_${POLICY}"
+if [[ -n "$EXTRA_TIER" ]]; then
+  [[ "${EXTRA_TIER#--tier=}" =~ ^[0-9]+$ ]] || { echo "--tier must be an integer >= 2" >&2; exit 2; }
+  RUN_KEY="${STAGE}_chain_tier${EXTRA_TIER#--tier=}_${POLICY}"
+fi
 
 if [[ -n "${ISOLATE:-}" ]]; then
   DEST="$REPO/_scratch/godot_runs/$ISOLATE/game"
@@ -84,28 +100,30 @@ EXTRA=()
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
 [[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
 [[ -n "$EXTRA_CHARACTER" ]] && EXTRA+=("$EXTRA_CHARACTER")
+[[ -n "$EXTRA_TIER" ]] && EXTRA+=("$EXTRA_TIER")
 MAXJ="${JOBS:-12}"
 PIDS=()
 for s in "${SEEDS[@]}"; do
   while [[ "$(jobs -rp | wc -l)" -ge "$MAXJ" ]]; do wait -n; done
   "${GODOT_CMD[@]}" --headless --path "$PROJECT" --script res://tools/balance_run.gd -- --stage="$STAGE" --seed="$s" \
-    --policy="$POLICY" ${EXTRA[@]+"${EXTRA[@]}"} > "$OUT/${STAGE}_${POLICY}_${s}.log" 2>&1 &
+    --policy="$POLICY" ${EXTRA[@]+"${EXTRA[@]}"} > "$OUT/${RUN_KEY}_${s}.log" 2>&1 &
   PIDS+=($!)
 done
 STATUS=0
-wait
+for pid in "${PIDS[@]}"; do wait "$pid" || STATUS=1; done
 for s in "${SEEDS[@]}"; do
-  grep -h '^BALANCE ' "$OUT/${STAGE}_${POLICY}_${s}.log" | sed 's/^BALANCE //' > "$OUT/${STAGE}_${POLICY}_${s}.json" || {
-    echo "seed $s: no result (see $OUT/${STAGE}_${POLICY}_${s}.log)"; STATUS=1; }
+  grep -h '^BALANCE ' "$OUT/${RUN_KEY}_${s}.log" | sed 's/^BALANCE //' > "$OUT/${RUN_KEY}_${s}.json" || {
+    echo "seed $s: no result (see $OUT/${RUN_KEY}_${s}.log)"; STATUS=1; }
 done
 
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
+if [[ -z "$EXTRA_TIER" ]]; then
 printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %s\n' seed Lv8 Lv10 Lv20 \
   Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
   "recyc/reloc"
 for s in "${SEEDS[@]}"; do
-  f="$OUT/${STAGE}_${POLICY}_${s}.json"
+  f="$OUT/${RUN_KEY}_${s}.json"
   [[ -s "$f" ]] || continue
   awk -v seed="$s" '
     # Scalar fields must come from the root, not nested boss-hit timestamps.
@@ -194,16 +212,20 @@ awk '
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
   }' "$OUT/.table"
+else
+  # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by tier.
+  for s in "${SEEDS[@]}"; do sed -n '/^CHAIN /,$p' "$OUT/${RUN_KEY}_${s}.log"; done
+fi
 # Supplemental systems metrics use Godot's JSON parser; nested records stay intact.
 RECORDS=()
 for s in "${SEEDS[@]}"; do
-  f="$OUT/${STAGE}_${POLICY}_$s.json"
+  f="$OUT/${RUN_KEY}_$s.json"
   [[ -s "$f" ]] && RECORDS+=("$(cygpath -m "$f" 2>/dev/null || echo "$f")")
 done
 if [[ ${#RECORDS[@]} -gt 0 ]]; then
-  REPORT="$OUT/${STAGE}_${POLICY}_summary.log"
+  REPORT="$OUT/${RUN_KEY}_summary.log"
   "${GODOT_CMD[@]}" --headless --path "$PROJECT" --script res://tools/balance_report.gd -- "${RECORDS[@]}" > "$REPORT" 2>&1 || STATUS=1
-  sed -n 's/^METRICS_SUMMARY //p' "$REPORT" > "$OUT/${STAGE}_${POLICY}_summary.json"
-  sed -n '/^SYSTEMS /,$p' "$REPORT"
+  sed -n 's/^METRICS_SUMMARY //p' "$REPORT" > "$OUT/${RUN_KEY}_summary.json"
+  sed -n '/^\(SUMMARY\|SYSTEMS\) /,$p' "$REPORT"
 fi
 exit "$STATUS"
