@@ -400,6 +400,28 @@ No crashes, script errors or world warnings; no new stop gate. The bot still use
 and less total MP wait on the three learners; I/L still dies. This is fixed-seed regression evidence, not balance
 tuning. Full isolated suite: **661 tests, 0 failed, 0 skipped, 72 files**; real-cache tests execute.
 
+#### Spec #31 review-fix equivalence (2026-10-15)
+
+Behaviour-preserving ownership refactors, baseline `34c04e1`: Slow history/admission/application and relocation
+live in MobSwarm; box/nearest instant casts share their capped line resolver; MP Eater reads `absorb_mp` definitions
+in learned order (section 7). No tuning. Ran `ISOLATE=rfix bash scripts/balance.sh 1 2 2026
+--stage=henesys_hg1 --policy=bot --branch=<210|220|230>` before and after, with separate absolute `BALANCE_OUT`
+directories under `_scratch/spec31-review-fixes/{before,after}/<branch>`. All nine complete JSON records were
+byte-identical, including outcomes, end times, levels, kills and every boss spawn/death/duration/elapsed field;
+no crashes or world warnings. Values below are identical before/after: outcome / end seconds / level / kills.
+
+| Forced branch | Seed 1 | Seed 2 | Seed 2026 |
+|---|---|---|---|
+| 210 | DEAD / 949.7 / 35 / 2204 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+| 220 | DEAD / 926.5 / 35 / 2138 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+| 230 | DEAD / 920.2 / 35 / 2220 | DEAD / 812.3 / 28 / 1399 | DEAD / 322.7 / 10 / 153 |
+
+Only seed 1 reaches the forced second job; seeds 2/2026 end as Magician. These card picks do not learn Slow or
+MP Eater. Focused seeded support/skill-foundation/MP Eater tests cover Slow's consecutive-use history across
+relocation and fresh spawns, lethal-line hit order/RNG, and live-rank absorption with configured fields/learned
+order: 43 passed, 0 failed, 0 SKIP. The full `ISOLATE=rfix bash scripts/test.sh` suite passed: 658 passed,
+0 failed, 0 SKIP across 71 files. Raw records/logs and the field-by-field comparison remain in ignored scratch.
+
 #### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
 
 Rarity tiers were calibrated on training seeds 1–60 and 2026 to the C46 profile: card weights 86/8/3.5/1.7/0.8,
@@ -1605,6 +1627,13 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   Existing zero-damage `mob_hit` events for elemental immunity are retained for compatibility with the existing
   tests/presentation; the hook is suppressed regardless of that legacy event.
   Listeners must consume RNG only when their effect can apply.
+- Optional `absorb_mp: {"chance_field": "prop", "percent_field": "x"}` enables monster MP absorption on
+  damaging magic hits. The listener visits owned skills in loadout (learned) order and reads these canonical
+  fields at each passive's current level: chance in percent, transfer as a percent of the monster's maximum MP.
+  It truncates to whole MP, caps at remaining monster MP and consumes no proc RNG unless a positive transfer
+  is possible. Branch-exclusive MP Eater learn cards allow only one copy per normal run, so this order matches
+  the previous fixed F/P, I/L, Cleric key scan after unowned skills were skipped. Synthetic multi-passive loadouts
+  follow learned order. Canonical values, restoration and absorb events are unchanged.
 - `RunWorld.restore_player(stat: String, amount: int, skill: String) -> int` caps positive HP/MP gains, updates
   public pools and emits `player_restored: {stat, amount, skill, pos}` only for an actual positive integer pool
   change. The returned amount matches the displayed pool gain (HP rounds up, MP down, as elsewhere). Recovery

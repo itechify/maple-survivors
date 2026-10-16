@@ -93,6 +93,36 @@ func test_box_admission_pays_once_and_hits_capped_targets_per_line() -> void:
 	assert_eq(_events(w, "cast").size(), 0, "cooldown holds")
 
 
+func test_box_and_nearest_skip_remaining_lines_after_kill_and_preserve_hit_order_and_rng() -> void:
+	for rule: String in ["box", "nearest"]:
+		var w := _world({"rule": rule})
+		var control := _world({"rule": rule})
+		for world: RunWorld in [w, control]:
+			world.player.facing = -1
+			world.loadout.add_skill_mod("synthetic", "count", "add", 1.0)
+			RF.put_mob(world, 1110100, 180, 195)
+			RF.put_mob(world, 1110100, 160, 195)
+			RF.put_mob(world, 1110100, 140, 195)
+			world.swarm.hp[0] = 5
+			world.mob_grid.rebuild(world.swarm.x, world.swarm.y, world.swarm.active)
+			world.drain_events()
+		w.runner.step(DT, w)
+		var st := control.loadout.stats("synthetic")
+		var limit := 3 if rule == "box" else 2
+		var expected: Array = []
+		control.hit_mob(0, st, control.visual_index(String(st.hit)))
+		expected.append(0)
+		for slot in range(1, limit):
+			for line in 2:
+				control.hit_mob(slot, st, control.visual_index(String(st.hit)))
+				expected.append(slot)
+		var hits := _events(w, "mob_hit")
+		assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.mob)), expected, rule)
+		assert_eq(hits, _events(control, "mob_hit"), "same damage lines and visuals: " + rule)
+		assert_eq(w.swarm.hp, control.swarm.hp, "same per-target damage: " + rule)
+		assert_eq(w.rng.state, control.rng.state, "no rolls for lines after death: " + rule)
+
+
 func test_manual_and_unknown_rules_never_auto_cast_or_wait_for_mp() -> void:
 	for rule: String in ["manual", "unimplemented"]:
 		var w := _world({"rule": rule})

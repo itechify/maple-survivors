@@ -215,7 +215,7 @@ func test_seeded_canonical_proc_frequency_and_replay() -> void:
 
 func test_physical_instant_and_projectile_hits_never_absorb() -> void:
 	var w := _world()
-	w.loadout.order.clear() # No auto-cast skills during the projectile impact test.
+	w.loadout.order.assign(["mp_eater_fp"]) # Keep the owned passive, suppress auto-casting during impact.
 	w.mob_kinds[0].move_speed = 0.0
 	var slot := w.spawn_mob(0, w.player.pos + Vector2(100, 0), w.player.fh, 1000, false)
 	_hit(w, slot, false)
@@ -231,7 +231,7 @@ func test_physical_instant_and_projectile_hits_never_absorb() -> void:
 
 func test_magic_projectile_uses_current_passive_rank_at_impact() -> void:
 	var w := _world()
-	w.loadout.order.clear()
+	w.loadout.order.assign(["mp_eater_fp"])
 	w.mob_kinds[0].move_speed = 0.0
 	var slot := w.spawn_mob(0, w.player.pos + Vector2(100, 0), w.player.fh, 1, false)
 	w.projectiles.spawn({"x": w.swarm.x[slot], "y": w.swarm.y[slot] - 5,
@@ -255,6 +255,32 @@ func test_all_three_branch_passives_absorb_from_their_own_level_table() -> void:
 		if not gains.is_empty():
 			assert_eq(gains[0].skill, KEYS[branch])
 			assert_eq(gains[0].amount, 42)
+
+
+func test_absorb_definition_uses_configured_fields_and_loadout_order_for_other_skill_keys() -> void:
+	var w := _world(0.0, 0.0, 0, false)
+	var expected: Array = []
+	for index in 2:
+		var key := "synthetic_absorb_%d" % index
+		var original: String = KEYS[index]
+		var definition := w.book.def(original).duplicate(true)
+		definition.absorb_mp = {"chance_field": "custom_chance", "percent_field": "custom_percent"}
+		w.book.defs[key] = definition
+		var level := w.book.level_node(key, 1)
+		level["custom_chance"] = 100.0
+		level["custom_percent"] = 25.0 * (index + 1)
+	# Reverse definition/old branch order to establish the listener's learned-order contract.
+	for index in [1, 0]:
+		var key := "synthetic_absorb_%d" % index
+		w.learn_skill(key)
+		expected.append(key)
+	var slot := w.spawn_mob(0, w.player.pos + Vector2(100, 0), w.player.fh, 1000, false)
+	w.drain_events()
+	_hit(w, slot)
+	var absorbed := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mp_eater_absorbed")
+	assert_eq(absorbed.map(func(e: Dictionary) -> String: return String(e.skill)), expected)
+	assert_eq(absorbed.map(func(e: Dictionary) -> int: return int(e.amount)), [100, 50])
+	assert_eq(w.swarm.mp[slot], 50)
 
 
 func test_inapplicable_passive_preserves_combat_rng_and_rounds_down_whole_mp() -> void:
@@ -284,7 +310,7 @@ func test_inapplicable_passive_preserves_combat_rng_and_rounds_down_whole_mp() -
 
 func test_poison_ticks_and_elementally_immune_hits_never_absorb() -> void:
 	var w := _world()
-	w.loadout.order.clear()
+	w.loadout.order.assign(["mp_eater_fp"])
 	w.mob_kinds[0].move_speed = 0.0
 	w.mob_kinds[0].elements["F"] = 0.0
 	var slot := w.spawn_mob(0, w.player.pos + Vector2(100, 0), w.player.fh, 1000, false)

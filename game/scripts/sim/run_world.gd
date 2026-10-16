@@ -34,8 +34,6 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
-## tier A: branch copies of canonical MP Eater (2100000 / 2200000 / 2300000).
-const MP_EATER_KEYS := ["mp_eater_fp", "mp_eater_il", "mp_eater_cleric"]
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
@@ -902,22 +900,10 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	if i < 0 or i >= swarm.capacity() or swarm.active[i] == 0:
 		return -1
 	var k := swarm.kind[i]
-	var identity := swarm.identity[i]
-	var slow_serial := swarm.slow_cast_serial[i]
-	var slow_streak := swarm.slow_cast_streak[i]
-	var hp := swarm.hp[i]
-	var mhp := swarm.max_hp[i]
-	var mp := swarm.mp[i]
 	var elite := mob_elite[i] != 0
 	var boss_index := mob_boss[i]
 	var summon_owner := mob_summon_owner[i]
-	swarm.despawn(i)
-	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
-	swarm.identity[j] = identity
-	swarm.slow_cast_serial[j] = slow_serial
-	swarm.slow_cast_streak[j] = slow_streak
-	swarm.hp[j] = hp
-	swarm.mp[j] = mp
+	var j := swarm.relocate(i, pos, fh)
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
 	mob_boss[j] = boss_index
@@ -963,13 +949,18 @@ func add_hit_listener(listener: Callable) -> void:
 func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
 	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
 		return
-	for key: String in MP_EATER_KEYS:
+	# Branch-exclusive learn cards allow only one MP Eater per normal run, preserving the old proc order.
+	for key: String in loadout.order:
+		var absorb: Dictionary = book.def(key).get("absorb_mp", {})
+		if absorb.is_empty():
+			continue
 		var level := loadout.level(key)
 		if level <= 0:
 			continue
-		var chance := book.canonical(key, level, "prop")
+		var chance := book.canonical(key, level, String(absorb.chance_field))
+		var percent := book.canonical(key, level, String(absorb.percent_field))
 		# tier C: truncate fractional MP to whole points (integer interpretation).
-		var amount := mini(swarm.mp[slot], int(swarm.mob_kind(slot).max_mp * book.canonical(key, level, "x") / 100.0))
+		var amount := mini(swarm.mp[slot], int(swarm.mob_kind(slot).max_mp * percent / 100.0))
 		if chance <= 0.0 or amount <= 0:
 			continue
 		if chance < 100.0 and rng.randf() * 100.0 >= chance:
