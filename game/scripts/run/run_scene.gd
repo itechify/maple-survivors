@@ -1307,6 +1307,8 @@ func _update_hud() -> void:
 		sig.append(int(buff.skill_id))
 		sig.append(ceili(float(buff.remaining)))
 	if sig == _hud_sig:
+		# Cooldown sweeps move every tick, so the skill widget refreshes every frame even when the snapshot is unchanged.
+		hud.skills.update(ps, run_info())
 		return
 	_hud_sig = sig
 	var info := run_info()
