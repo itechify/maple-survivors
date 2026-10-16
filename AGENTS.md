@@ -62,7 +62,7 @@ changing gameplay.
 
 ```bash
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
-bash scripts/run.sh                                   # play (title -> stage select -> run -> results)
+bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
@@ -98,10 +98,21 @@ no frames, so screenshots are not saved; the run still quits at `--quit-after` (
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
 
-The whole menu flow with injected keyboard/mouse input (title, stage select, a run steered with the arrow keys, the
-level-up / job / pause windows, death, results, retry, quit) is `game/scenes/debug/flow_driver.tscn`:
+The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
+movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
 `bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
-(scenarios `full`, `clear`, `import`; see the script header).
+Use `--scenario=rounds` for creation -> real tier-1 clear (warp) -> Free Market out00 -> tier-2 map select ->
+Save & quit -> Continue -> Quit round -> same-seed Continue -> death -> deletion/history. All controls use injected
+input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
+boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
+under `evidence/`; saves go to its `driver_save.json`.
+Other scenarios: `title`, `clear` (tool one-off), `import`; see the script header. Use `ISOLATE=<name>` with
+`scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
+
+Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
+Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
+Continue replays the saved stage/seed from its beginning. Death, final-tier victory and confirmed deletion archive
+the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays tool-only and never writes saves/bests.
 
 ### Balance (`scripts/balance.sh`)
 

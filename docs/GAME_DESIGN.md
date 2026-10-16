@@ -9,7 +9,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 
 ## 1. The run
 
-1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
+1. **Create or continue.** Select one of three living characters, or create a named Beginner with the v83 Explorer
+   look and weapon choices. Map select offers one stage from the next tier: Henesys Hunting Ground I or The Tree
+   That Grew I in tier 1, then Dark Cave in tier 2.
 2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
    random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
    White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). Later rounds restore the carried
@@ -23,7 +25,12 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
-Runs carry one named character through one stage per tier (ADR 0001). A non-final clear autosaves the carried
+Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+Level, partial EXP, job/branch, AP, skill ranks/mods, potions, Fortune, look and weapon carry; HP/MP refill and
+buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
+Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round.
+Death, victory and confirmed deletion end the run, free its slot and enter history; results have no Retry.
+A non-final clear autosaves the carried
 character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
 The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking, jumping, its two ladders and
 existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
@@ -349,6 +356,44 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #32 / #75 whole-flow QA and regression smoke (2026-10-16)
+
+Implementation `89de7fa`, integration `dba59a9`; `ISOLATE=t75`, existing cache-t70 reused read-only, no import.
+Training seeds 1/2/2026, bot/random, default branches, 1800s cap per round; no PATCH, tuning or held-out seeds.
+All **24 seed records / 26 rounds** finish without crashes, script/engine errors or world warnings, with
+`missing=[]`. Outcomes, end times, levels and tier-1 MP-wait means match #71/#74 below exactly. Every Henesys
+round reaches Magician and Mano; Tree's early deaths remain record-only. Tier-2 outcomes remain first-pass data for #77.
+
+| Group / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Start → end levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 1 → 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 1 → 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Chain tier 2 bot | 0 / 1 / 0 | 685.2 / — / — | 41 → 52 |
+| Chain tier 2 random | 0 / 1 / 0 | 1240.1 / — / — | 43 → 64 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 38 → 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 38 → 51 / 50 / 55 |
+
+Each chain policy feeds tier 2 from **1/3** tier-1 clears (seed 1 only), starts/clears **1/0**, Lv70 **0/1**;
+fixture Lv70 **0/3** per policy. Chain Zombie Mushmom completes in 121.75s bot / 51.68s random, each **1/1
+completed/spawned**, censored median the same (n=1, no unfinished fights). Snack Bar completes none (n=0),
+**0/1 spawned** per policy, censored medians **>=85.20s / >=640.12s** (n=1, one unfinished each).
+Jr. Balrog bot has **0/0 spawned**, no completed or censored observation (n=0), one not spawned;
+random has **0/1 spawned**, none completed (n=0), censored median **>=340.12s** (n=1, one unfinished).
+No bosses are skipped. Fixture boss metrics reproduce #73/#74; full console/SYSTEMS output and seed/configuration
+records stay ignored under `evidence/t75/smoke/`.
+
+The injected `rounds` scenario creates two characters through the v83 controls, really clears Henesys at
+967.817s/Lv41, resumes the hub from disk, walks to out00, saves/resumes map select, quits/replays Dark Cave
+seed 1 without changing the boundary bytes, dies at 841.583s/Lv58, cancels then confirms the spare's deletion,
+and checks both history rows. Its tier-2 seed is deliberately the driver's seed 1, not the chain harness seed.
+This verifies flow, not balance. Evidence, limitations and QA defects are in
+[ticket-75-audit.md](research/ticket-75-audit.md).
+The full suite after the final integration fetch/merge passes **732 tests, 0 failed, 0 skipped, 81 files**
+(365.466s). Final natural/staged-victory rounds, full flow and one-off clear have `missing=[]`; all seven boss
+attack probes also have empty missing/warnings. Import is checked in screen-only mode, without re-importing assets.
 
 #### #32 / #71 Free Market regression smoke (2026-10-16)
 
@@ -2306,7 +2351,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
-- Results: RETRY is the v83 mini-game's green button (`UIWindow.img/RpsGame/BtRetry`), Back the login book's banner.
+- Results: the login book's Back banner returns to character select; death/victory frees the ended character's slot.
 - Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
@@ -2362,6 +2407,11 @@ inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticke
 The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
 tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market
 capture supplies a completed boundary to SceneFlow (a visual carry check, not a played stage clear).
+
+The #75 flow driver's diagnostic names, seed 1, 1800s combat cap, 600-tick yields, 100s progress logs,
+30s/8px exit-walk guard, 0.35s capture settling and other UI waits/timeouts are tier C automation choices.
+Its optional tier-2 victory path uses invulnerability and 1e9 neutral magic boss hits after 15:00, through the real
+death/reward/clear path. This is presentation staging only; shipped data and smoke outcomes stay unchanged.
 
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses

@@ -74,7 +74,8 @@ character to the Free Market hub, whose out00 exit opens the next tier's map sel
 death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
 There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
 
-`SceneFlow` owns the active slot and boundary persistence. It saves phase `free_market` on a non-final clear,
+`SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+It saves phase `free_market` on a non-final clear,
 `map_select` on exit/first creation and phase `round`
 with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
 seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
@@ -85,6 +86,12 @@ draws CharacterSnapshot.look with the current job's weapon. A status bar display
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
 life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
 `--run` calls `start_run`, an independent one-off with no save writes.
+
+The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
+creation, pause and History input. It warps real fixed simulation ticks through combat, walks the hub to out00,
+reloads the evidence-only save from disk and checks byte-preserving Quit round and same-stage/seed Continue.
+Its optional tier-2 victory probe uses invulnerability and diagnostic boss hits after 15:00, then resolves real
+rewards and clear events. It checks presentation only; natural outcomes belong to balance smokes.
 
 ### 4.2 Autoloads
 
@@ -128,7 +135,7 @@ Manual Esc pause leaves the sim state unchanged; RunScene stops its tick loop an
 
 ### 4.3 Simulation / presentation split
 
-A run is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
+A round is a `RunWorld` (`scripts/sim/run_world.gd`), a pure object advanced in **fixed 1/60 s ticks** by `RunScene`'s
 accumulator. It never touches nodes, input, time or files. Each tick it consumes a `MoveInput` and appends events
 (`{"type": "mob_hit", ...}`) to `RunWorld.events`. The presentation layer drains the events every frame to spawn damage
 numbers, hit effects and sounds, and reads the struct-of-arrays state directly to draw mobs, projectiles and pickups.
