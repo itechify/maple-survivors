@@ -24,6 +24,7 @@ extends Node2D
 ## --shot=<png>    save the logical viewport after --frames=N (default 40) or --at=<seconds>, and quit
 ## --focus=<i>     focus entry i (windows)             --map=<id>   map behind the windows (104040000)
 ## --quit=<n>      quit after n frames          --size=WxH   window size (e.g. 1920x1080: a 1066x600 view)
+## --full-loadout  results: show every shipped skill at its last rank (tier C: diagnostic layout stress case)
 
 const SAMPLE_CARDS := [
 	{"id": "energy_bolt_new", "kind": "skill_new", "skill": "energy_bolt", "name": "Energy Bolt",
@@ -136,6 +137,14 @@ func _show_screen(which: String) -> void:
 					{"key": "magic_guard", "name": "Magic Guard", "icon": "Skill.wz/200.img/skill/2001002/icon",
 						"rank": 1},
 				]}
+			if args.has("full-loadout"):
+				var book := SkillBook.from_data(DataRepo.load_all().skills, {})
+				summary.skills = []
+				for key: String in book.defs:
+					var skill := book.def(key)
+					summary.skills.append({"key": key, "name": skill.get("name", key),
+						"icon": skill.get("icon", ""), "rank": book.max_rank(key)})
+				print("ui_gallery: full loadout skills=%d" % summary.skills.size())
 			scene.configure(summary, not dead, {"time": 900.0, "cleared": true, "level": 33, "kills": 3300})
 	add_child(scene)
 	if which == "stage_select" and args.has("focus"):
@@ -343,6 +352,7 @@ func _take_shot() -> void:
 	var img := get_viewport().get_texture().get_image()
 	var err := img.save_png(path)
 	print("ui_gallery: shot %s %dx%d err=%d" % [path, img.get_width(), img.get_height(), err])
+	print("ui_gallery: missing=%s" % (UiArt.lib().missing if UiArt.lib() != null else []))
 	if window is LevelUpWindow:
 		var lib := UiArt.lib()
 		var sfx := get_node_or_null("/root/Sfx") as AudioService

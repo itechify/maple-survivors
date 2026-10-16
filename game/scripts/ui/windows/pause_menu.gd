@@ -96,6 +96,7 @@ func choice_rect(i: int) -> Rect2:
 	return Rect2(panel.position + Vector2(TEXT_X, _options_y + i * OPTION_H), Vector2(BOX_W - 2.0 * TEXT_X, OPTION_H))
 
 
+## Handles pause choices and quit confirmation while the window is open.
 func handle_input(event: InputEvent) -> bool:
 	if not _open:
 		return false

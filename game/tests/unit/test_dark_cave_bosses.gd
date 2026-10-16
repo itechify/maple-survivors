@@ -54,11 +54,12 @@ func _attack_setup(type: int = 1) -> Dictionary:
 	var setup := TF.setup(8130100, [], ["attack1"], 73)
 	setup.data.balance.player.hp = 2000
 	setup.data.stages.stages.quiet.bosses[0].attack_dmg_mult = 1.0
-	setup.mob_imgs[8130100].info.MADamage = 605.0
-	setup.mob_imgs[8130100].info.PADamage = 450.0
+	# Invented damage, timings and geometry; canonical facts are checked only by the cache-gated test below.
+	setup.mob_imgs[8130100].info.MADamage = 907.0
+	setup.mob_imgs[8130100].info.PADamage = 211.0
 	setup.mob_imgs[8130100].attack1.info = {"type": float(type), "magic": 1.0,
-		"attackAfter": 1300.0, "effectAfter": 700.0, "elemAttr": "F",
-		"range": {"sp": {"$v": [-28, -69]}, "r": 250.0},
+		"attackAfter": 1150.0, "effectAfter": 350.0, "elemAttr": "F",
+		"range": {"sp": {"$v": [-37, -53]}, "r": 310.0},
 		"hit": {"0": {"delay": 100}}, "effect": {"0": {"delay": 100}}}
 	return setup
 
@@ -73,15 +74,15 @@ func _start(w: RunWorld) -> Dictionary:
 	return {}
 
 
-func test_type_one_locks_an_admitted_target_and_hits_after_1300ms_even_after_leaving_range() -> void:
+func test_type_one_locks_an_admitted_target_and_hits_after_1150ms_even_after_leaving_range() -> void:
 	var w := RunWorld.new(_attack_setup())
 	var start := _start(w)
 	if start.is_empty():
 		return
-	assert_near(float(start.impact_time) - float(start.time), 1.3, 1e-6)
+	assert_near(float(start.impact_time) - float(start.time), 1.15, 1e-6)
 	var hp := int(w.player_state.hp)
 	RF.place_player(w, 1200.0, 0.0)
-	for tick in 77:
+	for tick in 68:
 		w.step(DT, MoveInput.new())
 		assert_eq(int(w.player_state.hp), hp, "no damage before attackAfter")
 	w.step(DT, MoveInput.new())
@@ -91,7 +92,7 @@ func test_type_one_locks_an_admitted_target_and_hits_after_1300ms_even_after_lea
 	if hits.size() == 1:
 		assert_eq(hits[0].source_kind, "attack")
 		assert_eq(hits[0].mob_id, 8130100)
-		assert_true(int(hits[0].damage) > 500, "magic flag uses mob MADamage605, not PADamage450")
+		assert_true(int(hits[0].damage) > 600, "magic flag uses synthetic MADamage907, not PADamage211")
 	assert_eq(w.mob_projectiles.active_count(), 0, "type 1 has no travelling ball")
 	var impacts := events.filter(func(e: Dictionary) -> bool: return e.type == "boss_attack" and e.phase == "hit")
 	assert_eq(impacts.size(), 1, "hit art is emitted at the character")
@@ -115,7 +116,7 @@ func test_type_one_needs_range_admission_but_does_not_require_ground_at_impact()
 	var start := _start(w)
 	if start.is_empty():
 		return
-	for tick in 60:
+	for tick in 51:
 		w.step(DT, MoveInput.new())
 	w.step(DT, MoveInput.make(false, false, false, false, true, true))
 	for tick in 17:
@@ -142,28 +143,28 @@ func test_dead_boss_cancels_a_locked_type_one_hit() -> void:
 func test_effect_after_impact_is_preserved_without_repeating_damage() -> void:
 	var setup := _attack_setup(0)
 	var info: Dictionary = setup.mob_imgs[8130100].attack1.info
-	info.range = {"lt": {"$v": [-330, -160]}, "rb": {"$v": [105, 0]}}
-	info.attackAfter = 400.0
-	info.effectAfter = 500.0
+	info.range = {"lt": {"$v": [-287, -145]}, "rb": {"$v": [119, 12]}}
+	info.attackAfter = 450.0
+	info.effectAfter = 650.0
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():
 		return
-	for tick in 30:
+	for tick in 45:
 		w.step(DT, MoveInput.new())
 	var events := w.drain_events()
 	var impacts := events.filter(func(e: Dictionary) -> bool: return e.type == "boss_attack" and e.phase == "impact")
 	var effects := events.filter(func(e: Dictionary) -> bool: return e.type == "boss_attack" and e.phase == "effect")
 	assert_eq(impacts.size(), 1)
-	assert_eq(effects.size(), 1, "Balrog attack3 effectAfter500 survives attackAfter400")
+	assert_eq(effects.size(), 1, "a later effect survives the earlier damage impact")
 	if effects.size() == 1:
-		assert_near(float(effects[0].time) - float(start.time), 0.5, DT)
+		assert_near(float(effects[0].time) - float(start.time), 0.65, DT)
 
 
 func test_type_two_without_bullet_speed_launches_a_finite_magic_ball_and_hits() -> void:
 	var setup := _attack_setup(2)
-	setup.mob_imgs[8130100].attack1.info.attackAfter = 400.0
-	setup.mob_imgs[8130100].attack1.info.effectAfter = 100.0
+	setup.mob_imgs[8130100].attack1.info.attackAfter = 450.0
+	setup.mob_imgs[8130100].attack1.info.effectAfter = 150.0
 	var w := RunWorld.new(setup)
 	var start := _start(w)
 	if start.is_empty():
@@ -176,9 +177,9 @@ func test_type_two_without_bullet_speed_launches_a_finite_magic_ball_and_hits() 
 	if launched.size() == 1:
 		assert_near(float(launched[0].speed), 320.0, 1e-6, "tier C missing-speed fallback, not a stationary immortal ball")
 	var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "player_hit" and e.source_kind == "projectile")
-	assert_eq(hits.size(), 1, "swept body collision from canonical muzzle")
+	assert_eq(hits.size(), 1, "swept body collision from the synthetic muzzle")
 	if hits.size() == 1:
-		assert_true(int(hits[0].damage) > 500, "ball uses magic605, not physical450")
+		assert_true(int(hits[0].damage) > 600, "ball uses synthetic magic907, not physical211")
 	assert_eq(w.mob_projectiles.active_count(), 0, "ball is consumed")
 
 

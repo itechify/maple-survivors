@@ -167,19 +167,35 @@ func _draw_left(ci: Control, r: Rect2) -> void:
 		y += 15.0
 
 
+## Layout of learned skills, bounded above the best-result block in scroll-local coordinates.
+static func skill_layout(count: int) -> Dictionary:
+	# tier C: retain two named rows; larger loadouts use compact icons above a 6px best-block gap.
+	var r := ParchmentScroll.PARCHMENT
+	var area := Rect2(RIGHT_X, r.position.y + 26.0, RIGHT_W, r.size.y - 26.0 - 34.0 - 22.0 - 6.0)
+	var names := count <= 8
+	var cols := 4 if names else maxi(6, ceili(sqrt(float(count) * area.size.x / area.size.y)))
+	var rows := maxi(1, ceili(float(count) / cols))
+	var cell := SKILL_CELL if names else Vector2(area.size.x / cols, minf(36.0, area.size.y / rows)).floor()
+	var side := minf(cell.x, cell.y)
+	var icon_size := 32.0 if names else minf(32.0, side - minf(4.0, side * 0.1))
+	var cells: Array[Rect2] = []
+	for i in count:
+		cells.append(Rect2(area.position + Vector2((i % cols) * cell.x, int(i / cols) * cell.y), cell))
+	return {"area": area, "cells": cells, "names": names, "icon_size": icon_size}
+
+
 func _draw_right(ci: Control, r: Rect2) -> void:
 	var x := RIGHT_X
 	var y := r.position.y + 6.0
 	MapleText.draw(ci, Vector2(x, y), "Skills", INK, MapleText.SIZE, true)
 	y += 20.0
 	var skills: Array = summary.get("skills", [])
-	var cols := int(RIGHT_W / SKILL_CELL.x)
+	var layout := skill_layout(skills.size())
 	for i in skills.size():
 		if not (skills[i] is Dictionary):
 			continue
 		var s: Dictionary = skills[i]
-		var cell := Vector2(x + (i % cols) * SKILL_CELL.x, y + int(i / cols) * SKILL_CELL.y)
-		_draw_skill(ci, s, cell)
+		_draw_skill(ci, s, layout.cells[i], layout.names, layout.icon_size)
 	if skills.is_empty():
 		MapleText.draw(ci, Vector2(x, y), "No skills.", INK_SOFT, MapleText.SMALL)
 	var by := r.end.y - 34.0
@@ -191,9 +207,10 @@ func _draw_right(ci: Control, r: Rect2) -> void:
 		MapleText.SMALL)
 
 
-func _draw_skill(ci: Control, s: Dictionary, cell: Vector2) -> void:
-	var icon_pos := cell + Vector2(floorf((SKILL_CELL.x - 32.0) * 0.5), 0)
-	UiArt.blit_icon(ci, UiArt.icon_or_fallback(String(s.get("icon", ""))), icon_pos)
+func _draw_skill(ci: Control, s: Dictionary, cell: Rect2, names: bool, icon_size: float) -> void:
+	var icon_pos := cell.position + Vector2(floorf((cell.size.x - icon_size) * 0.5), 0)
+	ci.draw_set_transform(icon_pos, 0.0, Vector2.ONE * (icon_size / 32.0))
+	UiArt.blit_icon(ci, UiArt.icon_or_fallback(String(s.get("icon", ""))), Vector2.ZERO)
 	var rank := str(int(s.get("rank", 0)))
 	var frames: Array[SpriteFrame] = []
 	var w := 0.0
@@ -202,13 +219,16 @@ func _draw_skill(ci: Control, s: Dictionary, cell: Vector2) -> void:
 		if f != null:
 			frames.append(f)
 			w += f.region.size.x
-	var rx := icon_pos.x + 32.0 - w
+	var rx := 32.0 - w
 	for f in frames:
-		UiArt.blit(ci, f, Vector2(rx, icon_pos.y + 32.0 - f.region.size.y))
+		UiArt.blit(ci, f, Vector2(rx, 32.0 - f.region.size.y))
 		rx += f.region.size.x
-	var y := cell.y + 34.0
-	for line in MapleText.wrap(String(s.get("name", "")), SKILL_CELL.x - 8.0, MapleText.SMALL).slice(0, 2):
-		MapleText.draw_centered(ci, cell.x, y, SKILL_CELL.x, line, INK, MapleText.SMALL)
+	ci.draw_set_transform(Vector2.ZERO)
+	if not names:
+		return
+	var y := cell.position.y + 34.0
+	for line in MapleText.wrap(String(s.get("name", "")), cell.size.x - 8.0, MapleText.SMALL).slice(0, 2):
+		MapleText.draw_centered(ci, cell.position.x, y, cell.size.x, line, INK, MapleText.SMALL)
 		y += MapleText.LINE_SMALL - 1.0
 
 

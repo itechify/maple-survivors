@@ -8,14 +8,15 @@ const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
 
 
 func test_carried_beginner_uses_each_creation_weapon_and_advancement_replaces_it() -> void:
-	# tier A: original v83 Sword, Wooden Club and Hand Axe info, checked with wzimport dump.
-	for spec: Array in [[1302000, 17, 4, "swordOL", "swordL", 0.72],
-			[1322005, 19, 5, "mace", "mace", 0.75], [1312004, 17, 5, "swordOL", "swordL", 0.75]]:
+	# Invented stats/sounds on real creation IDs; this tests data flow, not canonical weapon facts.
+	for spec: Array in [[1302000, 23, 2, "fixture_sword", "fixture_sword", 0.60],
+			[1322005, 29, 7, "fixture_club", "fixture_club", 0.87], [1312004, 31, 8, "fixture_axe", "fixture_axe", 0.90]]:
 		var source := BF.world(70)
 		var character := source.character_snapshot()
 		character.beginner_weapon = spec[0]
 		var setup := source.setup.duplicate(true)
 		setup.character = character
+		setup.afterimage_imgs[spec[3]] = setup.afterimage_imgs.swordOL.duplicate(true)
 		setup.equipment_info[spec[0]] = {"incPAD": spec[1], "attackSpeed": spec[2],
 			"afterImage": spec[3], "sfx": spec[4]}
 		var world := RunWorld.new(setup)

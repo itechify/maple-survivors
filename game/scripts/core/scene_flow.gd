@@ -16,7 +16,8 @@ extends Node
 ## SaveData format 2 slots hold the boundary character, tier (0-based), phase=free_market|map_select|round, stage and round_seed.
 ## start_round(stage) persists phase=round and a seed BEFORE launch; continue_character restarts it unchanged.
 ## quit_round never writes. save_and_quit returns the hub/map select to the slots. RunScene passes finish_run(summary,
-## character) only when active_slot >= 0; a carried Dictionary reaches RunScene.configure via options.character.
+## character) with an outgoing character only for persistent clears; deaths use the last saved boundary for history.
+## A carried Dictionary reaches RunScene.configure via options.character.
 ##
 ## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
@@ -210,7 +211,7 @@ func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
 	_swap_to(run, "run")
 
 
-## Ends a round. RunScene supplies the final CharacterSnapshot only for a persistent run.
+## Ends a round. Persistent clears require a final CharacterSnapshot; deaths may retain the saved boundary character.
 ## Non-final clears have exactly one exit (_after_round_cleared); one-off rounds never access SaveData.
 func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	last_summary = summary.duplicate(true)
@@ -220,15 +221,18 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	if active_slot >= 0:
 		var sd := save_data()
 		var snapshot := sd.slot(active_slot)
-		if snapshot.is_empty() or not CharacterSnapshot.validation_error(character).is_empty():
+		var cleared := bool(summary.get("cleared", false))
+		var valid_character := CharacterSnapshot.validation_error(character).is_empty()
+		if snapshot.is_empty() or (cleared and not valid_character):
 			_swap_to(error_screen("Missing final character at the round boundary."), "error")
 			return
 		before = sd.best_for(last_stage).duplicate(true)
-		snapshot.character = character.duplicate(true)
+		# tier C: terminal history uses the last valid character when death leaves unanswerable rewards.
+		if valid_character:
+			snapshot.character = character.duplicate(true)
 		snapshot.erase("look") # Legacy wrapper duplication; CharacterSnapshot is the single look source.
 		snapshot.stage = last_stage
 		snapshot.rounds_played = int(snapshot.rounds_played) + 1
-		var cleared := bool(summary.get("cleared", false))
 		if cleared:
 			snapshot.tier = int(snapshot.tier) + 1
 			snapshot.tiers_cleared = int(snapshot.tiers_cleared) + 1

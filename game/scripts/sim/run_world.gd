@@ -1073,13 +1073,7 @@ func _restore_character(character: Dictionary) -> void:
 	_base_mp = float(character.base_mp)
 	_job_mp = float(character.job_mp)
 	_base_fortune = float(character.base_fortune)
-	for key: String in character.skill_order:
-		var skill: Dictionary = character.skills[key]
-		loadout.add_skill(key)
-		loadout.set_rank(key, int(skill.rank))
-		loadout.skill_mods[key] = CharacterSnapshot.decode_mods(skill.mods)
-	loadout.player_mods = CharacterSnapshot.decode_mods(character.player_mods)
-	loadout.card_ranks = CharacterSnapshot.integers(character.card_ranks)
+	CharacterSnapshot.restore_loadout(character, loadout)
 	for kind: String in potions.stock:
 		potions.stock[kind] = CharacterSnapshot.integers(character.potions[kind])
 	character_look = character.get("look", {}).duplicate(true)

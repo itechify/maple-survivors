@@ -294,26 +294,11 @@ func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> v
 		y += MapleText.LINE_SMALL - 1.0
 
 
-## Fits roster names in two lines, splitting a long word before it can reach the neighbouring cell (#90).
+## Fits roster names in two lines, wrapping at spaces and ellipsizing words wider than a cell.
 static func roster_name_lines(text: String, width: float) -> PackedStringArray:
 	var lines := PackedStringArray()
 	for word_line: String in MapleText.wrap(text, width, MapleText.SMALL):
-		# Keep a long single word balanced across the two lines (Tauro / macis, Tauro / spear).
-		if not word_line.contains(" ") and MapleText.width(word_line, MapleText.SMALL) > width:
-			var middle := ceili(word_line.length() * 0.5)
-			var left := word_line.left(middle)
-			var right := word_line.substr(middle)
-			if MapleText.width(left, MapleText.SMALL) <= width and MapleText.width(right, MapleText.SMALL) <= width:
-				lines.append(left)
-				lines.append(right)
-				continue
-		var line := ""
-		for letter: String in word_line:
-			if not line.is_empty() and MapleText.width(line + letter, MapleText.SMALL) > width:
-				lines.append(line)
-				line = ""
-			line += letter
-		lines.append(line)
+		lines.append(MapleText.ellipsize(word_line, width, MapleText.SMALL))
 	# tier C: two name lines fit the existing roster footer; exceptionally long future names get an ellipsis.
 	if lines.size() > 2:
 		lines[1] = MapleText.ellipsize(" ".join(lines.slice(1)), width, MapleText.SMALL)
