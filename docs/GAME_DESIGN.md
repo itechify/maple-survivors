@@ -336,7 +336,7 @@ and 0/16 held-out runs. These are known deviations for the balance pass. A short
 to reproduce it is in [research/spec30-rarity-balance.md](research/spec30-rarity-balance.md).
 
 Regression smoke after the owner's changes (spec odds, new ladder, untouched C46 stage data), 2026-10-15, seeds
-1/2/2026, compared with the same seeds on the C46 PR head. No crashes or world warnings. Full suite: 570 of 571 passed; the one schema-list failure was fixed and its files re-run green.
+1/2/2026, compared with the same seeds on the C46 PR head. No crashes or world warnings. Full suite on the final head: 571 tests, 0 failed, 0 skipped.
 
 | Stage / policy | Clears (now) | Deaths (now) | Clears (C46) | Deaths (C46) |
 |---|---|---|---|---|
