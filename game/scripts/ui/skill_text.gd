@@ -1,14 +1,15 @@
 class_name SkillText
 extends RefCounted
 ## The one source of player-visible skill text: a skill's description and its line for one level, as v83 shows them in
-## the skill window, adjusted to how the skill works in this game. The level-up cards use it, and the Skill window
-## tooltips (#86) are meant to use it too.
+## the skill window, adjusted to how the skill works in this game. The level-up cards (dress) and the Skill window
+## tooltips (SkillWindowModel.skill_tooltip) use it.
 ##
 ##   var text := SkillText.new(world.book, library.find("String.wz/Skill.img"))
 ##   text.desc("thunder_bolt")                                       # "Attacks surrounding monsters ..."
 ##   text.level_line(key, lo.level(key), lo.stats(key))              # the owned level: "... up to 8 monsters"
 ##   var r := lo.rank(key) + 1                                       # the next level (rank r = canonical level r)
 ##   text.level_line(key, lo.book.canonical_level(key, r), lo.stats(key, r))
+##   level_up_window.open(text.dress(cards, lo), level)              # level-up cards with their skill text
 ##
 ## Sources, per skill (survivor key of skills.json):
 ## - desc: the survivor override `text.desc` in skills.json (plain text), else String.wz/Skill.img/<7-digit id>/desc.
@@ -57,6 +58,33 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 	var node := book.level_node(key, level)
 	var hs := String(node.get("hs", "h%d" % level))
 	return clean(String(_wz(key).get(hs, "")))
+
+
+## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective
+## numbers of `lo` (the run's Loadout): a learn card's `desc` becomes the skill's description and its `detail` the line
+## of its starting level; a rank card's `desc` becomes the next level's line (its before -> after values stay). Mod
+## cards keep their own effect text (their numbers are in skill_mod_changes), other cards are unchanged, and a card
+## keeps its data text wherever there is no skill text (no String.wz in the cache).
+func dress(cards: Array, lo: Loadout) -> Array:
+	var out: Array = []
+	for c: Variant in cards:
+		var card: Dictionary = (c as Dictionary).duplicate(true) if c is Dictionary else {}
+		var skill := String(card.get("skill", ""))
+		var kind := String(card.get("kind", ""))
+		if skill != "" and lo.book.has(skill):
+			var magnitude := maxi(1, int(card.get("magnitude", 1)))
+			if kind == "skill_new":
+				var d := desc(skill)
+				if d != "":
+					card["desc"] = d
+				card["detail"] = level_line(skill, lo.book.canonical_level(skill, magnitude), lo.stats(skill, magnitude))
+			elif kind == "skill_rank" and lo.has(skill):
+				var r := lo.rank(skill) + magnitude
+				var line := level_line(skill, lo.book.canonical_level(skill, r), lo.stats(skill, r))
+				if line != "":
+					card["desc"] = line
+		out.append(card)
+	return out
 
 
 ## `s` with WZ escapes turned into line breaks, the Master Level and Required Skill lines removed, and each line

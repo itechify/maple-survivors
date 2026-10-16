@@ -263,7 +263,7 @@ func _text_cards(mage: bool) -> Array:
 	for offer: Array in offers:
 		cards.append(world.upgrades.choice_card(String(offer[0]), world, String(offer[1])))
 	var text := SkillText.new(world.book, lib.find("String.wz/Skill.img") if lib != null else {})
-	cards = LevelUpWindow.dress(cards, text, world.loadout)
+	cards = text.dress(cards, world.loadout)
 	print("ui_gallery: dressed cards ", JSON.stringify(cards))
 	return cards
 

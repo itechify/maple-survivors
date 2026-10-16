@@ -1067,7 +1067,7 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(LevelUpWindow.dress(req.cards, skill_text, world.loadout), level, bool(req.get("bonus", false)),
+			lw.open(skill_text.dress(req.cards, world.loadout), level, bool(req.get("bonus", false)),
 				bool(req.get("advancement", false)))
 
 
@@ -1384,7 +1384,7 @@ func run_info() -> Dictionary:
 		var manual := world.book.def(key).has("teleport")
 		var label := ""
 		if manual: # the first key the player bound (the icon has room for one caption)
-			label = KeyBindings.action_label("teleport", "\n").get_slice("\n", 0)
+			label = GameSettings.action_label("teleport", "\n").get_slice("\n", 0)
 			label = "" if label == "-" else label
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),

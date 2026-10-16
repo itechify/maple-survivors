@@ -84,19 +84,19 @@ func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 	var learn := w.upgrades.choice_card("magic_guard_new", w)
 	var mod := w.upgrades.choice_card("three_snails_count", w)
 	var magnet := w.upgrades.choice_card("magnet", w)
-	var cards := LevelUpWindow.dress([learn, mod, magnet], text, w.loadout)
+	var cards := text.dress([learn, mod, magnet], w.loadout)
 	assert_eq([cards[0].desc, cards[0].detail], ["Pays damage with MP.", "MP -6; replace 11%"],
 		"a learn card: the skill's desc and its level-1 line")
-	assert_eq(LevelUpWindow.dress([w.upgrades.choice_card("magic_guard_new", w, "rare")], text, w.loadout)[0].detail,
+	assert_eq(text.dress([w.upgrades.choice_card("magic_guard_new", w, "rare")], w.loadout)[0].detail,
 		"MP -6; replace 14%", "a Rare learn starts at level 2 and shows that line")
 	assert_eq(cards[1].desc, mod.desc, "a mod card keeps its own effect text")
 	assert_has(LevelUpWindow.change_lines(cards[1]), "Shots: 1 → 2", "with the number it changes")
 	assert_eq(cards[2], magnet, "cards without a skill are left alone")
 	w.upgrades.apply("magic_guard_new", w)
-	var rank: Dictionary = LevelUpWindow.dress([w.upgrades.choice_card("magic_guard_rank", w)], text, w.loadout)[0]
+	var rank: Dictionary = text.dress([w.upgrades.choice_card("magic_guard_rank", w)], w.loadout)[0]
 	assert_eq(rank.desc, "MP -6; replace 14%", "a rank card: the next level's line")
 	assert_false(LevelUpWindow.change_lines(rank).is_empty(), "above its before -> after values")
-	var bare: Dictionary = LevelUpWindow.dress([learn], SkillText.new(w.book, {}), w.loadout)[0]
+	var bare: Dictionary = SkillText.new(w.book, {}).dress([learn], w.loadout)[0]
 	assert_eq([bare.desc, String(bare.get("detail", ""))], [learn.desc, ""], "without strings the card data text stays")
 
 
@@ -192,7 +192,7 @@ func _check_all_text(imgs: Dictionary, strings: Variant, label: String) -> void:
 			var offered := w.upgrades.choice_card(String(c.id), w, tier)
 			var where := "%s card %s (%s)" % [label, c.id, tier]
 			_check_text(String(offered.desc), where + " data desc (shown without String.wz)", true)
-			var card: Dictionary = LevelUpWindow.dress([offered], text, w.loadout)[0]
+			var card: Dictionary = text.dress([offered], w.loadout)[0]
 			_check_text(String(card.desc), where + " desc", true)
 			_check_text(String(card.get("detail", "")), where + " detail", kind == "skill_new")
 			for line: String in LevelUpWindow.change_lines(card):
@@ -201,7 +201,7 @@ func _check_all_text(imgs: Dictionary, strings: Variant, label: String) -> void:
 		if kind == "skill_rank":
 			for r in range(1, w.book.max_rank(skill)):
 				w.loadout.set_rank(skill, r)
-				var card: Dictionary = LevelUpWindow.dress([w.upgrades.choice_card(String(c.id), w)], text, w.loadout)[0]
+				var card: Dictionary = text.dress([w.upgrades.choice_card(String(c.id), w)], w.loadout)[0]
 				_check_text(String(card.desc), "%s card %s at rank %d" % [label, c.id, r], true)
 
 

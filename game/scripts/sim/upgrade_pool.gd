@@ -18,9 +18,9 @@ extends RefCounted
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
-## Skill modifier stat -> the skill_mod_changes key it previews ("count" becomes "shots" or "targets" by skill kind).
-const MOD_PREVIEW := {"count": "targets", "pierce": "pierce", "cooldown": "cooldown", "speed": "speed",
-	"range": "range", "area": "area", "damage": "damage", "crit": "crit"}
+## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
+## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
+const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -206,8 +206,9 @@ static func is_power(c: Dictionary) -> bool:
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
 ## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
-## are taken, keys from MOD_PREVIEW: shots / targets / pierce / speed / range (whole numbers), cooldown (seconds, two
-## decimals), area / damage / crit (percent); {} otherwise)}.
+## are taken, keys as MOD_PREVIEW names them: shots / targets / pierce / speed / range (whole numbers), cooldown
+## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
+## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
 	var c := card(id)
 	tier = _honest_tier(c, state, tier)
@@ -289,16 +290,12 @@ func describe(id: String, magnitude: int) -> String:
 ## the steps stacked exactly as apply() stacks them.
 static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictionary:
 	var skill := String(c.get("skill", ""))
-	var preview := Loadout.new(lo.book)
-	preview.ranks = lo.ranks.duplicate()
-	preview.skill_mods = lo.skill_mods.duplicate(true)
-	preview.player_mods = lo.player_mods.duplicate(true)
-	preview.crit_chance = lo.crit_chance
+	var preview := lo.clone()
 	var touched := []
 	for e: Dictionary in c.get("effects", []):
 		var stat := String(e.get("stat", ""))
 		var op := String(e.get("op", "add"))
-		if stat == "rank" or not MOD_PREVIEW.has(stat):
+		if not stat in MOD_PREVIEW:
 			continue
 		var value := float(e.get("value", 0.0))
 		preview.add_skill_mod(skill, stat, op, pow(value, magnitude) if op == "mul" else value * magnitude)
@@ -308,13 +305,10 @@ static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictiona
 	var out := {}
 	for stat: String in touched:
 		if stat == "count":
-			# Projectile skills fire `count` shots; nearest instant skills strike `count` targets; box and crowd skills
-			# strike their mob_count (canonical mobCount plus cards), as SkillRunner resolves them.
-			var field := "mob_count" if String(before.cast_rule) in ["box", "crowd"] else "count"
-			out["shots" if String(before.kind) == "projectile" else "targets"] = {"before": int(before[field]),
-				"after": int(after[field])}
+			out[SkillRunner.count_meaning(String(before.kind))] = {"before": SkillRunner.strike_count(before),
+				"after": SkillRunner.strike_count(after)}
 		else:
-			out[String(MOD_PREVIEW[stat])] = {"before": _preview_value(stat, before, lo, skill),
+			out[stat] = {"before": _preview_value(stat, before, lo, skill),
 				"after": _preview_value(stat, after, preview, skill)}
 	return out
 
@@ -322,7 +316,7 @@ static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictiona
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
 		"cooldown":
-			return snappedf(float(st.cooldown), 0.01)
+			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"area":
 			return roundi(float(st.area) * 100.0)
 		"damage":

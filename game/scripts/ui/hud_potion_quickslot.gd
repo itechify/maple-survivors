@@ -1,6 +1,6 @@
 class_name HudPotionQuickslot
 extends HudWidget
-## HP/MP potion icons, current unlimited stock counts and drink keys (the live bindings: KeyBindings.action_label) in the
+## HP/MP potion icons, current unlimited stock counts and drink keys (the live bindings: GameSettings.action_label) in the
 ## status bar's reserved quickslot area.
 
 ## tier C: two readable slots within the status bar's 221 x 59 reserved region.
@@ -20,7 +20,7 @@ func update(ps: Dictionary, info: Dictionary) -> void:
 		var id := int(stock.get("item_id", 0))
 		var icon: SpriteFrame = _frame(AssetLibrary.item_icon_path(id, false), true) if id > 0 else null
 		slots.append({"kind": kind, "item_id": id, "count": int(stock.get("count", 0)),
-			"key_label": KeyBindings.action_label(ACTIONS[kind]), "icon": icon})
+			"key_label": GameSettings.action_label(ACTIONS[kind]), "icon": icon})
 
 
 ## The currently displayed slot (same snapshot and icon used by _draw), or {} for an unknown kind.

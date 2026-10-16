@@ -16,7 +16,7 @@ extends MapleWindow
 ## `card_chosen` is emitted at once when a card is picked (then the window fades out); a new open() during the fade
 ## (queued level-ups) restarts the window with the new cards.
 ##
-##   win.open(LevelUpWindow.dress(cards, skill_text, loadout), level)
+##   win.open(skill_text.dress(cards, loadout), level)
 ##                            # cards as in the choice_pending event: {id, kind, name, desc, icon, rank,
 ##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes,
 ##                            # skill_mod_changes, skill_effect_stat, tier, magnitude, rank_before, skill_level_max},
@@ -33,8 +33,9 @@ const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP co
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
 const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
-## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys), in display order. tier C: our wording.
-const MOD_LABELS := {"shots": ["Shots", ""], "targets": ["Targets", ""], "pierce": ["Pierce", ""],
+## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
+## TARGETS), in display order. tier C: our wording.
+const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "pierce": ["Pierce", ""],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
 
@@ -189,34 +190,6 @@ static func rank_text(card: Dictionary) -> String:
 	if max_rank > 1 and rank >= max_rank:
 		s += "  MAX"
 	return s
-
-
-## The cards of a choice_pending event with the skill text of `text` (SkillText) at the offered level, using the
-## effective numbers of `lo` (the run's Loadout): a learn card's `desc` becomes the skill's description and its
-## `detail` the line of its starting level; a rank card's `desc` becomes the next level's line (its before -> after
-## values stay). Mod cards keep their own effect text (their numbers are in skill_mod_changes), other cards are
-## unchanged, and a card keeps its data text wherever SkillText has none (no String.wz in the cache).
-static func dress(p_cards: Array, text: SkillText, lo: Loadout) -> Array:
-	var out: Array = []
-	for c: Variant in p_cards:
-		var card: Dictionary = (c as Dictionary).duplicate(true) if c is Dictionary else {}
-		var skill := String(card.get("skill", ""))
-		var kind := String(card.get("kind", ""))
-		if text != null and skill != "" and lo.book.has(skill):
-			var magnitude := maxi(1, int(card.get("magnitude", 1)))
-			if kind == "skill_new":
-				var level := lo.book.canonical_level(skill, magnitude)
-				var d := text.desc(skill)
-				if d != "":
-					card["desc"] = d
-				card["detail"] = text.level_line(skill, level, lo.stats(skill, magnitude))
-			elif kind == "skill_rank" and lo.has(skill):
-				var r := lo.rank(skill) + magnitude
-				var line := text.level_line(skill, lo.book.canonical_level(skill, r), lo.stats(skill, r))
-				if line != "":
-					card["desc"] = line
-		out.append(card)
-	return out
 
 
 ## Values that change with the card: a rank card's canonical values at the offered rank (mastery is already a percent
