@@ -385,6 +385,14 @@ the character's outfit/weapon, full HP/MP status, readable instruction plate and
 portals, the two real ladders, normal jump/climb/same-map portal behavior, snapshot immutability, look/weapon
 resolution, pool agreement with RunWorld, pause holding motion, clear/resume/exit saves and final-tier victory.
 
+After the final fetch/merge of integration `0c72c68` and correction of the old stage-only manifest assertion,
+the full `ISOLATE=t71 bash scripts/test.sh` passes **721 tests, 0 failed, 0 skipped, 80 files** (326.337 s).
+All real-cache checks execute; none is skipped. Log: ignored `evidence/t71/full_suite_final.log`.
+Final focused data/hub/flow checks pass **41 tests, 0 failed, 0 skipped** (`evidence/t71/focused_final.log`).
+The temporary `FreeMarket.character_look(character, data)` resolver is the one #70 merge seam: replace its
+resolution with #70's shared helper when that ticket lands. It reads only CharacterSnapshot.look and resolves
+the job weapon (nonzero beginner_weapon for a Beginner, otherwise weapon_by_job), without changing the snapshot.
+
 #### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
 
 Revision `8ef2fb0`, based on integration `eca037d`; `ISOLATE=t74`, training seeds **1/2/2026**, bot/random,
