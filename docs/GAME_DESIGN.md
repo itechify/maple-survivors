@@ -369,7 +369,63 @@ After fetching/merging `origin/t3/issue-32-implementation` (already current at `
 `ISOLATE=t67 bash scripts/test.sh` passes **676 tests, 0 failed, 0 skipped, 75 files** (313.720 s).
 Real-cache checks execute; final log: ignored `_scratch/t67-full-final.log`.
 
+#### Spec #32 / #73 bosses and #72 pending fixture checks (2026-10-16)
+
+Report-only regression after `c50d511` merged integration `2b139cd` (#67 and #72), `ISOLATE=t73`, private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73`. Seeds **1/2/2026**, bot/random, 1800 s cap,
+default branch choices, no PATCH, tuning candidates or held-out seeds. Original stages start fresh; Dark Cave
+uses committed `lv35_magician_2nd.json` (its actual character is **Lv38 F/P**, job210). Encounter data was frozen
+before measurement: HP x0.8/1/3; contact/attack x0.8/1/1.25; canonical attacks with 8 s per-attack cadence.
+All **18 rounds** finish without crashes, script errors or world warnings. Henesys still reaches Magician and
+Mano in 3/3 per policy; both original stages reproduce #72's previous smoke exactly. Tree deaths remain record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Final levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 51 / 50 / 55 |
+
+Dark Cave boss fights, seconds as **min / median / max**, completed observations always shown with spawned count:
+bot Zombie Mushmom **31.02 / 39.63 / 48.43 (3/3 completed/spawned)**, censored median **39.63 (n=3, 0 unfinished)**;
+random **64.27 / 117.12 / 128.53 (3/3)**, censored median **117.12 (n=3, 0 unfinished)**.
+Snack Bar bot completed **none (n=0), 0/3 spawned**, censored median **>=189.28 (n=3, 3 unfinished)**;
+random completed **none (n=0), 0/2 spawned**, censored median **>=81.75 (n=2, 2 unfinished)**, 1 not spawned.
+Jr. Balrog completed **none (n=0), 0/0 spawned**, censored median **none (n=0)**; 3 not spawned per policy.
+No bosses were skipped. None of these six rounds cleared or reached the final boss, so the smoke cannot measure
+Jr. Balrog's fight difficulty; its final-boss strength is the explicit highest scales/effective HP, not a tuning claim.
+Dark Cave bot/random MP collected/used is **1.039 / 0.993**; MP-wait seconds/run min/median/max are
+**0 / 1.67 / 7.95** and **0 / 0 / 37.20** (n=3 each). Exact console output, per-seed records and SYSTEMS aggregates
+remain ignored under `evidence/t73/smoke/`; no balance adjustments followed these measurements.
+
+**#72 pending items:** the ordinary one-off `--run=dark_cave --character=<fixture>` at seed1, x16, reaches death
+at **789.283 s (13:09.3), Lv58**, with **missing=[]** and no game/world warnings. Checked by eye:
+`evidence/t73/fixture-round/t60.png` (Horny/Zombie Mushrooms, flying Stirges, carried Magician and cave ladders),
+`t780.png` (Tauros, Eyes/Jr. Boogies and Snack Bar) and `death_land.png`. The fixture smoke is folded into the
+table above, completing the stage ticket's previously unmeasured carried-character check. An additional normal-damage
+seed2026 fixture playtest fast-forwards without drawing to 780 s, then runs at x1 to death at **807.817 s, Lv60**,
+missing=[] and no warnings. Checked `evidence/t73/fixture-late/t795.png` / `t805.png` by eye: both Tauromacis
+and Taurospear, mixed Eyes/Boogies/Stirges and Snack Bar's beam are visible. The fast-forward does not skip sim ticks.
+
+**#73 visuals:** checked all fourteen `<id>_<attack>_windup.png` / `_impact.png` images under
+`evidence/t73/boss-attacks/`: Zombie Mushmom's slam, Snack Bar's physical hit/fire/long beam, and Jr. Balrog's
+targeted fire strike, ball and slash. Separate `evidence/t73/balrog-ball/` flight/contact images show the moving
+fireball and canonical hit effect. All seven probe records and the ball repeat have **missing=[]**, warnings=[];
+the private import reports 0 warnings/errors. The committed debug driver uses real fixture/map/cache and attack
+events, with normal waves suppressed, skill cooldowns held and god mode solely to show every attack; it is not
+survival evidence. Seeded tests cover damage, admission/escape/jump/death, delayed effects, arrivals and clear
+only after all bosses/reward picks finish. Type-1 targeting remains an explicit **tier-C interpretation**, not
+verified v83 RE; the lead must flag that caveat on #73 (the implementer brief forbids issue comments).
+
+After the final integration fetch/merge check (`2b139cd`, already up to date), the full isolated suite passes
+**690 tests, 0 failed, 0 skipped, 77 files**; all real-cache checks execute. Output is preserved in ignored
+`evidence/t73/final-full-suite.log`. The focused boss attack tests previously pass **16 tests, 0 failed, 0 skipped**.
+
 #### Spec #32 / #72 Dark Cave stage data (2026-10-16)
+
+The pending carried-character checks below are completed by the #73 follow-up immediately above this record.
 
 Report-only regression started at `1d69662` (the subsequent `8a46f7d` only restores catalog order and updates tests;
 no pacing or sim values change), private cache
@@ -2031,6 +2087,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Magic and delayed effects | magic=1 uses mob MADamage unless attack overrides it; effectAfter remains independent of attackAfter (Balrog attack3 500/400 ms); direct hit art at character impact | A fields/timings; C resolution/presentation | WZ field inventory and seeded tests; canonical values remain untouched |
 | Boss icons and EXP pickups | Snack Bar borrows Zombie Mushmom icon and colours 1/5; EXP icons 4000008 / 4000011 / 4000028 | C | Original Snack Bar lacks gauge icon/colours; reuse imported signature art, not a drop-table claim |
 | Attack evidence capture | Per-attack windup at min(0.85 s, half windup), at least one fixed tick; per-attack impact +0.12 s | C | Capture short ball windup before launch and keep seven distinct attack images |
+| Debug encounter probe | Arrival 0.5 s, 8 s ceiling, 60 s skill wait, no ordinary spawns, god mode; offsets 100 px (200 ball / 300 beam); fixed 1/60 ticks; windup halfway capped 0.85 s, contact +0.12 s, ball flight launch +0.2 s | C | Diagnostic visual staging only, dark_cave_boss_driver; no shipped gameplay data is changed |
 
 The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
 growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
