@@ -244,7 +244,7 @@ func test_every_event_matches_the_schema() -> void:
 		_check(e, seen)
 	var statuses := RF.quiet_world()
 	var affected := RF.put_mob(statuses, 1110100, 700)
-	for status: String in ["slow", "poison", "freeze"]:
+	for status: String in MobSwarm.STATUS_NAMES:
 		statuses.swarm.apply_status(affected, status, {"x": -40, "level": 30, "time": 1}, statuses.events)
 	for tick in 60:
 		statuses.step(DT, MoveInput.new())

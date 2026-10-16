@@ -151,6 +151,10 @@ final933.92µs/tick, no observed sim slowdown; small differences remain below sh
 Both had matching kills/damage and missing[]. Scheduling metadata is preserved beside these captures.
 Logs/screenshots: gitignored `evidence/issue54/`; status-specific cached-art/tint/expiry captures checked by eye.
 Applying skills are sibling work. Capped runs are not clears or balance acceptance evidence.
+PR #62 review (2026-10-15): `bash scripts/bench.sh run 300 --statuses` keeps all 300 mobs slowed and poisoned and a
+third frozen. Medians of three alternating rounds, base/branch/branch+statuses: synthetic 1,699/1,683/1,817 and
+104040000 2,061/1,916/2,104 µs/tick (noisy shared machine). The status tick alone costs about 150–185 µs at 300
+statused mobs and 2–3.5 µs at 5, since it visits only statused slots. Details: docs/research/monster-status-effects.md.
 
 ## Progress log
 

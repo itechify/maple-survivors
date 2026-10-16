@@ -154,7 +154,10 @@ var mob_projectiles := MobProjectileSystem.new()
 var events: Array = []
 var time := 0.0
 var kills := 0
-var damage_dealt := 0
+## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
+var damage_dealt: int:
+	get:
+		return projectiles.dealt + _instant_dealt + swarm.poison_dealt
 var state := PLAYING
 var view_size := DEFAULT_VIEW
 ## Player-centred logical view clamped to the bounds (spawn logic keeps mobs outside it).
@@ -467,7 +470,6 @@ func _step_player_attacks(dt: float) -> void:
 	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed)
 	for m in projectiles.kills:
 		_on_kill(m)
-	damage_dealt = projectiles.dealt + _instant_dealt + swarm.poison_dealt
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -830,7 +832,6 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 		"hit_visual": String(visual_paths[hv]) if hv >= 0 else "", "skill": String(st.skill),
 	})
 	_instant_dealt += roll.x
-	damage_dealt = projectiles.dealt + _instant_dealt + swarm.poison_dealt
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -993,7 +994,8 @@ func _touch() -> void:
 	var n := mob_grid.query_radius(c, body.size.length() * 0.5 + body_pad, _touch_buf)
 	for j in n:
 		var m := _touch_buf[j]
-		if swarm.active[m] == 0 or swarm.alpha[m] < 1.0:
+		# tier C (owner): a frozen monster deals no touch damage.
+		if not swarm.can_act(m):
 			continue
 		var mk: MobKind = mob_kinds[swarm.kind[m]]
 		if not mk.body_attack:

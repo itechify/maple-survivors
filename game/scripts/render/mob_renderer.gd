@@ -107,7 +107,13 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 	var alpha: PackedFloat32Array = swarm.alpha
 	var statuses := swarm as MobSwarm
 	var has_statuses := statuses != null and statuses.has_statuses()
-	if not has_statuses:
+	var status_left := PackedFloat64Array()
+	var status_elapsed := PackedFloat32Array()
+	if has_statuses:
+		status_left = statuses.status_left
+		status_elapsed = statuses.status_elapsed
+		_load_status_anims()
+	else:
 		_status_pool.hide_from(0)
 	var actions: PackedStringArray = action_state.get("actions", PackedStringArray())
 	var action_times: PackedFloat32Array = action_state.get("times", PackedFloat32Array())
@@ -163,16 +169,20 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 		var pos := Vector2(roundf(xs[i]), roundf(ys[i]))
 		var tint := Color.WHITE
 		if has_statuses and st != DIE:
-			if statuses.slow_left[i] > 0.0 or statuses.poison_left[i] > 0.0:
-				_load_status_anims()
-				_draw_statuses(i, statuses, pos, face > 0, a)
+			var base := i * MobSwarm.STATUS_COUNT
+			var slow := status_left[base + MobSwarm.SLOW]
+			var poison := status_left[base + MobSwarm.POISON]
+			if slow > 0.0 or poison > 0.0:
+				var box: Rect2 = statuses.mob_kind(i).hitbox
+				_draw_cue(i, SLOW_CUE, slow, status_elapsed[base + MobSwarm.SLOW], box, pos, face > 0, a)
+				_draw_cue(i, POISON_CUE, poison, status_elapsed[base + MobSwarm.POISON], box, pos, face > 0, a)
 			else:
 				_hide_statuses(i)
-			if statuses.slow_left[i] > 0.0:
+			if slow > 0.0:
 				tint = SLOW_TINT
-			if statuses.poison_left[i] > 0.0 and _status_anims[POISON_CUE] == null:
+			if poison > 0.0 and _status_anims[POISON_CUE] == null:
 				tint = POISON_TINT
-			if statuses.frozen_left[i] > 0.0:
+			if status_left[base + MobSwarm.FREEZE] > 0.0:
 				tint = FREEZE_TINT
 		elif has_statuses:
 			_hide_statuses(i)
@@ -188,20 +198,17 @@ func _load_status_anims() -> void:
 		_status_anims.append(_lib().find_anim(path))
 
 
-func _draw_statuses(i: int, swarm: MobSwarm, pos: Vector2, flip: bool, alpha: float) -> void:
-	var box := swarm.mob_kind(i).hitbox
-	for cue in CUES_PER_SLOT:
-		var slot := i * CUES_PER_SLOT + cue
-		var left := swarm.slow_left[i] if cue == SLOW_CUE else swarm.poison_left[i]
-		var elapsed := swarm.slow_elapsed[i] if cue == SLOW_CUE else swarm.poison_elapsed[i]
-		var anim: SpriteAnim = _status_anims[cue]
-		if left <= 0.0 or anim == null or (cue == SLOW_CUE and elapsed >= anim.total):
-			_status_pool.hide(slot)
-			continue
-		_status_pool.ensure(slot + 1)
-		# tier C: canonical pos3 at body centre (Slow), pos2 at body top (Poison); WZ origins supply spacing.
-		var anchor := Vector2(0.0, box.get_center().y if cue == SLOW_CUE else box.position.y)
-		_status_pool.show(slot, anim.frames[anim.index_at(elapsed, cue == POISON_CUE)], (pos + anchor).round(), flip, alpha)
+## Shows cue `cue` (SLOW_CUE plays once, POISON_CUE repeats) of slot i while its status has `left` seconds.
+func _draw_cue(i: int, cue: int, left: float, elapsed: float, box: Rect2, pos: Vector2, flip: bool, alpha: float) -> void:
+	var slot := i * CUES_PER_SLOT + cue
+	var anim: SpriteAnim = _status_anims[cue]
+	if left <= 0.0 or anim == null or (cue == SLOW_CUE and elapsed >= anim.total):
+		_status_pool.hide(slot)
+		return
+	_status_pool.ensure(slot + 1)
+	# tier C: canonical pos3 at body centre (Slow), pos2 at body top (Poison); WZ origins supply spacing.
+	var anchor := Vector2(0.0, box.get_center().y if cue == SLOW_CUE else box.position.y)
+	_status_pool.show(slot, anim.frames[anim.index_at(elapsed, cue == POISON_CUE)], (pos + anchor).round(), flip, alpha)
 
 
 func _hide_statuses(i: int) -> void:

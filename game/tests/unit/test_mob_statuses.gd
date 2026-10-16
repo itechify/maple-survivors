@@ -75,16 +75,17 @@ func test_slow_uses_signed_canonical_x_and_refreshes_without_stacking() -> void:
 	start = w.swarm.x[m]
 	for tick in 59:
 		w.swarm.step(DT, ctx)
-	assert_true(w.swarm.slow_left[m] > 0.0, "still slowed one tick before refreshed expiry")
+	assert_true(w.swarm.status_time(m, MobSwarm.SLOW) > 0.0, "still slowed one tick before refreshed expiry")
 	w.swarm.step(DT, ctx)
 	assert_near(start - w.swarm.x[m], 13.125, 0.002, "refresh does not stack")
-	assert_near(w.swarm.slow_left[m], 0.0)
+	assert_near(w.swarm.status_time(m, MobSwarm.SLOW), 0.0)
 	start = w.swarm.x[m]
 	w.swarm.step(DT, ctx)
 	assert_near(start - w.swarm.x[m], 21.875 / 60.0, 0.0001, "normal speed on next tick")
 	var status_events := w.events.filter(func(e: Dictionary) -> bool: return String(e.type).begins_with("mob_status"))
 	assert_eq(status_events.size(), 3, "two applications, one expiry")
 	assert_eq(status_events[-1].type, "mob_status_expired")
+	assert_false(w.swarm.has_statuses(), "the last expiry empties the status list")
 
 
 func test_poison_pulses_through_expiry_stops_at_one_hp_and_credits_player_damage() -> void:
@@ -105,7 +106,7 @@ func test_poison_pulses_through_expiry_stops_at_one_hp_and_credits_player_damage
 		w.step(DT, MoveInput.new())
 	assert_eq(w.swarm.hp[m], 3800, "final pulse is due at expiry")
 	assert_eq(w.damage_dealt, 200)
-	assert_near(w.swarm.poison_left[m], 0.0)
+	assert_near(w.swarm.status_time(m, MobSwarm.POISON), 0.0)
 	w.swarm.hp[m] = 5
 	assert_true(w.swarm.apply_status(m, "poison", {"level": 30, "time": 2.0}, w.events))
 	for tick in 120:
@@ -153,31 +154,49 @@ func test_freeze_holds_motion_animation_and_action_gate_for_exact_duration() -> 
 	w.swarm.apply_hit(m, 1, 1)
 	for tick in 59:
 		w.swarm.step(DT, ctx)
-	assert_true(w.swarm.is_frozen(m))
+	assert_true(w.swarm.status_time(m, MobSwarm.FREEZE) > 0.0)
 	w.swarm.step(DT, ctx)
 	assert_eq(w.swarm.pos(m), start)
 	assert_eq(w.swarm.anim_t[m], anim_time, "even hits cannot restart frozen art")
 	assert_eq(w.swarm.state_t[m], state_time)
-	assert_false(w.swarm.is_frozen(m))
+	assert_near(w.swarm.status_time(m, MobSwarm.FREEZE), 0.0)
 	assert_true(w.swarm.can_act(m))
 	w.swarm.step(DT, ctx)
 	assert_true(w.swarm.x[m] < start.x, "movement resumes the next tick")
 	assert_true(w.swarm.anim_t[m] > anim_time)
 
 
-func test_canonical_and_scheduled_bosses_ignore_control_but_take_poison() -> void:
+func test_canonical_and_scheduled_bosses_reject_every_status() -> void:
 	for scheduled: bool in [false, true]:
 		var w := RF.quiet_world()
 		var m := RF.put_mob(w, 1110100 if scheduled else 2220000, 700)
 		w.swarm.steady[m] = 1 if scheduled else 0
-		var ctx := _ctx(w)
-		var hp := w.swarm.hp[m]
-		assert_false(w.swarm.apply_status(m, "slow", {"x": -40, "time": 2}, w.events))
-		assert_false(w.swarm.apply_status(m, "freeze", {"time": 2}, w.events))
-		assert_true(w.swarm.apply_status(m, "poison", {"level": 30, "time": 2}, w.events))
-		for tick in 60:
-			w.swarm.step(DT, ctx)
-		assert_true(w.swarm.hp[m] < hp, "both boss definitions permit poison per #54")
+		w.drain_events()
+		for status: String in MobSwarm.STATUS_NAMES:
+			assert_false(w.swarm.apply_status(m, status, {"level": 30, "x": -40, "time": 2}, w.events),
+				"%s on a %s boss (v83 server reference)" % [status, "scheduled" if scheduled else "canonical"])
+		assert_true(w.events.is_empty(), "a rejected status emits nothing")
+		assert_false(w.swarm.has_statuses())
+
+
+func test_statuses_fail_on_immune_strong_or_neutral_elements() -> void:
+	var w := RF.quiet_world()
+	var img := RF.mob_img(1110100)
+	img.info["elemAttr"] = "S1I2F3L4"
+	w.mob_kinds[0] = MobKind.from_wz(img, 1110100)
+	var m := w.spawn_mob(0, w.player.pos + Vector2(200, 0), w.player.fh, 1.0, false)
+	w.drain_events()
+	assert_false(w.swarm.apply_status(m, "poison", {"level": 30, "time": 2}, w.events), "poison-immune S1")
+	assert_false(w.swarm.apply_status(m, "freeze", {"time": 2}, w.events), "ice-strong I2")
+	assert_true(w.events.is_empty(), "rejections emit nothing")
+	assert_true(w.swarm.apply_status(m, "slow", {"x": -40, "time": 2}, w.events), "Slow has no element")
+	assert_true(w.swarm.apply_status(m, "freeze", {"time": 2, "element": "f"}, w.events),
+		"an applying skill's own element overrides the status default: fire-weak F3 takes it")
+	assert_false(w.swarm.apply_status(m, "slow", {"x": -40, "time": 2, "element": "s"}, w.events),
+		"an elemental Slow follows its element too")
+	assert_false(w.swarm.apply_status(m, "slow", {"x": -40, "time": 2, "element": "l"}, w.events),
+		"digit 4 (neutral) also rejects a status, as in the v83 server reference")
+	assert_near(w.mob_kinds[0].element_multiplier("l"), 1.0, 1e-6, "but digit 4 hits stay neutral")
 
 
 func test_statuses_clear_on_death_release_reuse_and_relocation() -> void:
@@ -193,13 +212,14 @@ func test_statuses_clear_on_death_release_reuse_and_relocation() -> void:
 			m = w.swarm.spawn(w.swarm.kind[m], 700, w.player.pos.y, w.player.fh)
 		else:
 			m = w.relocate_mob(m, Vector2(750, w.player.pos.y), w.player.fh)
-		assert_near(w.swarm.slow_left[m], 0.0, 1e-9, removal)
-		assert_near(w.swarm.poison_left[m], 0.0, 1e-9, removal)
-		assert_false(w.swarm.is_frozen(m), removal)
+		assert_near(w.swarm.status_time(m, MobSwarm.SLOW), 0.0, 1e-9, removal)
+		assert_near(w.swarm.status_time(m, MobSwarm.POISON), 0.0, 1e-9, removal)
+		assert_near(w.swarm.status_time(m, MobSwarm.FREEZE), 0.0, 1e-9, removal)
 		assert_near(w.swarm.slow_factor[m], 1.0)
+		assert_false(w.swarm.has_statuses(), "%s empties the status list" % removal)
 
 
-func test_frozen_touch_retains_body_attack_and_pause_stops_status_clocks() -> void:
+func test_frozen_monsters_deal_no_touch_damage_and_pause_stops_status_clocks() -> void:
 	var w := RF.quiet_world()
 	w.loadout.order.clear()
 	var m := RF.put_mob(w, 1110100, w.player.pos.x)
@@ -207,11 +227,34 @@ func test_frozen_touch_retains_body_attack_and_pause_stops_status_clocks() -> vo
 	assert_true(w.swarm.apply_status(m, "freeze", {"time": 1.0}, w.events))
 	w.state = RunWorld.CHOOSING_UPGRADE
 	w.step(DT, MoveInput.new())
-	assert_near(w.swarm.frozen_left[m], 1.0)
+	assert_near(w.swarm.status_time(m, MobSwarm.FREEZE), 1.0)
 	w.state = RunWorld.PLAYING
 	var hp := float(w.player_state.hp)
 	w.step(DT, MoveInput.new())
-	assert_true(float(w.player_state.hp) < hp, "tier C touch policy: canonical bodyAttack stays dangerous")
+	assert_eq(float(w.player_state.hp), hp, "tier C (owner): a frozen monster deals no touch damage")
+	for tick in 60:
+		w.step(DT, MoveInput.new())
+	assert_true(float(w.player_state.hp) < hp, "its canonical bodyAttack returns when the freeze ends")
+
+
+func test_freeze_lets_an_airborne_monster_fall_and_a_fading_one_appear() -> void:
+	var w := RF.quiet_world()
+	var m := RF.put_mob(w, 1110100, 700)
+	var ctx := _ctx(w)
+	w.swarm.alpha[m] = 0.2
+	w.swarm.fh[m] = -1
+	w.swarm.y[m] -= 80.0
+	w.swarm.vx[m] = 50.0
+	w.swarm.vy[m] = 0.0
+	var start := w.swarm.pos(m)
+	var anim_time := w.swarm.anim_t[m]
+	assert_true(w.swarm.apply_status(m, "freeze", {"time": 1.0}, w.events))
+	for tick in 20:
+		w.swarm.step(DT, ctx)
+	assert_true(w.swarm.y[m] > start.y, "a monster frozen mid-air falls")
+	assert_eq(w.swarm.x[m], start.x, "straight down: no drift while frozen")
+	assert_true(w.swarm.alpha[m] > 0.2, "the fade-in continues")
+	assert_eq(w.swarm.anim_t[m], anim_time, "the frozen pose holds")
 
 
 func test_real_v83_status_parameters_and_cached_cues() -> void:

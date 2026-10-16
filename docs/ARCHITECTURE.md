@@ -338,16 +338,20 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 `invincible_t`, `action`, `action_t`, `dead`, plus detached `buffs`, `slow` and `potions` snapshots described below).
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
-Player-inflicted monster statuses live in `MobSwarm` packed arrays: `slow_left`, `slow_factor`, `slow_elapsed`,
-`poison_left`, `poison_elapsed`, `frozen_left` plus private poison pulse/damage/source arrays. The shared entry point
-is `apply_status(slot, status, params, events) -> bool`; `params` contains canonical `time`, signed Slow `x`, or poison
-skill `level` and optional survivor `skill` key. `step` receives the current event list in `ctx.events`, advances status
-timers after movement and emits poison `mob_hit` events. `RunWorld` adds cumulative `swarm.poison_dealt` to player
-damage credit. No status means no status timer pass; `has_statuses()` lets presentation skip status work too.
-`can_act(slot)` additionally rejects Freeze; `is_frozen(slot)`
-is the public query. Touch admission remains separate. Release, death and relocation clear these player-inflicted
+Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
+and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, plus
+`slow_factor` and private poison pulse/damage/source arrays. `status_time(slot, status)` reads a timer. The shared entry
+point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
+`time`, signed Slow `x`, or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`). Bosses, and kinds whose Mob.wz digit for
+the element is 1, 2 or 4 (`MobKind.resists_status`), reject it. `step` receives the current event list in
+`ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
+list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
+`has_statuses()` lets presentation skip status work. `can_act(slot)` (settled and not frozen) gates monster touch
+damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison art and status tints; frozen state/animation clocks do not advance.
+Slow/Poison art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+falls and a fading-in one keeps fading in.
 
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
 for absent elements. `undead` exposes the canonical flag. `Loadout.stats().element` comes from Skill.wz `elemAttr`;
