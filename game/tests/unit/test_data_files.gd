@@ -243,6 +243,7 @@ func test_build_setup_and_paths() -> void:
 	assert_eq(s.skill_imgs.keys().size(), DataRepo.skill_books(data).size(), "all defined skill books")
 	assert_true(s.skill_imgs.has("000") and s.skill_imgs.has("200"))
 	assert_has(s.skill_imgs, "220", "Ice/Lightning Wizard book")
+	assert_has(s.skill_imgs, "230", "Cleric book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
 	assert_eq(s.stage, "henesys_hg1")

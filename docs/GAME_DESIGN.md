@@ -418,6 +418,31 @@ held-out figures; the superseded opening, rarity changes and different cohorts p
 difference to #53 alone. No held-out seeds were run and no data were retuned. A visible seed-1 run forced 210,
 cleared with `missing: []`, and its inspected `evidence/t53/job_window/window_job_30.png` shows all three branches selectable.
 
+#### #31 / #57 Cleric attacks regression smoke (2026-10-15)
+
+No tuning. Seeds 1/2/2026, both stages, bot/random policies, real cache, 800 × 600, 1,800 s cap,
+unforced seeded branches, `ISOLATE=t57`, no patch. All 12 records have empty world warnings; no crashes or
+script errors. Henesys reaches Magician and the first boss in 3/3 per policy, and Cleric in 1/3 per policy.
+Clear counts and death times match the preceding #53 smoke; Tree remains record-only.
+After merging #56's integration changes and retaining both skill families, the full `ISOLATE=t57` suite passed
+**608 tests, 0 failed, 0 skipped, 67 files** in 297.667 s. No SKIP is counted as coverage.
+
+| Stage / policy | Clear / dead / timeout | Death seconds | Cleric clear / skill ranks |
+|---|---|---|---|
+| Henesys sensible | 1 / 2 / 0 | 812.3, 322.7 | 1008.5 s; Holy Arrow 8, Heal 14 |
+| Henesys careless | 1 / 2 / 0 | 714.8, 329.0 | 962.7 s; Holy Arrow 8, Heal 8 |
+| Tree sensible | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+| Tree careless | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+
+Logs/records and systems aggregates are ignored under `_scratch/t57_smoke/`. The first sensible report invocation
+used relative record paths and failed to open them; the report was rerun successfully with absolute paths, without
+replaying or changing the runs. The visible seed-1 forced-230 playtest cleared at 1008.5 s, `missing: []`.
+Inspected `evidence/t57/cleric_s1/t700.png` and `t938.png` show Holy Arrow; the focused controlled RunScene captures
+`evidence/t57/focused/heal_gain.png` and `holy_arrow_flight.png` expose Heal's rising art/blue HP gain and the arrow
+without crowd occlusion. Both use the actual cache and sounds; the focused summary also has no missing assets.
+The seed-2026 attempt ended before its 480 s warp target and the existing warp path did not finish the dead run;
+it was stopped and replaced by seed 1. Exact v83 recovery remains unverified, as detailed in the #57 research note.
+
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
 
@@ -1399,6 +1424,8 @@ existing shots finish separately from carry-over projectile kills.
 | Improved MP Recovery (2000000) | Magician | Adds `floor(character level × skill level / 10)` MP to each 10 s pulse | ranks 1–16 = levels 1–16 | learn/rank |
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
 | Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
+| Holy Arrow (2301005) | Cleric | Holy projectile at nearest mob: canonical mad/mastery/mpCon and element h; 1 s recast, 480 px reach, 520 px/s, radius 12 | ranks 1–30 = levels 1–30 | learn/rank; +1 projectile (3 steps), +1 pierce (2), cooldown ×0.88 (3); job 230 only |
+| Heal (2301002) | Cleric | Instant self recovery below 50% HP OR holy damage to every undead intersecting canonical lt/rb; 2 s recast, canonical mpCon/hp; provisional historical stat-based recovery fit, exact v83 amount unresolved ([evidence](research/cleric-heal.md)) | ranks 1–30 = levels 1–30 | learn/rank only; job 230 only |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 | Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
 | Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
@@ -1749,6 +1776,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
+| Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
+| Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
+| Heal undead formula (#57) | bounds `(0.3×INT+LUK)` / `(1.2×INT+LUK)` × `(INT+matk)/1000` × `hp/100` × `(1.5+5/N)`; holy h; existing hit/defense/element path | B (pre-BB client RE, not directly v83) | Southperry #1033 posts 685–692; [derivation and worked example](research/cleric-heal.md) |
+| Heal recovery approximation (#57; unresolved verification) | historical LUK polynomial × `(INT+matk)` × INT × `hp/10`, lower bound ×0.8; single-target multiplier 1, uniform seeded roll truncated to HP, capped by restore_player; learn/rank weights 4/3 | B weak (historical coefficients); C (selecting this unverified fit, multiplier, RNG/rounding, weights) | [evidence gap and original observations](research/cleric-heal.md); exact v83 recovery acceptance criterion remains open |
 | Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
 | Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
 | Face blink | `blink` every 2-5 s (seeded) | C | ours |

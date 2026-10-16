@@ -26,9 +26,9 @@ const X_LABELS := {"hp": ["HP / pulse", ""]}
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", Loadout.MAX_MP_PERCENT: "Max MP"}
+	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
-const PERCENT_FIELDS := ["mastery", Loadout.MAX_MP_PERCENT]
+const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
