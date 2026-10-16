@@ -167,8 +167,8 @@ var guarantee := {}
 ## Card draws in a row that offered no power card (UpgradePool pity).
 var power_dry := 0
 ## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
-var card_tiers_offered := {"normal": 0, "rare": 0, "epic": 0, "unique": 0, "legendary": 0}
-var card_tiers_picked := {"normal": 0, "rare": 0, "epic": 0, "unique": 0, "legendary": 0}
+var card_tiers_offered := UpgradePool.empty_tier_counts()
+var card_tiers_picked := UpgradePool.empty_tier_counts()
 ## Setup problems the sim worked around (e.g. a pool mob without a mob img).
 var warnings := PackedStringArray()
 ## Largest feet-to-body-box-corner distance over all mob kinds (pads feet-point hash queries).
