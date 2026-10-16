@@ -424,6 +424,8 @@ No tuning. Seeds 1/2/2026, both stages, bot/random policies, real cache, 800 × 
 unforced seeded branches, `ISOLATE=t57`, no patch. All 12 records have empty world warnings; no crashes or
 script errors. Henesys reaches Magician and the first boss in 3/3 per policy, and Cleric in 1/3 per policy.
 Clear counts and death times match the preceding #53 smoke; Tree remains record-only.
+After merging #56's integration changes and retaining both skill families, the full `ISOLATE=t57` suite passed
+**608 tests, 0 failed, 0 skipped, 67 files** in 297.667 s. No SKIP is counted as coverage.
 
 | Stage / policy | Clear / dead / timeout | Death seconds | Cleric clear / skill ranks |
 |---|---|---|---|
