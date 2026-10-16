@@ -61,7 +61,28 @@ static func skill_imgs() -> Dictionary:
 		"2201005": {"icon": _canvas(32, 32), "elemAttr": "l", "effect": _anim(7, 100.0, 90, 90),
 			"hit": {"0": _anim(5, 100.0, 80, 80)}, "level": thunder_levels},
 	}}
-	return {"000": b000, "200": b200, "210": b210, "220": b220}
+	# #58 support fixtures: synthetic interpolation of canonical endpoints, separate from attack fixtures above.
+	for branch: int in [210, 220]:
+		var book: Dictionary = b210 if branch == 210 else b220
+		book.skill[str(branch * 10000 + 1001)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [10.0, 20.0], "time": [10.0, 200.0], "mad": [1.0, 20.0]})}
+		var slow_levels := _levels(20, {"mpCon": [8.0, 16.0], "time": [2.0, 40.0],
+			"x": [-2.0, -40.0], "mobCount": [6.0, 6.0]})
+		for level: String in slow_levels:
+			var extent := lerpf(200.0, 250.0, float(int(level) - 1) / 19.0)
+			slow_levels[level].lt = {"$v": [-extent, -150.0]}
+			slow_levels[level].rb = {"$v": [extent, 150.0]}
+		book.skill[str(branch * 10000 + 1003)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(4, 100.0, 60, 80), "mob": _anim(4, 100.0, 60, 80), "level": slow_levels}
+	var b230 := {"skill": {
+		"2301003": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [15.0, 30.0], "time": [15.0, 300.0], "x": [11.0, 30.0]})},
+		"2301004": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
+			"level": _levels(20, {"mpCon": [12.0, 24.0], "time": [10.0, 200.0],
+				"acc": [1.0, 20.0], "eva": [1.0, 20.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})},
+	}}
+	return {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
