@@ -1349,11 +1349,8 @@ func run_info() -> Dictionary:
 	for key: String in world.loadout.order:
 		var manual := world.book.def(key).has("teleport")
 		var label := ""
-		if manual:
-			for binding: InputEvent in InputMap.action_get_events("teleport"):
-				if binding is InputEventKey:
-					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
-					break
+		if manual: # the first key the player bound (the icon has room for one caption)
+			label = KeyBindings.action_label("teleport", "\n").get_slice("\n", 0).replace("-", "")
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "affordable": world.teleport_affordable() if manual else true})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
