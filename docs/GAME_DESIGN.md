@@ -336,7 +336,8 @@ Supplementary Henesys `--branch=220` (same seeds, both policies), compared with 
 bot 0/3 clears, 1079.7/812.3/322.7 s (before 1081.9/812.3/322.7), seed 1 took Forking Storm 3/3 steps and
 blinked 69 times (before 68); random 1/3 clears, C1003.0/714.8/329.0 (before C1003.4), seed 1 took 1 step.
 Only seed 1 reaches second job, so this is n=1 per policy and not balance evidence. No stop-and-ask gate. Raw
-records stay ignored under `_scratch/smoke84/`.
+records stay ignored under `_scratch/smoke84/`. Full isolated suite: **665 tests, 0 failed, 0 skipped, 72 files**;
+real-cache tests execute.
 
 #### #31 / #61 second-job QA (2026-10-15)
 
