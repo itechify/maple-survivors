@@ -4,16 +4,27 @@ extends Control
 
 const CREATE := preload("res://scenes/ui/character_create.gd")
 const CONFIRM := preload("res://scripts/ui/windows/character_delete_notice.gd")
+const HISTORY_BUTTON := preload("res://scripts/ui/widgets/login_history_button.gd")
 const LOGIN := "UI.wz/Login.img/"
 const BOOK := Vector2(800, 600) # tier A: Login/Common/frame canvas size.
-## tier B: 125px roster stride and selected walk1 / unselected stand1, local client references.
-## tier C: first feet (210,350) fitted to v83 Back/login/14 bridge; newer clients use different map geometry.
-const SLOT_X := [210, 335, 460]
-const FEET_Y := 350
-## tier C: WZ signboard's three planks determine action positions, not later-client button coordinates.
-const ACTION_OFFSETS := [Vector2(-51, -104), Vector2(-51, -63), Vector2(-51, -19)]
-## tier C: selected details scroll in the free sky; avoids the bridge, signboard and copyright.
-const INFO_AT := Vector2(315, 124)
+## tier A: original adventure/0 lamps registered in charselect_1.png; private spec32/v83-login-refs/wz-layout-notes.md.
+const SLOT_X := [252, 377, 502]
+const FEET_Y := 370
+## tier A (Create/Delete), B (Select wording differs): same capture/template registration, differences.md.
+const ACTION_AT := [Vector2(576, 149), Vector2(576, 185), Vector2(576, 234)]
+## tier B: compact scroll above slot 3 in period charselect_2.png (about 400,135); same layout.md.
+const INFO_FROM_FEET := Vector2(-108, -235)
+## tier C: 337px final beam canvas reaches the feet; exact anchor unresolved in the same layout.md.
+const LIGHT_HEIGHT := 337
+## tier A: pageL/pageR canvases registered in charselect_1.png; same wz-layout-notes.md.
+const PAGE_AT := [Vector2(155, 330), Vector2(604, 331)]
+## tier B: step in charselect_1.png / charselect_2.png; same layout.md (no world/channel plaque offline).
+const STEP_AT := Vector2(0, 33)
+## tier A: fresh original BtStart/BtVAC template match in charselect_1.png; supersedes layout.md's approximate y450/400.
+const BACK_AT := Vector2(0, 425)
+const HISTORY_AT := Vector2(0, 375)
+## tier B: hint region in charselect_1.png; C: truthful offline keyboard copy/tint, private spec32/v83-login-refs/layout.md.
+const TAB_HINT := Rect2(270, 40, 220, 40)
 const INK := Color8(85, 51, 17) # tier C: existing Maple login text palette.
 
 var flow: SceneFlow
@@ -73,6 +84,14 @@ func _layout() -> void:
 
 
 func _slots() -> void:
+	_image(_surface, "Common/step/2", STEP_AT)
+	var hint := _label(_surface, "Use Tab to select a menu.", TAB_HINT.position, TAB_HINT.size)
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	hint.add_theme_color_override("font_color", MapleText.BLACK)
+	var hint_plate := StyleBoxFlat.new()
+	hint_plate.bg_color = Color(0.8, 0.87, 1.0, 0.8) # tier C: pale-blue reference hint, charselect_1.png.
+	hint_plate.set_corner_radius_all(4) # tier C: screenshot-estimated hint corners, same reference.
+	hint.add_theme_stylebox_override("normal", hint_plate)
 	_effect = _image(_surface, "CharSelect/effect/1", Vector2.ZERO)
 	_effect.anchor = Vector2.ZERO
 	for i in SaveData.SLOT_COUNT:
@@ -84,6 +103,8 @@ func _slots() -> void:
 			var empty := _image(_surface, "CharSelect/character/1", feet)
 			empty.anchor = Vector2.ZERO
 		else:
+			var lantern := _image(_surface, "CharSelect/adventure", feet)
+			lantern.anchor = Vector2.ZERO # tier A: honor the WZ lamp origin at the registered feet.
 			var avatar := AvatarRenderer.new()
 			avatar.position = feet
 			_surface.add_child(avatar)
@@ -91,7 +112,7 @@ func _slots() -> void:
 			avatars.append(avatar)
 			_avatar_by_slot[i] = avatar
 		var tag := Control.new()
-		tag.position = feet + Vector2(0, 3) # tier C: clear the canonical shadow at the feet.
+		tag.position = feet # tier B: tag top at feet in charselect_1.png; private spec32/v83-login-refs/layout.md.
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tag.draw.connect(func() -> void: _draw_tag(tag, i))
 		_surface.add_child(tag)
@@ -113,33 +134,29 @@ func _slots() -> void:
 	_info = Control.new()
 	_info.name = "CharacterInfo"
 	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info.position = INFO_AT
 	_info.draw.connect(_draw_info)
 	_surface.add_child(_info)
-	# tier A: signboard object anchor in MapLogin plus the current camera transform.
-	var board := Vector2(653, 242)
-	for layer: String in ["0", "1", "2", "3", "4", "5", "6", "7"]:
-		for obj: Dictionary in backdrop.map.map_root.get(layer, {}).get("obj", {}).values():
-			if obj.get("l0") == "CharSelect" and obj.get("l1") == "signboard":
-				board = Vector2(obj.x, obj.y) - backdrop.center + BOOK * 0.5
-	select_button = _button(_surface, "CharSelect/BtSelect", "Continue", board + ACTION_OFFSETS[0], continue_selected)
+	select_button = _button(_surface, "CharSelect/BtSelect", "Continue", ACTION_AT[0], continue_selected)
 	select_button.name = "SelectCharacter"
-	create_button = _button(_surface, "CharSelect/BtNew", "Create", board + ACTION_OFFSETS[1], show_creation)
+	create_button = _button(_surface, "CharSelect/BtNew", "Create", ACTION_AT[1], show_creation)
 	create_button.name = "NewCharacter"
 	create_button.disabled = not flow.save_data().slots.has(null)
-	delete_button = _button(_surface, "CharSelect/BtDelete", "Delete", board + ACTION_OFFSETS[2], confirm_delete)
+	delete_button = _button(_surface, "CharSelect/BtDelete", "Delete", ACTION_AT[2], confirm_delete)
 	delete_button.name = "DeleteCharacter"
 	# tier A: these nodes have numbered normal/hover animations, not WZ button-state nodes.
-	# tier C: one page for our three slots, so both page controls are inert (greyed), never phantom extra slots.
+	# tier C: one page for our three slots; inert, with original full opacity (charselect_1.png).
 	for side: String in ["L", "R"]:
-		var page := _image(_surface, "CharSelect/page%s/0" % side, Vector2(122 if side == "L" else 536, 326))
+		var page := _image(_surface, "CharSelect/page%s/0" % side, PAGE_AT[0 if side == "L" else 1])
 		page.anchor = Vector2.ZERO
-		page.modulate.a = 0.45
-	_button(_surface, "Common/BtStart", "Back", Vector2(68, 502), flow.goto_title)
-	# tier C: small existing-art history plate in unused sky, clear of all v83 ink and frame text.
-	var history := _button(_surface, "", "History [H]", Vector2(600, 438), flow.goto_history)
+	_button(_surface, "Common/BtStart", "Back", BACK_AT, flow.goto_title)
+	var history := HISTORY_BUTTON.new()
+	history.position = HISTORY_AT
 	history.name = "RunHistory"
+	history.pressed.connect(flow.goto_history)
+	_surface.add_child(history)
 	message = _label(_surface, "", Vector2(185, 472), Vector2(390, 18))
+	# tier C: keep keyboard instructions legible when the selected beam crosses the hint's screen region.
+	_surface.move_child(hint, _surface.get_child_count() - 1)
 	delete_dialog = CONFIRM.new()
 	delete_dialog.confirmed.connect(_delete_confirmed)
 	_ui.add_child(delete_dialog)
@@ -169,9 +186,9 @@ func select_slot(index: int) -> void:
 	var jobs := JobTree.from_data(DataRepo.load_all().jobs, DataRepo.load_all().jobs_survivor)
 	selected_info = {"name": slot.name, "level": int(slot.character.level), "job": jobs.name_of(int(slot.character.job_id)),
 		"job_id": int(slot.character.job_id), "attributes": slot.character.attributes.duplicate(), "fame": 0, "world_ranking": 0}
-	# tier B: local client uses a beam below and sparkles above the selected feet. Origins remain WZ authored.
-	_effect.position = Vector2(SLOT_X[selected], FEET_Y - 298)
-	_sparkle.position = Vector2(SLOT_X[selected], FEET_Y - 298)
+	_effect.position = Vector2(SLOT_X[selected], FEET_Y - LIGHT_HEIGHT)
+	_sparkle.position = _effect.position
+	_info.position = Vector2(SLOT_X[selected], FEET_Y) + INFO_FROM_FEET
 	_info.tooltip_text = "%s / Lv. %d %s" % [selected_info.name, selected_info.level, selected_info.job]
 	_info.queue_redraw()
 
@@ -203,7 +220,7 @@ func _draw_tag(ci: Control, index: int) -> void:
 	var left := UiArt.frame(base + "0")
 	var middle := UiArt.frame(base + "1")
 	var right := UiArt.frame(base + "2")
-	var width := maxf(58, ceilf(MapleText.width(slot.name)) + 18) # tier B: client name-tag minimum/padding.
+	var width := maxf(58, ceilf(MapleText.width(slot.name)) + 18) # tier C: retained tag minimum/padding, unverified original-client fit.
 	var x := -floorf(width * 0.5)
 	if left != null and middle != null and right != null:
 		UiArt.blit(ci, left, Vector2(x, 0))
@@ -217,7 +234,7 @@ func _draw_tag(ci: Control, index: int) -> void:
 func _draw_info() -> void:
 	if selected_info.is_empty():
 		return
-	# tier A: last unroll canvas, charInfo's own origin, label cells measured in the 183x115 canvas.
+	# tier A: Login.img last compact unroll canvas, charInfo's own origin and label cells in its 183x115 canvas.
 	var scroll := UiArt.anim(LOGIN + "CharSelect/scroll/0")
 	if scroll != null and not scroll.is_empty():
 		UiArt.blit(_info, scroll.frames[-1], Vector2.ZERO)
@@ -228,19 +245,14 @@ func _draw_info() -> void:
 		["0", Vector2(143, 38), 54], [str(int(selected_info.attributes.str)), Vector2(53, 57), 54],
 		[str(int(selected_info.attributes.dex)), Vector2(53, 75), 54],
 		[str(int(selected_info.attributes.int)), Vector2(143, 57), 54],
-		[str(int(selected_info.attributes.luk)), Vector2(143, 75), 54], ["0", Vector2(53, 118), 115]]
+		[str(int(selected_info.attributes.luk)), Vector2(143, 75), 54], ["Ranking Not Available", Vector2(17, 118), 183]]
 	for row: Array in values:
 		var text := String(row[0])
 		# tier C: long second-job names compact to the job family here; full job remains on hover and in history.
 		if MapleText.width(text, MapleText.SMALL) > float(row[2]):
 			text = "Magician" if int(selected_info.job_id) in range(200, 233) else text.left(20)
 		MapleText.draw_centered(_info, row[1].x, row[1].y, row[2], text, INK, MapleText.SMALL)
-	# tier A: original icon/job indices 0 Beginner, 1 Warrior, 2 Magician, 3 Bowman, 4 Thief.
-	var family := floori(float(selected_info.job_id) / 100.0)
-	if family >= 0 and family <= 4:
-		var badge := UiArt.frame(LOGIN + "CharSelect/icon/job/%d" % family)
-		if badge != null:
-			UiArt.blit(_info, badge, Vector2(84, 140))
+	# tier B: compact Ranking Not Available variant, without a badge below the scroll; period charselect_2.png.
 
 
 ## Opens creation without changing the saved slots.
@@ -286,7 +298,7 @@ func _history() -> void:
 		var ending: String = {"died": "Died", "victory": "Victory", "deleted": "Deleted"}.get(entry.ending, entry.ending)
 		_history_line(entries, "%s   ·   %d tiers cleared   ·   %d rounds\n%s" % [ending,
 			int(entry.tiers_cleared), int(entry.rounds_played), String(entry.date).replace("T", "  ")])
-	_button(_surface, "Common/BtStart", "Back", Vector2(68, 502), flow.goto_character_select)
+	_button(_surface, "Common/BtStart", "Back", BACK_AT, flow.goto_character_select)
 
 
 func _history_line(parent: Node, text: String, bold: bool = false) -> void:

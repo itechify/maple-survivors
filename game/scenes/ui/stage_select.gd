@@ -23,6 +23,7 @@ const ENTRY_H := 46.0
 const DETAIL_X := 234.0
 const DETAIL_W := 232.0
 const ROSTER_CELL := Vector2(58, 76)
+const ROSTER_GUTTER := 2.0 # tier C: #90, keep each name inside its cell with visible separation.
 ## Mob feet above the cell bottom (two name lines below them).
 const ROSTER_FEET := 26.0
 const INK := Color8(102, 51, 0)
@@ -287,9 +288,37 @@ func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> v
 	var lib := UiArt.lib()
 	var nm := lib.string_name("Mob", mob_id) if lib != null else str(mob_id)
 	var y := cell.y + cell_size.y - ROSTER_FEET + 1.0
-	for line in MapleText.wrap(nm, ROSTER_CELL.x + 2.0, MapleText.SMALL).slice(0, 2):
-		MapleText.draw_centered(ci, cell.x - 1.0, y, ROSTER_CELL.x + 2.0, line, INK, MapleText.SMALL)
+	var name_width := cell_size.x - 2.0 * ROSTER_GUTTER
+	for line in roster_name_lines(nm, name_width):
+		MapleText.draw_centered(ci, cell.x + ROSTER_GUTTER, y, name_width, line, INK, MapleText.SMALL)
 		y += MapleText.LINE_SMALL - 1.0
+
+
+## Fits roster names in two lines, splitting a long word before it can reach the neighbouring cell (#90).
+static func roster_name_lines(text: String, width: float) -> PackedStringArray:
+	var lines := PackedStringArray()
+	for word_line: String in MapleText.wrap(text, width, MapleText.SMALL):
+		# Keep a long single word balanced across the two lines (Tauro / macis, Tauro / spear).
+		if not word_line.contains(" ") and MapleText.width(word_line, MapleText.SMALL) > width:
+			var middle := ceili(word_line.length() * 0.5)
+			var left := word_line.left(middle)
+			var right := word_line.substr(middle)
+			if MapleText.width(left, MapleText.SMALL) <= width and MapleText.width(right, MapleText.SMALL) <= width:
+				lines.append(left)
+				lines.append(right)
+				continue
+		var line := ""
+		for letter: String in word_line:
+			if not line.is_empty() and MapleText.width(line + letter, MapleText.SMALL) > width:
+				lines.append(line)
+				line = ""
+			line += letter
+		lines.append(line)
+	# tier C: two name lines fit the existing roster footer; exceptionally long future names get an ellipsis.
+	if lines.size() > 2:
+		lines[1] = MapleText.ellipsize(" ".join(lines.slice(1)), width, MapleText.SMALL)
+		lines.resize(2)
+	return lines
 
 
 func _mob_frame(mob_id: int) -> SpriteFrame:

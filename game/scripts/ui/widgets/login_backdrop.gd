@@ -5,7 +5,7 @@ extends Node2D
 ## UI.wz/Login.img/Common/frame (800x600, centred; the rest of a wider view is black, like the 800x600 client).
 ##
 ## Sections of the login map (camera centres, measured from the map's backs and objs): the title with the logo at
-## (0, 0) (TITLE), the world select at (0, -600) (WORLD_SELECT), the character select at (0, -1200) (CHAR_SELECT).
+## (28, -11) (TITLE), the world select at (0, -600) (WORLD_SELECT), the character select at (28, -1208) (CHAR_SELECT).
 ## The camera is not clamped: MapBounds of this map (its miniMap rect) would push the title section off-centre.
 ##
 ## The title logo (Obj login.img/Title/logo/0) fades in over its first frame (8 s, a0 0 -> 255); its second frame has
@@ -16,11 +16,12 @@ const MAP_IMG := "UI.wz/MapLogin.img"
 const FRAME := "UI.wz/Login.img/Common/frame"
 const BGM := "Sound.wz/BgmUI.img/Title"
 const BGM_SELECT := "Sound.wz/BgmUI.img/WCSelect"
-const TITLE := Vector2(0, 0)
-const WORLD_SELECT := Vector2(0, -600)
-const CHAR_SELECT := Vector2(0, -1200)
-## tier A: Explorer backs 15/16/17 at -3233/-2918/-3056 occupy the section centred at y=-3000.
-const NEW_CHAR := Vector2(0, -3000)
+const TITLE := Vector2(28, -11) # tier A: original tree/mushrooms register exactly to title_1.png; private spec32/v83-login-refs (localized v62).
+const WORLD_SELECT := Vector2(0, -600) # tier C: MapLogin section inference; same layout.md, World/channel.
+## tier A: original signboard/bridge/house register to charselect_1.png at this camera; private spec32/v83-login-refs/wz-layout-notes.md.
+const CHAR_SELECT := Vector2(28, -1208)
+## tier B: mushroom cap / branch registration to period newchar_1.png; private spec32/v83-login-refs, not stored camera data.
+const NEW_CHAR := Vector2(37, -3007)
 const LOGO := "Title/logo"
 
 ## The map renderer (null until _ready).

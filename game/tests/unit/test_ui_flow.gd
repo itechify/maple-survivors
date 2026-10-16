@@ -10,6 +10,15 @@ const STAGE_SELECT := preload("res://scenes/ui/stage_select.gd")
 var _nodes: Array[Node] = []
 
 
+func test_map_select_roster_keeps_long_names_readable_inside_each_cell() -> void:
+	for name: String in ["Curse Eye", "Jr. Boogie", "Tauromacis", "Taurospear"]:
+		var lines: PackedStringArray = STAGE_SELECT.roster_name_lines(name, 54)
+		assert_true(lines.size() <= 2)
+		assert_eq("".join(lines).replace(" ", ""), name.replace(" ", ""), "Dark Cave names stay complete")
+		for line: String in lines:
+			assert_true(MapleText.width(line, MapleText.SMALL) <= 54, "%s fits its roster cell" % line)
+
+
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
@@ -213,8 +222,12 @@ func test_character_selection_click_keys_details_delete_cancel_and_history() -> 
 	assert_true(screen.create_button.disabled, "three slots disable New")
 	assert_eq(screen.select_button.focus_mode, Control.FOCUS_ALL, "shared actions keep keyboard activation")
 	assert_eq(screen.selected, 0)
+	# Registered original WZ canvases in charselect_1.png; period charselect_2 confirms the scroll follows selection.
+	assert_eq(screen.avatars[0].position, Vector2(252, 370))
+	var first_info: Vector2 = screen.find_child("CharacterInfo", true, false).position
 	(screen.find_child("CharacterSlot2", true, false) as BaseButton).pressed.emit()
 	assert_eq(screen.selected, 2)
+	assert_eq(screen.find_child("CharacterInfo", true, false).position, first_info + Vector2(250, 0))
 	assert_eq(screen.selected_info.name, "Select702")
 	assert_eq(screen.selected_info.level, 1)
 	assert_eq(screen.selected_info.attributes, flow.save.slot(2).character.attributes)
