@@ -9,7 +9,9 @@ func test_dark_cave_roster_and_run_tiers() -> void:
 	var stage: Dictionary = data.stages.stages.get("dark_cave", {})
 	assert_eq(int(stage.get("map_id", 0)), 105050400, "v83 Dark Cave")
 	assert_eq(int(stage.get("duration", 0)), 900, "standard fifteen-minute round")
-	assert_eq(DataRepo.stage_mob_ids(data, "dark_cave"),
+	var ordinary_stage := stage.duplicate()
+	ordinary_stage["bosses"] = []
+	assert_eq(StageRoster.named_ids(ordinary_stage),
 		PackedInt32Array([2110200, 2230100, 2230101, 2300100, 3230100, 3230300, 7130100, 7130101]),
 		"owner's tier-2 ordinary roster; bosses belong to #73")
 	assert_eq(data.stages.get("tiers", []), [["henesys_hg1", "tree_that_grew_1"], ["dark_cave"]],
@@ -56,6 +58,8 @@ func test_signature_exp_items_and_manifest_cover_the_stage() -> void:
 func test_bossless_round_clears_at_fifteen_minutes() -> void:
 	# Synthetic mob art/stats, real stage data; seed and fixed ticks make the duration boundary reproducible.
 	var setup := RF.setup("dark_cave", 72)
+	# Keep exercising the bossless fallback after #73 supplies the live stage's boss schedule.
+	setup.data.stages.stages.dark_cave.bosses = []
 	for id in DataRepo.stage_mob_ids(setup.data, "dark_cave"):
 		setup.mob_imgs[id] = {"info": {"maxHP": 10, "exp": 1, "bodyAttack": 1},
 			"stand": {"0": {"delay": 100}}}
