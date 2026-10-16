@@ -171,20 +171,20 @@ the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
 tuning waits for the dedicated balance pass (section 4.2).
 for now; balance will be revisited after more features (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance | Normal MP chance |
-|---|---|---|---|---|---|---|---|
-| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 | 8% | 10% |
-| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 | 5% | 10% |
-| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 | 4% | 10% |
-| 4:00 | 1 | 20 | Slime | 1 | 1.05 | 3% | 10% |
-| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 | 1.2% | 10% |
-| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 | 0.8% | 10% |
-| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 | 0.8% | 10% |
-| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 | 0.7% | 10% |
-| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 | 0.7% | 10% |
-| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 | 0.805% | 4% |
-| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 | 1.035% | 4% |
-| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 | 1.2075% | 4% |
+| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance |
+|---|---|---|---|---|---|---|
+| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 | 8% |
+| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 | 5% |
+| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 | 4% |
+| 4:00 | 1 | 20 | Slime | 1 | 1.05 | 3% |
+| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 | 1.2% |
+| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 | 0.8% |
+| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 | 0.8% |
+| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 | 0.7% |
+| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 | 0.7% |
+| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 | 0.805% |
+| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 | 1.035% |
+| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 | 1.2075% |
 
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
 the basic attack, so until 4:00 only a few mobs are alive, ordinary HP drops are generous (8% falling to 3%), no
@@ -192,11 +192,11 @@ elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x 
 Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
 unchanged. Tree stage data are unchanged.
 
-The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point. MP stays 10% through 11:00,
-then interpolates to 4% at 12:00; the extra late HP support also begins after 11:00. Both potion curves hold
-after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
+The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point; the extra late HP support begins after
+11:00. The HP potion curve holds after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
 0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
-extrapolation. Global normal MP 5% (#80; was 10%) is the fallback where a stage has no MP curve, elite MP stays 60%, and elite HP/boss bundles are
+extrapolation. Normal-mob MP is 3% flat on every stage, with no per-map values (owner, 2026-10-16, #80; Henesys's
+earlier 10% -> 4% curve is removed). Elite MP stays 60%, and elite HP/boss bundles are
 unchanged. Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
@@ -1469,8 +1469,8 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000) and no Blue Potions (2000003). Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 5% (#80; was 10%) independently; a stage MP curve overrides the
-MP fallback (Henesys keeps its own 10% -> 4% curve, section 4.1). Elites roll HP 15% and MP 60%. With every
+Normal kills use a global fallback of HP 1.2% and a flat MP 3% independently (MP: owner, 2026-10-16, 3% flat, no
+per-map values; #80, was 10%). Elites roll HP 15% and MP 60%. With every
 skill in its single-shot vanilla form at canonical MP, Blue Potions are the main MP income once regeneration (3 MP per
 10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
@@ -1483,12 +1483,12 @@ The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level
 Snails at its canonical 3 MP casts about once per 10 s regeneration pulse, and the Beginner phase is
 sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
 per event.
-The optional stage-keyframe `normal_hp_drop_chance` / `normal_mp_drop_chance` fields are tier C survivor supply
-tuning: clamp each endpoint to [0, 1], interpolate linearly, hold the nearest endpoint outside the range, and
-substitute that kind's global normal chance for missing endpoints. Elite rolls and fixed boss bundles keep their
-existing settings. Both curves are independent of card policy. The MP curve permits late scarcity while retaining
-the v83 Beginner phase's existing supply and seeded behavior; changing a global MP chance also changes which
-ground pickups the bot approaches during the opening.
+The optional stage-keyframe `normal_hp_drop_chance` field is tier C survivor supply tuning: clamp each endpoint to
+[0, 1], interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance
+for missing endpoints. Elite rolls and fixed boss bundles keep their existing settings, and the curve is independent
+of card policy. Normal MP has no stage field (owner, 2026-10-16, #80: 3% flat, no per-map values; the earlier
+`normal_mp_drop_chance` curve and its reader are removed). Changing the global MP chance also changes which ground
+pickups the bot approaches during the opening.
 
 Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
@@ -1497,8 +1497,8 @@ Optional final card-score overrides set Guard learning to 110 and ranks to 109, 
 entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Current Henesys normal HP/MP supply follows the C46 endpoint table in section 4.1; both curves interpolate and hold.
-Global normal MP is 5% (#80; Henesys's own MP curve overrides it), elite MP 60%, with scheduled boss bundles unchanged. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
+Current Henesys normal HP supply follows the C46 endpoint table in section 4.1; the curve interpolates and holds.
+Normal MP is 3% flat on every stage (owner, 2026-10-16, #80), elite MP 60%, with scheduled boss bundles unchanged. Tree's HP curve retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
@@ -1976,9 +1976,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .05 fallback (#80, owner-set; was .10; Henesys stage curve overrides), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
-| Ordinary MP supply curve | Optional `normal_mp_drop_chance` stage endpoints; the same clamp, interpolation, per-endpoint global fallback and endpoint holding as HP; no effect on elite rolls or fixed boss bundles | C | ours; SpawnDirector.normal_mp_drop_chance_at; #30 calibration preserves opening supply |
+| Ordinary MP supply | 3% flat on every stage, no per-map values; the #30 stage MP curve and its reader are removed; elite rolls and boss bundles unchanged | C | owner, 2026-10-16, 3% flat, no per-map values; balance.potions.drops.normal.mp; #80 |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
