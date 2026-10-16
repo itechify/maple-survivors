@@ -418,6 +418,8 @@ speed 8); both have `missing=[]`. F/P clears at 995.2 s without learning MP Eate
 still PLAYING at the 18-minute cap (not a clear). Checked-by-eye evidence: `evidence/t59/branch230/mp_eater.png`
 and the focused real-hit captures `evidence/t59/focused/mp_eater_{fp,il,cleric}.png`: canonical absorb art and cyan
 14-MP gain numbers for every branch, all `missing=[]`. v83 has no MP Eater sound entry; no required cache data is missing.
+After merging integration `f8af37b` (I/L attacks) and retaining both tickets' data/fixtures, the final
+`ISOLATE=t59 bash scripts/test.sh` passes **616 tests, 0 failed, 0 skipped** (67 files); no cache checks skipped.
 
 #### #31 / #53 advancement regression smoke (2026-10-15)
 
