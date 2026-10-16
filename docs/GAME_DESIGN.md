@@ -372,6 +372,34 @@ Normal seed-1 playtests (`--warp=540 --speed=8 --window-autopick=1`, 18-minute a
 advancement windows and die at 949.733/926.483/920.233 s (210/220/230), Lv35 each, all `missing: []`;
 checked advancement cards, the final-boss/MP views and final tombstones under each branch’s `playtest/`.
 
+**After the bot Teleport rule fix (#60 follow-up, 2026-10-15):** one Henesys-only 18-run smoke on `574da80`,
+`ISOLATE=bott bash scripts/balance.sh 1 2 2026 --stage=henesys_hg1 --branch=<210|220|230> --policy=<bot|random>`,
+real cache, rarity active, 1,800 s cap, no PATCH. The reserve (max of 25% max MP and two most-expensive learned
+auto-attack costs), 5 s interval and tighter same-height emergency rule were chosen and committed before measurement;
+no values were iterated. Player Teleport, costs and all game data are unchanged. Tree was excluded by the follow-up
+brief because no smoke run reaches second job there. Records, exact console output and systems summaries remain
+ignored under `evidence/bot_teleport/<branch>/<policy>/`; `teleports` counts successful arrival events, once per blink.
+
+Below, before is QA #61 above; lists use seed order 1/2/2026. C = clear (time shown for new bot clears), other end
+times are deaths; no timeouts. MP-short is the whole-run mean, so different lifetimes remain a comparison limit.
+
+| Henesys branch / policy | Clear/dead before -> after | End seconds before -> after | MP-short seconds, mean/run before -> after | Teleports before -> after |
+|---|---|---|---|---|
+| 210 bot | 0/3 -> 1/2 | 949.7/812.3/322.7 -> C930.1/812.3/322.7 | 260.5 -> 205.1 | 257/0/0 -> 58/0/0 |
+| 210 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+| 220 bot | 0/3 -> 0/3 | 926.5/812.3/322.7 -> 1081.9/812.3/322.7 | 252.6 -> 231.5 | 263/0/0 -> 68/0/0 |
+| 220 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+| 230 bot | 0/3 -> 1/2 | 920.2/812.3/322.7 -> C967.8/812.3/322.7 | 246.1 -> 205.1 | 298/0/0 -> 66/0/0 |
+| 230 random | 1/2 -> 1/2 | C/714.8/329.0 -> C/714.8/329.0 | 178.5 -> 178.5 | unmeasured -> 0/0/0 |
+
+Bot seed-1 MP-short totals: 310.733/286.950/267.550 -> 144.567/223.583/144.567 s (branch order 210/220/230).
+Bot seeds 2/2026 remain 276.450/194.383 s; all random groups remain 155.733/179.050/200.583 s in seed order
+(QA's rounded 155.7/179.1/200.6). Random seed-1 clears occur at 937.7/1003.4/974.6 s by branch.
+All 18 runs reach Magician and spawn Mano, all clears have every scheduled boss dead, and none clears untouched.
+No crashes, script errors or world warnings; no new stop gate. The bot still uses Teleport, with far fewer blinks
+and less total MP wait on the three learners; I/L still dies. This is fixed-seed regression evidence, not balance
+tuning. Full isolated suite: **661 tests, 0 failed, 0 skipped, 72 files**; real-cache tests execute.
+
 #### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
 
 Rarity tiers were calibrated on training seeds 1–60 and 2026 to the C46 profile: card weights 86/8/3.5/1.7/0.8,
