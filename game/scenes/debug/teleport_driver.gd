@@ -34,18 +34,15 @@ func _drive() -> void:
 	w.upgrades.apply(key + "_new", w)
 	w.heal_fraction("mp", 1.0)
 	run.handle_events(w.drain_events())
-	# Wait for advancement presentation before testing the manual input.
-	for tick in 120:
-		run.advance_frame(1.0 / 60.0)
-		await get_tree().process_frame
+	# WZ effects advance in presentation time, independently of this driver's fixed simulation ticks.
+	await get_tree().create_timer(2.0).timeout
+	run.advance_frame(1.0 / 60.0)
 	var departure := w.player.pos
 	_press(KEY_X, true)
 	await get_tree().process_frame
 	run.advance_frame(1.0 / 60.0)
 	_press(KEY_X, false)
-	for tick in 4:
-		run.advance_frame(1.0 / 60.0)
-		await get_tree().process_frame
+	await get_tree().create_timer(0.08).timeout
 	await _shot("teleport.png")
 	var arrival := w.player.pos
 	w.spend_mp(int(w.player_state.mp))

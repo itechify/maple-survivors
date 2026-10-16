@@ -78,11 +78,35 @@ func test_real_cache_teleport_cost_range_and_sound() -> void:
 	library.free()
 
 
+func test_real_cache_teleport_effect_frames() -> void:
+	if not require_cache():
+		return
+	var library := AssetLibrary.new()
+	library.open()
+	var effect := library.find_anim("Effect.wz/BasicEff.img/Teleport")
+	if effect == null or effect.is_empty():
+		skip("shared cache is missing Effect.wz/BasicEff.img/Teleport; owner import required for visual verification")
+	else:
+		assert_eq(effect.frames.size(), 4)
+		assert_near(effect.total, 0.32)
+	library.free()
+
+
 func test_rank_card_previews_canonical_range_and_mp_cost() -> void:
 	var w := _world()
 	var card := w.upgrades.choice_card("teleport_fp_rank", w)
 	assert_eq(card.skill_changes.get("range", {}), {"before": 130, "after": 131})
 	assert_eq(card.skill_changes.mpCon, {"before": 60, "after": 57})
+
+
+func test_manual_rule_never_auto_casts_or_scores_as_an_attack() -> void:
+	var w := _world()
+	w.loadout.add_skill_mod("teleport_fp", "range", "add", 500)
+	RF.put_mob(w, 100100, 500, 0, 100)
+	w.step(DT, MoveInput.new())
+	for event: Dictionary in w.drain_events():
+		assert_false(event.type == "cast" and event.skill == "teleport_fp", "manual skill excluded from automatic scan")
+	assert_near(BotInput.card_score(w, w.upgrades.card("teleport_fp_rank")), BotInput.SCORE_RANK_PASSIVE + BotInput.SCORE_JOB_BONUS)
 
 
 func test_airborne_left_blink_and_out_of_range_vertical_are_atomic() -> void:
