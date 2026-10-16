@@ -335,7 +335,19 @@ Sensible clears exceed the 40–50% band (slightly in training, clearly held out
 and 0/16 held-out runs. These are known deviations for the balance pass. A short summary of the C46 search and how
 to reproduce it is in [research/spec30-rarity-balance.md](research/spec30-rarity-balance.md).
 
-SMOKE_PLACEHOLDER
+Regression smoke after the owner's changes (spec odds, new ladder, untouched C46 stage data), 2026-10-15, seeds
+1/2/2026, compared with the same seeds on the C46 PR head. No crashes or world warnings; full suite 571/571.
+
+| Stage / policy | Clears (now) | Deaths (now) | Clears (C46) | Deaths (C46) |
+|---|---|---|---|---|
+| Henesys sensible | 1/3 | 5:28, 15:31 | 1/3 | 12:36, 15:36 |
+| Henesys careless | 2/3 | 12:25 | 0/3 | 10:28, 12:03, 12:19 |
+| Tree, either policy | 0/3 | 1:17, 2:21, 2:21 | 0/3 | 1:17, 2:10, 2:21 |
+
+Henesys still reaches Magician at 4:23–4:43 and Lv 30 near 9–10:30; MP collected/used 1.17 sensible, 1.40 careless.
+Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/63/12/1/0, careless 289/72/9/3/2.
+Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
+not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
