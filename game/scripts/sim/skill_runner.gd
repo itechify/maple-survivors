@@ -18,6 +18,8 @@ const REUSE_SPREAD := 8.0
 
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
+## skill key -> the cooldown set at its last cast (absent before the first cast); the HUD sweep's denominator.
+var cooldown_totals := {}
 var casts := 0
 ## True if any skill cast during the latest step (cleared even when casting is blocked).
 var fired_this_tick := false
@@ -45,6 +47,11 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 	if not _stats.has(key):
 		_stats[key] = world.loadout.stats(key)
 	return _stats[key]
+
+
+## Whether `key` was ready with a target but short of MP at its latest cast scan (cleared by casting or losing it).
+func is_waiting_mp(key: String) -> bool:
+	return _shortages.has(key)
 
 
 ## Advances cooldowns and fires the oldest affordable ready skill with a target.
@@ -93,6 +100,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			continue
 		_shortages.erase(key)
 		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
+		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
 

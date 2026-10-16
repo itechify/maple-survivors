@@ -148,6 +148,7 @@ var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
 var _teleport_left := 0.0
+var _teleport_total := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -458,6 +459,17 @@ func teleport_affordable() -> bool:
 	return key != "" and _mp >= int(runner.stats_of(self, key).mp_cost)
 
 
+## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
+## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
+func skill_readiness(key: String) -> Dictionary:
+	if book.def(key).has("teleport"):
+		return {"left": _teleport_left, "total": _teleport_total,
+			"mp_short": _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()}
+	var left := maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
+	return {"left": left, "total": float(runner.cooldown_totals.get(key, 0.0)),
+		"mp_short": left <= 1e-6 and runner.is_waiting_mp(key) and _mp < float(runner.stats_of(self, key).mp_cost)}
+
+
 func _try_teleport(input: MoveInput) -> bool:
 	if not (input.teleport_pressed or input.teleport_held) or _teleport_left > 1e-6 or not can_cast():
 		return false
@@ -478,6 +490,7 @@ func _try_teleport(input: MoveInput) -> bool:
 	if direction.x != 0:
 		player.facing = int(direction.x)
 	_teleport_left = float(stats.repeat_delay)
+	_teleport_total = _teleport_left
 	for phase: String in ["departure", "arrival"]:
 		emit("teleport", {"skill": key, "skill_id": int(stats.skill_id), "level": int(stats.level),
 			"phase": phase, "pos": departure if phase == "departure" else player.pos,
