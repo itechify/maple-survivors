@@ -363,6 +363,37 @@ func test_real_boss_imgs_supply_their_summon_and_revive_families() -> void:
 			"boss %d summons and revives nothing" % id)
 
 
+## Active skills without a hit-more-mobs card (docs/GAME_DESIGN.md card rules), each with the reason it is exempt.
+const HIT_MORE_EXEMPT := {
+	"heal": "support: heals the player; its undead strike hits every undead in the box already",
+	"slow_fp": "support: slows, deals no damage",
+	"slow_il": "support: slows, deals no damage",
+	"teleport_fp": "movement: deals no damage",
+	"teleport_il": "movement: deals no damage",
+	"teleport_cleric": "movement: deals no damage",
+}
+
+
+func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
+	var skills: Dictionary = data.skills.skills
+	var covered := {}
+	for c: Dictionary in data.upgrades.cards:
+		if String(c.kind) != "skill_mod":
+			continue
+		for effect: Dictionary in c.effects:
+			if String(effect.stat) in ["count", "pierce"] and float(effect.value) > 0.0:
+				covered[String(c.skill)] = true
+	for key: String in skills:
+		var s: Dictionary = skills[key]
+		if HIT_MORE_EXEMPT.has(key):
+			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
+			assert_eq(String(s.slot), "active", "exempt %s is an active skill" % key)
+			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
+			continue
+		if String(s.damage) != "none" or String(s.slot) == "active":
+			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
+
+
 func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 	if not require_cache():
 		return

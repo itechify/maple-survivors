@@ -5,7 +5,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
-func _world(lightning_attr: String = "") -> RunWorld:
+func _world(lightning_attr: String = "", bolt_mob_count: float = 2.0) -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 1000
 	var setup := RF.setup("quiet", 56, data)
@@ -17,7 +17,7 @@ func _world(lightning_attr: String = "") -> RunWorld:
 			"30": {"mad": 100.0, "mastery": 10.0, "mpCon": 24.0, "time": 2.0, "x": -100.0},
 		}},
 		"2201005": {"elemAttr": "l", "level": {
-			"1": {"mad": 2.0, "mastery": 1.0, "mpCon": 20.0, "mobCount": 2.0,
+			"1": {"mad": 2.0, "mastery": 1.0, "mpCon": 20.0, "mobCount": bolt_mob_count,
 				"lt": {"$v": [-150.0, -50.0]}, "rb": {"$v": [150.0, 50.0]}},
 			"30": {"mad": 60.0, "mastery": 10.0, "mpCon": 40.0, "mobCount": 3.0,
 				"lt": {"$v": [-170.0, -70.0]}, "rb": {"$v": [170.0, 70.0]}},
@@ -114,6 +114,36 @@ func test_thunder_bolt_admits_only_box_targets_caps_canonical_count_and_expands_
 			assert_eq(hits[0].mob, outside)
 
 
+func test_thunder_bolt_target_card_raises_hits_in_a_crowded_box_by_two_per_step() -> void:
+	for steps in range(0, 4):
+		var w := _world("", 6.0) # the real v83 Thunder Bolt mobCount is 6 at every level
+		w.upgrades.apply("thunder_bolt_new", w)
+		for step in steps:
+			assert_eq(w.upgrades.apply("thunder_bolt_targets", w), step + 1)
+		for mk: MobKind in w.mob_kinds:
+			mk.hitbox = Rect2(-5, -10, 10, 10)
+		var mobs: Array[int] = []
+		for i in 14:
+			var dx := (i / 2 + 1) * 10 * (1 if i % 2 == 0 else -1)
+			mobs.append(w.spawn_mob(int(w.kind_of_id[1110100]), w.player.pos + Vector2(dx, 0), w.player.fh, 100.0, false))
+		_targets(w)
+		var mp_before := int(w.player_state.mp)
+		w.runner.step(DT, w)
+		var hit_mobs := {}
+		for e: Dictionary in _events(w, "mob_hit"):
+			hit_mobs[e.mob] = true
+		assert_eq(hit_mobs.size(), 6 + 2 * steps, "%d card steps: distinct monsters hit by one cast" % steps)
+		assert_eq(mp_before - int(w.player_state.mp), 20, "one cost for the whole cast at %d steps" % steps)
+	var w := _world()
+	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "needs Thunder Bolt learned")
+	w.upgrades.apply("thunder_bolt_new", w)
+	assert_has(w.upgrades.eligible(w), "thunder_bolt_targets")
+	for step in 3:
+		w.upgrades.apply("thunder_bolt_targets", w)
+	assert_false("thunder_bolt_targets" in w.upgrades.eligible(w), "three steps cap the card")
+	assert_eq(w.upgrades.apply("thunder_bolt_targets", w), 0)
+
+
 func test_thunder_bolt_cast_applies_lightning_weakness_with_the_same_seed() -> void:
 	var damage: Array[int] = []
 	for attr: String in ["", "L3"]:
@@ -141,7 +171,7 @@ func test_thunder_bolt_cast_applies_lightning_weakness_with_the_same_seed() -> v
 func test_ice_lightning_cards_gate_jobs_apply_steps_and_stop_at_caps() -> void:
 	var w := _world()
 	var ids := ["cold_beam_new", "cold_beam_rank", "cold_beam_targets", "cold_beam_cooldown",
-		"thunder_bolt_new", "thunder_bolt_rank", "thunder_bolt_area", "thunder_bolt_cooldown"]
+		"thunder_bolt_new", "thunder_bolt_rank", "thunder_bolt_area", "thunder_bolt_targets", "thunder_bolt_cooldown"]
 	for id: String in ids:
 		var card := w.upgrades.card(id)
 		assert_false(card.is_empty(), id)
@@ -187,6 +217,7 @@ func test_ice_lightning_cards_gate_jobs_apply_steps_and_stop_at_caps() -> void:
 	assert_near(w.loadout.stats("thunder_bolt").area, 1.728, 0.0001)
 	assert_eq(BotInput.card_score(w, {"id": "cold_beam_targets"}), 87.0)
 	assert_eq(BotInput.card_score(w, {"id": "thunder_bolt_area"}), 70.0)
+	assert_eq(BotInput.card_score(w, {"id": "thunder_bolt_targets"}), 87.0, "scored like Cold Beam's target card")
 
 
 func test_cold_beam_target_card_hits_and_freezes_distinct_nearest_monsters() -> void:

@@ -4,7 +4,7 @@ extends RefCounted
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
-##   nearest first (SpatialHash query); with fewer targets than shots the extra shots reuse targets in order, aimed a
+##   scheduled bosses first, then nearest (SpatialHash query; RunWorld.targets_before); with fewer targets than shots the extra shots reuse targets in order, aimed a
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -28,7 +28,7 @@ var _stats := {}
 var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
-var _tgt_d := PackedFloat32Array()
+var _tgt_d := PackedFloat64Array()
 var _shortages := {}
 var _slow_serial := 0
 
@@ -216,7 +216,7 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
-## nearest first. Returns how many.
+## scheduled bosses first, then nearest, then slot (RunWorld.targets_before). Returns how many.
 func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> int:
 	var s := world.swarm
 	var n := world.mob_grid.query_radius(origin, rng_px + world.body_pad, _buf)
@@ -232,7 +232,7 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 		if d2 > r2:
 			continue
 		var at := _tgt.size()
-		while at > 0 and _tgt_d[at - 1] > d2:
+		while at > 0 and world.targets_before(m, d2, _tgt[at - 1], _tgt_d[at - 1]):
 			at -= 1
 		if at >= want:
 			continue
