@@ -341,7 +341,8 @@ longer at the unchanged Henesys drop curve. Tree (record-only, awaiting the owne
 pool after each Beginner level keeps Three Snails firing, so 3/6 runs now reach Magician (216.5–222.6 s) and kill
 Stumpy (3220000) in 3/3 spawned fights, dying at 10:47–11:52; the rest still die before 3:00. No stop-and-ask gate:
 no group dies entirely before its first boss or clears untouched. The Henesys bot clear rate rising 1/3 -> 2/3 is
-input for the balance pass, not tuned here.
+input for the balance pass, not tuned here. Full isolated suite: **664 tests, 0 failed, 0 skipped, 72 files**;
+real-cache tests execute.
 
 #### #31 / #61 second-job QA (2026-10-15)
 
