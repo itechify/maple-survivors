@@ -4,7 +4,7 @@ extends RefCounted
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
-##   nearest first (SpatialHash query); with fewer targets than shots the extra shots reuse targets in order, aimed a
+##   scheduled bosses first, then nearest (SpatialHash query; RunWorld.targets_before); with fewer targets than shots the extra shots reuse targets in order, aimed a
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -15,9 +15,15 @@ extends RefCounted
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
 const REUSE_SPREAD := 8.0
+## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
+## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
+const SHOTS := "shots"
+const TARGETS := "targets"
 
 ## skill key -> seconds until ready (<= 0 = ready).
 var cooldowns := {}
+## skill key -> the cooldown set at its last cast (absent before the first cast); the HUD sweep's denominator.
+var cooldown_totals := {}
 var casts := 0
 ## True if any skill cast during the latest step (cleared even when casting is blocked).
 var fired_this_tick := false
@@ -28,13 +34,32 @@ var _stats := {}
 var _version := -1
 var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
-var _tgt_d := PackedFloat32Array()
+var _tgt_d := PackedFloat64Array()
 var _shortages := {}
 var _slow_serial := 0
 
 
 func _init() -> void:
 	_buf.resize(128)
+
+
+## SHOTS for a projectile skill kind, TARGETS otherwise.
+static func count_meaning(kind: String) -> String:
+	return SHOTS if kind == "projectile" else TARGETS
+
+
+## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
+## their mob_count (canonical mobCount plus count cards), the others `count`.
+static func strike_count(st: Dictionary) -> int:
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd"] else int(st.count)
+
+
+## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
+## buff cooldown, whichever is longer; any other skill its cooldown (cast_ready adds the tick's overshoot to it).
+static func restart_cooldown(st: Dictionary) -> float:
+	if String(st.kind) == "buff":
+		return maxf(float(st.duration), float(st.buff_cooldown))
+	return float(st.cooldown)
 
 
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
@@ -45,6 +70,11 @@ func stats_of(world: RunWorld, key: String) -> Dictionary:
 	if not _stats.has(key):
 		_stats[key] = world.loadout.stats(key)
 	return _stats[key]
+
+
+## Whether `key` was ready with a target but short of MP at its latest cast scan (cleared by casting or losing it).
+func is_waiting_mp(key: String) -> bool:
+	return _shortages.has(key)
 
 
 ## Advances cooldowns and fires the oldest affordable ready skill with a target.
@@ -92,7 +122,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			_shortages[key] = true
 			continue
 		_shortages.erase(key)
-		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
+		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
+		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
 
@@ -155,7 +186,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	world.start_action(String(st.action), float(st.action_time))
 	match String(st.cast_rule):
 		"box":
-			_resolve_instant_targets(world, st, targets, int(st.mob_count), int(st.attack_count),
+			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
 				world.visual_index(String(st.hit)))
 		"crowd":
 			_resolve_crowd(world, key, st, targets)
@@ -181,7 +212,7 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 	_slow_serial += 1
 	var params := {"x": world.book.canonical(key, int(st.level), "x"),
 		"time": world.book.canonical(key, int(st.level), "time")}
-	for i in mini(int(st.mob_count), targets.size()):
+	for i in mini(strike_count(st), targets.size()):
 		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
 
 
@@ -216,7 +247,7 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
-## nearest first. Returns how many.
+## scheduled bosses first, then nearest, then slot (RunWorld.targets_before). Returns how many.
 func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> int:
 	var s := world.swarm
 	var n := world.mob_grid.query_radius(origin, rng_px + world.body_pad, _buf)
@@ -232,7 +263,7 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 		if d2 > r2:
 			continue
 		var at := _tgt.size()
-		while at > 0 and _tgt_d[at - 1] > d2:
+		while at > 0 and world.targets_before(m, d2, _tgt[at - 1], _tgt_d[at - 1]):
 			at -= 1
 		if at >= want:
 			continue

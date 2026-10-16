@@ -106,7 +106,8 @@ Save & quit -> Continue -> Quit round -> same-seed Continue -> death -> deletion
 input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
-Other scenarios: `title`, `clear` (tool one-off), `import`; see the script header. Use `ISOLATE=<name>` with
+Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
+`keys` (#87); see the script header. Use `ISOLATE=<name>` with
 `scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;

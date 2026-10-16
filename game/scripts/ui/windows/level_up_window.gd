@@ -16,9 +16,12 @@ extends MapleWindow
 ## `card_chosen` is emitted at once when a card is picked (then the window fades out); a new open() during the fade
 ## (queued level-ups) restarts the window with the new cards.
 ##
-##   win.open(cards, level)   # cards exactly as in the choice_pending event: {id, kind, name, desc, icon, rank,
+##   win.open(skill_text.dress(cards, loadout), level)
+##                            # cards as in the choice_pending event: {id, kind, name, desc, icon, rank,
 ##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes,
-##                            # skill_effect_stat, tier, magnitude, rank_before, skill_level_max}
+##                            # skill_mod_changes, skill_effect_stat, tier, magnitude, rank_before, skill_level_max},
+##                            # dressed with SkillText (desc, plus `detail`: a learn card's level line, never shortened).
+## `desc` and `detail` may hold v83 markup (#c...# is drawn orange, "\n" breaks the line).
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
@@ -30,6 +33,11 @@ const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP co
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
 const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
+## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
+## TARGETS), in display order. tier C: our wording.
+const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "pierce": ["Pierce", ""],
+	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
+	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
 
 ## Emitted with the picked card's id.
 signal card_chosen(card_id: String)
@@ -82,7 +90,9 @@ const ROW_H := 35.0
 const ROW_SLOT_W := 36.0
 const ROW_MID_X := 60.0
 const DESC_LINE := 13.0
-const DESC_MAX_LINES := 3
+## tier C: v83 skill descriptions run to four lines here (e.g. Nimble Feet with its orange cooldown line); the layout
+## still shortens them to fit the view.
+const DESC_MAX_LINES := 4
 ## tier C: compact separation and total vertical margin keep the 600px view's mascots and HUD clear.
 const BLOCK_GAP := 4.0
 const VIEW_MARGIN := 128.0
@@ -105,6 +115,7 @@ var _blocks: Array[Dictionary] = []
 
 func _init() -> void:
 	super._init()
+	window_hotkeys = true
 	name = "LevelUpWindow"
 	panel_size = ART_SIZE
 
@@ -181,9 +192,16 @@ static func rank_text(card: Dictionary) -> String:
 	return s
 
 
-## Canonical values that change at the offered rank (mastery is already a percent in card data).
+## Values that change with the card: a rank card's canonical values at the offered rank (mastery is already a percent
+## in card data), then a mod card's effective values (skill_mod_changes).
 static func change_lines(card: Dictionary) -> PackedStringArray:
 	var lines := PackedStringArray()
+	var mods: Dictionary = card.get("skill_mod_changes", {})
+	for key: String in MOD_LABELS:
+		if mods.has(key) and mods[key].before != mods[key].after:
+			var unit: String = MOD_LABELS[key][1]
+			lines.append("%s: %s%s → %s%s" % [MOD_LABELS[key][0], SkillText.number(float(mods[key].before)), unit,
+				SkillText.number(float(mods[key].after)), unit])
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
 	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
@@ -246,12 +264,16 @@ func _build_layout() -> void:
 		var y := BONUS_ROWS_TOP if bonus or advancement else ROWS_TOP
 		for c: Variant in cards:
 			var card: Dictionary = c if c is Dictionary else {}
-			var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 8.0, MapleText.SMALL)
+			var desc := MapleText.wrap_markup(String(card.get("desc", "")), ROW_W - 8.0, MapleText.SMALL)
 			if desc.size() > desc_limit:
 				desc = desc.slice(0, desc_limit)
-				desc[desc_limit - 1] = MapleText.ellipsize(desc[desc_limit - 1] + " ...", ROW_W - 8.0,
-					MapleText.SMALL)
-			var changes := change_lines(card)
+				# The shortened line loses its orange rather than cut a markup code in half.
+				desc[desc_limit - 1] = MapleText.ellipsize(MapleText.plain(desc[desc_limit - 1]) + " ...",
+					ROW_W - 8.0, MapleText.SMALL)
+			# The level line of a learn card is never shortened, like the before -> after values.
+			var changes := MapleText.wrap_markup(String(card.get("detail", "")), ROW_W - 8.0, MapleText.SMALL) \
+				if String(card.get("detail", "")) != "" else PackedStringArray()
+			changes.append_array(change_lines(card))
 			var h := ROW_H + TIER_BAND + 3.0 + (desc.size() + changes.size()) * DESC_LINE
 			_blocks.append({"row": Rect2(ROW_X, y, ROW_W, ROW_H), "block": Rect2(ROW_X, y, ROW_W, h),
 				"desc": desc, "changes": changes})
@@ -373,11 +395,11 @@ func _draw_card(ci: Control, i: int, card: Dictionary, row_art: SpriteFrame) -> 
 	MapleText.draw(ci, Vector2(p.x + 4.0, r.end.y + 2.0), String(style[0]), colour, MapleText.SMALL, true)
 	var y := r.end.y + TIER_BAND + 3.0
 	for line: String in b.desc:
-		MapleText.draw(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw_markup(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
 	for line: String in b.changes:
-		MapleText.draw(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw_markup(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
 	var block: Rect2 = b.block

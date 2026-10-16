@@ -10,7 +10,8 @@ extends RefCounted
 ## of the pool spawns as an elite (hp_mult x HP; RunWorld pays exp_mult x EXP). With a positive `post_duration_slope`
 ## the rate/max_alive/hp/speed keyframe slopes, the burst size and the elite frequency keep growing at that pace
 ## after the last keyframe until the clear (value_at, burst_count_at, elite_interval_at).
-## Optional ordinary HP/MP drop chances interpolate separately, with global per-kind fallback and endpoint holding.
+## An optional ordinary HP drop chance interpolates, with the global HP fallback and endpoint holding (normal MP has no
+## stage values: one global chance, owner 2026-10-16).
 ##
 ## Positions (tier C): a random point on a floor outside the view grown by `margin` px, inside the map bounds and at
 ## least `min_player_dist` from the player, searched in three rings: within `band` px of the view (with `band_y` >= 0
@@ -133,8 +134,6 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 		})
 		if kf.has("normal_hp_drop_chance"):
 			d.keyframes.back()["normal_hp_drop_chance"] = float(kf.normal_hp_drop_chance)
-		if kf.has("normal_mp_drop_chance"):
-			d.keyframes.back()["normal_mp_drop_chance"] = float(kf.normal_mp_drop_chance)
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
 	var bu: Dictionary = p_stage.get("bursts", {})
 	if not bu.is_empty() and float(bu.get("every", 0.0)) > 0.0:
@@ -178,12 +177,6 @@ func rate_at(t: float) -> float:
 ## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
 func normal_hp_drop_chance_at(t: float, fallback: float) -> float:
 	return _probability_curve_at("normal_hp_drop_chance", t, fallback)
-
-
-## Ordinary MP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
-## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
-func normal_mp_drop_chance_at(t: float, fallback: float) -> float:
-	return _probability_curve_at("normal_mp_drop_chance", t, fallback)
 
 
 func _probability_curve_at(field: String, t: float, fallback: float) -> float:

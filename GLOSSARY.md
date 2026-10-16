@@ -127,3 +127,15 @@ lightning, poison or holy.
 
 **Undead**:
 A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong against it.
+
+## Interface
+
+**Choice window**:
+A modal window that holds the run until the player answers it: the level-up, job advancement and advancement card
+choices, and the pause menu.
+_Avoid_: dialog, popup
+
+**In-run window**:
+A draggable MapleStory window the player opens during a run (Stat, Skill, Key Config, Options) or the Menu list.
+In-run windows stack, the run is paused while any is open, and Esc closes the front one first.
+_Avoid_: panel, overlay

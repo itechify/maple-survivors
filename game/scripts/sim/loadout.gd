@@ -39,6 +39,24 @@ func _init(p_book: SkillBook = null) -> void:
 	book = p_book if p_book != null else SkillBook.new()
 
 
+## An independent copy of every field (the same SkillBook): changing the copy never changes this loadout. Previews
+## stack a card's steps on a clone.
+func clone() -> Loadout:
+	var c := Loadout.new(book)
+	c.ranks = ranks.duplicate()
+	c.order = order.duplicate()
+	c.skill_mods = skill_mods.duplicate(true)
+	c.player_mods = player_mods.duplicate(true)
+	c.card_ranks = card_ranks.duplicate()
+	c.int_stat = int_stat
+	c.matk = matk
+	c.char_level = char_level
+	c.crit_chance = crit_chance
+	c.crit_mult = crit_mult
+	c.version = version
+	return c
+
+
 ## Learns `key` at rank 1. False when unknown or already owned.
 func add_skill(key: String) -> bool:
 	if not book.has(key) or ranks.has(key):
@@ -118,7 +136,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 	version += 1
 
 
-## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
+## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
+## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
 ## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
@@ -126,9 +145,9 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
-func stats(key: String) -> Dictionary:
+func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
-	var r := maxi(1, rank(key))
+	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
 	var lv := book.canonical_level(key, r)
 	var dtype := String(d.get("damage", "none"))
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0)

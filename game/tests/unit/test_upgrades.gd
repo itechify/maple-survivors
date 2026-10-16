@@ -183,6 +183,8 @@ func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> voi
 func test_picking_elixir_from_an_exhausted_levelup_fully_restores_both_pools() -> void:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
+	# No level-up MP refill, so MP is still short when the window opens and the Elixir has both pools to restore.
+	data.balance.level_up_refill = {"hp": 0.0, "mp": 0.0}
 	var w := RunWorld.new(RF.setup("quiet", 38, data))
 	RF.place_player(w, 400)
 	w.take_hit(10.0, false, "", w.player.pos - Vector2(10, 0))
@@ -271,6 +273,59 @@ func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
 	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
 	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
 	assert_eq(w.upgrades.choice_card("magnet", w).skill_changes, {}, "stat cards have no canonical skill values")
+
+
+func test_mod_cards_preview_the_effective_stat_they_change() -> void:
+	var w := RF.quiet_world()
+	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_mod_changes, {"shots": {"before": 1, "after": 2}},
+		"a projectile skill's count is its shells")
+	assert_eq(w.upgrades.choice_card("three_snails_cooldown", w).skill_mod_changes,
+		{"cooldown": {"before": 1.1, "after": 0.97}}, "1.1 s x0.88, to two decimals")
+	w.upgrades.apply("three_snails_pierce", w)
+	assert_eq(w.upgrades.choice_card("three_snails_pierce", w, "rare").skill_mod_changes,
+		{"pierce": {"before": 1, "after": 3}}, "a Rare pick shows both of its steps on top of the one taken")
+	assert_eq(w.upgrades.choice_card("magnet", w).skill_mod_changes, {}, "stat cards change no skill")
+	assert_eq(w.upgrades.choice_card("nimble_feet", w).skill_mod_changes, {}, "learn cards have no modifier preview")
+	RF.change_job_bare(w, 200)
+	w.upgrades.apply("magic_claw_new", w)
+	w.upgrades.apply("energy_bolt_new", w)
+	assert_eq(w.upgrades.choice_card("magic_claw_targets", w).skill_mod_changes, {"targets": {"before": 1, "after": 2}},
+		"a nearest instant skill's count is its targets")
+	assert_eq(w.upgrades.choice_card("energy_bolt_damage", w, "rare").skill_mod_changes,
+		{"damage": {"before": 100, "after": 144}}, "damage x1.2 twice, in percent")
+	assert_eq(w.loadout.skill_mods.get("energy_bolt", {}), {}, "previewing changes nothing")
+	RF.change_job_bare(w, 220)
+	w.upgrades.apply("thunder_bolt_new", w)
+	assert_eq(w.upgrades.choice_card("thunder_bolt_area", w).skill_mod_changes, {"area": {"before": 100, "after": 120}},
+		"reach in percent of the canonical box")
+	var pool := UpgradePool.from_data({"cards": [{"id": "storm_targets", "kind": "skill_mod", "skill": "thunder_bolt",
+		"max_rank": 3, "effects": [{"stat": "count", "op": "add", "value": 2}]}]})
+	assert_eq(pool.choice_card("storm_targets", w).skill_mod_changes, {"targets": {"before": 6, "after": 8}},
+		"a box skill's targets are its canonical mobCount plus cards")
+
+
+func test_loadout_clone_copies_every_field_and_stays_independent() -> void:
+	var lo := RF.quiet_world().loadout
+	lo.add_skill_mod("three_snails", "count", "add", 1.0)
+	lo.add_player_mod("speed", "mul", 1.1)
+	lo.card_ranks["magnet"] = 2
+	lo.set_caster(31.0, 12.0, 17)
+	lo.crit_chance = 0.15
+	lo.crit_mult = 1.8
+	var c := lo.clone()
+	for field: String in ["ranks", "order", "skill_mods", "player_mods", "card_ranks", "int_stat", "matk", "char_level",
+			"crit_chance", "crit_mult", "version"]:
+		assert_eq(c.get(field), lo.get(field), field)
+	assert_true(c.book == lo.book, "the same skill book")
+	assert_eq(c.stats("three_snails"), lo.stats("three_snails"), "resolves the same numbers")
+	c.add_skill_mod("three_snails", "count", "add", 1.0)
+	c.add_player_mod("speed", "add", 5.0)
+	c.card_ranks["magnet"] = 3
+	c.order.append("energy_bolt")
+	assert_eq(lo.skill_mods.three_snails.count, Vector2(1.0, 1.0), "the original's skill mods are untouched")
+	assert_eq(lo.player_mods.speed, Vector2(0.0, 1.1), "and its player mods")
+	assert_eq(int(lo.card_ranks.magnet), 2, "and its card ranks")
+	assert_false("energy_bolt" in lo.order, "and its learned order")
 
 
 func test_real_stat_replacement_rank_previews_and_skill_caps() -> void:

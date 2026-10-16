@@ -1,6 +1,7 @@
 class_name Hud
 extends CanvasLayer
-## Hosts the independently updated HUD widgets (all HudWidget) and lays out the quickslot, buff-row and boss-bar space.
+## Hosts the independently updated HUD widgets (all HudWidget) and lays out the quickslot, buff-row and boss-bar space,
+## plus the status bar's Menu button (`menu_button`).
 
 const BAR_W := HudWidget.BAR_W
 const BAR_H := HudWidget.BAR_H
@@ -22,6 +23,13 @@ var system_messages := HudMessages.new()
 var potion_slot := HudPotionQuickslot.new()
 var buff_row := HudBuffRow.new()
 var boss_bar := HudBossBar.new()
+## The status bar's Menu button (StatusBar.img/BtMenu: normal / mouseOver / pressed art). The only HUD control that
+## takes the mouse; RunScene connects `pressed` to its Menu popup. PROCESS_MODE_ALWAYS: it keeps working while
+## RunScene freezes the HUD (pause, open windows).
+var menu_button := WzButton.new(HudWidget.SB + "BtMenu")
+
+## tier C (ours): BtMenu's top-left in the 800 px status bar, at the right end past the potion quickslot's labels.
+const MENU_POS := Vector2(744, 20)
 
 func _ready() -> void:
 	layer = 10
@@ -40,6 +48,11 @@ func _ready() -> void:
 	potion_slot.name = "PotionQuickslot"
 	buff_row.name = "BuffRow"
 	boss_bar.name = "BossBar"
+	menu_button.name = "MenuButton"
+	menu_button.fallback_size = Vector2(54, 34)
+	menu_button.label = "" if menu_button.has_art() else "MENU"
+	menu_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(menu_button)
 	get_viewport().size_changed.connect(_layout_slots)
 	_layout_slots()
 
@@ -85,6 +98,7 @@ func _layout_slots() -> void:
 	# tier C: reserved layout for the difficulty-overhaul HUD.
 	potion_slot.position = bar_origin(view) + Vector2(571, 8)
 	potion_slot.size = Vector2(221, 59)
+	menu_button.position = bar_origin(view) + MENU_POS
 	buff_row.position = Vector2(view.x - 224, 42)
 	buff_row.size = Vector2(212, 44)
 	boss_bar.position = Vector2(floorf((view.x - 300) * 0.5), 42)

@@ -186,7 +186,14 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.knockback.speed), 187.5)
 	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
 	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0})
-	assert_eq(float(b.level_up_refill), 0.0)
+	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
+	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
+	assert_eq(float(b.potions.drops.normal.mp), 0.03, "normal mobs drop a Blue 3% of the time")
+	for key: String in data.stages.stages:
+		for kf: Dictionary in data.stages.stages[key].get("keyframes", []):
+			assert_false(kf.has("normal_mp_drop_chance"), "%s has no map-specific normal MP chance" % key)
+	assert_eq(float(b.potions.drops.normal.hp), 0.012, "normal HP drops unchanged")
+	assert_eq(b.potions.drops.elite, {"hp": 0.15, "mp": 0.6}, "elite drops unchanged")
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
@@ -201,6 +208,7 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	for key: String in RunWorld.DEFAULT_REGEN:
 		assert_eq(float(b.regen[key]), float(RunWorld.DEFAULT_REGEN[key]), "RunWorld.DEFAULT_REGEN.%s" % key)
 	assert_eq(b.regen.size(), RunWorld.DEFAULT_REGEN.size(), "every regen value has its fallback")
+	assert_eq(b.level_up_refill, RunWorld.DEFAULT_LEVEL_UP_REFILL, "RunWorld.DEFAULT_LEVEL_UP_REFILL")
 	for key: String in RunWorld.DEFAULT_STATS:
 		assert_eq(int(b.player.stats[key]), int(RunWorld.DEFAULT_STATS[key]), "RunWorld.DEFAULT_STATS.%s" % key)
 	var body: Array = b.player.body
@@ -354,6 +362,37 @@ func test_real_boss_imgs_supply_their_summon_and_revive_families() -> void:
 	for id: int in [6130101, 9400205, 3220000, 6220000]:
 		assert_eq(StageRoster.boss_extra_ids(load_json.call("Mob.wz/%07d.img" % id), mob_skill).size(), 0,
 			"boss %d summons and revives nothing" % id)
+
+
+## Active skills without a hit-more-mobs card (docs/GAME_DESIGN.md card rules), each with the reason it is exempt.
+const HIT_MORE_EXEMPT := {
+	"heal": "support: heals the player; its undead strike hits every undead in the box already",
+	"slow_fp": "support: slows, deals no damage",
+	"slow_il": "support: slows, deals no damage",
+	"teleport_fp": "movement: deals no damage",
+	"teleport_il": "movement: deals no damage",
+	"teleport_cleric": "movement: deals no damage",
+}
+
+
+func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:
+	var skills: Dictionary = data.skills.skills
+	var covered := {}
+	for c: Dictionary in data.upgrades.cards:
+		if String(c.kind) != "skill_mod":
+			continue
+		for effect: Dictionary in c.effects:
+			if String(effect.stat) in ["count", "pierce"] and float(effect.value) > 0.0:
+				covered[String(c.skill)] = true
+	for key: String in skills:
+		var s: Dictionary = skills[key]
+		if HIT_MORE_EXEMPT.has(key):
+			assert_eq(String(s.damage), "none", "exempt %s must not be an attack skill" % key)
+			assert_eq(String(s.slot), "active", "exempt %s is an active skill" % key)
+			assert_false(covered.has(key), "%s has a hit-more-mobs card: remove its exemption" % key)
+			continue
+		if String(s.damage) != "none" or String(s.slot) == "active":
+			assert_true(covered.has(key), "%s needs a skill_mod card with more shots, targets or pierce" % key)
 
 
 func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
