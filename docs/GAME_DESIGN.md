@@ -21,7 +21,14 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    their bonus reward choices answered. Results show time, level, job, kills, damage dealt and owned skills;
    Retry or Stage select.
 
-Runs are independent: level, job and skills reset every run. Persistent progression is Phase 3.
+Runs carry one named character through one stage per tier (ADR 0001). A non-final clear autosaves the carried
+character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
+The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking, jumping, its two ladders and
+existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
+and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
+tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
+Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
 
 ## 2. Controls
 
@@ -2130,6 +2137,13 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Free Market rule | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Hub tick and catch-up | 1/60 s, at most 4 ticks/frame, matching RunScene | C | Existing engine scheduling rule |
+| Hub arrival | PortalSet.start_point with RNG seed 0; position is not saved | C | Ours; stable boundary arrival |
+| Hub exit / rooms / NPCs | out00 type 7 opens map select on Up using existing portal reach/cooldown; room portals inert; all four NPCs drawn, including hidden Maple TV | C (policy), A (IDs/positions/type) | Owner #32/#71; original v83 map/life nodes |
+| Hub identity / pause | Existing status bar only (full pools, EXP, level/job/name), instruction inset (12,12); existing pause with Resume / Save & quit and no loss warning | C | Ours / owner #32 boundary flow |
 
 The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
 Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,

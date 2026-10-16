@@ -70,14 +70,21 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 
 `main.tscn` (bootstrap) -> `ImportScreen` (only when the cache is missing) -> `TitleScreen` -> `CharacterSelect` ->
 `StageSelect` (map select for this character's next tier) -> `RunScene` (one round). Non-final clears carry the
-character to the next tier's map select; death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
+character to the Free Market hub, whose out00 exit opens the next tier's map select;
+death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
 There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
 
-`SceneFlow` owns the active slot and boundary persistence. It saves phase `map_select` on entry and phase `round`
+`SceneFlow` owns the active slot and boundary persistence. It saves phase `free_market` on a non-final clear,
+`map_select` on exit/first creation and phase `round`
 with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
 seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The
-coordinator's header documents #70's small character-screen calls and #71's sole `_after_round_cleared` insertion
-point (Free Market is added by that ticket). `--run` calls `start_run`, an independent one-off with no save writes.
+coordinator's header documents #70's small character-screen calls and the sole `_after_round_cleared` boundary.
+`FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
+there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
+draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while
+PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
+life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
+`--run` calls `start_run`, an independent one-off with no save writes.
 
 ### 4.2 Autoloads
 
