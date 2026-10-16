@@ -127,7 +127,15 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
 time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) after the owner
 review of spec #29 (vanilla single-shot skills, the v83 5-MP opening); a coarse pass on training seeds only, with
-final tuning deferred until later specs land:
+final tuning deferred until later specs land.
+
+Optional keyframe `exp_mult` values permit a late progression adjustment while retaining the stage-wide opening
+multiplier. At an ordinary or elite kill, each missing endpoint uses the stage's `exp_mult` (default 1), endpoints
+clamp nonnegative before linear interpolation, and the nearest endpoint holds outside the frame range without
+post-duration ramping. The global balance EXP factor and existing elite factor still apply; the full product
+with canonical mob EXP is rounded once. Scheduled boss reward EXP remains independent. This is tier C survivor
+tuning introduced for #30 after the uniform EXP probe reduced careless Mage reaches; no active curve is selected
+by the mechanism change alone. The current values remain in the table below and the calibration record in §4.2.
 
 | Time | Rate (mobs/s) | Max alive | Pool (weight) | HP × | Speed × |
 |---|---|---|---|---|---|
@@ -265,6 +273,26 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #30 calibration: late EXP seam (in progress)
+
+The C35 training probe used all **61 seeds, 1–60 and 2026**, both policies, 800×600 view, a 1,800 s cap,
+and the unchanged fixed progression guards. Its uniform HG EXP multiplier 2.45 delayed early progression:
+careless Mage reaches fell from C34's 46/61 to 41/61. The simultaneous MP change starts after 660 s and cannot
+explain that opening difference. The probe does not pass acceptance:
+
+| C35 policy | Clear / dead / timeout | Death-only median (deaths) | Mage / Lv30 median seconds (reaches) | MP collected / used |
+|---|---|---|---|---|
+| Sensible | 31 / 30 / 0 | 906.65 s (30) | 280.35 (60) / 629 (57) | 12,904 / 10,803 = 1.19448 |
+| Careless | 3 / 58 / 0 | 514.25 s (58) | 284.8 (41) / 601 (11) | 5,184 / 4,120 = 1.25825 |
+
+This established a present need for optional keyframe `exp_mult`: keep the opening stage multiplier and place
+progression pressure later, when sensible builds continue choosing offensive ranks after Guard caps. The
+mechanism alone changes no active tuning fields. Seeded public `RunWorld` kill/drop tests cover fallback,
+interpolation at kill time, endpoint holding/clamping, one final rounding with elite factors, and independent
+scheduled boss rewards. The focused EXP/potion/spawn/progression/boss-reward group passes **49 tests, no failures
+or skips**. Exact probe console/configuration and red/green test logs remain under `evidence/spec30/balance/`.
+Training calibration continues; **601–630 remains reserved and unused** pending a reviewed frozen candidate.
 
 #### Owner review of #51: vanilla skills and the v83 opening (coarse pass, current)
 
@@ -1442,6 +1470,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Ordinary MP supply curve | Optional `normal_mp_drop_chance` stage endpoints; the same clamp, interpolation, per-endpoint global fallback and endpoint holding as HP; no effect on elite rolls or fixed boss bundles | C | ours; SpawnDirector.normal_mp_drop_chance_at; #30 calibration preserves opening supply |
+| Stage EXP curve | Optional keyframe `exp_mult`, per-endpoint stage-wide fallback (default 1), nonnegative clamp before interpolation and nearest-endpoint holding; kill-time ordinary/elite scaling, one final rounding; independent boss rewards | C | ours; SpawnDirector.exp_mult_at and RunWorld; #30 calibration requires late progression pressure while preserving the opening |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
