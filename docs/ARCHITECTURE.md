@@ -74,7 +74,8 @@ character to the Free Market hub, whose out00 exit opens the next tier's map sel
 death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
 There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
 
-`SceneFlow` owns the active slot and boundary persistence. It saves phase `free_market` on a non-final clear,
+`SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
+It saves phase `free_market` on a non-final clear,
 `map_select` on exit/first creation and phase `round`
 with stage/seed before launch. Quit round leaves that snapshot unchanged; Continue restarts its character, map and
 seed. `RunScene.configure` accepts `options.character` as a snapshot Dictionary or the tool JSON-file path. The

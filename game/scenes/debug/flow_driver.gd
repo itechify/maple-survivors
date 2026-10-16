@@ -385,6 +385,8 @@ func _scenario_full() -> void:
 			print("flow_driver: resumed = %s" % resumed_once)
 	_steer = false
 	_release_all()
+	# Capture the tomb before the accelerated end hold can dispose of the round.
+	Engine.time_scale = 1.0
 	print("flow_driver: the character died at %.0f s, level %d" % [run.world.time, run.world.player_state.level])
 	var snapshot := run.perf_summary(run.build_summary())
 	snapshot["flow"] = {"windows": windows, "job_seen": job_seen, "pause_seen": paused_once, "resumed": resumed_once}

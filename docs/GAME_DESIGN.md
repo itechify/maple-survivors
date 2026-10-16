@@ -357,6 +357,44 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #75 whole-flow QA and regression smoke (2026-10-16)
+
+Implementation `89de7fa`, integration `dba59a9`; `ISOLATE=t75`, existing cache-t70 reused read-only, no import.
+Training seeds 1/2/2026, bot/random, default branches, 1800s cap per round; no PATCH, tuning or held-out seeds.
+All **24 seed records / 26 rounds** finish without crashes, script/engine errors or world warnings, with
+`missing=[]`. Outcomes, end times, levels and tier-1 MP-wait means match #71/#74 below exactly. Every Henesys
+round reaches Magician and Mano; Tree's early deaths remain record-only. Tier-2 outcomes remain first-pass data for #77.
+
+| Group / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Start → end levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 1 → 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 1 → 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Chain tier 2 bot | 0 / 1 / 0 | 685.2 / — / — | 41 → 52 |
+| Chain tier 2 random | 0 / 1 / 0 | 1240.1 / — / — | 43 → 64 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 38 → 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 38 → 51 / 50 / 55 |
+
+Each chain policy feeds tier 2 from **1/3** tier-1 clears (seed 1 only), starts/clears **1/0**, Lv70 **0/1**;
+fixture Lv70 **0/3** per policy. Chain Zombie Mushmom completes in 121.75s bot / 51.68s random, each **1/1
+completed/spawned**, censored median the same (n=1, no unfinished fights). Snack Bar completes none (n=0),
+**0/1 spawned** per policy, censored medians **>=85.20s / >=640.12s** (n=1, one unfinished each).
+Jr. Balrog bot has **0/0 spawned**, no completed or censored observation (n=0), one not spawned;
+random has **0/1 spawned**, none completed (n=0), censored median **>=340.12s** (n=1, one unfinished).
+No bosses are skipped. Fixture boss metrics reproduce #73/#74; full console/SYSTEMS output and seed/configuration
+records stay ignored under `evidence/t75/smoke/`.
+
+The injected `rounds` scenario creates two characters through the v83 controls, really clears Henesys at
+967.817s/Lv41, resumes the hub from disk, walks to out00, saves/resumes map select, quits/replays Dark Cave
+seed 1 without changing the boundary bytes, dies at 841.583s/Lv58, cancels then confirms the spare's deletion,
+and checks both history rows. Its tier-2 seed is deliberately the driver's seed 1, not the chain harness seed.
+This verifies flow, not balance. Evidence, limitations and QA defects are in
+[ticket-75-audit.md](research/ticket-75-audit.md).
+The full suite after the final integration fetch/merge passes **732 tests, 0 failed, 0 skipped, 81 files**
+(365.466s). Final natural/staged-victory rounds, full flow and one-off clear have `missing=[]`; all seven boss
+attack probes also have empty missing/warnings. Import is checked in screen-only mode, without re-importing assets.
+
 #### #32 / #71 Free Market regression smoke (2026-10-16)
 
 Revision `96cb046`; training seeds 1/2/2026, both original stages, bot/random, default branches and 1800 s cap,
