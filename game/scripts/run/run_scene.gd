@@ -685,13 +685,14 @@ func handle_events(events: Array) -> void:
 			"boss_attack":
 				if e.phase == "start":
 					_sound(String(e.sound))
-					# tier C: evidence capture during the jump frame of the canonical mushroom windup.
-					_event_shot("boss_windup_%d.png" % int(e.boss_index), 0.85)
-				elif e.phase == "effect" and String(e.effect) != "":
+					# tier C: capture each attack before its impact, at half windup (capped at the mushroom jump frame).
+					var delay := minf(0.85, maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
+					_event_shot("boss_windup_%d_%s.png" % [int(e.boss_index), String(e.attack)], delay)
+				elif e.phase in ["effect", "hit"] and String(e.effect) != "":
 					fx.play(String(e.effect), e.pos, int(e.facing) > 0)
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
-					_event_shot("boss_shockwave_%d.png" % int(e.boss_index), 0.12)
+					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"cast":
 				_on_cast(e)
 			"teleport":

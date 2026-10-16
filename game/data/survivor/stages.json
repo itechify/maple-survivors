@@ -102,8 +102,18 @@
 			"name": "Dark Cave",
 			"duration": 900,
 			"hard_cap": 400,
-			"_bosses": "Tier C: deliberately bossless until #73 adds Zombie Mushmom, Snack Bar and Jr. Balrog; surviving the duration clears this interim round.",
-			"bosses": [],
+			"_bosses": "Tier C: owner schedule; first-pass encounter scales, 8 s per-attack cadence and potion bundles chosen before measurement (#73), not tuned. Jr. Balrog has the greatest HP/contact/attack multipliers and effective HP (150000 versus 110000/28000). Canonical attacks, timing, stats and elements remain in Mob.wz. All bosses and reward choices must finish to clear.",
+			"bosses": [
+				{"time": 300, "mob_id": 6300005, "hp_mult": 0.8, "dmg_mult": 0.8,
+					"attacks": ["attack1"], "attack_interval": 8.0, "attack_dmg_mult": 0.8,
+					"rewards": {"potions": {"hp": 3, "mp": 3}}},
+				{"time": 600, "mob_id": 8220009, "hp_mult": 1.0, "dmg_mult": 1.0,
+					"attacks": ["attack1", "attack2", "attack3"], "attack_interval": 8.0, "attack_dmg_mult": 1.0,
+					"rewards": {"potions": {"hp": 3, "mp": 3}}},
+				{"time": 900, "mob_id": 8130100, "hp_mult": 3.0, "dmg_mult": 1.25,
+					"attacks": ["attack1", "attack2", "attack3"], "attack_interval": 8.0, "attack_dmg_mult": 1.25,
+					"rewards": {"potions": {"hp": 3, "mp": 3}}}
+			],
 			"exp_mult": 1.0,
 			"keyframes": [
 				{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
@@ -123,7 +133,7 @@
 			],
 			"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
 			"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
-			"note": "Dungeon mushrooms and Stirges, then Eyes, Jr. Boogies and Tauros. Bosses pending #73.",
+			"note": "Dungeon swarms and Tauros. Defeat Zombie Mushmom, Snack Bar and Jr. Balrog.",
 			"original_life": {"2110200": 9, "2230101": 7, "2300100": 35}
 		}
 	}
