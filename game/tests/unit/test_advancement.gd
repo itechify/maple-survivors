@@ -69,6 +69,10 @@ func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
 		assert_eq(w.loadout.order, owned)
 		if branch == 210:
 			assert_has(w.pending_cards.map(func(c: Dictionary) -> String: return c.id), "fire_arrow_new")
+		elif branch == 220:
+			var ids := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
+			assert_has(ids, "cold_beam_new")
+			assert_has(ids, "thunder_bolt_new")
 		for card: Dictionary in w.pending_cards:
 			if card.kind != "filler":
 				assert_eq(card.kind, "skill_new", "advancement offers new branch skills")
@@ -109,6 +113,10 @@ func test_bot_branches_are_seeded_cover_all_paths_and_can_be_forced() -> void:
 func test_advancement_accepts_future_attack_cards_from_data_and_rolls_rarity() -> void:
 	var data := RF.quiet_data()
 	data.upgrades.rarity.weights = {"legendary": 1}
+	# Keep this synthetic four-attack scenario independent of the growing real second-job pool.
+	data.upgrades.cards = data.upgrades.cards.filter(func(c: Dictionary) -> bool:
+		return not (c.kind == "skill_new" and c.get("requires", {}).get("jobs", []).any(
+			func(job: Variant) -> bool: return int(job) == 220)))
 	for i in 4:
 		var skill := "future_%d" % i
 		data.skills.skills[skill] = data.skills.skills.energy_bolt.duplicate(true)

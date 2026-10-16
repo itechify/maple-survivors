@@ -349,6 +349,31 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
+
+`ISOLATE=t56`, training seeds 1/2/2026, both stages and `bot`/`random`, unforced branches, real cache,
+1,800 s cap, no patches or tuning. All 12 runs finish without crashes, script errors or world warnings.
+Outcomes and death times match the Foundations/#53 smoke below. Henesys reaches Magician and spawns its first
+boss in all six runs; Tree's early deaths remain record-only. The two second advancements in this fixed sample
+choose 230, so this is an existing-run regression check; #61 owns the full second-job branch smoke.
+Raw records and exact console output remain ignored under `_scratch/t56_smoke/` and `_scratch/t56_smoke_*.log`.
+
+| #56 stage / policy | Clear / dead / timeout | Death seconds | Magician / first-boss reaches |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 3/3 / 3/3 |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 / 3/3 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+
+A separate visible Henesys run uses `--branch=220 --seed=1 --warp=480 --speed=8 --minutes=20 --shot-every=1`.
+It clears at 996.567 s, Lv39, with Cold Beam and Thunder Bolt both at rank 9 and `missing: []`.
+Checked by eye: `evidence/t56/branch220/t700.png` (Cold Beam's ice impact) and `t740.png` (Thunder Bolt's
+lightning columns on both sides, with ice impacts also visible). Both skills' cached use sounds and art load
+in the real-cache test, and the normal RunScene cast path plays those sounds; no missing cache nodes found.
+After merging the current integration branch, the full suite passes **599 tests, 0 failed, 0 skipped, 66 files**
+(312.975 s). Focused Ice/Lightning, advancement and data-file validation passes **32 tests, 0 failed, 0 skipped**;
+the real-cache test executes, so no SKIP is counted as coverage. No shared simulation or presentation paths change.
+
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
@@ -1409,6 +1434,15 @@ canonical 700 ms effect on every absorb, including zero player gain; it does not
 The cache has all three effects and icons. Original v83 Sound.wz has no MP Eater entry, so presentation quietly
 probes for an optional use sound and otherwise stays silent without a missing-asset lookup.
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
+| Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
+| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
+
+Ice/Lightning attack cards require exactly job 220 and all eight learn/rank/behaviour cards are power cards.
+Behaviour steps share the first-job Potential magnitudes and remaining-headroom clamp. Cold Beam uses the existing
+`count` modifier (up to four distinct targets); Thunder Bolt uses `cast: {"rule": "box"}` and the shared `area`
+modifier (up to ×1.728 on both canonical offsets). Cold Beam's `on_hit` block omits `chance_field`: every v83 level
+has `x = -100` and `time`, with no `prop`. Freeze duration is canonical, and no separate proc or box path is added.
+Both cached skills have no `action` node; selecting `swingO1` for a 0.8 s cast stance is tier C.
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
@@ -1703,6 +1737,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Flyer speed / bob / arrivals | (`flySpeed` + 100) × `mob_speed_factor` × stage speed; bob 2 px / 1.2 s (`balance.mob_motion`); Henesys arrival keyframes 180 / 300 / 480 / 660 s, weights 1 | C (conversion and tuning); A (stats and frames) | ours; original v83 WZ |
 | Goblin Fire EXP icon | Firebomb Flame 4000081 stands in for a signature EXP drop | C | ours (item art A) |
 | Skill cooldown/range/speed/count/pierce, shot radius | `skills.json` (12-14 px radius); shots ignore terrain and die at their range or 200 px outside the bounds | C | ours |
+| I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
+| I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
+| I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
