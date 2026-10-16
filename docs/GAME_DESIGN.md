@@ -398,7 +398,10 @@ Bot seeds 2/2026 remain 276.450/194.383 s; all random groups remain 155.733/179.
 All 18 runs reach Magician and spawn Mano, all clears have every scheduled boss dead, and none clears untouched.
 No crashes, script errors or world warnings; no new stop gate. The bot still uses Teleport, with far fewer blinks
 and less total MP wait on the three learners; I/L still dies. This is fixed-seed regression evidence, not balance
-tuning. Full isolated suite: **661 tests, 0 failed, 0 skipped, 72 files**; real-cache tests execute.
+tuning. Pre-merge isolated suite: **661 tests, 0 failed, 0 skipped, 72 files**; real-cache tests execute.
+After merging integration `84d1782` (review-fix ownership refactors; both records preserved), the full
+`ISOLATE=bott bash scripts/test.sh` suite passes **663 tests, 0 failed, 0 skipped, 72 files**. The smoke above
+remains the single measurement on `574da80`; no additional smoke or outcome-driven changes followed the merge.
 
 #### Spec #31 review-fix equivalence (2026-10-15)
 
