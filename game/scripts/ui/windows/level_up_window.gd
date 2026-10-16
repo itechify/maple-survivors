@@ -89,7 +89,9 @@ const ROW_H := 35.0
 const ROW_SLOT_W := 36.0
 const ROW_MID_X := 60.0
 const DESC_LINE := 13.0
-const DESC_MAX_LINES := 3
+## tier C: v83 skill descriptions run to four lines here (e.g. Nimble Feet with its orange cooldown line); the layout
+## still shortens them to fit the view.
+const DESC_MAX_LINES := 4
 ## tier C: compact separation and total vertical margin keep the 600px view's mascots and HUD clear.
 const BLOCK_GAP := 4.0
 const VIEW_MARGIN := 128.0
