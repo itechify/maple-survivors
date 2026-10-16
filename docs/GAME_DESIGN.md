@@ -317,6 +317,24 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #83 boss target priority regression smoke (2026-10-16)
+
+`ISOLATE=t83 bash scripts/balance.sh 1 2 2026`, both stages, `bot`/`random`, real cache, unforced branches, 1,800 s
+cap, no PATCH or tuning. "Before" is the same command on integration base `bf26c5d` (`ISOLATE=t83base`); its
+Henesys end times reproduce the 230 rows of the post-Teleport-fix smoke below (seed 1 takes branch 230). All 24 runs finish without crashes,
+script errors or world warnings. Records/console output are ignored under `_scratch/t83_smoke/{base,after}/`.
+
+| Henesys policy | Outcome by seed 1/2/2026, before -> after | Completed fight seconds Mano 2220000 / 6130101 / 9400205, before -> after |
+|---|---|---|
+| bot | C16:07/D13:32/D5:22 -> C15:57/D15:13/D5:48 | 47.5, 27.6 / 31.1 / 67.8 -> 36.9, 31.5 / 36.7 / 57.7 |
+| random | C16:14/D11:54/D5:29 -> C15:35/D10:38/D5:29 | 24.2, 43.2 / 20.9 / 74.6 -> 24.9, 61.7 / 39.0 / 35.7 |
+
+Completed counts are unchanged (Mano 2/3 spawned; 6130101 1/2; 9400205 bot 1/1 -> 1/2 because seed 2 now lives
+past 15:00, random 1/1); medians on n <= 2 are noise-level and mixed in direction (bot Mano 37.55 -> 34.18 s,
+random 33.69 -> 43.28 s; the final boss is faster in both seed-1 clears). Clears stay 1/3 per policy, each with
+every scheduled boss dead and hits taken; Henesys reaches Magician in 6/6 (unchanged 263-283 s) and spawns Mano.
+Tree is identical before/after (deaths 2:21/2:21/1:17, no boss spawned; record-only). No stop gate.
+
 #### #31 / #61 second-job QA (2026-10-15)
 
 Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
