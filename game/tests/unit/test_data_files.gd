@@ -185,7 +185,14 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.knockback.speed), 187.5)
 	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
 	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0})
-	assert_eq(float(b.level_up_refill), 0.0)
+	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
+	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
+	assert_eq(float(b.potions.drops.normal.mp), 0.03, "normal mobs drop a Blue 3% of the time")
+	for key: String in data.stages.stages:
+		for kf: Dictionary in data.stages.stages[key].get("keyframes", []):
+			assert_false(kf.has("normal_mp_drop_chance"), "%s has no map-specific normal MP chance" % key)
+	assert_eq(float(b.potions.drops.normal.hp), 0.012, "normal HP drops unchanged")
+	assert_eq(b.potions.drops.elite, {"hp": 0.15, "mp": 0.6}, "elite drops unchanged")
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
@@ -200,6 +207,7 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	for key: String in RunWorld.DEFAULT_REGEN:
 		assert_eq(float(b.regen[key]), float(RunWorld.DEFAULT_REGEN[key]), "RunWorld.DEFAULT_REGEN.%s" % key)
 	assert_eq(b.regen.size(), RunWorld.DEFAULT_REGEN.size(), "every regen value has its fallback")
+	assert_eq(b.level_up_refill, RunWorld.DEFAULT_LEVEL_UP_REFILL, "RunWorld.DEFAULT_LEVEL_UP_REFILL")
 	for key: String in RunWorld.DEFAULT_STATS:
 		assert_eq(int(b.player.stats[key]), int(RunWorld.DEFAULT_STATS[key]), "RunWorld.DEFAULT_STATS.%s" % key)
 	var body: Array = b.player.body
