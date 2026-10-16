@@ -82,6 +82,8 @@ func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:
 	data.balance.player.skills = []
 	data.balance.player.stats.int = 49
 	data.balance.regen.mp = 0
+	# No level-up MP refill, so the level-up below shows the passive's ratio rule on its own.
+	data.balance.level_up_refill = {"hp": 0.0, "mp": 0.0}
 	# Synthetic later-job grant exercises the recompute independently of future job balance.
 	data.jobs_survivor.jobs["210"]["grants"] = {"max_mp": 120}
 	var w := RunWorld.new(RF.setup("quiet", 41, data))

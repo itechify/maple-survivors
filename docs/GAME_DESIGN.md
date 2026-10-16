@@ -196,7 +196,7 @@ The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point. MP stay
 then interpolates to 4% at 12:00; the extra late HP support also begins after 11:00. Both potion curves hold
 after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
 0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
-extrapolation. Global normal MP 10% remains the fallback, elite MP stays 60%, and elite HP/boss bundles are
+extrapolation. Global normal MP 5% (#80; was 10%) is the fallback where a stage has no MP curve, elite MP stays 60%, and elite HP/boss bundles are
 unchanged. Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
@@ -316,6 +316,32 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #80 level-up MP refill / normal MP drop regression smoke (2026-10-16)
+
+`ISOLATE=t80after bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, unforced branches, 1,800 s cap. Before = the same head with `PATCH` restoring `level_up_refill`
+{hp 0, mp 0} and global normal MP 0.1, which behaves like base `bf26c5d` (it reproduces the earlier records'
+812.3 / 322.7 / 714.8 / 329.0 s deaths). No tuning, no held-out seeds. All 24 runs finish with no crashes, script
+errors or world warnings; every clear has all three scheduled bosses dead, and none is untouched. **Henesys's own
+`normal_mp_drop_chance` curve (10% to 11:00, then 4%) overrides the global key**, so Henesys deltas come from the
+level-up refill alone; Tree has no MP curve and gets both changes. Raw records: ignored `_scratch/t80/{before,after}/`.
+
+| Stage / policy | Clear/dead before -> after | End seconds (seed order 1/2/2026) before -> after | MP collected/used before -> after | HP collected/used before -> after | MP-short s, mean/run before -> after |
+|---|---|---|---|---|---|
+| Henesys bot | 1/2 -> 2/1 | C967/812.3/322.7 -> C980/893.2/C924 | 380/359 -> 647/545 | 67/76 -> 110/95 | 205.1 -> 96.1 |
+| Henesys random | 1/2 -> 1/2 | C974/714.8/329.0 -> C953/689.2/699.4 | 428/300 -> 570/362 | 80/83 -> 95/105 | 178.5 -> 47.9 |
+| Tree bot | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 712.2/664.7/128.3 | 7/0 -> 235/216 | 4/19 -> 53/68 | 99.0 -> 111.2 |
+| Tree random | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 647.6/177.2/88.4 | 7/0 -> 146/89 | 4/19 -> 28/43 | 99.0 -> 97.0 |
+
+Henesys reaches Magician (268.6–287.0 s) and Mano in 3/3 per policy before and after; Mano now completes 3/3 per
+policy (was 2/3). Seed 2026, which died at 5:22–5:29 just after Mano arrived, now lives to 11:39 (random) or clears
+(bot). MP-short time falls by half (bot) to three quarters (random); MP potions collected rise because runs last
+longer at the unchanged Henesys drop curve. Tree (record-only, awaiting the owner's rework) changes most: a full MP
+pool after each Beginner level keeps Three Snails firing, so 3/6 runs now reach Magician (216.5–222.6 s) and kill
+Stumpy (3220000) in 3/3 spawned fights, dying at 10:47–11:52; the rest still die before 3:00. No stop-and-ask gate:
+no group dies entirely before its first boss or clears untouched. The Henesys bot clear rate rising 1/3 -> 2/3 is
+input for the balance pass, not tuned here.
 
 #### #31 / #61 second-job QA (2026-10-15)
 
@@ -1442,7 +1468,8 @@ Potions are separate persistent pickups, pulled in by the same magnet as EXP. St
 with five Red Potions (2000000) and no Blue Potions (2000003). Delete/Q drinks HP,
 End/E drinks MP, once per press, instantly and without a cooldown even on a rope. Empty stock does nothing.
 Restoration comes unchanged from canonical item `spec.hp`/`spec.mp` (Red 50 HP, Blue 100 MP), clamped to max.
-Normal kills use a global fallback of HP 1.2% and MP 10% independently; elites roll HP 15% and MP 60%. With every
+Normal kills use a global fallback of HP 1.2% and MP 5% (#80; was 10%) independently; a stage MP curve overrides the
+MP fallback (Henesys keeps its own 10% -> 4% curve, section 4.1). Elites roll HP 15% and MP 60%. With every
 skill in its single-shot vanilla form at canonical MP, Blue Potions are the main MP income once regeneration (3 MP per
 10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
@@ -1450,8 +1477,9 @@ EXP cap/absorption path. Both card policies drink a potion only when the missing
 current potion's canonical restore (`balance.potions.bot.min_restore_fraction`, tier C), so a sip never mostly
 overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
 
-The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision), with no ordinary level-up refill. Three
-Snails at its canonical 3 MP therefore casts about once per 10 s regeneration pulse, and the Beginner phase is
+The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level-up refills MP to the new maximum
+(#80, tier B) but adds no HP (tier C). Between level-ups, Three
+Snails at its canonical 3 MP casts about once per 10 s regeneration pulse, and the Beginner phase is
 sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
 per event.
 The optional stage-keyframe `normal_hp_drop_chance` / `normal_mp_drop_chance` fields are tier C survivor supply
@@ -1469,7 +1497,7 @@ entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve avai
 weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
 Current Henesys normal HP/MP supply follows the C46 endpoint table in section 4.1; both curves interpolate and hold.
-Global normal MP remains 10%, elite MP 60%, with scheduled boss bundles unchanged. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
+Global normal MP is 5% (#80; Henesys's own MP curve overrides it), elite MP 60%, with scheduled boss bundles unchanged. Tree retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
@@ -1502,9 +1530,11 @@ quantities per kind.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
-  Level-ups raise the maxima without restoring current HP or MP (`level_up_refill` = 0). The owned Improved MaxMP
-  Increase passive is the exception: when Max MP grows it preserves current MP's fraction of the maximum, including
-  growth from later levels and job grants. It never restores HP.
+  Level-ups raise the maxima, then refill MP to the new maximum (`level_up_refill.mp` = 1, tier B: v83 servers
+  refill both pools, Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)`) but add no HP
+  (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
+  the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
+  Max MP grows outside a level-up (job grants). It never restores HP.
 - **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
   active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
@@ -1945,7 +1975,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
+| Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .05 fallback (#80, owner-set; was .10; Henesys stage curve overrides), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Ordinary MP supply curve | Optional `normal_mp_drop_chance` stage endpoints; the same clamp, interpolation, per-endpoint global fallback and endpoint holding as HP; no effect on elite rolls or fixed boss bundles | C | ours; SpawnDirector.normal_mp_drop_chance_at; #30 calibration preserves opening supply |
 | Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
@@ -2062,7 +2092,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
-| Level-up pools / casting order / low-MP cue | no level-up healing or implicit current-pool gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |
+| Level-up MP refill | each level-up refills MP to the new maximum after growth (`level_up_refill.mp` 1.0) | B | Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)` (v83 server RE); #80 |
+| Level-up HP / casting order / low-MP cue | no level-up healing (`level_up_refill.hp` 0.0) or implicit HP gain from maximum growth; oldest-ready affordable skill, one per tick; warm-red persistent cue above EXP messages | C | owner choices; ours |
 | EXP drop motion | pop 260 px/s up, ±40 px/s sideways, Physics.img gravity onto floors; magnet 220 px/s + 1400 px/s²; collected within 24 px of the body centre (25 px above the feet); at 600 drops the farthest from the player is absorbed into a fresh drop at the new kill | C | ours |
 | EXP drop lifetime | never expires (`pickup.lifetime` 0); capped absorption resets the new drop's age and conserves EXP | C | owner decision 2026-10-14 |
 | Player-platform spawns | 35% of ground placements, at least 150 px away; visible only when the whole platform fits in view, otherwise on off-screen portions; normal regen fade and harmlessness | C | owner choice, `balance.json.spawn` |
