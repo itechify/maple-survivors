@@ -292,11 +292,21 @@ seconds). It reads attack-local PADamage/MADamage rather than contact attack and
 `source_kind = attack`. `attack_dmg_mult` is separate from contact `dmg_mult`; `attack_interval` is a survivor
 start-to-start cadence because these attack nodes contain no interval. A canonical `jumpAttack` flag opts into
 the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack frames/metadata remain as cached.
+An explicit `magic=1` also selects magic damage, falling back to mob MADamage when no local attack value exists.
+Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
+The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
+
+Type 1 is a targeted direct strike (tier C, not verified v83 RE): acquisition checks the character body centre
+within `range/r` of the mirrored `range/sp`. Once admitted, the single character is locked; `attackAfter`
+resolves through normal take_hit regardless of escape or jumping, without a projectile or second range test.
+Death/fade cancellation, defence, avoid, invincibility and Magic Guard still apply. The canonical effect plays
+at the caster at effectAfter, the hit art at the character on impact. Details: `docs/research/dark-cave-boss-attacks.md`.
 
 For type 2, `range/r` is the acquisition radius and travel range; `range/sp` is the mirrored muzzle offset.
 At attackAfter, a ball aims at the player's current body centre and travels straight (tier C). The adopted unit
 conversion is `bulletSpeed × 1000/600` px/s, equivalent to `r × 600/bulletSpeed` ms flight; this interpretation
 is tier C, inspired by a later-client reference, not verified v83 client RE. WZ fields remain unchanged.
+Absent/nonpositive bulletSpeed uses `balance.mob_projectiles.default_speed` (320 px/s, tier C) instead.
 Balls store source attack/accuracy/multiplier independently of the live mob, expire at range, and use swept
 segment-vs-player-body contact with a survivor collision radius. RunScene's separate `mob_shots` renderer uses
 the existing batched ProjectileRenderer and `RunWorld.visual_paths`. No per-projectile Nodes are introduced.

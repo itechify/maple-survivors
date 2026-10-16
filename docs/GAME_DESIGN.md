@@ -186,8 +186,8 @@ and 35 Stirges (tier A, original Map.wz).
 
 All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, repeat every 90 s and grow from
 10 to 40 mobs; elites start at 75 s, repeat every 60 s and use HP/EXP/contact multipliers 8/5/1.5 (tier C,
-existing stage conventions). Global potion chances apply. The interim empty boss list clears a surviving round
-at 900 s; #73 owns the three bosses and final-fight lifecycle. These values are not a balance calibration.
+existing stage conventions). Global potion chances apply. All three bosses and every reward choice must finish
+before the round clears (#73). These values are not a balance calibration.
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
 time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
@@ -1993,13 +1993,24 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+| Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
+|---|---|---|---|
+| Schedule / first-pass HP | Zombie Mushmom 6300005 at 300 s, HP x0.8 (28000); Snack Bar 8220009 at 600 s, HP x1 (110000); Jr. Balrog 8130100 at 900 s, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
+| Contact / attack scales, cadence, rewards | Contact and attack x0.8 / x1 / x1.25; each attack 8 s start-to-start; each death 3 HP / 3 MP plus existing global EXP and choice rewards | C | First-pass survivor encounter data in stages.json; final boss has greatest damage multipliers |
+| Boss canonical facts | HP 35000 / 110000 / 50000; all seven attacks and delays/ranges/damage/element flags; no mob skills; Balrog S1H3 | A | Original v83 Mob.wz; [field inventory](research/dark-cave-boss-attacks.md), real-cache tests |
+| Type-1 targeted direct rule | Admit body centre within r250 of mirrored sp(-28,-69); locked character takes magic hit at 1300 ms even after moving/jumping; effect at caster 700 ms, hit art at character; death/fade cancels | C | Later-client HaCreator targeted-direct description; **not verified v83 RE**, lead must flag this caveat on #73; research note above |
+| Missing ball speed | 320 px/s only for absent/nonpositive bulletSpeed; positive authored values retain x1000/600 conversion | C | balance.mob_projectiles.default_speed; reference-inspired fallback for Balrog attack2; finite swept flight/range |
+| Magic and delayed effects | magic=1 uses mob MADamage unless attack overrides it; effectAfter remains independent of attackAfter (Balrog attack3 500/400 ms); direct hit art at character impact | A fields/timings; C resolution/presentation | WZ field inventory and seeded tests; canonical values remain untouched |
+| Boss icons and EXP pickups | Snack Bar borrows Zombie Mushmom icon and colours 1/5; EXP icons 4000008 / 4000011 / 4000028 | C | Original Snack Bar lacks gauge icon/colours; reuse imported signature art, not a drop-table claim |
+| Attack evidence capture | Per-attack windup at min(0.85 s, half windup), at least one fixed tick; per-attack impact +0.12 s | C | Capture short ball windup before launch and keep seven distinct attack images |
+
 | Dark Cave addition (#72) | Values | Tier | Evidence / rationale |
 |---|---|---|---|
 | Run tier list | `[[henesys_hg1, tree_that_grew_1], [dark_cave]]`, index 0 = tier 1 | C | Owner #32 decision; binding spec32 decisions section 3 |
 | Map and original spawns | 105050400; Horny 2110200 ×9, Zombie 2230101 ×7, Stirge 2300100 ×35; 14 ladders; NPC 9201133; exits 105050300/105060000 | A | Original v83 Map.wz/Map/Map1/105050400.img; loaded through the normal cache |
 | Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; contact only until #76 |
 | First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
-| Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; empty boss schedule clears at 900 s | C | Existing stage conventions; interim ending until #73 |
+| Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle |
 | Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
 
 | Constant | Value | Tier | Source |
