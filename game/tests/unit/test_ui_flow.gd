@@ -279,7 +279,6 @@ func test_quit_round_then_continue_replays_saved_first_minute() -> void:
 func _first_minute(world: RunWorld) -> String:
 	var events := ""
 	var memo := {}
-	world.god = true
 	for tick in 3600:
 		BotInput.auto_choose(world)
 		world.step(1.0 / 60.0, BotInput.decide(world, memo))

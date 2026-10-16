@@ -16,7 +16,7 @@ extends Node
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
-## effects too), --stop-at=<run s> (full: 300), --wz=<folder> (import).
+## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1), --wz=<folder> (import).
 ##
 ## Screenshots are named NN_<step>.png; the driver prints one "flow_driver:" line per step and quits with exit code 1
 ## when a step times out or the full scenario misses the Magician / pause-resume path. Full also writes summary.json
@@ -80,7 +80,7 @@ func _scenario_full() -> void:
 	await _sleep(3.0)
 	await _shot("map_select")
 	var sel: Node = flow.current
-	await _click(sel.get("start_button") as Control)
+	await _start_selected(sel)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
 		return
 	var run := flow.current as RunScene
@@ -173,7 +173,7 @@ func _scenario_full() -> void:
 	if not await _create_character("Quit69"):
 		return
 	await _sleep(3.0)
-	await _click(flow.current.get("start_button") as Control)
+	await _start_selected(flow.current)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "new character round"):
 		return
 	await _sleep(3.0)
@@ -243,6 +243,16 @@ func _scenario_clear() -> void:
 	await _key(KEY_ESCAPE)
 	await _sleep(2.0)
 	get_tree().quit(1 if _failed else 0)
+
+
+## Keeps the real Start click while fixing only the boundary seed for reproducible keyboard steering.
+func _start_selected(screen: Node) -> void:
+	var button: WzButton = screen.get("start_button")
+	button.pressed.disconnect(screen.start_selected)
+	button.pressed.connect(func() -> void:
+		# tier C: diagnostic training seed; --seed overrides it. Production map select still randomizes.
+		flow.start_round(String(screen.stages[screen.selected].key), int(args.get("seed", "1"))))
+	await _click(button)
 
 
 func _create_character(character_name: String) -> bool:
@@ -414,7 +424,9 @@ func _until(cond: Callable, timeout: float, what: String) -> bool:
 
 
 func _shot(step: String) -> void:
-	await RenderingServer.frame_post_draw
+	# The collaborative desktop may occlude the window; explicitly render this evidence frame.
+	await get_tree().process_frame
+	RenderingServer.force_draw()
 	_n += 1
 	var path := shots_dir.path_join("%02d_%s.png" % [_n, step])
 	var img := get_viewport().get_texture().get_image()
