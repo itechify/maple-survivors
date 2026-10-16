@@ -10,8 +10,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 ## 1. The run
 
 1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
-2. **Start.** Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
-   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). The map's own BGM plays.
+2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
+   random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
+   White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). The map's own BGM plays.
 3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
@@ -2131,14 +2132,36 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+Character creation (#70) reads the Explorer male/female options and their hair/colour/skin names from
+`Etc.wz/MakeCharInfo.img` at runtime. Its eight numeric columns, gender-specific option lists and hair-colour suffix
+are tier A, checked in the original v83 files. Sword 1302000 has WATK 17 / speed 4; Wooden Club 1322005 WATK 19 /
+speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interval conversion yields 0.72 / 0.75 /
+0.75 seconds. No new balance values are introduced. Clothing choices change the drawing; the existing survivor
+starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
+the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
+
+`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
+presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
+with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
+shape). The snapshot's `beginner_weapon` persists even after advancement.
+
+The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
+Character select uses the LoginBackdrop CHAR_SELECT book, CharSelect's original buttons and character effect;
+creation uses NewChar's name/settings wood, arrows and buttons, plus Gender's preview parchment. NameTags supplies
+the existing translucent name treatment. The centered 800x600 book, slot x=180/400/620, feet y=319, controls/text
+positions, 19px creation rows, brown ink RGB 85/51/17 and error ink RGB 153/34/0 are tier C presentation choices.
+The history list uses the existing ParchmentScroll and records name/job/level, tiers, rounds, ending and UTC date.
+The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
+tier C diagnostic staging only; it writes an evidence-local save and never the player's save.
+
 The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
 Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,
 with its stage and seed; Quit round confirms that progress will be lost and preserves those bytes. Continue replays
 the round from its start. Death and final-tier victory end the run in history; other clears carry the character
 through the single `SceneFlow._after_round_cleared` seam. Tool-only `--run` rounds never write slots/history/bests.
-The temporary plain character screen uses a dark blue background (RGB 25/44/58), a 560 px column, 14 px row gaps,
-24 px headings and a 300 px history pane, three slot rows, name creation,
-continue, confirmed delete and a history entry point (tier C, #69; #70 replaces its presentation). Map select keeps
+The #70 character screen replaces #69's temporary plain slot/name/history presentation. Map select keeps
 the existing parchment, adds the character/tier heading at y=32 and labels Back as Save & quit (tier C, layout).
 The exact Quit round confirmation is owner #32 copy: "You'll lose this round's progress. Continue later to restart
 the round from its beginning." Victory results show the tiers cleared and return to character select (tier C).

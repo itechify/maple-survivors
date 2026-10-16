@@ -260,9 +260,12 @@ func _create_character(character_name: String) -> bool:
 		return false
 	await _sleep(0.5)
 	await _shot("character_select")
-	await _click(flow.current.get("name_edit") as Control)
-	await _type(character_name)
 	await _click(flow.current.get("create_button") as Control)
+	await _sleep(0.5)
+	var creation: Control = flow.current.get("creation")
+	await _click(creation.get("name_edit") as Control)
+	await _type(character_name)
+	await _click(creation.get("create_button") as Control)
 	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
 
 
