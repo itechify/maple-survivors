@@ -30,6 +30,9 @@ var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat32Array()
 var _shortages := {}
+var _slow_serial := 0
+## tier C interpretation of the canonical two-consecutive-uses text; shared across branch copies.
+const SLOW_CONSECUTIVE_LIMIT := 2
 
 
 func _init() -> void:
@@ -102,6 +105,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_nearest(world, key, st, origin)
 		"box":
 			return _admit_box(world, st)
+		"crowd":
+			return _admit_crowd(world, st)
 		"manual":
 			return {}
 	return {}
@@ -142,9 +147,36 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	match String(st.cast_rule):
 		"box":
 			_resolve_box(world, st, targets)
+		"crowd":
+			_resolve_crowd(world, key, st, targets)
 		"", "nearest":
 			if String(st.kind) != "buff":
 				_resolve_nearest(world, key, st, origin, targets)
+
+
+func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
+	if not bool(st.has_box):
+		return {}
+	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
+		var s := world.swarm
+		return s.accepts_status(slot, "slow") and s.status_time(slot, MobSwarm.SLOW) <= 0.0 \
+			and (s.slow_cast_serial[slot] != _slow_serial or s.slow_cast_streak[slot] < SLOW_CONSECUTIVE_LIMIT))
+	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
+	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
+		return {}
+	return {"targets": targets}
+
+
+func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
+	_slow_serial += 1
+	var params := {"x": world.book.canonical(key, int(st.level), "x"),
+		"time": world.book.canonical(key, int(st.level), "time")}
+	for i in mini(int(st.mob_count), targets.size()):
+		var slot := targets[i]
+		var s := world.swarm
+		if s.apply_status(slot, "slow", params, world.events):
+			s.slow_cast_streak[slot] = s.slow_cast_streak[slot] + 1 if s.slow_cast_serial[slot] == _slow_serial - 1 else 1
+			s.slow_cast_serial[slot] = _slow_serial
 
 
 func _resolve_box(world: RunWorld, st: Dictionary, targets: PackedInt32Array) -> void:

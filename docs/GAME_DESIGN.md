@@ -1375,6 +1375,10 @@ existing shots finish separately from carry-over projectile kills.
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
 | Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
+| Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
+| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
+| Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
+| Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
 when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
@@ -1394,6 +1398,24 @@ Effects are snapshots of the cast rank, so a rank upgrade changes the next cast.
 active Armor alone adds its canonical PDD through the hit-defense hook. The HUD shows v83 skill icons and countdowns.
 Rank cards preview duration, absorption/defense and MP cost. Both are passive-category skills without slot caps and share the one-cast-per-tick
 readiness ordering with attacks. The alert2 stance comes from v83 skill action data; its 800 ms hold is tier C.
+
+Second-job support (#58): `buff.effects` accepts multiple canonical stat/field pairs alongside legacy scalar
+`stat`/`field`; every skill retains one timer/icon and snapshots all effects at cast rank. Meditation, Bless and
+Invincible use their canonical `alert2`, effect and Use sound. Their self-only auto-cast, expiry, affordable recast
+and climbing gate follow Guard/Armor. Bless's active avoid feeds each miss roll; active PDD/MDD feed hit defence.
+Invincible scales the already-resolved whole weapon hit, rounds to nearest and keeps minimum 1 before Guard.
+No player-accuracy formula is introduced: Bless `acc` is exposed in buff effects/player state, with no combat effect.
+
+Slow uses the shared box query with a status-eligible, unslowed filter before charging MP. Canonical or scheduled
+bosses cannot count toward the crowd. It applies through `MobSwarm.apply_status`, deals no hit damage and does not
+invoke damaging-hit listeners. Tier A String.wz text limits consecutive uses on the same monsters to two; our
+tier C auto-cast reading counts consecutive **successful Slow casts affecting each logical mob**, shared across
+the two branch copies. A third consecutive application is ineligible until a successful Slow cast excludes that
+mob. Time, other skill casts, insufficient MP and failed admission do not break that sequence. Relocation preserves
+the history; fresh spawns reset it. The status interface itself still allows refresh for other callers.
+Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3/2 are untuned survivor choices.
+All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
+damaging attack cards. No behaviour cards are added.
 
 ## 8. Upgrades
 
@@ -1712,6 +1734,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
+| Second-job support values and casts | Meditation mad/time/mpCon; Bless pdd/mdd/acc/eva/time/mpCon; Invincible x/time/mpCon; Slow signed x/time/mobCount/lt/rb; alert2, effect, Use sounds, 20 levels each | A | original v83 Skill.wz/210.img, 220.img, 230.img; cache checked at levels 1/20 |
+| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence (accuracy stored only); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
+| Slow crowd / consecutive uses | at least 3 eligible unslowed mobs, 1 s cooldown; 2 consecutive successful Slow casts per logical mob, reset by a successful cast excluding it; preserve across relocation, reset on fresh spawn | A text, C interpretation/trigger/cooldown | original String.wz/Skill.img Slow description; #58; survivor cast data and section 7 |
+| Support cards / bot | learn/rank only, weights 3/2; learn 50, rank 42 + job bonus 12 (including Slow); below attacks | C | #58 survivor cards; existing support score defaults |
 | Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
 | Critical burst | `NoCri1/effect` behind the first digit (origin on the digit's anchor) from 250 ms; the v95 "y-30" and "+30 px leading space" are not applied (the prose leaves their axis/reference open) | B/C | v95 RE timing; placement ours |
 | Face blink | `blink` every 2-5 s (seeded) | C | ours |
