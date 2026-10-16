@@ -212,3 +212,86 @@ func test_a_star_card_tooltip_describes_every_step_taken() -> void:
 	assert_eq([tip.name, tip.rank, tip.max_rank], ["Magnet", 2, 4])
 	assert_eq(tip.desc, "Pick-up radius +56.25%.", "two x1.25 steps compound to +56.25%")
 	assert_eq(m.card_tooltip("orange_potion").desc, "Upgrade all HP stock to Orange Potions.")
+
+
+static func _key(code: Key) -> InputEventKey:
+	var e := InputEventKey.new()
+	e.keycode = code
+	e.physical_keycode = code
+	e.pressed = true
+	return e
+
+
+func test_the_keyboard_switches_tabs_and_moves_the_selection_with_its_tooltip() -> void:
+	var w := SkillWindow.new(_model(220, _magician_loadout(_book())))
+	assert_eq(w.window_id, "skill")
+	assert_eq(w.tab, 2, "opens on the current job's tab")
+	assert_eq(w.tooltip(), {}, "no tooltip before anything is selected")
+	assert_true(w.handle_key(_key(KEY_LEFT)), "Left used")
+	assert_eq(w.tab, 1, "Left: the previous tab")
+	assert_true(w.handle_key(_key(KEY_DOWN)))
+	assert_eq(w.selected, 0, "Down selects the first row")
+	assert_eq(w.tooltip().get("key"), "improved_mp_recovery", "and shows its tooltip")
+	w.handle_key(_key(KEY_DOWN))
+	w.handle_key(_key(KEY_DOWN))
+	w.handle_key(_key(KEY_DOWN))
+	assert_eq(w.selected, 2, "Down stops at the last row")
+	assert_eq(w.tooltip().get("key"), "magic_claw")
+	assert_eq(w.tooltip().upgrades.size(), 2, "the tooltip carries the Upgrades list")
+	w.handle_key(_key(KEY_UP))
+	assert_eq(w.selected, 1)
+	w.handle_key(_key(KEY_4))
+	assert_eq(w.tab, 3, "4: the fourth tab (the star tab)")
+	assert_eq(w.selected, -1, "a new tab starts without a selection")
+	w.handle_key(_key(KEY_DOWN))
+	assert_eq(w.tooltip().get("id"), "magnet", "a star card's tooltip")
+	w.handle_key(_key(KEY_RIGHT))
+	assert_eq(w.tab, 3, "Right stops at the last tab")
+	w.handle_key(_key(KEY_1))
+	assert_eq(w.tab, 0, "1: the Beginner tab")
+	assert_false(w.handle_key(_key(KEY_9)), "no ninth tab: the key is not used")
+	assert_false(w.handle_key(_key(KEY_Q)), "other keys are left to the run")
+	w.free()
+
+
+func test_the_tooltip_draws_an_orange_upgrades_section() -> void:
+	var m := _model(200, _magician_loadout(_book()))
+	var shown := []
+	var orange := []
+	for l: Array in SkillTooltip.layout(m.skill_tooltip("magic_claw")):
+		shown.append(String(l[1]))
+		if l[2] == MapleText.ORANGE:
+			orange.append(String(l[1]))
+	assert_true("[Current Level : 1]" in shown and "[Next Level : 2]" in shown, "both level headings")
+	assert_true("Cooldown 1.1 sec.   MP cost 10" in shown, "cooldown and MP cost")
+	assert_eq(orange, ["Upgrades", "Twin Claw ×2: +2 targets", "Quick Claw ×1: -12% cooldown"])
+	var star := []
+	for l: Array in SkillTooltip.layout(m.card_tooltip("magnet")):
+		star.append(String(l[1]))
+	assert_true("Rank 2 / 4" in star, "a star card shows its rank")
+
+
+func test_a_long_tab_scrolls_to_keep_the_selection_visible() -> void:
+	var book := _book()
+	var skills := book.defs.duplicate(true)
+	var cards: Array = _pool().cards.duplicate(true)
+	for i in 6:
+		var key := "extra_%d" % i
+		skills[key] = {"skill_id": 2001100 + i, "book": "200", "job": 200, "kind": "passive", "damage": "none",
+			"name": "Extra %d" % i, "ranks": [1]}
+		cards.append({"id": key + "_new", "kind": "skill_new", "skill": key, "name": key, "max_rank": 1})
+	book = SkillBook.from_data({"skills": skills}, book.skill_imgs)
+	var pool := UpgradePool.from_data({"cards": cards})
+	var m := SkillWindowModel.new(book, pool, Loadout.new(book), _jobs(), 200, SkillText.new(book, STRINGS))
+	var w := SkillWindow.new(m)
+	assert_eq(m.tabs[1].rows.size(), 9)
+	assert_eq(w.scroll, 0)
+	for i in 8:
+		w.handle_key(_key(KEY_DOWN))
+	assert_eq(w.selected, 7)
+	assert_eq(w.scroll, 7 - SkillWindow.VISIBLE_ROWS + 1, "scrolled so the selected row is the last one shown")
+	for i in 7:
+		w.handle_key(_key(KEY_UP))
+	assert_eq(w.selected, 0)
+	assert_eq(w.scroll, 0, "scrolled back up")
+	w.free()
