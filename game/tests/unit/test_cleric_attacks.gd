@@ -195,6 +195,14 @@ func test_heal_researched_damage_bounds_and_seeded_recovery() -> void:
 		assert_eq(amounts[0], amounts[1], "fixed seed reproduces the heal roll")
 
 
+func test_heal_rank_preview_names_the_canonical_power_percentage() -> void:
+	var w := _world("heal")
+	# Only endpoints exist in this synthetic book: six rank steps reach its second fixture node.
+	var card := w.upgrades.choice_card("heal_rank", w, "legendary")
+	assert_eq(card.skill_changes.get("hp"), {"before": 10, "after": 70})
+	assert_true("Recovery power: 10% → 70%" in LevelUpWindow.change_lines(card))
+
+
 func test_cleric_cache_levels_visuals_and_sounds() -> void:
 	if not require_cache():
 		return
@@ -214,5 +222,14 @@ func test_cleric_cache_levels_visuals_and_sounds() -> void:
 	assert_true(lib.anim("Skill.wz/230.img/skill/2301005/ball") != null)
 	assert_eq(String(root.skill["2301005"].elemAttr), "h")
 	assert_eq(int(root.skill["2301002"].level["30"].hp), 300)
+	var arrow := _world("holy_arrow")
+	arrow.book.skill_imgs["230"] = root
+	for example: Array in [[1, 12, 34.2716, 112.2946], [30, 24, 257.464, 408.344]]:
+		arrow.loadout.set_rank("holy_arrow", int(example[0]))
+		var st := arrow.loadout.stats("holy_arrow")
+		assert_eq(st.level, int(example[0]))
+		assert_eq(st.mp_cost, int(example[1]))
+		assert_near(st.damage_min, float(example[2]), 0.001, "original v83 endpoint with INT 100 / wand 23")
+		assert_near(st.damage_max, float(example[3]), 0.001)
 	assert_true(lib.missing.is_empty(), str(lib.missing))
 	lib.free()
