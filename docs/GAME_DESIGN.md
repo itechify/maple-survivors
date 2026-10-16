@@ -317,32 +317,34 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### #80 level-up MP refill / normal MP drop regression smoke (2026-10-16)
+#### #80 level-up MP refill / normal MP 3% flat regression smoke (2026-10-16)
 
-`ISOLATE=t80after bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
-real cache, unforced branches, 1,800 s cap, game code and data at `bee5ad8`. Before = the same head with `PATCH` restoring `level_up_refill`
-{hp 0, mp 0} and global normal MP 0.1, which behaves like base `bf26c5d` (it reproduces the earlier records'
-812.3 / 322.7 / 714.8 / 329.0 s deaths). No tuning, no held-out seeds. All 24 runs finish with no crashes, script
-errors or world warnings; every clear has all three scheduled bosses dead, and none is untouched. **Henesys's own
-`normal_mp_drop_chance` curve (10% to 11:00, then 4%) overrides the global key**, so Henesys deltas come from the
-level-up refill alone; Tree has no MP curve and gets both changes. Raw records: ignored `_scratch/t80/{before,after}/`.
+`ISOLATE=t80after3 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, unforced branches, 1,800 s cap, game code and data at `69b8485`: level-ups refill MP to the new maximum
+(HP unchanged), and normal-mob MP drops are 3% flat on every stage (owner, 2026-10-16: no per-map values; Henesys's
+10% -> 4% `normal_mp_drop_chance` curve is removed). Before = `bee5ad8` with `PATCH` restoring `level_up_refill`
+{hp 0, mp 0} and global normal MP 0.1, with the Henesys MP curve still in place, which behaves like base `bf26c5d`
+(it reproduces the earlier records' 812.3 / 322.7 / 714.8 / 329.0 s deaths). No tuning, no held-out seeds. All 24
+runs finish with no crashes, script errors or world warnings; every clear has all three scheduled bosses dead, and
+none is untouched. Raw records: ignored `_scratch/t80/{before,after3}/`. An interim 5%-global measurement (Henesys
+curve still active) is superseded and not reported.
 
 | Stage / policy | Clear/dead before -> after | End seconds (seed order 1/2/2026) before -> after | MP collected/used before -> after | HP collected/used before -> after | MP-short s, mean/run before -> after |
 |---|---|---|---|---|---|
-| Henesys bot | 1/2 -> 2/1 | C967/812.3/322.7 -> C980/893.2/C924 | 380/359 -> 647/545 | 67/76 -> 110/95 | 205.1 -> 96.1 |
-| Henesys random | 1/2 -> 1/2 | C974/714.8/329.0 -> C953/689.2/699.4 | 428/300 -> 570/362 | 80/83 -> 95/105 | 178.5 -> 47.9 |
-| Tree bot | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 712.2/664.7/128.3 | 7/0 -> 235/216 | 4/19 -> 53/68 | 99.0 -> 111.2 |
-| Tree random | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 647.6/177.2/88.4 | 7/0 -> 146/89 | 4/19 -> 28/43 | 99.0 -> 97.0 |
+| Henesys bot | 1/2 -> 0/3 | C967/812.3/322.7 -> 972.8/809.1/692.8 | 380/359 -> 181/181 | 67/76 -> 80/95 | 205.1 -> 154.8 |
+| Henesys random | 1/2 -> 1/2 | C974/714.8/329.0 -> C965/468.6/538.8 | 428/300 -> 147/147 | 80/83 -> 75/77 | 178.5 -> 112.8 |
+| Tree bot | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 639.2/638.4/128.3 | 7/0 -> 119/119 | 4/19 -> 47/62 | 99.0 -> 121.5 |
+| Tree random | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 762.7/165.0/88.4 | 7/0 -> 116/97 | 4/19 -> 28/43 | 99.0 -> 93.5 |
 
-Henesys reaches Magician (before 263.2–283.2 s, after 268.6–287.0 s) and Mano in 3/3 per policy; Mano now completes 3/3 per
-policy (was 2/3). Seed 2026, which died at 5:22–5:29 just after Mano arrived, now lives to 11:39 (random) or clears
-(bot). MP-short time falls by half (bot) to three quarters (random); MP potions collected rise because runs last
-longer at the unchanged Henesys drop curve. Tree (record-only, awaiting the owner's rework) changes most: a full MP
-pool after each Beginner level keeps Three Snails firing, so 3/6 runs now reach Magician (216.5–222.6 s) and kill
-Stumpy (3220000) in 3/3 spawned fights, dying at 10:47–11:52; the rest still die before 3:00. No stop-and-ask gate:
-no group dies entirely before its first boss or clears untouched. The Henesys bot clear rate rising 1/3 -> 2/3 is
-input for the balance pass, not tuned here. Full isolated suite: **664 tests, 0 failed, 0 skipped, 72 files**;
-real-cache tests execute.
+Henesys reaches Magician (before 263.2–283.2 s, after 265.4–274.7 s) and Mano in 3/3 per policy; Mano completes
+3/3 (bot) and 2/3 (random), was 2/3 each. MP potions collected roughly halve (bot) or fall to a third (random), and
+every Henesys run now drinks every Blue it picks up (collected = used); the full pool at each level-up still cuts
+MP-short time by a quarter (bot) to a third (random). Seed 2026 no longer dies at 5:22–5:29 just after Mano (now
+11:32 / 8:58), but random seed 2 dies earlier (7:48, was 11:54) and seed-1 bot dies at 16:12 instead of clearing.
+Tree (record-only, awaiting the owner's rework): the refill keeps the Beginner's Three Snails firing, so 3/6 runs
+now reach Magician (217.8–249.6 s) and fight Stumpy (3220000; 2/3 spawned fights completed), dying at 10:38–12:42;
+the rest still die before 3:00. No stop-and-ask gate: no group dies entirely before its first boss or clears
+untouched. The Henesys sensible clear rate falling 1/3 -> 0/3 is input for the balance pass, not tuned here.
 
 #### #31 / #61 second-job QA (2026-10-15)
 
