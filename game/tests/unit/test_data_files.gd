@@ -173,7 +173,9 @@ func test_jobs_and_balance() -> void:
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
 	assert_true(tree.job(200).playable)
-	for id: int in [100, 210, 220, 230, 300, 400, 500]:
+	for id: int in [210, 220, 230]:
+		assert_true(tree.job(id).playable, "%d playable" % id)
+	for id: int in [100, 300, 400, 500]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
 	assert_eq(float(b.invincible_time), 1.5)

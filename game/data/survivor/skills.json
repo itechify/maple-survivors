@@ -1,6 +1,5 @@
 {
 	"_doc": "Survivor behaviour per skill key (docs/GAME_DESIGN.md section 7, docs/ARCHITECTURE.md 4.4.4). Canonical per-level numbers (fixdamage, mad, mastery, attackCount, x, pdd) are NOT here: SkillBook reads them from Skill.wz via setup.skill_imgs[book].skill[<7-digit id>].level[<level>]. ranks is the complete sequence 1..N from the canonical Skill.wz level table: survivor rank r equals canonical level r, and every rank card adds exactly one level. cooldown (s), range (px), speed (px/s), count (projectiles or targets), pierce (extra mobs a shot passes through), radius (shot hit radius, px), action_time (s of the cast stance) are tier C (ours). damage: fixed = canonical fixdamage; magic = GAME_DESIGN 6.1 formula with canonical mad/mastery; none = passive. Visual and sound fields are WZ paths into the asset cache; {level} = canonical level, {cl} = the char_level variant (the highest threshold <= character level). passive.stat/per_level: survivor effect per canonical level (tier C MaxMP percentage reinterpretation). buff.stat/field/duration_field: active effect and canonical duration; Nimble Feet speed feeds movement; Magic Guard x% feeds mp_guard, Magic Armor pdd feeds defense, canonical time gives seconds. level_ranks {character level: rank}: the skill reaches at least that survivor rank at that character level (the SP a v83 Beginner spends on Three Snails; cards can get there sooner).",
-	"slots": {"active": 6, "passive": 6},
 	"skills": {
 		"nimble_feet": {
 			"skill_id": 1002, "book": "000", "job": 0, "kind": "buff", "slot": "passive",
@@ -116,7 +115,7 @@
 		},
 		"fire_arrow": {
 			"skill_id": 2101004, "book": "210", "job": 210, "kind": "projectile", "slot": "active",
-			"name": "Fire Arrow", "desc": "Phase 2. Shoots a flaming arrow at the nearest monster.",
+			"name": "Fire Arrow", "desc": "Fire/Poison Wizard. Shoots a flaming arrow at the nearest monster.",
 			"icon": "Skill.wz/210.img/skill/2101004/icon",
 			"damage": "magic",
 			"cooldown": 1.0, "range": 480, "speed": 520, "count": 1, "pierce": 0, "radius": 12,

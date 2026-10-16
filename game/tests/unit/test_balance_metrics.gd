@@ -406,3 +406,24 @@ func test_camper_arrivals_are_counted_over_camper_runs_only() -> void:
 	var summary: Dictionary = BR.aggregate([camper, ordinary])
 	assert_eq([summary.camper_runs, summary.camper_started, summary.camper_reached], [1, 1, 1])
 	assert_true(BR.describe_metrics(summary).contains("campers reached 1/1 runs (1 started)"))
+
+
+func test_forced_branch_is_recorded_and_summary_groups_outcomes() -> void:
+	var data := RF.quiet_data()
+	data.balance.run_time_cap = DT
+	var w := RunWorld.new(RF.setup("quiet", 53, data))
+	w.change_job(200)
+	w.progression.level = 29
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.step(DT, MoveInput.new())
+	var r := BR.run_one(w, "bot", 53, -1.0, 60.0, 230)
+	assert_eq(r.get("branch", 0), 230)
+	assert_eq(r.get("forced_branch", 0), 230)
+	var legacy := r.duplicate(true)
+	legacy.erase("branch")
+	legacy.state = "DEAD"
+	var summary := BR.aggregate([r, r, legacy])
+	assert_eq(summary.get("branches", {}).get("230", {}).get("runs", 0), 2)
+	assert_eq(summary.get("branches", {}).get("230", {}).get("TIMEOUT", 0), 2)
+	assert_eq(summary.get("branches", {}).get("unobserved", {}).get("DEAD", 0), 1)
+	assert_true(BR.describe_metrics(summary).contains("SUMMARY branch 230"))

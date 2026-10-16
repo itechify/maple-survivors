@@ -1,6 +1,6 @@
 extends TestCase
 ## UpgradePool (docs/GAME_DESIGN.md section 8): eligibility (job gates, mods only for owned skills, maxed cards,
-## slots), seeded weighted draws without duplicates, Elixir alternatives when short, and what applying a card does.
+## uncapped learning), seeded weighted draws without duplicates, Elixir alternatives when short, and what applying a card does.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
@@ -36,21 +36,11 @@ func test_magician_eligibility_and_mods_after_owning() -> void:
 	assert_has(el, "energy_bolt_new", "the first Magician skill")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
 		assert_has(el, id, "Magician MP card")
-	# v83 Skill.wz req: Magic Claw needs Energy Bolt 1, Magic Armor needs Magic Guard 3; Magic
-	# Guard waits for Energy Bolt too (survivor rule: the first Magician skill is an attack).
+	# tier C: #31 ignores canonical req and the old survivor prerequisite.
 	for id: String in ["magic_claw_new", "magic_guard_new", "magic_armor_new"]:
-		assert_false(id in el, "%s needs Energy Bolt first" % id)
+		assert_has(el, id, "new job skills need no prerequisite")
 	w.upgrades.apply("energy_bolt_new", w)
 	el = w.upgrades.eligible(w)
-	assert_has(el, "magic_claw_new", "Magic Claw after Energy Bolt")
-	assert_has(el, "magic_guard_new", "Magic Guard after Energy Bolt")
-	assert_false("magic_armor_new" in el, "Magic Armor needs Magic Guard level 3")
-	w.upgrades.apply("magic_guard_new", w)
-	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard rank 1 is not enough")
-	w.upgrades.apply("magic_guard_rank", w)
-	assert_false("magic_armor_new" in w.upgrades.eligible(w), "Magic Guard level 2 is not enough")
-	w.upgrades.apply("magic_guard_rank", w)
-	assert_has(w.upgrades.eligible(w), "magic_armor_new", "Magic Guard level 3 opens Magic Armor")
 	assert_false("fire_arrow_new" in el, "Fire Arrow needs 210")
 	assert_false("magic_claw_cooldown" in el, "Quick Claw only once Magic Claw is owned")
 	w.upgrades.apply("magic_claw_new", w)
@@ -105,13 +95,12 @@ func test_seeded_utility_offers_are_available_to_beginners_and_magicians() -> vo
 		assert_has(w.upgrades.eligible(w), "white_potion", "the next HP tier stays job-neutral too")
 
 
-func test_job_guarantee_and_power_pity_use_only_current_job_cards() -> void:
+func test_advancement_and_power_pity_use_only_current_job_cards() -> void:
 	var w := RF.quiet_world()
 	w.change_job(200)
-	var cards := w.upgrades.roll_choices(w, _rng(38))
-	assert_eq(cards[0].kind, "skill_new", "advancement guarantees an eligible new current-job skill")
+	var cards := w.upgrades.roll_advancement_choices(w, _rng(38))
+	assert_eq(cards[0].kind, "skill_new", "advancement offers an eligible new current-job skill")
 	assert_eq(w.upgrades.card(cards[0].id).requires.jobs, [200.0])
-	assert_true(w.guarantee.is_empty())
 	w.change_job(210)
 	w.upgrades.apply("fire_arrow_new", w)
 	w.loadout.set_rank("fire_arrow", 30)  # Exhaust the current-job rank card as well as its learn card.
@@ -131,16 +120,6 @@ func test_maxed_cards_disappear() -> void:
 	assert_eq(w.loadout.stats("three_snails").count, 5)
 	# Three Snails levels with the character (skills.json level_ranks), so it has no rank card to max out.
 	assert_false("three_snails_rank" in w.upgrades.eligible(w), "no Stronger Snails card")
-
-
-func test_slot_limit_blocks_new_skills() -> void:
-	var w := RF.quiet_world()
-	w.change_job(200)
-	w.loadout.add_skill("energy_bolt")
-	w.book.slots["active"] = 2
-	var el := w.upgrades.eligible(w)
-	assert_false("magic_claw_new" in el, "two active slots, Three Snails and Energy Bolt hold them")
-	assert_has(el, "magic_guard_new", "passive slots are separate")
 
 
 func test_draws_are_distinct_seeded_and_weighted() -> void:

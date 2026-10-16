@@ -13,7 +13,7 @@ extends RefCounted
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
-## Choices (auto_choose): the first available job, and the upgrade card a sensible player would take (pick_card_for):
+## Choices (auto_choose): a seeded random available branch (optional forced branch), and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
 ## defence, then the rest; ties go to the earlier card. pick_card() is the plain "first card" policy.
 
@@ -294,16 +294,16 @@ static func climb_ladder(w: RunWorld) -> int:
 	return best
 
 
-## Resolves an open window like a player who always takes the first available job (else "Not now") and the card
+## Resolves an open window using a seeded available branch (or forced branch) and the card
 ## pick_card_for() prefers (`first_card` = true: always the first card). Returns how many choices were made.
-static func auto_choose(w: RunWorld, first_card := false) -> int:
+static func auto_choose(w: RunWorld, first_card := false, branch := 0) -> int:
 	var guard := 0
 	var made := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := pick_job(w.pending_jobs)
+			var job := pick_job(w.pending_jobs, w.job_rng, branch)
 			if job < 0 or not w.apply_job(job):
 				w.decline_job()
 		else:
@@ -311,12 +311,17 @@ static func auto_choose(w: RunWorld, first_card := false) -> int:
 	return made
 
 
-## The option a first-available player takes in a job window: the first available job id, -1 = "Not now".
-static func pick_job(options: Array) -> int:
+## Seeded available branch, or the requested branch when available; -1 = "Not now". A single option consumes no RNG.
+static func pick_job(options: Array, rng: RandomNumberGenerator = null, branch := 0) -> int:
+	var available: Array[int] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
-			return int(o.job_id)
-	return -1
+			available.append(int(o.job_id))
+	if available.is_empty():
+		return -1
+	if branch in available:
+		return branch
+	return available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null else available[0]
 
 
 ## The card a first-card player takes ("" when there is none).

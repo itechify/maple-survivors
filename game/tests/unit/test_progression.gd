@@ -1,6 +1,6 @@
 extends TestCase
 ## ExpCurve, RunProgression, JobTree and RunWorld's pause protocol (docs/ARCHITECTURE.md 4.4.2): level queue,
-## choice windows, job advancement at 10 (accept / "Not now"), the guaranteed Magician card, touch damage with
+## choice windows, job advancement at 10 (accept / "Not now"), the extra Magician advancement draw, touch damage with
 ## invincibility / knockback / Magic Guard, death and stage clear.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
@@ -100,11 +100,10 @@ func test_job_tree_options() -> void:
 	var at30 := t.advancements(200, 30)
 	assert_eq(at30.size(), 3)
 	for o: Dictionary in at30:
-		assert_false(o.available, "%d not playable yet" % o.job_id)
-		if int(o.job_id) == 210:
-			assert_eq(o.reason, "Phase 2")
+		assert_true(o.available, "%d playable at 30" % o.job_id)
+		assert_eq(o.reason, "")
 	assert_true(t.should_offer(200, 30), "shown once at 30")
-	assert_false(t.should_offer(200, 31), "nothing available: not again")
+	assert_true(t.should_offer(200, 31), "declined: asked again")
 	assert_eq(t.name_of(200), "Magician")
 	assert_true(t.is_descendant(210, 200))
 	assert_false(t.is_descendant(200, 210))
@@ -135,12 +134,12 @@ func test_magician_window_waits_for_survivor_level_ten() -> void:
 				assert_eq(_of_type(w.drain_events(), "job_advance_pending").size(), 1)
 				assert_true(w.apply_job(200), "Magician available with existing INT handling")
 				assert_eq(int(w.player_state.job_id), 200)
-				assert_true(w.loadout.has("energy_bolt"), "advancement still grants Energy Bolt")
-				var guaranteed := false
+				assert_false(w.loadout.has("energy_bolt"), "advancement grants no skill")
+				var offered := false
 				for card: Dictionary in w.pending_cards:
 					if card.kind == "skill_new" and int(w.book.def(String(card.skill)).get("job", -1)) == 200:
-						guaranteed = true
-				assert_true(guaranteed, "Lv 10 advancement keeps the guaranteed Magician card")
+						offered = true
+				assert_true(offered, "Lv 10 advancement keeps the extra Magician advancement draw")
 	assert_eq(canonical.job(200).level, 8, "survivor use leaves canonical data unchanged")
 
 
@@ -256,19 +255,6 @@ func test_job_advancement_decline_then_accept() -> void:
 	assert_true(magician_card, "the first draw after advancing has a Magician skill card")
 
 
-func test_guarantee_holds_for_many_seeds() -> void:
-	for seed_i in 8:
-		var w := RF.quiet_world(400.0, 100 + seed_i)
-		w.change_job(200)
-		_give_exp(w, w.progression.curve.exp_to_next(1))
-		var ok := false
-		for c: Dictionary in w.pending_cards:
-			if c.kind == "skill_new" and int(w.book.def(String(c.skill)).get("job", -1)) == 200:
-				ok = true
-		assert_true(ok, "seed %d" % seed_i)
-		assert_true(w.guarantee.is_empty(), "consumed")
-
-
 func test_touch_damage_invincibility_knockback_and_death() -> void:
 	var w := RF.quiet_world(400.0)
 	w.drain_events()
@@ -367,18 +353,11 @@ func test_level_ranks_raise_a_skill_with_the_character_level() -> void:
 	assert_eq(ranks.get(6), 3, "level 6: rank 3 (skill level 3, the max)")
 
 
-func test_job_grants_skills() -> void:
-	# jobs.json: advancing to Magician teaches Energy Bolt (the first SP of a v83 Magician).
-	assert_eq(DataRepo.load_all().jobs_survivor.jobs["200"].grants.skills, ["energy_bolt"])
+func test_job_change_emits_no_skill_learned() -> void:
 	var w := RF.quiet_world(400.0)
 	w.drain_events()
 	w.change_job(200)
 	var ev := w.drain_events()
-	assert_true(w.loadout.has("energy_bolt"), "advancing teaches Energy Bolt")
-	assert_eq(w.loadout.rank("energy_bolt"), 1)
-	var learned := _of_type(ev, "skill_learned")
-	assert_eq(learned.size(), 1, "one skill_learned")
-	if learned.size() == 1:
-		assert_eq(learned[0].skill, "energy_bolt")
-	assert_eq(String(_of_type(ev, "job_changed")[0].type), "job_changed", "job_changed comes first")
-	assert_true(ev.find(_of_type(ev, "job_changed")[0]) < ev.find(learned[0]), "then skill_learned")
+	assert_false(w.loadout.has("energy_bolt"))
+	assert_true(_of_type(ev, "skill_learned").is_empty())
+	assert_eq(_of_type(ev, "job_changed").size(), 1)

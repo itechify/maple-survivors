@@ -10,7 +10,7 @@ extends RefCounted
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
-## cards drawn when the window opens. apply_job(id) / decline_job() continue to that level's upgrade choice;
+## cards drawn when the window opens. apply_job(id) adds an advancement draw; decline_job() skips it;
 ## apply_choice(id) applies the card and moves to the next queued level or back to PLAYING. They return false (and
 ## change nothing) when called in the wrong state or with an id that is not on offer.
 ##
@@ -25,8 +25,8 @@ extends RefCounted
 ## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls (8 is unused:
-## it held the old random mob heal rolls). Each stream has exactly one owner.
+## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices.
+## Each stream has exactly one owner.
 
 const PLAYING := 0
 const CHOOSING_JOB := 1
@@ -62,7 +62,7 @@ const EVENT_FIELDS := {
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
 	"job_changed": ["job_id", "name"],
-	"choice_pending": ["cards", "bonus"],
+	"choice_pending": ["cards", "bonus", "advancement"],
 	"upgrade_applied": ["id", "rank", "tier", "magnitude"],
 	"skill_learned": ["skill", "skill_id"],
 	"burst": ["count"],
@@ -108,6 +108,8 @@ var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
+## Independent seeded branch choices do not perturb card, combat or careless-card streams.
+var job_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -168,8 +170,8 @@ var visual_paths: Array = []
 ## Options / cards of the open window.
 var pending_jobs: Array = []
 var pending_cards: Array = []
-## The next card draw's guarantee ({kind, job}; {power: true} = a power card; {} = none), from the job just taken.
-var guarantee := {}
+## True while the extra new-job skill draw is open; it does not consume a queued level or boss reward.
+var choice_advancement := false
 ## Card draws in a row that offered no power card (UpgradePool pity).
 var power_dry := 0
 ## Offered cards / selected cards per displayed tier, counting cards once rather than the steps they grant.
@@ -245,6 +247,7 @@ func _init_rng_streams() -> void:
 	drop_rng = _stream(4)
 	potion_rng = _stream(7)
 	reward_rng = _stream(6)
+	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -513,8 +516,11 @@ func apply_job(job_id: int) -> bool:
 		return false
 	pending_jobs = []
 	change_job(job_id)
-	state = PLAYING
-	_advance_queue()
+	choice_bonus = false
+	choice_advancement = true
+	pending_cards = upgrades.roll_advancement_choices(self, card_rng)
+	state = CHOOSING_UPGRADE
+	emit("choice_pending", {"cards": pending_cards.duplicate(true), "bonus": false, "advancement": true})
 	return true
 
 
@@ -543,7 +549,9 @@ func apply_choice(card_id: String) -> bool:
 	var tier := String(selected.get("tier", "normal"))
 	card_tiers_picked[tier] += 1
 	pending_cards = []
-	if choice_bonus:
+	if choice_advancement:
+		choice_advancement = false
+	elif choice_bonus:
 		pending_bonus_choices -= 1
 		choice_bonus = false
 	else:
@@ -555,20 +563,14 @@ func apply_choice(card_id: String) -> bool:
 	return true
 
 
-## Changes the job (stats, grants: max_mp, skills learned at once, the next draw's guarantee) and emits job_changed
-## (then skill_learned for each granted skill).
+## Changes the job and its Max MP grant, without learning skills; emits job_changed.
 func change_job(job_id: int) -> void:
 	progression.job_id = job_id
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})
 	_job_mp += float(grants.get("max_mp", 0.0))
-	var g: Variant = grants.get("guarantee")
-	if g is Dictionary and not g.is_empty():
-		guarantee = g.duplicate()
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
-	for key: Variant in grants.get("skills", []):
-		learn_skill(String(key))
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -1221,7 +1223,7 @@ func _advance_queue() -> void:
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true})
+		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true, "advancement": false})
 		return
 	while progression.has_pending():
 		var lvl := progression.front()
@@ -1236,7 +1238,7 @@ func _advance_queue() -> void:
 		var cards := upgrades.roll_choices(self, card_rng, 3)
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
-		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false})
+		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
 		return
 	state = PLAYING
 

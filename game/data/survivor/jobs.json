@@ -1,16 +1,16 @@
 {
-	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants: max_mp (added to computed base Max MP; grants the increase to current MP unless Improved MaxMP Increase preserves its ratio), skills (learned at once on advancing: the Magician's first SP goes to Energy Bolt), guarantee (the next card draw contains one card of that kind whose requires.jobs lists that job).",
+	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants.max_mp adds to computed base Max MP (Improved MaxMP Increase preserves the current MP ratio on growth). No job grants skills. Accepting a job opens an extra advancement skill draw before the level's normal draw; canonical skill prerequisites are ignored (tier C owner choice #31).",
 	"default_reason": "Not yet available",
 	"level_reason": "Lv. {level}",
 	"jobs": {
 		"0": {"playable": true},
 		"100": {"playable": false, "reason": "Not in this build"},
-		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120, "skills": ["energy_bolt"], "guarantee": {"kind": "skill_new", "job": 200}}},
+		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120}},
 		"300": {"playable": false, "reason": "Not in this build"},
 		"400": {"playable": false, "reason": "Not in this build"},
 		"500": {"playable": false, "reason": "Not in this build"},
-		"210": {"playable": false, "reason": "Phase 2"},
-		"220": {"playable": false, "reason": "Not yet available"},
-		"230": {"playable": false, "reason": "Not yet available"}
+		"210": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"},
+		"220": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"},
+		"230": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"}
 	}
 }
