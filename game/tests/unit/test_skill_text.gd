@@ -73,6 +73,20 @@ func test_an_override_replaces_the_wz_text_and_fills_effective_stats() -> void:
 	assert_eq(text.desc("energy_bolt"), "Use MP to attack one enemy.", "skills without an override keep WZ text")
 
 
+func test_markup_draws_orange_runs_and_never_a_raw_hash() -> void:
+	assert_eq(MapleText.runs("Lasts #c10 min.# more"), [["Lasts ", false], ["10 min.", true], [" more", false]])
+	assert_eq(MapleText.runs("#bblue#k and a stray #"), [["blue and a stray ", false]],
+		"other v83 colour codes and stray #s are dropped, never drawn")
+	assert_eq(MapleText.plain("A #cB# C"), "A B C")
+	var lines := MapleText.wrap_markup("Recovers HP.\n#cTerms between skills : 10 min.#", 80.0, MapleText.SMALL)
+	assert_true(lines.size() >= 3, "the break is kept and the long orange run wraps: %s" % [lines])
+	assert_eq(lines[0], "Recovers HP.")
+	for line: String in lines.slice(1):
+		assert_true(line.begins_with("#c") and line.ends_with("#"), "each wrapped line reopens the orange: %s" % line)
+		for run: Array in MapleText.runs(line):
+			assert_false("#" in String(run[0]), "no # reaches the screen")
+
+
 func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 	assert_eq(SkillText.fill("{count|bolt|bolts}, {count|bolt|bolts}", {"count": 1.0}), "1 bolt, 1 bolt")
 	assert_eq(SkillText.fill("{count|bolt|bolts}", {"count": 3.0}), "3 bolts")
