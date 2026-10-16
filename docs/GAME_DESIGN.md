@@ -346,6 +346,8 @@ now reach Magician (217.8–249.6 s) and fight Stumpy (3220000; 2/3 spawned figh
 the rest still die before 3:00. No stop-and-ask gate: no group dies entirely before its first boss or clears
 untouched. The Henesys sensible clear rate falling 1/3 -> 0/3 is input for the balance pass, not tuned here.
 Measured on the ticket branch before #83 (boss priority) and #84 (Forking Storm) merged; neither is in these runs.
+After merging integration (with #83/#84) the full isolated suite passes **672 tests, 0 failed, 0 skipped, 73 files**;
+real-cache tests execute.
 
 #### #84 Forking Storm regression smoke (2026-10-16)
 
