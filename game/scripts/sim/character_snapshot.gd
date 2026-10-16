@@ -1,0 +1,97 @@
+class_name CharacterSnapshot
+extends RefCounted
+## JSON-safe round-boundary character format (tier C: spec #32 owner carry/refill rules).
+## format: 1; level/exp/job_id: integers (EXP into this level); attributes: resolved STR/DEX/INT/LUK;
+## base_attributes: original attributes before automatic earned_ap and player_mods; earned_ap: integer;
+## base_hp/base_mp/job_mp: accumulated growth and advancement grants, before modifiers/passives;
+## skills: {key: {rank: int, mods: {stat: [add, mul]}}}; skill_order: keys in casting/learning order;
+## player_mods: {stat: [add, mul]}; card_ranks: {card_id: consumed steps}, preserving card limits;
+## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
+## potions: {hp: {item_id, count}, mp: {item_id, count}} (item_id IS the potion tier);
+## look: {skin, face, hair, equips}, possibly empty; beginner_weapon: item id (0 = job default).
+## No HP/MP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
+## computed maxima and creates new systems. Extra metadata such as fixture _doc is ignored.
+
+const FORMAT := 1 # tier C: initial snapshot schema, spec #32.
+
+
+## Structural validation for file/save callers; an empty message means a supported complete snapshot.
+static func validation_error(value: Variant) -> String:
+	if not value is Dictionary:
+		return "expected a CharacterSnapshot object"
+	if int(value.get("format", 0)) != FORMAT:
+		return "unsupported CharacterSnapshot format"
+	for field: String in ["level", "exp", "job_id", "earned_ap", "base_hp", "base_mp", "job_mp",
+			"fortune", "base_fortune", "beginner_weapon"]:
+		if not _number(value.get(field)) or float(value[field]) < 0.0:
+			return "invalid " + field
+	if int(value.level) < 1:
+		return "invalid level"
+	for field: String in ["attributes", "base_attributes", "skills", "player_mods", "card_ranks", "potions", "look"]:
+		if not value.get(field) is Dictionary:
+			return "invalid " + field
+	for field: String in ["attributes", "base_attributes"]:
+		for stat: String in ["str", "dex", "int", "luk"]:
+			if not _number(value[field].get(stat)):
+				return "invalid " + field + "." + stat
+	if not value.get("skill_order") is Array or value.skill_order.size() != value.skills.size():
+		return "invalid skill_order"
+	var seen := {}
+	for key: Variant in value.skill_order:
+		if not key is String or seen.has(key) or not value.skills.get(key) is Dictionary:
+			return "invalid skill_order entry"
+		seen[key] = true
+		var skill: Dictionary = value.skills[key]
+		if not _number(skill.get("rank")) or int(skill.rank) < 1 or not _valid_mods(skill.get("mods")):
+			return "invalid skill " + key
+	if not _valid_mods(value.player_mods):
+		return "invalid player_mods"
+	for rank: Variant in value.card_ranks.values():
+		if not _number(rank) or int(rank) < 0:
+			return "invalid card_ranks"
+	for kind: String in ["hp", "mp"]:
+		var potion: Variant = value.potions.get(kind)
+		if not potion is Dictionary or not _number(potion.get("item_id")) or not _number(potion.get("count")):
+			return "invalid potion " + kind
+		if int(potion.item_id) <= 0 or int(potion.count) < 0:
+			return "invalid potion " + kind
+	return ""
+
+
+static func _number(value: Variant) -> bool:
+	return (value is int or value is float) and is_finite(float(value))
+
+
+static func _valid_mods(value: Variant) -> bool:
+	if not value is Dictionary:
+		return false
+	for pair: Variant in value.values():
+		if not pair is Array or pair.size() != 2 or not _number(pair[0]) or not _number(pair[1]):
+			return false
+	return true
+
+
+## Encodes Loadout's Vector2 modifier pairs as JSON arrays without changing their order.
+static func encode_mods(mods: Dictionary) -> Dictionary:
+	var out := {}
+	for stat: String in mods:
+		var pair: Vector2 = mods[stat]
+		out[stat] = [pair.x, pair.y]
+	return out
+
+
+## Decodes JSON arrays to the Loadout modifier representation.
+static func decode_mods(mods: Dictionary) -> Dictionary:
+	var out := {}
+	for stat: String in mods:
+		var pair: Array = mods[stat]
+		out[stat] = Vector2(float(pair[0]), float(pair[1]))
+	return out
+
+
+## Copies integer-valued fields after JSON parsing (which produces floats).
+static func integers(values: Dictionary) -> Dictionary:
+	var out := {}
+	for key: String in values:
+		out[key] = int(values[key])
+	return out

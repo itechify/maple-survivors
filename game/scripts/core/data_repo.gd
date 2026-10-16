@@ -51,6 +51,16 @@ static func load_json(path: String) -> Variant:
 	return json.data
 
 
+## Reads an explicit one-off character file. Invalid/missing files report an error; never substitute a Beginner.
+static func load_character(path: String, errors: PackedStringArray) -> Dictionary:
+	var value: Variant = load_json(path)
+	var error := CharacterSnapshot.validation_error(value)
+	if error != "":
+		errors.append("character '%s': %s" % [path, error])
+		return {}
+	return value
+
+
 ## Cache path of a map img: "Map.wz/Map/Map1/104040000.img" (the folder digit is the first of the 9-digit id).
 static func map_img_path(map_id: int) -> String:
 	var s := "%09d" % map_id

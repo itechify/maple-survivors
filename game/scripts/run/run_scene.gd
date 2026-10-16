@@ -32,6 +32,7 @@ extends Node2D
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
+## Tool option character is an absolute JSON CharacterSnapshot path (--run=<stage> --character=<abs path>).
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
 signal run_finished(summary: Dictionary)
@@ -252,6 +253,13 @@ func _ready() -> void:
 		setup_missing)
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
+	if options.has("character"):
+		var character_errors := PackedStringArray()
+		var character := DataRepo.load_character(String(options.character), character_errors)
+		if not character_errors.is_empty():
+			_fail("; ".join(character_errors))
+			return
+		setup["character"] = character
 	world = RunWorld.new(setup)
 	for w in world.warnings:
 		push_warning("RunScene: " + w)

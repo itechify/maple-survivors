@@ -5,6 +5,7 @@
 #
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
+#   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
@@ -42,6 +43,7 @@ POLICY="bot"
 EXTRA_IDLE=""
 EXTRA_CAP=""
 EXTRA_CAMP=""
+EXTRA_CHARACTER=""
 SEEDS=()
 for a in "$@"; do
   case "$a" in
@@ -53,6 +55,7 @@ for a in "$@"; do
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
+    --character=*) EXTRA_CHARACTER="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
   esac
@@ -80,6 +83,7 @@ EXTRA=()
 [[ -n "$EXTRA_IDLE" ]] && EXTRA+=("$EXTRA_IDLE")
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
 [[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
+[[ -n "$EXTRA_CHARACTER" ]] && EXTRA+=("$EXTRA_CHARACTER")
 MAXJ="${JOBS:-12}"
 PIDS=()
 for s in "${SEEDS[@]}"; do

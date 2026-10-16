@@ -9,6 +9,25 @@ extends TestCase
 
 const DT := 1.0 / 60.0
 
+
+func test_one_off_character_file_option_restores_character() -> void:
+	if not require_cache():
+		return
+	var original := preload("res://tests/fixtures/run_fixtures.gd").quiet_world()
+	original.change_job(210)
+	var character := original.character_snapshot()
+	character.level = 35
+	character.exp = 17
+	var path := ProjectSettings.globalize_path(test_dir("one off character.json"))
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify(character))
+	file.close()
+	scene = _make("henesys_hg1", 1, {"character": path, "autoplay": true, "autopick": true})
+	assert_eq(scene.world.character_snapshot(), character)
+	assert_eq(int(scene.world.player_state.level), 35)
+	_assert_nothing_missing(scene, "one-off character file")
+
 var lib: AssetLibrary
 var scene: RunScene
 var finished: Array = []

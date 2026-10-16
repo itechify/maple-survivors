@@ -105,6 +105,12 @@ level-up / job / pause windows, death, results, retry, quit) is `game/scenes/deb
 
 ### Balance (`scripts/balance.sh`)
 
+`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-1
+`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`); omitted means a fresh Beginner.
+The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
+its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
+
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
 `random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach

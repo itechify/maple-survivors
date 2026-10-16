@@ -35,6 +35,7 @@ extends SceneTree
 ## --patch: a JSON object deep-merged into the loaded data before the run (keys as in setup.data: "balance",
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
+## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
 
 const DT := 1.0 / 60.0
 const MILESTONES := [8, 10, 20, 30, 40, 50]
@@ -107,6 +108,8 @@ func _init() -> void:
 	var camp_after := 60.0
 	var stage_explicit := false
 	var branch := 0
+	var character_file := ""
+	var has_character := false
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
@@ -115,6 +118,9 @@ func _init() -> void:
 			branch = int(a.substr(9))
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
+		elif a.begins_with("--character="):
+			character_file = a.substr(12)
+			has_character = true
 		elif a == "--first-card":
 			policy = "first"
 		elif a.begins_with("--policy="):
@@ -165,6 +171,13 @@ func _init() -> void:
 		print("balance_run: the asset cache lacks %s (root %s)" % [missing, root])
 		quit(1)
 		return
+	if has_character:
+		var errors := PackedStringArray()
+		setup_base["character"] = DataRepo.load_character(character_file, errors)
+		if not errors.is_empty():
+			print("balance_run: " + "; ".join(errors))
+			quit(1)
+			return
 	for s in seeds:
 		var setup := setup_base.duplicate()
 		setup.seed = s
