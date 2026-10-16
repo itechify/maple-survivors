@@ -224,3 +224,11 @@ PNG measured in an exported build).
   104040000 foothold count 181).
 - Godot tests read a tiny cache written by the test itself (no Nexon data), plus `require_cache()` integration tests
   against the real cache.
+
+## Second-job asset expansion (#53)
+
+The manifest exports whole `Skill.wz/210.img`, `220.img` and `230.img`, including canonical tables, icons and effects
+for sibling tickets. Every sound-bearing second-job skill entry is selected: `2101001`-`2101005`,
+`2201001`-`2201005`, `2301001`-`2301005`. Original v83 `Sound.wz/Skill.img` has no `2100000`, `2200000` or
+`2300000` entry (MP Eater is passive). Reimport without `--force` preserves existing assets and expands the sound
+JSON without removing prior selections; no skill behavior is introduced by importing these assets.

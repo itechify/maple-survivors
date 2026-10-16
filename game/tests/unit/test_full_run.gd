@@ -107,7 +107,7 @@ func _assert_run(w: RunWorld, st: Dictionary, label: String, enforce_pacing := t
 		kill_events += count
 	assert_eq(kill_events, w.kills, "%s: exactly one death event per kill" % label)
 	if enforce_pacing and float(st.job_time) > 0.0:
-		assert_eq(w.player_state.job_id, 200, label)
+		assert_true(w.jobs.is_descendant(int(w.player_state.job_id), 200), label + ": Magician lineage survives second advancement")
 	assert_eq(st.levels, w.player_state.level - 1, "%s: one level_up event per level" % label)
 	assert_true(w.state == RunWorld.DEAD or w.state == RunWorld.CLEARED or (not enforce_pacing and w.state == RunWorld.PLAYING),
 		"%s: ended or informational Tree timeout (%s)" % [label, w.state_name()])

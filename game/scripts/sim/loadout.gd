@@ -82,11 +82,6 @@ func slot_count(slot_name: String) -> int:
 	return n
 
 
-## True when another skill of that slot fits.
-func has_free_slot(slot_name: String) -> bool:
-	return slot_count(slot_name) < int(book.slots.get(slot_name, 6))
-
-
 ## Stacks one effect on skill `key` (op "add" or "mul").
 func add_skill_mod(key: String, stat: String, op: String, value: float) -> void:
 	if not skill_mods.has(key):

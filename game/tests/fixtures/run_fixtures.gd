@@ -260,15 +260,9 @@ static func quiet_world(x := 400.0, p_seed := 7) -> RunWorld:
 	return w
 
 
-## Changes the job like RunWorld.change_job (MP, guarantee) but forgets the skills the job grants (jobs.json
-## grants.skills, e.g. the Magician's Energy Bolt), for tests of a Magician who has not learned them yet.
+## Changes job without learning skills (retained fixture alias for existing callers).
 static func change_job_bare(w: RunWorld, job_id: int) -> void:
 	w.change_job(job_id)
-	for key: Variant in w.jobs.job(job_id).get("grants", {}).get("skills", []):
-		w.loadout.ranks.erase(String(key))
-		w.loadout.order.erase(String(key))
-	w.loadout.version += 1
-	w.refresh_player_stats()
 
 
 ## Stands the player on the first floor at or below (x, y) (default: the ground) and refreshes the view.

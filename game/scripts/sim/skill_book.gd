@@ -12,8 +12,6 @@ const ACTIVE_KINDS := ["projectile", "instant", "buff"]
 
 var defs := {}
 var skill_imgs := {}
-## Slot limits by slot name ("active", "passive").
-var slots := {"active": 6, "passive": 6}
 
 var _by_id := {}
 
@@ -24,10 +22,6 @@ static func from_data(skills_root: Dictionary, p_skill_imgs: Dictionary) -> Skil
 	var d: Variant = skills_root.get("skills", {})
 	if d is Dictionary:
 		b.defs = d
-	var s: Variant = skills_root.get("slots", {})
-	if s is Dictionary:
-		for k: String in s:
-			b.slots[k] = int(s[k])
 	b.skill_imgs = p_skill_imgs
 	for key: String in b.defs:
 		b._by_id[int(b.defs[key].get("skill_id", 0))] = key
