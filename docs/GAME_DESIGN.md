@@ -317,6 +317,61 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #31 / #61 second-job QA (2026-10-15)
+
+Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
+210/220/230, both stages and bot/random, rarity active, real cache, 800x600, 1,800 s cap, no patches/tuning.
+All 36 runs finish without crashes, script errors or world warnings. Per-seed records, exact console output,
+systems reports and screenshots remain ignored under `evidence/spec31_qa/<branch>/`. Detailed milestones,
+completed/censored boss durations and counts, potions, MP waits and cards by job/tier are in the draft
+`research/spec31/qa-61.md`; the separate follow-up draft is `qa-61-defects.md` (external spec31 research folder).
+
+| Henesys branch / policy | Clear / dead / timeout | Death seconds (seed order) | Lv at 15:00 (observed n) | HP collected/used; MP collected/used | MP-short seconds, mean/run |
+|---|---|---|---|---|---|
+| 210 bot | 0 / 3 / 0 | 949.7, 812.3, 322.7 | 35 (n=1) | 58/73; 360/360 | 260.5 |
+| 210 random | 1 / 2 / 0 | 714.8, 329.0 | 43 (n=1) | 79/81; 435/335 | 178.5 |
+| 220 bot | 0 / 3 / 0 | 926.5, 812.3, 322.7 | 35 (n=1) | 57/72; 359/359 | 252.6 |
+| 220 random | 1 / 2 / 0 | 714.8, 329.0 | 42 (n=1) | 80/83; 433/310 | 178.5 |
+| 230 bot | 0 / 3 / 0 | 920.2, 812.3, 322.7 | 35 (n=1) | 57/72; 363/363 | 246.1 |
+| 230 random | 1 / 2 / 0 | 714.8, 329.0 | 42 (n=1) | 80/83; 428/300 | 178.5 |
+
+Henesys reaches Magician/Mano in 3/3 per group. Lv10: bot 270.6–283.2 s, random 263.2–278.3 s (n=3);
+only seed 1 reaches Lv30, at 614.9 / 557.8 s (n=1). Completed Mano medians: 37.55 / 33.69 s (2/3 spawned;
+censored >=27.62 / >=29.00 s, n=3). Final boss: bot none (0/1 spawned each); random 37.70/103.35/74.55 s
+for 210/220/230 (1/1 spawned each). Earlier deaths and missing 15:00 samples are not zero observations.
+
+| Tree branch / policy | Clear / dead / timeout | Death seconds (seed order) | Lv at 15:00 (observed n) | HP collected/used; MP collected/used | MP-short seconds, mean/run |
+|---|---|---|---|---|---|
+| 210 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 210 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 220 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 220 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 230 bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+| 230 random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | none (n=0) | 4/19; 7/0 | 99.0 |
+
+Tree matches the prior smoke: no Magician/Lv10/Lv30 reaches or bosses (completed durations none, n=0).
+Henesys picked tiers N/R/E/U/L, branch order: bot 60/16/0/1/0, 62/14/0/1/0, 61/15/0/1/0; random
+60/21/6/0/0, 59/21/6/0/0, 59/21/6/0/0. Tree: 4/1/0/0/0 per group. Counts mean picks, not rank steps.
+
+**Teleport MP starvation:** seed-1 bots learn rank-1 Teleport at 614.93 s and use it 257/263/298 times;
+MP-short totals are 310.733/286.950/267.550 s, with 49.6%/45.7%/40.3% of post-learning ticks short.
+Non-learners (seeds 2/2026) use zero and wait 276.450/194.383 s over shorter lives. Observer-only replays
+exactly match the official seed-1 outcomes/cards/skills/milestones/potions/fights. Separate matched diagnostics
+suppress only Teleport input: F/P/Cleric clear at 989.4/971.9 s with zero post-learning MP shortage; I/L dies
+later at 1163.8 s with fewer shortages. These are diagnostic policies, not extra smoke observations or tuning.
+The #60 bot-clear drift persists (0/3 per branch versus earlier 1/3); autoplay MP use is a drafted follow-up.
+
+**Owner stop-and-ask gate:** no Henesys branch dies entirely before its first boss or clears untouched.
+Tree's all-before-first-boss pattern is present in all 18 runs, but unchanged, before second job, and remains
+AGENTS.md's explicit record-only owner rework; flagged in the draft comment. No new feature-induced gate.
+Close probes check every branch skill, real advancement cards, stacked buffs, Teleport endpoints/grey X icon,
+and all 15 HUD icons fitting two rows at 800x600; all report `missing: []`. No confirmed blocking defect.
+All configured Use sounds load; audible identity/mix needs human listening, so audio acceptance is unverified.
+Full isolated suite: **656 tests, 0 failed, 0 skipped, 71 files** (299.020 s); real-cache tests execute.
+Normal seed-1 playtests (`--warp=540 --speed=8 --window-autopick=1`, 18-minute absolute cap) reach real
+advancement windows and die at 949.733/926.483/920.233 s (210/220/230), Lv35 each, all `missing: []`;
+checked advancement cards, the final-boss/MP views and final tombstones under each branch’s `playtest/`.
+
 #### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
 
 Rarity tiers were calibrated on training seeds 1–60 and 2026 to the C46 profile: card weights 86/8/3.5/1.7/0.8,
