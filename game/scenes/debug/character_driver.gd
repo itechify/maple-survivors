@@ -84,7 +84,11 @@ func _ready() -> void:
 	await _shot("round_chosen_look")
 	var run := flow.current as RunScene
 	missing.append_array(run.setup_missing)
+	missing.append_array(run.map.missing)
 	missing.append_array(run.avatar.missing)
+	for renderer: MobRenderer in run.mob_renderers:
+		for id in renderer.missing:
+			missing.append("Mob.wz/%07d.img" % id)
 	missing.append_array(Assets.missing)
 	_write("summary.json", {"missing": missing, "slots": flow.save.slots.size(), "history": flow.save.history.size()})
 	print("character_driver missing=", missing)

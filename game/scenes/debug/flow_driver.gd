@@ -6,7 +6,7 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   full    title -> plain character creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
+##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
 ##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
 ##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
 ##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.

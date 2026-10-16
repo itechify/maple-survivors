@@ -205,7 +205,7 @@ func test_creation_persists_one_authoritative_look_and_the_beginner_weapon() -> 
 	var look := {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
 	assert_eq(flow.create_character("Maple70", look, 1322005), 0)
 	var saved := SaveData.new(save_path).slot(0)
-	assert_eq(saved.character.look, look)
+	assert_eq(saved.character.look, JSON.parse_string(JSON.stringify(look)), "look survives JSON's numeric conversion")
 	assert_eq(int(saved.character.beginner_weapon), 1322005)
 	assert_false(saved.has("look"), "new run wrappers never duplicate the character's look")
 	flow.save_and_quit()
