@@ -119,31 +119,9 @@ func missing_paths() -> PackedStringArray:
 	return out
 
 
-## Temporary #70 seam: resolve only CharacterSnapshot.look plus its current job weapon; never mutate the snapshot.
+## Uses the shared character look and current job weapon without mutating the snapshot.
 static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
-	var look: Dictionary = character.get("look", {}).duplicate(true)
-	if look.is_empty():
-		look = AvatarRenderer.DEFAULT_LOOK.duplicate(true)
-	var equips: Array = []
-	for value: Variant in look.get("equips", AvatarRenderer.DEFAULT_LOOK.equips):
-		var id := int(value)
-		if id < 1300000 or id >= 1800000:
-			equips.append(id)
-	var job := int(character.get("job_id", 0))
-	var weapon := int(character.get("beginner_weapon", 0)) if job == 0 else 0
-	if weapon == 0:
-		var weapons: Dictionary = data.get("balance", {}).get("player", {}).get("weapon_by_job", {})
-		var jobs := JobTree.from_data(data.get("jobs", {}), {})
-		for ancestor in jobs.lineage(job):
-			if weapons.has(str(ancestor)):
-				weapon = int(weapons[str(ancestor)])
-				break
-		if weapon == 0:
-			weapon = int(weapons.get("0", 0))
-	if weapon > 0:
-		equips.append(weapon)
-	look.equips = equips
-	return look
+	return DataRepo.character_look(character, data)
 
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:

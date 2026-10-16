@@ -7,6 +7,9 @@ extends Node
 ## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, weapon),
 ## continue_character(slot), delete_character(slot) AFTER confirmation, and goto_history(). Creation returns its
 ## slot or -1 with action_error; it creates a Beginner via the same sim defaults as any fresh round.
+## Shared #70/#71 drawing: DataRepo.character_look(snapshot.character, DataRepo.load_all()) -> AvatarRenderer look.
+## CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs) is the shared pure weapon resolver.
+## Only snapshot.character.look is authoritative; the old wrapper look is accepted for compatibility and ignored.
 ## EVERY persistent non-final clear calls _after_round_cleared(snapshot), which saves free_market before arrival.
 ## Continue resumes that phase; the hub's out00 calls goto_stage_select(). No other clear route exists.
 ##
@@ -89,10 +92,13 @@ func delete_character(index: int) -> bool:
 ## Creates a fresh Beginner and enters its first map select; -1 with action_error on failure.
 ## #70 supplies look/weapon here without changing the round flow.
 func create_character(character_name: String, look: Dictionary = {}, beginner_weapon: int = 0) -> int:
+	action_error = save_data().name_error(character_name)
+	if not action_error.is_empty():
+		return -1
 	var character := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
 	character.look = look.duplicate(true)
 	character.beginner_weapon = beginner_weapon
-	var snapshot := {"name": character_name, "look": look.duplicate(true), "created": _date(),
+	var snapshot := {"name": character_name, "created": _date(),
 		"character": character, "tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}
 	var index := save_data().create_slot(snapshot)
 	action_error = "" if index >= 0 else "Use a unique name of 4-12 letters and digits and an empty slot. Check that the save folder is writable."
@@ -219,7 +225,7 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 			return
 		before = sd.best_for(last_stage).duplicate(true)
 		snapshot.character = character.duplicate(true)
-		snapshot.look = character.look.duplicate(true)
+		snapshot.erase("look") # Legacy wrapper duplication; CharacterSnapshot is the single look source.
 		snapshot.stage = last_stage
 		snapshot.rounds_played = int(snapshot.rounds_played) + 1
 		var cleared := bool(summary.get("cleared", false))

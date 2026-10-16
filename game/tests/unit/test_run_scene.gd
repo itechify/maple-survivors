@@ -10,6 +10,22 @@ extends TestCase
 const DT := 1.0 / 60.0
 
 
+func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
+	if not require_cache():
+		return
+	var original := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
+	original.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
+	original.beginner_weapon = 1322005
+	scene = _make("henesys_hg1", 70, {"character": original})
+	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
+		"equips": [1041011, 1061008, 1072038, 1322005]})
+	scene.world.change_job(200)
+	_frames(1)
+	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
+		"equips": [1041011, 1061008, 1072038, 1372005]})
+	_assert_nothing_missing(scene, "selected look and job weapon")
+
+
 func test_one_off_character_file_option_restores_character() -> void:
 	if not require_cache():
 		return

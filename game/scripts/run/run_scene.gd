@@ -58,8 +58,7 @@ const SND_MOB := "Sound.wz/Mob.img/%07d/%s"
 const SND_SKILL_USE := "Sound.wz/Skill.img/%07d/Use"
 ## Cast stance used when the body lacks the skill's action (docs/GAME_DESIGN.md section 7).
 const DEFAULT_ACTION := "swingO1"
-## Weapon held per job branch (job id / 100): the Magician's Wooden Wand 1372005 (tier A: the item; GAME_DESIGN 11).
-## Beginners hold nothing (GAME_DESIGN section 1, AvatarRenderer.DEFAULT_LOOK).
+## tier C: name of the character in tool-only one-off rounds unless supplied in options.
 const DEFAULT_NAME := "MapleHero"
 
 ## tier C (ours): seconds of the LevelUp effect before the upgrade window opens (about the pillar's peak; the whole
@@ -844,20 +843,11 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## A job's look: the worn starter outfit (balance.player.equipment) plus the job's canonical weapon.
+## Carries the snapshot's look and resolves the drawn weapon through the same rule as the simulation.
 func _apply_job_look(job_id: int) -> void:
-	var weapons: Dictionary = world.balance.player.get("weapon_by_job", {})
-	var weapon := int(weapons.get("0", 0))
-	for ancestor in world.jobs.lineage(job_id):
-		if weapons.has(str(ancestor)):
-			weapon = int(weapons[str(ancestor)])
-			break
-	var equips: Array = []
-	for id: Variant in world.balance.player.get("equipment", AvatarRenderer.DEFAULT_LOOK.equips):
-		equips.append(int(id))
-	if weapon > 0:
-		equips.append(weapon)
-	avatar.set_look({"equips": equips})
+	avatar.set_look(DataRepo.character_look({"look": world.character_look,
+		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
+		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
