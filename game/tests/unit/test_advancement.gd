@@ -78,6 +78,7 @@ func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
 			assert_has(ids, "holy_arrow_new")
 			assert_has(ids, "heal_new")
 			var eligible := w.upgrades.eligible(w)
+			assert_has(eligible, "teleport_cleric_new", "Cleric's new utility skill can fill the advancement draw")
 			assert_has(eligible, "bless_new")
 			assert_has(eligible, "invincible_new")
 		for card: Dictionary in w.pending_cards:

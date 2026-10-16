@@ -363,6 +363,11 @@ Which colour belongs to which damage source (player-dealt vs taken) is UNVERIFIE
 - **JobChanged**: 13 frames at 100 ms each, 104×108 → 166×311, plus `z=-1`.
 - **QuestClear**: 11 frames at 100 ms, z=1.
 - **Teleport**: 4 frames at 80 ms.
+  Rechecked directly in original v83 `Effect.wz/BasicEff.img/Teleport` for #60 (2026-10-15, tier A),
+  using `node wz.js dump Effect.wz BasicEff.img/Teleport 3`: frames 0-3 are 62x172, 45x143,
+  36x116 and 33x57, with origins (34,122), (25,105), (20,94), (17,61); every delay is 80 ms.
+  `node wz.js ls Skill.wz 210.img/skill/2101002` lists `icon`, `iconMouseOver`, `iconDisabled`
+  and `level` only; there is no skill-local effect node. The shared BasicEff path is exported by the manifest.
 - The matching sounds are `Sound.wz/Game.img/LevelUp` (MP3 22050 Hz mono, 3586 ms) and `Game.img/JobChanged`.
 
 ### 8. UI.wz and Sound.wz (`out/8-ui-sound.txt`)

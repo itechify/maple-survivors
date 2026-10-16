@@ -232,3 +232,9 @@ for sibling tickets. Every sound-bearing second-job skill entry is selected: `21
 `2201001`-`2201005`, `2301001`-`2301005`. Original v83 `Sound.wz/Skill.img` has no `2100000`, `2200000` or
 `2300000` entry (MP Eater is passive). Reimport without `--force` preserves existing assets and expands the sound
 JSON without removing prior selections; no skill behavior is introduced by importing these assets.
+
+Teleport (#60) also selects `Effect.wz/BasicEff.img/Teleport`. A direct dump of the original v83
+`Effect.wz` confirms four canvases (62x172, 45x143, 36x116, 33x57), each with `delay=80` ms
+(tier A). `Skill.wz/210.img/skill/2101002` contains only the three icons and `level`, so the runtime
+uses this shared BasicEff animation at both endpoints. The authorized incremental import wrote only
+BasicEff (83 other imgs up to date), adding four canvases without removing existing selections.

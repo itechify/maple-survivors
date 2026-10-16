@@ -15,6 +15,9 @@ func _draw() -> void:
 		var p := Vector2(8 + (i % COLUMNS) * (ICON_SIZE + SKILL_GAP), 8 + (i / COLUMNS) * (ICON_SIZE + SKILL_GAP))
 		var icon := _frame(str(s.get("icon", "")))
 		if icon != null:
-			_blit_rect(icon, Rect2(p, Vector2(ICON_SIZE, ICON_SIZE)))
+			# tier C: grey modulation makes a manual skill's MP affordability visible without another notice.
+			var tint := Color.WHITE if bool(s.get("affordable", true)) else Color(0.35, 0.35, 0.35)
+			draw_texture_rect_region(icon.page, Rect2(p, Vector2(ICON_SIZE, ICON_SIZE)), icon.region, tint)
 			_rank(p + Vector2(ICON_SIZE, ICON_SIZE), int(s.get("rank", 0)))
+		_text(p + Vector2(1, 10), String(s.get("key_label", "")), Color.WHITE, 10)
 		i += 1

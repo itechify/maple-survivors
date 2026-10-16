@@ -33,10 +33,11 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Use a same-map portal | Hold Up in its entrance (also W) |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
+| Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Pause | Esc |
 
-There is no attack key: skills cast automatically.
+There is no attack key: attacks cast automatically. Teleport is manual on X.
 
 ## 3. Movement (MapleStory physics)
 
@@ -376,6 +377,59 @@ separate timers and canonical cast art. Probe summaries also report `missing: []
 accuracy-without-combat-effect label. After merging integration at `f8af37b`, the full isolated suite passes
 **610 tests, 0 failed, 0 skipped, 67 files** (300.672 s); the real-cache tests execute. Focused support,
 advancement and data checks pass **36 tests, 0 failed, 0 skipped**. No held-out seeds or tuning were used.
+
+#### #60 Teleport regression smoke (2026-10-15)
+
+No tuning: ISOLATE=t60, training seeds 1/2/2026, both stages and bot/random, 800 x 600, 1,800 s cap,
+unforced branches, no patch. All 12 records completed without crashes, script errors or world warnings. Henesys
+reaches Magician and spawns Mano in 3/3 for each policy. Compared with Foundations, sensible clears fall 1/3 to 0/3
+(seed 1 now dies at 955.3 s with Cleric Teleport rank 13); random remains 1/3. Earlier deaths and Tree outcomes
+are unchanged. This is feature drift for #61, not a tuning pass; no held-out seeds were used.
+
+| Stage / policy (3 runs each) | Clear / dead / timeout | Death seconds | Magician reaches | MP collected / used | MP-wait median (n=3) |
+|---|---|---|---|---|---|
+| Henesys bot | 0 / 3 / 0 | 955.3, 812.3, 322.7 | 3/3 | 365/365 (1.000) | 225.200 s |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 | 419/419 (1.000) | 179.050 s |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+
+Raw records and regenerated absolute-path systems reports: ignored _scratch/t60_balance/; console output:
+_scratch/t60-smoke-*.log. The initial relative BALANCE_OUT reached all runs but the supplemental reporter could
+not locate those paths from its project directory; reports were regenerated from the same records, without reruns.
+The branch-210 seed-1 playtest (warp 480, speed 8, cap 780 s) reaches Lv35, remains PLAYING, and reports missing: [].
+Its inspected evidence/t60/playtest_fp_seed1/t780.png shows the late run; this bot did not learn Teleport.
+The close driver learns Teleport through its card and injects X. Inspected evidence/t60/close_fp/teleport.png
+and teleport_no_mp.png show the X icon and affordability tint. Its missing list contains only
+Effect.wz/BasicEff.img/Teleport: that canonical subtree is absent from the shared cache. The manifest now requests
+it, but #60 did not run the prohibited import. The effect-frame test explicitly SKIPs while this prerequisite is
+missing; that SKIP does not verify the effect. Canonical effect visual acceptance remains unverified pending import.
+This smoke was recorded before the #56 merge; its unforced second advancements are Cleric, so it does not assess
+I/L branch pacing. After merging #56 and preserving both sets of fixtures/data, the final full suite reports
+**612 tests: 611 passed, 0 failed, 1 skipped (67 files)**. The only SKIP is
+`test_teleport::test_real_cache_teleport_effect_frames`, for that missing canonical art. Final log:
+`_scratch/t60-full-merged-final.log`; focused Teleport/advancement/I-L/data checks: 48 tests, 0 failed, 1 same SKIP.
+
+**#60 effect-import follow-up (2026-10-15):** the owner authorized one import. A fresh original-v83
+dump confirms `Effect.wz/BasicEff.img/Teleport`, four 80 ms frames (tier A; dimensions/origins recorded
+in `docs/research/wz-inventory.md` section 7). The ticket manifest already selected that subtree.
+The incremental import reports 84 imgs: 1 written, 83 up to date; 10,800 canvases (+4), 87 pages,
+131 sounds, 112,434,965 bytes; 0 warnings, errors or unresolved UOLs. All 84 prior img entries and
+prior BasicEff subtrees remain present; only `Teleport` was added. Of 319 prior cache files, only
+BasicEff JSON/atlas and cache.json changed; none were removed. Evidence: `evidence/t60/import.log`
+and `cache-*-comparison.json`.
+
+The close real-map driver learns `teleport_fp` through its card and injects X: departure
+(1200, 37.6531), arrival (1330, 95). Inspected `evidence/t60/close_fp_imported/teleport.png` shows
+both blue endpoint effects and the X skill label; `teleport_no_mp.png` shows the grey unaffordable
+icon at 0 MP. Its summary reports `missing: []`, resolving the earlier visual-acceptance gap.
+The additional normal autoplay playtest (Henesys, seed 1, branch 230, warp 930, speed 8, cap 990 s)
+ends DEAD at 955.35 s, level 36, Teleport rank 13, `missing: []`; records are in
+`evidence/t60/playtest_cleric_imported/`. No gameplay or balance data changed, so the prior smoke
+was not repeated. The real-cache effect test now fails rather than SKIPs when a present cache lacks
+this required animation; focused Teleport checks pass 16/16, with no failures or SKIPs.
+After `git merge origin/t3/issue-31-implementation` (already up to date), the full
+`ISOLATE=t60 bash scripts/test.sh` passes **612/612 tests, 0 failed, 0 skipped, 67 files**
+in 279.597 s. Log: `_scratch/t60-full-imported.log`.
 
 #### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
 
@@ -1442,7 +1496,7 @@ remain canonical. No Summon.img sound1 exists, so summons use Mano's canonical S
 canvas items. Evidence facts: original v83 Mob.wz/2220000 and Skill.wz/MobSkill.img; local research/stage-bosses/out/
 bosses_2220000.json confirms the same fields. The real-import test checks the canonical rows and the summon art.
 
-## 7. Skills (auto-cast)
+## 7. Skills (auto-cast and manual)
 
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
@@ -1482,7 +1536,7 @@ without skips. Learning starts at level 1 and each rank card adds one level. Ene
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
 The smaller per-card steps are intentional; canonical skill values remain untouched.
 All skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
-costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick casts at most
+costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick auto-casts at most
 one skill, oldest-ready first; learned order breaks a tie. A ready skill without a target or sufficient MP waits
 without restarting its cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
 per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting
@@ -1513,6 +1567,8 @@ existing shots finish separately from carry-over projectile kills.
 | Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
+
+| Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
 | MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
 | Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
 | Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
@@ -1766,6 +1822,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 | Constant | Value | Tier | Source |
 |---|---|---|---|
+| Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
+| Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
+| Teleport autoplay and HUD | blink from a threat within 60 px, or within existing 160 px flee distance when less than canonical blink range from an edge; corner escape heads toward map interior, otherwise safer side; requires learned skill, MP and a destination. HUD tint 0.35 grey; 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
+| Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .10, elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |

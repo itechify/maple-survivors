@@ -17,7 +17,7 @@ extends RefCounted
 ## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "hp"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 

@@ -104,6 +104,12 @@ static func skill_imgs() -> Dictionary:
 	}}
 	b230.skill.merge(support_230.skill)
 	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
+	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
+		if not imgs.has(pair[0]):
+			imgs[pair[0]] = {"skill": {}}
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32),
+			"level": _levels(20, {"mpCon": [60.0, 13.0], "range": [130.0, 150.0]})}
 	# MP Eater's three branch copies (#59). Synthetic tables match the independently cache-checked endpoints.
 	for job: int in [210, 220, 230]:
 		var book := str(job)
