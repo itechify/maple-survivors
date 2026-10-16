@@ -39,6 +39,22 @@ static func magic_damage_range(int_stat: float, matk: float, spell_attack: float
 	return Vector2(minf(lo, hi), hi)
 
 
+## Single-target Heal recovery bounds; historical tier B fit, NOT verified v83 RE (research/cleric-heal.md).
+static func heal_recovery_range(int_stat: float, luk: float, matk: float, recovery_pct: float) -> Vector2:
+	# tier B (weak): Nekonecat's pre-BB single-target fit; hp is 10 per level in canonical Heal.
+	# tier C: provisional choice of this unverified fit with single-target multiplier 1 (cleric-heal.md).
+	var coefficient := 1.132682429e-7 * luk * luk + 3.368846366e-6 * luk + 1.97124794e-3
+	var hi := coefficient * (int_stat + matk) * int_stat * recovery_pct / 10.0
+	return Vector2(hi * 0.8, hi)
+
+
+## Heal's special undead damage bounds, before the shared defense/element path (tier B: pre-BB client RE).
+static func heal_damage_range(int_stat: float, luk: float, matk: float, recovery_pct: float, targets: int) -> Vector2:
+	# tier B: Russt / ZakumSlaYers, Southperry #1033 posts 685-692; targets includes the caster.
+	var factor := (int_stat + matk) / 1000.0 * recovery_pct / 100.0 * (1.5 + 5.0 / maxi(1, targets))
+	return Vector2((int_stat * 0.3 + luk) * factor, (int_stat * 1.2 + luk) * factor)
+
+
 ## Physical swing bounds after level difference and PDD, minimum 1 (tier B: pre-Big-Bang formula compilation).
 static func basic_damage_range(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
 		player_level: int, mob_level: int, pdd: float) -> Vector2:
