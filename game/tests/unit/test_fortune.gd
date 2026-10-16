@@ -40,17 +40,17 @@ func test_seeded_fortune_distribution_and_base_run_stat() -> void:
 	assert_eq(float(zero.player_state.get("fortune", -1)), 0.0)
 	assert_eq(float(lucky.player_state.get("fortune", -1)), 100.0, "Fortune comes from survivor balance")
 	var counts := _counts(zero, 43, 20000)
-	# Literal bands follow the frozen design table, independently of the configured data under test.
-	var bounds := {"normal": [0.84, 0.88], "rare": [0.065, 0.095], "epic": [0.025, 0.045],
-		"unique": [0.012, 0.022], "legendary": [0.005, 0.011]}
+	# Literal bands follow the spec #30 design table, independently of the configured data under test.
+	var bounds := {"normal": [0.73, 0.77], "rare": [0.165, 0.195], "epic": [0.042, 0.058],
+		"unique": [0.013, 0.021], "legendary": [0.0015, 0.0047]}
 	for tier: String in TIERS:
 		var frequency := float(counts[tier]) / 20000.0
 		assert_true(frequency >= float(bounds[tier][0]) and frequency <= float(bounds[tier][1]),
-			"Fortune 0 %s frequency %.4f matches 86/8/3.5/1.7/0.8%%" % [tier, frequency])
+			"Fortune 0 %s frequency %.4f matches 75/18/5/1.7/0.3%%" % [tier, frequency])
 	var higher := _counts(lucky, 43, 20000)
-	# At Fortune 100 the documented normalized shares are 67.1875/18.75/8.203125/3.984375/1.875%.
-	var high_bounds := {"normal": [0.652, 0.692], "rare": [0.172, 0.202], "epic": [0.072, 0.092],
-		"unique": [0.033, 0.047], "legendary": [0.016, 0.022]}
+	# At Fortune 100 the documented normalized shares are 50/36/10/3.4/0.6%.
+	var high_bounds := {"normal": [0.48, 0.52], "rare": [0.34, 0.38], "epic": [0.09, 0.11],
+		"unique": [0.029, 0.039], "legendary": [0.004, 0.0082]}
 	for tier: String in TIERS:
 		var frequency := float(higher[tier]) / 20000.0
 		assert_true(frequency >= float(high_bounds[tier][0]) and frequency <= float(high_bounds[tier][1]),
@@ -94,7 +94,7 @@ func test_rank_tiers_apply_the_previewed_magnitude_through_run_choices() -> void
 
 
 func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
-	var expected := [2, 2, 3, 4, 5]
+	var expected := [2, 3, 4, 5, 5]
 	for i in TIERS.size():
 		var w := _tier_world(TIERS[i], "three_snails_count")
 		_open_level(w)
@@ -107,19 +107,19 @@ func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
 	var cooldown := _tier_world("unique", "three_snails_cooldown")
 	var before: float = cooldown.loadout.stats("three_snails").cooldown
 	_open_level(cooldown)
-	assert_true(String(cooldown.pending_cards[0].desc).contains("31.85%"), "three x0.88 steps reduce cooldown 31.8528%")
+	assert_true(String(cooldown.pending_cards[0].desc).contains("40.03%"), "four x0.88 steps reduce cooldown 40.030464%")
 	assert_true(cooldown.apply_choice("three_snails_cooldown"))
-	assert_near(cooldown.loadout.stats("three_snails").cooldown, before * 0.681472, 1e-6)
+	assert_near(cooldown.loadout.stats("three_snails").cooldown, before * 0.59969536, 1e-6)
 	var magnet := _tier_world("unique", "magnet")
 	var radius := magnet.magnet_r
 	_open_level(magnet)
-	assert_true(String(magnet.pending_cards[0].desc).contains("95.31%"), "three x1.25 steps give +95.3125%")
+	assert_true(String(magnet.pending_cards[0].desc).contains("144.14%"), "four x1.25 steps give +144.140625%")
 	assert_true(magnet.apply_choice("magnet"))
-	assert_near(magnet.magnet_r, radius * 1.953125, 1e-6, "player-stat stacking scales too")
+	assert_near(magnet.magnet_r, radius * 2.44140625, 1e-6, "player-stat stacking scales too")
 
 
 func test_new_skill_tiers_start_at_the_offered_rank() -> void:
-	var expected := [1, 1, 2, 3, 5]
+	var expected := [1, 2, 3, 4, 5]
 	for i in TIERS.size():
 		var w := _tier_world(TIERS[i], "energy_bolt_new")
 		RF.change_job_bare(w, 200)
@@ -127,7 +127,7 @@ func test_new_skill_tiers_start_at_the_offered_rank() -> void:
 		var c: Dictionary = w.pending_cards[0]
 		assert_eq(int(c.get("magnitude", 0)), expected[i])
 		assert_eq(int(c.skill_level_next), expected[i])
-		assert_true(String(c.desc).contains("Lv. %d" % expected[i]), "learning text names the starting level")
+		assert_eq(LevelUpWindow.rank_text(c), "NEW  Skill Lv. %d" % expected[i], "the rank line names the starting level")
 		assert_true(w.apply_choice("energy_bolt_new"))
 		assert_eq(w.loadout.level("energy_bolt"), expected[i])
 		assert_false("energy_bolt_new" in w.upgrades.eligible(w), "a boosted learn still consumes its one-time card")
@@ -150,12 +150,13 @@ func test_headroom_downgrades_to_the_highest_fitting_distinct_tier() -> void:
 	stacking.upgrades.apply("three_snails_count", stacking)
 	stacking.upgrades.apply("three_snails_count", stacking)
 	_open_level(stacking)
-	assert_eq(String(stacking.pending_cards[0].get("tier", "")), "epic", "Legendary's last two steps equal Epic")
+	assert_eq(String(stacking.pending_cards[0].get("tier", "")), "rare", "Legendary's last two steps equal Rare")
 	assert_true(stacking.apply_choice("three_snails_count"))
 	assert_eq(stacking.loadout.stats("three_snails").count, 5)
 	var beginner := _tier_world("legendary", "nimble_feet")
 	_open_level(beginner)
-	assert_eq(String(beginner.pending_cards[0].get("tier", "")), "unique", "three-rank skills cannot learn at rank five")
+	assert_eq(String(beginner.pending_cards[0].get("tier", "")), "epic", "three-rank skills cannot learn at rank five or four")
+	assert_eq(LevelUpWindow.rank_text(beginner.pending_cards[0]), "NEW  Skill Lv. 3  MAX", "a learn at the cap says so")
 	assert_true(beginner.apply_choice("nimble_feet"))
 	assert_eq(beginner.loadout.level("nimble_feet"), 3)
 
@@ -230,3 +231,23 @@ func test_same_seed_produces_same_tiers_and_per_card_magnitudes_override_default
 	assert_true(String(custom.pending_cards[0].desc).contains("+4 ranks"))
 	assert_true(custom.apply_choice("custom_rank"))
 	assert_eq(custom.loadout.level("energy_bolt"), 5)
+
+
+func test_every_default_tier_gives_more_and_equal_gains_wear_the_lowest_label() -> void:
+	var magnitudes: Dictionary = RF.quiet_data().upgrades.magnitudes
+	for kind: String in ["skill_rank", "stacking", "skill_new"]:
+		var last := 0
+		for tier: String in TIERS:
+			var value: Variant = magnitudes[kind][tier]
+			if str(value) != "max":
+				assert_true(int(value) > last, "%s %s gives more than the tier below" % [kind, tier])
+				last = int(value)
+	var data := RF.quiet_data()
+	data.upgrades.rarity.weights = {"epic": 1.0}
+	data.upgrades.cards = [{"id": "flat", "kind": "skill_mod", "skill": "three_snails", "max_rank": 10,
+		"magnitudes": {"rare": 2, "epic": 2}, "desc": "+{magnitude}.", "effects": [{"stat": "count", "op": "add", "value": 1}]}]
+	var flat := RunWorld.new(RF.setup("quiet", 43, data))
+	RF.place_player(flat, 400)
+	_open_level(flat)
+	assert_eq(String(flat.pending_cards[0].tier), "rare", "an Epic equal to Rare is labelled Rare")
+	assert_eq(int(flat.pending_cards[0].magnitude), 2)

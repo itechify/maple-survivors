@@ -339,14 +339,24 @@ func test_level_up_opens_the_window() -> void:
 		_frames(10)
 		assert_eq(w.time, t, "no ticks while the window is open")
 		# Key "2" picks the second card (the key path the player uses).
+		# A choice the sim rejects reopens the same offer instead of leaving the run choosing with no window.
+		var offered: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
+		lw.card_chosen.emit("not_offered")
+		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "a rejected choice keeps the sim choosing")
+		lw = scene.window as LevelUpWindow
+		assert_true(lw != null, "the offer reopened")
+		if lw == null:
+			return
+		assert_eq(lw.cards.map(func(c: Dictionary) -> String: return String(c.id)), offered, "with the same cards")
 		var second := String(w.pending_cards[1].id)
+		var second_rank := int(w.pending_cards[1].rank)
 		var key := InputEventKey.new()
 		key.pressed = true
 		key.keycode = KEY_2
 		key.physical_keycode = KEY_2
 		assert_true(lw.handle_input(key), "the window took the key")
 		assert_true(scene.window == null, "closed after the choice")
-		assert_eq(int(w.loadout.card_ranks.get(second, 0)), 1, "the second card (%s) was applied" % second)
+		assert_eq(int(w.loadout.card_ranks.get(second, 0)), second_rank, "the second card (%s) was applied" % second)
 	assert_eq(w.state, RunWorld.PLAYING, "playing again")
 	var t_after := w.time
 	_frames(2)

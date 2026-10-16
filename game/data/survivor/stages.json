@@ -20,7 +20,7 @@
 
 			],
 			"_balance29": "Tier C: historical coarse #29 pass for the vanilla v83 Beginner (5 MP, one Three Snails shell at canonical MP): a sword-paced opening of a few mobs and generous HP drops until 4:00, no elites before 4:00 or bursts before 5:00, and 2.5x stage EXP so the bot reaches Magician near 4:40. Superseded by the #30 C46 calibration below; Tree stage data unchanged.",
-			"_balance30": "Tier C: frozen C46, training seeds 1..60 and 2026; owner accepted 2026-10-15 for current features (32/61 sensible clears, death median 902.3 s; small 40-50%/900 s target deviations documented in GAME_DESIGN 4.2). Retains v83 opening, later HP pressure/support and late ordinary MP taper; no active EXP curve. Revisit balance after more features. Fresh held-out seeds remain unused.",
+			"_balance30": "Tier C: coarse C46 stage data from #30 (training seeds 1..60 and 2026, measured with card weights 86/8/3.5/1.7/0.8; GAME_DESIGN 4.2). Retains v83 opening, later HP pressure/support and late ordinary MP taper. Not re-tuned for the restored spec card odds; tuning waits for the dedicated balance pass.",
 			"exp_mult": 2.5,
 			"_post_duration_slope": "Tier C: after the last keyframe, continue its rate/max_alive/HP/speed slopes, the burst-size slope and (via the rate ratio) the elite frequency at one quarter pace until every boss dies.",
 			"post_duration_slope": 0.25,

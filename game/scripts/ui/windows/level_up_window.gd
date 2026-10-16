@@ -18,7 +18,7 @@ extends MapleWindow
 ##
 ##   win.open(cards, level)   # cards exactly as in the choice_pending event: {id, kind, name, desc, icon, rank,
 ##                            # max_rank, skill, skill_name, skill_level, skill_level_next, skill_changes,
-##                            # skill_effect_stat, tier, magnitude, rank_before}
+##                            # skill_effect_stat, tier, magnitude, rank_before, skill_level_max}
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
@@ -49,9 +49,12 @@ const TIER_STYLES := {
 	"unique": ["Unique", Color8(255, 204, 68)],
 	"legendary": ["Legendary", Color8(119, 221, 136)],
 }
-## tier C: a compact label band and inset pixel frame retain the original skill row and its focus art.
+## tier C: a compact label band tinted with the tier colour and a 2 px tier frame retain the original skill row and
+## its focus art (owner: the 1 px frame was too faint for Rare on the blue panel).
 const TIER_BAND := 16.0
 const TIER_BACKGROUND := Color8(23, 52, 79)
+const TIER_TINT := 0.3
+const TIER_FRAME := 2.0
 ## SkillUp/backgrd geometry (measured from the v83 canvas, 215x201): rows above TOP_H are the notice, rows
 ## [MID_Y, MID_Y + MID_H) are uniform and repeat, the rest is the bottom edge.
 const ART_SIZE := Vector2(215, 201)
@@ -160,7 +163,8 @@ static func rank_text(card: Dictionary) -> String:
 	var lv := int(card.get("skill_level", 0))
 	var lv_next := int(card.get("skill_level_next", 0))
 	if kind == "skill_new" and lv_next > 0:
-		return "NEW  Skill Lv. %d" % lv_next
+		var level_max := int(card.get("skill_level_max", 0))
+		return "NEW  Skill Lv. %d" % lv_next + ("  MAX" if level_max > 0 and lv_next >= level_max else "")
 	if kind == "skill_rank" and lv > 0 and lv_next > lv:
 		s = "Skill Lv. %d → %d" % [lv, lv_next]
 		rank = lv_next
@@ -236,10 +240,10 @@ func _build_layout() -> void:
 		var y := BONUS_ROWS_TOP if bonus else ROWS_TOP
 		for c: Variant in cards:
 			var card: Dictionary = c if c is Dictionary else {}
-			var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 6.0, MapleText.SMALL)
+			var desc := MapleText.wrap(String(card.get("desc", "")), ROW_W - 8.0, MapleText.SMALL)
 			if desc.size() > desc_limit:
 				desc = desc.slice(0, desc_limit)
-				desc[desc_limit - 1] = MapleText.ellipsize(desc[desc_limit - 1] + " ...", ROW_W - 6.0,
+				desc[desc_limit - 1] = MapleText.ellipsize(desc[desc_limit - 1] + " ...", ROW_W - 8.0,
 					MapleText.SMALL)
 			var changes := change_lines(card)
 			var h := ROW_H + TIER_BAND + 3.0 + (desc.size() + changes.size()) * DESC_LINE
@@ -357,16 +361,18 @@ func _draw_card(ci: Control, i: int, card: Dictionary, row_art: SpriteFrame) -> 
 	MapleText.draw(ci, Vector2(tx, p.y + 19.0), rt, rank_col, MapleText.SMALL, learned)
 	var style: Array = TIER_STYLES.get(String(card.get("tier", "normal")), TIER_STYLES.normal)
 	var colour: Color = style[1]
-	ci.draw_rect(Rect2(p + Vector2(1, ROW_H), Vector2(ROW_W - 2.0, TIER_BAND)), TIER_BACKGROUND)
+	var band := Rect2(p + Vector2(1, ROW_H), Vector2(ROW_W - 2.0, TIER_BAND))
+	ci.draw_rect(band, TIER_BACKGROUND)
+	ci.draw_rect(band, Color(colour, TIER_TINT))
 	MapleText.draw(ci, Vector2(p.x + 4.0, r.end.y + 2.0), String(style[0]), colour, MapleText.SMALL, true)
 	var y := r.end.y + TIER_BAND + 3.0
 	for line: String in b.desc:
-		MapleText.draw(ci, Vector2(p.x + 3.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
 	for line: String in b.changes:
-		MapleText.draw(ci, Vector2(p.x + 3.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
+		MapleText.draw(ci, Vector2(p.x + 4.0, y), line, MapleText.WHITE, MapleText.SMALL, false, 0,
 			MapleText.PANEL_SHADOW, true)
 		y += DESC_LINE
 	var block: Rect2 = b.block
-	ci.draw_rect(Rect2(block.position + Vector2(0.5, 0.5), block.size - Vector2.ONE), colour, false, 1.0)
+	ci.draw_rect(Rect2(block.position + Vector2.ONE, block.size - Vector2(2, 2)), colour, false, TIER_FRAME)

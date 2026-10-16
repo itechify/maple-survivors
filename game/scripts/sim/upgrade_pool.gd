@@ -175,7 +175,8 @@ static func is_power(c: Dictionary) -> bool:
 ## Potential tier), magnitude (ranks/steps/starting rank), rank_before, rank (consumed steps after taking it),
 ## max_rank, skill, skill_name (the skill's name, "" for cards without a skill), skill_level (the skill's
 ## canonical level now, 0 when not owned), skill_level_next (its canonical level once the card is taken; 0 when the card
-## does not change the level: skill_new and skill_rank cards only), skill_changes (rank cards: canonical field ->
+## does not change the level: skill_new and skill_rank cards only), skill_level_max (the skill's canonical level cap, 0
+## for cards without a skill), skill_changes (rank cards: canonical field ->
 ## {before, after} for PREVIEW_FIELDS; mastery is a percent, other values are original WZ numbers; a survivor per-level
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills)}.
@@ -184,8 +185,6 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	tier = _honest_tier(c, state, tier)
 	var magnitude := _magnitude(c, state, tier)
 	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
-	if String(c.get("kind", "")) == "skill_new":
-		desc += " Starts at skill Lv. %d." % state.book.canonical_level(String(c.get("skill", "")), magnitude)
 	if c.has("value"):
 		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
 	var kind := String(c.get("kind", ""))
@@ -193,11 +192,13 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	var skill_name := ""
 	var level := 0
 	var level_next := 0
+	var level_max := 0
 	var changes := {}
 	var effect_stat := ""
 	var lo: Loadout = state.loadout
 	if skill != "" and lo.book.has(skill):
 		skill_name = String(lo.book.def(skill).get("name", skill))
+		level_max = lo.book.canonical_level(skill, lo.book.max_rank(skill))
 		effect_stat = String(lo.book.def(skill).get("buff", {}).get("stat", ""))
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
@@ -236,6 +237,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_name": skill_name,
 		"skill_level": level,
 		"skill_level_next": level_next,
+		"skill_level_max": level_max,
 		"skill_changes": changes,
 		"skill_effect_stat": effect_stat,
 	}
@@ -292,13 +294,13 @@ func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
 		if requested < 1 or (headroom >= 0 and requested > headroom):
 			index -= 1
 			continue
-		if str(_tier_value(c, TIERS[index])) == "max":
-			# tier C: a jackpot that merely equals a fitting lower tier wears that lower label. Explicit equal
-			# Normal/Rare defaults remain valid; they are part of the designed ladder, not lost headroom.
-			for lower in range(index - 1, -1, -1):
-				if _requested_magnitude(c, state, TIERS[lower]) == requested:
-					return TIERS[lower]
-		return TIERS[index]
+		# tier C: a tier that merely equals a lower one (a jackpot spending the last few steps, or an equal per-card
+		# table entry) wears the lowest tier giving the same gain, so a label never overstates the card.
+		var label := index
+		for lower in range(index - 1, -1, -1):
+			if _requested_magnitude(c, state, TIERS[lower]) == requested:
+				label = lower
+		return TIERS[label]
 	return "normal"
 
 

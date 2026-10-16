@@ -951,7 +951,14 @@ func _close_window() -> void:
 
 
 func _on_card_chosen(card_id: String) -> void:
-	if _window_kind != "cards" or not world.apply_choice(card_id):
+	if _window_kind != "cards":
+		return
+	if not world.apply_choice(card_id):
+		# The window already hid itself: offer the same cards again rather than leave the sim choosing unseen.
+		var req := _window_req
+		_close_window()
+		_pending_window = req
+		_service_windows()
 		return
 	_close_window()
 	handle_events(world.drain_events())
