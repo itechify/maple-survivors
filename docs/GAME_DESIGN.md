@@ -352,15 +352,17 @@ not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
-both stages and `bot`/`random`, no patches/tuning. All 12 records completed without crashes or world warnings;
-outcomes and death times match the spec-odds smoke above. Henesys reaches Magician in all six runs and spawns
-its first boss in all six; Tree's unchanged early deaths remain recorded only. No second-job skill/card data
-was added. Raw records/console output remain under ignored `_scratch/foundations_balance/`.
+both stages and `bot`/`random`, no patches/tuning, repeated after merging #53 at `a248aba`. All 12 final records
+completed without crashes or world warnings; outcomes and death times match #53's smoke below. Henesys reaches
+Magician in all six runs and spawns its first boss in all six; Tree's unchanged early deaths remain recorded only.
+Foundations adds no second-job skill/card data. Final raw records/console output remain under ignored
+`_scratch/foundations_balance_merged/`; the preliminary pre-#53 smoke in `_scratch/foundations_balance/`
+matched the preceding current-odds results. Full merged suite: **592 tests, 0 failed, 0 skipped** (65 files).
 
 | Foundations stage / policy | Clears | Deaths | Magician reaches | MP collected / used |
 |---|---|---|---|---|
-| Henesys bot | 1/3 | 5:28, 15:31 | 3/3 (4:30–4:43) | 452/386 (1.171) |
-| Henesys random | 2/3 | 12:25 | 3/3 (4:23–4:38) | 796/567 (1.404) |
+| Henesys bot | 1/3 | 5:22, 13:32 | 3/3 (4:30–4:43) | 376/315 (1.194) |
+| Henesys random | 1/3 | 5:29, 11:54 | 3/3 (4:23–4:38) | 426/268 (1.590) |
 | Tree bot / random (each) | 0/3 | 1:17, 2:21, 2:21 | 0/3 | 7/0 (undefined) |
 
 Restoration presentation was triggered through the real Flow/RunScene with a temporary evidence driver;
