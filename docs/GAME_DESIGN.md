@@ -2384,25 +2384,34 @@ Character select (#70 rework) keeps the v83 MapLogin character-select area and s
 clickable slots, one selected-character details scroll, and the signboard's single Start/Create/Delete set.
 `CharSelect/character/0` supplies the ground animation and `character/1` the empty silhouette; nameTag/0 and /1
 supply the unselected/selected three-piece tags. Selected characters walk in place, others stand. Both page arrows
-are visible but inert because this mode has only three slots. History is a small existing-art plate at (600,438),
+are visible at full opacity but inert because this mode has only three slots. History reuses the left-edge
+View All Characters plaque at (0,375), relabelled Run history,
 with H as a shortcut; its list retains name/job/level, tiers, rounds, ending and UTC date. Deletion uses the existing
 Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.delete_character.
 
 | Character UI fact / decision | Tier | Evidence / value |
 |---|---|---|
 | Login book, signboard, option-row labels, character/empty art, nameTag pieces, details cells, animation origins/delays | A | Original v83 Login.img, MapLogin.img and Map.wz/Obj/login.img; runtime lookups, no exported art committed |
-| Character select camera / signboard anchor | A | Existing camera (0,-1200); signboard object (253,-1258) becomes (653,242) in the 800x600 frame |
-| Explorer creation camera | A | (0,-3000): MapLogin backs 15/16/17 at y -3233/-2918/-3056; back16 platform under preview feet |
-| NewChar layout | B | Local Journey UICharcreation facts: name board (455,115), settings (450,115), preview (360,348), nine rows from (461,217), pitch19, arrows521/645, appearance buttons at y445; source read for facts only, no source copied |
-| Selection stance, tag construction and stride | B | Local Journey/Mortal client descriptions: selected walk1, unselected stand1; later-client avatar parity reference gives 125px stride, 58px minimum tag width and 18px horizontal padding |
-| Slot / signboard fit | C | Feet x210/335/460,y350 fit the v83 bridge. Action offsets (-51,-104),(-51,-63),(-51,-19) fit its three planks. These screen coordinates are inferred, not verified v83 client RE |
-| Selected details / page arrows | C | One scroll at (315,124); table inset(17,20), original measured label cells; pages at (122,326)/(536,326), alpha0.45, inert for one three-slot page; fame/world rank0 |
-| Creation flow / gender placement | C | Gender prompt -> name validation -> appearance. Gender parchment at(219,174), text at(245,198); appearance Gender row permits changing it again. AP automatic, Beginner only; no dice/job selector |
+| Character-select camera / signboard | A | #32 visual pass: camera (28,-1208), signboard anchor (625,250), canvas TL(559,131). Original signboard, bridge and house all register to v0.83 charselect_1.png in private spec32/v83-login-refs/wz-layout-notes.md; no stored WZ camera table |
+| Title camera | A (art registration) | (28,-11): original forest/mushroom pixels match title_1.png with mean channel error 0.004 over the comparison patch. This localized v0.62 capture proves shared art placement, not GMS account/offline controls |
+| Explorer creation camera | B | (37,-3007): mushroom-cap/branch registration to period 2009 newchar_1.png; compressed/rescaled capture, approximate. Supersedes the unsupported tier-A claim for the old section midpoint |
+| NewChar layout | A/B | Original charSet/buttons/arrows matched in period newchar_1.png: settings(470,95), rows(481,198), pitch19, arrows539/667, OK(508,425), Cancel(582,425), roughly +/-2px. Name canvas freshly registered at(480,95), input(510,198,140,24), OK/Cancel(508,273)/(582,273), +/-2-3px. Preview feet(398,335) is B, eyeballed; option value box x556,width109 is C. Sources: private v83-login-refs/layout.md, wz-layout-notes.md, newchar_name_1.png |
+| Selection stance / tags | B/C | Period captures corroborate selection and tag states; walk1/stand1 integration retained (B). Tags now start at feet y370 (B, charselect_1.png); width58 minimum / padding18 retained from earlier reimplementation facts, not verified original-client constants (C) |
+| Roster / action anchors | A/B | Original adventure lamps register at(252,370)/(377,370)/(502,370), shared by characters, shadows and tags. Create(576,185) and Delete(576,234) register to original WZ art (A); Select(576,149) is B because capture wording differs. Private charselect_1.png is primary |
+| Selected details / light | B/C | Compact original scroll/charInfo follows feet+(-108,-235), ranking unavailable, no bottom badge (B: period charselect_2.png). Original label cells/inset(17,20) retained (A). Light and sparkle anchor feet-(0,337), using final WZ beam height but unverified native effect registration (C). Fame0 and unavailable online ranking are offline policy (C) |
+| Page arrows / left navigation | A/B/C | pageL(155,330), pageR(604,331), full opacity: exact original WZ registration in charselect_1.png (A). Fresh template matching places Back(0,425) exactly (zero sampled channel error) and history(0,375), superseding the notes' approximate y450/400 (A). Step(0,33) is B. Select step is Common/step/2; creation step is /3, verified in original art (A), correcting the research note's step index. Original ViewAllChar/BtVAC frame/arrow retained; inner burgundy patch vertices(10,17)/(102,8)/(104,30)/(12,39), label at(12,19), angle-0.10,width88 and colors are C offline relabelling. Tab hint(270,40,220,40) is B, truthful offline wording and pale-blue alpha0.8/4px corners C. No world/channel plaque or server text |
+| Creation flow / gender placement | C | Gender -> name OK validation -> appearance; name Cancel returns to gender, appearance Cancel to name. Centered Gender parchment(219,174), text(245,198), native dropdown over baked field(378,270,48,19), OK/Cancel(355,346)/(430,346). WZ text field is at local(133,72); no trustworthy period gender capture, so absolute placement and native OptionButton interaction remain C. Appearance Gender row still changes it; AP automatic, Beginner only |
+| Creation advisory / weapon / feedback | B/C | Advisory rectangle(120,160,195,200) follows period newchar_1.png (B); offline facts, 8px padding and pale-blue alpha0.8 plate are C. Survivor-only weapon name/WATK/interval strip moves below it to(120,380,195,45), feedback to(475,365,215,45), C. These avoid preview and native settings/button composition |
+| Offline title controls | C | Start TL(590,243) substitutes for Login at the right of the top plank; Re-import uses the middle plank (sign-local center183,106), Quit TL(590,354) the right of the lower plank. Sign-local centers315,44 and307,159; account ink covered with original wood. title_1.png/title_2.png establish composition, no dated GMS v83 title capture proves these offline substitutions |
+| Map-select roster names (#90) | C | 2px inner gutter per 58px cell, two lines; long single words split in balanced halves (Tauro/macis, Tauro/spear), future overflow ellipsized. Survivor-only screen, no canonical stats/name changes |
 | Keyboard / class badge | A/C | WZ icon/job indices0 Beginner/1 Warrior/2 Magician/3 Bowman/4 Thief; unsupported badges omitted. Login keyFocused pointer overlays normal button art; focus/activation retained, roster arrows consumed before Godot focus navigation (C integration) |
 | Shared notice / labels | A/C | Existing YesNo3 pieces and Basic OK/Cancel; 266px box, 20/17 text inset and grey button strip shared with PauseMenu. Survivor deletion wording, keyboard shortcuts, compact weapon description, and error ink153/34/0 are C |
 
-All exact pixel positions outside WZ remain explicitly inferred or later-client evidence; this is an original
-implementation using v83 assets, not a claim of verified pixel-for-pixel v83 executable behavior. The local source
+Tier A above means original WZ art registered in a real capture, not that the position is stored in WZ.
+The private references are at `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/v83-login-refs/`;
+their research A/B confidence notation is distinct from our provenance tiers. Compressed period measurements
+remain approximate. This is an original implementation using v83 assets, not a claim of verified pixel-for-pixel
+v83 executable behavior. The local source
 inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md).
 The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
 tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market

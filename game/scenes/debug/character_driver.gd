@@ -1,8 +1,8 @@
 extends Node
-## Ticket #70 visual probe. Uses an evidence-only save, captures both creation genders, three slots, history,
+## Character UI visual probe. Uses an evidence-only save, captures both creation genders, three slots, history,
 ## deletion confirmation and a one-off round in a chosen look. Writes fresh weapon snapshots for smoke tooling.
-## Run with ISOLATE=t70 and the private cache: godot --path <mirror> res://scenes/debug/character_driver.tscn
-## -- --shots=<absolute evidence/t70 path>. No proprietary assets or screenshots belong in git.
+## Run with ISOLATE=t32v: godot --path <mirror> res://scenes/debug/character_driver.tscn
+## -- --shots=<absolute evidence/t32v path>. No proprietary assets or screenshots belong in git.
 ## tier C: synthetic names, levels/jobs and option indices stage the UI evidence; they are not gameplay tuning.
 
 var flow: SceneFlow
@@ -27,11 +27,20 @@ func _ready() -> void:
 	flow.host = Node.new()
 	add_child(flow.host)
 	add_child(flow)
+	flow.goto_title()
+	await get_tree().create_timer(9.0).timeout # tier C: wait for WZ's 8s logo fade before visual comparison.
+	await _shot("title")
 	flow.goto_character_select()
 	await _shot("empty_slots")
 	flow.current.show_creation()
 	await _shot("gender")
 	var creation: Control = flow.current.creation
+	var picker := creation.find_child("GenderValue", true, false) as OptionButton
+	picker.select(1)
+	picker.item_selected.emit(1)
+	await _shot("gender_female")
+	picker.select(0)
+	picker.item_selected.emit(0)
 	creation.create_button.pressed.emit()
 	await _shot("creation_name")
 	creation.name_edit.text = "bad!"
@@ -113,6 +122,9 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	await _shot("selection_changed")
+	await _key(KEY_RIGHT)
+	await _shot("selection_third")
+	await _key(KEY_LEFT)
 	await _shot("keyboard_focus")
 	flow.current.delete_button.pressed.emit()
 	await _shot("delete_confirmation")
@@ -120,6 +132,14 @@ func _ready() -> void:
 	await _shot("history_entry")
 	flow.current.find_child("RunHistory", true, false).pressed.emit()
 	await _shot("history")
+	# tier C: staged tier-2 boundary for the #90 visual check; no gameplay or clear claim.
+	var tier_two := flow.save.slot(0)
+	tier_two.tier = 1
+	tier_two.phase = "map_select"
+	flow.save.update_slot(0, tier_two)
+	flow.continue_character(0)
+	await get_tree().create_timer(2.0).timeout
+	await _shot("map_select_tier2")
 	missing.append_array(Assets.missing)
 	_write("summary.json", {"missing": missing, "slots": flow.save.slots.size(), "history": flow.save.history.size()})
 	print("character_driver missing=", missing)
