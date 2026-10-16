@@ -376,6 +376,51 @@ the character's outfit/weapon, full HP/MP status, readable instruction plate and
 portals, the two real ladders, normal jump/climb/same-map portal behavior, snapshot immutability, look/weapon
 resolution, pool agreement with RunWorld, pause holding motion, clear/resume/exit saves and final-tier victory.
 
+#### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
+
+Revision `8ef2fb0`, based on integration `eca037d`; `ISOLATE=t74`, training seeds **1/2/2026**, bot/random,
+default branches, 1800 s cap **per round**, no PATCH, tuning or held-out seeds. The existing Lv38 F/P fixture
+(`lv35_magician_2nd.json`, #67 seed-1 forced-F/P Henesys clear) is reused unchanged. Cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73` is reused read-only; no import or new cache.
+All **24 seed records / 26 rounds** finish with no crashes, engine/script errors or world warnings;
+every round's validated setup reports `missing=[]` (headless, not a rendering lookup trace).
+Original-stage and fixture outcomes/end times match #73 below exactly. Henesys reaches Magician and Mano
+in all six one-off rounds; Tree's early deaths and fixture deaths before Jr. Balrog remain record-only.
+
+| Round group / policy | Clear / dead / timeout | End seconds (seed 1 / 2 / 2026; C = clear) | Start → end levels |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 1 → 41 / 28 / 10 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 1 → 43 / 27 / 11 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 1 → 3 / 3 / 2 |
+| Chain tier 2 bot | 0 / 1 / 0 | 685.2 / — / — | 41 → 52 |
+| Chain tier 2 random | 0 / 1 / 0 | 1240.1 / — / — | 43 → 64 |
+| Dark Cave fixture bot | 0 / 3 / 0 | 789.3 / 780.7 / 807.8 | 38 → 58 / 61 / 60 |
+| Dark Cave fixture random | 0 / 3 / 0 | 609.5 / 595.6 / 754.0 | 38 → 51 / 50 / 55 |
+
+**Conditional chain sample:** each policy has **1/3 tier-1 clears feeding tier 2**, seed 1 only, with a Cleric
+(job230); seeds 2/2026 die in tier 1 and contribute no tier-2 death or boss observations. All six chain tier-1
+records exactly equal their one-off counterparts, including choices and combat metrics. Seed 1's second-round
+seed is **2260174940**, derived independently from earlier RNG consumption. Tier 2 starts/clears are **1/0** per
+policy. **Lv70 reached: 0/1** per chain policy and **0/3** per fixture policy. These small conditional samples do
+not assess the deferred #77 clear-rate or end-level targets. No balance changes follow the smoke.
+
+Chain Zombie Mushmom completes in **121.75 s bot / 51.68 s random**, each **1/1 completed/spawned**, censored
+median the same (**n=1, 0 unfinished**). Snack Bar has **none completed (n=0), 0/1 spawned** per policy,
+censored median **>=85.20 s bot / >=640.12 s random** (**n=1, 1 unfinished** each). Jr. Balrog bot has
+**none completed (n=0), 0/0 spawned**, censored median **none (n=0)** and 1 not spawned; random has
+**none completed (n=0), 0/1 spawned**, censored median **>=340.12 s (n=1, 1 unfinished)**. No bosses are skipped.
+Fixture boss-fight counts, completed durations and censored medians reproduce the #73 record below; none of
+those six fixture rounds reaches Jr. Balrog. Exact console output, seed records and per-tier SYSTEMS JSON/logs
+remain ignored under `evidence/t74/smoke/`. No visual criteria or presentation changes: screenshots are not applicable.
+
+After fetching and merging `origin/t3/issue-32-implementation` (`eca037d`, already current), the full
+`ISOLATE=t74 bash scripts/test.sh` passes **708 tests, 0 failed, 0 skipped, 79 files** (408.674 s).
+All real-cache checks execute; final log: ignored `_scratch/t74-full-final.log`. Focused chain/metrics/fixture
+checks pass **33 tests, 0 failed, 0 skipped**. They exercise deterministic seeded records and round seeds,
+clear-only carry versus timeout, conditional/empty tier-2 samples, Lv70 reporting, selectable first stage,
+the actual CLI replay and invalid flag combinations, plus fixture starting level/job/ordered loadout/mods.
+
 #### #32 / #69 persistent-flow regression smoke (2026-10-16)
 
 Revision `babd8ec`, including integration `eca037d` (#67/#68/#72/#73); `ISOLATE=t69`, training seeds
@@ -2172,6 +2217,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Hub arrival | PortalSet.start_point with RNG seed 0; position is not saved | C | Ours; stable boundary arrival |
 | Hub exit / rooms / NPCs | out00 type 7 opens map select on Up using existing portal reach/cooldown; room portals inert; all four NPCs drawn, including hidden Maple TV | C (policy), A (IDs/positions/type) | Owner #32/#71; original v83 map/life nodes |
 | Hub identity / pause | Existing status bar only (full pools, EXP, level/job/name), instruction inset (12,12); existing pause with Resume / Save & quit and no loss warning | C | Ours / owner #32 boundary flow |
+
+The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
+Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
+the first stage of each later `stages.json` tier; `--stage` overrides tier 1. Lv70 reach is a diagnostic from
+the monotonically increasing level, never a clear condition or a calibrated target. Only a cleared round after
+all reward/job choices exports a character into the next tier; no sample is imputed for an unstarted round.
 
 The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
 Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,
