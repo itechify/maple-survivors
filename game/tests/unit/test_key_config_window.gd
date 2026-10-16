@@ -117,15 +117,17 @@ func test_a_fixed_key_refuses_a_drop() -> void:
 	assert_true(w.is_fixed_key(KEY_UP), "Arrows: the arrows are movement")
 
 
-func test_delete_unbinds_the_selected_key() -> void:
+func test_a_click_selects_and_clear_all_unbinds_every_action() -> void:
 	var w := _key_config()
 	w._gui_input(press(w.key_rect(KEY_E).get_center()))
 	w._gui_input(press(w.key_rect(KEY_E).get_center(), false))
-	assert_eq(w.selected_key, KEY_E, "a click selects a bound key")
+	assert_eq(w.selected_key, KEY_E, "a click selects (outlines) a bound key")
 	assert_eq(w.draft.action_on(KEY_E), "drink_mp", "a click does not move it")
 	w._bt_delete.pressed.emit()
-	assert_eq(w.draft.action_on(KEY_E), "", "Delete unbinds it")
+	for a: String in KeyBindings.BINDABLE:
+		assert_eq(w.draft.keys_of(a), PackedInt32Array(), "BtDelete (v83 CLEAR ALL) unbinds %s" % a)
 	assert_eq(w.selected_key, -1)
+	assert_eq(settings.binding_keys("jump"), GameSettings.default_keys("jump"), "only the draft: OK saves it")
 
 
 func test_ok_saves_and_applies_cancel_discards() -> void:

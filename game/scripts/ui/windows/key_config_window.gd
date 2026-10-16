@@ -8,8 +8,8 @@ extends UiWindow
 ## Mouse: drag an icon from the tray (a source: it stays there) or from a key onto another key to bind it there (from
 ## a key it moves); the key's previous action loses it (a key holds one action; an action may sit on several keys).
 ## A drop on a fixed key (movement per the movement setting, Esc, the card keys 1-3; tinted and captioned) does
-## nothing. Dragging an icon off the keyboard (onto the tray or out of the window) unbinds it; a click selects a key and
-## BtDelete unbinds the selected one. BtDefault puts the project defaults into the draft (KeyBindings.reset_defaults),
+## nothing. Dragging an icon off the keyboard (onto the tray or out of the window) unbinds it; a click outlines a key.
+## BtDelete (its v83 art reads CLEAR ALL) unbinds every bindable action in the draft. BtDefault puts the project defaults into the draft (KeyBindings.reset_defaults),
 ## BtOK saves and applies the draft (KeyBindings.apply_to -> Settings.set_bindings) and closes, BtCancel / BtClose / Esc
 ## close without saving. Tab, Scroll Lock and the Windows / menu keys are no drop targets (v83 bakes its own functions
 ## on Tab and Scroll Lock into the art). Hovering an icon names its action.
@@ -71,7 +71,7 @@ const SELECT_COLOR := Color8(255, 170, 0)
 var settings: GameSettings
 ## The bindings being edited.
 var draft: KeyBindings
-## The selected key (BtDelete unbinds it), -1 = none.
+## The outlined key (the last one clicked or dropped on), -1 = none.
 var selected_key := -1
 
 var _key_rects: Dictionary = {}
@@ -107,7 +107,7 @@ func _init(p_settings: GameSettings = null) -> void:
 				_key_rects[code] = []
 			(_key_rects[code] as Array).append(r)
 	_bt_default = _button("BtDefault", "Default", Vector2(60, 18), DEFAULT_POS, restore_defaults)
-	_bt_delete = _button("BtDelete", "Delete", Vector2(77, 18), DELETE_POS, delete_selected)
+	_bt_delete = _button("BtDelete", "Clear All", Vector2(77, 18), DELETE_POS, clear_all)
 	_bt_ok = _button("BtOK", "OK", Vector2(47, 18), OK_POS, ok)
 	_bt_cancel = _button("BtCancel", "Cancel", Vector2(47, 18), CANCEL_POS, cancel)
 	_bt_close = _button("BtClose", "x", Vector2(12, 12), CLOSE_POS, cancel)
@@ -161,10 +161,10 @@ func restore_defaults() -> void:
 	queue_redraw()
 
 
-## BtDelete: unbinds the selected key.
-func delete_selected() -> void:
-	if selected_key >= 0:
-		draft.unbind(selected_key)
+## BtDelete (CLEAR ALL): every bindable action off the keyboard (saved only by OK).
+func clear_all() -> void:
+	for a: String in KeyBindings.BINDABLE:
+		draft.keys[a] = PackedInt32Array()
 	selected_key = -1
 	queue_redraw()
 

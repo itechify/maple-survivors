@@ -36,13 +36,14 @@ const ROWS := [["bgm", ""], ["sfx", ""], ["frame_cap", "FRAME\nCAP"], ["movement
 ## tier C (ours): the frame cap choices (GameSettings.max_fps: 0 = the display's refresh rate, -1 = uncapped) and
 ## their captions, then the movement choices.
 const FRAME_CAPS := [0, 60, 144, -1]
-const FRAME_CAP_NAMES := ["SCREEN", "60", "144", "OFF"]
+const FRAME_CAP_NAMES := ["VSYNC", "60", "144", "OFF"]
 const MOVEMENTS := ["arrows", "wasd"]
 const MOVEMENT_NAMES := ["ARROWS", "WASD"]
-## Choice i's checkbox x in a row (PANEL_X + CHOICE_X0 + i * step).
+## tier C (ours): choices sit left to right from PANEL_X + CHOICE_X0, CHOICE_GAP px apart; captions in the baked
+## words' size.
 const CHOICE_X0 := 8.0
-const FRAME_CAP_STEP := 56.0
-const MOVEMENT_STEP := 84.0
+const CHOICE_GAP := 16.0
+const CAPTION_SIZE := 10
 
 ## The settings every control writes.
 var settings: GameSettings
@@ -90,13 +91,12 @@ func mute_rect(kind: String) -> Rect2:
 
 ## The local rect (box and caption) of frame cap choice `i` (FRAME_CAPS).
 func frame_cap_rect(i: int) -> Rect2:
-	return _choice_rect("frame_cap", i, FRAME_CAP_STEP, String(FRAME_CAP_NAMES[i]))
+	return _choice_rect("frame_cap", FRAME_CAP_NAMES, i)
 
 
 ## The local rect (box and caption) of movement choice "arrows" / "wasd".
 func movement_rect(scheme: String) -> Rect2:
-	var i := MOVEMENTS.find(scheme)
-	return _choice_rect("movement", i, MOVEMENT_STEP, String(MOVEMENT_NAMES[i]))
+	return _choice_rect("movement", MOVEMENT_NAMES, MOVEMENTS.find(scheme))
 
 
 ## The FRAME_CAPS index of the current setting (-1 when it is a value the window does not offer).
@@ -115,10 +115,15 @@ func _volume(kind: String) -> float:
 	return settings.bgm_volume if kind == "bgm" else settings.sfx_volume
 
 
-func _choice_rect(row: String, i: int, step: float, caption: String) -> Rect2:
-	var x := PANEL_X + CHOICE_X0 + i * step
-	var w := CHECK_SIZE.x + 4.0 + MapleText.width(caption, MapleText.SMALL)
-	return Rect2(x, row_y(row) + 8.0, w, CHECK_SIZE.y)
+func _choice_rect(row: String, captions: Array, i: int) -> Rect2:
+	var x := PANEL_X + CHOICE_X0
+	for j in i:
+		x += _choice_width(String(captions[j])) + CHOICE_GAP
+	return Rect2(x, row_y(row) + 8.0, _choice_width(String(captions[i])), CHECK_SIZE.y)
+
+
+func _choice_width(caption: String) -> float:
+	return CHECK_SIZE.x + 4.0 + MapleText.width(caption, CAPTION_SIZE)
 
 
 ## The slider's hit area: the track widened to the thumb.
@@ -249,7 +254,7 @@ func _draw_volume(kind: String, plain: bool) -> void:
 
 func _draw_choice(r: Rect2, caption: String, on: bool) -> void:
 	_draw_check(r.position, on)
-	MapleText.draw(self, r.position + Vector2(CHECK_SIZE.x + 4.0, -1.0), caption, MapleText.BLACK, MapleText.SMALL)
+	MapleText.draw(self, r.position + Vector2(CHECK_SIZE.x + 4.0, -1.0), caption, MapleText.BLACK, CAPTION_SIZE)
 
 
 func _draw_check(at: Vector2, on: bool) -> void:

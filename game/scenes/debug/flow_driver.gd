@@ -22,6 +22,11 @@ extends Node
 ##           the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks a card; the
 ##           status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
 ##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
+##   keys    Key Config and Options (#87): title -> stage select -> run (no bot); Esc pauses, 2 opens Key Config over the
+##           pause menu, the jump icon is dragged from Space onto F, OK; Esc resumes; Space no longer jumps, F does;
+##           Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does; Options -> Arrows,
+##           Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up first and restored
+##           before the driver quits, also on failure. Shots: key_config, key_config_rebound, options, options_wasd.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -44,6 +49,9 @@ var _steer := false
 var _held := {}
 var _memo := {}
 var _failed := false
+## The keys scenario: user://settings.cfg as it was before the run (null = there was none), restored on every exit.
+var _settings_backup: Variant = null
+var _settings_saved := false
 
 
 func _ready() -> void:
@@ -65,6 +73,8 @@ func _ready() -> void:
 			_scenario_title()
 		"windows":
 			_scenario_windows()
+		"keys":
+			_scenario_keys()
 		_:
 			_scenario_full()
 
@@ -320,6 +330,158 @@ func _scenario_windows() -> void:
 	get_tree().quit(1 if _failed else 0)
 
 
+func _scenario_keys() -> void:
+	_backup_settings()
+	var settings := get_node_or_null("/root/Settings") as GameSettings
+	if settings == null:
+		_fail("no Settings autoload")
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("start_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	# Esc pauses; 2 opens Key Config over the pause menu.
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	_check(run.paused and run.window is PauseMenu, "Esc paused the run")
+	await _key(KEY_2)
+	await _sleep(0.4)
+	var kc := run.ui_windows.top() as KeyConfigWindow
+	_check(kc != null and (run.window as MapleWindow).input_blocked, "pause menu -> Key Config, over the pause menu")
+	if kc == null:
+		_quit()
+		return
+	await _shot("key_config")
+	var origin := kc.get_global_rect().position
+	await _drag(origin + kc.key_rect(KEY_SPACE).get_center(), origin + kc.key_rect(KEY_F).get_center())
+	await _sleep(0.2)
+	_check(kc.draft.action_on(KEY_F) == "jump" and kc.draft.action_on(KEY_SPACE) == "",
+		"the jump icon moved from Space to F (F: '%s', Space: '%s')" % [kc.draft.action_on(KEY_F),
+		kc.draft.action_on(KEY_SPACE)])
+	_hover(origin + kc.key_rect(KEY_F).get_center())
+	await _sleep(0.3)
+	await _shot("key_config_rebound")
+	await _click(kc._bt_ok)
+	await _sleep(0.4)
+	_check(not run.ui_windows.has_windows(), "OK closed Key Config")
+	_check(KEY_F in settings.binding_keys("jump") and not KEY_SPACE in settings.binding_keys("jump"),
+		"OK applied: jump on %s" % [settings.binding_keys("jump")])
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(not run.paused, "Esc resumed")
+	# Space no longer jumps, F does.
+	var space_jumped: bool = await _jumps(run, KEY_SPACE)
+	_check(not space_jumped, "Space no longer jumps")
+	var f_jumped: bool = await _jumps(run, KEY_F)
+	_check(f_jumped, "F jumps")
+	# Menu -> Options, WASD.
+	await _click(run.hud.menu_button)
+	await _sleep(0.4)
+	var menu := run.ui_windows.top() as GameMenuPopup
+	if menu == null:
+		_fail("the Menu popup did not open")
+		return
+	await _click_at(menu.get_global_rect().position + menu.entry_rect("options").get_center())
+	await _sleep(0.4)
+	var ow := run.ui_windows.top() as OptionsWindow
+	_check(ow != null, "Menu -> Options opened Options")
+	if ow == null:
+		_quit()
+		return
+	await _shot("options")
+	await _click_at(ow.get_global_rect().position + ow.movement_rect("wasd").get_center())
+	await _sleep(0.3)
+	_check(settings.movement_keys == "wasd", "Options: movement set to WASD")
+	await _shot("options_wasd")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed Options")
+	var dx := await _moved(run, KEY_RIGHT)
+	_check(absf(dx) < 4.0, "the right arrow no longer moves the player (dx %.1f)" % dx)
+	dx = await _moved(run, KEY_D)
+	_check(dx > 20.0, "D moves the player right (dx %.1f)" % dx)
+	# Back to the defaults through the windows themselves.
+	run.toggle_window("options")
+	await _sleep(0.3)
+	ow = run.ui_windows.top() as OptionsWindow
+	if ow != null:
+		await _click_at(ow.get_global_rect().position + ow.movement_rect("arrows").get_center())
+		await _sleep(0.2)
+	_check(settings.movement_keys == "arrows", "Options: back to Arrows")
+	run.ui_windows.close("options")
+	run.toggle_window("key_config")
+	await _sleep(0.3)
+	kc = run.ui_windows.top() as KeyConfigWindow
+	if kc != null:
+		await _click(kc._bt_default)
+		await _click(kc._bt_ok)
+		await _sleep(0.3)
+	_check(settings.binding_keys("jump") == GameSettings.default_keys("jump")
+		and settings.binding_keys("stat_window") == PackedInt32Array([KEY_S]), "Default + OK restored the keys")
+	print("flow_driver: keys scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	_quit()
+
+
+## Presses `k` once with the player standing; true when the player took off within 0.5 s.
+func _jumps(run: RunScene, k: Key) -> bool:
+	var p := run.world.player
+	await _until(func() -> bool: return p.state != PlayerMotion.ST_AIR, 5.0, "player on the ground")
+	await _sleep(0.3)
+	_send_key(k, true)
+	var took_off := false
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 500:
+		await get_tree().process_frame
+		if p.vel.y < -200.0:
+			took_off = true
+	_send_key(k, false)
+	await _sleep(0.8)
+	return took_off
+
+
+## Holds `k` for 0.6 s; how far the player moved along x.
+func _moved(run: RunScene, k: Key) -> float:
+	await _until(func() -> bool: return run.world.player.state != PlayerMotion.ST_AIR, 5.0, "player on the ground")
+	var x0 := run.world.player.pos.x
+	await _hold(k, 0.6)
+	await _sleep(0.2)
+	return run.world.player.pos.x - x0
+
+
+func _backup_settings() -> void:
+	_settings_saved = true
+	_settings_backup = FileAccess.get_file_as_bytes(GameSettings.PATH) if FileAccess.file_exists(GameSettings.PATH) \
+		else null
+
+
+## Puts user://settings.cfg back as it was before the keys scenario (no-op for other scenarios).
+func _restore_settings() -> void:
+	if not _settings_saved:
+		return
+	_settings_saved = false
+	if _settings_backup == null:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(GameSettings.PATH))
+	else:
+		var f := FileAccess.open(GameSettings.PATH, FileAccess.WRITE)
+		f.store_buffer(_settings_backup)
+		f.close()
+	print("flow_driver: settings.cfg restored")
+
+
+func _quit() -> void:
+	_restore_settings()
+	get_tree().quit(1 if _failed else 0)
+
+
 ## Records a scenario check (a failed one makes the driver exit 1 at the end).
 func _check(ok: bool, what: String) -> void:
 	print("flow_driver: %s %s" % ["ok" if ok else "FAILED", what])
@@ -535,4 +697,5 @@ func _fail(msg: String) -> void:
 	push_error("flow_driver: " + msg)
 	print("flow_driver: FAILED " + msg)
 	await _shot("failed")
+	_restore_settings()
 	get_tree().quit(1)

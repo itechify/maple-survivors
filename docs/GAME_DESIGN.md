@@ -50,11 +50,11 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
 Teleport, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
-the keyboard, or selecting a key and pressing Delete, unbinds it. Default puts every action back on its default keys
-(less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies at once,
-Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX volume
-(sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD key
-label (potion quickslots, Teleport) shows the current binding.
+the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
+default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
+at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
+volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
+key label (potion quickslots, Teleport) shows the current binding.
 
 In-run windows (Stat, the Menu popup, later Skill / Key Config / Options) are draggable by their title bar and
 stack (a click brings one to the front). The run is paused while any is open, as with the pause menu. Stat and Skill
