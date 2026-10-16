@@ -341,6 +341,34 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #67 carried-character regression smoke (2026-10-16)
+
+Revision `8a7dae5` simulation, fixture/tests `8826fe3`; `ISOLATE=t67`, training seeds 1/2/2026,
+both existing stages and bot/random, real shared cache, unforced branches, 1,800 s cap, no PATCH or tuning.
+All 12 finish without crashes, script errors or world warnings. Henesys reaches Magician and spawns Mano
+in all six runs; outcomes/end times match the post-Teleport-rule smoke. Tree's early deaths remain unchanged
+and record-only. End times below use seed order; C marks a clear, all other times are deaths.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026) | MP collected / used | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 380 / 359 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 428 / 300 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 7 / 0 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 7 / 0 | 98.956 |
+
+Raw records/console/system reports: ignored `evidence/t67/smoke/`. The committed fixture
+`tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38, job210, from the seed-1 forced-F/P bot
+clear at 930.1 s (all bosses dead, all choices resolved); `_doc` records the generation revision and policy.
+`tools/character_fixture.gd` reproduces it without balance edits. A 15 s seed-2 one-off using that fixture,
+`--character=<absolute path>`, reports `missing: []`; inspected `evidence/t67/fixture-playtest/t5.png` and
+`final.png` show the character, eight skill icons, Wizard label, full HP, potion tiers/stock and new buff timers.
+A separate one-second `scripts/balance.sh` flag check with spaces in the path starts at Lv38/job210,
+HP stock9/MP stock19, no warnings, and correctly reports TIMEOUT. The 20-minute synthetic seed-1 event-byte
+digest matches pre-change integration `bf26c5d`; resumed JSON/direct snapshots replay identically for three minutes.
+After fetching/merging `origin/t3/issue-32-implementation` (already current at `bf26c5d`), the full
+`ISOLATE=t67 bash scripts/test.sh` passes **676 tests, 0 failed, 0 skipped, 75 files** (313.720 s).
+Real-cache checks execute; final log: ignored `_scratch/t67-full-final.log`.
+
 #### Spec #32 / #72 Dark Cave stage data (2026-10-16)
 
 Report-only regression started at `1d69662` (the subsequent `8a46f7d` only restores catalog order and updates tests;
@@ -2003,6 +2031,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Magic and delayed effects | magic=1 uses mob MADamage unless attack overrides it; effectAfter remains independent of attackAfter (Balrog attack3 500/400 ms); direct hit art at character impact | A fields/timings; C resolution/presentation | WZ field inventory and seeded tests; canonical values remain untouched |
 | Boss icons and EXP pickups | Snack Bar borrows Zombie Mushmom icon and colours 1/5; EXP icons 4000008 / 4000011 / 4000028 | C | Original Snack Bar lacks gauge icon/colours; reuse imported signature art, not a drop-table claim |
 | Attack evidence capture | Per-attack windup at min(0.85 s, half windup), at least one fixed tick; per-attack impact +0.12 s | C | Capture short ball windup before launch and keep seven distinct attack images |
+
+The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
+growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
+refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
+player statuses and map entities restart. Format 1 is a serialization version, not balance tuning. Fixture float
+fields round to six decimal places for readable committed JSON; generation never changes the survivor data.
 
 | Dark Cave addition (#72) | Values | Tier | Evidence / rationale |
 |---|---|---|---|

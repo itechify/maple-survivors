@@ -1,0 +1,148 @@
+{
+	"_doc": {
+		"branch": "spec32/ticket-67",
+		"forced_branch": 210,
+		"outcome": "CLEARED",
+		"policy": "bot",
+		"revision": "8a7dae594a36fe90356ab1976eca12172eebdbba",
+		"round_seconds": 930.1,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round, all bosses/reward choices completed",
+		"stage": "henesys_hg1"
+	},
+	"attributes": {
+		"dex": 5,
+		"int": 189,
+		"luk": 4,
+		"str": 12
+	},
+	"base_attributes": {
+		"dex": 5,
+		"int": 4,
+		"luk": 4,
+		"str": 12
+	},
+	"base_fortune": 0.0,
+	"base_hp": 512.0,
+	"base_mp": 1019.0,
+	"beginner_weapon": 0,
+	"card_ranks": {
+		"energy_bolt_count": 1,
+		"energy_bolt_damage": 3,
+		"energy_bolt_new": 1,
+		"energy_bolt_rank": 1,
+		"fire_arrow_count": 3,
+		"fire_arrow_new": 1,
+		"fire_arrow_rank": 7,
+		"magic_claw_new": 1,
+		"magic_guard_new": 1,
+		"magic_guard_rank": 16,
+		"mana_elixir": 1,
+		"meditation_fp_new": 1,
+		"orange_potion": 1,
+		"poison_breath_new": 1,
+		"poison_breath_pierce": 2,
+		"poison_breath_rank": 2,
+		"teleport_fp_new": 1,
+		"three_snails_cooldown": 2,
+		"three_snails_count": 4,
+		"three_snails_pierce": 3,
+		"white_potion": 1
+	},
+	"earned_ap": 185,
+	"exp": 3389,
+	"format": 1,
+	"fortune": 0.0,
+	"job_id": 210,
+	"job_mp": 595.0,
+	"level": 38,
+	"look": {},
+	"player_mods": {},
+	"potions": {
+		"hp": {
+			"count": 9,
+			"item_id": 2000002
+		},
+		"mp": {
+			"count": 19,
+			"item_id": 2000006
+		}
+	},
+	"skill_order": [
+		"three_snails",
+		"magic_guard",
+		"energy_bolt",
+		"magic_claw",
+		"fire_arrow",
+		"teleport_fp",
+		"poison_breath",
+		"meditation_fp"
+	],
+	"skills": {
+		"energy_bolt": {
+			"mods": {
+				"count": [
+					1.0,
+					1.0
+				],
+				"damage": [
+					0.0,
+					1.728
+				]
+			},
+			"rank": 2
+		},
+		"fire_arrow": {
+			"mods": {
+				"count": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 9
+		},
+		"magic_claw": {
+			"mods": {},
+			"rank": 1
+		},
+		"magic_guard": {
+			"mods": {},
+			"rank": 17
+		},
+		"meditation_fp": {
+			"mods": {},
+			"rank": 2
+		},
+		"poison_breath": {
+			"mods": {
+				"pierce": [
+					2.0,
+					1.0
+				]
+			},
+			"rank": 3
+		},
+		"teleport_fp": {
+			"mods": {},
+			"rank": 1
+		},
+		"three_snails": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					4.0,
+					1.0
+				],
+				"pierce": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 3
+		}
+	}
+}

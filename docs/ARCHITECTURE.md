@@ -526,6 +526,16 @@ What the tables above leave open; the class doc comments have the rest.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
+`RunWorld` accepts an optional `setup.character` format-1 `CharacterSnapshot` and exposes
+`character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
+it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
+skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look and Beginner weapon.
+Resolved attributes/Fortune are also included for consumers. Each new world refills computed HP/MP and creates
+fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
+choice push an error, return empty in release and assert in debug. With no character the original setup/event
+path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
+RunScene's `options.character` path and `tools/balance_run.gd --character=<abs path>`.
+
 The headless `tools/balance_run.gd` advances the same fixed ticks with real-map setup and seeded card/movement
 policies. Its record/aggregate contract and CLI are in AGENTS.md's Balance section: milestone reach counts,
 completed versus censored boss fights, per-hit whole damage/max-HP fractions by boss/source, potion collection/use,
