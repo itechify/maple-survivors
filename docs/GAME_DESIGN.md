@@ -366,8 +366,11 @@ was added. Raw records/console output remain under ignored `_scratch/foundations
 Restoration presentation was triggered through the real Flow/RunScene with a temporary evidence driver;
 `evidence/foundations/gain_numbers.png` was checked by eye (HP/MP digits, placement and stacking; missing assets
 empty). Synthetic seam and cached gain-number tests: 15 tests, 0 failed, 0 skipped.
+The existing all-event schema test needed one new restoration scenario (and `stat` String validation) because it
+requires every `EVENT_FIELDS` entry to be exercised. Its previous assertions and scenarios are unchanged.
 
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
+
 
 The owner rejected the C21 profile's survivor projectile coverage and opening pool: every skill starts as its vanilla
 v83 form (one Three Snails shell, one Energy Bolt; more only from cards, later rarity) and the opening pool stays the
@@ -1306,6 +1309,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   once per damaging line, apply the status through `MobSwarm.apply_status`, then invoke registered
   `add_hit_listener(callable)` listeners with `(slot, {skill, level, magic, damage, element})`, before HP/kill
   resolution. Damage is after elements; physical hits participate, poison ticks and zero-damage immunity do not.
+  Existing zero-damage `mob_hit` events for elemental immunity are retained for compatibility with the existing
+  tests/presentation; the hook is suppressed regardless of that legacy event.
   Listeners must consume RNG only when their effect can apply.
 - `RunWorld.restore_player(stat: String, amount: int, skill: String) -> int` caps positive HP/MP gains, updates
   public pools and emits `player_restored: {stat, amount, skill, pos}` only for an actual positive integer pool
