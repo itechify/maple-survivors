@@ -695,6 +695,10 @@ func handle_events(events: Array) -> void:
 				_sound(SND_MOB % [int(e.mob_id), "Die"])
 			"player_hit":
 				_on_player_hit(e)
+			"player_restored":
+				var head: Vector2 = e.pos + Vector2(0.0, world.body.position.y)
+				numbers.spawn(int(e.amount), head, DamageNumbers.HP_GAIN if e.stat == "hp" else DamageNumbers.MP_GAIN, PLAYER_KEY)
+				counters.numbers += 1
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":

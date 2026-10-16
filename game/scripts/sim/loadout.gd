@@ -121,7 +121,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
 ## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
-## crit, crit_mult, cooldown, range,
+## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
+## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
@@ -144,6 +145,16 @@ func stats(key: String) -> Dictionary:
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
+	var cast: Dictionary = d.get("cast", {})
+	var node := book.level_node(key, lv)
+	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
+	var area := skill_stat(key, "area", 1.0)
+	var box := Rect2()
+	if has_box:
+		var lt: Array = node.lt.get("$v", [0.0, 0.0])
+		var rb: Array = node.rb.get("$v", [0.0, 0.0])
+		var start := Vector2(float(lt[0]), float(lt[1])) * area
+		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -151,6 +162,12 @@ func stats(key: String) -> Dictionary:
 		"slot": book.slot(key),
 		"rank": r,
 		"level": lv,
+		"cast_rule": String(cast.get("rule", "")),
+		"cast_params": cast.duplicate(true),
+		"has_box": has_box,
+		"area": area,
+		"box": box,
+		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"damage_type": dtype,
 		"damage_min": lo,

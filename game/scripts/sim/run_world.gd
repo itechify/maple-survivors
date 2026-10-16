@@ -39,6 +39,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 const EVENT_FIELDS := {
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
+	"player_restored": ["stat", "amount", "skill", "pos"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
@@ -194,6 +195,7 @@ var cast_forward := DEFAULT_CAST_FORWARD
 var god := false
 
 var _hp := 0.0
+var _hit_listeners: Array[Callable] = []
 var _mp := 0.0
 var _max_hp := 1
 var _max_mp := 0
@@ -473,7 +475,7 @@ func _step_player_attacks(dt: float) -> void:
 		if swarm.active[slot] != 0:
 			_live_mdd[slot] = mob_defense(slot,true)
 			_live_physical_allowed[slot] = 1 if physical_hit_allowed(slot) else 0
-	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed)
+	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit)
 	for m in projectiles.kills:
 		_on_kill(m)
 
@@ -599,6 +601,22 @@ func spend_mp(amount: int) -> bool:
 	return true
 
 
+## Restores HP or MP, clamped to its maximum; returns and emits the actual integer pool gain (no event at zero).
+func restore_player(stat: String, amount: int, skill: String) -> int:
+	if stat not in ["hp", "mp"] or amount <= 0:
+		return 0
+	var before := ceili(_hp) if stat == "hp" else floori(_mp)
+	if stat == "hp":
+		_hp = minf(_max_hp, _hp + amount)
+	else:
+		_mp = minf(_max_mp, _mp + amount)
+	_write_player_state(0.0)
+	var gain := int(player_state[stat]) - before
+	if gain > 0:
+		emit("player_restored", {"stat": stat, "amount": gain, "skill": skill, "pos": player.pos})
+	return gain
+
+
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
 ## modifiers. The MaxMP passive preserves the MP ratio on growth; other explicit pool modifiers grant the
 ## difference, while ordinary level growth passes grant_growth=false and grants nothing.
@@ -674,6 +692,37 @@ func shot_origin(aim: Vector2) -> Vector2:
 func mob_center(m: int) -> Vector2:
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
+
+
+## All live bodies intersecting a canonical feet-relative, left-facing skill box; nearest centre first, then slot.
+## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
+func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
+	if not box.has_area():
+		return PackedInt32Array()
+	if player.facing > 0:
+		box.position.x = -box.end.x
+	box.position += player.pos
+	var candidates := PackedInt32Array()
+	var n := mob_grid.query_rect(box.grow(body_pad), candidates)
+	var matches: Array[int] = []
+	for i in n:
+		var m := candidates[i]
+		if not swarm.is_live(m):
+			continue
+		var mk: MobKind = mob_kinds[swarm.kind[m]]
+		var body_box := mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])
+		if body_box.end.x < box.position.x or body_box.position.x >= box.end.x \
+				or body_box.end.y < box.position.y or body_box.position.y >= box.end.y:
+			continue
+		if filter.is_valid() and not bool(filter.call(m)):
+			continue
+		matches.append(m)
+	var origin := cast_origin()
+	matches.sort_custom(func(a: int, b: int) -> bool:
+		var da := mob_center(a).distance_squared_to(origin)
+		var db := mob_center(b).distance_squared_to(origin)
+		return da < db if da != db else a < b)
+	return PackedInt32Array(matches)
 
 
 ## The setup's Mob.wz img root of mob `id` (int or String keys); {} when absent.
@@ -842,8 +891,33 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 		"hit_visual": String(visual_paths[hv]) if hv >= 0 else "", "skill": String(st.skill),
 	})
 	_instant_dealt += roll.x
+	if roll.x > 0:
+		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": bool(st.magic),
+			"damage": roll.x, "element": String(st.get("element", ""))})
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
+
+
+## Registers a listener(slot, hit) after on-hit statuses and before damage/kill resolution, once per damaging line.
+func add_hit_listener(listener: Callable) -> void:
+	_hit_listeners.append(listener)
+
+
+func _on_player_hit(slot: int, hit: Dictionary) -> void:
+	var key := String(hit.skill)
+	var level := int(hit.level)
+	var status: Dictionary = book.def(key).get("on_hit", {})
+	if not status.is_empty():
+		var chance_field := String(status.get("chance_field", ""))
+		var chance := book.canonical(key, level, chance_field) if chance_field != "" else 100.0
+		if chance > 0.0 and (chance >= 100.0 or rng.randf() * 100.0 < chance):
+			var params := {"time": book.canonical(key, level, String(status.get("duration_field", "time"))),
+				"level": level, "skill": key, "x": book.canonical(key, level, "x")}
+			if String(hit.element) != "":
+				params["element"] = String(hit.element)
+			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	for listener: Callable in _hit_listeners:
+		listener.call(slot, hit)
 
 
 func _stream(n: int) -> RandomNumberGenerator:
