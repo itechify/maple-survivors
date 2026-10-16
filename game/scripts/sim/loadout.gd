@@ -149,6 +149,16 @@ func stats(key: String) -> Dictionary:
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
+	var cast: Dictionary = d.get("cast", {})
+	var node := book.level_node(key, lv)
+	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
+	var area := skill_stat(key, "area", 1.0)
+	var box := Rect2()
+	if has_box:
+		var lt: Array = node.lt.get("$v", [0.0, 0.0])
+		var rb: Array = node.rb.get("$v", [0.0, 0.0])
+		var start := Vector2(float(lt[0]), float(lt[1])) * area
+		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -156,6 +166,12 @@ func stats(key: String) -> Dictionary:
 		"slot": book.slot(key),
 		"rank": r,
 		"level": lv,
+		"cast_rule": String(cast.get("rule", "")),
+		"cast_params": cast.duplicate(true),
+		"has_box": has_box,
+		"area": area,
+		"box": box,
+		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"damage_type": dtype,
 		"damage_min": lo,

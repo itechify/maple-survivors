@@ -67,7 +67,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
 	for key: String in lo.order:
-		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6:
+		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
+				and String(stats_of(world, key).cast_rule) != "manual":
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
 		var ca := float(cooldowns.get(a, 0.0))
@@ -78,11 +79,8 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
-		if is_buff and not world.can_start_buff(key, st):
-			_shortages.erase(key)
-			continue
-		var n := 1 if is_buff and float(st.duration) > 0 else _find_targets(world, origin, float(st.range), int(st.count))
-		if n == 0:
+		var plan := _admit_cast(world, key, st, origin)
+		if plan.is_empty():
 			_shortages.erase(key)
 			continue
 		if not world.spend_mp(int(st.mp_cost)):
@@ -94,16 +92,68 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			continue
 		_shortages.erase(key)
 		cooldowns[key] = maxf(float(st.duration), float(st.buff_cooldown)) if is_buff else maxf(cd, -dt) + float(st.cooldown)
-		if is_buff:
-			casts += 1
-			fired_this_tick = true
-			world.start_buff(key, st)
-			world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
-				"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
-			world.start_action(String(st.action), float(st.action_time))
-		else:
-			_fire(world, key, st, origin, n)
+		_resolve_cast(world, key, st, origin, plan)
 		break
+
+
+func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	match String(st.cast_rule):
+		"", "nearest":
+			return _admit_nearest(world, key, st, origin)
+		"box":
+			return _admit_box(world, st)
+		"manual":
+			return {}
+	return {}
+
+
+func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
+	if String(st.kind) == "buff":
+		if not world.can_start_buff(key, st):
+			return {}
+		if float(st.duration) > 0.0:
+			return {"go": true}
+	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
+		return {}
+	return {"targets": _tgt.duplicate()}
+
+
+func _admit_box(world: RunWorld, st: Dictionary) -> Dictionary:
+	if not bool(st.has_box):
+		return {}
+	var targets := world.skill_box_targets(st.box)
+	# tier C: a box cast defaults to one eligible target; skill data may require a crowd.
+	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
+		return {}
+	return {"targets": targets}
+
+
+func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
+	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
+	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
+		world.face_toward(world.mob_center(targets[0]).x)
+	casts += 1
+	fired_this_tick = true
+	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
+		world.start_buff(key, st)
+	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
+		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
+	world.start_action(String(st.action), float(st.action_time))
+	match String(st.cast_rule):
+		"box":
+			_resolve_box(world, st, targets)
+		"", "nearest":
+			if String(st.kind) != "buff":
+				_resolve_nearest(world, key, st, origin, targets)
+
+
+func _resolve_box(world: RunWorld, st: Dictionary, targets: PackedInt32Array) -> void:
+	var hv := world.visual_index(String(st.hit))
+	for i in mini(int(st.mob_count), targets.size()):
+		for line in int(st.attack_count):
+			if not world.swarm.is_live(targets[i]):
+				break
+			world.hit_mob(targets[i], st, hv)
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
@@ -135,24 +185,15 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 	return _tgt.size()
 
 
-func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int) -> void:
-	casts += 1
-	fired_this_tick = true
-	var first := world.mob_center(_tgt[0])
-	world.face_toward(first.x)
-	var level := int(st.level)
+func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:
+	var n := targets.size()
 	var hv := world.visual_index(String(st.hit))
-	world.emit("cast", {
-		"skill": key, "skill_id": int(st.skill_id), "level": level, "pos": world.player.pos,
-		"facing": world.player.facing, "action": String(st.action), "effect": String(st.effect),
-	})
-	world.start_action(String(st.action), float(st.action_time))
 	if String(st.kind) == "projectile":
 		var vis := world.visual_index(String(st.ball))
 		var count := int(st.count)
 		var speed := float(st.speed)
 		for k in count:
-			var m := _tgt[k % n]
+			var m := targets[k % n]
 			var reuse := floorf(float(k) / float(n))
 			var aim := world.mob_center(m) + Vector2(0.0, REUSE_SPREAD * reuse * (1.0 if k % 2 == 0 else -1.0))
 			var start := world.shot_origin(aim)
@@ -171,10 +212,10 @@ func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int
 				"pierce": int(st.pierce), "skill": key, "element": String(st.element),
 			})
 	else:
-		var targets := mini(int(st.count), n)
+		var count := mini(int(st.count), n)
 		var lines := int(st.attack_count)
-		for k in targets:
-			var m := _tgt[k]
+		for k in count:
+			var m := targets[k]
 			for h in lines:
 				if world.swarm.active[m] == 0:
 					break

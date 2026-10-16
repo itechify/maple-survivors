@@ -674,6 +674,37 @@ func mob_center(m: int) -> Vector2:
 	return mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m]).get_center()
 
 
+## All live bodies intersecting a canonical feet-relative, left-facing skill box; nearest centre first, then slot.
+## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
+func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
+	if not box.has_area():
+		return PackedInt32Array()
+	if player.facing > 0:
+		box.position.x = -box.end.x
+	box.position += player.pos
+	var candidates := PackedInt32Array()
+	var n := mob_grid.query_rect(box.grow(body_pad), candidates)
+	var matches: Array[int] = []
+	for i in n:
+		var m := candidates[i]
+		if not swarm.is_live(m):
+			continue
+		var mk: MobKind = mob_kinds[swarm.kind[m]]
+		var body_box := mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])
+		if body_box.end.x < box.position.x or body_box.position.x >= box.end.x \
+				or body_box.end.y < box.position.y or body_box.position.y >= box.end.y:
+			continue
+		if filter.is_valid() and not bool(filter.call(m)):
+			continue
+		matches.append(m)
+	var origin := cast_origin()
+	matches.sort_custom(func(a: int, b: int) -> bool:
+		var da := mob_center(a).distance_squared_to(origin)
+		var db := mob_center(b).distance_squared_to(origin)
+		return da < db if da != db else a < b)
+	return PackedInt32Array(matches)
+
+
 ## The setup's Mob.wz img root of mob `id` (int or String keys); {} when absent.
 func mob_img(id: int) -> Dictionary:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
