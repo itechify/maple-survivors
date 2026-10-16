@@ -27,11 +27,11 @@ func test_character_survives_round_boundary_with_full_pools() -> void:
 	w.potions.add("hp", 9)
 	w.learn_skill("teleport_fp")
 	w.spend_mp(13)
-	var snapshot: Dictionary = w.call("character_snapshot")
+	var snapshot := w.character_snapshot()
 	var setup := RF.setup("quiet", 2, RF.quiet_data())
 	setup.character = snapshot
 	var next := RunWorld.new(setup)
-	assert_eq(next.call("character_snapshot"), snapshot, "every carried field, including partial EXP and growth")
+	assert_eq(next.character_snapshot(), snapshot, "every carried field, including partial EXP and growth")
 	assert_eq(next.player_state.hp, next.player_state.max_hp)
 	assert_eq(next.player_state.mp, next.player_state.max_mp)
 	assert_eq(next.player_state.fortune, 12.0)
