@@ -81,13 +81,28 @@ static func skill_imgs() -> Dictionary:
 			slow_levels[level].rb = {"$v": [extent, 150.0]}
 		book.skill[str(branch * 10000 + 1003)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
 			"effect": _anim(4, 100.0, 60, 80), "mob": _anim(4, 100.0, 60, 80), "level": slow_levels}
-	var b230 := {"skill": {
+	var support_230 := {"skill": {
 		"2301003": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
 			"level": _levels(20, {"mpCon": [15.0, 30.0], "time": [15.0, 300.0], "x": [11.0, 30.0]})},
 		"2301004": {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(4, 100.0, 60, 80),
 			"level": _levels(20, {"mpCon": [12.0, 24.0], "time": [10.0, 200.0],
 				"acc": [1.0, 20.0], "eva": [1.0, 20.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})},
 	}}
+	# Cleric-only fixture block (#57): synthetic intermediate nodes, with original-v83 endpoints.
+	var heal_levels := _levels(30, {"mpCon": [12.0, 24.0], "hp": [10.0, 300.0], "mobCount": [6.0, 6.0]})
+	for level: String in heal_levels:
+		var extent := lerpf(250.0, 300.0, float(int(level) - 1) / 29.0)
+		heal_levels[level].lt = {"$v": [-extent, -(extent - 100.0)]}
+		heal_levels[level].rb = {"$v": [extent, extent - 100.0]}
+	var b230 := {"skill": {
+		"2301005": {"icon": _canvas(32, 32), "elemAttr": "h", "action": {"0": "shoot1"},
+			"ball": _anim(3, 100.0, 70, 20), "hit": {"0": _anim(7, 100.0, 60, 60)},
+			"effect": _anim(7, 100.0, 70, 80),
+			"level": _levels(30, {"mpCon": [12.0, 24.0], "mad": [22.0, 80.0], "mastery": [1.0, 10.0]})},
+		"2301002": {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"effect": _anim(10, 100.0, 50, 100), "hit": {"0": _anim(7, 100.0, 50, 60)}, "level": heal_levels},
+	}}
+	b230.skill.merge(support_230.skill)
 	return {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
 
 

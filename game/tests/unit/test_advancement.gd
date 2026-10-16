@@ -75,9 +75,11 @@ func test_second_jobs_add_mp_without_skills_and_keep_the_level_choice() -> void:
 			assert_has(ids, "thunder_bolt_new")
 		else:
 			var ids := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
-			assert_has(ids, "bless_new")
-			assert_has(ids, "invincible_new")
-			assert_has(ids, "elixir")
+			assert_has(ids, "holy_arrow_new")
+			assert_has(ids, "heal_new")
+			var eligible := w.upgrades.eligible(w)
+			assert_has(eligible, "bless_new")
+			assert_has(eligible, "invincible_new")
 		if not w.pending_cards.is_empty():
 			assert_true(w.apply_choice(String(w.pending_cards[0].id)))
 			assert_eq(w.progression.front(), 30)
