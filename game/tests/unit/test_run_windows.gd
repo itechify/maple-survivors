@@ -144,7 +144,7 @@ func test_menu_button_opens_the_menu_popup_and_its_stat_entry() -> void:
 		return
 	assert_true(menu.get_global_rect().end.y <= bt.get_global_rect().position.y + 1.0, "above the button")
 	assert_true(menu.is_enabled("stat"))
-	assert_false(menu.is_enabled("skill"), "Skill window not built yet")
+	assert_true(menu.is_enabled("skill"), "the Skill window (#86)")
 	assert_false(menu.is_enabled("key_config"))
 	assert_false(menu.is_enabled("options"))
 	_frames(10)
@@ -154,6 +154,71 @@ func test_menu_button_opens_the_menu_popup_and_its_stat_entry() -> void:
 	bt.pressed.emit()
 	bt.pressed.emit()
 	assert_eq(scene.ui_windows.ids(), PackedStringArray(["stat"]), "the button toggles its popup")
+
+
+func test_skill_hotkey_opens_the_skill_window_and_routes_the_keys_to_it() -> void:
+	if not require_cache():
+		return
+	scene = _make(13, {"autoplay": true, "autopick": true})
+	var w := scene.world
+	_frames(10)
+	w.change_job(200)
+	w.upgrades.apply("magic_claw_new", w)
+	w.upgrades.apply("magic_claw_targets", w)
+	w.upgrades.apply("magnet", w)
+	var t := w.time
+	assert_true(scene.handle_hotkey(_key(KEY_K)), "K is the Skill hotkey")
+	var sw := scene.ui_windows.top() as SkillWindow
+	assert_true(sw != null, "the Skill window opened")
+	if sw == null:
+		return
+	_frames(10)
+	assert_eq(w.time, t, "no sim ticks while it is open")
+	var names := []
+	for tab: Dictionary in sw.model.tabs:
+		names.append(String(tab.name))
+	assert_eq(names, ["Beginner", "Magician", "Star"], "the job path and the star tab")
+	assert_eq(sw.tab, 1, "on the current job's tab")
+	assert_true(scene.handle_hotkey(_key(KEY_DOWN)), "the run hands arrows to the top window")
+	var claw_row := -1
+	for i in sw.rows().size():
+		if String(sw.rows()[i].key) == "magic_claw":
+			claw_row = i
+	while sw.selected < claw_row:
+		scene.handle_hotkey(_key(KEY_DOWN))
+	var tip := sw.tooltip()
+	assert_eq(tip.get("key"), "magic_claw")
+	assert_eq(tip.upgrades[0].text, "Twin Claw ×1: +1 target", "the real card's Upgrades line")
+	assert_false("canonical" in String(tip.desc) + String(tip.current) + String(tip.next), "player-visible text")
+	scene.handle_hotkey(_key(KEY_3))
+	assert_eq(sw.rows().size(), 1, "3: the star tab with Magnet")
+	assert_eq(String(sw.rows()[0].id), "magnet")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(scene.ui_windows.has_windows(), "Esc closed it")
+	assert_false(scene.paused)
+
+
+func test_skill_window_opens_over_a_level_up_choice() -> void:
+	if not require_cache():
+		return
+	scene = _make(11, {})
+	var w := scene.world
+	var lw := _open_level_up()
+	assert_true(lw != null, "the level-up window opened")
+	if lw == null:
+		return
+	lw.input_delay = 0.0
+	assert_true(scene.handle_hotkey(_key(KEY_K)), "K during the choice")
+	assert_true(scene.ui_windows.top() is SkillWindow, "Skill opened over the choice")
+	assert_true(lw.input_blocked)
+	scene.handle_hotkey(_key(KEY_1))
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "1 switched the Skill tab, it did not pick a card")
+	assert_eq((scene.ui_windows.top() as SkillWindow).tab, 0)
+	scene.handle_hotkey(_key(KEY_K))
+	assert_false(scene.ui_windows.has_windows(), "K toggles it closed")
+	assert_eq(scene.window, lw, "back to the choice")
+	assert_true(lw.handle_input(_key(KEY_1)), "1 picks now")
+	assert_eq(w.state, RunWorld.PLAYING)
 
 
 func test_stat_window_shows_the_sims_v83_stats() -> void:

@@ -13,7 +13,8 @@ extends Control
 ##   - `auto_place` (default true): the stack centres the window above the status bar on its first open
 ##     (`default_position(view)`; override it for another spot) and then remembers where it was dragged;
 ##   - `request_close()` (e.g. from a close button) emits `close_requested`; the stack closes and frees the window.
-## Keys are not read here: the host (RunScene) maps Esc / the window hotkeys to WindowStack calls.
+## Keys are not read here: the host (RunScene) maps Esc / the window hotkeys to WindowStack calls, and hands any other
+## key to the front window's `handle_key(event)` (override it to navigate with the keyboard; true = used).
 ##
 ## Signals: `raised` on any left press inside the window (the stack brings it to the front), `close_requested`.
 ## Tests: add a WindowStack to the tree, open a window and call `_gui_input()` with synthetic mouse events whose
@@ -67,6 +68,11 @@ func is_dragging() -> bool:
 ## Asks the host stack to close this window.
 func request_close() -> void:
 	close_requested.emit()
+
+
+## A key the host passes on while this window is in front; true when it was used. Subclasses override.
+func handle_key(_event: InputEvent) -> bool:
+	return false
 
 
 ## Mouse events after the base handled raise / drag; `local` = position in the window. Subclasses override.

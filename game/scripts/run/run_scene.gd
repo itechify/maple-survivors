@@ -31,7 +31,8 @@ extends Node2D
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
-## draggable Stat window (stat_window action, S) and the status bar's Menu popup (hud.menu_button); later windows
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
 ## pause menu, the modal window below (if any) ignores input (MapleWindow.input_blocked), and no new level-up / job
@@ -335,10 +336,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## The run's window keys: Esc ("pause") closes the top in-run window, else resumes / opens the pause menu; the Stat /
-## Skill actions toggle their windows (not while paused or once the run is ending). True when the event was used.
+## Skill actions toggle their windows (not while paused or once the run is ending); any other key (repeats too) goes to
+## the front in-run window (UiWindow.handle_key: the Skill window's arrows / 1-n). True when the event was used.
 func handle_hotkey(event: InputEvent) -> bool:
-	if world == null or event.is_echo():
+	if world == null:
 		return false
+	if event.is_echo():
+		return _front_window_key(event)
 	if event.is_action_pressed("pause"):
 		if ui_windows != null and ui_windows.close_top():
 			return true
@@ -351,7 +355,12 @@ func handle_hotkey(event: InputEvent) -> bool:
 		if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
 			toggle_window(String(WINDOW_HOTKEYS[action]))
 			return true
-	return false
+	return _front_window_key(event)
+
+
+func _front_window_key(event: InputEvent) -> bool:
+	var top := ui_windows.top() if ui_windows != null else null
+	return top != null and top.handle_key(event)
 
 
 ## Opens or closes in-run window `id` (WindowStack.toggle); false when it cannot open now (paused, run ending,
@@ -590,6 +599,8 @@ func _build_ui_windows() -> void:
 	ui_windows = WindowStack.new()
 	ui_layer.add_child(ui_windows)
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
+	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
+		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
 	ui_windows.changed.connect(_on_ui_windows_changed)
 	hud.menu_button.pressed.connect(toggle_menu)
 

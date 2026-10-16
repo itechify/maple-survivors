@@ -36,7 +36,7 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
-| Skill window | K (the window itself lands with #86) |
+| Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
 | Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
 | Pause | Esc (closes the front window first; pauses only when none is open) |
 
@@ -51,6 +51,16 @@ stack (a click brings one to the front). The run is paused while any is open, as
 also open over a level-up, job or advancement choice; they draw above it, and the choice ignores input until they are
 closed. The Stat window is the v83 one (`UIWindow.img/Stat` with its detail panel), read-only: AP is spent
 automatically, so there are no +AP buttons, and stats the game does not model (guild, fame, hands) show "-".
+
+The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
+job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
+every skill of that job a card can offer, by skill id: icon, name and level / max, unlearned skills greyed at 0 / max.
+A last tab with a star lists the job-neutral cards taken (Magnet, potion tiers, later Fortune) with their rank; the
+one-off Elixir is not listed. Hovering a row, or selecting it with the keyboard, shows a v83-style tooltip: icon, name,
+the SkillText desc, the current and next level lines (effective values), cooldown and MP cost (none for passives),
+and an orange "Upgrades" list of the behaviour cards taken for the skill with their steps ("Twin Claw ×2: +2
+targets"). The cooldown is the one the auto-cast uses: a buff's is the longer of its duration and its canonical
+cooldown.
 
 ## 3. Movement (MapleStory physics)
 
@@ -2008,7 +2018,7 @@ skill's v83 `String.wz/Skill.img` `desc` and its line for a level (`hN`, named b
 override in `skills.json` (`text.desc`, `text.h`) replaces either one where this game behaves differently. A level-line
 override is a template filled from the skill's **effective** stats (`Loadout.stats(key, rank)`, so behaviour cards
 count: a +2 targets card on Thunder Bolt makes the line say 8), then the canonical fields of that level. The level-up
-window uses it now; the Skill window tooltips (#86) reuse it.
+window and the Skill window tooltips (#86) use it.
 
 - **Learn card:** the skill's desc and the line of its starting level (level 1 for Normal, higher for rarer tiers);
   the line is never shortened.
@@ -2272,6 +2282,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | In-run windows (#85) | stacked above the modal windows (CanvasLayer 11); 20 px title strip drags; 40 px of a window always stay in the view; first open centred above the status bar, then reopened where it was dragged; sim held while any is open | C | ours |
 | Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
+| Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText, LevelUpWindow.dress |
