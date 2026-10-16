@@ -40,7 +40,7 @@ func test_manual_horizontal_cast_pays_once_and_emits_both_positions() -> void:
 	assert_eq(phases, [["departure", Vector2(400, 0)], ["arrival", Vector2(530, 0)]])
 
 
-func test_key_binding_and_hud_affordability_follow_mp() -> void:
+func test_key_binding_and_hud_mp_wait_and_cooldown_follow_the_world() -> void:
 	var key := InputEventKey.new()
 	key.physical_keycode = KEY_X
 	key.pressed = true
@@ -49,12 +49,19 @@ func test_key_binding_and_hud_affordability_follow_mp() -> void:
 	scene.world = _world()
 	var row: Dictionary = scene.run_info().skills.back()
 	assert_eq(row.key_label, "X")
-	assert_true(row.affordable)
+	assert_false(row.mp_short)
+	assert_eq(row.cooldown_left, 0.0)
 	scene.world.spend_mp(int(scene.world.player_state.mp))
 	row = scene.run_info().skills.back()
-	assert_false(row.affordable)
+	assert_true(row.mp_short, "ready but unaffordable: the HUD's blue waiting-for-MP tint")
 	scene.world.heal_fraction("mp", 1)
-	assert_true(scene.run_info().skills.back().affordable)
+	assert_false(scene.run_info().skills.back().mp_short)
+	var input := MoveInput.new()
+	input.teleport_pressed = true
+	scene.world.step(DT, input)
+	row = scene.run_info().skills.back()
+	assert_near(row.cooldown_left, 0.3, 1e-6, "the HUD reads Teleport's repeat timer")
+	assert_near(row.cooldown_total, 0.3, 1e-6)
 	scene.free()
 
 

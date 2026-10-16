@@ -1343,7 +1343,8 @@ func run_time() -> float:
 	return snappedf(world.time, 0.001)
 
 
-## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with ranks.
+## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with ranks, cooldown
+## left/total and whether each is waiting for MP.
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
@@ -1354,8 +1355,10 @@ func run_info() -> Dictionary:
 				if binding is InputEventKey:
 					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
 					break
+		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
-			"key_label": label, "affordable": world.teleport_affordable() if manual else true})
+			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
+			"mp_short": bool(ready.mp_short)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills}
