@@ -282,7 +282,7 @@ func test_boss_slam_events_play_canonical_effect_and_sound() -> void:
 	var sounds := int(scene.counters.sounds)
 	var effects := scene.fx.active_count()
 	scene.handle_events([{"type": "boss_attack", "phase": "start", "boss_index": 1,
-		"sound": "Sound.wz/Mob.img/6130101/Attack1"},
+		"sound": "Sound.wz/Mob.img/6130101/Attack1", "attack": "attack1", "time": 0.0, "impact_time": 1.05},
 		{"type": "boss_attack", "phase": "effect", "boss_index": 1,
 		"effect": effect, "pos": pos, "facing": -1}])
 	assert_eq(scene.counters.sounds, sounds + 1)

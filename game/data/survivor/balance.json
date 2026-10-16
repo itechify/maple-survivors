@@ -2,7 +2,7 @@
 	"_doc": "Run-wide survivor tuning (docs/GAME_DESIGN.md sections 5, 6; docs/ARCHITECTURE.md 4.4.4). Everything here is tier C (ours / emulator-like) unless a note says otherwise; canonical WZ numbers are never copied here except where noted as a survivor choice of equipment.",
 	"exp_curve": {"a": 4, "b": 15, "c": 3.8, "_formula": "Tier C: exp_to_next(L) = round(a + b*L + c*L^2): L1 23, L7 295, L9 447, L29 3635; 980 EXP to reach Lv8, 1794 to Lv10, 39150 to Lv30. Difficulty-overhaul candidate trained only on 1..60 and 2026; canonical EXP table unchanged."},
 	"mob_skills": {"_doc": "Tier C: enabled boss kits; slow x retains x percent of upgraded speed; defense x adds flat defense; heal restores the canonical x (y unused, no roll); 140 is timed self weapon immunity.", "enabled_ids": [2220000, 3220000, 9300003, 6220000], "summon_spacing": 24},
-	"mob_projectiles": {"radius": 8, "_tier": "tier C: swept body contact radius when the canonical ball has no lt/rb"},
+	"mob_projectiles": {"radius": 8, "default_speed": 320, "_tier": "tier C: swept body contact radius when the canonical ball has no lt/rb; 320 px/s fallback only when bulletSpeed is absent/nonpositive (Jr. Balrog). Authored positive bulletSpeed keeps its existing conversion."},
 	"exp_mult": 1.0,
 	"player": {
 		"_start": "Tier C: survivor starter stats, the v83 Beginner 50 HP / 5 MP and Three Snails rank 1 (owner: keep the v83 opening pool).",
