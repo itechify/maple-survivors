@@ -330,6 +330,28 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #84 Forking Storm regression smoke (2026-10-16)
+
+`ISOLATE=t84 bash scripts/balance.sh 1 2 2026`, both stages, `bot` and `random`, unforced branches, real cache,
+1,800 s cap, no PATCH or tuning. All 12 runs finish with no crashes, script errors or world warnings. Outcomes and
+end times match the #56 smoke and the post-Teleport-fix rows: no unforced run picks 220 (seed 1 goes 230, seeds
+2/2026 die before second job), so the unforced smoke cannot see the new card. Henesys reaches Magician and Mano
+in 3/3 per policy; Tree's early deaths are unchanged and record-only.
+
+| #84 stage / policy | Clear / dead / timeout | End seconds (seed order 1/2/2026; C = clear) | Magician / first-boss reaches |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8, 812.3, 322.7 | 3/3 / 3/3 |
+| Henesys random | 1 / 2 / 0 | C974.6, 714.8, 329.0 | 3/3 / 3/3 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+
+Supplementary Henesys `--branch=220` (same seeds, both policies), compared with the post-Teleport-fix 220 rows:
+bot 0/3 clears, 1079.7/812.3/322.7 s (before 1081.9/812.3/322.7), seed 1 took Forking Storm 3/3 steps and
+blinked 69 times (before 68); random 1/3 clears, C1003.0/714.8/329.0 (before C1003.4), seed 1 took 1 step.
+Only seed 1 reaches second job, so this is n=1 per policy and not balance evidence. No stop-and-ask gate. Raw
+records stay ignored under `_scratch/smoke84/`. Full isolated suite: **665 tests, 0 failed, 0 skipped, 72 files**;
+real-cache tests execute.
+
 #### #31 / #61 second-job QA (2026-10-15)
 
 Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
@@ -1699,7 +1721,7 @@ existing shots finish separately from carry-over projectile kills.
 | Teleport (2101002 / 2201002 / 2301001; `teleport_fp` / `teleport_il` / `teleport_cleric`) | F/P / I/L / Cleric | Manual X: arrow direction, otherwise facing. Horizontal blink lands on a floor up to canonical range, stopped by walls/map limits; vertical blink needs a floor strictly above/below within range. Ground/air allowed; climbing blocks it. Successful blinks pay canonical MP and emit fixed departure/arrival effects and Use sound. Hold repeats every 0.3 s (tier C); invalid destinations and short MP spend nothing. HUD shows X and dims when unaffordable. | ranks 1-20 = levels 1-20; `mpCon` 60 to 13, `range` 130 to 150 px (tier A, all three books) | branch-specific learn and rank cards only; no grant or slot cap |
 | MP Eater (2100000 / 2200000 / 2300000) | F/P Wizard / I/L Wizard / Cleric | Passive: each resolved magic hit may absorb canonical `x`% of the monster's max MP with canonical `prop`% chance; remaining monster MP and player Max MP cap the transfer | ranks 1–20 = levels 1–20, separate branch copies | learn/rank only |
 | Cold Beam (2201004) | I/L Wizard | Instant ice hit on the nearest target within 300 px every 1.25 s; canonical `mad`/`mastery`/`mpCon`; guaranteed freeze attempt for canonical `time` (1–2 s), rejected by bosses and ice-status immunity; real `effect` and `hit/0`, no `ball` | ranks 1–30 = levels 1–30 | learn/rank; Spreading Frost (+1 target, 3 steps), Quick Frost (cooldown ×0.88, 3 steps) |
-| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Quick Storm (cooldown ×0.88, 3 steps) |
+| Thunder Bolt (2201005) | I/L Wizard | Instant lightning hits when at least one monster intersects the canonical `lt`/`rb` box around the player's feet; up to canonical `mobCount` (6), nearest first, every 1.5 s; canonical damage/mastery/MP; real `effect` and `hit/0` | ranks 1–30 = levels 1–30 | learn/rank; Wider Storm (box offsets ×1.2, 3 steps), Forking Storm (+2 targets, 3 steps; tier C), Quick Storm (cooldown ×0.88, 3 steps) |
 
 MP Eater registers on the shared player-hit listener, after on-hit statuses and before lethal damage/kill handling.
 It reads the passive's current canonical level at impact; physical basic attacks, Three Snails, poison pulses and
@@ -1797,6 +1819,23 @@ Draw rules:
    and before → after Magic ATT, mastery percent, MP cost and fixed damage when those fields exist in the skill's
    WZ level data. These previews use canonical values without survivor modifiers (tier A); mastery is converted
    with the combat formula in section 6.1.
+
+**Hit-more-mobs rule (#84).** Every attack skill has at least one `skill_mod` card that raises how many monsters it
+can hit: more shots or targets (`count`) or `pierce`. This holds for future jobs too. Support and movement skills
+are exempt and listed by name in `test_data_files.gd` (`HIT_MORE_EXEMPT`): Heal, both Slows and the three Teleports.
+`test_every_attack_skill_has_a_hit_more_mobs_card` fails for any damaging or active skill that is neither covered
+nor exempt.
+
+| Skill | Hit-more-mobs card(s) |
+|---|---|
+| Three Snails | Additional Shell (`three_snails_count`), `three_snails_pierce` |
+| Energy Bolt | `energy_bolt_count`, `energy_bolt_pierce` |
+| Magic Claw | `magic_claw_targets` |
+| Fire Arrow | `fire_arrow_count`, `fire_arrow_pierce` |
+| Poison Breath | `poison_breath_pierce` |
+| Cold Beam | Spreading Frost (`cold_beam_targets`) |
+| Thunder Bolt | Forking Storm (`thunder_bolt_targets`): +2 targets per step, 3 steps (canonical `mobCount` 6 → 8 → 10 → 12), weight 2; tier C placeholder until the balance pass |
+| Holy Arrow | `holy_arrow_count`, `holy_arrow_pierce` |
 
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 
@@ -2045,6 +2084,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | I/L attacks (#56) | Cold Beam nearest-target auto-cast: 300 px, 1 target, 1.25 s cooldown; Thunder Bolt box auto-cast: at least 1 target, 1.5 s cooldown; both use swingO1 for 0.8 s | C | survivor skill definitions; v83 has no action node for either skill |
 | I/L canonical attack facts (#56) | ranks 1–30, elements i/l, mad/mastery/mpCon; Cold Beam x=-100/time=1–2 with no prop; Thunder Bolt mobCount=6 and lt/rb; effect/hit art and Use sounds, no ball | A | original v83 Skill.wz/220.img and Sound.wz/Skill.img/2201004–2201005, real-cache tests |
 | I/L cards (#56) | Cold Beam +1 target; Thunder Bolt box offsets ×1.2; both cooldown ×0.88; 3 modifier steps each; learn/rank/modifier weights 4/3/2, all power, exact job 220; shared rarity magnitudes | C | owner #31/#56 behaviour choices; existing count/area/cooldown and Potential seams |
+| Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
