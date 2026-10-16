@@ -33,7 +33,8 @@ extends Node2D
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
 ## options.character is a carried CharacterSnapshot Dictionary (Flow) or an absolute JSON path (--character).
-## Persistent round ends pass the boundary character to Flow; one-off rounds never persist.
+## Persistent clears pass the boundary character to Flow; deaths retain the last saved boundary for history.
+## One-off rounds never persist.
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
 signal run_finished(summary: Dictionary)

@@ -2407,7 +2407,7 @@ Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.de
 | Results skill grid (#32r) | C | 232px column above a 6px gap before NEW BEST; up to eight skills retain 58px named cells, larger loadouts use at least six columns and compact icons/ranks, scaling to the available 150px height |
 | Terminal death history (#32r) | C | Death requires no outgoing CharacterSnapshot; RunScene supplies none, so history retains the last saved boundary character's level/job. Results and the best-score record retain actual round-end summary stats; the slot is freed regardless of pending rewards/jobs/cards |
 | Keyboard focus | A/C | Login keyFocused pointer overlays normal button art (A: Login.img button canvases/origins); focus/activation retained, roster arrows consumed before Godot focus navigation (C integration). The compact period details variant has no extra class badge |
-| Shared notice / labels | A/C | Existing YesNo3 pieces and Basic OK/Cancel; 266px box, 20/17 text inset and grey button strip shared with PauseMenu. Survivor deletion wording, keyboard shortcuts, compact weapon description, and error ink153/34/0 are C |
+| Shared notice / labels | A (art/width), C (placement/copy) | YesNo3 pieces, Basic OK/Cancel and 266px canvas width are WZ data. Text inset(20,17), buttons 14px from right / 31px from bottom / 4px apart reuse survivor PauseMenu placement. Deletion wording, shortcuts, compact weapon description and error ink153/34/0 are C |
 
 Provenance follows AGENTS.md: A = verified in v83 data; B = third-party reverse engineering of an official
 client; C = reimplementation inference or our own tuning. A placement matched to a screenshot is C,

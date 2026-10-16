@@ -59,6 +59,7 @@ func handle_input(event: InputEvent) -> bool:
 func _layout_children() -> void:
 	if _cancel == null:
 		return
+	# tier C: survivor notice button placement shared with PauseMenu (14px right, 31px bottom, 4px gap).
 	_cancel.position = Vector2(WIDTH - 14 - _cancel.size.x, panel_size.y - 31)
 	_ok.position = _cancel.position - Vector2(_ok.size.x + 4, 0)
 
