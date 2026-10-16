@@ -10,6 +10,8 @@ extends Node2D
 ##   levelup_tiers   Normal / Rare / Epic previews from the real upgrade pool
 ##   levelup_high    Unique / Legendary rank and new-skill previews; --bonus shows the boss-reward heading
 ##   levelup_dense   the longest current rank previews (description prose compacts to fit; values stay visible)
+##   levelup_text    v83 skill text on a learn (Nimble Feet), a rank (Recovery) and a mod card (Additional Shell)
+##   levelup_text_mage  the same for Magic Guard (learn), Energy Bolt 4 -> 5 (rank) and Twin Claw 2 -> 3 (mod)
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
@@ -173,7 +175,8 @@ func _show_window(which: String) -> void:
 	layer.layer = 10
 	add_child(layer)
 	match which:
-		"levelup", "levelup_missing", "levelup_rank", "levelup_tiers", "levelup_high", "levelup_dense":
+		"levelup", "levelup_missing", "levelup_rank", "levelup_tiers", "levelup_high", "levelup_dense", \
+				"levelup_text", "levelup_text_mage":
 			var w := LevelUpWindow.new()
 			layer.add_child(w)
 			var cards: Array = SAMPLE_CARDS
@@ -183,6 +186,8 @@ func _show_window(which: String) -> void:
 				cards = _rank_cards()
 			elif which in ["levelup_tiers", "levelup_high", "levelup_dense"]:
 				cards = _tier_cards(which)
+			elif which.begins_with("levelup_text"):
+				cards = _text_cards(which == "levelup_text_mage")
 			w.open(cards, 8, args.has("bonus"))
 			w.card_chosen.connect(func(id: String) -> void: print("ui_gallery: card_chosen ", id))
 			window = w
@@ -232,6 +237,35 @@ func _rank_cards() -> Array:
 		world.loadout.set_rank(skill, 4 if skill == "energy_bolt" else 1)
 	return [world.upgrades.choice_card("energy_bolt_rank", world),
 		world.upgrades.choice_card("nimble_feet_rank", world), world.upgrades.choice_card("improved_max_mp_rank", world)]
+
+
+## A learn, a rank and a mod card from the real upgrade pool, dressed with the real v83 skill text exactly as RunScene
+## dresses them (LevelUpWindow.dress with a SkillText over String.wz/Skill.img).
+func _text_cards(mage: bool) -> Array:
+	var imgs := {}
+	var lib := UiArt.lib()
+	if lib != null:
+		for book: String in ["000", "200"]:
+			var img := lib.img(DataRepo.skill_img_path(book))
+			if img != null:
+				imgs[book] = img.root
+	var world := RunWorld.new({"data": DataRepo.load_all(), "skill_imgs": imgs, "seed": 14})
+	var offers := [["nimble_feet", "normal"], ["recovery_rank", "rare"], ["three_snails_count", "normal"]]
+	world.loadout.add_skill("recovery")
+	if mage:
+		world.change_job(200)
+		for skill: String in ["energy_bolt", "magic_claw"]:
+			world.loadout.add_skill(skill)
+		world.loadout.set_rank("energy_bolt", 4)
+		world.loadout.add_skill_mod("magic_claw", "count", "add", 1.0)
+		offers = [["magic_guard_new", "normal"], ["energy_bolt_rank", "normal"], ["magic_claw_targets", "normal"]]
+	var cards: Array = []
+	for offer: Array in offers:
+		cards.append(world.upgrades.choice_card(String(offer[0]), world, String(offer[1])))
+	var text := SkillText.new(world.book, lib.find("String.wz/Skill.img") if lib != null else {})
+	cards = LevelUpWindow.dress(cards, text, world.loadout)
+	print("ui_gallery: dressed cards ", JSON.stringify(cards))
+	return cards
 
 
 func _tier_cards(which: String) -> Array:

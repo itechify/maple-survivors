@@ -273,6 +273,35 @@ func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
 	assert_eq(w.upgrades.choice_card("magnet", w).skill_changes, {}, "stat cards have no canonical skill values")
 
 
+func test_mod_cards_preview_the_effective_stat_they_change() -> void:
+	var w := RF.quiet_world()
+	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_mod_changes, {"shots": {"before": 1, "after": 2}},
+		"a projectile skill's count is its shells")
+	assert_eq(w.upgrades.choice_card("three_snails_cooldown", w).skill_mod_changes,
+		{"cooldown": {"before": 1.1, "after": 0.97}}, "1.1 s x0.88, to two decimals")
+	w.upgrades.apply("three_snails_pierce", w)
+	assert_eq(w.upgrades.choice_card("three_snails_pierce", w, "rare").skill_mod_changes,
+		{"pierce": {"before": 1, "after": 3}}, "a Rare pick shows both of its steps on top of the one taken")
+	assert_eq(w.upgrades.choice_card("magnet", w).skill_mod_changes, {}, "stat cards change no skill")
+	assert_eq(w.upgrades.choice_card("nimble_feet", w).skill_mod_changes, {}, "learn cards have no modifier preview")
+	RF.change_job_bare(w, 200)
+	w.upgrades.apply("magic_claw_new", w)
+	w.upgrades.apply("energy_bolt_new", w)
+	assert_eq(w.upgrades.choice_card("magic_claw_targets", w).skill_mod_changes, {"targets": {"before": 1, "after": 2}},
+		"a nearest instant skill's count is its targets")
+	assert_eq(w.upgrades.choice_card("energy_bolt_damage", w, "rare").skill_mod_changes,
+		{"damage": {"before": 100, "after": 144}}, "damage x1.2 twice, in percent")
+	assert_eq(w.loadout.skill_mods.get("energy_bolt", {}), {}, "previewing changes nothing")
+	RF.change_job_bare(w, 220)
+	w.upgrades.apply("thunder_bolt_new", w)
+	assert_eq(w.upgrades.choice_card("thunder_bolt_area", w).skill_mod_changes, {"area": {"before": 100, "after": 120}},
+		"reach in percent of the canonical box")
+	var pool := UpgradePool.from_data({"cards": [{"id": "storm_targets", "kind": "skill_mod", "skill": "thunder_bolt",
+		"max_rank": 3, "effects": [{"stat": "count", "op": "add", "value": 2}]}]})
+	assert_eq(pool.choice_card("storm_targets", w).skill_mod_changes, {"targets": {"before": 6, "after": 8}},
+		"a box skill's targets are its canonical mobCount plus cards")
+
+
 func test_real_stat_replacement_rank_previews_and_skill_caps() -> void:
 	var w := RF.quiet_world(400, 41)
 	w.upgrades.apply("nimble_feet", w)

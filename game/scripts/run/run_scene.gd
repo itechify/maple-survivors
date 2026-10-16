@@ -118,6 +118,9 @@ var map_id := 0
 var setup_missing := PackedStringArray()
 ## Why the run could not start ("" when it did).
 var error := ""
+## Player-visible skill text (String.wz/Skill.img with the survivor overrides) for the level-up cards and the skill
+## windows: text.desc(key), text.level_line(key, level, world.loadout.stats(key, rank)).
+var skill_text: SkillText
 
 ## Presentation nodes.
 var world_root: Node2D
@@ -269,6 +272,7 @@ func _ready() -> void:
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
 	world = RunWorld.new(setup)
+	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
 		push_warning("RunScene: " + w)
 	var warp := float(options.get("warp", 0.0))
@@ -1042,7 +1046,8 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level, bool(req.get("bonus", false)), bool(req.get("advancement", false)))
+			lw.open(LevelUpWindow.dress(req.cards, skill_text, world.loadout), level, bool(req.get("bonus", false)),
+				bool(req.get("advancement", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
