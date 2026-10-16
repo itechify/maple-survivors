@@ -166,24 +166,20 @@ summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, wit
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
 
-`--tier=2` enables a headless round chain: `--stage=<tier-1 key>` chooses the first round (Henesys by default),
-then a CLEARED character feeds the first stage of tier 2 from `stages.json` `tiers`. `--tier=N` continues through
-N; death or TIMEOUT stops the chain. Tier 1 keeps the run seed; later round seeds are Godot's deterministic
-`hash("balance-round-<run seed>-<zero-based tier>")`, independent of earlier RNG consumption. Each round uses
-`RunWorld` and `CharacterSnapshot` directly, with fresh HP/MP and transient state; no menu or saves are involved.
-Chain JSON/log names are `<tier-1 stage>_chain_tier<N>_<policy>_<seed>`, and each JSON retains `rounds[]` with
-stage, tier, round seed, `start_character`, outcome and all existing measurements. `character` holds the outgoing
-snapshot only for CLEARED rounds. `missing` is the validated setup's missing-asset list (empty on success), not a
-rendering lookup trace. Tier summaries expose starts/clears, start/end levels, Lv70 reach, deaths and boss fights;
-the tier-1 feed count makes the conditional tier-2 sample explicit. Unstarted rounds never count as deaths.
+`--tier=2` chains a tier-1 clear into tier 2 headless; `--stage=<tier-1 key>` selects the first round (default
+Henesys). `--tier=N` continues through N, choosing the first stage of each later `stages.json` `tiers` entry.
+Only CLEARED after all choices feeds the next round; death/TIMEOUT stops the chain. `--cap` applies per round.
+Tier 1 keeps the run seed; later round seeds are derived deterministically. Chain files use
+`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include start/end levels,
+Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss observations. See the
+`scripts/balance.sh` header for the seed formula and record/report contract.
 
-`--character=<absolute JSON path>` starts a single one-off round from a snapshot, including its job, ordered
-skills/mods and potion stock. The existing `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually
-Lv38 F/P (job210), generated from a real seed-1 forced-F/P Henesys bot clear, with provenance in `_doc`; see
-`tools/character_fixture.gd`. It works with `--stage=dark_cave`. Do not combine `--character` or camper policies
-with `--tier`. Example: `ISOLATE=t74 bash scripts/balance.sh 1 2 2026 --tier=2 --policy=random`.
-Spec #32 regression smokes also cover chain and Dark Cave fixture modes on seeds 1/2/2026, bot/random;
-first-pass Dark Cave deaths before Jr. Balrog are record-only, with tuning reserved for #77.
+`--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
+`--stage=dark_cave` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
+F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
+`tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
+use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture
+modes on seeds 1/2/2026, bot/random. Record first-pass Dark Cave deaths; tuning belongs to #77.
 
 ## Git
 
