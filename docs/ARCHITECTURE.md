@@ -474,13 +474,6 @@ What the tables above leave open; the class doc comments have the rest.
   global; fixed boss bundles bypass both curves. An absent curve preserves the seeded ordinary drop sequence.
   `potions.collected` and `potions.used` feed per-kind balance/perf records. The HUD quickslot draws the stock snapshot's
   current canonical item icons, counts and keys.
-- **Stage EXP pacing:** optional keyframe `exp_mult` values override the stage-wide `exp_mult` at kill time for
-  ordinary and elite mobs. Missing endpoints use the stage-wide value (default 1); each endpoint clamps to zero
-  or above before linear interpolation, and the nearest endpoint holds outside the frame range without the
-  post-duration spawn ramp. `SpawnDirector.exp_mult_at(t)` owns this tier C curve. `RunWorld` multiplies the
-  canonical mob EXP by the global balance multiplier, this stage value and, for elites, the existing elite factor,
-  then rounds once. Scheduled bosses retain only their independent `rewards.exp_mult` and reward shower.
-  The absent field preserves existing stages; late progression can be calibrated without delaying the v83 opening.
 - **Player-platform placement:** `SpawnDirector.pick_player_platform(world, min_distance := -1,
   preferred_distance := -1, allow_visible := false, side := 0) -> Vector3` returns (x, y, foothold), or z=-2 when no
   point is possible. It samples the current platform while avoiding walls and nearby points; normal placement is

@@ -929,7 +929,7 @@ func _on_kill(m: int) -> void:
 	if mob_boss[m] >= 0:
 		_on_boss_kill(m, mk, pos, elite)
 		return
-	var mult := float(balance.get("exp_mult", 1.0)) * director.exp_mult_at(time)
+	var mult := float(balance.get("exp_mult", 1.0)) * float(stage.get("exp_mult", 1.0))
 	if elite:
 		mult *= float(stage.get("elites", {}).get("exp_mult", 5.0))
 	var e := roundi(mk.exp * mult)

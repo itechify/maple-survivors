@@ -11,7 +11,6 @@ extends RefCounted
 ## the rate/max_alive/hp/speed keyframe slopes, the burst size and the elite frequency keep growing at that pace
 ## after the last keyframe until the clear (value_at, burst_count_at, elite_interval_at).
 ## Optional ordinary HP/MP drop chances interpolate separately, with global per-kind fallback and endpoint holding.
-## Optional exp_mult endpoints use the stage multiplier as fallback and hold outside the frame range.
 ##
 ## Positions (tier C): a random point on a floor outside the view grown by `margin` px, inside the map bounds and at
 ## least `min_player_dist` from the player, searched in three rings: within `band` px of the view (with `band_y` >= 0
@@ -136,8 +135,6 @@ static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Di
 			d.keyframes.back()["normal_hp_drop_chance"] = float(kf.normal_hp_drop_chance)
 		if kf.has("normal_mp_drop_chance"):
 			d.keyframes.back()["normal_mp_drop_chance"] = float(kf.normal_mp_drop_chance)
-		if kf.has("exp_mult"):
-			d.keyframes.back()["exp_mult"] = float(kf.exp_mult)
 	d.keyframes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.t < b.t)
 	var bu: Dictionary = p_stage.get("bursts", {})
 	if not bu.is_empty() and float(bu.get("every", 0.0)) > 0.0:
@@ -180,31 +177,25 @@ func rate_at(t: float) -> float:
 ## Ordinary HP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
 ## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
 func normal_hp_drop_chance_at(t: float, fallback: float) -> float:
-	return _held_curve_at("normal_hp_drop_chance", t, fallback, 1.0)
+	return _probability_curve_at("normal_hp_drop_chance", t, fallback)
 
 
 ## Ordinary MP potion chance: optional stage endpoints interpolate, missing endpoints use the global fallback.
 ## tier C: survivor supply tuning; probabilities clamp to [0, 1] and hold after the last frame, without spawn ramping.
 func normal_mp_drop_chance_at(t: float, fallback: float) -> float:
-	return _held_curve_at("normal_mp_drop_chance", t, fallback, 1.0)
+	return _probability_curve_at("normal_mp_drop_chance", t, fallback)
 
 
-## Ordinary/elite EXP multiplier: missing endpoints use stage.exp_mult, independently of boss rewards.
-## tier C: survivor progression tuning; nonnegative endpoints interpolate and hold without the spawn ramp.
-func exp_mult_at(t: float) -> float:
-	return _held_curve_at("exp_mult", t, float(stage.get("exp_mult", 1.0)), INF)
-
-
-func _held_curve_at(field: String, t: float, fallback: float, maximum: float) -> float:
+func _probability_curve_at(field: String, t: float, fallback: float) -> float:
 	if keyframes.is_empty():
-		return clampf(fallback, 0.0, maximum)
+		return clampf(fallback, 0.0, 1.0)
 	var a: Dictionary = keyframes[0]
-	var value := clampf(float(a.get(field, fallback)), 0.0, maximum)
+	var value := clampf(float(a.get(field, fallback)), 0.0, 1.0)
 	if t <= float(a.t):
 		return value
 	for k in range(1, keyframes.size()):
 		var b: Dictionary = keyframes[k]
-		var next := clampf(float(b.get(field, fallback)), 0.0, maximum)
+		var next := clampf(float(b.get(field, fallback)), 0.0, 1.0)
 		if t <= float(b.t):
 			var span := float(b.t) - float(a.t)
 			return lerpf(value, next, (t - float(a.t)) / span if span > 0.0 else 1.0)
