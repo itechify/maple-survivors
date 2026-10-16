@@ -317,6 +317,27 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #84 Forking Storm regression smoke (2026-10-16)
+
+`ISOLATE=t84 bash scripts/balance.sh 1 2 2026`, both stages, `bot` and `random`, unforced branches, real cache,
+1,800 s cap, no PATCH or tuning. All 12 runs finish with no crashes, script errors or world warnings. Outcomes and
+end times match the #56 smoke and the post-Teleport-fix rows: no unforced run picks 220 (seed 1 goes 230, seeds
+2/2026 die before second job), so the unforced smoke cannot see the new card. Henesys reaches Magician and Mano
+in 3/3 per policy; Tree's early deaths are unchanged and record-only.
+
+| #84 stage / policy | Clear / dead / timeout | End seconds (seed order 1/2/2026; C = clear) | Magician / first-boss reaches |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8, 812.3, 322.7 | 3/3 / 3/3 |
+| Henesys random | 1 / 2 / 0 | C974.6, 714.8, 329.0 | 3/3 / 3/3 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+
+Supplementary Henesys `--branch=220` (same seeds, both policies), compared with the post-Teleport-fix 220 rows:
+bot 0/3 clears, 1079.7/812.3/322.7 s (before 1081.9/812.3/322.7), seed 1 took Forking Storm 3/3 steps and
+blinked 69 times (before 68); random 1/3 clears, C1003.0/714.8/329.0 (before C1003.4), seed 1 took 1 step.
+Only seed 1 reaches second job, so this is n=1 per policy and not balance evidence. No stop-and-ask gate. Raw
+records stay ignored under `_scratch/smoke84/`.
+
 #### #31 / #61 second-job QA (2026-10-15)
 
 Report only on integration `34c04e1`: `ISOLATE=t61 bash scripts/balance.sh 1 2 2026`, forced branches
