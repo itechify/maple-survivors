@@ -48,9 +48,10 @@ func test_stage_select_ignores_retired_save_records() -> void:
 	assert_eq(int(s.best_for("henesys_hg1").kills), 400, "playable best remains")
 	assert_eq(s.runs_for("henesys_hg1"), 1)
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered.size(), 2)
+	assert_eq(offered.size(), 3)
 	assert_eq(String(offered[0].key), "henesys_hg1")
 	assert_eq(String(offered[1].key), "tree_that_grew_1")
+	assert_eq(String(offered[2].key), "dark_cave")
 	assert_eq(STAGE_SELECT.best_text(s.best_for(String(offered[0].key))),
 		"Best: Survived 05:00, Lv. 12, 400 kills")
 
