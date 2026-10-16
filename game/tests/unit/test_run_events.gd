@@ -10,7 +10,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit"]
+const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status"]
 
 
 
@@ -242,6 +242,14 @@ func test_every_event_matches_the_schema() -> void:
 		recovery.step(DT, MoveInput.new())
 	for e: Dictionary in recovery.drain_events():
 		_check(e, seen)
+	var statuses := RF.quiet_world()
+	var affected := RF.put_mob(statuses, 1110100, 700)
+	for status: String in MobSwarm.STATUS_NAMES:
+		statuses.swarm.apply_status(affected, status, {"x": -40, "level": 30, "time": 1}, statuses.events)
+	for tick in 60:
+		statuses.step(DT, MoveInput.new())
+	for event: Dictionary in statuses.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

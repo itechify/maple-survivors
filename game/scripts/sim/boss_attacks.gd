@@ -25,7 +25,7 @@ func step(world: RunWorld) -> void:
 		var record: Dictionary = bosses.records[index]
 		var slot := int(record.slot)
 		if world.state != RunWorld.PLAYING or _pending.has(index) or not bosses.can_act(index, now) \
-				or not swarm.is_settled(slot) or swarm.fh[slot] < 0:
+				or not swarm.can_act(slot) or swarm.fh[slot] < 0:
 			continue
 		var entry: Dictionary = bosses.entries[index]
 		var id := int(record.mob_id)
