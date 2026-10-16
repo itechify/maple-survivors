@@ -38,13 +38,23 @@ Runs are independent: level, job and skills reset every run. Persistent progress
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (the window itself lands with #86) |
 | Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
-| Pause | Esc (closes the front window first; pauses only when none is open) |
+| Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit to stage select |
+| Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
 There is no attack key: attacks cast automatically. Teleport is manual on X.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
 opening Stat until it is rebound). The Options window (#87) exposes the toggle.
+
+Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
+it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
+Teleport, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+the keyboard, or selecting a key and pressing Delete, unbinds it. Default puts every action back on its default keys
+(less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies at once,
+Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX volume
+(sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD key
+label (potion quickslots, Teleport) shows the current binding.
 
 In-run windows (Stat, the Menu popup, later Skill / Key Config / Options) are draggable by their title bar and
 stack (a click brings one to the front). The run is paused while any is open, as with the pause menu. Stat and Skill
@@ -2235,6 +2245,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill; fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText, LevelUpWindow.dress |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |

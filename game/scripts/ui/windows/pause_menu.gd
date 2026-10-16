@@ -4,13 +4,16 @@ extends MapleWindow
 ## option list (`dot0` bullets, `dot1` and yellow on the focused one) and the orange OK / CANCEL buttons
 ## (Basic.img/BtOK2, BtCancel2) in its grey strip: OK takes the focused choice, CANCEL resumes.
 ##
-## Keys: Esc (the "pause" action) or 1 resumes, 2 quits, Up/Down + Enter. `resumed` / `quit_requested` are emitted
-## at once (the window then fades out).
+## Choices: 1 Resume, 2 Key Config, 3 Options, 4 Quit to stage select. Keys: Esc (the "pause" action) resumes, the
+## digits take a choice, Up/Down + Enter. `resumed` / `quit_requested` are emitted at once (the window then fades out);
+## Key Config and Options emit `window_requested(id)` (a WindowStack id) and the menu stays open under that window.
 
 ## Emitted when the player resumes the run.
 signal resumed()
 ## Emitted when the player quits to the stage select.
 signal quit_requested()
+## Emitted when the player picks Key Config ("key_config") or Options ("options"); the menu stays open.
+signal window_requested(id: String)
 
 const BOX := "UI.wz/Basic.img/YesNo3/"
 const BOX_W := 266.0
@@ -22,9 +25,11 @@ const TEXT_X := 20.0
 const TEXT_Y := 17.0
 const BUTTON_DY := 24.0
 const OPTION_H := 17.0
-const CHOICES := ["Resume", "Quit to stage select"]
+const CHOICES := ["Resume", "Key Config", "Options", "Quit to stage select"]
+## WindowStack ids of the choices that open an in-run window (index -> id).
+const WINDOW_CHOICES := {1: "key_config", 2: "options"}
 
-## Focused choice: 0 resume, 1 quit.
+## Focused choice (CHOICES index).
 var focus := 0
 
 var _bt_ok: WzButton
@@ -57,13 +62,16 @@ func open() -> void:
 	_show_window()
 
 
-## Takes choice `i` (0 resume, 1 quit); `click` plays the UI click (the WzButtons play their own). False when
-## closed or out of range.
+## Takes choice `i` (CHOICES); `click` plays the UI click (the WzButtons play their own). False when closed or out
+## of range.
 func activate(i: int, click: bool = true) -> bool:
 	if not _open or i < 0 or i >= CHOICES.size():
 		return false
 	if click:
 		UiArt.play_sound(UiArt.SND_CLICK)
+	if WINDOW_CHOICES.has(i):
+		window_requested.emit(String(WINDOW_CHOICES[i]))
+		return true
 	_hide_window()
 	if i == 0:
 		resumed.emit()

@@ -10,7 +10,7 @@ extends Node
 ##           movement computed by BotInput.decide and sent as key presses -> level-up windows answered with the mouse
 ##           (first) and the digit keys (BotInput.pick_card_for's card) -> the job dialog (Magician by digit key, then
 ##           a key to skip the confirmation) -> Esc pause menu, Esc resume -> hands off the keys at --stop-at run s until
-##           the character dies -> tombstone -> results -> Retry (mouse) -> a new run -> Esc, "2" (quit to stage
+##           the character dies -> tombstone -> results -> Retry (mouse) -> a new run -> Esc, "4" (quit to stage
 ##           select) -> Esc (back to the title) -> Esc (quit).
 ##           The bot's HP/MP potion decisions are injected as Q/E presses alongside movement.
 ##   clear   for a main.tscn started with --run=<stage> --autoplay --autopick --speed=N (no --quit-after): waits for the
@@ -186,7 +186,7 @@ func _scenario_full() -> void:
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
 	await _shot("retry_pause")
-	await _key(KEY_2)
+	await _key(KEY_4)
 	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select (quit)"):
 		return
 	await _sleep(3.0)
