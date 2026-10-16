@@ -1,6 +1,9 @@
 extends TestCase
 ## SkillText: the one source of player-visible skill text (v83 String.wz desc / hN lines, survivor overrides filled
-## from effective stats) and the MapleText markup it is drawn with. String.wz data here is synthetic.
+## from effective stats), the level-up cards dressed with it, and the MapleText markup it is drawn with. String.wz data
+## here is synthetic.
+
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 ## Synthetic String.wz/Skill.img entries, written the way the cache stores them: literal "\n" / "\r\n" escapes.
 const STRINGS := {
@@ -71,6 +74,30 @@ func test_an_override_replaces_the_wz_text_and_fills_effective_stats() -> void:
 	assert_eq(text.level_line("thunder_bolt", 1, lo.stats("thunder_bolt")),
 		"MP -20; Basic attack 2, mastery 15%, up to 8 monsters", "a +2 targets card shows as 8")
 	assert_eq(text.desc("energy_bolt"), "Use MP to attack one enemy.", "skills without an override keep WZ text")
+
+
+func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	var text := SkillText.new(w.book, {"2001002": {"desc": "[Master Level : 20]\\nPays damage with MP.",
+		"h1": "MP -6; replace 11%", "h2": "MP -6; replace 14%"}})
+	var learn := w.upgrades.choice_card("magic_guard_new", w)
+	var mod := w.upgrades.choice_card("three_snails_count", w)
+	var magnet := w.upgrades.choice_card("magnet", w)
+	var cards := LevelUpWindow.dress([learn, mod, magnet], text, w.loadout)
+	assert_eq([cards[0].desc, cards[0].detail], ["Pays damage with MP.", "MP -6; replace 11%"],
+		"a learn card: the skill's desc and its level-1 line")
+	assert_eq(LevelUpWindow.dress([w.upgrades.choice_card("magic_guard_new", w, "rare")], text, w.loadout)[0].detail,
+		"MP -6; replace 14%", "a Rare learn starts at level 2 and shows that line")
+	assert_eq(cards[1].desc, mod.desc, "a mod card keeps its own effect text")
+	assert_has(LevelUpWindow.change_lines(cards[1]), "Shots: 1 → 2", "with the number it changes")
+	assert_eq(cards[2], magnet, "cards without a skill are left alone")
+	w.upgrades.apply("magic_guard_new", w)
+	var rank: Dictionary = LevelUpWindow.dress([w.upgrades.choice_card("magic_guard_rank", w)], text, w.loadout)[0]
+	assert_eq(rank.desc, "MP -6; replace 14%", "a rank card: the next level's line")
+	assert_false(LevelUpWindow.change_lines(rank).is_empty(), "above its before -> after values")
+	var bare: Dictionary = LevelUpWindow.dress([learn], SkillText.new(w.book, {}), w.loadout)[0]
+	assert_eq([bare.desc, String(bare.get("detail", ""))], [learn.desc, ""], "without strings the card data text stays")
 
 
 func test_markup_draws_orange_runs_and_never_a_raw_hash() -> void:
