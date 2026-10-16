@@ -320,7 +320,7 @@ guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the han
 #### #80 level-up MP refill / normal MP drop regression smoke (2026-10-16)
 
 `ISOLATE=t80after bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
-real cache, unforced branches, 1,800 s cap. Before = the same head with `PATCH` restoring `level_up_refill`
+real cache, unforced branches, 1,800 s cap, game code and data at `bee5ad8`. Before = the same head with `PATCH` restoring `level_up_refill`
 {hp 0, mp 0} and global normal MP 0.1, which behaves like base `bf26c5d` (it reproduces the earlier records'
 812.3 / 322.7 / 714.8 / 329.0 s deaths). No tuning, no held-out seeds. All 24 runs finish with no crashes, script
 errors or world warnings; every clear has all three scheduled bosses dead, and none is untouched. **Henesys's own
@@ -334,7 +334,7 @@ level-up refill alone; Tree has no MP curve and gets both changes. Raw records: 
 | Tree bot | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 712.2/664.7/128.3 | 7/0 -> 235/216 | 4/19 -> 53/68 | 99.0 -> 111.2 |
 | Tree random | 0/3 -> 0/3 | 141.9/141.0/77.4 -> 647.6/177.2/88.4 | 7/0 -> 146/89 | 4/19 -> 28/43 | 99.0 -> 97.0 |
 
-Henesys reaches Magician (268.6–287.0 s) and Mano in 3/3 per policy before and after; Mano now completes 3/3 per
+Henesys reaches Magician (before 263.2–283.2 s, after 268.6–287.0 s) and Mano in 3/3 per policy; Mano now completes 3/3 per
 policy (was 2/3). Seed 2026, which died at 5:22–5:29 just after Mano arrived, now lives to 11:39 (random) or clears
 (bot). MP-short time falls by half (bot) to three quarters (random); MP potions collected rise because runs last
 longer at the unchanged Henesys drop curve. Tree (record-only, awaiting the owner's rework) changes most: a full MP
