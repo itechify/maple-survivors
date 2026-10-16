@@ -341,6 +341,37 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #69 persistent-flow regression smoke (2026-10-16)
+
+Revision `babd8ec`, including integration `eca037d` (#67/#68/#72/#73); `ISOLATE=t69`, training seeds
+1/2/2026, both original stages and bot/random, 1800 s cap, default branches, no PATCH or tuning. Read #73's
+completed cache `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t73` without importing or writing it.
+All 12 finish without crashes, script errors or world warnings. Outcomes, times, levels and MP-wait means exactly
+match the #68 baseline below: all six Henesys runs reach Magician and spawn Mano; Tree remains record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+Ignored evidence: `evidence/t69/smoke/` holds exact console/SYSTEMS output, aggregate JSON and seed records.
+The real `full` flow driver (training seed 1, default x3, hands off at 330 s) passes creation, map select,
+Magician/cards, pause/resume, death (390.9 s, Lv15), results, confirmed Quit round, same-seed Continue, history
+and return to title, with `missing=[]`. Checked the screenshots under `evidence/t69/full_pass/` by eye, including
+the fully wrapped warning and the occupied slot after quitting. The driver fixes its diagnostic seed and forces
+screenshot draws so desktop occlusion cannot hang the capture; production map selection still randomizes its seed.
+The `clear` one-off scenario (seed 1, warp 900, x4) clears at 967.8 s / Lv41 Cleric and creates no driver save;
+checked `clear/01_clear_notice.png` and `02_results_clear.png`. The cache-less `import` screen probe passes without
+running an import. A local boundary presentation probe supplies completed summaries (not a two-round playtest),
+checking tier-2-only map select, victory with two tiers, delete confirmation and victory/deleted history under
+`evidence/t69/boundaries/`; its collected `missing=[]`. The full two-round scenario remains #75's work.
+After the integration merge, the full `ISOLATE=t69 bash scripts/test.sh` passes **707 tests, 0 failed, 0 skipped,
+78 files** (417.280 s), including every real-cache check. Log: `evidence/t69/full_suite.log`. Flow tests cover
+boundary carry/refill, death/victory/history, tier filtering, Save & quit, deletion, a real first-minute fixed-tick
+same-seed replay after Quit round, and save-byte preservation for fresh and supplied-character one-off rounds.
+
 #### #32 / #68 save-model regression smoke (2026-10-16)
 
 Revision `f55e89e`, based on integration `2b139cd`; `ISOLATE=t68`, training seeds 1/2/2026,
@@ -2099,6 +2130,18 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+The #69 flow uses the ordered `stages.json` tiers, with no hard-coded tier count (tier C, owner #32).
+Creation is a fresh Beginner from the simulation defaults. A boundary is saved at map select and, before a round,
+with its stage and seed; Quit round confirms that progress will be lost and preserves those bytes. Continue replays
+the round from its start. Death and final-tier victory end the run in history; other clears carry the character
+through the single `SceneFlow._after_round_cleared` seam. Tool-only `--run` rounds never write slots/history/bests.
+The temporary plain character screen uses a dark blue background (RGB 25/44/58), a 560 px column, 14 px row gaps,
+24 px headings and a 300 px history pane, three slot rows, name creation,
+continue, confirmed delete and a history entry point (tier C, #69; #70 replaces its presentation). Map select keeps
+the existing parchment, adds the character/tier heading at y=32 and labels Back as Save & quit (tier C, layout).
+The exact Quit round confirmation is owner #32 copy: "You'll lose this round's progress. Continue later to restart
+the round from its beginning." Victory results show the tiers cleared and return to character select (tier C).
 
 | Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
 |---|---|---|---|

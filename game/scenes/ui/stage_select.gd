@@ -7,7 +7,8 @@ extends Node2D
 ## name (String.wz/Map.img). Right column, for the selected stage: names, survival time, the best result from SaveData,
 ## and the survivor roster (each mob's Mob.wz stand/0 frame and String.wz name). Buttons: Start (Login.img/CharSelect/
 ## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book.
-## Keys: Up/Down select, Enter starts, Esc goes back to the title.
+## Keys: Up/Down select, Enter starts, Esc saves and returns to character select.
+## Flow supplies the snapshot and owner through configure(); only its next tier is displayed.
 
 const BT_START := "UI.wz/Login.img/CharSelect/BtSelect"
 const BT_BACK := "UI.wz/Login.img/Common/BtStart"
@@ -32,12 +33,23 @@ var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
 var start_button: WzButton
 var back_button: WzButton
+var character_label: Label
 ## Stage keys in file order and their info: key, map_id, name, street, mark, duration, objective and normal mobs.
 var stages: Array[Dictionary] = []
 ## Selected stage index.
 var selected := 0
 ## Best results (Flow's SaveData).
 var save: SaveData
+
+var snapshot: Dictionary = {}
+var flow: SceneFlow
+
+
+## Sets the carried character and owning flow before entering the tree.
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow) -> void:
+	snapshot = p_snapshot.duplicate(true)
+	flow = p_flow
+
 
 var _ui: Control
 var _mob_frames: Dictionary = {}
@@ -48,9 +60,10 @@ func _ready() -> void:
 	backdrop.bgm = LoginBackdrop.BGM_SELECT
 	add_child(backdrop)
 	backdrop.hide_objs("neoCity")
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
+	if flow == null:
+		flow = get_node_or_null("/root/Flow") as SceneFlow
 	save = flow.save_data() if flow != null else SaveData.new()
-	stages = load_stages(DataRepo.load_all())
+	stages = load_stages(DataRepo.load_all(), int(snapshot.get("tier", 0)))
 	var layer := CanvasLayer.new()
 	layer.layer = 2
 	add_child(layer)
@@ -71,21 +84,31 @@ func _ready() -> void:
 	start_button.pressed.connect(start_selected)
 	scroll.content.add_child(start_button)
 	back_button = WzButton.new(BT_BACK)
+	back_button.set_plate(124, 4)
 	back_button.name = "Back"
 	back_button.fallback_size = Vector2(124, 52)
-	back_button.label = "" if back_button.has_art() else "Back"
+	back_button.label = "Save & quit"
 	back_button.pressed.connect(_on_back)
 	_ui.add_child(back_button)
+	character_label = MapleText.new("Tier %d / %s / Lv. %d %s" % [int(snapshot.get("tier", 0)) + 1,
+		snapshot.get("name", ""), int(snapshot.get("character", {}).get("level", 1)),
+		JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(snapshot.get("character", {}).get("job_id", 0)))],
+		MapleText.SIZE, MapleText.WHITE, true)
+	_ui.add_child(character_label)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	scroll.unroll()
 
 
 ## Stage infos from the loaded data (DataRepo.load_all()) in stages.json order.
-static func load_stages(data: Dictionary) -> Array[Dictionary]:
+static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var all: Dictionary = data.get("stages", {}).get("stages", {})
-	for key: String in all:
+	var keys: Array = all.keys()
+	if tier >= 0:
+		var ordered: Array = data.get("stages", {}).get("tiers", [])
+		keys = ordered[tier] if tier < ordered.size() else []
+	for key: String in keys:
 		var st: Dictionary = all[key]
 		var map_id := int(st.get("map_id", 0))
 		var names := {}
@@ -120,9 +143,8 @@ static func load_stages(data: Dictionary) -> Array[Dictionary]:
 func start_selected() -> void:
 	if selected < 0 or selected >= stages.size():
 		return
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.start_run(String(stages[selected].key))
+		flow.start_round(String(stages[selected].key))
 
 
 ## Selects stage `i` (clamped).
@@ -137,9 +159,8 @@ func select(i: int) -> void:
 
 
 func _on_back() -> void:
-	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.goto_title()
+		flow.save_and_quit()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -192,6 +213,8 @@ func _layout() -> void:
 	var r := ParchmentScroll.PARCHMENT
 	start_button.position = Vector2(LIST_X + floorf((LIST_W - start_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
+	# tier C: #69 character/tier heading, above the existing parchment.
+	character_label.position = Vector2(floorf((view.x - character_label.get_minimum_size().x) * 0.5), 32)
 
 
 func _draw_parchment(ci: Control) -> void:

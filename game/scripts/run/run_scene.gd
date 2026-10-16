@@ -32,7 +32,8 @@ extends Node2D
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
-## Tool option character is an absolute JSON CharacterSnapshot path (--run=<stage> --character=<abs path>).
+## options.character is a carried CharacterSnapshot Dictionary (Flow) or an absolute JSON path (--character).
+## Persistent round ends pass the boundary character to Flow; one-off rounds never persist.
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
 signal run_finished(summary: Dictionary)
@@ -255,7 +256,14 @@ func _ready() -> void:
 		push_warning("RunScene: missing in the asset cache: " + m)
 	if options.has("character"):
 		var character_errors := PackedStringArray()
-		var character := DataRepo.load_character(String(options.character), character_errors)
+		var character: Dictionary
+		if options.character is Dictionary:
+			character = (options.character as Dictionary).duplicate(true)
+			var error := CharacterSnapshot.validation_error(character)
+			if not error.is_empty():
+				character_errors.append(error)
+		else:
+			character = DataRepo.load_character(String(options.character), character_errors)
 		if not character_errors.is_empty():
 			_fail("; ".join(character_errors))
 			return
@@ -1039,8 +1047,8 @@ func resume() -> void:
 func _on_quit_requested() -> void:
 	resume()
 	var flow := get_node_or_null("/root/Flow")
-	if flow != null and flow.has_method("goto_stage_select") and bool(options.get("use_flow", true)):
-		flow.call("goto_stage_select")
+	if flow != null and flow.has_method("quit_round") and bool(options.get("use_flow", true)):
+		flow.call("quit_round")
 	else:
 		_finish()
 
@@ -1305,7 +1313,7 @@ func _finish() -> void:
 		return
 	var flow := get_node_or_null("/root/Flow")
 	if flow != null and flow.has_method("finish_run") and bool(options.get("use_flow", true)):
-		flow.call("finish_run", summary)
+		flow.call("finish_run", summary, world.character_snapshot() if flow.active_slot >= 0 else {})
 
 
 ## Screenshots every shot_every s of run time; quit_after ends an automated run (summary.json, final shot, quit).
