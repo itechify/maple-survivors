@@ -166,8 +166,8 @@ implementations remain sibling work.
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
 time t by weight. Values interpolate linearly between keyframes. Henesys Hunting Ground I (104040000) uses
-the #30 C46 calibration frozen by the owner on 2026-10-15 for the current features. It preserves the spec #29
-vanilla single-shot skills and v83 5-MP opening. The measured minor clear/death target deviations are accepted
+the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
+tuning waits for the dedicated balance pass (section 4.2).
 for now; balance will be revisited after more features (section 4.2).
 
 | Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance | Normal MP chance |
@@ -302,7 +302,7 @@ required cache data, no simulation warnings, EXP/kill/level event consistency, n
 all scheduled bosses dead before a clear. A living Tree run at the cap is a timeout, never a clear. Earlier Tree
 pacing tables and guards below are historical information. Freeze candidate data and guards before the full suite
 and any fresh held-out assessment. **601–630 is consumed** by #30's frozen assessment below. Reserve fresh
-**701–730** for a later feature candidate after its data and guards freeze. Spent or retired
+**701–730** for the dedicated balance pass after its data and guards freeze. Spent or retired
 101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
@@ -316,106 +316,26 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### #30 / #45: owner-frozen C46 calibration (2026-10-15)
+#### #30 / #45: rarity tiers, coarse C46 stage data (2026-10-15)
 
-The owner judged the current balance sufficient and asked to revisit it after more features. Freeze **C46
-exactly**, without further tuning. Its sensible clear rate is **32/61 = 52.46%**, above the 40–50% target by
-2.46 percentage points, and death median is **902.3 s**, 2.3 s above 900. These are explicit accepted deviations,
-not strict target passes. Targets and the boss-hit/full-run regression guards remain unchanged. Random clears,
-both death medians apart from that small sensible miss, and sensible MP ratio are reported below.
+Rarity tiers were calibrated on training seeds 1–60 and 2026 to the C46 profile: card weights 86/8/3.5/1.7/0.8,
+the older 1/1/2/3/max stacking and 1/1/2/3/5 new-skill ladders, and the Henesys late HP multipliers, HP support and
+ordinary MP taper in the 4.1 table. The owner accepted that state for the current features, then restored the spec
+weights **75/18/5/1.7/0.3** and a ladder in which every tier gives more than the one below (section 8.1). The stage
+data stays C46 and is **not re-tuned** for those changes: feature tickets now run a regression smoke only, and tuning
+waits for the dedicated balance pass (AGENTS.md "Balance"). The C46 figures below therefore describe the measured
+C46 weights, not the shipped odds.
 
-Both policies use every training seed **1–60 and 2026**, real v83 cache, Godot 4.7.2 (`ed1daf0bf`), fixed 1/60 s,
-800 × 600 view and 1,800 s cap. No deaths are filtered and no timeout counts as a clear.
-
-| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
+| C46 (86/8/3.5/1.7/0.8 weights) | Sensible clears | Sensible death median | Careless clears | MP collected / used |
 |---|---|---|---|---|
-| Sensible | 32 / 29 / 0 | 52.46% | 902.3 s (29) | 277.7 s (60) / 235.9 s (60) / 618.8 s (57) |
-| Random | 4 / 57 / 0 | 6.56% | 551.1 s (57) | 280.8 s (45) / 244.4 s (45) / 597.3 s (15) |
+| Training 1–60 + 2026 | 32/61 (52.46%) | 902.3 s (29 deaths) | 4/61 (6.56%) | 1.21 sensible / 1.25 careless |
+| Held-out 601–630 (consumed) | 19/30 (63.33%) | 943 s (11 deaths) | 4/30 (13.33%) | 1.30 sensible / 1.36 careless |
 
-| Policy | MP collected / used; ratio | MP stock median / empty runs | HP collected / used; stock median / empty runs | Late MP-wait runs / observed; seconds waited / observed |
-|---|---|---|---|---|
-| Sensible | 13,104 / 10,817; 1.21143 | 30 / 15 of 61 | 2,052 / 1,887; 0 / 31 of 61 | 13/60; 1,331.950 / 27,359.964 |
-| Random | 6,220 / 4,976; 1.25000 | 4 / 19 of 61 | 1,044 / 1,339; 0 / 59 of 61 | 7/41; 167.749 / 7,494.134 |
+Sensible clears exceed the 40–50% band (slightly in training, clearly held out); the careless late MP-wait requirement was observed in 7/41 training
+and 0/16 held-out runs. These are known deviations for the balance pass. A short summary of the C46 search and how
+to reproduce it is in [research/spec30-rarity-balance.md](research/spec30-rarity-balance.md).
 
-| Policy / boss ID | Completed median seconds (completed / spawned) | Censored median seconds (spawned) | Unfinished / not spawned / skipped |
-|---|---|---|---|
-| Sensible / 2220000 | 31.91 (60/60) | 31.91 (60) | 0 / 1 / 0 |
-| Sensible / 6130101 | 69.37 (53/59) | >=70.12 (59) | 6 / 2 / 0 |
-| Sensible / 9400205 | 86.87 (32/47) | >=83.95 (47) | 15 / 14 / 0 |
-| Random / 2220000 | 34.03 (41/45) | >=34.03 (45) | 4 / 16 / 0 |
-| Random / 6130101 | 63 (13/25) | >=45.95 (25) | 12 / 36 / 0 |
-| Random / 9400205 | 79.96 (4/5) | >=75.78 (5) | 1 / 56 / 0 |
-
-MP ratios divide total collected by total used. HP totals exclude the five starter HP potions per run (305 per
-cohort); stocks include them. Careless late waiting is actually observed in seven of 41 runs, not inferred from
-unused stock. Completed fight medians always retain their completed/spawned denominators; censored medians
-include unfinished encounters. First-five-minute ordinary hits/kill and tier counts are in the
-[complete training record](research/spec30-rarity-balance.md).
-
-C46 retunes nominal card weights 75/18/5/1.7/0.3 to **86/8/3.5/1.7/0.8**: fewer routine rank gains, preserved
-Unique weight and a meaningful Legendary jackpot (section 8.1). Fortune remains card-only, base zero and scale
-0.02. Survivor HP pressure/support and late MP supply use the table in 4.1; canonical stats, costs, magnitudes,
-policies, potion restoration/stock conversion, starter stock, bosses and Tree data are unchanged.
-
-The 122 immutable training records use source `599590a9d86bb64dc8c6b5299df6f606fe828721` and the preserved
-`c46-late-mp-hp-shift/patch.json`. Cleanup `79f9d3fd1a56aba670303e20c9c440a89a5a0508` removes the unused
-EXP curve; upstream merge `12b7ae81446361e380b60a48671c05565b0530b5` adds status/elemental support.
-Final runtime **`1b154207242672de00130cf1d63b710433892d00`** passes **570 tests, zero failures and zero
-skips across 62 files** (270,135 ms), both independent source/data review axes with zero findings, and six
-rendered cases (fixed seeds 1/2/2026, both stages), all with `missing=[]`. The three complete Henesys sensible
-JSON records for 1/2/2026 match their historical C46 records exactly. This proves those three neutral-path
-records unchanged; it is not an exhaustive claim about every status configuration.
-
-Visual inspection covers earlier gameplay/level-up/hit frames and seed 2's final-boss windup. Henesys 2026
-clears in its summary, but the final capture was skipped after five seconds without a drawn frame; no clear
-screenshot is claimed. The x32 concurrent rendered matrix is asset/flow evidence, not a normal-speed performance
-benchmark. Original training hashes/configuration/consoles remain under
-`evidence/spec30/balance/c46-late-mp-hp-shift/`; cleanup evidence is
-`evidence/spec30/review-fixes/exp-cleanup/`, and final gates are sealed by
-`evidence/spec30/frozen_validation.json`. The detailed research record retains exact source IDs and hashes.
-
-#### #30 frozen held-out characterization (601–630; consumed)
-
-After the gates above passed, both policies ran **once**, 30 fresh seeds each, on frozen runtime `1b154207`
-with shipped C46 data and no patch. All 60 records match their per-seed console emissions, have no world
-warnings or runtime error/warning lines, and satisfy potion conservation. This assessment does not change the
-owner's earlier training decision or the original targets. **Sensible 63.33% clears and 943 s death median exceed
-the original bands; random 13.33% clears and 433.6 s deaths fit, but its zero late MP waits in 16 observed runs
-do not reproduce the careless-wait requirement.** Both MP ratios fit 1.2–1.5. No tuning or replay follows.
-
-| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
-|---|---|---|---|---|
-| Sensible | 19 / 11 / 0 | 63.33% | 943 s (11) | 275.8 s (30) / 233.7 s (30) / 595.75 s (30) |
-| Random | 4 / 26 / 0 | 13.33% | 433.6 s (26) | 282.2 s (24) / 253.65 s (24) / 573.9 s (11) |
-
-| Policy | MP collected / used; ratio | MP stock median / empty runs | HP collected / used; stock median / empty runs | Late MP-wait runs / observed; seconds waited / observed |
-|---|---|---|---|---|
-| Sensible | 7,403 / 5,688; 1.30151 | 60.5 / 4 of 30 | 1,110 / 1,003; 3.5 / 12 of 30 | 4/30; 245.766 / 14,952.401 |
-| Random | 3,628 / 2,677; 1.35525 | 5.0 / 3 of 30 | 534 / 670; 0.0 / 28 of 30 | 0/16; 0.000 / 4,552.784 |
-
-| Policy / boss ID | Completed median seconds (completed / spawned) | Censored median seconds (spawned) | Unfinished / not spawned / skipped |
-|---|---|---|---|
-| Sensible / 2220000 | 23.76 (30/30) | 23.76 (30) | 0 / 0 / 0 |
-| Sensible / 6130101 | 66.98 (29/30) | 67.09 (30) | 1 / 0 / 0 |
-| Sensible / 9400205 | 91.42 (19/27) | >=89.83 (27) | 8 / 3 / 0 |
-| Random / 2220000 | 45.77 (18/24) | >=30.77 (24) | 6 / 6 / 0 |
-| Random / 6130101 | 73.97 (8/12) | >=50.56 (12) | 4 / 18 / 0 |
-| Random / 9400205 | 71.17 (4/7) | >=56.55 (7) | 3 / 23 / 0 |
-
-| Policy | Tiers offered: Normal / Rare / Epic / Unique / Legendary | Tiers picked: Normal / Rare / Epic / Unique / Legendary | Observed runs |
-|---|---|---|---|
-| Sensible | 3035 / 484 / 125 / 63 / 19 | 1040 / 144 / 39 / 15 / 4 | 30/30 |
-| Random | 1727 / 221 / 62 / 31 / 14 | 581 / 69 / 24 / 9 / 2 | 30/30 |
-
-Medians retain all death/reach/completed/spawned counts; `>=` marks a censored lower bound. HP collection excludes
-150 starter potions per policy; stock includes them. Training and held-out results remain separate. Per-run
-tier counts, first-five-minute hit/kill denominators, whole boss-hit fractions and the read-only evidence check
-are in [the complete record](research/spec30-rarity-balance.md). Raw records, exact consoles, source/data hashes,
-exclusive execution marker and the 134-artifact hash manifest are preserved under
-`evidence/spec30/balance/c46-heldout-frozen/`. Its `heldout-seal.json` SHA-256 is
-`19371fd9d5f25188b18e593d836817e08b6ac4b4f77801dc5fba62578285cc25`.
-**601–630 is spent; 701–730 is reserved for a later frozen feature candidate.** Balance is revisited after more
-features, using training seeds rather than this assessment.
+SMOKE_PLACEHOLDER
 
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
@@ -1433,83 +1353,50 @@ and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 
 | Potential tier | Normal | Rare | Epic | Unique | Legendary |
 |---|---|---|---|---|---|
-| Base weight at Fortune 0 | 86 | 8 | 3.5 | 1.7 | 0.8 |
+| Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
 | Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
-| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +1 | +2 | +3 | all remaining steps |
-| New skill starting rank | 1 | 1 | 2 | 3 | 5 |
+| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | all remaining steps |
+| New skill starting rank | 1 | 2 | 3 | 4 | 5 |
 
-All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the weights;
-every non-Normal weight is multiplied by `1 + max(0, Fortune) × upgrades.rarity.fortune_scale` (0.02), then weights
-normalize together. At Fortune 100 the weights total 128 and normalize to
-67.1875/18.75/8.203125/3.984375/1.875% for Normal/Rare/Epic/Unique/Legendary. These frozen C46 odds are tier C
-calibration, accepted by the owner for the current features on 2026-10-15; magnitudes remain the spec #30 ladder.
-`upgrades.magnitudes` holds the per-kind tables; an individual card's `magnitudes` can override any tier, with
-unspecified tiers retaining their kind defaults. Legendary can max a 20-rank attack or buff in one pick.
+All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the spec #30
+weights (the owner restored them on 2026-10-15 after the C46 calibration had used 86/8/3.5/1.7/0.8; tuning waits for
+the balance pass). Every non-Normal weight is multiplied by `1 + max(0, Fortune) × upgrades.rarity.fortune_scale`
+(0.02), then weights normalize together: at Fortune 100 the weights total 150, i.e. 50/36/10/3.4/0.6%.
+`upgrades.magnitudes` holds the per-kind tables; every default tier gives more than the one below it (owner,
+2026-10-15). An individual card's `magnitudes` can override any tier, with unspecified tiers retaining their kind
+defaults. Legendary can max a 20-rank attack or buff in one pick.
 
-A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier. If Legendary's
-`max` grants exactly a fitting lower tier's magnitude, it uses that lower label: a rank card at 17/20 becomes
-Epic (+3), and at 15/20 becomes Unique (+5). At 16/20 Legendary remains distinct (+4). An Epic rank card at 18/20
-becomes Rare (+2). Explicit equal Normal/Rare defaults for stacking and learning remain part of the designed
-ladder; the honesty clamp addresses benefit lost to headroom. An unlimited stacking card cannot max out and
-downgrades a `max` roll to its highest finite tier. All headroom/label interpretations are tier C.
+A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, and any tier whose
+gain equals a lower tier's (Legendary's `max` spending the last steps, or an equal per-card entry) wears the lowest
+such label, so a label never overstates the card: a rank card at 17/20 rolling Legendary shows Epic (+3), at 15/20
+Unique (+5), at 16/20 Legendary (+4); an Epic at 18/20 shows Rare (+2). Stacking cards cap at 2–4 steps, so a fresh
+cap-2 card shows at most Rare, a cap-4 card at most Unique, and no current stacking card can show Legendary.
+Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card downgrades a `max` roll to
+its highest finite tier. All tier C.
 
 Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
 omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
-are explicitly always-Normal exceptions, including at bosses; sparse or exhausted rewards still offer the Elixir.
-Boss floor promotion, filtering and exceptions are tier C.
+are always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
 
-Stacking magnitudes consume several card steps, preserving the original cap. Additive effects add their value
-once per step; multiplicative effects compound: three cooldown ×0.88 steps reduce cooldown by 31.8528%, three
-damage ×1.2 steps increase damage by 72.8%, and three Magnet ×1.25 steps increase radius by 95.3125%. Card text
-shows compounded percentages rounded to two decimals (tier C presentation precision); application retains full
-precision. `choice_card` previews the final skill level and canonical before/after values at the complete gain,
-including Improved MaxMP Increase's survivor percentage. `rank_before/rank` show consumed steps before/after;
-learn and potion cards still consume only one card step. These are tier C card semantics, with canonical fields
-unchanged at each resulting level (tier A).
+Stacking magnitudes consume several card steps, preserving the card cap. Additive effects add their value once per
+step; multiplicative effects compound (four cooldown ×0.88 steps reduce cooldown by 40.03%). Card text shows
+compounded percentages to two decimals; application keeps full precision. `choice_card` previews the final skill
+level and canonical before/after values at the complete gain; `rank_before/rank` show consumed card steps.
 
-The balance record exposes `card_tiers_offered` and `card_tiers_picked` for every run, keyed by the five lowercase
-tiers. Counts use the displayed tier after clamping, include Normal potion/Elixir offers and picks, and count
-cards once rather than ranks/steps. Queued level and boss windows are counted once when drawn and selected.
-The supplemental report sums them and reports `card_tier_runs`; legacy records without both fields contribute
-no rarity observation. No tuning evidence or held-out acceptance is claimed by this implementation ticket.
+The balance record has `card_tiers_offered` and `card_tiers_picked` per run (displayed tier after clamping, one
+count per card); the SYSTEMS summary sums them.
 
-Level-up and boss-reward cards retain the original v83 skill-row art and show the Potential tier in an inset pixel
-border and a labelled dark-blue band: Normal white, Rare blue, Epic purple, Unique gold and Legendary green.
-The label carries the meaning independently of colour. Exact accents are survivor presentation choices (tier C):
-`#FFFFFF / #77BBFF / #CC99FF / #FFCC44 / #77DD88`, on `#17344F`. Rank text uses the offered canonical before/after
-levels; new skills show their starting level (e.g. `NEW  Skill Lv. 5`), and stacking cards use the complete
-`rank_before -> rank` change. Descriptions retain the sim's scaled or compounded magnitude. Unchanged canonical
-values are omitted from the visual preview; changed values remain visible. Dense windows shorten prose first,
-use the already-blanked notice sentence area and target a panel 128 px shorter than the logical view, keeping the
-mascots and HUD clear in the normal 800x600 view (tier C layout choices).
+Level-up and boss-reward cards keep the v83 skill-row art and show the tier with a 2 px frame and a label band
+tinted with the tier colour: Normal white, Rare blue, Epic purple, Unique gold, Legendary green
+(`#FFFFFF / #77BBFF / #CC99FF / #FFCC44 / #77DD88` over `#17344F` at 30%; tier C). The label carries the meaning
+independently of colour. New skills show their starting level in the rank line (`NEW  Skill Lv. 5`, plus `MAX` when
+that is the cap). Unchanged canonical values are omitted from the preview. Dense windows shorten prose first and
+keep the panel 128 px shorter than the view so the mascots and HUD stay clear (tier C layout).
 
-The implementation agent selected `Sound.wz/Game.img/mCardGet` for a displayed Unique / Legendary offer after
-the owner reserved `EnchantSuccess` for future scrolling. A window plays one cue
-even when several cards qualify; boss rewards use the same cue. Keyboard/mouse focus and selection never replay
-it, and automated picks without a displayed window remain silent. The stream is preloaded with the stage sounds.
-Real-cache tests and a WASAPI gallery run verified the exact stream, one advancing voice and no missing lookups.
-On 2026-10-15 the owner auditioned the replacement cue and approved it for Unique / Legendary offers:
-"Yes, this cue fits." The agent verified playback; the owner supplied listening acceptance.
-
-Visual evidence for #44 is in `evidence/spec30/ui/`: `levelup_tiers.png` (Normal/Rare/Epic), `levelup_high.png`
-(Unique gain, Legendary max rank and new skill at level 5), `levelup_dense.png` (long current rank previews) and
-`boss_high_wide.png` (the same high tiers in a 1066x600 boss-reward view). All four were checked by eye.
-The debug gallery reproduces them with `--window=levelup_tiers|levelup_high|levelup_dense`; `--bonus` uses the
-boss heading. These previews come from the real `UpgradePool.choice_card` boundary, with tiers forced only in
-the debug scene. Proprietary screenshots stay gitignored.
-
-Validation on 2026-10-15: `ISOLATE=spec30_44` focused UI/run/audio/upgrade/progression/event tests passed
-105/105, with no skips. The full injected-input flow (`--time-scale=6 --stop-at=300`, seed 1875548306 recorded
-by the run) reached Magician Lv. 11, answered nine upgrade windows, opened the job dialog, paused/resumed,
-died at 307.583 s, then completed results/retry/stage-select/title/quit; `flow_review/summary.json` records
-20 MP potions used and `missing=[]`. The driver now injects the current Space jump and Q/E potion keys and
-fails full coverage if the Magician or pause/resume path is missed. The isolated seed-2026 playtest at x4 with
-one-second window picks stopped alive at the 5:00 cap, Lv. 11 Magician, 187 kills, with 8 HP / 8 MP potions used
-and `missing=[]`; its screenshots of real tiered windows were checked by eye. These are presentation smoke
-checks, not pacing or held-out acceptance. The standalone audio probe records the actual WASAPI driver, a
-successfully started `mCardGet` stream and one voice advancing past 0.59 s; tier-label contrast is at least 5.83:1
-against the band. Evidence/logs are under `evidence/spec30/ui/`. The owner completed auditory review on
-2026-10-15 by listening to the replacement cue and approving its fit for Unique / Legendary offers.
+A window with a Unique or Legendary offer plays `Sound.wz/Game.img/mCardGet` once when it opens (owner-approved by
+ear on 2026-10-15; `EnchantSuccess` is reserved for future scrolling). Automated picks without a window are silent.
+The debug gallery shows the tiers with `--window=levelup_tiers|levelup_high|levelup_dense` (`--bonus` for the boss
+heading); screenshots stay in ignored `evidence/spec30/ui/`.
 
 Beginner cards include Nimble Feet (1002) and Recovery (1001) learn/rank cards. Nimble Feet occupies a passive slot
 and auto-casts when inactive, off its canonical cooldown and affordable. It keeps the cast level's canonical speed
@@ -1693,11 +1580,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
-| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 86/8/3.5/1.7/0.8; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 / #45 C46, owner-frozen 2026-10-15; upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
-| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+1/+2/+3/max; new skill 1/1/2/3/5; per-card overrides | C | spec #30; upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
-| Card honesty / boss floor | highest fitting tier; max equal to a lower fitting gain downgrades; explicit Normal/Rare equal defaults retained; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
+| Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 weights (owner restored them over C46 on 2026-10-15; untuned); upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
+| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
+| Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
-| Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band and 1px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
+| Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
