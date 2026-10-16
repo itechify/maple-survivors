@@ -5,17 +5,23 @@ extends SceneTree
 ##
 ##   bash scripts/bench.sh run               # 100 300 600 1000 alive mobs
 ##   bash scripts/bench.sh run 300 2000      # custom counts
+##   bash scripts/bench.sh run 300 --statuses   # every live mob kept slowed and poisoned, every third frozen
 ##
 ## Setup per run: a "bench" stage that refills to exactly N alive (rate 600/s, the full henesys_hg1 mob pool at 2x
 ## HP), a god-mode player driven by the kiting test bot, and a late-game build (Three Snails rank 3 with 5 shells and
 ## pierce 3; Magician with Energy Bolt rank 4 with 4 bolts, Magic Claw), so shots, kills, drops and pickups all churn.
-## Choice windows are answered between ticks (not timed). Prints microseconds per RunWorld.step, plus the average
-## alive mobs, shots in flight and drops on the ground. Seeded; timings are wall-clock on this machine.
+## Choice windows are answered between ticks (not timed); with --statuses, statuses are (re)applied there too, so the
+## timed step includes their movement, pulse and expiry cost but not the application. Prints microseconds per
+## RunWorld.step, plus the average alive mobs, shots in flight and drops on the ground. Seeded; timings are
+## wall-clock on this machine.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const WARMUP := 240
 const TICKS := 600
+
+## --statuses: keep player statuses active on the swarm (see the class doc).
+var _statuses := false
 
 
 func _init() -> void:
@@ -23,6 +29,8 @@ func _init() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.is_valid_int():
 			counts.append(int(a))
+		elif a == "--statuses":
+			_statuses = true
 	if counts.is_empty():
 		counts = [100, 300, 600, 1000]
 	print("bench_run: Godot %s, %s build, %d timed ticks after %d warm-up ticks" % [
@@ -66,6 +74,8 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 	var drops := 0
 	for t in WARMUP + TICKS:
 		RF.auto_choose(w)
+		if _statuses:
+			_keep_statuses(w)
 		var input := RF.bot_input(w, memo)
 		var a := Time.get_ticks_usec()
 		w.step(DT, input)
@@ -77,8 +87,24 @@ func _run(label: String, imgs: Dictionary, n: int) -> void:
 			shots += w.projectiles.active_count()
 			drops += w.pickups.active_count()
 	var per := float(TICKS)
-	print("%-10s %5d target: alive %6.1f  shots %5.1f  drops %5.1f  kills %5d  ->  %8.1f us/tick (%.2f us/mob)" % [
-		label, n, alive / per, shots / per, drops / per, w.kills, total / per, total / per / maxf(1.0, alive / per)])
+	print("%-10s %5d target%s: alive %6.1f  shots %5.1f  drops %5.1f  kills %5d  ->  %8.1f us/tick (%.2f us/mob)" % [
+		label, n, " +statuses" if _statuses else "", alive / per, shots / per, drops / per, w.kills, total / per,
+		total / per / maxf(1.0, alive / per)])
+
+
+## Keeps every live mob slowed (canonical level-20 x -40) and poisoned (level 20), and every third slot frozen,
+## reapplying each status once it expires (untimed; bosses and immune kinds reject theirs).
+static func _keep_statuses(w: RunWorld) -> void:
+	var sw := w.swarm
+	for i in sw.capacity():
+		if not sw.is_live(i):
+			continue
+		if sw.status_time(i, MobSwarm.SLOW) <= 0.0:
+			sw.apply_status(i, "slow", {"x": -40.0, "time": 5.0}, w.events)
+		if sw.status_time(i, MobSwarm.POISON) <= 0.0:
+			sw.apply_status(i, "poison", {"level": 20, "time": 5.0}, w.events)
+		if i % 3 == 0 and sw.status_time(i, MobSwarm.FREEZE) <= 0.0:
+			sw.apply_status(i, "freeze", {"time": 2.0}, w.events)
 
 
 ## Three Snails rank 3 x5 shells, pierce 3; Magician with Energy Bolt rank 4 x4 bolts and Magic Claw.

@@ -46,6 +46,8 @@ const EVENT_FIELDS := {
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
+	"mob_status_applied": ["mob", "mob_id", "status", "duration"],
+	"mob_status_expired": ["mob", "mob_id", "status"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
 	"player_hit": ["damage", "mp_absorbed", "miss", "dir", "pos", "mob", "mob_id", "boss", "max_hp", "source_kind"],
@@ -152,7 +154,10 @@ var mob_projectiles := MobProjectileSystem.new()
 var events: Array = []
 var time := 0.0
 var kills := 0
-var damage_dealt := 0
+## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
+var damage_dealt: int:
+	get:
+		return projectiles.dealt + _instant_dealt + swarm.poison_dealt
 var state := PLAYING
 var view_size := DEFAULT_VIEW
 ## Player-centred logical view clamped to the bounds (spawn logic keeps mobs outside it).
@@ -444,6 +449,7 @@ func _step_monsters(dt: float) -> void:
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
 	_ctx["boss_actions"] = bosses.prepare_actions(self)
+	_ctx["events"] = events
 	swarm.step(dt, _ctx)
 	bosses.step(self, dt)
 	mob_skills.step(self)
@@ -467,7 +473,6 @@ func _step_player_attacks(dt: float) -> void:
 	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed)
 	for m in projectiles.kills:
 		_on_kill(m)
-	damage_dealt = projectiles.dealt + _instant_dealt
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -824,7 +829,8 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
 	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), bool(st.magic),
-		mob_defense(m, true), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult), rng)
+		mob_defense(m, true), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult), rng,
+		mk.element_multiplier(String(st.get("element", ""))))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -832,7 +838,6 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 		"hit_visual": String(visual_paths[hv]) if hv >= 0 else "", "skill": String(st.skill),
 	})
 	_instant_dealt += roll.x
-	damage_dealt = projectiles.dealt + _instant_dealt
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -997,7 +1002,8 @@ func _touch() -> void:
 	var n := mob_grid.query_radius(c, body.size.length() * 0.5 + body_pad, _touch_buf)
 	for j in n:
 		var m := _touch_buf[j]
-		if swarm.active[m] == 0 or swarm.alpha[m] < 1.0:
+		# tier C (owner): a frozen monster deals no touch damage.
+		if not swarm.can_act(m):
 			continue
 		var mk: MobKind = mob_kinds[swarm.kind[m]]
 		if not mk.body_attack:

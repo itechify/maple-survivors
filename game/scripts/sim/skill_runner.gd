@@ -168,7 +168,7 @@ func _fire(world: RunWorld, key: String, st: Dictionary, origin: Vector2, n: int
 				"range": float(st.range), "radius": float(st.radius), "visual": vis, "hit_visual": hv,
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
-				"pierce": int(st.pierce), "skill": key,
+				"pierce": int(st.pierce), "skill": key, "element": String(st.element),
 			})
 	else:
 		var targets := mini(int(st.count), n)

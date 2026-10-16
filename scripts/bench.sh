@@ -7,6 +7,7 @@
 #   bash scripts/bench.sh run               # only the RunWorld benchmark
 #   bash scripts/bench.sh world 300 2000    # one benchmark, custom mob counts
 #   bash scripts/bench.sh 300 2000          # both, custom mob counts
+#   bash scripts/bench.sh run 300 --statuses   # RunWorld with every mob slowed + poisoned, a third frozen
 #   ISOLATE=<name> bash scripts/bench.sh    # run in a private mirror (_scratch/godot_runs/<name>/game), like test.sh
 #
 # Results belong in docs/IMPLEMENTATION_PLAN.md "Performance log".

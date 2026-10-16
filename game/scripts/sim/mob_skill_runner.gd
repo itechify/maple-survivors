@@ -54,7 +54,7 @@ func step(world: RunWorld) -> void:
 	var now := world.time
 	for record: Dictionary in world.bosses.records:
 		var slot := int(record.slot)
-		if not swarm.is_settled(slot) or not int(record.mob_id) in _enabled:
+		if not swarm.can_act(slot) or not int(record.mob_id) in _enabled:
 			continue
 		var index := int(record.boss_index)
 		if world.mob_boss[slot] != index or not world.bosses.can_act(index, now):

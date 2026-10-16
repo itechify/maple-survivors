@@ -125,7 +125,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 
 ## Fully resolved numbers of skill `key` (owned or not; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
-## defence, after damage multipliers), magic (bool: mob MDD applies), attack_count, crit, crit_mult, cooldown, range,
+## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
+## crit, crit_mult, cooldown, range,
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
@@ -160,6 +161,7 @@ func stats(key: String) -> Dictionary:
 		"damage_min": lo,
 		"damage_max": hi,
 		"magic": dtype == "magic",
+		"element": String(book.skill_node(key).get("elemAttr", "")),
 		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance),
 		"crit_mult": crit_mult,

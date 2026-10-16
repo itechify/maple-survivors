@@ -122,6 +122,46 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 - **Elites:** periodically one mob of the current pool spawns with ×8 HP, ×5 EXP and an explicit ×1.5 mitigated
   hit multiplier (`elites.damage_mult`), drawn with a name tag. All three multipliers are survivor data (tier C).
 
+### Monster statuses and elements (#54)
+
+`MobSwarm.apply_status(slot, status, params, events)` is the shared sim entry point for sibling skills. `status`
+is `slow`, `poison` or `freeze` (`MobSwarm.STATUS_NAMES`); parameters contain the canonical `time` in seconds, signed
+`x` for Slow, or the applying canonical skill `level` for poison (plus an optional survivor `skill` key for damage
+events), and optionally the applying skill's canonical `element`. Each status is a row of one packed per-slot status
+table, refreshes without stacking, and clears on death, release or relocation. Application and natural expiry emit
+`mob_status_applied` / `mob_status_expired`. Removal clears silently. A rejected status emits nothing.
+
+- Slow uses `(100 + x) / 100` of walking/flying pursuit speed: canonical x -40 means 40% slower; a positive x is
+  clamped away (tier C). Ballistic jump/drop trajectories retain the navigation graph's physics. Refreshing is the #54
+  Survivor policy; the original Slow text also describes a consecutive-use limit that this interface does not impose.
+- Poison snapshots `min(32767, ceil(slot max HP / (70 - canonical skill level)))` damage per second, first at 1 s,
+  with a final pulse when due exactly at expiry. Reapplication restarts the pulse clock and duration. HP never drops
+  below 1; pulses do not stun or push. Actual lost HP contributes to player damage, and the eventual ordinary final
+  hit awards the normal kill/EXP. This is a **tier C v83 server-reference fallback**, not verified v83 client RE.
+- Freeze holds walking, facing, state/animation clocks and the monster attack/skill gate until expiry. Nonlethal
+  hits do not restart frozen art or stun/push; lethal hits start the normal death animation. Movement/new-attack/
+  new-skill suppression has **tier B evidence from a later v95 client reconstruction**, extrapolated to v83. Owner
+  choices (**tier C**): a frozen monster deals **no touch damage**, a monster frozen mid-air still falls straight down
+  and lands, and a fading-in monster keeps fading in.
+- **Bosses reject every status**: scheduled bosses (`steady`) and canonical `info/boss` monsters refuse Slow, Poison
+  and Freeze, matching the inspected v83 server reference (**tier C**, Cosmic `Monster.applyStatus` boss gate; owner
+  decision replacing #54's boss-poison permission).
+- **Elemental status immunity**: a status fails on a monster whose Mob.wz digit for its element is 1 (immune), 2
+  (strong) or 4 (neutral), as in the same reference (**tier C**; digit 4 still takes ×1 hit damage). Poison
+  carries `S` and Freeze `I` (Poison Breath `elemAttr=s`, Cold Beam `i`, tier A); Slow is elementless. An applying
+  skill may pass its own canonical `element` instead. Weak and unlisted elements accept the status.
+- Player skill hits read Skill.wz `elemAttr`, case-insensitively match the target's parsed Mob.wz letter/digit pairs,
+  and apply immune 1 → ×0, strong 2 → ×0.5, weak 3 → ×1.5 before final rounding. Unlisted/elementless hits are neutral.
+  Instant and projectile impacts share this resolution; immune hits display zero and cannot stun/push. `MobKind.undead`
+  exposes the original flag for skill code; it does not imply an automatic element weakness.
+
+Presentation reads the status table. Slow plays its cached 2101003/mob animation once and retains an amber tint;
+Poison loops cached 2101005/mob. Cold Beam has no persistent mob overlay, so Freeze uses a cyan tint. A violet
+poison tint is the fallback when its cached cue is absent. Anchors and tints are tier C; original art/timings are A.
+The formulas, source limitations, pinned citations and the performance/visual validation record are in
+[the status research](research/monster-status-effects.md). The applying Slow/Poison Breath/Cold Beam skill
+implementations remain sibling work.
+
 ### 4.1 Pacing (`stages.json`)
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
@@ -1528,6 +1568,16 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Mob fallbacks | die time 0.5 s without `die1`; hitbox (-20,-40)-(20,0) without `lt/rb` | C | ours |
 | Mob speed | (speed+100) × 0.625 px/s | C | HeavenClient terminal speed |
 | Mob hit stun / push | 0.24 s / 12 px | C | HeavenClient / ours |
+| Mob Slow magnitude/duration | signed canonical x; speed × clamp((100+x)/100,0,1); canonical time | A fields / C steering integration | original Skill.wz/210.img/2101003; [status research](research/monster-status-effects.md) |
+| Mob status refresh/lifecycle | independent statuses; refresh duration without stacking; poison restarts pulse; clear silently on death/release/relocation; natural expiry event; pause holds timers | C | #54 interface policy; double timers expire at fixed-tick boundaries (1e-9 s numerical tolerance) |
+| Mob poison HP rule | min(32767, ceil(slot max HP/(70-skill level))); 1 HP floor; no stun/push; actual player damage credit | C | Cosmic v83 server reference, not native-client RE; [pinned sources and limits](research/monster-status-effects.md) |
+| Mob poison cadence | 1 s; first after 1 s, final pulse at expiry when due | B v95 display / C sim boundary policy | native-derived v95 CMob::Update; Cosmic schedules 1 s; [status research](research/monster-status-effects.md) |
+| Mob Freeze behavior | no walking, facing changes, attacks, skills, stun/push or animation advance; lethal hits still die; an airborne monster still falls straight down and a fading-in one keeps fading in | B v95 extrapolation / C animation-hit integration and owner fall/fade choice | native-derived IsImmovable, TryDoingSkill, DoAttack; [status research](research/monster-status-effects.md) |
+| Frozen touch damage | a frozen monster deals no touch damage (MobSwarm.can_act gates touch) | C | owner decision; no native v83 contact gate verified either way; [status research](research/monster-status-effects.md) |
+| Boss status immunity | scheduled steady or canonical boss: reject Slow, Poison and Freeze | C | v83 server reference (Cosmic Monster.applyStatus boss gate), owner decision replacing #54's boss-poison permission |
+| Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
+| Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
+| Mob status cues | Slow one-shot cached mob art, Poison repeat art; pos3 centre/pos2 top; Slow amber (1,.72,.40), Freeze cyan (.45,.80,1), fallback Poison violet (.72,.45,.90) | A art / C anchors and tint choices | original Skill.wz/210.img, Cold Beam has no mob overlay; [status research](research/monster-status-effects.md) |
 | Default frame delay | 100 ms | C | HeavenClient |
 | Background scroll | rx × 5 px/s | B | 3 reimplementations agree |
 | Damage number timing | 400 ms hold + 600 ms fade, 30 px rise | B | v95 RE (Harepacker docs) |
