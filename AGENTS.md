@@ -113,10 +113,10 @@ Lv 8/10/20/30, levels, alive mobs and mobs near the player at 4/8/12 min, hits b
 the map at 8:00, the outcome and a SUMMARY (clears, death times, milestone spreads); full records go to `$BALANCE_OUT`
 (default `_scratch/balance/`). `PATCH=/abs/variant.json` deep-merges a JSON patch into the data first, so variants can
 be compared without editing `game/data` (keyframe arrays merge element by element). **Seeds:** tune on 1..60 (and
-2026) only; the default is training seeds 1..6. The held-out ranges 101..130, 201..212, 301..330, 401..430 and 501..530
-are spent or retired: the historical 401..406 smoke overlaps the last range. They must not be reused for tuning
-or as fresh evidence. Freeze the candidate before reporting on the next fresh held-out range, 601..630; never
-tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
+2026) only; the default is training seeds 1..6. The held-out ranges 101..130, 201..212, 301..330, 401..430, 501..530
+and 601..630 are spent or retired; #30 consumed 601..630 in its frozen assessment. They must not be reused for
+tuning or as fresh evidence. Reserve fresh 701..730 for a later feature candidate, frozen before its one-time
+assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 

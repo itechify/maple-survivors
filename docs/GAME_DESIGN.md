@@ -301,9 +301,9 @@ Tree outcomes and clear rate are recorded without judging pacing or difficulty. 
 required cache data, no simulation warnings, EXP/kill/level event consistency, no lost mobs, correct deaths and
 all scheduled bosses dead before a clear. A living Tree run at the cap is a timeout, never a clear. Earlier Tree
 pacing tables and guards below are historical information. Freeze candidate data and guards before the full suite
-and any fresh held-out assessment. **501–530 is now consumed** by the frozen report below; the next reserved
-fresh range is **601–630**. Spent or retired 101–130/201–212/301–330/401–430/501–530 are never reused for tuning
-or fresh evidence.
+and any fresh held-out assessment. **601–630 is consumed** by #30's frozen assessment below. Reserve fresh
+**701–730** for a later feature candidate after its data and guards freeze. Spent or retired
+101–130/201–212/301–330/401–430/501–530/601–630 are never reused for tuning or fresh evidence.
 
 ### 4.2 Tuning record (`scripts/balance.sh`)
 
@@ -358,13 +358,64 @@ Unique weight and a meaningful Legendary jackpot (section 8.1). Fortune remains 
 policies, potion restoration/stock conversion, starter stock, bosses and Tree data are unchanged.
 
 The 122 immutable training records use source `599590a9d86bb64dc8c6b5299df6f606fe828721` and the preserved
-`c46-late-mp-hp-shift/patch.json`. Final source includes cleanup `79f9d3fd1a56aba670303e20c9c440a89a5a0508`,
-which removes the rejected unused EXP curve. The explicit data/math bridge and 62 passing focused tests before
-and after establish unchanged stage EXP, HP/MP behavior and RNG for this curve-free profile. Original training
-hashes, patch/configuration, exact consoles and the final freeze manifest remain under
-`evidence/spec30/balance/c46-late-mp-hp-shift/`; the bridge is `evidence/spec30/review-fixes/exp-cleanup/`.
-Final selected-data full suite and rendered fixed 1/2/2026 matrix are validation gates after this data freeze.
-**Fresh held-out 601–630 is still unused; no held-out execution is authorized by this record.**
+`c46-late-mp-hp-shift/patch.json`. Cleanup `79f9d3fd1a56aba670303e20c9c440a89a5a0508` removes the unused
+EXP curve; upstream merge `12b7ae81446361e380b60a48671c05565b0530b5` adds status/elemental support.
+Final runtime **`1b154207242672de00130cf1d63b710433892d00`** passes **570 tests, zero failures and zero
+skips across 62 files** (270,135 ms), both independent source/data review axes with zero findings, and six
+rendered cases (fixed seeds 1/2/2026, both stages), all with `missing=[]`. The three complete Henesys sensible
+JSON records for 1/2/2026 match their historical C46 records exactly. This proves those three neutral-path
+records unchanged; it is not an exhaustive claim about every status configuration.
+
+Visual inspection covers earlier gameplay/level-up/hit frames and seed 2's final-boss windup. Henesys 2026
+clears in its summary, but the final capture was skipped after five seconds without a drawn frame; no clear
+screenshot is claimed. The x32 concurrent rendered matrix is asset/flow evidence, not a normal-speed performance
+benchmark. Original training hashes/configuration/consoles remain under
+`evidence/spec30/balance/c46-late-mp-hp-shift/`; cleanup evidence is
+`evidence/spec30/review-fixes/exp-cleanup/`, and final gates are sealed by
+`evidence/spec30/frozen_validation.json`. The detailed research record retains exact source IDs and hashes.
+
+#### #30 frozen held-out characterization (601–630; consumed)
+
+After the gates above passed, both policies ran **once**, 30 fresh seeds each, on frozen runtime `1b154207`
+with shipped C46 data and no patch. All 60 records match their per-seed console emissions, have no world
+warnings or runtime error/warning lines, and satisfy potion conservation. This assessment does not change the
+owner's earlier training decision or the original targets. **Sensible 63.33% clears and 943 s death median exceed
+the original bands; random 13.33% clears and 433.6 s deaths fit, but its zero late MP waits in 16 observed runs
+do not reproduce the careless-wait requirement.** Both MP ratios fit 1.2–1.5. No tuning or replay follows.
+
+| Policy | Clear / dead / timeout | Clear rate | Death-only median (deaths) | Mage / Lv8 / Lv30 medians (reaches) |
+|---|---|---|---|---|
+| Sensible | 19 / 11 / 0 | 63.33% | 943 s (11) | 275.8 s (30) / 233.7 s (30) / 595.75 s (30) |
+| Random | 4 / 26 / 0 | 13.33% | 433.6 s (26) | 282.2 s (24) / 253.65 s (24) / 573.9 s (11) |
+
+| Policy | MP collected / used; ratio | MP stock median / empty runs | HP collected / used; stock median / empty runs | Late MP-wait runs / observed; seconds waited / observed |
+|---|---|---|---|---|
+| Sensible | 7,403 / 5,688; 1.30151 | 60.5 / 4 of 30 | 1,110 / 1,003; 3.5 / 12 of 30 | 4/30; 245.766 / 14,952.401 |
+| Random | 3,628 / 2,677; 1.35525 | 5.0 / 3 of 30 | 534 / 670; 0.0 / 28 of 30 | 0/16; 0.000 / 4,552.784 |
+
+| Policy / boss ID | Completed median seconds (completed / spawned) | Censored median seconds (spawned) | Unfinished / not spawned / skipped |
+|---|---|---|---|
+| Sensible / 2220000 | 23.76 (30/30) | 23.76 (30) | 0 / 0 / 0 |
+| Sensible / 6130101 | 66.98 (29/30) | 67.09 (30) | 1 / 0 / 0 |
+| Sensible / 9400205 | 91.42 (19/27) | >=89.83 (27) | 8 / 3 / 0 |
+| Random / 2220000 | 45.77 (18/24) | >=30.77 (24) | 6 / 6 / 0 |
+| Random / 6130101 | 73.97 (8/12) | >=50.56 (12) | 4 / 18 / 0 |
+| Random / 9400205 | 71.17 (4/7) | >=56.55 (7) | 3 / 23 / 0 |
+
+| Policy | Tiers offered: Normal / Rare / Epic / Unique / Legendary | Tiers picked: Normal / Rare / Epic / Unique / Legendary | Observed runs |
+|---|---|---|---|
+| Sensible | 3035 / 484 / 125 / 63 / 19 | 1040 / 144 / 39 / 15 / 4 | 30/30 |
+| Random | 1727 / 221 / 62 / 31 / 14 | 581 / 69 / 24 / 9 / 2 | 30/30 |
+
+Medians retain all death/reach/completed/spawned counts; `>=` marks a censored lower bound. HP collection excludes
+150 starter potions per policy; stock includes them. Training and held-out results remain separate. Per-run
+tier counts, first-five-minute hit/kill denominators, whole boss-hit fractions and the read-only evidence check
+are in [the complete record](research/spec30-rarity-balance.md). Raw records, exact consoles, source/data hashes,
+exclusive execution marker and the 134-artifact hash manifest are preserved under
+`evidence/spec30/balance/c46-heldout-frozen/`. Its `heldout-seal.json` SHA-256 is
+`19371fd9d5f25188b18e593d836817e08b6ac4b4f77801dc5fba62578285cc25`.
+**601–630 is spent; 701–730 is reserved for a later frozen feature candidate.** Balance is revisited after more
+features, using training seeds rather than this assessment.
 
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
@@ -377,7 +428,8 @@ still died before 4:00: the bot fled every nearby mob (its sword only swings whi
 that mostly overflowed the small pools. The owner chose a sword-paced opening, a bot sword duel (a lone ordinary mob
 while no attack skill can fire) and a potion waste guard (drink only when half of one restore fits) instead of raw
 80% / 30% thresholds; final tuning waits until later specs change the game again, so this is a coarse pass with no
-held-out report (601–630 stays reserved and unused).
+held-out report. At that historical pass, 601–630 remained reserved and unused; #30's later assessment above
+consumes that range.
 
 Levers, training seeds only: the 0:00–6:00 keyframes (table in 4.1) with HP drops 8% → 3% before 4:00, Henesys
 elites from 4:00 and bursts from 5:00, Henesys ordinary EXP 2.5x, and MP drops 10% normal / 60% elite. Each policy ran
@@ -492,7 +544,8 @@ bands**: sensible is above 50%, random below 5%. It is reported without retuning
 Completed/spawned boss counts, censored medians, hit fractions, timestamps and all raw-record hashes are retained
 in [the detailed record](research/spec29-henesys-balance.md) and `evidence/spec29/balance/issue42/final/heldout/`.
 The amended freeze manifest SHA256 is `6d12b85a5c86b4b107571ff77df7ca2958495030addeaf8c7b4936d7d960767b`.
-The next fresh reserved range is **601–630**; none of these results may be used as fresh tuning evidence.
+At this historical #29 assessment, the next reserved range was **601–630**; #30 later consumes it above.
+None of these results may be used as fresh tuning evidence.
 
 The pre-#29 cohorts below are historical. Their statements about passing or final acceptance refer to the
 earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacing is informational.
