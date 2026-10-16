@@ -7,7 +7,7 @@ extends RefCounted
 ## A best record is
 ## {time, duration, cleared, level, job_id, job_name, kills, damage_dealt, seed}. Missing files start empty;
 ## format 1 converts on load, keeping playable-stage bests/counts. Writes replace the file via a sibling temporary.
-## Run snapshot: {name, look, created, character: CharacterSnapshot, tier, phase, rounds_played, tiers_cleared,
+## Run snapshot: {name, created, character: CharacterSnapshot, tier, phase, rounds_played, tiers_cleared,
 ## stage?, round_seed?}; tier indexes the next tier (0-based). phase is free_market/map_select/round;
 ## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
 ## History: {name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}; ending is
@@ -179,7 +179,8 @@ static func validation_error(value: Variant) -> String:
 		return "expected a JSON-safe run snapshot"
 	if not value.get("name") is String or not _valid_name(value.name):
 		return "name must be 4-12 letters or digits"
-	if not value.get("look") is Dictionary:
+	# Legacy format-2 wrappers may carry a duplicate look. Only character.look is consumed (#70/#71).
+	if value.has("look") and not value.look is Dictionary:
 		return "invalid look"
 	if not value.get("created") is String or value.created.is_empty():
 		return "invalid created date"
@@ -210,11 +211,24 @@ func _name_available(name: String, except: int = -1) -> bool:
 	return true
 
 
+## Creation validation with a recoverable message, shared by the screen and flow action.
+func name_error(character_name: String) -> String:
+	# tier C: owner #32 name rule (4-12 ASCII letters/digits, unique among living characters).
+	if character_name.length() < 4 or character_name.length() > 12:
+		return "Use 4-12 letters and digits for your name."
+	if not _valid_name(character_name):
+		return "Use only letters A-Z and digits 0-9."
+	if not _name_available(character_name):
+		return "A living character already has that name. Choose another."
+	return ""
+
+
 static func _valid_name(value: String) -> bool:
 	# tier C: owner #32 creation rule, shared with the plain slot API before #70's screens.
 	if value.length() < 4 or value.length() > 12:
 		return false
-	for code in value.to_ascii_buffer():
+	for i in value.length():
+		var code := value.unicode_at(i)
 		if not (code >= 48 and code <= 57 or code >= 65 and code <= 90 or code >= 97 and code <= 122):
 			return false
 	return true

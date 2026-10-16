@@ -209,7 +209,7 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
-## Passthrough character-creation fields; #70 consumes the Beginner weapon.
+## Carried appearance and the canonical weapon chosen at character creation.
 var character_look := {}
 var beginner_weapon := 0
 var _dead := false
@@ -882,9 +882,10 @@ func start_action(action: String, seconds: float, airborne: bool = false) -> voi
 	upkeep.start_action(action, seconds, airborne)
 
 
-## Canonical starter weapon selected by the current job's survivor-data rule.
+## Chosen Beginner weapon, otherwise the current job's survivor-data weapon rule.
 func weapon_id() -> int:
-	return int(_job_value(balance.get("player", {}).get("weapon_by_job", {}), 0))
+	return CharacterSnapshot.weapon_id(progression.job_id, beginner_weapon,
+		balance.get("player", {}).get("weapon_by_job", {}), jobs)
 
 
 ## The current weapon's canonical info node (empty when absent).
@@ -1343,7 +1344,7 @@ func _equipment_total(field: String) -> float:
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var pb: Dictionary = balance.get("player", {})
 	var ids: Array = pb.get("equipment", []).duplicate()
-	var weapon := int(_job_value(pb.get("weapon_by_job", {}), 0))
+	var weapon := weapon_id()
 	if weapon > 0 and not (weapon in ids):
 		ids.append(weapon)
 	var total := 0.0
