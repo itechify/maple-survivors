@@ -82,6 +82,30 @@ Java/.NET/Python are not. The importer is a single self-contained executable tha
 
 Everything else is owned by the scene that uses it.
 
+`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`.
+The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
+`character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
+`map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.
+The caller supplies dates and seeds. Outside a round, retain the last stage for deletion history.
+
+`slot(index)`, `slots` and `history` return detached copies. `create_slot(snapshot)` returns the first free index
+(or -1, with `last_error`); `update_slot(index, snapshot, round_summary := {})` returns `Error`.
+`end_run(index, ending, date, final_snapshot := {}, round_summary := {})` frees the slot and appends
+`{name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}` in one write. It resolves the job
+name from canonical jobs; pass the final run wrapper for terminal progress, or omit it to delete the saved character.
+`ending` is `died`, `victory` or `deleted`. Supplying a finished-round summary to either mutation counts that round
+and compares its best in the same transaction. Supply it once; do not also call `record` for that round.
+The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helpers retain their existing behavior;
+#69 owns the scene-flow switch and skipping every persistence call for tool-only one-off rounds.
+
+Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
+Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation
+failure blocks writes. Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`,
+copy the previous file to `.bak`, then replace the primary. In-memory mutations commit only after success.
+Godot's [Windows rename implementation](https://github.com/godotengine/godot/blob/master/drivers/windows/dir_access_windows.cpp#L295-L333)
+removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
+A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
+
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
 independent of new casting. A ready skill can cast on the tick movement leaves the climbing state.

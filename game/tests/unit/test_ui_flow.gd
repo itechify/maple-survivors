@@ -3,7 +3,7 @@ extends TestCase
 ## summary and the new-best flag, error screen) and the results screen's data helpers. Saves go to
 ## TestCase.test_dir(), never the real user://save.json.
 
-var save_path := TestCase.test_dir("ui_flow_save.json")
+var save_path := TestCase.test_dir("ui_flow/save.json")
 const RESULTS := preload("res://scenes/ui/results_screen.gd")
 const STAGE_SELECT := preload("res://scenes/ui/stage_select.gd")
 
@@ -11,9 +11,8 @@ var _nodes: Array[Node] = []
 
 
 func before_each() -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(save_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	TestCase.remove_tree(save_path.get_base_dir())
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
 
 
 func after_each() -> void:
@@ -21,8 +20,7 @@ func after_each() -> void:
 		if is_instance_valid(n):
 			n.free()
 	_nodes.clear()
-	if FileAccess.file_exists(save_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	TestCase.remove_tree(save_path.get_base_dir())
 
 
 static func summary(cleared: bool, time: float, level: int, kills: int, stage: String = "henesys_hg1") -> Dictionary:

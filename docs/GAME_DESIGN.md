@@ -2021,6 +2021,12 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+The spec #32 save contract (#68, tier C owner decision) uses save format 2 and three living character slots.
+Run wrappers use the three phases `free_market` / `map_select` / `round` and zero-based next-tier indexes;
+history endings are `died` / `victory` / `deleted`. Names use the owner's 4-12 ASCII letters/digits rule;
+living names compare without case (our interpretation of uniqueness). Dates and round seeds come from callers.
+These are persistence/creation rules, with no balance or canonical-data changes.
+
 The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
 growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
 refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
