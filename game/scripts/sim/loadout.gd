@@ -125,7 +125,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value, icon, duration (canonical time), buff_stat and buff_value (canonical x / pdd at this cast level).
+## passive_value, icon, duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
 func stats(key: String) -> Dictionary:
 	var d := book.def(key)
 	var r := maxi(1, rank(key))
@@ -195,10 +195,21 @@ func stats(key: String) -> Dictionary:
 		"duration": book.canonical(key, lv, String(buff.get("duration_field", "time")), 0.0),
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
+		"buff_effects": _buff_effects(key, lv, buff),
 		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 	}
+
+
+func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
+	var effects := {}
+	if buff.has("stat"):
+		effects[String(buff.stat)] = book.canonical(key, lv, String(buff.get("field", "")), 0.0)
+	for effect: Dictionary in buff.get("effects", []):
+		var stat := String(effect.stat)
+		effects[stat] = float(effects.get(stat, 0.0)) + book.canonical(key, lv, String(effect.field), 0.0)
+	return effects
 
 
 ## Sum of owned passive effects: canonical fields or survivor per-level values from skills.json.

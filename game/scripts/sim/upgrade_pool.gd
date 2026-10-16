@@ -17,7 +17,7 @@ extends RefCounted
 ## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -222,6 +222,11 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		skill_name = String(lo.book.def(skill).get("name", skill))
 		level_max = lo.book.canonical_level(skill, lo.book.max_rank(skill))
 		effect_stat = String(lo.book.def(skill).get("buff", {}).get("stat", ""))
+		var buff_effects: Array = lo.book.def(skill).get("buff", {}).get("effects", [])
+		if effect_stat == "" and not buff_effects.is_empty():
+			effect_stat = String(buff_effects[0].stat)
+		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
+			effect_stat = "slow"
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":

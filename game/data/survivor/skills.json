@@ -166,6 +166,328 @@
 			"hit": "Skill.wz/210.img/skill/2101005/hit/0",
 			"effect": "Skill.wz/210.img/skill/2101005/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/2101005/Use", "hit": "Sound.wz/Skill.img/2101005/Hit"}
+		},
+		"meditation_fp": {
+			"skill_id": 2101001,
+			"book": "210",
+			"job": 210,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Meditation",
+			"desc": "Temporarily increases your magic attack.",
+			"icon": "Skill.wz/210.img/skill/2101001/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_buff": "Tier A: canonical effects/time/mpCon/action/art/sound. Tier C: self-only auto-cast while inactive and affordable; canonical effects snapshot until expiry; 0.8 s cast hold.",
+			"buff": {
+				"effects": [
+					{
+						"stat": "matk",
+						"field": "mad"
+					}
+				],
+				"duration_field": "time"
+			},
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/210.img/skill/2101001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2101001/Use",
+				"hit": ""
+			}
+		},
+		"meditation_il": {
+			"skill_id": 2201001,
+			"book": "220",
+			"job": 220,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Meditation",
+			"desc": "Temporarily increases your magic attack.",
+			"icon": "Skill.wz/220.img/skill/2201001/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_buff": "Tier A: canonical effects/time/mpCon/action/art/sound. Tier C: self-only auto-cast while inactive and affordable; canonical effects snapshot until expiry; 0.8 s cast hold.",
+			"buff": {
+				"effects": [
+					{
+						"stat": "matk",
+						"field": "mad"
+					}
+				],
+				"duration_field": "time"
+			},
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/220.img/skill/2201001/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2201001/Use",
+				"hit": ""
+			}
+		},
+		"bless": {
+			"skill_id": 2301004,
+			"book": "230",
+			"job": 230,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Bless",
+			"desc": "Temporarily increases defence, accuracy and avoid. Accuracy has no combat effect yet.",
+			"icon": "Skill.wz/230.img/skill/2301004/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_buff": "Tier A: canonical effects/time/mpCon/action/art/sound. Tier C: self-only auto-cast while inactive and affordable; canonical effects snapshot until expiry; 0.8 s cast hold.",
+			"buff": {
+				"effects": [
+					{
+						"stat": "pdd",
+						"field": "pdd"
+					},
+					{
+						"stat": "mdd",
+						"field": "mdd"
+					},
+					{
+						"stat": "acc",
+						"field": "acc"
+					},
+					{
+						"stat": "avoid",
+						"field": "eva"
+					}
+				],
+				"duration_field": "time"
+			},
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/230.img/skill/2301004/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2301004/Use",
+				"hit": ""
+			}
+		},
+		"invincible": {
+			"skill_id": 2301003,
+			"book": "230",
+			"job": 230,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Invincible",
+			"desc": "Temporarily reduces weapon and touch damage taken; magic damage is unaffected.",
+			"icon": "Skill.wz/230.img/skill/2301003/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_buff": "Tier A: canonical effects/time/mpCon/action/art/sound. Tier C: self-only auto-cast while inactive and affordable; canonical effects snapshot until expiry; 0.8 s cast hold.",
+			"buff": {
+				"effects": [
+					{
+						"stat": "weapon_damage_reduction",
+						"field": "x"
+					}
+				],
+				"duration_field": "time"
+			},
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/230.img/skill/2301003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2301003/Use",
+				"hit": ""
+			}
+		},
+		"slow_fp": {
+			"skill_id": 2101003,
+			"book": "210",
+			"job": 210,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Slow",
+			"desc": "Slows up to six eligible monsters when at least three unslowed monsters are in the skill box.",
+			"icon": "Skill.wz/210.img/skill/2101003/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_cast": "Tier C: auto-cast at three eligible unslowed mobs, 1 s cooldown; at most two consecutive successful Slow casts per logical mob. A successful cast excluding it breaks the sequence; expiry/relocation do not. Canonical signed x/time/mobCount/lt/rb remain tier A.",
+			"cast": {
+				"rule": "crowd",
+				"min_targets": 3
+			},
+			"cooldown": 1.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/210.img/skill/2101003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2101003/Use",
+				"hit": ""
+			}
+		},
+		"slow_il": {
+			"skill_id": 2201003,
+			"book": "220",
+			"job": 220,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Slow",
+			"desc": "Slows up to six eligible monsters when at least three unslowed monsters are in the skill box.",
+			"icon": "Skill.wz/220.img/skill/2201003/icon",
+			"damage": "none",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"_cast": "Tier C: auto-cast at three eligible unslowed mobs, 1 s cooldown; at most two consecutive successful Slow casts per logical mob. A successful cast excluding it breaks the sequence; expiry/relocation do not. Canonical signed x/time/mobCount/lt/rb remain tier A.",
+			"cast": {
+				"rule": "crowd",
+				"min_targets": 3
+			},
+			"cooldown": 1.0,
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/220.img/skill/2201003/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/2201003/Use",
+				"hit": ""
+			}
 		}
 	}
 }

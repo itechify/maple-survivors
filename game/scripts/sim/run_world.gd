@@ -387,6 +387,7 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
 func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)
+	_refresh_caster()
 	refresh_player_speed()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
@@ -647,13 +648,17 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
 		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
-	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD"), progression.level)
+	_refresh_caster()
 	_write_player_state(0.0)
 
 
 ## Upgraded movement speed plus active canonical buff points, composed with the canonical-area slow.
 func player_speed_stat() -> float:
 	return (loadout.player_stat("speed", 100.0) + buffs.effect_total("speed")) * mob_skills.speed_multiplier(time)
+
+
+func _refresh_caster() -> void:
+	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD") + buffs.effect_total("matk"), progression.level)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points).
@@ -850,6 +855,8 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 		return -1
 	var k := swarm.kind[i]
 	var identity := swarm.identity[i]
+	var slow_serial := swarm.slow_cast_serial[i]
+	var slow_streak := swarm.slow_cast_streak[i]
 	var hp := swarm.hp[i]
 	var mhp := swarm.max_hp[i]
 	var elite := mob_elite[i] != 0
@@ -858,6 +865,8 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	swarm.despawn(i)
 	var j := swarm.spawn(k, pos.x, pos.y, fh, mhp)
 	swarm.identity[j] = identity
+	swarm.slow_cast_serial[j] = slow_serial
+	swarm.slow_cast_streak[j] = slow_streak
 	swarm.hp[j] = hp
 	_sync_slots()
 	mob_elite[j] = 1 if elite else 0
@@ -975,7 +984,10 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
+	var matk_before := buffs.effect_total("matk")
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
+	if buffs.effect_total("matk") != matk_before:
+		_refresh_caster()
 	refresh_player_speed()
 	if _dead:
 		return
@@ -1123,11 +1135,14 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	if _dead or god or upkeep.invincible_t > 0.0:
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
-	if CombatMath.roll_miss(player_avoid, float(source.get("accuracy", 0.0)), rng):
+	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
 		_emit_player_hit(0, 0, true, dir, source)
 		return 0
 	var dmg := CombatMath.monster_hit(attack, magic, element, hit_defense(), rng,
 		hit_source_multiplier(source))
+	if not magic:
+		# tier C: apply canonical Invincible percent to the whole weapon hit, before Magic Guard; minimum 1.
+		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
 	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
@@ -1268,7 +1283,9 @@ func _write_player_state(dt: float) -> void:
 		player_state[stat] = _attributes[stat]
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
-	player_state["avoid"] = player_avoid
+	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
+	# Canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
+	player_state["acc"] = buffs.effect_total("acc")
 	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", float(balance.get("player", {}).get("fortune", 0.0))))
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
