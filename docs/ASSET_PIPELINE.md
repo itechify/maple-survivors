@@ -109,6 +109,15 @@ effect. The removed Max HP card no longer needs the extra `Skill.wz/100.img/skil
 
 ## 5. Cache format (contract)
 
+Character creation (#70) imports `Etc.wz/MakeCharInfo.img` `Info/CharMale`, `Info/CharFemale` and their `Name`
+subtrees through the generic img importer (no archive-specific decoder). The numeric columns are face, hair,
+hair colour, skin, top, bottom, shoes and weapon, in that order (tier A, original v83 data). `CharacterCreation`
+reads these at runtime; the manifest selects every allowed face, all base-hair/colour combinations, four body/head
+skins, clothes and weapons. The existing whole `UI.wz/Login.img` selection supplies CharSelect, NewChar and Gender.
+`DataRepo.build_setup` reads the same MakeCharInfo weapon column to load each weapon's original info and afterimage.
+Synthetic Rust import coverage checks Etc numeric columns and names; real-cache Godot coverage checks all variants.
+
+
 ```
 <cache_root>/                                       %APPDATA%/MapleSurvivors/asset_cache/v83 by default
   cache.json                                        index (below)

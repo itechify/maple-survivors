@@ -15,6 +15,16 @@ extends RefCounted
 const FORMAT := 1 # tier C: initial snapshot schema, spec #32.
 
 
+## One weapon rule for simulation and all player drawings: Beginner selection, otherwise nearest job ancestor.
+static func weapon_id(job_id: int, beginner_weapon: int, weapon_by_job: Dictionary, jobs: JobTree) -> int:
+	if job_id == 0 and beginner_weapon > 0:
+		return beginner_weapon
+	for ancestor in jobs.lineage(job_id):
+		if weapon_by_job.has(str(ancestor)):
+			return int(weapon_by_job[str(ancestor)])
+	return int(weapon_by_job.get("0", 0))
+
+
 ## Structural validation for file/save callers; an empty message means a supported complete snapshot.
 static func validation_error(value: Variant) -> String:
 	if not value is Dictionary:

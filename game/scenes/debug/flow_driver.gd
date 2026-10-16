@@ -6,7 +6,7 @@ extends Node
 ##   bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=C:/abs/dir
 ##
 ## Scenarios (--scenario=):
-##   full    title -> plain character creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
+##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
 ##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
 ##           continue the saved round/seed -> Quit round -> history -> characters -> title -> quit.
 ##           Slots/history go only to shots_dir/driver_save.json. Delete that file for a fresh repeat.
@@ -260,9 +260,12 @@ func _create_character(character_name: String) -> bool:
 		return false
 	await _sleep(0.5)
 	await _shot("character_select")
-	await _click(flow.current.get("name_edit") as Control)
-	await _type(character_name)
 	await _click(flow.current.get("create_button") as Control)
+	await _sleep(0.5)
+	var creation: Control = flow.current.get("creation")
+	await _click(creation.get("name_edit") as Control)
+	await _type(character_name)
+	await _click(creation.get("create_button") as Control)
 	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
 
 

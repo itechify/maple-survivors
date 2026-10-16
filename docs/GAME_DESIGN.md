@@ -10,8 +10,9 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 ## 1. The run
 
 1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
-2. **Start.** Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
-   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). The map's own BGM plays.
+2. **Start.** A new character is a level 1 Beginner with the chosen MakeCharInfo look and weapon, standing at a
+   random spawn portal (`pn=sp`). Empty carried looks use AvatarRenderer.DEFAULT_LOOK (face 20000, hair 30030,
+   White Undershirt 1040002, Blue Jean Shorts 1060002, Red Rubber Boots 1072001). The map's own BGM plays.
 3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
@@ -340,6 +341,52 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #32 / #70 character creation and weapon regression smoke (2026-10-16)
+
+Creation/weapon code `72f2dfd`, followed by #74 harness integration `bb933f1`; `ISOLATE=t70`, private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. Report-only training seeds 1/2/2026,
+1800 s cap, default branches, no PATCH, tuning or held-out seeds. Each weapon uses an otherwise identical fresh
+Beginner snapshot with an empty look (the default outfit); the extra standard matrix uses fresh one-off rounds.
+All 21 rounds finish without crashes, script errors or world warnings. All nine weapon runs and all six standard
+Henesys runs reach Magician and spawn Mano. The standard matrix's outcomes, end times and levels exactly match
+the preceding #69 smoke; Tree's early deaths remain record-only. Sword's carried snapshot reproduces the fresh
+Beginner baseline. Club and Axe change the deterministic journey as expected; no data was tuned.
+
+| Stage / policy / weapon | Lv10 seconds (1 / 2 / 2026) | End seconds (C = clear, D = died; 1 / 2 / 2026) | Final levels |
+|---|---|---|---|
+| Henesys bot / Sword 1302000 | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys bot / Club 1322005 | 281.5 / 274.7 / 273.9 | C987.0 / D851.1 / C961.8 | 38 / 28 / 39 |
+| Henesys bot / Axe 1312004 | 271.3 / 279.6 / 271.3 | C1024.8 / D960.6 / C938.9 | 39 / 32 / 38 |
+| Henesys bot / default | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys random / default | 263.2 / 278.3 / 276.0 | C974.6 / D714.8 / D329.0 | 43 / 27 / 11 |
+| Tree bot / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+| Tree random / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+
+Ignored evidence: `evidence/t70/smoke/` preserves per-seed configuration/records, exact console output and SYSTEMS
+aggregates; the identical fresh weapon snapshots are in `_scratch/t70/weapon_<id>.json`. The private import writes
+148 imgs (49 new/changed), with zero errors/warnings/unresolved UOLs. Rust passes 47 tests (including all 17
+real-data tests with MAPLE_WZ_ROOT set). Checked `three_characters.png`, both `creation_*.png`, `invalid_name.png`,
+`delete_confirmation.png`, `history.png` and `round_chosen_look.png` under `evidence/t70/` by eye. They show three
+distinct carried appearances with job weapons, gender-specific choices and live preview, recoverable validation,
+deletion confirmation, dated endings, and the chosen look/Club in a round. `character_driver` reports `missing=[]`.
+The updated injected keyboard/mouse `flow_driver --scenario=full --seed=1 --stop-at=330` also passes: new creation,
+map select, Magician and 16 card windows, pause/resume, death/results, another creation, confirmed Quit round,
+same-seed Continue, history and return to title. It dies at 387.5 s / Lv15; its summary has `missing=[]`.
+Screenshots, summary and exact log are under `evidence/t70/flow/` and `evidence/t70/flow.log`.
+
+After merging #74, the added spec-32 chain/fixture matrix runs the same seeds and both policies: **12 more seed
+records / 14 rounds**, giving **33 records / 35 rounds** overall, with zero crashes, script errors, world warnings
+or missing setup assets. Each chain has only seed 1 feeding tier 2 (1/3); bot dies at 685.2 s / Lv52 and random
+at 1240.1 s / Lv64. Dark Cave fixture deaths are bot 789.3 / 780.7 / 807.8 s (Lv58/61/60) and random
+609.5 / 595.6 / 754.0 s (Lv51/50/55). These exactly match #74; no chain or fixture reaches Lv70, and the small
+conditional tier-2 sample is not a balance assessment. Exact records/console/SYSTEMS output remain in
+`evidence/t70/smoke/chain/` and `fixture/`.
+
+After the integration merge, code `ca02312` passes the full `ISOLATE=t70 bash scripts/test.sh`: **722 tests,
+0 failed, 0 skipped, 80 files** (366.672 s), including every real-cache test. Log: `evidence/t70/full_suite.log`.
+Creation/persistence focused checks also pass 22/0/0; the reloaded-look assertion accounts for JSON numbers
+becoming floats. No skipped check is being treated as evidence.
 
 #### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
 
@@ -2176,6 +2223,30 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 11. Constants and provenance
 
+Character creation (#70) reads the Explorer male/female options and their hair/colour/skin names from
+`Etc.wz/MakeCharInfo.img` at runtime. Its eight numeric columns, gender-specific option lists and hair-colour suffix
+are tier A, checked in the original v83 files. Sword 1302000 has WATK 17 / speed 4; Wooden Club 1322005 WATK 19 /
+speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interval conversion yields 0.72 / 0.75 /
+0.75 seconds. No new balance values are introduced. Clothing choices change the drawing; the existing survivor
+starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
+the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
+
+`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
+presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
+with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
+shape). The snapshot's `beginner_weapon` persists even after advancement.
+
+The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
+Character select uses the LoginBackdrop CHAR_SELECT book, CharSelect's original buttons and character effect;
+creation uses NewChar's name/settings wood, arrows and buttons, plus Gender's preview parchment. NameTags supplies
+the existing translucent name treatment. The centered 800x600 book, slot x=180/400/620, feet y=319, controls/text
+positions, 19px creation rows, brown ink RGB 85/51/17 and error ink RGB 153/34/0 are tier C presentation choices.
+The history list uses the existing ParchmentScroll and records name/job/level, tiers, rounds, ending and UTC date.
+The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
+tier C diagnostic staging only; it writes an evidence-local save and never the player's save.
+
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
 the first stage of each later `stages.json` tier; `--stage` overrides tier 1. Lv70 reach is a diagnostic from
@@ -2187,9 +2258,7 @@ Creation is a fresh Beginner from the simulation defaults. A boundary is saved a
 with its stage and seed; Quit round confirms that progress will be lost and preserves those bytes. Continue replays
 the round from its start. Death and final-tier victory end the run in history; other clears carry the character
 through the single `SceneFlow._after_round_cleared` seam. Tool-only `--run` rounds never write slots/history/bests.
-The temporary plain character screen uses a dark blue background (RGB 25/44/58), a 560 px column, 14 px row gaps,
-24 px headings and a 300 px history pane, three slot rows, name creation,
-continue, confirmed delete and a history entry point (tier C, #69; #70 replaces its presentation). Map select keeps
+The #70 character screen replaces #69's temporary plain slot/name/history presentation. Map select keeps
 the existing parchment, adds the character/tier heading at y=32 and labels Back as Save & quit (tier C, layout).
 The exact Quit round confirmation is owner #32 copy: "You'll lose this round's progress. Continue later to restart
 the round from its beginning." Victory results show the tiers cleared and return to character select (tier C).

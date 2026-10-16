@@ -795,6 +795,28 @@ fn mapimgs_expand_like_maps() {
 // ---------------------------------------------------------------- full import + incremental
 
 #[test]
+fn import_etc_creation_options_preserves_numeric_columns_and_names() {
+    let dir = TempDir::new("etc_creation");
+    write_wz_root(dir.path(), &[("Etc.wz", vec![WEntry::Img("MakeCharInfo.img".into(), write_img(&[
+        ("Info".into(), W::Sub(vec![("CharMale".into(), W::Sub(vec![
+            ("7".into(), W::Sub(vec![("0".into(), W::Int(1234567)), ("1".into(), W::Int(7654321))]))
+        ]))])),
+        ("Name".into(), W::Sub(vec![("CharMale".into(), W::Sub(vec![
+            ("2".into(), W::Sub(vec![("7".into(), W::Str("Synthetic brown".into()))]))
+        ]))])),
+    ], true))])]);
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(&manifest, r#"{"format":1,"imgs":[{"img":"Etc.wz/MakeCharInfo.img","paths":["Info/CharMale","Name/CharMale"]}]}"#).unwrap();
+    let out = dir.path().join("out");
+    let result = run_import(&ImportOptions { wz: dir.path().into(), manifest, out: out.clone(), force: false }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    let tree = read_json(&out.join("Etc.wz/MakeCharInfo.img.json"));
+    assert_eq!(tree["Info"]["CharMale"]["7"], serde_json::json!({"0":1234567,"1":7654321}));
+    assert_eq!(tree["Name"]["CharMale"]["2"]["7"], "Synthetic brown");
+    assert!(result.index.sources.contains_key("Etc.wz"));
+}
+
+#[test]
 fn import_writes_cache_and_skips_up_to_date_imgs() {
     let dir = TempDir::new("import");
     synthetic_world(dir.path());
