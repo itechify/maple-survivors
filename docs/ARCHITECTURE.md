@@ -85,7 +85,8 @@ Everything else is owned by the scene that uses it.
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
 independent of new casting. A ready skill can cast on the tick movement leaves the climbing state.
-Manual Esc pause leaves the sim state unchanged; RunScene stops its tick loop and freezes presentation.
+Manual Esc pause leaves the sim state unchanged; RunScene stops its tick loop and freezes presentation. An open
+in-run window (Stat, Menu popup) holds the run the same way.
 
 ### 4.3 Simulation / presentation split
 
@@ -548,8 +549,8 @@ score setting. Both knobs are tier C survivor tuning.
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. |
-| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. Title, stage select, results and import are scenes under `scenes/ui/`. |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. The one HUD control that takes the mouse is the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`, process mode ALWAYS so it works while the HUD is frozen). |
+| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, the Menu popup; later Skill, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Title, stage select, results and import are scenes under `scenes/ui/`. |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 `RunScene.boss_bars()` builds presentation-only snapshots from live encounter records and swarm HP, independently

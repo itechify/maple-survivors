@@ -17,6 +17,11 @@ extends Node
 ##           stage clear and the results screen, then Stage select (mouse) -> title (Esc) -> quit (Esc).
 ##   title   the title screen only: waits for it, saves the shot, quits (e.g. to check an exported build:
 ##           MapleSurvivors.exe res://scenes/debug/flow_driver.tscn -- --scenario=title --shots=<dir>).
+##   windows the in-run window system (#85): title -> stage select -> run; S opens the Stat window (the sim is checked
+##           to hold), its title bar is dragged with the mouse, Esc closes it (the sim runs again); an EXP drop levels
+##           the player up, S opens Stat over the level-up choice, Esc returns to the choice, 1 picks a card; the
+##           status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
+##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -58,6 +63,8 @@ func _ready() -> void:
 			_scenario_import()
 		"title":
 			_scenario_title()
+		"windows":
+			_scenario_windows()
 		_:
 			_scenario_full()
 
@@ -221,6 +228,97 @@ func _scenario_clear() -> void:
 	get_tree().quit(1 if _failed else 0)
 
 
+func _scenario_windows() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "stage select"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("start_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	await _hold(KEY_RIGHT, 0.6)
+	# S: the Stat window opens and the sim holds.
+	await _key(KEY_S)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("stat") != null, 3.0, "Stat window (S)"):
+		return
+	var t0 := run.world.time
+	await _sleep(1.0)
+	_check(run.world.time == t0, "the sim holds while Stat is open (%.3f -> %.3f)" % [t0, run.world.time])
+	await _shot("stat_window")
+	# Drag the title bar.
+	var stat := run.ui_windows.find_window("stat")
+	var from := stat.get_global_rect().position + Vector2(60, 8)
+	var before := stat.position
+	await _drag(from, from + Vector2(-170, 30))
+	_check(stat.position == before + Vector2(-170, 30), "the title bar dragged Stat %s -> %s" % [before, stat.position])
+	await _shot("stat_dragged")
+	# Esc closes it and the run goes on.
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed Stat without pausing")
+	_check(run.world.time > t0, "the sim runs again after Esc")
+	# A level-up choice; Stat over it, Esc back to it, 1 picks.
+	run.world.pickups.spawn(run.world.player.pos, run.world.progression.exp_to_next(), 4000019)
+	if not await _until(func() -> bool: return run.window is LevelUpWindow and (run.window as MapleWindow).is_open(),
+			10.0, "level-up window"):
+		return
+	await _sleep(0.6)
+	var lw := run.window as LevelUpWindow
+	await _key(KEY_S)
+	await _sleep(0.4)
+	_check(run.ui_windows.find_window("stat") != null and lw.input_blocked, "Stat opened over the level-up choice")
+	await _shot("stat_over_levelup")
+	await _key(KEY_1)
+	await _sleep(0.2)
+	_check(run.world.state == RunWorld.CHOOSING_UPGRADE, "1 picked nothing under the Stat window")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	_check(not run.ui_windows.has_windows() and run.window == lw and not lw.input_blocked, "Esc returned to the choice")
+	await _key(KEY_1)
+	if not await _until(func() -> bool: return run.world.state == RunWorld.PLAYING, 5.0, "card picked with 1"):
+		return
+	await _sleep(1.0)
+	# Menu -> Stat with the mouse.
+	await _click(run.hud.menu_button)
+	await _sleep(0.4)
+	var menu := run.ui_windows.top() as GameMenuPopup
+	_check(menu != null, "the Menu button opened its popup")
+	if menu == null:
+		return
+	_hover(menu.get_global_rect().position + menu.entry_rect("stat").get_center())
+	await _sleep(0.3)
+	await _shot("menu_popup")
+	await _click_at(menu.get_global_rect().position + menu.entry_rect("stat").get_center())
+	await _sleep(0.4)
+	_check(run.ui_windows.ids() == PackedStringArray(["stat"]), "Menu -> Stat opened Stat (%s)" % [run.ui_windows.ids()])
+	await _shot("menu_stat")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	_check(not run.ui_windows.has_windows(), "Esc closed Stat")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(run.paused, "with no window open Esc pauses")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	_check(not run.paused, "Esc resumes")
+	print("flow_driver: windows scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## Records a scenario check (a failed one makes the driver exit 1 at the end).
+func _check(ok: bool, what: String) -> void:
+	print("flow_driver: %s %s" % ["ok" if ok else "FAILED", what])
+	if not ok:
+		_failed = true
+		push_error("flow_driver: " + what)
+
+
 func _scenario_title() -> void:
 	if not await _until(func() -> bool: return flow.current_name == "title", 30.0, "title"):
 		return
@@ -361,6 +459,42 @@ func _click_at(p: Vector2) -> void:
 		b.global_position = w
 		Input.parse_input_event(b)
 		await get_tree().process_frame
+
+
+## Moves the mouse to logical position `p` (no button).
+func _hover(p: Vector2) -> void:
+	var w := get_tree().root.get_final_transform() * p
+	var m := InputEventMouseMotion.new()
+	m.position = w
+	m.global_position = w
+	Input.parse_input_event(m)
+
+
+## A left-button drag from logical `a` to `b` in a few motion steps.
+func _drag(a: Vector2, b: Vector2) -> void:
+	var xf := get_tree().root.get_final_transform()
+	_hover(a)
+	await get_tree().process_frame
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = xf * a
+	down.global_position = down.position
+	Input.parse_input_event(down)
+	await get_tree().process_frame
+	for i in range(1, 7):
+		var m := InputEventMouseMotion.new()
+		m.position = xf * a.lerp(b, i / 6.0)
+		m.global_position = m.position
+		m.button_mask = MOUSE_BUTTON_MASK_LEFT
+		Input.parse_input_event(m)
+		await get_tree().process_frame
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.position = xf * b
+	up.global_position = up.position
+	Input.parse_input_event(up)
+	await get_tree().process_frame
 
 
 func _sleep(seconds: float) -> void:
