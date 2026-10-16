@@ -183,6 +183,8 @@ func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> voi
 func test_picking_elixir_from_an_exhausted_levelup_fully_restores_both_pools() -> void:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []
+	# No level-up MP refill, so MP is still short when the window opens and the Elixir has both pools to restore.
+	data.balance.level_up_refill = {"hp": 0.0, "mp": 0.0}
 	var w := RunWorld.new(RF.setup("quiet", 38, data))
 	RF.place_player(w, 400)
 	w.take_hit(10.0, false, "", w.player.pos - Vector2(10, 0))
