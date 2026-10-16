@@ -212,9 +212,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	var c := card(id)
 	tier = _honest_tier(c, state, tier)
 	var magnitude := _magnitude(c, state, tier)
-	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
-	if c.has("value"):
-		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
+	var desc := describe(id, magnitude)
 	var kind := String(c.get("kind", ""))
 	var skill := String(c.get("skill", ""))
 	var skill_name := ""
@@ -275,6 +273,16 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_effect_stat": effect_stat,
 		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
 	}
+
+
+## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value
+## (the level-up card and the Skill window's star tab both show it).
+func describe(id: String, magnitude: int) -> String:
+	var c := card(id)
+	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
+	if c.has("value"):
+		desc = desc.replace("{value}", _fmt(_description_value(c, magnitude)))
+	return desc
 
 
 ## The effective values a skill_mod card's `magnitude` steps change, measured on a scratch copy of the loadout with
