@@ -119,6 +119,12 @@
 		{"id": "mana_elixir", "kind": "potion_tier", "skill": "", "name": "Mana Elixirs",
 			"desc": "Upgrade all MP stock and future drops to Mana Elixirs (300 MP).",
 			"icon": "Item.wz/Consume/0200.img/02000006/info/icon", "potion_kind": "mp", "item_id": 2000006,
-			"max_rank": 1, "weight": 2, "requires": {"min_level": 20, "potions": {"mp": 2000003}}, "effects": []}
+			"max_rank": 1, "weight": 2, "requires": {"min_level": 20, "potions": {"mp": 2000003}}, "effects": []},
+		{"id":"teleport_fp_new","kind":"skill_new","skill":"teleport_fp","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":1,"weight":2,"requires":{"jobs":[210]},"effects":[]},
+		{"id":"teleport_fp_rank","kind":"skill_rank","skill":"teleport_fp","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/210.img/skill/2101002/icon","max_rank":20,"weight":2,"requires":{"jobs":[210],"skills":["teleport_fp"]},"effects":[{"stat":"rank","op":"add","value":1}]},
+		{"id":"teleport_il_new","kind":"skill_new","skill":"teleport_il","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":1,"weight":2,"requires":{"jobs":[220]},"effects":[]},
+		{"id":"teleport_il_rank","kind":"skill_rank","skill":"teleport_il","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/220.img/skill/2201002/icon","max_rank":20,"weight":2,"requires":{"jobs":[220],"skills":["teleport_il"]},"effects":[{"stat":"rank","op":"add","value":1}]},
+		{"id":"teleport_cleric_new","kind":"skill_new","skill":"teleport_cleric","name":"Teleport","desc":"Learn Teleport: press X and a direction to blink.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":1,"weight":2,"requires":{"jobs":[230]},"effects":[]},
+		{"id":"teleport_cleric_rank","kind":"skill_rank","skill":"teleport_cleric","name":"Teleport","desc":"Higher skill level lowers MP cost and increases blink range.","icon":"Skill.wz/230.img/skill/2301001/icon","max_rank":20,"weight":2,"requires":{"jobs":[230],"skills":["teleport_cleric"]},"effects":[{"stat":"rank","op":"add","value":1}]}
 	]
 }

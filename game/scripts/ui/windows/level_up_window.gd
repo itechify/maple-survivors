@@ -26,7 +26,7 @@ const X_LABELS := {"hp": ["HP / pulse", ""]}
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", Loadout.MAX_MP_PERCENT: "Max MP"}
+	"time": "Duration", "pdd": "Weapon DEF", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", Loadout.MAX_MP_PERCENT: "Max MP"}
 ## Fields shown as a percent.
 const PERCENT_FIELDS := ["mastery", Loadout.MAX_MP_PERCENT]
 
@@ -192,6 +192,8 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 		if values.before == values.after:
 			continue
 		var suffix := " s" if field in ["time", "cooltime"] else ""
+		if field == "range":
+			suffix = " px"
 		if field in PERCENT_FIELDS:
 			suffix = "%"
 		elif field == "x":

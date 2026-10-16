@@ -95,6 +95,18 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var room := [p.x - w.bounds.position.x, w.bounds.end.x - p.x]
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
+	var teleport := w.teleport_skill()
+	if teleport != "" and w.can_cast() and w.teleport_affordable():
+		var reach := float(w.loadout.stats(teleport).teleport_range)
+		# tier C: blink from threats within 60 px, or within flee distance when less than one blink from an edge.
+		var cornered := minf(room[0], room[1]) < reach and minf(nearest[0], nearest[1]) < FLEE_DIST
+		if cornered or minf(nearest[0], nearest[1]) < 60.0:
+			var escape := (1 if room[1] > room[0] else -1) if cornered else (-1 if danger[0] < danger[1] else 1)
+			if not w.player.teleport_destination(Vector2(escape, 0), reach, w.fhm, w.bounds).is_empty():
+				mi.left = escape < 0
+				mi.right = escape > 0
+				mi.teleport_pressed = true
+				return mi
 	var dir := 0
 	var down := false
 	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)

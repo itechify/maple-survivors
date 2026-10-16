@@ -37,6 +37,7 @@ const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CL
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
+	"teleport": ["skill", "skill_id", "level", "phase", "pos", "facing", "effect"],
 	"cast": ["skill", "skill_id", "level", "pos", "facing", "action", "effect"],
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
@@ -144,6 +145,7 @@ var upkeep: PlayerUpkeep
 var book: SkillBook
 var loadout: Loadout
 var runner: SkillRunner
+var _teleport_left := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -424,16 +426,58 @@ func step(dt: float, input: MoveInput) -> void:
 
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
+	_teleport_left = maxf(0.0, _teleport_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
-	if not _take_portal(dt, input):
+	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## Owned branch Teleport key, or empty before learning it.
+func teleport_skill() -> String:
+	for key: String in loadout.order:
+		if book.def(key).has("teleport"):
+			return key
+	return ""
+
+
+## Whether an owned Teleport can currently be paid for (also used by the HUD and autoplay).
+func teleport_affordable() -> bool:
+	var key := teleport_skill()
+	return key != "" and _mp >= int(loadout.stats(key).mp_cost)
+
+
+func _try_teleport(input: MoveInput) -> bool:
+	if not (input.teleport_pressed or input.teleport_held) or _teleport_left > 1e-6 or not can_cast():
+		return false
+	var key := teleport_skill()
+	if key == "":
+		return false
+	var stats := loadout.stats(key)
+	# tier C: vertical intent wins a diagonal; opposing keys cancel, then fall back to facing.
+	var vertical := int(input.down) - int(input.up)
+	var direction := Vector2(0, vertical) if vertical != 0 else Vector2(input.dir(), 0)
+	if direction == Vector2.ZERO:
+		direction.x = player.facing
+	var dest := player.teleport_destination(direction, float(stats.teleport_range), fhm, bounds)
+	if dest.is_empty() or not spend_mp(int(stats.mp_cost)):
+		return false
+	var departure := player.pos
+	player.place(dest.pos, fhm)
+	if direction.x != 0:
+		player.facing = int(direction.x)
+	_teleport_left = float(stats.repeat_delay)
+	for phase: String in ["departure", "arrival"]:
+		emit("teleport", {"skill": key, "skill_id": int(stats.skill_id), "level": int(stats.level),
+			"phase": phase, "pos": departure if phase == "departure" else player.pos,
+			"facing": player.facing, "effect": String(stats.effect)})
+	return true
 
 
 ## Holding Up in a same-map portal's box places the player at its destination (emits portal_used); true when warped.

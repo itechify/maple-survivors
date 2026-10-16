@@ -152,6 +152,8 @@ func stats(key: String) -> Dictionary:
 		"rank": r,
 		"level": lv,
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
+		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
+		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
 		"damage_min": lo,
 		"damage_max": hi,

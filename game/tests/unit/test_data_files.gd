@@ -37,7 +37,8 @@ func test_skills_reference_canonical_ids() -> void:
 		assert_eq(String(s.icon), "Skill.wz/%s.img/skill/%07d/icon" % [s.book, int(s.skill_id)], "%s icon" % key)
 		for f: String in ["ball", "hit", "effect"]:
 			var p := String(s.get(f, ""))
-			assert_true(p == "" or p.begins_with("Skill.wz/%s.img/skill/%07d/" % [s.book, int(s.skill_id)]),
+			var shared_teleport := f == "effect" and s.has("teleport") and p == "Effect.wz/BasicEff.img/Teleport"
+			assert_true(p == "" or shared_teleport or p.begins_with("Skill.wz/%s.img/skill/%07d/" % [s.book, int(s.skill_id)]),
 				"%s.%s is a WZ path of the skill" % [key, f])
 		assert_false(s.has("fixdamage") or s.has("mad") or s.has("mastery"), "%s: no canonical numbers here" % key)
 
@@ -240,7 +241,7 @@ func test_build_setup_and_paths() -> void:
 	var s := DataRepo.build_setup(data, "henesys_hg1", 5, Vector2(800, 600), loader, mob_loader, missing)
 	assert_eq(s.map_img, {"stub": "Map.wz/Map/Map1/104040000.img"})
 	assert_eq(s.physics_img, {"stub": "Map.wz/Physics.img"})
-	assert_eq(s.skill_imgs.keys().size(), 3, "books 000, 200, 210")
+	assert_eq(s.skill_imgs.keys().size(), 5, "books 000, 200, 210, 220, 230")
 	assert_true(s.skill_imgs.has("000") and s.skill_imgs.has("200"))
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
