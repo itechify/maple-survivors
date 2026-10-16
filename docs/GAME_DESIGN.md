@@ -342,6 +342,52 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #32 / #70 character creation and weapon regression smoke (2026-10-16)
+
+Creation/weapon code `72f2dfd`, followed by #74 harness integration `bb933f1`; `ISOLATE=t70`, private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. Report-only training seeds 1/2/2026,
+1800 s cap, default branches, no PATCH, tuning or held-out seeds. Each weapon uses an otherwise identical fresh
+Beginner snapshot with an empty look (the default outfit); the extra standard matrix uses fresh one-off rounds.
+All 21 rounds finish without crashes, script errors or world warnings. All nine weapon runs and all six standard
+Henesys runs reach Magician and spawn Mano. The standard matrix's outcomes, end times and levels exactly match
+the preceding #69 smoke; Tree's early deaths remain record-only. Sword's carried snapshot reproduces the fresh
+Beginner baseline. Club and Axe change the deterministic journey as expected; no data was tuned.
+
+| Stage / policy / weapon | Lv10 seconds (1 / 2 / 2026) | End seconds (C = clear, D = died; 1 / 2 / 2026) | Final levels |
+|---|---|---|---|
+| Henesys bot / Sword 1302000 | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys bot / Club 1322005 | 281.5 / 274.7 / 273.9 | C987.0 / D851.1 / C961.8 | 38 / 28 / 39 |
+| Henesys bot / Axe 1312004 | 271.3 / 279.6 / 271.3 | C1024.8 / D960.6 / C938.9 | 39 / 32 / 38 |
+| Henesys bot / default | 279.9 / 283.2 / 270.6 | C967.8 / D812.3 / D322.7 | 41 / 28 / 10 |
+| Henesys random / default | 263.2 / 278.3 / 276.0 | C974.6 / D714.8 / D329.0 | 43 / 27 / 11 |
+| Tree bot / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+| Tree random / default | not reached | D141.9 / D141.0 / D77.4 | 3 / 3 / 2 |
+
+Ignored evidence: `evidence/t70/smoke/` preserves per-seed configuration/records, exact console output and SYSTEMS
+aggregates; the identical fresh weapon snapshots are in `_scratch/t70/weapon_<id>.json`. The private import writes
+148 imgs (49 new/changed), with zero errors/warnings/unresolved UOLs. Rust passes 47 tests (including all 17
+real-data tests with MAPLE_WZ_ROOT set). Checked `three_characters.png`, both `creation_*.png`, `invalid_name.png`,
+`delete_confirmation.png`, `history.png` and `round_chosen_look.png` under `evidence/t70/` by eye. They show three
+distinct carried appearances with job weapons, gender-specific choices and live preview, recoverable validation,
+deletion confirmation, dated endings, and the chosen look/Club in a round. `character_driver` reports `missing=[]`.
+The updated injected keyboard/mouse `flow_driver --scenario=full --seed=1 --stop-at=330` also passes: new creation,
+map select, Magician and 16 card windows, pause/resume, death/results, another creation, confirmed Quit round,
+same-seed Continue, history and return to title. It dies at 387.5 s / Lv15; its summary has `missing=[]`.
+Screenshots, summary and exact log are under `evidence/t70/flow/` and `evidence/t70/flow.log`.
+
+After merging #74, the added spec-32 chain/fixture matrix runs the same seeds and both policies: **12 more seed
+records / 14 rounds**, giving **33 records / 35 rounds** overall, with zero crashes, script errors, world warnings
+or missing setup assets. Each chain has only seed 1 feeding tier 2 (1/3); bot dies at 685.2 s / Lv52 and random
+at 1240.1 s / Lv64. Dark Cave fixture deaths are bot 789.3 / 780.7 / 807.8 s (Lv58/61/60) and random
+609.5 / 595.6 / 754.0 s (Lv51/50/55). These exactly match #74; no chain or fixture reaches Lv70, and the small
+conditional tier-2 sample is not a balance assessment. Exact records/console/SYSTEMS output remain in
+`evidence/t70/smoke/chain/` and `fixture/`.
+
+After the integration merge, code `ca02312` passes the full `ISOLATE=t70 bash scripts/test.sh`: **722 tests,
+0 failed, 0 skipped, 80 files** (366.672 s), including every real-cache test. Log: `evidence/t70/full_suite.log`.
+Creation/persistence focused checks also pass 22/0/0; the reloaded-look assertion accounts for JSON numbers
+becoming floats. No skipped check is being treated as evidence.
+
 #### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
 
 Revision `8ef2fb0`, based on integration `eca037d`; `ISOLATE=t74`, training seeds **1/2/2026**, bot/random,
