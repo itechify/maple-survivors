@@ -1,6 +1,8 @@
 {
 	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. original_life is the map's own spawn list (shown on the stage card). Optional normal_hp_drop_chance and normal_mp_drop_chance clamp each endpoint to [0,1], use the matching global normal fallback when missing, interpolate linearly, and hold outside the frame range without post-duration ramping; elite chances remain global and fixed boss bundles bypass both curves. Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
 	"_mp_rewards": "Tier C: all explicit boss MP bundles halved from 6 to 3 (#37), matching the global default; HP rewards unchanged.",
+	"_tiers": "Tier C: owner choice, spec #32. Zero-based run tier index; choose one stage from each list.",
+	"tiers": [["henesys_hg1", "tree_that_grew_1"], ["dark_cave"]],
 	"stages": {
 		"henesys_hg1": {
 			"map_id": 104040000,
@@ -93,6 +95,36 @@
 			"exp_mult": 0.9,
 			"note": "Classic Slimes, tree portals and three bosses.",
 			"original_life": {"210100": 25, "130101": 5}
+		},
+		"dark_cave": {
+			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Ordinary mobs use contact damage only (#76).",
+			"map_id": 105050400,
+			"name": "Dark Cave",
+			"duration": 900,
+			"hard_cap": 400,
+			"_bosses": "Tier C: deliberately bossless until #73 adds Zombie Mushmom, Snack Bar and Jr. Balrog; surviving the duration clears this interim round.",
+			"bosses": [],
+			"exp_mult": 1.0,
+			"keyframes": [
+				{"t": 0, "rate": 3.0, "max_alive": 50, "hp": 1.0, "speed": 1.0,
+					"pool": {"2110200": 4, "2230101": 4, "2300100": 1}},
+				{"t": 120, "rate": 4.5, "max_alive": 80, "hp": 1.0, "speed": 1.05,
+					"pool": {"2110200": 3, "2230101": 3, "2300100": 1, "2230100": 3}},
+				{"t": 300, "rate": 7.0, "max_alive": 130, "hp": 1.15, "speed": 1.1,
+					"pool": {"2110200": 2, "2230101": 2, "2300100": 1, "2230100": 3, "3230100": 3, "3230300": 1}},
+				{"t": 480, "rate": 10.0, "max_alive": 180, "hp": 1.3, "speed": 1.15,
+					"pool": {"2230101": 2, "2300100": 1, "2230100": 3, "3230100": 4, "3230300": 2}},
+				{"t": 600, "rate": 12.0, "max_alive": 220, "hp": 1.4, "speed": 1.2,
+					"pool": {"2230101": 1, "2300100": 1, "2230100": 2, "3230100": 4, "3230300": 2, "7130100": 2}},
+				{"t": 780, "rate": 15.0, "max_alive": 280, "hp": 1.5, "speed": 1.25,
+					"pool": {"2300100": 1, "3230100": 3, "3230300": 2, "7130100": 3, "7130101": 2}},
+				{"t": 900, "rate": 18.0, "max_alive": 330, "hp": 1.6, "speed": 1.3,
+					"pool": {"2300100": 1, "3230100": 3, "3230300": 2, "7130100": 3, "7130101": 3}}
+			],
+			"bursts": {"first": 90, "every": 90, "count_min": 10, "count_max": 40},
+			"elites": {"first": 75, "every": 60, "hp_mult": 8, "exp_mult": 5, "damage_mult": 1.5},
+			"note": "Dungeon mushrooms and Stirges, then Eyes, Jr. Boogies and Tauros. Bosses pending #73.",
+			"original_life": {"2110200": 9, "2230101": 7, "2300100": 35}
 		}
 	}
 }

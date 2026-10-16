@@ -131,9 +131,9 @@ func test_stages_mobs_and_manifest() -> void:
 	var mobs: Dictionary = data.mobs.mobs
 	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
-	var want_maps := {"henesys_hg1": 104040000, "tree_that_grew_1": 101010100}
-	assert_eq(stages.keys(), want_maps.keys(), "only the two distinct stages are offered")
-	assert_eq(manifest.maps, [104040000.0, 101010100.0], "only playable maps are imported")
+	var want_maps := {"henesys_hg1": 104040000, "tree_that_grew_1": 101010100, "dark_cave": 105050400}
+	assert_eq(stages.keys(), want_maps.keys(), "the three distinct stages are offered")
+	assert_eq(manifest.maps, [104040000.0, 101010100.0, 105050400.0], "only playable maps are imported")
 	for key: String in want_maps:
 		assert_true(stages.has(key), key)
 		assert_eq(int(stages[key].map_id), want_maps[key])
