@@ -6,7 +6,7 @@ extends HudWidget
 ## tier C: eight 24 px icons per row keep fifteen skills left of the timer and boss bars at 800 px.
 const ICON_SIZE := 24
 const COLUMNS := 8
-## Below this remaining fraction the sweep is not drawn (a sliver too thin to triangulate or see).
+## tier C: below this remaining fraction the sweep is not drawn (a sliver too thin to triangulate or see).
 const SWEEP_MIN := 0.002
 ## Icon corners (half-size units) clockwise from 12 o'clock: top-right, bottom-right, bottom-left, top-left.
 const CORNERS: Array[Vector2] = [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
@@ -22,7 +22,7 @@ var _sweep := PackedVector2Array()
 ## Fills `out` with the dark cooldown overlay of an icon in `rect`: with fraction f = remaining / total left, a wedge
 ## of f x 360 degrees from the centre, clipped to the icon and ending at 12 o'clock, so the overlay clears clockwise
 ## from 12 o'clock. Empty when ready, before any cast (total <= 0) or below SWEEP_MIN; the whole rect when full.
-## `out` is reused (resized in place) so the draw loop allocates no new array.
+## `out` is the caller's reused array (resized in place), so the draw loop builds no new array per icon.
 static func sweep_polygon(remaining: float, total: float, rect: Rect2, out: PackedVector2Array) -> void:
 	var f := clampf(remaining / total, 0.0, 1.0) if total > 0.0 else 0.0
 	if f < SWEEP_MIN:
