@@ -31,6 +31,14 @@ var _by_id := {}
 var _fallback_id := ""
 
 
+## Fresh zero counts for every Potential tier, in ladder order.
+static func empty_tier_counts() -> Dictionary:
+	var counts := {}
+	for tier: String in TIERS:
+		counts[tier] = 0
+	return counts
+
+
 ## Builds the pool from the upgrades.json root ({cards: [...], fallback: card}). The fallback is never weighted.
 static func from_data(root: Dictionary) -> UpgradePool:
 	var p := UpgradePool.new()

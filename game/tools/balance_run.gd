@@ -518,7 +518,7 @@ static func aggregate(records: Array) -> Dictionary:
 		"boss_fights": {}, "boss_hits": {}, "camper_runs": 0, "camper_started": 0, "camper_reached": 0,
 		"ordinary_kill_hits_by_min": KillHits.empty_buckets()}
 	result["card_tier_runs"] = 0
-	result["card_tiers_offered"] = {"normal": 0, "rare": 0, "epic": 0, "unique": 0, "legendary": 0}
+	result["card_tiers_offered"] = UpgradePool.empty_tier_counts()
 	result["card_tiers_picked"] = result.card_tiers_offered.duplicate()
 	var waits: Array = []
 	var deaths: Array = []
