@@ -9,7 +9,7 @@ extends RefCounted
 const WF := preload("res://tests/fixtures/world_fixtures.gd")
 
 
-## Skill.wz-shaped imgs keyed by book ("000", "200", "210") like setup.skill_imgs.
+## Skill.wz-shaped imgs keyed by book ("000", "200", "210", "220") like setup.skill_imgs.
 static func skill_imgs() -> Dictionary:
 	var snails := {}
 	var fix := [10.0, 25.0, 40.0]

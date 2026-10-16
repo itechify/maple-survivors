@@ -349,6 +349,31 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
+
+`ISOLATE=t56`, training seeds 1/2/2026, both stages and `bot`/`random`, unforced branches, real cache,
+1,800 s cap, no patches or tuning. All 12 runs finish without crashes, script errors or world warnings.
+Outcomes and death times match the Foundations/#53 smoke below. Henesys reaches Magician and spawns its first
+boss in all six runs; Tree's early deaths remain record-only. The two second advancements in this fixed sample
+choose 230, so this is an existing-run regression check; #61 owns the full second-job branch smoke.
+Raw records and exact console output remain ignored under `_scratch/t56_smoke/` and `_scratch/t56_smoke_*.log`.
+
+| #56 stage / policy | Clear / dead / timeout | Death seconds | Magician / first-boss reaches |
+|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 3/3 / 3/3 |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 / 3/3 |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 / 0/3 |
+
+A separate visible Henesys run uses `--branch=220 --seed=1 --warp=480 --speed=8 --minutes=20 --shot-every=1`.
+It clears at 996.567 s, Lv39, with Cold Beam and Thunder Bolt both at rank 9 and `missing: []`.
+Checked by eye: `evidence/t56/branch220/t700.png` (Cold Beam's ice impact) and `t740.png` (Thunder Bolt's
+lightning columns on both sides, with ice impacts also visible). Both skills' cached use sounds and art load
+in the real-cache test, and the normal RunScene cast path plays those sounds; no missing cache nodes found.
+After merging the current integration branch, the full suite passes **599 tests, 0 failed, 0 skipped, 66 files**
+(312.975 s). Focused Ice/Lightning, advancement and data-file validation passes **32 tests, 0 failed, 0 skipped**;
+the real-cache test executes, so no SKIP is counted as coverage. No shared simulation or presentation paths change.
+
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
