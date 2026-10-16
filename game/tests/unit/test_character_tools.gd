@@ -39,6 +39,17 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	if record.is_empty():
 		return
 	var character: Dictionary = DataRepo.load_json(FIXTURE)
+	assert_eq(int(record.start_character.level), int(character.level), "report captures the actual starting boundary")
+	assert_eq(int(record.start_character.job_id), int(character.job_id))
+	assert_eq(record.start_character.skills.size(), character.skills.size())
+	for key: String in character.skills:
+		assert_eq(int(record.start_character.skills[key].rank), int(character.skills[key].rank))
+		for stat: String in character.skills[key].mods:
+			for component in 2:
+				assert_near(float(record.start_character.skills[key].mods[stat][component]),
+					float(character.skills[key].mods[stat][component]), 0.000001, "mods use the sim's float32 vectors")
+	assert_eq(record.start_character.skill_order, character.skill_order)
+	assert_eq(record.missing, [])
 	assert_eq(int(record.level), int(character.level))
 	assert_eq(int(record.job), int(character.job_id))
 	for key: String in character.skills:

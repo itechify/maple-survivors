@@ -166,6 +166,21 @@ summarised. Machine-readable aggregates are `<stage>_<policy>_summary.json`, wit
 `_summary.log`. Preserve the console output and seed/configuration context for tuning evidence; training seeds
 and held-out seeds remain separate.
 
+`--tier=2` chains a tier-1 clear into tier 2 headless; `--stage=<tier-1 key>` selects the first round (default
+Henesys). `--tier=N` continues through N, choosing the first stage of each later `stages.json` `tiers` entry.
+Only CLEARED after all choices feeds the next round; death/TIMEOUT stops the chain. `--cap` applies per round.
+Tier 1 keeps the run seed; later round seeds are derived deterministically. Chain files use
+`<stage>_chain_tier<N>_<policy>_<seed>.json`, retaining `rounds[]`. Per-tier summaries include start/end levels,
+Lv70 reach and the tier-1 feed count; unstarted rounds contribute no death/boss observations. See the
+`scripts/balance.sh` header for the seed formula and record/report contract.
+
+`--character=<absolute JSON path>` starts one one-off round from a CharacterSnapshot; use it with
+`--stage=dark_cave` for fixture checks. `game/tests/fixtures/characters/lv35_magician_2nd.json` is actually Lv38
+F/P (job210), from a real seed-1 forced-F/P Henesys bot clear; `_doc` records provenance and
+`tools/character_fixture.gd` reproduces it. `--tier` requires a fresh character and bot/random/first policies;
+use `--character` and campers only for one-off rounds. Spec #32 smokes also cover chain and Dark Cave fixture
+modes on seeds 1/2/2026, bot/random. Record first-pass Dark Cave deaths; tuning belongs to #77.
+
 ## Git
 
 Commit meaningful milestones on the working branch with clear messages. Do not commit `_scratch/`, `evidence/`,
