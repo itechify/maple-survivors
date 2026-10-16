@@ -4,7 +4,7 @@ extends RefCounted
 ## and a living mob is within its range of the cast origin (the player's body, `RunWorld.cast_origin()`), it fires:
 ## a `cast` event, the player's cast stance, then
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
-##   nearest first (SpatialHash query); with fewer targets than shots the extra shots reuse targets in order, aimed a
+##   scheduled bosses first, then nearest (SpatialHash query; RunWorld.targets_before); with fewer targets than shots the extra shots reuse targets in order, aimed a
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.

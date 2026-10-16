@@ -1532,8 +1532,8 @@ info supplies Sword W.ATT17/speed4 and Wand W.ATT15/M.ATT23/speed6. Magic attack
 After skill priority, a standing or airborne player automatically attacks when a monster intersects any of its
 five facing stance afterimage boxes. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
 There is no movement lock. Each swing chooses uniformly among swingO1/O2/O3 and stabO1/O2 on its own seeded stream.
-The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One nearest live
-monster in that box is hit; a moving target may leave before impact. The interval is
+The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One live monster in
+that box is hit: a scheduled boss first (#83), otherwise the nearest; a moving target may leave before impact. The interval is
 `ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
 body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
@@ -1619,7 +1619,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
   `RunWorld.skill_box_targets(box, filter = Callable())` anchors at player feet, mirrors canonical left-facing x
   offsets when facing right, broad-phases through the spatial hash and intersects live bodies. It returns all
-  matches ordered by body-centre distance from the cast origin, then slot. Minimum edges include touching bodies;
+  matches with scheduled bosses first (#83), then by body-centre distance from the cast origin, then slot. Minimum
+  edges include touching bodies;
   maximum edges exclude them. Optional `filter(slot) -> bool` runs before sorting/capping.
 - Optional `on_hit: {"status": "poison"|"freeze"|"slow", "chance_field": "prop", "duration_field": "time"}`
   reads canonical fields at the cast level (missing `chance_field`: guaranteed attempt; signed Slow `x` stays
@@ -1713,7 +1714,12 @@ including level 29's 58 seconds (level 30 has 40). Both attacks use their canoni
 survivor element override. Existing bot scores classify these projectile attacks and their cards automatically.
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
-when a skill fires several projectiles. A shot starts at the throwing hand: 22 px in front of the body toward its
+when a skill fires several projectiles.
+**Boss priority (#83):** in every targeting rule (nearest, box, crowd, Heal's undead box and the basic attack) a
+scheduled boss (a BossDirector encounter; not elites or boss offspring) that qualifies takes target slots first;
+the remaining slots fill nearest-first as before. The order is boss, then distance, then slot
+(`RunWorld.targets_before`). Projectiles aim at the chosen targets, so the first shot flies at the boss, but still
+hit whatever they cross first. Slow still rejects scheduled bosses (status immunity), so it never spends a slot on one. A shot starts at the throwing hand: 22 px in front of the body toward its
 target (`player.cast_forward`), level with the cast origin, so the shell never covers the face. Projectiles fly straight toward the target's position at cast time and expire at their range.
 Projectile speeds and ranges are tier C (no `speed` key exists in v83 `ball` nodes).
 A piercing projectile can hit each logical mob once. Moving that mob through relocation does not grant a second
@@ -2077,6 +2083,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
 | a0/a1 with one key | the other is 255 minus it | C | HeavenClient |
 | Damage number stacking | same mob within 0.5 s goes one line up: 30 px above a normal number, 36 px above a critical one (8 lines, then wraps) | C | HeavenClient row heights 30/36; window and wrap ours |
+| Boss target priority (#83) | every targeting rule (nearest, box, crowd, Heal undead, basic attack) orders qualifying targets scheduled boss first, then distance, then slot; elites get no priority | C | ours; spec #79 owner decision (`RunWorld.targets_before`) |
 | Skill box admission / area scoring | minimum 1 target unless `cast.min_targets` overrides; base area 1.0, future area-card multiplier ×1.2; bot `area` score 58 plus existing job bonus | C | spec #31 binding foundations decisions; no skill/card entries added |
 | Holy Arrow flight / cards (#57) | 1 s recast, 480 px range, 520 px/s, 12 px radius, count 1, pierce 0, 0.8 s stance; count +1 ×3, pierce +1 ×2, cooldown ×0.88 ×3; learn/rank weights 4/3, modifiers 2; standard attack bot scores | C (tuning), A (skill fields/art/sound/action) | copied existing Fire Arrow/first-job survivor steps; [Cleric evidence](research/cleric-heal.md) |
 | Heal trigger / recast / targets (#57) | strictly below half HP OR one boxed undead; 2 s recast in heal block; 0.8 s stance; every boxed undead once, overriding canonical mobCount=6; target multiplier counts undead plus caster | C (trigger/delay/cap override), A (box/cost/hp/action/art/sound) | ticket #57; [Cleric evidence](research/cleric-heal.md) |
