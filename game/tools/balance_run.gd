@@ -247,6 +247,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var recycled0 := 0
 	var hp_low := 1.0
 	var hits := 0
+	var teleports := 0
 	var taken := 0
 	var max_alive := 0
 	var max_alive_t := 0.0
@@ -284,6 +285,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		for e: Dictionary in w.drain_events():
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):
+				"teleport":
+					if String(e.phase) == "arrival":
+						teleports += 1
 				"mob_spawned":
 					# A relocated mob is the same mob: it keeps the time it was last inside the box.
 					var ms := int(e.mob)
@@ -365,6 +369,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"bosses": _boss_snapshots(w), "boss_hits": boss_hits, "buff_casts": buff_casts,
 		"boss_fights": fight_records(w), "boss_hit_fraction": statistics(boss_hits.map(func(hit: Dictionary) -> float: return float(hit.fraction))),
 		"mp_short_seconds": snappedf(mp_short_seconds,0.001),
+		"teleports": teleports,
 		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
 		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),

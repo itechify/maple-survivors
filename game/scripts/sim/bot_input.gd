@@ -23,6 +23,12 @@ const EDGE_DANGER := 4.0
 const FLEE_DIST := 160.0
 ## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
 const DUEL_DY := 40.0
+## tier C: keep a quarter of the pool for Magic Guard, or two most-expensive learned auto attacks, whichever is larger.
+const TELEPORT_MP_RESERVE_FRACTION := 0.25
+## tier C: one attack plus an equal combat margin, even for a small MP pool or costly learned attack.
+const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
+## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
+const TELEPORT_MIN_INTERVAL := 5.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -78,6 +84,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			memo.erase("climb_x")
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
+	var threat_nearest := [INF, INF]
 	var close := 0
 	var duel := -1
 	for i in s.capacity():
@@ -90,6 +97,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var side := 0 if dx < 0.0 else 1
 		danger[side] += 1.0 / (absf(dx) + 30.0)
 		nearest[side] = minf(nearest[side], absf(dx))
+		# tier C: emergency blinks use the existing duel-height band, not mobs on remote platforms.
+		if absf(dy) <= DUEL_DY:
+			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
 		if absf(dx) < FLEE_DIST:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
@@ -97,17 +107,21 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
-	if teleport != "" and w.can_cast() and w.teleport_affordable():
+	if teleport != "" and w.can_cast() and w.teleport_affordable() and _teleport_keeps_reserve(w, teleport) \
+			and w.time - float(memo.get("teleport_at", -INF)) >= TELEPORT_MIN_INTERVAL - 1e-6:
 		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
 		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
-		# tier C: blink from threats within 60 px, or within flee distance when less than one blink from an edge.
-		var cornered := minf(room[0], room[1]) < reach and minf(nearest[0], nearest[1]) < FLEE_DIST
-		if cornered or minf(nearest[0], nearest[1]) < threat_distance:
-			var escape := (1 if room[1] > room[0] else -1) if cornered else (-1 if danger[0] < danger[1] else 1)
+		# tier C: both retreat sides blocked by mobs within flee distance, or an imminent threat against an edge.
+		var cornered: bool = threat_nearest[0] < FLEE_DIST and threat_nearest[1] < FLEE_DIST
+		var edge_trapped: bool = (room[0] < threat_distance and threat_nearest[1] < threat_distance) \
+				or (room[1] < threat_distance and threat_nearest[0] < threat_distance)
+		if cornered or edge_trapped or minf(threat_nearest[0], threat_nearest[1]) < threat_distance:
+			var escape := (1 if room[1] > room[0] else -1) if edge_trapped else (-1 if danger[0] < danger[1] else 1)
 			if not w.player.teleport_destination(Vector2(escape, 0), reach, w.fhm, w.bounds).is_empty():
 				mi.left = escape < 0
 				mi.right = escape > 0
 				mi.teleport_pressed = true
+				memo["teleport_at"] = w.time
 				return mi
 	var dir := 0
 	var down := false
@@ -205,6 +219,17 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		mi.up = true
 	mi.jump_held = mi.jump_pressed
 	return mi
+
+
+static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
+	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
+	for key: String in w.loadout.order:
+		if not w.book.is_active(key):
+			continue
+		var stats := w.runner.stats_of(w, key)
+		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
+			reserve = maxf(reserve, float(stats.mp_cost) * TELEPORT_ATTACK_RESERVE_CASTS)
+	return float(w.player_state.mp) - float(w.runner.stats_of(w, teleport).mp_cost) >= reserve
 
 
 ## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical
