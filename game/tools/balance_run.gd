@@ -51,6 +51,8 @@ const ENG_X := 400.0
 const ENG_Y := 200.0
 const STALE_S := 20.0
 const CAMPER := preload("res://tools/camper_input.gd")
+## The injectable run policy of run_one / run_chain (choose windows, move); the named POLICIES are instances of it.
+const RUN_POLICY := preload("res://tools/run_policy.gd")
 const POLICIES := ["bot", "random", "first", "camper_henesys_top", "camper_henesys_rope", "camper_tree_top"]
 ## tier C: harness timeout fallback; balance.run_time_cap and --cap override it.
 const DEFAULT_RUN_CAP := 1800.0
@@ -234,10 +236,13 @@ static func round_seed(run_seed: int, tier_index: int) -> int:
 
 
 ## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
-static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
-		camp_after := 60.0, branch := 0) -> Dictionary:
+## `policy` is a POLICIES name or a Callable (tier_index: int, round_seed: int) -> run_policy.gd instance, called once
+## per round; `observer` is passed to every round's run_one.
+static func run_chain(setups: Array, policy: Variant, run_seed: int, idle_after := -1.0,
+		camp_after := 60.0, branch := 0, observer := Callable()) -> Dictionary:
 	var rounds: Array = []
 	var character := {}
+	var policy_name := String(policy) if policy is String else ""
 	for tier_index in setups.size():
 		var setup: Dictionary = setups[tier_index].duplicate()
 		setup.seed = round_seed(run_seed, tier_index)
@@ -245,46 +250,38 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 			setup.character = character
 		var world := RunWorld.new(setup)
 		var start_character := world.character_snapshot()
-		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, branch)
+		var round_policy: Variant = policy.call(tier_index, int(setup.seed)) if policy is Callable else policy
+		if tier_index == 0 and round_policy is Object:
+			policy_name = round_policy.name
+		var record := run_one(world, round_policy, int(setup.seed), idle_after, camp_after, branch, observer)
 		record["start_character"] = start_character
-		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
+		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy_name, "tier": tier_index + 1, "missing": []})
 		rounds.append(record)
 		if record.state != "CLEARED":
 			break
 		character = record.character
-	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
+	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy_name,
 		"target_tier": setups.size(), "rounds": rounds}
 
 
-## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
+## Answers an open job / card window of `w` with the named `policy` (see the class doc); `rng` drives the random
+## policy and `cards_taken` receives "<job>:<card>" per card taken.
 static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, branch := 0) -> void:
-	var guard := 0
-	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
-		guard += 1
-		if w.state == RunWorld.CHOOSING_JOB:
-			var job := BotInput.pick_job(w.pending_jobs, w.job_rng, branch)
-			if job < 0 or not w.apply_job(job):
-				w.decline_job()
-			continue
-		var id := ""
-		match policy:
-			"random":
-				id = String(w.pending_cards[rng.randi_range(0, w.pending_cards.size() - 1)].get("id", ""))
-			"first":
-				id = BotInput.pick_card(w.pending_cards)
-			_:
-				id = BotInput.pick_card_for(w, w.pending_cards)
-		cards_taken.append("%d:%s" % [w.progression.front(), id])
-		w.apply_choice(id)
+	var p := RUN_POLICY.new(policy, 0, branch)
+	p.rng = rng
+	p.cards_taken = cards_taken
+	p.choose(w)
 
 
-## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, branch := 0) -> Dictionary:
-	var memo := {}
+## Plays `w` to its end/cap and returns the pacing record. `policy` is a POLICIES name (built with `seed_value`,
+## `branch` and `camp_after`; see run_policy.gd) or a run_policy.gd instance, which answers every window and moves
+## every tick (`seed_value`, `branch` and `camp_after` are then the object's own business). `observer`, if valid, is
+## called as observer.call(w, events) after each world.step with that tick's drained events, before the record folds
+## them (treat `events` as read-only).
+static func run_one(w: RunWorld, policy: Variant = "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0,
+		branch := 0, observer := Callable()) -> Dictionary:
+	var p: RUN_POLICY = policy if policy is Object else RUN_POLICY.new(String(policy), seed_value, branch, camp_after)
 	var portal_names: Array = []
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("careless-%d" % seed_value)
-	var cards_taken: Array = []
 	var boss_hits: Array = []
 	var buff_casts: Array = []
 	var potion_uses: Array = []
@@ -335,11 +332,11 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
-		choose(w, policy, rng, cards_taken, branch)
+		p.choose(w)
 		if w.state != RunWorld.PLAYING:
 			break
 		var idle := idle_after >= 0.0 and w.time >= idle_after
-		w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+		w.step(DT, MoveInput.new() if idle else p.move(w))
 		var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
 		late_observed_seconds += late_dt
 		if bool(w.player_state.get("mp_short",false)):
@@ -361,7 +358,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			max_alive_t = w.time
 		if w.time > 60.0:
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
-		for e: Dictionary in w.drain_events():
+		var events := w.drain_events()
+		if observer.is_valid():
+			observer.call(w, events)
+		for e: Dictionary in events:
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):
 				"teleport":
@@ -432,7 +432,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			kills_min.append(w.kills)
 			hits = 0
 			taken = 0
-	choose(w, policy, rng, cards_taken, branch)
+	p.choose(w)
 	var eng_min: Array = []
 	var stale_min: Array = []
 	for m in range(1, int(w.time / 60.0) + 1):
@@ -453,8 +453,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"teleports": teleports,
 		"late_mp_start": LATE_MP_START, "late_mp_short_seconds": snappedf(late_mp_short_seconds, 0.001),
 		"late_observed_seconds": snappedf(late_observed_seconds, 0.001),
-		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
-			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
+		"camper": {"policy":p.name if CAMPER.STAGES.has(p.name) else "", "started_time":float(p.memo.get("started_time",-1.0)),
+			"reached":bool(p.memo.get("reached",false)),"reached_time":float(p.memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
 		"branch": w.progression.job_id if w.progression.job_id in [210, 220, 230] else 0,
 		"forced_branch": branch, "job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
@@ -470,7 +470,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"spawned": w.director.spawned, "recycled": w.director.recycled, "relocated": w.director.relocated,
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
-		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
+		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": p.cards_taken,
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
 
@@ -608,7 +608,9 @@ static func statistics(values: Array) -> Dictionary:
 
 ## Harness movement policy; camper policies use the sensible card and potion policy with their own movement goals.
 static func movement(world: RunWorld, policy: String, memo: Dictionary, camp_after: float = 60.0) -> MoveInput:
-	return CAMPER.decide(world, policy, memo, camp_after) if CAMPER.STAGES.has(policy) else BotInput.decide(world, memo)
+	var p := RUN_POLICY.new(policy, 0, 0, camp_after)
+	p.memo = memo
+	return p.move(world)
 
 
 ## Aggregates observed run records: per boss the completed fight statistics, the completed/spawned count and a
