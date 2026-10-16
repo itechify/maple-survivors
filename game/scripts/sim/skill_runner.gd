@@ -102,6 +102,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_nearest(world, key, st, origin)
 		"box":
 			return _admit_box(world, st)
+		"hp_or_undead":
+			return _admit_hp_or_undead(world, key, st)
 		"manual":
 			return {}
 	return {}
@@ -128,6 +130,15 @@ func _admit_box(world: RunWorld, st: Dictionary) -> Dictionary:
 	return {"targets": targets}
 
 
+func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
+	var targets := PackedInt32Array()
+	if bool(st.has_box):
+		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
+	var heal: Dictionary = world.book.def(key).get("heal", {})
+	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))
+	return {"targets": targets} if injured or not targets.is_empty() else {}
+
+
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
@@ -142,6 +153,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	match String(st.cast_rule):
 		"box":
 			_resolve_box(world, st, targets)
+		"hp_or_undead":
+			_resolve_hp_or_undead(world, key, st, targets)
 		"", "nearest":
 			if String(st.kind) != "buff":
 				_resolve_nearest(world, key, st, origin, targets)
@@ -154,6 +167,25 @@ func _resolve_box(world: RunWorld, st: Dictionary, targets: PackedInt32Array) ->
 			if not world.swarm.is_live(targets[i]):
 				break
 			world.hit_mob(targets[i], st, hv)
+
+
+func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
+	var heal: Dictionary = world.book.def(key).get("heal", {})
+	var power := world.book.canonical(key, int(st.level), String(heal.get("field", "hp")))
+	var lo := world.loadout
+	var luk := float(world.player_state.luk)
+	var recovery := CombatMath.heal_recovery_range(lo.int_stat, luk, lo.matk, power)
+	world.restore_player("hp", floori(CombatMath.roll_range(recovery, world.rng)), key)
+	var damage := CombatMath.heal_damage_range(lo.int_stat, luk, lo.matk, power, targets.size() + 1)
+	var hit := st.duplicate()
+	hit.damage_min = damage.x
+	hit.damage_max = damage.y
+	hit.magic = true
+	hit.element = "h" # tier B: Heal's holy undead attack; canonical node has no elemAttr, research/cleric-heal.md.
+	var hv := world.visual_index(String(st.hit))
+	# tier C: ticket #57 requires every undead in the box, without the original six-target cap.
+	for slot: int in targets:
+		world.hit_mob(slot, hit, hv)
 
 
 ## Fills the target buffer with up to `want` distinct live mobs whose body centre is within `rng_px` of `origin`,
