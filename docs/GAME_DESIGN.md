@@ -310,7 +310,7 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
-rope to drops left on a platform above, and takes the first available job. Card
+rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
@@ -1297,7 +1297,7 @@ existing shots finish separately from carry-over projectile kills.
 | Magic Armor (2001003) | Magician | Timed PDD (`pdd`) | ranks 1–20 = levels 1–20 | learn/rank |
 | Improved MP Recovery (2000000) | Magician | Adds `floor(character level × skill level / 10)` MP to each 10 s pulse | ranks 1–16 = levels 1–16 | learn/rank |
 | Improved MaxMP Increase (2000001) | Magician | Passive: computed Max MP × `(1 + 0.02 × skill level)`, preserving current MP ratio on growth (tier C reinterpretation) | ranks 1–10 = levels 1–10 | learn/rank |
-| Fire Arrow (2101004) | F/P Wizard | Phase 2, job unavailable | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
+| Fire Arrow (2101004) | F/P Wizard | Existing single-projectile auto-cast, playable at Lv 30 | ranks 1–30 = levels 1–30 | learn/rank; additional behaviour cards remain future work |
 | Poison Breath (2101005) | F/P Wizard | Phase 2 | | |
 
 Targeting: nearest living mob within range (spatial hash query) of the body, excluding mobs already targeted this cast
@@ -1316,7 +1316,7 @@ cast's skill level. L1 Guard costs 6 MP for 111 s at 11% absorption; L1 Armor co
 They recast on expiry when affordable. Their timers and effects continue while climbing; no cast starts there.
 Effects are snapshots of the cast rank, so a rank upgrade changes the next cast. Active Guard alone splits damage;
 active Armor alone adds its canonical PDD through the hit-defense hook. The HUD shows v83 skill icons and countdowns.
-Rank cards preview duration, absorption/defense and MP cost. Both occupy passive slots but share the one-cast-per-tick
+Rank cards preview duration, absorption/defense and MP cost. Both are passive-category skills without slot caps and share the one-cast-per-tick
 readiness ordering with attacks. The alert2 stance comes from v83 skill action data; its 800 ms hold is tier C.
 
 ## 8. Upgrades
@@ -1332,12 +1332,12 @@ Draw rules:
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
-   `skill_new` also needs a free slot of the skill's kind (6 actives, 6 passives).
+   `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
    more shots or targets, damage, cooldown). When a draw offered no power card, the next draw starts with one
    (`pity.draws` = 1), so a run's damage cannot stall on unlucky offers (a reviewed seed never saw an attack card
-   before Lv 8 and fell behind for good). Both pity and the job-advance guarantee select only eligible cards
+   before Lv 8 and fell behind for good). Both pity and the advancement draw select only eligible cards
    from the current pool; if no eligible power card exists, pity adds none.
 3. With fewer than three eligible cards, offer those cards plus **one Power Elixir** alternative (item 2000005).
    With no eligible cards, offer Power Elixir alone. This applies to normal level-ups and boss rewards; every
@@ -1359,7 +1359,7 @@ Draw rules:
 
 Fortune is a survivor run stat in `player_state.fortune`, separate from canonical LUK. Its base is
 `balance.player.fortune` (0); this spec adds no equipment or NX sources. It changes only card rarity, leaving
-drop and critical rolls untouched. Every scalable offered card, including a job-advance guarantee, rolls a tier
+drop and critical rolls untouched. Every scalable offered card, including every advancement-draw skill, rolls a tier
 using the existing seeded card RNG stream 3 after card identities are selected. A choice retains its final `tier`
 and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 
@@ -1445,9 +1445,18 @@ The ladders, level gates and weights are tier C entries in `upgrades.json` (`pot
 the configured `potions.bot.tier_score` (currently 112), with fallback 52 when absent; first/random policies can
 offer and take them normally.
 
-Skill prerequisites follow `Skill.wz` `req` where v83 has one: Magic Claw needs Energy Bolt (`2001005/req/2001004 =
-1`), Magic Armor needs Magic Guard level 3 (`2001003/req/2001002 = 3`; survivor rank 3). Magic Guard also
-waits for Energy Bolt (survivor rule), so the first Magician skill is always Energy Bolt.
+Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
+job requirement and rank/modifier cards still require the skill they upgrade. Skills learned in an earlier job keep
+working after advancement; their job-restricted cards leave the pool.
+
+Accepting any job opens an **advancement draw** before the normal level draw, without consuming the queued level.
+It offers every eligible new attack (`skill_new`, `power: true`, `requires.jobs` containing the new job), even if there
+are more than three. If fewer than three attacks exist, seeded weighted draws fill the remaining places with that
+job's other eligible new skills. Sparse draws include one Power Elixir; an exhausted job pool offers it alone.
+Each scalable card rolls the usual rarity tier and contributes to offered/picked tier telemetry. No skill is granted.
+`choice_pending.advancement` identifies this draw independently of `bonus`; the window reads "Job Advancement".
+"Not now" goes directly to the normal level draw.
+
 
 ## 9. Jobs
 
@@ -1464,13 +1473,19 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Levels 8–9: ordinary upgrade choices; no job window.
 - Level 10: Magician is playable; Warrior, Bowman, Thief and Pirate are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
-- Advancing: job becomes 200, MP +120, Energy Bolt is learned at once (`grants.skills`: the first SP of a v83
-  Magician; a player who takes cards at random could otherwise stay a Magician without a Magician attack), and the
-  next card draw guarantees another Magician skill card (with the prerequisites of section 8: Magic Claw or Magic
-  Guard).
-- The JobChanged pillar and sound play on the character first; the level's upgrade window opens once the effect has
-  played (~1.3 s). A level-up window opens 1.2 s into the LevelUp effect.
-- Level 30: F/P Wizard (Phase 2), I/L Wizard and Cleric shown as not yet available.
+- Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
+  The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
+- The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
+  played (~1.3 s), then the level's normal draw follows. A level-up window opens 1.2 s into the LevelUp effect.
+- Level 30: Wizard (Fire, Poison) 210, Wizard (Ice, Lightning) 220 and Cleric 230 are all selectable at their canonical
+  level. Each adds +475 Max MP and teaches no skill. This fixed tier C bonus is the midpoint of the 450-500 range
+  in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
+  job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
+- The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
+  job consumes no branch roll. `balance.sh` and `playtest.sh --branch=210|220|230` force an available branch. Run records
+  store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
+- Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
+  fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
 
 ## 10. Presentation
 
@@ -1588,8 +1603,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 | Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
-| Energy Bolt on advancing | learned with the Magician job (`grants.skills`) | C | ours, after the v83 Magician's first SP |
-| Upgrade prerequisites | Magic Claw needs Energy Bolt level 1, Magic Armor needs Magic Guard level/rank 3 (v83 `req`); Magic Guard needs Energy Bolt; MP cards need the Magician job | A (req) / C (the rest) | v83 Skill.wz / ours |
+| Advancement draws / skill counts | no skill grants; extra new-job attack-first draw with rarity before the normal level draw; no skill slot caps | C | owner decisions #31 / #53; sections 8?9 |
+| Second-job Max MP | +475 for 210/220/230, fixed midpoint of the reference 450-500 mage range; existing first-job +120 retained | C | server reimplementation, unverified against GMS; [research](research/cosmic-data.md), local `Character.java:1204` |
+| Bot branches / owned-skill HUD | independent seeded stream 8; optional forced branch; eight 24 px icons per row, 4 px gaps | C | #53 harness and presentation |
+| Upgrade prerequisites | canonical `req` and previous survivor skill prerequisites ignored; exact job gates and owned-skill rank/modifier requirements retained | C | owner decision #31 |
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
 | Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 weights (owner restored them over C46 on 2026-10-15; untuned); upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |

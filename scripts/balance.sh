@@ -4,6 +4,7 @@
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
+#   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
 #   bash scripts/balance.sh 7 11 13                        # these seeds
 #   bash scripts/balance.sh 1..12                          # a seed range (inclusive)
 #   bash scripts/balance.sh --policy=random 1..12          # the careless player (random cards)
@@ -47,6 +48,8 @@ for a in "$@"; do
     --stage=*) STAGE="${a#--stage=}"; STAGE_EXPLICIT=1 ;;
     --policy=*) POLICY="${a#--policy=}" ;;
     --first-card) POLICY="first" ;;
+    --branch=*)
+      case "${a#--branch=}" in 210|220|230) EXTRA_BRANCH="$a" ;; *) echo "--branch must be 210, 220 or 230" >&2; exit 2 ;; esac ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
@@ -72,6 +75,7 @@ GODOT_CMD=(bash "$REPO/scripts/godot.sh")
 OUT="${BALANCE_OUT:-$REPO/_scratch/balance}"
 mkdir -p "$OUT"
 EXTRA=()
+[[ -n "${EXTRA_BRANCH:-}" ]] && EXTRA+=("$EXTRA_BRANCH")
 [[ -n "${PATCH:-}" ]] && EXTRA+=(--patch="$(cygpath -m "$PATCH" 2>/dev/null || echo "$PATCH")")
 [[ -n "$EXTRA_IDLE" ]] && EXTRA+=("$EXTRA_IDLE")
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")

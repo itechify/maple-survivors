@@ -8,7 +8,7 @@ extends Node2D
 ##   add_child(run)
 ##
 ## Options (configure()): autoplay (BotInput drives the player), autopick (BotInput's choices are taken at once and
-## no window opens: the first available job and BotInput.pick_card_for's card; automated runs and benchmarks), speed
+## no window opens: a seeded branch and BotInput.pick_card_for's card; automated runs and benchmarks), speed
 ## (sim ticks per 60 Hz frame; implemented as Engine.time_scale so effects keep pace), shots_dir + shot_every (PNG
 ## every N s of run time, t<seconds>.png, plus final.png), quit_after (run seconds; writes shots_dir/summary.json, saves
 ## final.png when a frame is drawn within FINAL_SHOT_TIMEOUT real seconds (else logs that it was skipped) and quits),
@@ -718,7 +718,7 @@ func handle_events(events: Array) -> void:
 			"job_changed":
 				_on_job_changed(int(e.job_id))
 			"choice_pending":
-				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus)}
+				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
 				_on_player_died(e.pos)
 			"stage_cleared":
@@ -821,7 +821,7 @@ func _apply_job_look(job_id: int) -> void:
 ## events are dropped. Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world)
+		BotInput.auto_choose(world, false, int(options.get("branch", 0)))
 		if world.state != RunWorld.PLAYING:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
@@ -886,7 +886,7 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_job(req.options)
+				var j := BotInput.pick_job(req.options, world.job_rng, int(options.get("branch", 0)))
 				if j < 0 or not world.apply_job(j):
 					world.decline_job()
 				handle_events(world.drain_events())
@@ -905,11 +905,11 @@ func _service_windows() -> void:
 			var lw := LevelUpWindow.new()
 			_show_window(lw, "cards", req, level)
 			lw.card_chosen.connect(_on_card_chosen)
-			lw.open(req.cards, level, bool(req.get("bonus", false)))
+			lw.open(req.cards, level, bool(req.get("bonus", false)), bool(req.get("advancement", false)))
 
 
 ## window_autopick: an open level-up / job window is answered with BotInput's choice after that many seconds (the
-## card BotInput.pick_card_for prefers, the first available job; demos and evidence runs: the window is shown, then
+## card BotInput.pick_card_for prefers, a seeded branch; demos and evidence runs: the window is shown, then
 ## answered through the same handlers as its signals).
 func _auto_resolve_window(delta: float) -> void:
 	if _window_auto <= 0.0 or window == null or (_window_kind != "cards" and _window_kind != "job"):
@@ -923,7 +923,7 @@ func _auto_resolve_window(delta: float) -> void:
 	if _window_kind == "cards":
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
-		var j := BotInput.pick_job(_window_req.get("options", []))
+		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, int(options.get("branch", 0)))
 		if j < 0:
 			_on_job_declined()
 		else:
@@ -937,7 +937,7 @@ func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -
 	_window_open_t = 0.0
 	counters.windows += 1
 	if kind != "pause":
-		_event_shot("window_%s_%d.png" % [kind, level], 0.6)
+		_event_shot("window_%s_%d.png" % ["advancement" if bool(req.get("advancement", false)) else kind, level], 0.6)
 	windows_layer.add_child(w)
 
 
@@ -1246,7 +1246,7 @@ func build_summary() -> Dictionary:
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
-		"skills": skills, "seed": run_seed,
+		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
 	}
 
 

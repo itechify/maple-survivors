@@ -12,7 +12,7 @@
 # Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
-# --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --branch=210|220|230 (forced available branch), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # Anything else is passed to the game unchanged. Screenshots of the running game stay in evidence/ (gitignored).
 #
 # Frame times: the game caps the frame rate at the display's refresh rate (Settings / GameSettings.apply_frame_cap), so
@@ -32,6 +32,8 @@ AUTOPICK="--autopick"
 EXTRA=()
 for a in "$@"; do
   case "$a" in
+    --branch=*)
+      case "${a#--branch=}" in 210|220|230) EXTRA+=("$a") ;; *) echo "--branch must be 210, 220 or 230" >&2; exit 2 ;; esac ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;
     --speed=*) SPEED="${a#--speed=}" ;;
