@@ -27,7 +27,8 @@
 		"_int_mp": "Tier B: Magician MP growth adds floor(INT / 10), using INT before spending that level's AP.",
 		"200": {"hp": 12, "mp": 22, "int_mp_divisor": 10}
 	},
-	"level_up_refill": 0.0,
+	"_level_up_refill": "Fraction of the new maximum restored on each level-up, after that level's growth. MP 1.0: tier B, v83 servers refill both pools (Cosmic Character.levelUp calls changeHpMp(maxhp, maxmp)). HP 0.0: tier C, owner choice for difficulty.",
+	"level_up_refill": {"hp": 0.0, "mp": 1.0},
 	"invincible_time": 1.5,
 	"knockback": {"speed": 187.5, "hop": 200, "lock": 0.3},
 	"_portals": "Same-map portals only: activation box relative to the portal point, lift above arrival before falling, global cooldown in seconds. Tier C: owner choice; source and destination points stay canonical.",
@@ -52,8 +53,8 @@
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
 		"mp": {"item_id": 2000003, "start": 0},
-		"_drops": "Tier C: coarse #29 pass, normal MP 10% and elite 60%: single-shot vanilla skills at canonical MP need a steady Blue supply; stage HP curves tune survival. No starter Blues: the v83 5-MP opening pool cannot hold one.",
-		"drops": {"normal": {"hp": 0.012, "mp": 0.1}, "elite": {"hp": 0.15, "mp": 0.6}},
+		"_drops": "Tier C: owner-set normal MP 5% (#80 halved #29's 10% once level-ups refill MP, so late runs stop piling up Blues) and elite 60% (#29); stage HP curves tune survival. No starter Blues: the v83 5-MP opening pool cannot hold one.",
+		"drops": {"normal": {"hp": 0.012, "mp": 0.05}, "elite": {"hp": 0.15, "mp": 0.6}},
 		"_bot": "Tier C: drink only when the missing HP/MP is at least min_restore_fraction of one current potion's canonical restore (owner: waste guard for v83-sized pools); potion-tier score112 prioritizes permanent supply upgrades above Guard and attack cards. Random cards remain random.",
 		"bot": {"min_restore_fraction": 0.5, "tier_score": 112}
 	},

@@ -93,6 +93,9 @@ const AVOID_LUK_FACTOR := 0.5
 const DEFAULT_REGEN := PlayerUpkeep.DEFAULT_REGEN
 ## tier C: the survivor starter attributes; balance.player.stats overrides each one.
 const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
+## balance.level_up_refill fallback: fraction of the new maximum restored per level-up. MP tier B (v83 servers refill
+## it: Cosmic Character.levelUp calls changeHpMp(maxhp, maxmp)); HP tier C (owner choice: no heal on level-up).
+const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
 ## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
 const DEFAULT_SUMMON_SPACING := 24.0
 
@@ -1248,9 +1251,9 @@ func _on_level_up(level: int) -> void:
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	refresh_player_stats(false)
-	var refill := float(balance.get("level_up_refill", 0.0))
-	_hp = minf(_max_hp, _hp + refill * _max_hp)
-	_mp = minf(_max_mp, _mp + refill * _max_mp)
+	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
+	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
+	_mp = minf(_max_mp, _mp + float(refill.get("mp", DEFAULT_LEVEL_UP_REFILL.mp)) * _max_mp)
 	emit("level_up", {"level": level})
 
 
