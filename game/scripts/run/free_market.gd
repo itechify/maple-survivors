@@ -126,12 +126,7 @@ static func character_look(character: Dictionary, data: Dictionary) -> Dictionar
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:
 	var loadout := Loadout.new(SkillBook.from_data(data.skills, {}))
-	for key: String in character.get("skill_order", []):
-		var skill: Dictionary = character.skills[key]
-		loadout.add_skill(key)
-		loadout.set_rank(key, int(skill.rank))
-		loadout.skill_mods[key] = CharacterSnapshot.decode_mods(skill.mods)
-	loadout.player_mods = CharacterSnapshot.decode_mods(character.get("player_mods", {}))
+	CharacterSnapshot.restore_loadout(character, loadout)
 	return loadout
 
 

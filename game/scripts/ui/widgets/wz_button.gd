@@ -68,6 +68,21 @@ func _init(p_base: String = "", p_label: String = "") -> void:
 	button_up.connect(queue_redraw)
 
 
+## Constructs a keyboard-focusable action button; the owning screen supplies its art and geometry.
+static func for_action(path: String, fallback: String, fallback_box: Vector2, action: Callable,
+		focus_overlay: bool = false) -> WzButton:
+	var button := WzButton.new(path)
+	button.fallback_size = fallback_box
+	if not button.has_art():
+		button.label = fallback
+	button.focus_mode = Control.FOCUS_ALL
+	button.key_focus_overlay = focus_overlay
+	button.focus_entered.connect(func() -> void: button.key_focused = true)
+	button.focus_exited.connect(func() -> void: button.key_focused = false)
+	button.pressed.connect(action)
+	return button
+
+
 ## Plate mode: draws the art `width` px wide from its columns [0, left) and column `left` repeated (its baked words
 ## are left out) and resizes the button to it.
 func set_plate(width: float, left: float) -> void:

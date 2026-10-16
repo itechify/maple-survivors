@@ -3,10 +3,10 @@ extends MapleWindow
 
 signal confirmed()
 
-## tier A: YesNo3 canvas sizes and grey-strip button placement, shared with PauseMenu.
+## tier A: YesNo3 canvas width, shared with PauseMenu.
 const BOX := "UI.wz/Basic.img/YesNo3/"
 const WIDTH := 266.0
-const TEXT_AT := Vector2(20, 17)
+const TEXT_AT := Vector2(20, 17) # tier C: text inset shared with PauseMenu.
 var text := ""
 var _ok: WzButton
 var _cancel: WzButton
@@ -45,6 +45,7 @@ func accept() -> void:
 		_hide_window(func() -> void: confirmed.emit())
 
 
+## Handles confirm/cancel keys while the deletion notice is open.
 func handle_input(event: InputEvent) -> bool:
 	if not is_open():
 		return false

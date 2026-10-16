@@ -7,23 +7,23 @@ const CONFIRM := preload("res://scripts/ui/windows/character_delete_notice.gd")
 const HISTORY_BUTTON := preload("res://scripts/ui/widgets/login_history_button.gd")
 const LOGIN := "UI.wz/Login.img/"
 const BOOK := Vector2(800, 600) # tier A: Login/Common/frame canvas size.
-## tier A: original adventure/0 lamps registered in charselect_1.png; private spec32/v83-login-refs/wz-layout-notes.md.
+## tier C: matched to charselect_1.png adventure/0 lamps; private spec32/v83-login-refs/wz-layout-notes.md.
 const SLOT_X := [252, 377, 502]
 const FEET_Y := 370
-## tier A (Create/Delete), B (Select wording differs): same capture/template registration, differences.md.
+## tier C: matched to charselect_1.png buttons (Select wording differs); same differences.md.
 const ACTION_AT := [Vector2(576, 149), Vector2(576, 185), Vector2(576, 234)]
-## tier B: compact scroll above slot 3 in period charselect_2.png (about 400,135); same layout.md.
+## tier C: matched to period charselect_2.png compact scroll above slot 3 (about 400,135); same layout.md.
 const INFO_FROM_FEET := Vector2(-108, -235)
 ## tier C: 337px final beam canvas reaches the feet; exact anchor unresolved in the same layout.md.
 const LIGHT_HEIGHT := 337
-## tier A: pageL/pageR canvases registered in charselect_1.png; same wz-layout-notes.md.
+## tier C: matched to charselect_1.png pageL/pageR canvases; same wz-layout-notes.md.
 const PAGE_AT := [Vector2(155, 330), Vector2(604, 331)]
-## tier B: step in charselect_1.png / charselect_2.png; same layout.md (no world/channel plaque offline).
+## tier C: matched to charselect_1.png / charselect_2.png step; same layout.md (no world/channel plaque offline).
 const STEP_AT := Vector2(0, 33)
-## tier A: fresh original BtStart/BtVAC template match in charselect_1.png; supersedes layout.md's approximate y450/400.
+## tier C: matched to charselect_1.png BtStart/BtVAC; supersedes layout.md's approximate y450/400.
 const BACK_AT := Vector2(0, 425)
 const HISTORY_AT := Vector2(0, 375)
-## tier B: hint region in charselect_1.png; C: truthful offline keyboard copy/tint, private spec32/v83-login-refs/layout.md.
+## tier C: hint region matched to charselect_1.png; offline keyboard copy/tint, private spec32/v83-login-refs/layout.md.
 const TAB_HINT := Rect2(270, 40, 220, 40)
 const INK := Color8(85, 51, 17) # tier C: existing Maple login text palette.
 
@@ -112,7 +112,7 @@ func _slots() -> void:
 			avatars.append(avatar)
 			_avatar_by_slot[i] = avatar
 		var tag := Control.new()
-		tag.position = feet # tier B: tag top at feet in charselect_1.png; private spec32/v83-login-refs/layout.md.
+		tag.position = feet # tier C: matched to charselect_1.png tag top at feet; private spec32/v83-login-refs/layout.md.
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tag.draw.connect(func() -> void: _draw_tag(tag, i))
 		_surface.add_child(tag)
@@ -234,13 +234,14 @@ func _draw_tag(ci: Control, index: int) -> void:
 func _draw_info() -> void:
 	if selected_info.is_empty():
 		return
-	# tier A: Login.img last compact unroll canvas, charInfo's own origin and label cells in its 183x115 canvas.
+	# tier A: Login.img last compact unroll canvas and charInfo's own origin/canvas size.
 	var scroll := UiArt.anim(LOGIN + "CharSelect/scroll/0")
 	if scroll != null and not scroll.is_empty():
 		UiArt.blit(_info, scroll.frames[-1], Vector2.ZERO)
 	var frame := UiArt.frame(LOGIN + "CharSelect/charInfo")
 	if frame != null:
-		UiArt.blit_origin(_info, frame, Vector2(17, 20) + frame.origin)
+		UiArt.blit_origin(_info, frame, Vector2(17, 20) + frame.origin) # tier C: inset matched to charselect_2.png.
+	# tier C: value placements matched to charselect_2.png label cells; private v83-login-refs/layout.md.
 	var values := [[selected_info.job, Vector2(53, 20), 144], [str(selected_info.level), Vector2(53, 38), 54],
 		["0", Vector2(143, 38), 54], [str(int(selected_info.attributes.str)), Vector2(53, 57), 54],
 		[str(int(selected_info.attributes.dex)), Vector2(53, 75), 54],
@@ -252,7 +253,7 @@ func _draw_info() -> void:
 		if MapleText.width(text, MapleText.SMALL) > float(row[2]):
 			text = "Magician" if int(selected_info.job_id) in range(200, 233) else text.left(20)
 		MapleText.draw_centered(_info, row[1].x, row[1].y, row[2], text, INK, MapleText.SMALL)
-	# tier B: compact Ranking Not Available variant, without a badge below the scroll; period charselect_2.png.
+	# tier C: compact Ranking Not Available variant matched to period charselect_2.png, without a badge below.
 
 
 ## Opens creation without changing the saved slots.
@@ -361,18 +362,11 @@ static func _image(parent: Node, path: String, at: Vector2) -> WzImage:
 
 
 static func _button(parent: Node, path: String, fallback: String, at: Vector2, action: Callable) -> WzButton:
-	var button := WzButton.new(LOGIN + path if path != "" else LOGIN + "Title/BtLoginIDLost")
-	button.fallback_size = Vector2(110, 24)
+	var button := WzButton.for_action(LOGIN + path if path != "" else LOGIN + "Title/BtLoginIDLost",
+		fallback, Vector2(110, 24), action, path.begins_with("CharSelect/Bt"))
 	if path.is_empty():
 		button.set_plate(110, 5)
 		button.label = fallback
-	elif not button.has_art():
-		button.label = fallback
 	button.position = at
-	button.focus_mode = Control.FOCUS_ALL
-	button.key_focus_overlay = path.begins_with("CharSelect/Bt")
-	button.focus_entered.connect(func() -> void: button.key_focused = true)
-	button.focus_exited.connect(func() -> void: button.key_focused = false)
-	button.pressed.connect(action)
 	parent.add_child(button)
 	return button

@@ -81,6 +81,17 @@ static func _valid_mods(value: Variant) -> bool:
 	return true
 
 
+## Restores learned order, ranks, modifiers and consumed card steps into an empty loadout.
+static func restore_loadout(character: Dictionary, loadout: Loadout) -> void:
+	for key: String in character.get("skill_order", []):
+		var skill: Dictionary = character.skills[key]
+		loadout.add_skill(key)
+		loadout.set_rank(key, int(skill.rank))
+		loadout.skill_mods[key] = decode_mods(skill.mods)
+	loadout.player_mods = decode_mods(character.get("player_mods", {}))
+	loadout.card_ranks = integers(character.get("card_ranks", {}))
+
+
 ## Encodes Loadout's Vector2 modifier pairs as JSON arrays without changing their order.
 static func encode_mods(mods: Dictionary) -> Dictionary:
 	var out := {}

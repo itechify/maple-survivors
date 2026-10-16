@@ -4,19 +4,19 @@ extends Control
 signal cancelled()
 
 const LOGIN := "UI.wz/Login.img/"
-## tier A: Login.img/avatarSel/0..8 labels/order; row pitch registered in period newchar_1.png, private v83-login-refs.
+## tier A: Login.img/avatarSel/0..8 labels/order; layout below is tier C, private v83-login-refs.
 const FIELDS := ["face", "hair", "hair_colour", "skin", "top", "bottom", "shoes", "weapon", "gender"]
 const INK := Color8(85, 51, 17) # tier C: existing login text palette.
 const ERROR_INK := Color8(153, 34, 0) # tier C: existing validation-error palette.
-## tier A/B: original v83 charSet/buttons/arrows registered in period newchar_1.png (about +/-2px).
+## tier C: original v83 charSet/buttons/arrows matched to period newchar_1.png (about +/-2px).
 ## Source for this block: private spec32/v83-login-refs/layout.md and wz-layout-notes.md, NewChar.
 const SETTINGS_AT := Vector2(470, 95)
 const ROW_AT := Vector2(481, 198)
 const ROW_PITCH := 19
 const ARROW_X := Vector2(539, 667)
 const LOOK_BUTTON_AT := [Vector2(508, 425), Vector2(582, 425)]
-## tier B: period newchar_name_1.png estimates (+/-3px), same source; native WZ support determines button y.
-const NAME_AT := Vector2(480, 95) # tier A/B: fresh WZ charName registration in newchar_name_1.png, +/-2px.
+## tier C: matched to period newchar_name_1.png (+/-3px), same source.
+const NAME_AT := Vector2(480, 95) # tier C: WZ charName matched to newchar_name_1.png, +/-2px.
 const NAME_INPUT := Rect2(510, 198, 140, 24)
 const NAME_BUTTON_AT := [Vector2(508, 273), Vector2(582, 273)]
 const PREVIEW_FEET := Vector2(398, 335)
@@ -29,7 +29,7 @@ const GENDER_AT := Vector2(219, 174)
 const GENDER_TEXT_AT := Vector2(245, 198)
 const GENDER_INPUT := Rect2(378, 270, 48, 19)
 const GENDER_BUTTON_AT := [Vector2(355, 346), Vector2(430, 346)]
-## tier B (advisory rectangle), C (offline copy, weapon strip below it, messages): period newchar_1.png / owner additions.
+## tier C: advisory rectangle matched to period newchar_1.png; offline copy, weapon strip and messages are ours.
 const ADVISORY := Rect2(120, 160, 195, 200)
 const WEAPON_BOX := Rect2(120, 380, 195, 45)
 const MESSAGE_BOX := Rect2(475, 365, 215, 45)
@@ -72,10 +72,10 @@ func _ready() -> void:
 	_look_surface = Control.new()
 	_look_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_look_surface)
-	_image_on(self, "Common/step/3", Vector2(0, 33)) # tier B: period newchar_1.png left step plaque.
-	_button_on(self, "Common/BtStart", "Back", Vector2(0, 425), func() -> void: cancelled.emit()) # tier A/B: BtStart registered in charselect_1/newchar_1.
+	_image_on(self, "Common/step/3", Vector2(0, 33)) # tier C: placement matched to period newchar_1.png.
+	_button_on(self, "Common/BtStart", "Back", Vector2(0, 425), func() -> void: cancelled.emit()) # tier C: matched to charselect_1/newchar_1.
 	var history := preload("res://scripts/ui/widgets/login_history_button.gd").new()
-	history.position = Vector2(0, 375) # tier A/B: BtVAC registered in charselect_1/newchar_1, offline history action.
+	history.position = Vector2(0, 375) # tier C: matched to charselect_1/newchar_1 BtVAC, offline history action.
 	history.pressed.connect(flow.goto_history)
 	add_child(history)
 	_image_on(_gender_surface, "Gender/backgrnd/0", GENDER_AT)
@@ -271,14 +271,8 @@ func _label_on(parent: Node, text: String, at: Vector2, box: Vector2) -> Label:
 
 
 func _button_on(parent: Node, path: String, fallback: String, at: Vector2, action: Callable) -> WzButton:
-	var button := WzButton.new(LOGIN + path)
-	button.fallback_size = Vector2(16, 18) if path.contains("Left") or path.contains("Right") else Vector2(60, 24)
-	if not button.has_art():
-		button.label = fallback
+	var box := Vector2(16, 18) if path.contains("Left") or path.contains("Right") else Vector2(60, 24)
+	var button := WzButton.for_action(LOGIN + path, fallback, box, action)
 	button.position = at
-	button.focus_mode = Control.FOCUS_ALL
-	button.focus_entered.connect(func() -> void: button.key_focused = true)
-	button.focus_exited.connect(func() -> void: button.key_focused = false)
-	button.pressed.connect(action)
 	parent.add_child(button)
 	return button
