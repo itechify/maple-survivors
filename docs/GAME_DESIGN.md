@@ -381,6 +381,28 @@ I/L branch pacing. After merging #56 and preserving both sets of fixtures/data, 
 `test_teleport::test_real_cache_teleport_effect_frames`, for that missing canonical art. Final log:
 `_scratch/t60-full-merged-final.log`; focused Teleport/advancement/I-L/data checks: 48 tests, 0 failed, 1 same SKIP.
 
+**#60 effect-import follow-up (2026-10-15):** the owner authorized one import. A fresh original-v83
+dump confirms `Effect.wz/BasicEff.img/Teleport`, four 80 ms frames (tier A; dimensions/origins recorded
+in `docs/research/wz-inventory.md` section 7). The ticket manifest already selected that subtree.
+The incremental import reports 84 imgs: 1 written, 83 up to date; 10,800 canvases (+4), 87 pages,
+131 sounds, 112,434,965 bytes; 0 warnings, errors or unresolved UOLs. All 84 prior img entries and
+prior BasicEff subtrees remain present; only `Teleport` was added. Of 319 prior cache files, only
+BasicEff JSON/atlas and cache.json changed; none were removed. Evidence: `evidence/t60/import.log`
+and `cache-*-comparison.json`.
+
+The close real-map driver learns `teleport_fp` through its card and injects X: departure
+(1200, 37.6531), arrival (1330, 95). Inspected `evidence/t60/close_fp_imported/teleport.png` shows
+both blue endpoint effects and the X skill label; `teleport_no_mp.png` shows the grey unaffordable
+icon at 0 MP. Its summary reports `missing: []`, resolving the earlier visual-acceptance gap.
+The additional normal autoplay playtest (Henesys, seed 1, branch 230, warp 930, speed 8, cap 990 s)
+ends DEAD at 955.35 s, level 36, Teleport rank 13, `missing: []`; records are in
+`evidence/t60/playtest_cleric_imported/`. No gameplay or balance data changed, so the prior smoke
+was not repeated. The real-cache effect test now fails rather than SKIPs when a present cache lacks
+this required animation; focused Teleport checks pass 16/16, with no failures or SKIPs.
+After `git merge origin/t3/issue-31-implementation` (already up to date), the full
+`ISOLATE=t60 bash scripts/test.sh` passes **612/612 tests, 0 failed, 0 skipped, 67 files**
+in 279.597 s. Log: `_scratch/t60-full-imported.log`.
+
 #### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
 
 `ISOLATE=t56`, training seeds 1/2/2026, both stages and `bot`/`random`, unforced branches, real cache,

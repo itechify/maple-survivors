@@ -83,12 +83,12 @@ func test_real_cache_teleport_effect_frames() -> void:
 		return
 	var library := AssetLibrary.new()
 	library.open()
-	var effect := library.find_anim("Effect.wz/BasicEff.img/Teleport")
-	if effect == null or effect.is_empty():
-		skip("shared cache is missing Effect.wz/BasicEff.img/Teleport; owner import required for visual verification")
-	else:
+	var effect := library.anim("Effect.wz/BasicEff.img/Teleport")
+	assert_true(effect != null and not effect.is_empty(), "canonical Teleport effect is imported")
+	if effect != null and not effect.is_empty():
 		assert_eq(effect.frames.size(), 4)
 		assert_near(effect.total, 0.32)
+	assert_true(library.missing.is_empty(), str(library.missing))
 	library.free()
 
 
