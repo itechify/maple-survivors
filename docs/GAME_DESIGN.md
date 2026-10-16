@@ -371,6 +371,29 @@ empty). Synthetic seam and cached gain-number tests: 15 tests, 0 failed, 0 skipp
 The existing all-event schema test needed one new restoration scenario (and `stat` String validation) because it
 requires every `EVENT_FIELDS` entry to be exercised. Its previous assertions and scenarios are unchanged.
 
+#### #31 / #59 MP Eater regression smoke (2026-10-15)
+
+No tuning: `ISOLATE=t59 bash scripts/balance.sh 1 2 2026`, both stages and `bot`/`random`, real cache,
+unforced seeded branches, no patch, 1,800 s cap. Feature head `24ff1be` includes Foundations `e51d6b7`;
+this smoke precedes later sibling-ticket integration. All 12 runs completed without crashes, script errors or
+world warnings. Outcomes and death times match the Foundations smoke: Henesys reaches Magician and the first
+boss in all six runs (Magician 263.2–283.2 s). Tree remains record-only and unchanged. No held-out seeds were used.
+
+| MP Eater stage / policy | Clear / dead / timeout | Death seconds | MP collected / used | Foundations MP collected / used |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | 812.3, 322.7 | 378/314 (1.204) | 376/315 (1.194) |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 430/214 (2.009) | 426/268 (1.590) |
+| Tree bot / random (each) | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 7/0 (undefined) | 7/0 (undefined) |
+
+Each surviving Henesys seed-1 run advances to Cleric and learns MP Eater; the other seeds die before second job.
+Bot seed 1 clears at 1087.7 s and random seed 1 at 998.2 s. The changed MP collection/use ratio is feature
+evidence for #61 and the later balance pass, not a tuning result. Raw records and console output stay in ignored
+`_scratch/t59_balance/` and `_scratch/t59-smoke-*.log`. Windowed playtests forced 210 and 230 (seed 1, warp 480,
+speed 8); both have `missing=[]`. F/P clears at 995.2 s without learning MP Eater; Cleric owns rank 17 and is
+still PLAYING at the 18-minute cap (not a clear). Checked-by-eye evidence: `evidence/t59/branch230/mp_eater.png`
+and the focused real-hit captures `evidence/t59/focused/mp_eater_{fp,il,cleric}.png`: canonical absorb art and cyan
+14-MP gain numbers for every branch, all `missing=[]`. v83 has no MP Eater sound entry; no required cache data is missing.
+
 #### #31 / #53 advancement regression smoke (2026-10-15)
 
 No balance tuning. `ISOLATE=t53 bash scripts/balance.sh 1 2 2026` ran on both stages with both policies,
