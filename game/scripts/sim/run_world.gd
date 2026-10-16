@@ -451,7 +451,7 @@ func _step_player(dt: float, input: MoveInput) -> void:
 ## Owned branch Teleport key, or empty before learning it.
 func teleport_skill() -> String:
 	for key: String in loadout.order:
-		if book.def(key).has("teleport"):
+		if _is_teleport(key):
 			return key
 	return ""
 
@@ -465,12 +465,46 @@ func teleport_affordable() -> bool:
 ## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
 ## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
 func skill_readiness(key: String) -> Dictionary:
-	if book.def(key).has("teleport"):
-		return {"left": _teleport_left, "total": _teleport_total,
-			"mp_short": _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()}
-	var left := maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
-	return {"left": left, "total": float(runner.cooldown_totals.get(key, 0.0)),
-		"mp_short": left <= 1e-6 and runner.is_waiting_mp(key) and _mp < float(runner.stats_of(self, key).mp_cost)}
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "mp_short": _mp_short(key)}
+
+
+## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
+## (resized in place; nothing is allocated once they have the right size): left, total and mp_short (0/1) as
+## skill_readiness reports them.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, mp_short: PackedByteArray) -> void:
+	var n := loadout.order.size()
+	left.resize(n)
+	total.resize(n)
+	mp_short.resize(n)
+	for i in n:
+		var key: String = loadout.order[i]
+		left[i] = _cooldown_left(key)
+		total[i] = _cooldown_total(key)
+		mp_short[i] = 1 if _mp_short(key) else 0
+
+
+func _is_teleport(key: String) -> bool:
+	var d: Variant = book.defs.get(key)
+	return d is Dictionary and (d as Dictionary).has("teleport")
+
+
+func _cooldown_left(key: String) -> float:
+	if _is_teleport(key):
+		return _teleport_left
+	return maxf(0.0, float(runner.cooldowns.get(key, 0.0)))
+
+
+func _cooldown_total(key: String) -> float:
+	if _is_teleport(key):
+		return _teleport_total
+	return float(runner.cooldown_totals.get(key, 0.0))
+
+
+func _mp_short(key: String) -> bool:
+	if _is_teleport(key):
+		return _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()
+	return _cooldown_left(key) <= 1e-6 and runner.is_waiting_mp(key) \
+		and _mp < float(runner.stats_of(self, key).mp_cost)
 
 
 func _try_teleport(input: MoveInput) -> bool:

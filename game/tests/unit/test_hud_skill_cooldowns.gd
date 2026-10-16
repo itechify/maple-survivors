@@ -1,6 +1,7 @@
 extends TestCase
-## HUD skill icon state (#82): the cooldown sweep shape, and the sim's per-skill readiness (cooldown left/total,
-## waiting for MP) on seeded worlds.
+## HUD skill icon state (#82): the cooldown sweep shape, the sim's per-skill readiness (cooldown left/total,
+## waiting for MP) on seeded worlds, the allocation-free per-frame cooldown query, and the skill widget redrawing only
+## when a sweep step or tint changes.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -123,3 +124,60 @@ func test_teleport_exposes_its_repeat_timer_and_waits_for_mp_only_when_ready() -
 	assert_true(bool(row.mp_short), "ready but below its MP cost")
 	w.heal_fraction("mp", 1.0)
 	assert_false(bool(w.skill_readiness("teleport_fp").mp_short), "affordable again")
+
+
+func test_lean_cooldown_query_fills_the_callers_buffers_like_skill_readiness() -> void:
+	var world := _mage("energy_bolt")
+	world.learn_skill("magic_claw")
+	var left := PackedFloat32Array()
+	var total := PackedFloat32Array()
+	var short := PackedByteArray()
+	var tinted := false
+	for frame: int in 4:
+		if frame == 0:
+			world.spend_mp(int(world.player_state.mp)) # ready with a target but out of MP: the tint
+		if frame == 1:
+			world.heal_fraction("mp", 1.0) # then both cast, one per tick, and cool down
+		world.step(DT, MoveInput.new())
+		world.read_skill_cooldowns(left, total, short)
+		assert_eq(left.size(), world.loadout.order.size(), "one entry per owned skill, in learned order")
+		for i in world.loadout.order.size():
+			var key := String(world.loadout.order[i])
+			var r := world.skill_readiness(key)
+			assert_near(left[i], float(r.left), 1e-5, "left of %s" % key)
+			assert_near(total[i], float(r.total), 1e-5, "total of %s" % key)
+			assert_eq(short[i], int(bool(r.mp_short)), "mp_short of %s" % key)
+		tinted = tinted or 1 in short
+	assert_true(tinted, "a ready skill out of MP shows the tint in the buffers too")
+	assert_true(left[0] > 0.0 and left[1] > 0.0, "and both cooling once paid for")
+
+
+func _row(left: float, total: float) -> Dictionary:
+	return {"icon": "", "rank": 1, "key_label": "", "cooldown_left": left, "cooldown_total": total, "mp_short": false}
+
+
+func test_skill_widget_redraws_only_when_a_sweep_step_or_tint_changes() -> void:
+	var w := HudSkills.new()
+	w.update({}, {"skills": [_row(0.0, 0.0), _row(0.0, 0.0)]})
+	var left := PackedFloat32Array([0.0, 0.0])
+	var total := PackedFloat32Array([0.0, 0.0])
+	var short := PackedByteArray([0, 0])
+	assert_false(w.set_cooldowns(left, total, short), "both ready, as last drawn: no redraw")
+	left[0] = 0.9
+	total[0] = 0.9
+	assert_true(w.set_cooldowns(left, total, short), "a cast covers the icon")
+	assert_eq(int(w.displayed()[0].sweep_step), HudSkills.SWEEP_STEPS, "fully dark")
+	assert_false(w.set_cooldowns(left, total, short), "same values: no redraw")
+	left[0] = 0.9 - DT
+	assert_true(w.set_cooldowns(left, total, short), "a 0.9 s cooldown moves its sweep every tick")
+	left[1] = 30.0
+	total[1] = 30.0
+	w.set_cooldowns(left, total, short)
+	left[1] = 30.0 - DT
+	assert_false(w.set_cooldowns(left, total, short), "a 30 s cooldown waits for its next step, not every tick")
+	left[1] = 30.0 - 20 * DT
+	assert_true(w.set_cooldowns(left, total, short), "and moves once the step is crossed")
+	short[1] = 1
+	assert_true(w.set_cooldowns(left, total, short), "the MP-wait tint redraws")
+	assert_true(bool(w.displayed()[1].mp_short))
+	w.free()

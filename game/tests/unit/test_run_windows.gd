@@ -3,8 +3,10 @@ extends TestCase
 ## window and holds the sim, Esc closes the top window before the pause menu opens, Stat opens over a level-up choice
 ## and keeps the choice's keys away until it closes, the status bar's Menu button opens the Menu popup and its Stat
 ## entry, and the Stat window shows the sim's v83 stats. Hotkeys go through RunScene.handle_hotkey (what
-## _unhandled_input calls); frames are advance_frame(1/60) calls.
+## _unhandled_input calls); frames are advance_frame(1/60) calls. The last tests cover the hold and the Esc order on
+## a synthetic world without the cache.
 
+const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 var lib: AssetLibrary
@@ -295,3 +297,70 @@ func test_pause_menu_opens_key_config_and_options_over_the_paused_run() -> void:
 	scene.free()
 	scene = null
 	temp.free()
+
+
+# --- without the asset cache -------------------------------------------------------------------------------------
+
+## A RunScene on a synthetic world (no asset cache, never added to the tree, like the other bare scenes): its window
+## stack holds plain windows registered as "stat" and "options", and the pause menu goes to a layer of its own. Only
+## held frames can run on it (they skip the renderers), which is what these tests drive. Returns [scene, nodes to free].
+func _bare_scene() -> Array:
+	var s := RunScene.new()
+	s.world = RF.quiet_world()
+	var root := (Engine.get_main_loop() as SceneTree).current_scene
+	s.windows_layer = CanvasLayer.new()
+	root.add_child(s.windows_layer)
+	var stack := WindowStack.new()
+	root.add_child(stack)
+	for id: String in ["stat", "options"]:
+		stack.register(id, func() -> UiWindow:
+			var w := UiWindow.new()
+			w.window_id = id
+			w.size = Vector2(120, 80)
+			return w)
+	s.use_window_stack(stack)
+	return [s, [s.windows_layer, stack]]
+
+
+func _free_bare(made: Array) -> void:
+	(made[0] as RunScene).free()
+	for n: Node in made[1]:
+		n.free()
+
+
+func test_no_sim_ticks_while_an_in_run_window_is_open_without_the_cache() -> void:
+	var made := _bare_scene()
+	var s: RunScene = made[0]
+	var t := s.world.time
+	assert_eq(s.world.state, RunWorld.PLAYING, "a running world")
+	assert_true(s.handle_hotkey(_key(KEY_S)), "S opens the Stat window")
+	assert_eq(s.ui_windows.ids(), PackedStringArray(["stat"]))
+	for i in 30:
+		s.advance_frame(DT)
+	assert_eq(s.world.time, t, "no sim ticks while a window is open")
+	assert_true(s.handle_hotkey(_key(KEY_ESCAPE)))
+	assert_true(s.handle_hotkey(_key(KEY_ESCAPE)), "Esc with nothing open pauses")
+	assert_true(s.toggle_window("options"), "Options opens over the pause menu")
+	for i in 30:
+		s.advance_frame(DT)
+	assert_eq(s.world.time, t, "nor while a window is open over the paused run")
+	_free_bare(made)
+
+
+func test_esc_closes_the_top_window_then_pauses_then_resumes_without_the_cache() -> void:
+	var made := _bare_scene()
+	var s: RunScene = made[0]
+	s.toggle_window("stat")
+	assert_true(s.handle_hotkey(_key(KEY_ESCAPE)), "Esc used")
+	assert_false(s.ui_windows.has_windows(), "Esc closed the Stat window first")
+	assert_false(s.paused, "and did not pause")
+	s.handle_hotkey(_key(KEY_ESCAPE))
+	assert_true(s.paused and s.window is PauseMenu, "with no window open Esc opens the pause menu")
+	s.toggle_window("options")
+	s.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(s.ui_windows.has_windows(), "Esc over the pause menu closes Options first")
+	assert_true(s.paused and s.window is PauseMenu, "the pause menu stays")
+	s.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(s.paused, "the next Esc resumes")
+	assert_eq(s.window, null, "and closes the pause menu")
+	_free_bare(made)

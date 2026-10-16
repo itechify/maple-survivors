@@ -1,7 +1,8 @@
 class_name HudPotionQuickslot
 extends HudWidget
-## HP/MP potion icons, current unlimited stock counts and drink keys (the live bindings: GameSettings.action_label) in the
-## status bar's reserved quickslot area.
+## HP/MP potion icons, current unlimited stock counts and drink keys in the status bar's reserved quickslot area. The
+## key captions are the live bindings (GameSettings.action_label), read when the widget is made and again on
+## refresh_key_labels() (RunScene calls it on Settings.changed).
 
 ## tier C: two readable slots within the status bar's 221 x 59 reserved region.
 const SLOT_STEP := 104.0
@@ -9,6 +10,22 @@ const SLOT_STEP := 104.0
 const ACTIONS := {"hp": "drink_hp", "mp": "drink_mp"}
 
 var slots: Array[Dictionary] = []
+## Drink action -> its cached key caption.
+var _key_labels := {}
+
+
+func _init() -> void:
+	super._init()
+	refresh_key_labels()
+
+
+## Re-reads the drink keys' captions from the live bindings and redraws with them.
+func refresh_key_labels() -> void:
+	for action: String in ACTIONS.values():
+		_key_labels[action] = GameSettings.action_label(action)
+	for slot: Dictionary in slots:
+		slot.key_label = _key_labels[ACTIONS[slot.kind]]
+	queue_redraw()
 
 
 ## Receives the potion snapshot and builds exactly the slot data used by drawing.
@@ -20,7 +37,7 @@ func update(ps: Dictionary, info: Dictionary) -> void:
 		var id := int(stock.get("item_id", 0))
 		var icon: SpriteFrame = _frame(AssetLibrary.item_icon_path(id, false), true) if id > 0 else null
 		slots.append({"kind": kind, "item_id": id, "count": int(stock.get("count", 0)),
-			"key_label": GameSettings.action_label(ACTIONS[kind]), "icon": icon})
+			"key_label": String(_key_labels[ACTIONS[kind]]), "icon": icon})
 
 
 ## The currently displayed slot (same snapshot and icon used by _draw), or {} for an unknown kind.
