@@ -118,11 +118,12 @@ func test_project_input_map_has_the_game_design_controls() -> void:
 	for a: String in ["move_left", "move_right", "move_up", "move_down", "jump", "pause", "choice_1", "choice_2",
 			"choice_3"]:
 		assert_true(InputMap.has_action(a), a)
-	var s := GameSettings.new(cfg_path)
-	assert_true(KEY_ALT in s.binding_keys("jump") and KEY_SPACE in s.binding_keys("jump"), "jump: Left Alt, Space")
-	assert_eq(s.binding_keys("move_left"), PackedInt32Array([KEY_LEFT]), "movement: the arrows (WASD is a setting)")
-	assert_true(KEY_ESCAPE in s.binding_keys("pause"))
-	s.free()
+	# The project defaults, not the live InputMap (the Settings autoload applied the developer's own settings.cfg).
+	assert_eq(GameSettings.default_keys("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C]), "jump: Left Alt, Space, C")
+	assert_eq(GameSettings.default_keys("move_left"), PackedInt32Array([KEY_LEFT]), "movement: the arrows (WASD is a setting)")
+	assert_eq(GameSettings.default_keys("pause"), PackedInt32Array([KEY_ESCAPE]))
+	assert_eq(GameSettings.default_keys("drink_hp"), PackedInt32Array([KEY_DELETE, KEY_Q]))
+	assert_eq(GameSettings.default_keys("no_such_action"), PackedInt32Array(), "unknown action: no keys")
 
 
 func test_frame_cap_follows_the_refresh_rate() -> void:
@@ -178,10 +179,8 @@ func _others_on(s: GameSettings, key: int) -> PackedStringArray:
 
 
 func test_window_hotkeys_default_to_s_and_k() -> void:
-	var s := GameSettings.new(cfg_path)
-	assert_eq(s.binding_keys("stat_window"), PackedInt32Array([KEY_S]), "Stat: S")
-	assert_eq(s.binding_keys("skill_window"), PackedInt32Array([KEY_K]), "Skill: K")
-	s.free()
+	assert_eq(GameSettings.default_keys("stat_window"), PackedInt32Array([KEY_S]), "Stat: S")
+	assert_eq(GameSettings.default_keys("skill_window"), PackedInt32Array([KEY_K]), "Skill: K")
 
 
 func test_movement_defaults_to_arrows_and_only_that_set_drives_move() -> void:

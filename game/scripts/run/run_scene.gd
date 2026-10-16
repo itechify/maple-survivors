@@ -39,6 +39,8 @@ extends Node2D
 ## window opens. Esc (handle_hotkey) closes the top window first; only with none open does it open the pause menu.
 ## Stat / Skill open over a level-up or job choice (those windows pass the hotkeys on) but not while paused or once
 ## the run is ending.
+## Key Config and Options (#87; `settings`, the Settings autoload) are Menu entries and pause-menu choices; from the pause
+## menu they open over it (PAUSE_WINDOWS) and Esc closes them back to it.
 ## The run ends after the tombstone + DEATH_HOLD s, or CLEAR_HOLD s after the stage-clear notice:
 ## then run_finished(summary) is emitted and, when the "Flow" autoload exists, Flow.finish_run(summary) is called (with
 ## quit_after set the app writes summary.json and quits instead).
@@ -80,6 +82,8 @@ const JOB_WINDOW_DELAY := 1.3
 const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill"}
 ## CanvasLayer of the in-run windows: above the modal windows (10), below the perf overlay (20).
 const UI_LAYER := 11
+## In-run windows that also open while the run is paused (from the pause menu, #87).
+const PAUSE_WINDOWS := ["key_config", "options"]
 ## Seconds a closed window is kept for its fade-out before it is freed (MapleWindow closes in 0.12 s).
 const WINDOW_FREE_DELAY := 0.5
 ## tier C (ours): seconds after the tombstone has landed before the run ends.
@@ -149,6 +153,8 @@ var windows_layer: CanvasLayer
 ## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
 var ui_layer: CanvasLayer
 var ui_windows: WindowStack
+## The settings the Key Config and Options windows edit (the "Settings" autoload unless a test sets another first).
+var settings: GameSettings
 var perf_layer: CanvasLayer
 ## The open window (LevelUpWindow / JobAdvanceWindow / PauseMenu), null when none.
 var window: Node
@@ -363,14 +369,14 @@ func _front_window_key(event: InputEvent) -> bool:
 	return top != null and top.handle_key(event)
 
 
-## Opens or closes in-run window `id` (WindowStack.toggle); false when it cannot open now (paused, run ending,
-## nothing registered under `id`) or when it was closed.
+## Opens or closes in-run window `id` (WindowStack.toggle); false when it cannot open now (paused - only Key Config and
+## Options open over the pause menu -, run ending, nothing registered under `id`) or when it was closed.
 func toggle_window(id: String) -> bool:
 	if ui_windows == null:
 		return false
 	if ui_windows.find_window(id) != null:
 		return ui_windows.toggle(id)
-	if paused or _end_kind != "":
+	if (paused and not id in PAUSE_WINDOWS) or _end_kind != "":
 		return false
 	ui_windows.close("menu")
 	return ui_windows.toggle(id)
@@ -603,6 +609,10 @@ func _build_ui_windows() -> void:
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
 	ui_windows.changed.connect(_on_ui_windows_changed)
 	hud.menu_button.pressed.connect(toggle_menu)
+	if settings == null:
+		settings = get_node_or_null("/root/Settings") as GameSettings
+	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings))
+	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 
 
 ## Holds / releases the run as in-run windows open and close (see the class doc).
@@ -1143,7 +1153,17 @@ func open_pause() -> void:
 	_show_window(pm, "pause")
 	pm.resumed.connect(resume)
 	pm.quit_requested.connect(_on_quit_requested)
+	pm.window_requested.connect(_open_from_pause)
 	pm.open()
+
+
+## The pause menu's Key Config / Options choice: opens that window over the menu (or brings it to the front).
+func _open_from_pause(id: String) -> void:
+	var open := ui_windows.find_window(id) if ui_windows != null else null
+	if open != null:
+		ui_windows.bring_to_front(open)
+	else:
+		toggle_window(id)
 
 
 ## Closes the pause menu and continues the run.
@@ -1363,11 +1383,9 @@ func run_info() -> Dictionary:
 	for key: String in world.loadout.order:
 		var manual := world.book.def(key).has("teleport")
 		var label := ""
-		if manual:
-			for binding: InputEvent in InputMap.action_get_events("teleport"):
-				if binding is InputEventKey:
-					label = OS.get_keycode_string(binding.physical_keycode if binding.physical_keycode != 0 else binding.keycode)
-					break
+		if manual: # the first key the player bound (the icon has room for one caption)
+			label = KeyBindings.action_label("teleport", "\n").get_slice("\n", 0)
+			label = "" if label == "-" else label
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),

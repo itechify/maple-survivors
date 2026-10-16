@@ -145,8 +145,8 @@ func test_menu_button_opens_the_menu_popup_and_its_stat_entry() -> void:
 	assert_true(menu.get_global_rect().end.y <= bt.get_global_rect().position.y + 1.0, "above the button")
 	assert_true(menu.is_enabled("stat"))
 	assert_true(menu.is_enabled("skill"), "the Skill window (#86)")
-	assert_false(menu.is_enabled("key_config"))
-	assert_false(menu.is_enabled("options"))
+	assert_true(menu.is_enabled("key_config"), "Key Config (#87)")
+	assert_true(menu.is_enabled("options"), "Options (#87)")
 	_frames(10)
 	assert_eq(w.time, t, "the popup holds the sim too")
 	assert_true(menu.choose("stat"))
@@ -249,3 +249,49 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 		assert_eq(sw.value_text(unmodelled), "-", "%s is not in the sim" % unmodelled)
 	assert_false(sw.ap_buttons_visible(), "read-only: no +AP buttons")
 	assert_true(sw.show_detail, "the detail panel is open")
+
+
+# --- Key Config / Options (#87) ------------------------------------------------------------------------------------
+
+func test_pause_menu_opens_key_config_and_options_over_the_paused_run() -> void:
+	if not require_cache():
+		return
+	var cfg := TestCase.test_dir("run_windows_settings.cfg")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
+	if FileAccess.file_exists(cfg):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+	var temp := GameSettings.new(cfg)
+	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
+	s.library = lib
+	s.settings = temp # never the live autoload: OK would write the developer's settings.cfg
+	s.configure("henesys_hg1", 13, {"use_flow": false, "autoplay": true, "autopick": true})
+	var tree := Engine.get_main_loop() as SceneTree
+	(tree.current_scene if tree.current_scene != null else tree.root).add_child(s)
+	scene = s
+	_frames(10)
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	var pm := scene.window as PauseMenu
+	assert_true(pm != null and scene.paused, "paused")
+	if pm == null:
+		temp.free()
+		return
+	assert_true(pm.activate(1, false), "pause menu: Key Config")
+	var kc := scene.ui_windows.top() as KeyConfigWindow
+	assert_true(kc != null, "the Key Config window opened over the pause menu")
+	assert_true(kc != null and kc.settings == temp, "it edits the run's settings")
+	assert_true(pm.input_blocked and pm.is_open(), "the pause menu waits underneath")
+	assert_true(pm.activate(2, false), "Options too (the pause menu stays usable from code)")
+	assert_eq(scene.ui_windows.ids(), PackedStringArray(["key_config", "options"]))
+	assert_true(pm.activate(1, false))
+	assert_eq(scene.ui_windows.ids(), PackedStringArray(["options", "key_config"]),
+		"choosing an open window brings it to the front instead of closing it")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(scene.ui_windows.has_windows(), "Esc closed both windows")
+	assert_true(scene.paused and scene.window == pm and not pm.input_blocked, "still paused, the menu takes input")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(scene.paused, "Esc resumes")
+	assert_false(FileAccess.file_exists(cfg), "nothing was saved")
+	scene.free()
+	scene = null
+	temp.free()

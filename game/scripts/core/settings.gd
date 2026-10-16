@@ -12,7 +12,8 @@ extends Node
 ## Movement keys: only the chosen set (MOVEMENT_SETS) drives move_*, so the other set is free to bind (S opens the
 ## Stat window on Arrows). Applying a set also takes its keys off every other action (saved as bindings), so with WASD
 ## nothing else sits on W/A/S/D; switching back does not rebind them (the Key Config window's Default button does).
-## Key Config / Options (later tickets) call set_binding / reset_binding / set_movement_keys.
+## The Key Config window (KeyBindings draft) saves through set_bindings; the Options window calls set_volume,
+## set_max_fps and set_movement_keys. default_keys() reads the project defaults (never the live, rebound InputMap).
 ##
 ## View (docs/ARCHITECTURE.md 4.5): by default the project's own stretch applies - 800x600 grown to the window's
 ## aspect ("expand", e.g. 1066x600 on 16:9), whole-pixel integer scale, black bars around the rest (1920x1080: 1x with
@@ -39,12 +40,15 @@ const MOVEMENT_SETS := {
 	"wasd": {"move_left": KEY_A, "move_right": KEY_D, "move_up": KEY_W, "move_down": KEY_S},
 }
 const DEFAULT_MOVEMENT := "arrows"
+## Default volumes (linear 0..1).
+const DEFAULT_BGM := 0.8
+const DEFAULT_SFX := 0.9
 
 var wz_root := ""
 var cache_dir := ""
 var master_volume := 1.0
-var bgm_volume := 0.8
-var sfx_volume := 0.9
+var bgm_volume := DEFAULT_BGM
+var sfx_volume := DEFAULT_SFX
 var window_scale := 0
 ## Fill the window with more map instead of black bars (see the class doc; off = docs/ARCHITECTURE.md 4.5).
 var fill_window := false
@@ -152,8 +156,8 @@ func save_settings() -> Error:
 	_put(cfg, "assets", "wz_root", wz_root, "")
 	_put(cfg, "assets", "cache_dir", cache_dir, "")
 	_put(cfg, "audio", "master", master_volume, 1.0)
-	_put(cfg, "audio", "bgm", bgm_volume, 0.8)
-	_put(cfg, "audio", "sfx", sfx_volume, 0.9)
+	_put(cfg, "audio", "bgm", bgm_volume, DEFAULT_BGM)
+	_put(cfg, "audio", "sfx", sfx_volume, DEFAULT_SFX)
 	_put(cfg, "display", "window_scale", window_scale, 0)
 	_put(cfg, "display", "fill_window", fill_window, false)
 	_put(cfg, "display", "max_fps", max_fps, 0)
@@ -244,6 +248,26 @@ func set_binding(action: String, keys: PackedInt32Array) -> void:
 	changed.emit()
 
 
+## Rebinds several actions at once (action -> PackedInt32Array of physical keycodes; the Key Config window's OK): an
+## action whose keys are its project defaults (in any order) drops its override, the rest are stored; then applied to
+## the InputMap and saved once.
+func set_bindings(map: Dictionary) -> void:
+	for action: String in map:
+		var keys := PackedInt32Array(map[action])
+		var sorted := keys.duplicate()
+		sorted.sort()
+		var defaults := default_keys(action)
+		defaults.sort()
+		if sorted == defaults:
+			bindings.erase(action)
+			_restore_default(action)
+		else:
+			bindings[action] = keys
+	apply_bindings()
+	save_settings()
+	changed.emit()
+
+
 ## Picks the movement key set ("arrows" or "wasd"; others are ignored), applies it and saves.
 func set_movement_keys(scheme: String) -> void:
 	if not MOVEMENT_SETS.has(scheme):
@@ -295,6 +319,24 @@ func reset_binding(action: String) -> void:
 	changed.emit()
 
 
+## The physical keycodes the project's input map gives an action (project.godot; empty for an unknown action). Unlike
+## binding_keys() this ignores the player's rebinds, so it is the same on every machine.
+static func default_keys(action: String) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for e: InputEvent in _project_events(action):
+		if e is InputEventKey:
+			var k := e as InputEventKey
+			out.append(k.physical_keycode if k.physical_keycode != KEY_NONE else k.keycode)
+	return out
+
+
+static func _project_events(action: String) -> Array:
+	var proj: Variant = ProjectSettings.get_setting("input/" + action, null)
+	if proj is Dictionary and (proj as Dictionary).get("events") is Array:
+		return proj.events
+	return []
+
+
 ## The physical keycodes an action currently has in the InputMap (empty for an unknown action).
 func binding_keys(action: String) -> PackedInt32Array:
 	var out := PackedInt32Array()
@@ -325,13 +367,10 @@ func apply_bindings() -> void:
 func _restore_default(action: String) -> void:
 	if not InputMap.has_action(action):
 		return
-	var events: Array = []
-	var proj: Variant = ProjectSettings.get_setting("input/" + action, null)
-	if proj is Dictionary and (proj as Dictionary).get("events") is Array:
-		events = proj.events
-	elif _default_events.has(action):
+	var events := _project_events(action)
+	if events.is_empty() and _default_events.has(action):
 		events = _default_events[action]
-	else:
+	elif events.is_empty():
 		return
 	InputMap.action_erase_events(action)
 	for e: InputEvent in events:

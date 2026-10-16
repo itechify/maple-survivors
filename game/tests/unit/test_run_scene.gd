@@ -503,7 +503,7 @@ func test_pause_holds_the_run() -> void:
 	assert_true(w.time > t, "running again")
 	scene.open_pause()
 	pm = scene.window as PauseMenu
-	assert_true(pm != null and pm.activate(1), "Quit to stage select")
+	assert_true(pm != null and pm.activate(3), "Quit to stage select")
 	assert_eq(finished.size(), 1, "quitting ends the run (without Flow: run_finished)")
 	_assert_nothing_missing(scene, "pause")
 
