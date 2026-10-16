@@ -107,8 +107,9 @@ level-up / job / pause windows, death, results, retry, quit) is `game/scenes/deb
 
 **Feature tickets do not tune balance.** Until the dedicated balance pass (a ticket that says so), a feature, spec
 or QA ticket runs only a regression smoke: `bash scripts/balance.sh 1 2 2026` on both stages, both `bot` and
-`random` policies, plus the full test suite. Check for no crashes, no world warnings, and that runs still reach
-Magician and bosses, then record the outcomes and any new metrics (a few lines and one small table) in
+`random` policies, plus the full test suite. Check for no crashes and no world warnings, that Henesys runs still reach
+Magician and bosses (The Tree That Grew dies early until the owner reworks it: record only), and compare with the
+previous smoke recorded in 4.2. Record the outcomes and any new metrics (a few lines and one small table) in
 `docs/GAME_DESIGN.md` 4.2. Don't change balance data, run tuning candidates, or spend held-out seeds. Don't commit
 long tuning logs. If the smoke shows a feature clearly breaking the game (e.g. every run dies before the first boss,
 or every run clears with no deaths), stop and ask the owner. Even if a ticket's text asks for the full tuning
