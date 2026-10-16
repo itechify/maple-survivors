@@ -33,7 +33,7 @@ exercised the rebuilt UI and created character with the private real cache.
 | Name length4..12, ASCII letters/digits, living duplicate rejected with message | Met | SaveData.name_error and case-insensitive living-name tests; actual invalid-name screenshot; rejected names do not create slots |
 | Manifest: Etc, Login sections, all face/hair colours/skins/clothes/weapons | Met | Full Login.img, scoped MakeCharInfo, every requested Character ID present; real-cache variant test checks each; generic WzRoot/importer supports Etc and synthetic archive test passes |
 | Rebuilt cache from local original WZ; missing empty | Met | Re-imported merged manifest to existing private cache-t70:157imgs,12written,145current,13636canvases,163pages,164sounds; zero unresolved UOL/warnings/errors. No shared-cache writes |
-| Screenshots inspected by eye, both genders/three characters/history | Met | Evidence under evidence/t70r2/, including baseline and final captures; each named required image inspected. UI probe explicitly checks optional-art widgets too, rather than trusting AssetLibrary.missing alone |
+| Screenshots inspected by eye, both genders/three characters/history | Met | Evidence under evidence/t70r2/, including baseline and final review_fix captures; each named required image inspected. UI probe explicitly checks optional-art widgets too, rather than trusting AssetLibrary.missing alone |
 | Weapon balance smoke acceptance | Prior implementation; not rerun | The rework changes no weapon/gameplay code. Owner explicitly says no smoke in that case; retained #70 weapon-smoke record in GAME_DESIGN4.2, no new tuning or held-out seeds |
 
 ## Source boundaries and limitations
@@ -52,4 +52,12 @@ The Free Market screenshot is a boundary presentation probe using a supplied com
 that the created Lv1 character played and cleared Henesys. The normal run screenshot is a real launched round.
 
 Private cache: `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`.
-Validation totals and final review evidence are recorded in GAME_DESIGN4.2 after final verification.
+Validation totals and final review evidence are recorded in GAME_DESIGN4.2. The finish reviewer scored
+all four requested corrections resolved (class badge, keyboard focus/activation, weapon text contrast and
+provenance documentation); its final disposition was ship, limited to that correction list. The documentation
+finish check confirmed the existing architecture and asset seams, with no new identity/design system.
+
+Final validation: full Godot suite **732 tests, 0 failed, 0 skipped, 81 files** (336.368 s).
+Rust **47 tests pass**, including all **17 real-WZ integration tests** executed with MAPLE_WZ_ROOT set.
+Full injected flow passed; final 19-state visual probe and flow summary both have `missing=[]`.
+No weapon/balance smoke rerun because this rework changes no gameplay code, as explicitly requested.

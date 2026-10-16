@@ -394,6 +394,43 @@ The #70/#71 integration replaces the temporary `FreeMarket.character_look(charac
 `DataRepo.character_look`. It reads only CharacterSnapshot.look and resolves the job weapon (nonzero
 beginner_weapon for a Beginner, otherwise weapon_by_job), without changing the snapshot.
 
+#### #32 / #70 rework audit and visual verification (2026-10-16)
+
+Rework code `0cdfc7e` / `8c1a0b2`, merged #71 integration `d4eaf94` via `44ce69d`. Audited every desired behavior
+and acceptance criterion from the current ticket against source and a fresh baseline windowed run; the full table
+is [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md). Runtime MakeCharInfo options, variant imports, name rules,
+authoritative look carry and canonical Beginner weapon behavior were already correct. Fixed the invented roster
+composition, shared-action/selection behavior, v83 option-row presentation, phased Gender/name/appearance surfaces,
+delete notice, history entry placement, class badge mapping and keyboard focus overlay. No sim/balance changes.
+
+`ISOLATE=t70`, private cache `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. The merged manifest
+was imported from the local original v83 install: 157 imgs (12 written, 145 current), 13636 canvases, 163 pages,
+164 sounds; zero unresolved UOLs, warnings or errors. Shared cache untouched. **No balance smoke rerun**, per the
+owner's rework instruction because weapon/gameplay code is unchanged; the original #70 smoke remains below.
+
+| Verification | Result |
+|---|---|
+| Full Godot suite after integration merge | 732 tests, 0 failed, 0 skipped, 81 files (336.368 s); every real-cache test executed |
+| Focused UI/creation/basic attack/hub/widgets | 53 tests, 0 failed, 0 skipped |
+| Rust importer | 47 tests pass; all 17 real-data integration tests separately execute with MAPLE_WZ_ROOT set (0 failures/skips) |
+| Visual character driver | 19 required states, missing=[]; real Right key changes selection while Start holds focus |
+| Full injected keyboard/mouse flow | Pass: creation, Magician/cards, pause/resume, death/results, confirmed Quit round, same-seed Continue, history, title; missing=[] |
+
+Checked the screenshots under `evidence/t70r2/review_fix/` by eye: empty/one/three slots, changed selection and keyboard
+focus, deletion confirmation, history entry/list, Gender and name steps, invalid name, default and changed male/female
+previews (black -> brown hair, face, skin, clothes, shoes, weapon), created look in an actual launched round, and the same
+look in the Free Market. The hub capture supplies a completed boundary for presentation, not a claim of a Lv1 clear.
+The probe cycles every option for each gender and every hair/colour pair, and explicitly requires every WzImage and
+WzButton's art because UiArt normally tolerates absent optional art. Final `summary.json` has missing=[].
+
+The full flow's training seed 1 at x3 reaches Magician, answers 14 level windows, resumes from pause, and dies at
+379.5 s / Lv13 before checking replay/history. This is a flow check, not pacing evidence. Exact console/summary and 25
+flow captures are ignored under `evidence/t70r2/flow/` and `flow.log`.
+The independent finish reviewer scored all four corrections resolved (badges, keyboard focus, weapon readability,
+provenance docs), disposition ship at that fix-list scope. Documentation finish check preserves the existing v83
+identity. Full-suite console output is `evidence/t70r2/full_suite.log`; all checks used `ISOLATE=t70`.
+Exact v83-executable screen positions remain unverified; tier A/B/C boundaries are recorded in section11.
+
 #### #32 / #70 character creation and weapon regression smoke (2026-10-16)
 
 Creation/weapon code `72f2dfd`, followed by #74 harness integration `bb933f1`; `ISOLATE=t70`, private cache

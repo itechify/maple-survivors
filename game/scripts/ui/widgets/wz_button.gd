@@ -1,7 +1,7 @@
 class_name WzButton
 extends BaseButton
 ## A MapleStory button drawn from a WZ button node: `<base>/normal/0`, `mouseOver/<n>`, `pressed/0`, `disabled/0` and
-## the optional `keyFocused/<n>` (drawn instead of normal while the button has the keyboard highlight). Every state may
+## the optional `keyFocused/<n>` (replaces normal, or overlays it when key_focus_overlay is set, while highlighted). Every state may
 ## animate (several numbered canvases, WZ delays). Every state canvas is drawn with its origin where the normal
 ## canvas's origin is (normal top-left = the button's 0, 0), so keyFocused frames with origin (1, 1) grow one pixel
 ## around the normal art like the client, and centre-origin buttons (Login.img/BtOk) line up too.
