@@ -10,18 +10,26 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
 ## 1. The run
 
 1. **Stage select.** Pick a map (stage). A stage = an original v83 map + a survivor monster roster + a pacing curve.
-2. **Start.** Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
-   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). The map's own BGM plays.
+2. **Start.** A fresh character is a Level 1 Beginner, default MakeCharInfo look (face 20000, hair 30030, White Undershirt 1040002, Blue Jean
+   Shorts 1060002, Red Rubber Boots 1072001), standing at a random spawn portal (`pn=sp`). Later rounds restore the
+   carried character with full HP/MP. The map's own BGM plays.
 3. **Survive** the growing swarms and defeat the three bosses arriving at 5:00, 10:00 and 15:00. The final fight can
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
 5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
-   their bonus reward choices answered. Results show time, level, job, kills, damage dealt and owned skills;
-   Retry or Stage select.
+   their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
+   results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
-Runs are independent: level, job and skills reset every run. Persistent progression is Phase 3.
+Runs carry one named character through one stage per tier (ADR 0001). A non-final clear autosaves the carried
+character and next tier in the Free Market (`phase=free_market`). The final tier goes directly to victory results.
+The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking, jumping, its two ladders and
+existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
+and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
+tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
+Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
 
 ## 2. Controls
 
@@ -340,6 +348,50 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #32 / #71 Free Market regression smoke (2026-10-16)
+
+Revision `96cb046`; training seeds 1/2/2026, both original stages, bot/random, default branches and 1800 s cap,
+no PATCH or tuning. Every Godot run uses `ISOLATE=t71` and private cache
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71` (copied once, then imported with #71's
+manifest; 108 imgs, 12 written, zero warnings/errors). All 12 finish without crashes, script errors or world
+warnings. Outcomes, levels, times and MP-wait means match #69 exactly; all six Henesys runs reach Magician
+and spawn Mano. Tree's known early deaths remain record-only.
+
+| Stage / policy | Clear / dead / timeout | End seconds (1 / 2 / 2026; C = clear) | Final levels | Mean MP-wait s/run |
+|---|---|---|---|---|
+| Henesys bot | 1 / 2 / 0 | C967.8 / 812.3 / 322.7 | 41 / 28 / 10 | 205.133 |
+| Henesys random | 1 / 2 / 0 | C974.6 / 714.8 / 329.0 | 43 / 27 / 11 | 178.455 |
+| Tree bot | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+| Tree random | 0 / 3 / 0 | 141.9 / 141.0 / 77.4 | 3 / 3 / 2 | 98.956 |
+
+After merging #74 (`0c72c68`), reran its chain and Dark Cave fixture modes on seeds 1/2/2026, bot/random,
+under the same private cache/isolation and no tuning. These 12 additional seed records / 14 rounds also match
+#74 exactly: only seed 1 feeds tier 2 (1/3 per policy), bot Lv41 -> 52 dying at 685.2 s, random Lv43 -> 64
+dying at 1240.1 s; neither clears or reaches Lv70. The Lv38 F/P fixture dies at 789.3 / 780.7 / 807.8 s
+(bot, final Lv58/61/60) and 609.5 / 595.6 / 754.0 s (random, Lv51/50/55), no clears/Lv70. All 14 added rounds
+report `warnings=[]`, `missing=[]`; no smoke log has a script/engine error. Combined: 24 seed records / 26 rounds.
+The tier-2 deaths are unchanged first-pass evidence, not a reason to tune in this feature ticket. Exact records
+and console/SYSTEMS output are ignored under `evidence/t71/chain_fixture/`.
+
+Exact seed records, console/SYSTEMS output and aggregates are ignored under `evidence/t71/smoke/`.
+The real-map `free_market_driver` supplies a completed-round summary with the committed Lv38 F/P fixture,
+then verifies autosaved arrival, Esc pause, Save & quit, disk reload/Continue, inert room entry, fixed-tick
+walking right to the real out00, keyboard Up and tier-2-only map select. This is a boundary probe, not a full
+two-round playtest. Checked `evidence/t71/hub/01_arrival.png`, `02_npcs.png`, `03_save_quit.png`,
+`04_continue.png`, `05_rooms.png`, `06_out00.png`, `07_next_tier.png` by eye: canonical map/room art, all four NPCs,
+the character's outfit/weapon, full HP/MP status, readable instruction plate and boundary pause. Report:
+`failures=[]`, `missing=[]`. Focused tests pass 23/23 with zero failures/skips; coverage includes all 22 room
+portals, the two real ladders, normal jump/climb/same-map portal behavior, snapshot immutability, look/weapon
+resolution, pool agreement with RunWorld, pause holding motion, clear/resume/exit saves and final-tier victory.
+
+After the final fetch/merge of integration `0c72c68` and correction of the old stage-only manifest assertion,
+the full `ISOLATE=t71 bash scripts/test.sh` passes **721 tests, 0 failed, 0 skipped, 80 files** (326.337 s).
+All real-cache checks execute; none is skipped. Log: ignored `evidence/t71/full_suite_final.log`.
+Final focused data/hub/flow checks pass **41 tests, 0 failed, 0 skipped** (`evidence/t71/focused_final.log`).
+The temporary `FreeMarket.character_look(character, data)` resolver is the one #70 merge seam: replace its
+resolution with #70's shared helper when that ticket lands. It reads only CharacterSnapshot.look and resolves
+the job weapon (nonzero beginner_weapon for a Beginner, otherwise weapon_by_job), without changing the snapshot.
 
 #### #32 / #74 headless chain and fixture regression smoke (2026-10-16)
 
@@ -2175,6 +2227,13 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Free Market rule | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Hub tick and catch-up | 1/60 s, at most 4 ticks/frame, matching RunScene | C | Existing engine scheduling rule |
+| Hub arrival | PortalSet.start_point with RNG seed 0; position is not saved | C | Ours; stable boundary arrival |
+| Hub exit / rooms / NPCs | out00 type 7 opens map select on Up using existing portal reach/cooldown; room portals inert; all four NPCs drawn, including hidden Maple TV | C (policy), A (IDs/positions/type) | Owner #32/#71; original v83 map/life nodes |
+| Hub identity / pause | Existing status bar only (full pools, EXP, level/job/name), instruction inset (12,12); existing pause with Resume / Save & quit and no loss warning | C | Ours / owner #32 boundary flow |
 
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses

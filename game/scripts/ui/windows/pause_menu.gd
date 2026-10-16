@@ -23,6 +23,8 @@ const TEXT_Y := 17.0
 const BUTTON_DY := 24.0
 const OPTION_H := 17.0
 const CHOICES := ["Resume", "Quit round"]
+## Hub boundaries save safely without a round-loss confirmation (tier C: owner #32).
+var boundary_mode := false
 ## tier C: owner #32 round-boundary warning, verbatim.
 const QUIT_WARNING := "You'll lose this round's progress. Continue later to restart the round from its beginning."
 var confirming_quit := false
@@ -75,7 +77,7 @@ func activate(i: int, click: bool = true) -> bool:
 		return false
 	if click:
 		UiArt.play_sound(UiArt.SND_CLICK)
-	if i == 1 and not confirming_quit:
+	if i == 1 and not boundary_mode and not confirming_quit:
 		confirming_quit = true
 		focus = 1
 		_size_content()
@@ -161,5 +163,6 @@ func _draw_panel(ci: Control) -> void:
 		if dot != null:
 			UiArt.blit(ci, dot, Vector2(TEXT_X + 2.0, y + 5.0))
 		var col := MapleText.YELLOW if i == focus else MapleText.WHITE
-		MapleText.draw(ci, Vector2(TEXT_X + 12.0, y), "%d. %s" % [i + 1, CHOICES[i]], col, MapleText.SIZE, i == focus,
+		var text := "Save & quit" if boundary_mode and i == 1 else String(CHOICES[i])
+		MapleText.draw(ci, Vector2(TEXT_X + 12.0, y), "%d. %s" % [i + 1, text], col, MapleText.SIZE, i == focus,
 			0, Color8(17, 85, 153), true)

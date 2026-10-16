@@ -197,6 +197,12 @@ and approved its fit for Unique / Legendary offers, completing listening accepta
 
 ## 6. Runtime consumption (Godot)
 
+Free Market (#71) selects map 910000000. The map expansion includes its backgrounds, objects, tiles, portal art,
+FreeMarket mark and `Sound.wz/Bgm00.img/FloralLife`. NPCs are explicit manifest entries (maps expand life mobs,
+not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names.
+Spec #32 branch imports use private caches per the binding decisions; #71 uses
+`C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71`. No decoded assets are committed.
+
 `Assets` (`scripts/assets/asset_library.gd`):
 
 | Call | Returns |
