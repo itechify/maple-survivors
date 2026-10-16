@@ -350,6 +350,32 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #60 Teleport regression smoke (2026-10-15)
+
+No tuning: ISOLATE=t60, training seeds 1/2/2026, both stages and bot/random, 800 x 600, 1,800 s cap,
+unforced branches, no patch. All 12 records completed without crashes, script errors or world warnings. Henesys
+reaches Magician and spawns Mano in 3/3 for each policy. Compared with Foundations, sensible clears fall 1/3 ? 0/3
+(seed 1 now dies at 955.3 s with Cleric Teleport rank 13); random remains 1/3. Earlier deaths and Tree outcomes
+are unchanged. This is feature drift for #61, not a tuning pass; no held-out seeds were used.
+
+| Stage / policy (3 runs each) | Clear / dead / timeout | Death seconds | Magician reaches | MP collected / used | MP-wait median (n=3) |
+|---|---|---|---|---|---|
+| Henesys bot | 0 / 3 / 0 | 955.3, 812.3, 322.7 | 3/3 | 365/365 (1.000) | 225.200 s |
+| Henesys random | 1 / 2 / 0 | 714.8, 329.0 | 3/3 | 419/419 (1.000) | 179.050 s |
+| Tree bot | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+| Tree random | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0/3 | 7/0 (undefined) | 117.217 s |
+
+Raw records and regenerated absolute-path systems reports: ignored _scratch/t60_balance/; console output:
+_scratch/t60-smoke-*.log. The initial relative BALANCE_OUT reached all runs but the supplemental reporter could
+not locate those paths from its project directory; reports were regenerated from the same records, without reruns.
+The branch-210 seed-1 playtest (warp 480, speed 8, cap 780 s) reaches Lv35, remains PLAYING, and reports missing: [].
+Its inspected evidence/t60/playtest_fp_seed1/t780.png shows the late run; this bot did not learn Teleport.
+The close driver learns Teleport through its card and injects X. Inspected evidence/t60/close_fp/teleport.png
+and teleport_no_mp.png show the X icon and affordability tint. Its missing list contains only
+Effect.wz/BasicEff.img/Teleport: that canonical subtree is absent from the shared cache. The manifest now requests
+it, but #60 did not run the prohibited import. The effect-frame test explicitly SKIPs while this prerequisite is
+missing; that SKIP does not verify the effect. Canonical effect visual acceptance remains unverified pending import.
+
 #### Spec #31 foundations smoke
 
 Foundations for spec #31 regression smoke (2026-10-15), `ISOLATE=found`, training seeds 1/2/2026,
@@ -1351,7 +1377,7 @@ without skips. Learning starts at level 1 and each rank card adds one level. Ene
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
 The smaller per-card steps are intentional; canonical skill values remain untouched.
 All skills pay the canonical `mpCon` of their current skill level on each successful cast (tier A). Three Snails
-costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick casts at most
+costs 3 / 5 / 7 MP at skill levels 1 / 2 / 3 (`Skill.wz/000.img/skill/0001000/level/N/mpCon`). Each tick auto-casts at most
 one skill, oldest-ready first; learned order breaks a tie. A ready skill without a target or sufficient MP waits
 without restarting its cooldown. An unaffordable skill permits a later affordable skill to fire. A waiting skill emits `mp_short` once
 per waiting episode, while `player_state.mp_short` keeps the warm-red "Not enough MP" HUD cue visible until casting

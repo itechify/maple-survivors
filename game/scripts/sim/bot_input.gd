@@ -98,7 +98,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
 	if teleport != "" and w.can_cast() and w.teleport_affordable():
-		var reach := float(w.loadout.stats(teleport).teleport_range)
+		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
 		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
 		# tier C: blink from threats within 60 px, or within flee distance when less than one blink from an edge.
 		var cornered := minf(room[0], room[1]) < reach and minf(nearest[0], nearest[1]) < FLEE_DIST

@@ -452,7 +452,7 @@ func teleport_skill() -> String:
 ## Whether an owned Teleport can currently be paid for (also used by the HUD and autoplay).
 func teleport_affordable() -> bool:
 	var key := teleport_skill()
-	return key != "" and _mp >= int(loadout.stats(key).mp_cost)
+	return key != "" and _mp >= int(runner.stats_of(self, key).mp_cost)
 
 
 func _try_teleport(input: MoveInput) -> bool:
@@ -461,7 +461,7 @@ func _try_teleport(input: MoveInput) -> bool:
 	var key := teleport_skill()
 	if key == "":
 		return false
-	var stats := loadout.stats(key)
+	var stats := runner.stats_of(self, key)
 	# tier C: vertical intent wins a diagonal; opposing keys cancel, then fall back to facing.
 	var vertical := int(input.down) - int(input.up)
 	var direction := Vector2(0, vertical) if vertical != 0 else Vector2(input.dir(), 0)
