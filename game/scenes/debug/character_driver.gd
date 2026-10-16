@@ -69,6 +69,13 @@ func _ready() -> void:
 	await _shot("round_created_look")
 	var run := flow.current as RunScene
 	_collect_run(run)
+	# Supply a completed boundary through SceneFlow to verify the same created look in the merged hub.
+	flow.active_slot = 0
+	flow.finish_run({"stage": "henesys_hg1", "cleared": true, "time": 960.0, "level": 1,
+		"job_id": 0, "job_name": "Beginner", "kills": 0, "damage_dealt": 0, "seed": 70}, created)
+	await _shot("free_market_created_look")
+	var hub := flow.current as FreeMarket
+	missing.append_array(hub.missing_paths())
 	flow.save.end_run(0, "deleted", "2026-10-16T12:00:00")
 	var data := DataRepo.load_all()
 	var base := RunWorld.new({"data": data}).character_snapshot()
@@ -99,8 +106,14 @@ func _ready() -> void:
 	await _shot("three_characters")
 	for avatar: AvatarRenderer in flow.current.avatars:
 		missing.append_array(avatar.missing)
-	flow.current.slot_buttons[1].pressed.emit()
+	flow.current.select_button.grab_focus()
+	await _key(KEY_RIGHT)
+	if flow.current.selected != 1:
+		push_error("character_driver: Right did not select while Start had keyboard focus")
+		get_tree().quit(1)
+		return
 	await _shot("selection_changed")
+	await _shot("keyboard_focus")
 	flow.current.delete_button.pressed.emit()
 	await _shot("delete_confirmation")
 	flow.current.delete_dialog.cancel()
@@ -126,9 +139,30 @@ func _shot(name: String) -> void:
 	await get_tree().create_timer(0.5).timeout
 	if flow.current.get("backdrop") != null:
 		missing.append_array(flow.current.backdrop.map.missing)
+	_collect_ui(flow.current)
 	RenderingServer.force_draw()
 	var error := get_viewport().get_texture().get_image().save_png(shots.path_join(name + ".png"))
 	print("character_driver shot ", name, " error=", error)
+
+
+func _key(key: Key) -> void:
+	for down: bool in [true, false]:
+		var event := InputEventKey.new()
+		event.keycode = key
+		event.physical_keycode = key
+		event.pressed = down
+		Input.parse_input_event(event)
+		await get_tree().process_frame
+
+
+func _collect_ui(node: Node) -> void:
+	# UiArt treats missing art as optional; the evidence probe makes every displayed control mandatory.
+	if node is WzImage and not node.has_art():
+		missing.append(node.path)
+	elif node is WzButton and not node.has_art():
+		missing.append(node.base_path)
+	for child: Node in node.get_children():
+		_collect_ui(child)
 
 
 func _write(name: String, value: Dictionary) -> void:

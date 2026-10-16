@@ -6,8 +6,8 @@ signal cancelled()
 const LOGIN := "UI.wz/Login.img/"
 ## tier A: avatarSel/0..8 labels/order; tier B: 19px row pitch in the local NewChar client reference.
 const FIELDS := ["face", "hair", "hair_colour", "skin", "top", "bottom", "shoes", "weapon", "gender"]
-const INK := Color8(85, 51, 17)
-const ERROR_INK := Color8(153, 34, 0)
+const INK := Color8(85, 51, 17) # tier C: existing login text palette.
+const ERROR_INK := Color8(153, 34, 0) # tier C: existing validation-error palette.
 
 var flow: SceneFlow
 var model: CharacterCreation
@@ -89,6 +89,11 @@ func _ready() -> void:
 	add_child(avatar)
 	_weapon_label = _label_on(_look_surface, "", Vector2(204, 399), Vector2(242, 36))
 	_weapon_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# tier C: existing character-name treatment keeps canonical weapon details readable over foliage.
+	_weapon_label.add_theme_color_override("font_color", NameTags.TEXT_COLOR)
+	var plate := StyleBoxFlat.new()
+	plate.bg_color = NameTags.BOX_COLOR
+	_weapon_label.add_theme_stylebox_override("normal", plate)
 	_look_ok = _button_on(_look_surface, "NewChar/BtYes", "Create", Vector2(486, 445), _create)
 	_look_ok.name = "CreateCharacter"
 	_look_ok.disabled = not model.available()

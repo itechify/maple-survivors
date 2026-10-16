@@ -211,6 +211,7 @@ func test_character_selection_click_keys_details_delete_cancel_and_history() -> 
 	flow.goto_character_select()
 	var screen: Control = flow.current
 	assert_true(screen.create_button.disabled, "three slots disable New")
+	assert_eq(screen.select_button.focus_mode, Control.FOCUS_ALL, "shared actions keep keyboard activation")
 	assert_eq(screen.selected, 0)
 	(screen.find_child("CharacterSlot2", true, false) as BaseButton).pressed.emit()
 	assert_eq(screen.selected, 2)

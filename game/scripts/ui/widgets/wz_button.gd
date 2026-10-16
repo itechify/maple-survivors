@@ -43,6 +43,8 @@ var label_outline_color := Color(0, 0, 0, 0.9)
 var plate_width := 0.0
 var plate_left := 0.0
 ## Show the keyFocused art (keyboard highlight driven by the owning window).
+## Login CharSelect keyFocused canvases contain only a pointer: draw them over normal art.
+var key_focus_overlay := false
 var key_focused := false:
 	set(v):
 		key_focused = v
@@ -114,6 +116,8 @@ func _draw() -> void:
 	if a != null and plate_width > 0.0:
 		TiledFrame.draw_h_slices(self, Vector2.ZERO, a.frame_at(_t, true), plate_left, plate_left, plate_width)
 	elif a != null:
+		if s == "keyFocused" and key_focus_overlay:
+			UiArt.blit_origin(self, (_anims.normal as SpriteAnim).frame_at(_t, true), _origin)
 		UiArt.blit_origin(self, a.frame_at(_t, true), _origin)
 	elif not has_art():
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(238, 136, 51) if s != "disabled" else Color8(170, 170, 170))

@@ -172,6 +172,7 @@ func select_slot(index: int) -> void:
 	# tier B: local client uses a beam below and sparkles above the selected feet. Origins remain WZ authored.
 	_effect.position = Vector2(SLOT_X[selected], FEET_Y - 298)
 	_sparkle.position = Vector2(SLOT_X[selected], FEET_Y - 298)
+	_info.tooltip_text = "%s / Lv. %d %s" % [selected_info.name, selected_info.level, selected_info.job]
 	_info.queue_redraw()
 
 
@@ -234,8 +235,9 @@ func _draw_info() -> void:
 		if MapleText.width(text, MapleText.SMALL) > float(row[2]):
 			text = "Magician" if int(selected_info.job_id) in range(200, 233) else text.left(20)
 		MapleText.draw_centered(_info, row[1].x, row[1].y, row[2], text, INK, MapleText.SMALL)
-	if int(selected_info.job_id) >= 100:
-		var family := clampi(floori(float(selected_info.job_id) / 100.0) - 1, 0, 4)
+	# tier A: original icon/job indices 0 Beginner, 1 Warrior, 2 Magician, 3 Bowman, 4 Thief.
+	var family := floori(float(selected_info.job_id) / 100.0)
+	if family >= 0 and family <= 4:
 		var badge := UiArt.frame(LOGIN + "CharSelect/icon/job/%d" % family)
 		if badge != null:
 			UiArt.blit(_info, badge, Vector2(84, 140))
@@ -299,6 +301,13 @@ func _process(dt: float) -> void:
 		avatar.advance(dt)
 
 
+func _input(event: InputEvent) -> void:
+	# Consume roster arrows before Godot's focused-button navigation can take them.
+	if creation == null and not history_mode and not delete_dialog.is_open() and (
+			MapleWindow.key_pressed(event, KEY_LEFT) or MapleWindow.key_pressed(event, KEY_RIGHT)):
+		_unhandled_input(event)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if creation != null or (delete_dialog != null and delete_dialog.is_open()):
 		return
@@ -348,7 +357,8 @@ static func _button(parent: Node, path: String, fallback: String, at: Vector2, a
 	elif not button.has_art():
 		button.label = fallback
 	button.position = at
-	button.focus_mode = Control.FOCUS_NONE
+	button.focus_mode = Control.FOCUS_ALL
+	button.key_focus_overlay = path.begins_with("CharSelect/Bt")
 	button.focus_entered.connect(func() -> void: button.key_focused = true)
 	button.focus_exited.connect(func() -> void: button.key_focused = false)
 	button.pressed.connect(action)

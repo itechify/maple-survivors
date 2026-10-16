@@ -2298,13 +2298,33 @@ with that field still load and the duplicate is ignored (lead #70/#71 decision, 
 shape). The snapshot's `beginner_weapon` persists even after advancement.
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
-Character select uses the LoginBackdrop CHAR_SELECT book, CharSelect's original buttons and character effect;
-creation uses NewChar's name/settings wood, arrows and buttons, plus Gender's preview parchment. NameTags supplies
-the existing translucent name treatment. The centered 800x600 book, slot x=180/400/620, feet y=319, controls/text
-positions, 19px creation rows, brown ink RGB 85/51/17 and error ink RGB 153/34/0 are tier C presentation choices.
-The history list uses the existing ParchmentScroll and records name/job/level, tiers, rounds, ending and UTC date.
+Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
+clickable slots, one selected-character details scroll, and the signboard's single Start/Create/Delete set.
+`CharSelect/character/0` supplies the ground animation and `character/1` the empty silhouette; nameTag/0 and /1
+supply the unselected/selected three-piece tags. Selected characters walk in place, others stand. Both page arrows
+are visible but inert because this mode has only three slots. History is a small existing-art plate at (600,438),
+with H as a shortcut; its list retains name/job/level, tiers, rounds, ending and UTC date. Deletion uses the existing
+Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.delete_character.
+
+| Character UI fact / decision | Tier | Evidence / value |
+|---|---|---|
+| Login book, signboard, option-row labels, character/empty art, nameTag pieces, details cells, animation origins/delays | A | Original v83 Login.img, MapLogin.img and Map.wz/Obj/login.img; runtime lookups, no exported art committed |
+| Character select camera / signboard anchor | A | Existing camera (0,-1200); signboard object (253,-1258) becomes (653,242) in the 800x600 frame |
+| Explorer creation camera | A | (0,-3000): MapLogin backs 15/16/17 at y -3233/-2918/-3056; back16 platform under preview feet |
+| NewChar layout | B | Local Journey UICharcreation facts: name board (455,115), settings (450,115), preview (360,348), nine rows from (461,217), pitch19, arrows521/645, appearance buttons at y445; source read for facts only, no source copied |
+| Selection stance, tag construction and stride | B | Local Journey/Mortal client descriptions: selected walk1, unselected stand1; later-client avatar parity reference gives 125px stride, 58px minimum tag width and 18px horizontal padding |
+| Slot / signboard fit | C | Feet x210/335/460,y350 fit the v83 bridge. Action offsets (-51,-104),(-51,-63),(-51,-19) fit its three planks. These screen coordinates are inferred, not verified v83 client RE |
+| Selected details / page arrows | C | One scroll at (315,124); table inset(17,20), original measured label cells; pages at (122,326)/(536,326), alpha0.45, inert for one three-slot page; fame/world rank0 |
+| Creation flow / gender placement | C | Gender prompt -> name validation -> appearance. Gender parchment at(219,174), text at(245,198); appearance Gender row permits changing it again. AP automatic, Beginner only; no dice/job selector |
+| Keyboard / class badge | A/C | WZ icon/job indices0 Beginner/1 Warrior/2 Magician/3 Bowman/4 Thief; unsupported badges omitted. Login keyFocused pointer overlays normal button art; focus/activation retained, roster arrows consumed before Godot focus navigation (C integration) |
+| Shared notice / labels | A/C | Existing YesNo3 pieces and Basic OK/Cancel; 266px box, 20/17 text inset and grey button strip shared with PauseMenu. Survivor deletion wording, keyboard shortcuts, compact weapon description, and error ink153/34/0 are C |
+
+All exact pixel positions outside WZ remain explicitly inferred or later-client evidence; this is an original
+implementation using v83 assets, not a claim of verified pixel-for-pixel v83 executable behavior. The local source
+inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md).
 The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
-tier C diagnostic staging only; it writes an evidence-local save and never the player's save.
+tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market
+capture supplies a completed boundary to SceneFlow (a visual carry check, not a played stage clear).
 
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
