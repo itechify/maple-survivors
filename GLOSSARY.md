@@ -27,7 +27,7 @@ _Avoid_: Level, map (a map is the v83 art and layout a stage is played on)
 
 **Tier**:
 A difficulty step of the run, holding one or more stages; a character plays one stage from each tier in order.
-_Avoid_: Act, world, chapter
+_Avoid_: Act, world, chapter; not to be confused with a job tier or a card's rarity
 
 **Round boundary**:
 The moment between two rounds, where the character is carried over and HP and MP refill.
@@ -60,7 +60,52 @@ _Avoid_: High score
 A single round with a fresh or supplied character that belongs to no run and is never saved; only tools start one.
 _Avoid_: Quick play, practice run
 
+## Jobs
+
+**Job**:
+A v83 Explorer job, referred to by its numeric id (0 Beginner, 200 Magician, 210 Wizard (Fire, Poison), ...).
+_Avoid_: class (reserved for the five Explorer lines: Warrior, Magician, Bowman, Thief, Pirate)
+
+**Job tier**:
+How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second job, and so on.
+
+**Job advancement**:
+The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
+new job's skills come only from cards.
+_Avoid_: job change, promotion
+
+**Branch**:
+One of the second-job paths a first job splits into, e.g. the Magician's Fire/Poison (210), Ice/Lightning (220)
+and Cleric (230).
+_Avoid_: path, specialisation, subclass
+
+## Skills
+
+**Auto-cast skill**:
+A skill the run casts for the player when its trigger holds and MP allows: attacks at targets in range, buffs when
+inactive, heals below an HP threshold, Slow when enough monsters are near.
+
+**Manual skill**:
+A skill the player triggers with its own key, such as Teleport.
+
+**Passive skill**:
+A skill that is always in effect once learned and is never cast, such as MP Eater.
+
 ## Cards and rarity
+
+**Rank**:
+A skill's survivor level, equal to its canonical v83 skill level; each rank card adds one.
+_Avoid_: skill level (in card text), tier
+
+**Behaviour card**:
+A card that changes how one owned skill behaves (more projectiles, pierce, targets, area, a shorter cooldown)
+without adding a rank.
+_Avoid_: stacking card, mod card, upgrade card (that means any card)
+
+**Advancement draw**:
+The extra card draw a job advancement opens before that level's normal draw: every new attack skill of the new job,
+topped up with its other new skills.
+_Avoid_: guaranteed card, job reward
 
 **Fortune**:
 The character's survivor stat that makes rarer cards more likely; unrelated to the v83 LUK stat.
@@ -69,3 +114,16 @@ _Avoid_: Luck, LUK
 **Rarity**:
 A card's Potential tier (Normal, Rare, Epic, Unique, Legendary), which sets how much the card gives.
 _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
+
+## Monsters
+
+**Status effect**:
+A timed condition a skill puts on a monster: slowed, poisoned or frozen.
+_Avoid_: debuff, ailment
+
+**Element attribute**:
+A monster's canonical weakness (x1.5), resistance (x0.5) or immunity (x0) to an attack element: fire, ice,
+lightning, poison or holy.
+
+**Undead**:
+A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong against it.
