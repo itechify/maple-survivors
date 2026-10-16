@@ -145,6 +145,7 @@ func stats(key: String) -> Dictionary:
 		hi = rng.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
+	var heal: Dictionary = d.get("heal", {})
 	var cast: Dictionary = d.get("cast", {})
 	var node := book.level_node(key, lv)
 	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
@@ -179,7 +180,7 @@ func stats(key: String) -> Dictionary:
 		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance),
 		"crit_mult": crit_mult,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(d.get("cooldown", 1.0)))),
+		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))),
 		"range": skill_stat(key, "range", float(d.get("range", 0.0))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", 1))))),

@@ -81,7 +81,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "max_mp_percent"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
