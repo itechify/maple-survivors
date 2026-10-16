@@ -136,7 +136,19 @@ func test_parse_run_args() -> void:
 	assert_true(SceneFlow.make_seed() >= 0)
 
 
-func test_finish_run_shows_results_and_records_best() -> void:
+func test_one_off_finish_shows_results_without_touching_save() -> void:
+	var flow := _flow()
+	var s := summary(false, 512.0, 17, 1342)
+	flow.finish_run(s)
+	assert_eq(flow.current_name, "results")
+	assert_eq(flow.current.summary, s)
+	assert_false(flow.last_new_best)
+	assert_true(flow.save.best.is_empty())
+	assert_true(flow.save.history.is_empty())
+	assert_false(FileAccess.file_exists(save_path), "tool-only rounds never write a save")
+
+
+func _flow() -> SceneFlow:
 	var flow := SceneFlow.new()
 	_nodes.append(flow)
 	flow.deferred_swaps = false
@@ -145,24 +157,7 @@ func test_finish_run_shows_results_and_records_best() -> void:
 	(Engine.get_main_loop() as SceneTree).current_scene.add_child(host)
 	_nodes.append(host)
 	flow.host = host
-	var s := summary(false, 512.0, 17, 1342)
-	flow.finish_run(s)
-	assert_eq(flow.current_name, "results")
-	assert_eq(host.get_child_count(), 1, "one screen under the host")
-	var res: Node = host.get_child(0)
-	assert_eq(res.get_script(), RESULTS, "the results screen")
-	assert_eq(res.summary, s, "the summary reaches the results screen")
-	assert_true(res.new_best, "first run on the stage is a new best")
-	assert_true(res.previous_best.is_empty())
-	assert_true(flow.last_new_best)
-	assert_eq(flow.last_stage, "henesys_hg1")
-	assert_eq(int(flow.save.best_for("henesys_hg1").kills), 1342)
-	flow.finish_run(summary(false, 100.0, 5, 10))
-	assert_eq(host.get_child_count(), 1, "the old screen was replaced")
-	var res2: Node = host.get_child(0)
-	assert_false(res2.new_best, "a worse run is not a new best")
-	assert_eq(int(res2.previous_best.kills), 1342, "the previous best is shown")
-	assert_eq(int(SaveData.new(save_path).best_for("henesys_hg1").kills), 1342, "best kept on disk")
+	return flow
 
 
 func test_error_screen_and_goto_without_host() -> void:
@@ -186,3 +181,107 @@ func test_results_helpers() -> void:
 	assert_eq(RESULTS.group_digits(1234567), "1,234,567")
 	assert_eq(RESULTS.group_digits(999), "999")
 	assert_eq(RESULTS.group_digits(-1000), "-1,000")
+
+
+func test_create_character_enters_saved_tier_one_map_select() -> void:
+	var flow := _flow()
+	assert_eq(flow.create_character("Maple69"), 0)
+	assert_eq(flow.current_name, "stage_select")
+	var saved := SaveData.new(save_path).slot(0)
+	assert_eq(saved.name, "Maple69")
+	assert_eq(int(saved.tier), 0)
+	assert_eq(saved.phase, "map_select")
+	assert_eq(int(saved.character.level), 1)
+	assert_eq(int(saved.character.job_id), 0)
+	assert_eq(flow.current.stages.size(), 2)
+	assert_eq(flow.current.stages[0].key, "henesys_hg1")
+	assert_eq(flow.current.stages[1].key, "tree_that_grew_1")
+	assert_eq(flow.create_character("maple69"), -1, "living names are unique ignoring case")
+	assert_eq(flow.create_character("no!"), -1)
+
+
+func test_clear_carries_character_to_next_tier_and_refills_pools() -> void:
+	var flow := _flow()
+	flow.create_character("Carry69")
+	var character: Dictionary = flow.save.slot(0).character
+	character.level = 35
+	character.exp = 17
+	character.job_id = 210
+	character.potions.hp.count = 9
+	flow.finish_run(summary(true, 900, 35, 3000), character)
+	assert_eq(flow.current_name, "stage_select")
+	var boundary := SaveData.new(save_path).slot(0)
+	assert_eq(int(boundary.tier), 1)
+	assert_eq(int(boundary.tiers_cleared), 1)
+	assert_eq(int(boundary.rounds_played), 1)
+	assert_eq(boundary.character, JSON.parse_string(JSON.stringify(character)))
+	assert_eq(flow.current.stages.size(), 1, "single-stage tiers still show map select")
+	assert_eq(flow.current.stages[0].key, "dark_cave")
+	var setup := preload("res://tests/fixtures/run_fixtures.gd").setup("henesys_hg1", 7)
+	setup.character = boundary.character
+	var next := RunWorld.new(setup)
+	assert_eq(next.player_state.hp, next.player_state.max_hp)
+	assert_eq(next.player_state.mp, next.player_state.max_mp)
+	assert_eq(next.progression.exp, 17)
+	assert_eq(next.potions.snapshot().hp.count, 9)
+	assert_eq(flow.save.runs_for("henesys_hg1"), 1)
+
+
+
+func test_death_and_final_clear_end_run_and_results_return_to_characters() -> void:
+	var flow := _flow()
+	flow.create_character("Dead69")
+	var character: Dictionary = flow.save.slot(0).character
+	character.level = 17
+	flow.finish_run(summary(false, 512, 17, 1342), character)
+	assert_eq(flow.current_name, "results")
+	assert_true(flow.save.slot(0).is_empty())
+	assert_eq(flow.save.history[0].ending, "died")
+	assert_eq(int(flow.save.history[0].level), 17)
+	assert_true(flow.last_new_best)
+	flow.current.to_character_select()
+	assert_eq(flow.current_name, "character_select")
+	flow.create_character("Win69")
+	character = flow.save.slot(0).character
+	for tier in SceneFlow.tiers().size():
+		flow.finish_run(summary(true, 900, 35, 3000), character)
+	assert_eq(flow.current_name, "results")
+	assert_eq(flow.save.history[1].ending, "victory")
+	assert_eq(int(flow.save.history[1].tiers_cleared), 2)
+	assert_eq(RESULTS.headline(flow.last_summary), "Victory!")
+	assert_true(RESULTS.stat_rows(flow.last_summary).has(["Tiers cleared", "2"]))
+	flow.current.to_character_select()
+	assert_eq(flow.current_name, "character_select")
+
+
+func test_quit_round_then_continue_replays_saved_first_minute() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.create_character("Replay69")
+	flow.start_round("henesys_hg1", 2026)
+	var first := flow.current as RunScene
+	assert_true(first != null and first.world != null)
+	var bytes := FileAccess.get_file_as_string(save_path)
+	var events := _first_minute(first.world)
+	flow.quit_round()
+	assert_eq(flow.current_name, "character_select")
+	assert_eq(FileAccess.get_file_as_string(save_path), bytes, "Quit round never changes the boundary")
+	flow.save = SaveData.new(save_path)
+	flow.continue_character(0)
+	var replay := flow.current as RunScene
+	assert_eq(replay.stage_key, "henesys_hg1")
+	assert_eq(replay.run_seed, 2026)
+	assert_eq(_first_minute(replay.world), events)
+	assert_eq(FileAccess.get_file_as_string(save_path), bytes)
+
+
+func _first_minute(world: RunWorld) -> String:
+	var events := ""
+	var memo := {}
+	world.god = true
+	for tick in 3600:
+		BotInput.auto_choose(world)
+		world.step(1.0 / 60.0, BotInput.decide(world, memo))
+		events += JSON.stringify(world.drain_events(), "", false, true)
+	return events

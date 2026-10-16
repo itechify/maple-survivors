@@ -118,7 +118,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_start() -> void:
 	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
-		flow.goto_stage_select()
+		flow.goto_character_select()
 
 
 func _on_quit() -> void:

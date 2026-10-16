@@ -4,12 +4,12 @@ extends MapleWindow
 ## option list (`dot0` bullets, `dot1` and yellow on the focused one) and the orange OK / CANCEL buttons
 ## (Basic.img/BtOK2, BtCancel2) in its grey strip: OK takes the focused choice, CANCEL resumes.
 ##
-## Keys: Esc (the "pause" action) or 1 resumes, 2 quits, Up/Down + Enter. `resumed` / `quit_requested` are emitted
-## at once (the window then fades out).
+## Keys: Esc or 1 resumes, 2 asks to Quit round; 2/Enter again confirms. The exact boundary warning is shown
+## before quit_requested is emitted. Mouse choices and OK/CANCEL follow the same confirmation path.
 
 ## Emitted when the player resumes the run.
 signal resumed()
-## Emitted when the player quits to the stage select.
+## Emitted after the player confirms Quit round.
 signal quit_requested()
 
 const BOX := "UI.wz/Basic.img/YesNo3/"
@@ -22,7 +22,10 @@ const TEXT_X := 20.0
 const TEXT_Y := 17.0
 const BUTTON_DY := 24.0
 const OPTION_H := 17.0
-const CHOICES := ["Resume", "Quit to stage select"]
+const CHOICES := ["Resume", "Quit round"]
+## tier C: owner #32 round-boundary warning, verbatim.
+const QUIT_WARNING := "You'll lose this round's progress. Continue later to restart the round from its beginning."
+var confirming_quit := false
 
 ## Focused choice: 0 resume, 1 quit.
 var focus := 0
@@ -45,14 +48,22 @@ func _init() -> void:
 	_bt_cancel.fallback_size = Vector2(47, 18)
 	_bt_cancel.pressed.connect(func() -> void: activate(0, false))
 	panel.add_child(_bt_cancel)
-	_options_y = TEXT_Y + MapleText.LINE + 7.0
+	_size_content()
+
+
+func _size_content() -> void:
+	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE) if confirming_quit else PackedStringArray(["The game is paused."])
+	_options_y = TEXT_Y + lines.size() * MapleText.LINE + 7.0
 	var content := _options_y + CHOICES.size() * OPTION_H + 2.0
 	var n := TiledFrame.center_count(content - 8.0 + BOTTOM_H, TOP_H, MID_H, BOTTOM_H)
 	panel_size = Vector2(BOX_W, TiledFrame.frame_height(n, TOP_H, MID_H, BOTTOM_H))
 
 
+
 ## Opens the menu with "Resume" focused.
 func open() -> void:
+	confirming_quit = false
+	_size_content()
 	focus = 0
 	_show_window()
 
@@ -64,6 +75,12 @@ func activate(i: int, click: bool = true) -> bool:
 		return false
 	if click:
 		UiArt.play_sound(UiArt.SND_CLICK)
+	if i == 1 and not confirming_quit:
+		confirming_quit = true
+		focus = 1
+		_size_content()
+		panel.queue_redraw()
+		return true
 	_hide_window()
 	if i == 0:
 		resumed.emit()
@@ -132,8 +149,10 @@ func _draw_panel(ci: Control) -> void:
 		panel_size.y)
 	if h <= 0.0:
 		ci.draw_rect(Rect2(Vector2.ZERO, panel_size), Color8(68, 136, 187))
-	MapleText.draw(ci, Vector2(TEXT_X, TEXT_Y), "The game is paused.", MapleText.WHITE, MapleText.SIZE, true, 0,
-		Color8(17, 85, 153), true)
+	var lines := MapleText.wrap(QUIT_WARNING, BOX_W - 2.0 * TEXT_X, MapleText.SIZE) if confirming_quit else PackedStringArray(["The game is paused."])
+	for i in lines.size():
+		MapleText.draw(ci, Vector2(TEXT_X, TEXT_Y + i * MapleText.LINE), lines[i], MapleText.WHITE, MapleText.SIZE, true, 0,
+			Color8(17, 85, 153), true)
 	var dot0 := UiArt.frame("UI.wz/UIWindow.img/UtilDlgEx/dot0")
 	var dot1 := UiArt.frame("UI.wz/UIWindow.img/UtilDlgEx/dot1")
 	for i in CHOICES.size():
