@@ -21,8 +21,9 @@ func _ready() -> void:
 	flow.host = self
 	flow.deferred_swaps = false
 	var path := shots.path_join("driver_save.json")
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(path)
+	for file: String in [path, path + ".bak", path + ".tmp"]:
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(file)
 	flow.save = SaveData.new(path)
 	flow.create_character("Market71")
 	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
