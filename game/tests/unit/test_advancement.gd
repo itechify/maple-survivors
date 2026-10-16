@@ -25,6 +25,9 @@ func test_magician_advancement_teaches_nothing_and_preserves_normal_draw() -> vo
 	assert_eq(ids.size(), 3)
 	assert_has(ids, "energy_bolt_new")
 	assert_has(ids, "magic_claw_new", "canonical prerequisites are ignored")
+	for c: Dictionary in w.pending_cards:
+		assert_eq(c.kind, "skill_new", "the third card is also a new skill")
+		assert_eq(w.upgrades.card(c.id).requires.jobs, [200.0])
 	var draws := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "choice_pending")
 	assert_true(bool(draws.back().get("advancement", false)))
 	assert_true(w.apply_choice("energy_bolt_new"))

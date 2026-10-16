@@ -349,6 +349,28 @@ Tiers offered (Normal/Rare/Epic/Unique/Legendary) over three runs: sensible 182/
 Careless play is easier than under C46, as expected from the restored odds; this is input for the balance pass,
 not a tuning target. Tree deaths before 2:30 are unchanged from C46 (Tree awaits the owner's rework).
 
+#### #31 / #53 advancement regression smoke (2026-10-15)
+
+No balance tuning. `ISOLATE=t53 bash scripts/balance.sh 1 2 2026` ran on both stages with both policies,
+with the real cache, 800 x 600 view, 1,800 s cap, no patch and unforced seeded branches. No crashes, script errors
+or world warnings. Henesys reaches Magician and the first boss in 3/3 for each policy; Lv30 in 1/3 for each.
+Compared with the preceding current-odds smoke, sensible clears remain 1/3 and careless clears fall from 2/3 to 1/3.
+Tree is record-only and unchanged. Branch 0 means no second advancement yet.
+
+| Stage / policy | Clear / dead / timeout | Death seconds | Branch counts | Previous clears |
+|---|---|---|---|---|
+| Henesys sensible | 1 / 2 / 0 | 812.3, 322.7 | 230: 1; 0: 2 | 1/3 |
+| Henesys careless | 1 / 2 / 0 | 714.8, 329.0 | 230: 1; 0: 2 | 2/3 |
+| Tree sensible | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0: 3 | 0/3 |
+| Tree careless | 0 / 3 / 0 | 141.9, 141.0, 77.4 | 0: 3 | 0/3 |
+
+The requested Henesys drift sample (training 1-6 and 2026) clears 5/7 sensible and 1/7 careless; Lv10 medians
+270.7 s (7/7) and 277.6 s (5/7), conditional Lv30 medians 574.6 s (5/7) and 561.55 s (2/7). The owner-requested
+external `drift-53.md` preserves per-seed results and comparisons with #42's published frozen C21 training and
+held-out figures; the superseded opening, rarity changes and different cohorts prevent attributing that historical
+difference to #53 alone. No held-out seeds were run and no data were retuned. A visible seed-1 run forced 210,
+cleared with `missing: []`, and its inspected `evidence/t53/job_window/window_job_30.png` shows all three branches selectable.
+
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
 
@@ -1663,6 +1685,6 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ## 12. Later phases
 
-Phase 2: Fire/Poison Wizard (Fire Arrow, Poison Breath with DoT), more maps (Henesys Hunting Ground II), more mobs.
+Remaining second-job skills and behavior arrive in spec #31 sibling tickets; #53 enables all three branches and the existing Fire Arrow. Later: more maps (Henesys Hunting Ground II), more mobs.
 The Tree That Grew I and the six stage bosses are already playable. Phase 3: other Explorer paths, 3rd/4th job,
 additional bosses, elite waves with modifiers, passive items, skill evolutions, run modifiers, persistent unlocks.
