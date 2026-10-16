@@ -393,6 +393,29 @@ held-out figures; the superseded opening, rarity changes and different cohorts p
 difference to #53 alone. No held-out seeds were run and no data were retuned. A visible seed-1 run forced 210,
 cleared with `missing: []`, and its inspected `evidence/t53/job_window/window_job_30.png` shows all three branches selectable.
 
+#### #31 / #57 Cleric attacks regression smoke (2026-10-15)
+
+No tuning. Seeds 1/2/2026, both stages, bot/random policies, real cache, 800 × 600, 1,800 s cap,
+unforced seeded branches, `ISOLATE=t57`, no patch. All 12 records have empty world warnings; no crashes or
+script errors. Henesys reaches Magician and the first boss in 3/3 per policy, and Cleric in 1/3 per policy.
+Clear counts and death times match the preceding #53 smoke; Tree remains record-only.
+
+| Stage / policy | Clear / dead / timeout | Death seconds | Cleric clear / skill ranks |
+|---|---|---|---|
+| Henesys sensible | 1 / 2 / 0 | 812.3, 322.7 | 1008.5 s; Holy Arrow 8, Heal 14 |
+| Henesys careless | 1 / 2 / 0 | 714.8, 329.0 | 962.7 s; Holy Arrow 8, Heal 8 |
+| Tree sensible | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+| Tree careless | 0 / 3 / 0 | 141.9, 141.0, 77.4 | no second advancement |
+
+Logs/records and systems aggregates are ignored under `_scratch/t57_smoke/`. The first sensible report invocation
+used relative record paths and failed to open them; the report was rerun successfully with absolute paths, without
+replaying or changing the runs. The visible seed-1 forced-230 playtest cleared at 1008.5 s, `missing: []`.
+Inspected `evidence/t57/cleric_s1/t700.png` and `t938.png` show Holy Arrow; the focused controlled RunScene captures
+`evidence/t57/focused/heal_gain.png` and `holy_arrow_flight.png` expose Heal's rising art/blue HP gain and the arrow
+without crowd occlusion. Both use the actual cache and sounds; the focused summary also has no missing assets.
+The seed-2026 attempt ended before its 480 s warp target and the existing warp path did not finish the dead run;
+it was stopped and replaced by seed 1. Exact v83 recovery remains unverified, as detailed in the #57 research note.
+
 #### Owner review of #51: vanilla skills and the v83 opening (historical coarse pass)
 
 
