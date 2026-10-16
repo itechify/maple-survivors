@@ -189,7 +189,7 @@ func _scenario_full() -> void:
 		return
 	await _sleep(1.0)
 	await _shot("characters_after_quit")
-	await _click(flow.current.find_child("Continue0", true, false) as Control)
+	await _click(flow.current.get("select_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "continued round"):
 		return
 	if (flow.current as RunScene).run_seed != round_seed:
@@ -203,7 +203,7 @@ func _scenario_full() -> void:
 	await _key(KEY_2)
 	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "characters"):
 		return
-	flow.goto_history()
+	await _click(flow.current.find_child("RunHistory", true, false) as Control)
 	await _sleep(1.0)
 	await _shot("history")
 	await _key(KEY_ESCAPE)
@@ -263,8 +263,10 @@ func _create_character(character_name: String) -> bool:
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
+	await _click(creation.get("create_button") as Control)
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)
+	await _click(creation.get("create_button") as Control)
 	await _click(creation.get("create_button") as Control)
 	return await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "map select")
 

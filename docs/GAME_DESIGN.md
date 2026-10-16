@@ -394,6 +394,43 @@ The #70/#71 integration replaces the temporary `FreeMarket.character_look(charac
 `DataRepo.character_look`. It reads only CharacterSnapshot.look and resolves the job weapon (nonzero
 beginner_weapon for a Beginner, otherwise weapon_by_job), without changing the snapshot.
 
+#### #32 / #70 rework audit and visual verification (2026-10-16)
+
+Rework code `0cdfc7e` / `8c1a0b2`, merged #71 integration `d4eaf94` via `44ce69d`. Audited every desired behavior
+and acceptance criterion from the current ticket against source and a fresh baseline windowed run; the full table
+is [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md). Runtime MakeCharInfo options, variant imports, name rules,
+authoritative look carry and canonical Beginner weapon behavior were already correct. Fixed the invented roster
+composition, shared-action/selection behavior, v83 option-row presentation, phased Gender/name/appearance surfaces,
+delete notice, history entry placement, class badge mapping and keyboard focus overlay. No sim/balance changes.
+
+`ISOLATE=t70`, private cache `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t70`. The merged manifest
+was imported from the local original v83 install: 157 imgs (12 written, 145 current), 13636 canvases, 163 pages,
+164 sounds; zero unresolved UOLs, warnings or errors. Shared cache untouched. **No balance smoke rerun**, per the
+owner's rework instruction because weapon/gameplay code is unchanged; the original #70 smoke remains below.
+
+| Verification | Result |
+|---|---|
+| Full Godot suite after integration merge | 732 tests, 0 failed, 0 skipped, 81 files (336.368 s); every real-cache test executed |
+| Focused UI/creation/basic attack/hub/widgets | 53 tests, 0 failed, 0 skipped |
+| Rust importer | 47 tests pass; all 17 real-data integration tests separately execute with MAPLE_WZ_ROOT set (0 failures/skips) |
+| Visual character driver | 19 required states, missing=[]; real Right key changes selection while Start holds focus |
+| Full injected keyboard/mouse flow | Pass: creation, Magician/cards, pause/resume, death/results, confirmed Quit round, same-seed Continue, history, title; missing=[] |
+
+Checked the screenshots under `evidence/t70r2/review_fix/` by eye: empty/one/three slots, changed selection and keyboard
+focus, deletion confirmation, history entry/list, Gender and name steps, invalid name, default and changed male/female
+previews (black -> brown hair, face, skin, clothes, shoes, weapon), created look in an actual launched round, and the same
+look in the Free Market. The hub capture supplies a completed boundary for presentation, not a claim of a Lv1 clear.
+The probe cycles every option for each gender and every hair/colour pair, and explicitly requires every WzImage and
+WzButton's art because UiArt normally tolerates absent optional art. Final `summary.json` has missing=[].
+
+The full flow's training seed 1 at x3 reaches Magician, answers 14 level windows, resumes from pause, and dies at
+379.5 s / Lv13 before checking replay/history. This is a flow check, not pacing evidence. Exact console/summary and 25
+flow captures are ignored under `evidence/t70r2/flow/` and `flow.log`.
+The independent finish reviewer scored all four corrections resolved (badges, keyboard focus, weapon readability,
+provenance docs), disposition ship at that fix-list scope. Documentation finish check preserves the existing v83
+identity. Full-suite console output is `evidence/t70r2/full_suite.log`; all checks used `ISOLATE=t70`.
+Exact v83-executable screen positions remain unverified; tier A/B/C boundaries are recorded in section11.
+
 #### #32 / #70 character creation and weapon regression smoke (2026-10-16)
 
 Creation/weapon code `72f2dfd`, followed by #74 harness integration `bb933f1`; `ISOLATE=t70`, private cache
@@ -2298,13 +2335,33 @@ with that field still load and the duplicate is ignored (lead #70/#71 decision, 
 shape). The snapshot's `beginner_weapon` persists even after advancement.
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
-Character select uses the LoginBackdrop CHAR_SELECT book, CharSelect's original buttons and character effect;
-creation uses NewChar's name/settings wood, arrows and buttons, plus Gender's preview parchment. NameTags supplies
-the existing translucent name treatment. The centered 800x600 book, slot x=180/400/620, feet y=319, controls/text
-positions, 19px creation rows, brown ink RGB 85/51/17 and error ink RGB 153/34/0 are tier C presentation choices.
-The history list uses the existing ParchmentScroll and records name/job/level, tiers, rounds, ending and UTC date.
+Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
+clickable slots, one selected-character details scroll, and the signboard's single Start/Create/Delete set.
+`CharSelect/character/0` supplies the ground animation and `character/1` the empty silhouette; nameTag/0 and /1
+supply the unselected/selected three-piece tags. Selected characters walk in place, others stand. Both page arrows
+are visible but inert because this mode has only three slots. History is a small existing-art plate at (600,438),
+with H as a shortcut; its list retains name/job/level, tiers, rounds, ending and UTC date. Deletion uses the existing
+Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.delete_character.
+
+| Character UI fact / decision | Tier | Evidence / value |
+|---|---|---|
+| Login book, signboard, option-row labels, character/empty art, nameTag pieces, details cells, animation origins/delays | A | Original v83 Login.img, MapLogin.img and Map.wz/Obj/login.img; runtime lookups, no exported art committed |
+| Character select camera / signboard anchor | A | Existing camera (0,-1200); signboard object (253,-1258) becomes (653,242) in the 800x600 frame |
+| Explorer creation camera | A | (0,-3000): MapLogin backs 15/16/17 at y -3233/-2918/-3056; back16 platform under preview feet |
+| NewChar layout | B | Local Journey UICharcreation facts: name board (455,115), settings (450,115), preview (360,348), nine rows from (461,217), pitch19, arrows521/645, appearance buttons at y445; source read for facts only, no source copied |
+| Selection stance, tag construction and stride | B | Local Journey/Mortal client descriptions: selected walk1, unselected stand1; later-client avatar parity reference gives 125px stride, 58px minimum tag width and 18px horizontal padding |
+| Slot / signboard fit | C | Feet x210/335/460,y350 fit the v83 bridge. Action offsets (-51,-104),(-51,-63),(-51,-19) fit its three planks. These screen coordinates are inferred, not verified v83 client RE |
+| Selected details / page arrows | C | One scroll at (315,124); table inset(17,20), original measured label cells; pages at (122,326)/(536,326), alpha0.45, inert for one three-slot page; fame/world rank0 |
+| Creation flow / gender placement | C | Gender prompt -> name validation -> appearance. Gender parchment at(219,174), text at(245,198); appearance Gender row permits changing it again. AP automatic, Beginner only; no dice/job selector |
+| Keyboard / class badge | A/C | WZ icon/job indices0 Beginner/1 Warrior/2 Magician/3 Bowman/4 Thief; unsupported badges omitted. Login keyFocused pointer overlays normal button art; focus/activation retained, roster arrows consumed before Godot focus navigation (C integration) |
+| Shared notice / labels | A/C | Existing YesNo3 pieces and Basic OK/Cancel; 266px box, 20/17 text inset and grey button strip shared with PauseMenu. Survivor deletion wording, keyboard shortcuts, compact weapon description, and error ink153/34/0 are C |
+
+All exact pixel positions outside WZ remain explicitly inferred or later-client evidence; this is an original
+implementation using v83 assets, not a claim of verified pixel-for-pixel v83 executable behavior. The local source
+inventory and full criterion audit are in [ticket-70-r2-audit.md](research/ticket-70-r2-audit.md).
 The character_driver's synthetic names, dates, levels/jobs, option indices and 0.5s screenshot settling delay are
-tier C diagnostic staging only; it writes an evidence-local save and never the player's save.
+tier C diagnostic staging only; it writes an evidence-local save and never the player's save. Its Free Market
+capture supplies a completed boundary to SceneFlow (a visual carry check, not a played stage clear).
 
 The #74 balance harness uses tier C measurement rules: tier 1 retains the run seed; each later round uses
 Godot's `hash("balance-round-<run seed>-<zero-based tier>")`, independently of earlier draws. Chain selection uses
