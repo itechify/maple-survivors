@@ -372,6 +372,10 @@ Temporary real-cache RunScene probes learn only this ticket's support skills at 
 slowed mobs at speed factor 0.6. Closer `close_210/support_115.png` and `close_220/support_100.png` show Slow's
 white monster rings without damage numbers; `focus_230/support_25.png` shows Bless and Invincible icons with
 separate timers and canonical cast art. Probe summaries also report `missing: []`. No cache nodes are missing.
+`evidence/t58/cards/cards.png` was checked for readable, fitting Bless/Invincible/Slow rank previews and the
+accuracy-without-combat-effect label. After merging integration at `f8af37b`, the full isolated suite passes
+**610 tests, 0 failed, 0 skipped, 67 files** (300.672 s); the real-cache tests execute. Focused support,
+advancement and data checks pass **36 tests, 0 failed, 0 skipped**. No held-out seeds or tuning were used.
 
 #### #31 / #56 Ice/Lightning regression smoke (2026-10-15)
 
