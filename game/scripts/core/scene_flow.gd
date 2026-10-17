@@ -27,6 +27,9 @@ extends Node
 ## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
 ## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,
 ## Quit round and deletion never credit it.
+## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the
+## boundary screen it names ("stage_select" or "free_market"; no-op without a living character) and leave_cash_shop()
+## returns to that origin. The saved boundary phase is untouched while shopping. Purchases are CashShop.buy on save_data().
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
 ## Emitted after a scene swap (title, character_select, history, free_market, stage_select, run, results, import, error).
@@ -39,6 +42,7 @@ const RESULTS := "res://scenes/ui/results_screen.tscn"
 const IMPORT := "res://scenes/ui/import_screen.tscn"
 const RUN := "res://scenes/run/run_scene.tscn"
 const FREE_MARKET := "res://scenes/run/free_market.tscn"
+const CASH_SHOP := "res://scenes/ui/cash_shop.tscn"
 ## Run option names for the command-line flags (others pass through with "-" -> "_").
 const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after"}
 const BOOL_OPTIONS := ["autoplay", "autopick"]
@@ -127,6 +131,27 @@ func goto_stage_select() -> void:
 	var screen := _instance(STAGE_SELECT)
 	screen.configure(snapshot, self)
 	_swap_to(screen, "stage_select")
+
+
+## Opens the Cash Shop for the active character; `origin` ("stage_select" or "free_market") is where Leave returns.
+func goto_cash_shop(origin: String) -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty() or origin not in ["stage_select", "free_market"]:
+		return
+	var screen := _instance(CASH_SHOP)
+	screen.configure(snapshot, self, origin)
+	_swap_to(screen, "cash_shop")
+
+
+## Leaves the Cash Shop for the screen it was opened from (map select unless it was opened from the Free Market).
+func leave_cash_shop(origin: String) -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty():
+		goto_character_select()
+	elif origin == "free_market" and snapshot.phase == "free_market":
+		_open_free_market(snapshot)
+	else:
+		goto_stage_select()
 
 
 ## Ordered stage keys per tier, from survivor data; works for any number of tiers.
