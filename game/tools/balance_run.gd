@@ -472,7 +472,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var skills := {}
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
-	return {
+	var record := {
 		"lv70_reached": int(w.player_state.level) >= LEVEL_TARGET,
 		"character": w.character_snapshot() if w.state == RunWorld.CLEARED else {},
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
@@ -505,6 +505,13 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if w.pet_system != null:
+		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
+		# are counted apart from the player's (potions_used stays the player's).
+		record["pet"] = {"species": w.pet_system.species, "abilities": w.pet_system.abilities.duplicate(),
+			"pickups": w.pet_system.pickups, "potions_used": w.potions.pet_used.duplicate(),
+			"alert": w.alert.duplicate()}
+	return record
 
 
 ## Live mobs within NEAR_X px horizontally and NEAR_Y px vertically of the player's feet.
@@ -584,6 +591,8 @@ static func describe(r: Dictionary) -> String:
 		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
 	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	if r.has("pet"):
+		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
 	lines.append("  card tiers offered %s; picked %s" % [r.get("card_tiers_offered", {}), r.get("card_tiers_picked", {})])

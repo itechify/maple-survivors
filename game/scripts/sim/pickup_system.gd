@@ -11,6 +11,10 @@ extends RefCounted
 ## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
 ## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
 ## the player never expires. All motion and lifetime constants are tier C (ours).
+##
+## A pet out (spec #34, PetSystem) is a second collector given to step(): a drop inside the pet's pickup radius is
+## collected by it at once, and with VAC every drop outside the player's magnet radius flies to the pet (`to_pet`) at
+## the same speed. The `pickup_collected` event says who (`collector`); the EXP and potions are credited alike.
 
 const AIR := 0
 const REST := 1
@@ -46,8 +50,12 @@ var kind := PackedByteArray()
 var potion_count := PackedInt32Array()
 ## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
 var collected_potions := {"hp": 0, "mp": 0}
+## Drops the pet collected in the most recent step().
+var pet_collected := 0
 ## AIR / REST / MAGNET.
 var state := PackedByteArray()
+## 1 while the drop in the slot is flying to the pet (VAC), else 0 (the player).
+var to_pet := PackedByteArray()
 ## Seconds since the drop appeared (or last took merged EXP).
 var age := PackedFloat32Array()
 
@@ -134,6 +142,7 @@ func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -
 	kind[i] = p_kind
 	potion_count[i] = count
 	state[i] = AIR
+	to_pet[i] = 0
 	age[i] = 0.0
 	_count += 1
 	if p_kind == EXP:
@@ -165,9 +174,15 @@ func alpha(i: int) -> float:
 
 
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
-func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
+## A pet out (spec #34) is a second collector: a drop within `pet_r` of `pet_center` is collected by it (the EXP and
+## potions count as the player's, the event says `collector: "pet"`), and with `pet_vac` every drop that is not about
+## to be magnetised by the player flies to the pet at the same speed. Without a pet (pet_r 0) nothing changes.
+func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array,
+		pet_center := Vector2.ZERO, pet_r := 0.0, pet_vac := false) -> int:
 	var got := 0
 	collected_potions = {"hp": 0, "mp": 0}
+	pet_collected = 0
+	var pr2 := pet_r * pet_r
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
 	var acc := float(tuning.magnet_acc)
@@ -194,6 +209,18 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 		var dy := cy - py
 		var d2 := dx * dx + dy * dy
 		var st := state[i]
+		if to_pet[i] != 0:
+			dx = pet_center.x - px
+			dy = pet_center.y - py
+			d2 = dx * dx + dy * dy
+		elif pet_vac and st != MAGNET and d2 > mr2:
+			st = MAGNET  # VAC: out of the player's reach, so it flies to the pet
+			state[i] = MAGNET
+			vx[i] = float(tuning.magnet_speed)
+			to_pet[i] = 1
+			dx = pet_center.x - px
+			dy = pet_center.y - py
+			d2 = dx * dx + dy * dy
 		if st != MAGNET and life > 0.0 and kind[i] == EXP:
 			age[i] += dt
 			if age[i] >= life and d2 > mr2:
@@ -210,15 +237,20 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			vx[i] = spd
 			var d := sqrt(d2)
 			var s := spd * dt
+			var tx := cx
+			var ty := cy
+			if to_pet[i] != 0:
+				tx = pet_center.x
+				ty = pet_center.y
 			if d <= s + cr:
-				px = cx
-				py = cy
+				px = tx
+				py = ty
 			else:
 				px += dx / d * s
 				py += dy / d * s
 			x[i] = px
 			y[i] = py
-			d2 = (cx - px) * (cx - px) + (cy - py) * (cy - py)
+			d2 = (tx - px) * (tx - px) + (ty - py) * (ty - py)
 		elif st == AIR:
 			var vy0 := vy[i]
 			var vy1 := minf(vy0 + grav * dt, fall)
@@ -239,14 +271,24 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			x[i] = nx
 			y[i] = ny
 			d2 = (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny)
-		if d2 <= cr2:
+		var by_pet := to_pet[i] != 0
+		var reached := d2 <= cr2
+		if not reached and pr2 > 0.0 and not by_pet:
+			var ex := pet_center.x - x[i]
+			var ey := pet_center.y - y[i]
+			if ex * ex + ey * ey <= pr2:
+				reached = true
+				by_pet = true
+		if reached:
+			if by_pet:
+				pet_collected += 1
 			got += exp[i]
 			var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
 			if potion_kind != "":
 				collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
 			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
 				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else "potion",
-				"potion_kind": potion_kind, "count": potion_count[i]})
+				"potion_kind": potion_kind, "count": potion_count[i], "collector": "pet" if by_pet else "player"})
 			despawn(i)
 	collected_exp += got
 	return got
@@ -256,7 +298,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, state, kind]:
+	for arr: Variant in [active, state, kind, to_pet]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)

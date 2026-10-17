@@ -11,6 +11,8 @@ var stock := {}
 var item_info: Dictionary
 var collected := {"hp": 0, "mp": 0}
 var used := {"hp": 0, "mp": 0}
+## Potions the pet drank (spec #34); not part of `used`.
+var pet_used := {"hp": 0, "mp": 0}
 
 
 func _init(tuning: Dictionary = {}, canonical_items: Dictionary = {}) -> void:
@@ -54,8 +56,9 @@ func restore_amount(kind: String) -> int:
 	return int(item.get("spec", {}).get(kind, 0))
 
 
-## Consumes one potion and returns its canonical restore spec and remaining count, or {} when unavailable.
-func consume(kind: String) -> Dictionary:
+## Consumes one potion and returns its canonical restore spec and remaining count, or {} when unavailable. A drink by
+## the pet (`by_pet`, spec #34) is counted in `pet_used`, never in the player's `used`.
+func consume(kind: String, by_pet: bool = false) -> Dictionary:
 	if not stock.has(kind) or int(stock[kind].count) <= 0:
 		return {}
 	var id := int(stock[kind].item_id)
@@ -63,5 +66,8 @@ func consume(kind: String) -> Dictionary:
 	if amount <= 0:
 		return {}
 	stock[kind].count = int(stock[kind].count) - 1
-	used[kind] = int(used[kind]) + 1
+	if by_pet:
+		pet_used[kind] = int(pet_used[kind]) + 1
+	else:
+		used[kind] = int(used[kind]) + 1
 	return {"item_id": id, "amount": amount, "count": int(stock[kind].count)}

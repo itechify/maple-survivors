@@ -281,8 +281,10 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
 | `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count`, `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same) |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
+| `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
+| `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
