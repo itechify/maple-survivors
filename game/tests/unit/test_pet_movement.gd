@@ -21,7 +21,10 @@ func test_pet_state_is_exposed_for_drawing() -> void:
 	assert_true(state.facing == 1 or state.facing == -1)
 	assert_eq(state.abilities, {"auto_hp": false, "auto_mp": false, "wing_boots": false, "binocular": false,
 		"vac": false})
-	assert_near(state.pos.distance_to(w.player.pos), 0.0, 1.0, "starts at the player")
+	# #126: standing exactly on the player it was hidden behind (or over) the avatar; it starts a little behind instead.
+	assert_near(state.pos.x, w.player.pos.x - w.player.facing * 30.0, 0.5, "starts 30 px behind the player")
+	assert_eq(state.pos.y, w.player.pos.y, "on the same floor")
+	assert_eq(state.facing, w.player.facing, "facing the way the player does")
 	assert_eq(PF.world([PF.KITTY, PF.WING]).pet_state().abilities.wing_boots, true)
 	assert_eq(PF.world(PF.EVERYTHING).pet_state().abilities,
 		{"auto_hp": true, "auto_mp": true, "wing_boots": true, "binocular": true, "vac": true})
@@ -111,3 +114,11 @@ func test_pet_hangs_while_the_player_climbs() -> void:
 	PF.run(w, 1, MoveInput.make(true, false, false, false, true, true))
 	PF.run(w, 90)
 	assert_ne(w.pet_state().action, "hang", "back on its feet once the player lets go")
+
+
+func test_pet_starts_on_the_player_when_there_is_no_floor_beside() -> void:
+	# A 10 px floor: there is nowhere 30 px to either side to stand, so the pet falls back to the player.
+	var s := PF.setup(PF.data(), PF.KITTY, [PF.KITTY])
+	s.map_img = PF.RF.map_from_segments([{"x1": 0.0, "y1": 0.0, "x2": 10.0, "y2": 0.0}], [Vector2(5, 0)])
+	var w := RunWorld.new(s)
+	assert_near(w.pet_state().pos.distance_to(w.player.pos), 0.0, 1.0, "nowhere beside to stand: starts on the player")

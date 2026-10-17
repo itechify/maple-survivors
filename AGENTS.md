@@ -70,6 +70,12 @@ bash scripts/export.sh                                # Windows build -> game/ex
                                                       # notices beside it)
 ```
 
+**Private caches.** `MAPLE_SURVIVORS_CACHE=<abs dir>` points the game, `import.sh` and every tool at another asset
+cache. A ticket that changes `game/data/asset_manifest.json` imports into its own folder
+(`MAPLE_SURVIVORS_CACHE=<dir> bash scripts/import.sh "<v83 folder>"`) and runs everything with the same variable, so
+parallel branches with different manifests never overwrite the shared `%APPDATA%` cache. Combine it with `ISOLATE=<name>`
+(`scripts/test.sh`, `run.sh`, `balance.sh`, `playtest.sh`), which gives each agent a private project mirror.
+
 ### Playtests (`scripts/playtest.sh`)
 
 Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
@@ -107,8 +113,15 @@ input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tie
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
-`keys` (#87); see the script header. Use `ISOLATE=<name>` with
+`keys` (#87), `inventory` (#108); see the script header. Use `ISOLATE=<name>` with
 `scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
+NX and the Cash Shop (spec #34): `--scenario=cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop:
+prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round 1 through the Equip window -> warp clear ->
+"+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
+items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
+account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
+`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar) and `hair_cap_probe.tscn` (cap vs hair layers)
+are the avatar contact-sheet tools.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
 Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that

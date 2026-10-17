@@ -8,7 +8,7 @@
 	"_pet": "Tier C (spec #34 / #119): the pet in the round simulation (PetSystem). pickup_radius: the base pet (Item Pouch and Meso Magnet included) collects every drop kind this close (px) to its centre, center_up above its feet; binocular_mult scales it with Binocular. follow_gap / follow_speed_mult: how it follows the player on the footholds with the player's own physics. teleport_distance, or lost_distance for lost_seconds: it teleports to the player. leash / fetch_dy: Wing Boots fetch resting drops within this far (sideways / vertically) of the player at fetch_speed_mult, walking to within fetch_gap, giving up after fetch_give_up s and pausing fetch_pause s. potion_delay: seconds between the pet's drinks of one kind (Auto HP/MP Potion Pouch, below the ALERT level). jump_*/down_*/stuck_seconds: when the follow controller presses jump.",
 	"pet": {
 		"pickup_radius": 60, "center_up": 15, "binocular_mult": 2.0,
-		"follow_gap": 40, "follow_speed_mult": 1.1,
+		"follow_gap": 40, "beside_offset": 30, "follow_speed_mult": 1.1,
 		"teleport_distance": 600, "lost_distance": 280, "lost_seconds": 3.0,
 		"leash": 220, "fetch_dy": 80, "fetch_gap": 6, "fetch_speed_mult": 1.5, "fetch_give_up": 2.5, "fetch_pause": 2.0,
 		"potion_delay": 1.0,
