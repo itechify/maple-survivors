@@ -1,0 +1,14 @@
+{
+	"_doc": "Today's bot (BotInput): always kites, takes BotInput.pick_card_for cards and BotInput.pick_job jobs, no motor noise. One allowed tactic, so the driver asks no tactic decisions; a run plays exactly like scripts/balance.sh's bot policy.",
+	"name": "sensible",
+	"description": "A sensible, experienced MapleStory player in a survivor-style round: skills attack automatically while the player moves, dodges and collects EXP.",
+	"goals": [
+		"Survive every boss and clear the stage.",
+		"Build up the main attack skills and take new skills that fit the job.",
+		"Value survivability when HP is a problem."
+	],
+	"tactics": { "allowed": ["kite"], "default": "kite", "checkpoint_s": 8, "hold_s": 4 },
+	"emergency": false,
+	"motor": { "reaction_delay_ticks": 0, "mistake_rate": 0, "potion_hp_fraction": null, "potion_mp_fraction": null },
+	"fallback": { "cards": "sensible", "job": "sensible", "tactic_rules": [] }
+}

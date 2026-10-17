@@ -17,6 +17,10 @@ export type BrainFacts = {
 	stats?: JevStats;
 	decisions: readonly DecisionRecord[];
 	brainLost?: boolean;
+	/** The playtest personality whose fallback answered (#97); absent or "sensible": the BotInput baseline. */
+	personality?: string;
+	/** Its card policy (sensible, random, weighted). */
+	cardPolicy?: string;
 };
 
 const BASELINE = "the driver's baseline, BotInput.pick_card_for / pick_job";
@@ -35,7 +39,9 @@ export function brainHeader(f: BrainFacts): Array<[string, string]> {
 		used = `builtin (the driver answered every decision with ${BASELINE}; no pipe)`;
 		fallback = "none (builtin brain)";
 	} else if (f.mode === "fallback") {
-		used = `fallback:sensible (deterministic: ${BASELINE})`;
+		used = !f.personality || f.personality === "sensible"
+			? `fallback:sensible (deterministic: ${BASELINE})`
+			: `fallback:${f.personality} (deterministic: ${f.cardPolicy ?? "sensible"} cards, the personality's job preference and tactic rules)`;
 		fallback = f.noJevReason ?? "requested (--brain=fallback)";
 	} else {
 		used = jev === n ? "jev" : `jev, fallback on ${n - jev}/${n} decisions`;

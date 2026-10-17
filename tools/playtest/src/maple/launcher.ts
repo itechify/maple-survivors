@@ -64,6 +64,8 @@ export type DriverOptions = {
 	stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin";
 	/** Run directory: the driver writes timeline.jsonl there. */
 	out?: string;
+	/** The personality's driver params (personality.json in the run directory, #97). */
+	personalityFile?: string;
 } & InvariantChecks;
 
 /** Godot arguments that run the playtest driver on `project`. */
@@ -74,5 +76,6 @@ export function driverArgs(project: string, o: DriverOptions): string[] {
 	if (o.stuckPx !== undefined) args.push(`--stuck-px=${o.stuckPx}`);
 	if (o.stuckS !== undefined) args.push(`--stuck-s=${o.stuckS}`);
 	if (o.injectFinding) args.push(`--inject-finding=${o.injectFinding}`);
+	if (o.personalityFile) args.push(`--personality-file=${o.personalityFile.replaceAll("\\", "/")}`);
 	return args;
 }

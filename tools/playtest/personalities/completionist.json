@@ -1,0 +1,23 @@
+{
+	"_doc": "Picks up every drop anywhere on the map, takes every new skill and ranks skills to their max; kites when hurt or crowded. Weights are tier C.",
+	"name": "completionist",
+	"description": "A thorough MapleStory player in a survivor-style round who wants everything. They sweep up every EXP and potion drop on the map, learn every skill they are offered and raise skills to their max level.",
+	"goals": [
+		"Pick up every drop, including ones on high platforms.",
+		"Learn every new skill offered, then raise skills toward their max level.",
+		"Kite only when HP is low or monsters crowd in."
+	],
+	"tactics": { "allowed": ["collect", "kite", "explore"], "default": "collect", "checkpoint_s": 8, "hold_s": 4 },
+	"emergency": false,
+	"motor": { "reaction_delay_ticks": 0, "mistake_rate": 0, "potion_hp_fraction": null, "potion_mp_fraction": null },
+	"fallback": {
+		"cards": "weighted",
+		"weights": { "base": 1, "kind": { "skill_new": 70, "skill_rank": 35, "potion_tier": -20, "stat": -10 } },
+		"job": "sensible",
+		"tactic_rules": [
+			{ "id": "hurt_kite", "when": { "hp": ["low", "critical"] }, "then": "kite" },
+			{ "id": "crowd_kite", "when": { "mobs_near": ["crowd", "swarm"] }, "then": "kite" },
+			{ "id": "drops_anywhere", "when": { "hp": ["ok", "full"] }, "then": "collect" }
+		]
+	}
+}

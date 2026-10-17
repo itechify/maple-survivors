@@ -21,6 +21,13 @@ import { JevClient } from "../core/jev_client.ts";
 import { createJevBrain } from "./jev_brain.ts";
 import { brainHeader } from "./jev_report.ts";
 import type { BrainFacts } from "./jev_report.ts";
+import { loadPersonality, driverParams } from "./personality.ts";
+import type { Personality } from "./personality.ts";
+import { createFallbackBrain } from "./personality_fallback.ts";
+import "./report_personality.ts";
+
+/** The personality's driver params, written into the run directory and passed with --personality-file (#97). */
+export const PERSONALITY_FILE = "personality.json";
 
 export const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
@@ -80,11 +87,20 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	const driverBrain = o.brain === "builtin" ? "builtin" : "stdio";
 	let launch = o.launch;
 	const setupErrors: string[] = [];
-	const pick = chooseBrain(o, env);
-	if (pick.error) {
+	const loaded = loadPersonality(o.personality);
+	const personality = loaded.personality;
+	const personalityFile = path.join(dir, PERSONALITY_FILE);
+	if (personality) rec.json(PERSONALITY_FILE, driverParams(personality));
+	const pick = chooseBrain(o, env, personality);
+	if (!personality) {
+		setupErrors.push(...loaded.errors);
+		launch = undefined;
+	} else if (pick.error) {
 		setupErrors.push(pick.error);
 		launch = undefined;
-	} else if (!launch) {
+	} else if (launch) {
+		launch = { command: launch.command, args: [...launch.args, `--personality-file=${personalityFile}`] };
+	} else {
 		const godot = resolveGodot(env);
 		if ("error" in godot) setupErrors.push(godot.error);
 		else {
@@ -92,7 +108,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 			rec.log(`agent_playtest: Godot ${godot.exe}, project ${project}`);
 			importProject(godot.exe, project);
 			launch = { command: godot.exe, args: driverArgs(project, { stage: o.stage, seed: o.seed, minutes: o.minutes,
-				personality: o.personality, brain: driverBrain, out: dir, ...checks }) };
+				personality: o.personality, brain: driverBrain, out: dir, personalityFile, ...checks }) };
 		}
 	}
 	let session: SessionResult | undefined;
@@ -124,7 +140,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 			...brainHeader({ ...pick.facts, decisions, stats: pick.client?.stats(), brainLost: session?.end?.brain_lost === true }),
 			["exit code", String(exitCode)]],
 		infraErrors: errors, problems, decisions, files: rec.files(), exitCode,
-		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats() }, rerun: rerunCommand(o),
+		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats(), personality }, rerun: rerunCommand(o),
 	};
 	const report = renderReport(ctx);
 	rec.text("report.md", report.markdown);
@@ -145,19 +161,22 @@ type BrainPick = { brain: Brain; client?: JevClient; facts: Omit<BrainFacts, "de
 
 /** The CLI's brain for --brain: Jev when a key resolves (auto / jev), else the deterministic fallback; --brain=jev
  * without a key is a setup error (exit 2, the game is not started). The key goes only into the TypeSafe client. */
-function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv): BrainPick {
-	if (o.brain === "builtin") return { brain: sensibleBrain, facts: { requested: o.brain, mode: "builtin" } };
-	if (o.brain !== "auto" && o.brain !== "jev") return { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback" } };
+function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, profile: Personality | undefined): BrainPick {
+	const fallback = profile ? createFallbackBrain(profile, o.seed) : sensibleBrain;
+	const fallbackFacts = { personality: profile?.name, cardPolicy: profile?.fallback.cards };
+	if (o.brain === "builtin") return { brain: fallback, facts: { requested: o.brain, mode: "builtin" } };
+	if (o.brain !== "auto" && o.brain !== "jev") return { brain: fallback, facts: { requested: o.brain, mode: "fallback", ...fallbackFacts } };
 	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
 	if (key.key === null) {
 		return o.brain === "jev"
-			? { brain: sensibleBrain, facts: { requested: o.brain, mode: "none", noJevReason: key.reason },
+			? { brain: fallback, facts: { requested: o.brain, mode: "none", noJevReason: key.reason },
 				error: `--brain=jev needs a TypeSafe API key: ${key.reason}` }
-			: { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback", noJevReason: key.reason } };
+			: { brain: fallback, facts: { requested: o.brain, mode: "fallback", noJevReason: key.reason, ...fallbackFacts } };
 	}
 	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch,
 		retry: o.jevRetry });
-	return { brain: createJevBrain({ client, seed: o.seed }), client, facts: { requested: o.brain, mode: "jev", keyFrom: key.from } };
+	return { brain: createJevBrain({ client, seed: o.seed, profile, fallback }), client,
+		facts: { requested: o.brain, mode: "jev", keyFrom: key.from } };
 }
 
 /** `env` without the TypeSafe key: the game process never needs it. */
