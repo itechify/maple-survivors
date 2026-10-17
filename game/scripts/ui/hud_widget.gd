@@ -37,8 +37,8 @@ const MSG_INSET := Vector2(8, 6)
 var library: AssetLibrary
 var player_state: Dictionary = {}
 var run_info: Dictionary = {}
-var font: SystemFont
-var bold_font: SystemFont
+var font: Font
+var bold_font: Font
 var _frames: Dictionary = {}
 
 
@@ -57,15 +57,9 @@ func update(p_player_state: Dictionary, p_run_info: Dictionary) -> void:
 	run_info = p_run_info
 	queue_redraw()
 
-## Creates the pixel-aligned system font used by every HUD widget.
-static func make_font(weight: int = 400) -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Arial", "Tahoma"])
-	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-	f.hinting = TextServer.HINTING_NORMAL
-	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-	f.font_weight = weight
-	return f
+## Creates the pixel-aligned text font used by every HUD widget (system Arial/Tahoma, else the bundled Arimo).
+static func make_font(weight: int = 400) -> Font:
+	return MapleFonts.make(PackedStringArray(["Arial", "Tahoma"]), weight)
 
 
 ## Top-left of the 800 px status bar in a view of `view` size.

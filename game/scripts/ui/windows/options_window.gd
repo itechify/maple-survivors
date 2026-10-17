@@ -33,6 +33,9 @@ const MUTE_BOX := Vector2(243, 9)
 const CHECK_SIZE := Vector2(12, 12)
 ## Rows top to bottom: id, label lines (our rows only).
 const ROWS := [["bgm", ""], ["sfx", ""], ["frame_cap", "FRAME\nCAP"], ["movement", "MOVE\nKEYS"]]
+## Web build (WebProfile): FULL SCREEN takes the FRAME CAP row (the browser paces the frames); same row height.
+const WEB_ROWS := [["bgm", ""], ["sfx", ""], ["fullscreen", "FULL\nSCREEN"], ["movement", "MOVE\nKEYS"]]
+const FULLSCREEN_NAME := "FULLSCREEN"
 ## tier C (ours): the frame cap choices (GameSettings.max_fps: 0 = the display's refresh rate, -1 = uncapped) and
 ## their captions, then the movement choices.
 const FRAME_CAPS := [0, 60, 144, -1]
@@ -48,9 +51,15 @@ const CAPTION_SIZE := 10
 ## The settings every control writes.
 var settings: GameSettings
 
+## The rows shown: ROWS, or WEB_ROWS on web.
+var rows: Array = ROWS
+## What the FULLSCREEN choice calls (tests replace it; it must run inside the click handler on web).
+var fullscreen_toggle: Callable = GameSettings.toggle_fullscreen
+
 var _sliding := ""
 var _before_mute: Dictionary = {}
 var _bt_ok: WzButton
+var _was_fullscreen := false
 
 
 func _init(p_settings: GameSettings = null) -> void:
@@ -58,7 +67,8 @@ func _init(p_settings: GameSettings = null) -> void:
 	name = "OptionsWindow"
 	window_id = "options"
 	settings = p_settings
-	size = Vector2(WIDTH, HEADER_H + ROWS.size() * ROW_H + BOTTOM_H)
+	rows = WEB_ROWS if WebProfile.is_web() else ROWS
+	size = Vector2(WIDTH, HEADER_H + rows.size() * ROW_H + BOTTOM_H)
 	_bt_ok = WzButton.new("UI.wz/UIWindow.img/KeyConfig/BtOK")
 	_bt_ok.name = "OK"
 	_bt_ok.fallback_size = Vector2(47, 18)
@@ -69,14 +79,36 @@ func _init(p_settings: GameSettings = null) -> void:
 	add_child(_bt_ok)
 	if settings != null:
 		settings.changed.connect(queue_redraw)
+	set_process(row_y("fullscreen") >= 0.0)
 
 
-## Top y of row `id`.
+## Web: the browser can leave fullscreen by itself (Esc), so the check box follows the window instead of the click.
+func _process(_delta: float) -> void:
+	var fs := GameSettings.is_fullscreen()
+	if fs != _was_fullscreen:
+		_was_fullscreen = fs
+		queue_redraw()
+
+
+## The row ids shown on desktop or on web.
+static func row_ids(web: bool) -> Array:
+	var out := []
+	for row: Array in (WEB_ROWS if web else ROWS):
+		out.append(row[0])
+	return out
+
+
+## Top y of row `id` (-1 for a row this build does not show).
 func row_y(id: String) -> float:
-	for i in ROWS.size():
-		if String(ROWS[i][0]) == id:
+	for i in rows.size():
+		if String(rows[i][0]) == id:
 			return HEADER_H + i * ROW_H
 	return -1.0
+
+
+## The local rect (box and caption) of the web FULLSCREEN choice.
+func fullscreen_rect() -> Rect2:
+	return _choice_rect("fullscreen", [FULLSCREEN_NAME], 0)
 
 
 ## The local rect of the "bgm" / "sfx" slider track.
@@ -159,11 +191,16 @@ func _window_gui_input(event: InputEvent, local: Vector2) -> void:
 		if mute_rect(kind).grow(2.0).has_point(local):
 			_toggle_mute(kind)
 			return
-	for i in FRAME_CAPS.size():
-		if frame_cap_rect(i).grow(2.0).has_point(local):
-			UiArt.play_sound(UiArt.SND_CLICK)
-			settings.set_max_fps(int(FRAME_CAPS[i]))
-			return
+	if row_y("fullscreen") >= 0.0 and fullscreen_rect().grow(2.0).has_point(local):
+		UiArt.play_sound(UiArt.SND_CLICK)
+		fullscreen_toggle.call()
+		return
+	if row_y("frame_cap") >= 0.0:
+		for i in FRAME_CAPS.size():
+			if frame_cap_rect(i).grow(2.0).has_point(local):
+				UiArt.play_sound(UiArt.SND_CLICK)
+				settings.set_max_fps(int(FRAME_CAPS[i]))
+				return
 	for scheme: String in MOVEMENTS:
 		if movement_rect(scheme).grow(2.0).has_point(local):
 			UiArt.play_sound(UiArt.SND_CLICK)
@@ -190,7 +227,7 @@ func _draw() -> void:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
 		MapleText.draw(self, Vector2(8, 6), "SYSTEM OPTION", MapleText.BLACK, MapleText.SMALL, true)
-	for row: Array in ROWS:
+	for row: Array in rows:
 		var id := String(row[0])
 		var y := row_y(id)
 		var src := float(SRC_ROW_Y.get(id, SRC_ROW_Y.blank))
@@ -206,6 +243,8 @@ func _draw() -> void:
 			"frame_cap":
 				for i in FRAME_CAPS.size():
 					_draw_choice(frame_cap_rect(i), String(FRAME_CAP_NAMES[i]), i == frame_cap_choice())
+			"fullscreen":
+				_draw_choice(fullscreen_rect(), FULLSCREEN_NAME, GameSettings.is_fullscreen())
 			"movement":
 				for i in MOVEMENTS.size():
 					var scheme := String(MOVEMENTS[i])

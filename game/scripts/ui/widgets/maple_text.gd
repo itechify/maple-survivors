@@ -48,17 +48,13 @@ func _init(p_text: String = "", p_size: int = SIZE, p_color: Color = BLACK, bold
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
-## The system font (cached per weight): Arial, Tahoma, Dotum; no antialiasing, no subpixel positioning.
-static func font(bold: bool = false) -> SystemFont:
+## The text font (cached per weight): Arial, Tahoma, Dotum when the system has one of them, else the bundled Arimo
+## (MapleFonts; browsers have no system fonts); no antialiasing, no subpixel positioning.
+static func font(bold: bool = false) -> Font:
 	var key := 700 if bold else 400
 	if _fonts.has(key):
 		return _fonts[key]
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Arial", "Tahoma", "Dotum"])
-	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-	f.hinting = TextServer.HINTING_NORMAL
-	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-	f.font_weight = key
+	var f := MapleFonts.make(PackedStringArray(["Arial", "Tahoma", "Dotum"]), key)
 	_fonts[key] = f
 	return f
 
