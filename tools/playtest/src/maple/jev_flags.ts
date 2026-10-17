@@ -7,5 +7,5 @@ export function defineJevFlags(flags: FlagRegistry): FlagRegistry {
 	return flags
 		.define({ name: "model", kind: "string", default: DEFAULT_MODEL, help: "TypeSafe model for the Jev brain" })
 		.define({ name: "jev-max-requests", kind: "int", default: DEFAULT_MAX_REQUESTS,
-			help: "Jev requests per run; later decisions use the fallback" });
+			help: "Jev requests per run, the brain and the evaluations together; later decisions use the fallback" });
 }

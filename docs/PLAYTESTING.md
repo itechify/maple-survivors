@@ -34,6 +34,43 @@ ISOLATE=me bash scripts/agent_playtest.sh --replay=<run dir> --windowed --shots-
 
 Seeds: only training seeds (1..60 and 2026) are accepted; prefer 1, 2 and 2026 (AGENTS.md "Balance").
 
+## Flags
+
+Every flag is `--name=value` (booleans: `--name`, `--name=true|false`). A flag given on the command line overrides
+the scenario's matching field; one left out takes the scenario's value, then the default.
+
+| Flag | Default | What |
+|---|---|---|
+| `--scenario=<name>` | `smoke` | a scenario file in `tools/playtest/scenarios/` (see [Scenarios](#scenarios)) |
+| `--stage=<key>` | `henesys_hg1` | stage key from `game/data/survivor/stages.json`; with `--tier` it is tier 1's stage |
+| `--seed=<n>` | 2026 | the run seed (training seeds only); one seed replaces the scenario's list |
+| `--minutes=<m>` | 3 | simulated time cap per round in minutes (0 = the stage's own cap); TIMEOUT at the cap |
+| `--personality=<name>` | `sensible` | a file in `tools/playtest/personalities/`; one name replaces the scenario's list |
+| `--brain=auto\|jev\|fallback\|builtin` | `auto` | who answers the decisions ([Brains](#brains)) |
+| `--model=<id>` | `jev-latest` | the TypeSafe model for the Jev brain and the evaluations |
+| `--jev-max-requests=<n>` | 400 | Jev requests per run, the brain's and the evaluations' together ([Cost and caps](#cost-and-caps)) |
+| `--evaluations[=true\|false]` | on with `auto` / `jev`, off with `fallback` / `builtin` | the Jev-assisted evaluations after the round |
+| `--strict-eval` | off | Jev-flagged evaluation results count toward exit code 1 |
+| `--character=<path>` | none | start the round from this CharacterSnapshot JSON (one round; not with `--tier` >= 2); relative to the working directory |
+| `--tier=<n>` | 1 | play a tier chain from tier 1 through tier n (only a CLEARED round feeds the next) |
+| `--warp=<s>` | 0 | the first s run seconds are answered by the sensible baseline (decision source `warp`: BotInput's cards and jobs, tactic `kite`), then the brain decides. Every tick is still played; this is **not** `scripts/playtest.sh --warp`, which fast-forwards the presentation without drawing |
+| `--stuck-px=<px>`, `--stuck-s=<s>` | 24, 20 | the stuck detector's box and window |
+| `--inject-finding=<kind>` | none | test only: one fake finding of that kind at 0:10, to check the reporting path (exit 1) |
+| `--liveness-s=<s>` | 60 | kill the game after this long without output (exit 2) |
+| `--out=<dir>` | `evidence/agent-playtest/...` | the run directory (a matrix: its root) |
+| `--jobs=<n>` | min(4, cores/2) | parallel Godot processes of a multi-cell scenario |
+| `--replay=<run dir>` | none | replay a recorded run exactly ([Replay and screenshots](#replay-and-screenshots)) |
+| `--windowed` | off | with `--replay`: in the real game window, with screenshots |
+| `--shots-at=<s,s,...>` | none | with `--windowed`: run seconds to screenshot |
+| `--speed=<k>` | 4 | with `--windowed`: sim ticks per 60 Hz frame (drawing speed only) |
+| `--skip-to=<s>` | none | with `--windowed`: fast-forward to that run time before drawing (every tick still plays) |
+| `--summarize=<matrix dir>` | none | rewrite a matrix's `summary.md` / `summary.json` from its cells, without playing |
+| `--cluster-window-s=<s>`, `--cluster-share=<f>` | 90, 0.4 | matrix summary: a death cluster is a window of that many run seconds holding the deaths of at least that share of the cells |
+| `--help` | | print every flag |
+
+The report's live re-run command repeats every flag that changes decisions or output, so it plays the same run
+again (a Jev run may still decide differently; the exact path is `--replay`).
+
 ## Brains
 
 The **brain** answers each decision point: which card, which job branch, which tactic. Tick-by-tick movement stays
@@ -43,15 +80,16 @@ in deterministic game-side code (`tactic_controller.gd`) that carries out the cu
 |---|---|---|
 | `auto` (default) | Jev if a TypeSafe key resolves, else the fallback | yes, with a key |
 | `jev` | Jev; exit 2 before Godot starts when no key resolves | yes |
-| `fallback` | the personality's deterministic policy (seeded; identical runs for identical seeds) | only for evaluations, see below |
-| `builtin` | the driver answers itself with the sensible baseline, no pipe (tactics always `kite`) | no |
+| `fallback` | the personality's deterministic policy (seeded; identical runs for identical seeds) | no (evaluations off unless `--evaluations=true`) |
+| `builtin` | the driver answers itself with the sensible baseline, no pipe (tactics always `kite`) | no (evaluations off unless `--evaluations=true`) |
 | replay | `--replay=<dir>`: the recorded answers, in order | no |
 
 - The report header always says which brain was requested and used, the Jev model (`jev-1.13.0` behind
-  `jev-latest`), requests and tokens, and **why** any fallback happened ("key absent in process env", "API error
+  `jev-latest`), the run's Jev requests and tokens (`Jev total`), and **why** any fallback happened ("key absent in process env", "API error
   500", "Jev request cap (400) reached"). Never read a fallback run as a Jev run; check the header.
 - A failed Jev request falls back for that decision only, with the reason recorded in `decisions.jsonl`. After a 401
-  or 403, Jev is switched off for the rest of the run.
+  or 403, Jev is switched off for the rest of the run. Error texts are redacted: the key and anything shaped like a
+  bearer token never reach a reason.
 - **A Jev run is not reproducible live**: the same seed can take different cards and end differently. The
   reproducible path is `--replay`.
 - Confidence: a Jev tactic answer below the personality's `min_confidence` (default 0.35) keeps the current tactic.
@@ -65,20 +103,23 @@ in deterministic game-side code (`tactic_controller.gd`) that carries out the cu
 - The key comes from `TYPESAFE_API_KEY` in the process environment. On Windows, when the shell did not inherit it
   (Git Bash often doesn't), the CLI reads the Windows **user** environment variable through `powershell.exe`.
 - Set it in the environment only. It is never written to a run directory, a log or a commit, and it is removed from
-  the Godot child's environment.
+  the environment of every Godot process the CLI starts (the import pass, the driver, the windowed replay).
 - Hide the key for a keyless run: `TYPESAFE_API_KEY= AGENT_PLAYTEST_NO_USER_KEY=1 bash scripts/agent_playtest.sh`.
   `AGENT_PLAYTEST_NO_USER_KEY=1` turns off the Windows user-env lookup.
-- **Fully offline** means no key resolves (as above), or `--brain=fallback --evaluations=false`. With a key present,
-  `--brain=fallback` and `--brain=builtin` still run the Jev evaluations after the round.
+- **Fully offline** means no key resolves (as above), or `--brain=fallback` / `--brain=builtin`: without Jev deciding,
+  the evaluations are off by default too, so those runs stay deterministic and offline. `--evaluations=true` turns
+  them on (and then needs the key).
 
 ### Cost and caps
 
 - A Jev decision is one request of about 1k input tokens (`$0.042/Mtok`). `sensible` makes about a dozen requests
-  in 5 minutes (cards and jobs only); personalities that also decide tactics make 40-60; an 18-cell matrix made
-  about 950. A round costs well under a cent. The header shows requests and tokens; `report.json` `jev` has the
-  totals.
-- `--jev-max-requests` caps the brain (default 400 per run); later decisions use the fallback, and the header says
-  so. The evaluations have their own client capped at 10 requests per run.
+  in 5 minutes (cards and jobs only); personalities that also decide tactics make 40-60; the evaluations add up to
+  three; an 18-cell matrix made about 950. A round costs well under a cent.
+- One cap and one total per run: `--jev-max-requests` (default 400) counts the brain's requests and the
+  evaluations' together. Once it is reached, later decisions use the fallback and later evaluation requests fail
+  (the header and `evaluations.json` `errors` say so). The header's `Jev total` line gives the combined requests
+  and tokens with the brain / evaluations breakdown; `report.json` `jev` has the run's totals, `evaluations.json`
+  the evaluations' share.
 - A personality with a single allowed tactic (`sensible`) asks no tactic decisions at all, so it only pays for cards
   and jobs.
 
@@ -131,8 +172,9 @@ existing cells without playing.
 
 `report.md` starts with a **Verdict** line (outcome, problem counts, exit code) and a **Next** command. Then:
 
-1. **Header**: scenario, stage, seed, personality, brain requested and used, fallback reason, Jev model, requests
-   and tokens.
+1. **Header**: scenario, stage, seed, personality, brain requested and used, fallback reason, Jev model, the brain's
+   requests and tokens, `Jev total` (the run's requests against the cap and its one token total, split into brain
+   and evaluations), evaluations.
 2. **Outcome**: DEAD, CLEARED or TIMEOUT. TIMEOUT means the time cap ended a living round; it is never a clear.
 3. **Problems**, in three tiers that mean different things:
    - **Deterministic failures**: invariant findings and `SCRIPT ERROR` / `ERROR:` lines in `game.log`. These are
@@ -148,16 +190,21 @@ existing cells without playing.
 The invariants (game side, every tick and at every decision): HP and MP inside 0..max; position finite and inside
 the map bounds plus 64 px; level and EXP never decrease (except the EXP reset at a level-up); state transitions
 follow the pause protocol (ARCHITECTURE 4.4.2); card offers follow the owner's rules (never empty, distinct, known,
-the job-line rule, nothing at max rank, at most one Elixir); no new `world.warnings`; no missing assets; and the
+the job-line rule, nothing at max rank, at most one Elixir); no new `world.warnings`; no missing assets (a round that
+still builds with failed asset lookups reports each as `missing_asset` on its first tick, and `record.json` `missing`
+lists them; no cache or no map is exit 2 instead); and the
 **stuck** detector (the player stays inside a 24 px box for 20 s while pressing movement, ignoring `hold`, ropes and
 idle play; `--stuck-px` / `--stuck-s` tune it). Repeats of one finding within 96 px and 30 s count once.
 
 The evaluations (Jev, after the round, from facts code prepared): death fairness and "could a careful player have
 avoided it", dullness per run minute, stuck or awkward movement, and the meaningfulness of every card offer. They
-are skipped on a replay, without a key and with `--evaluations=false`; the report says so.
+are skipped on a replay, without a key, with `--evaluations=false`, and by default with `--brain=fallback` or
+`builtin`; the report says so.
 
-Run directory files: `scenario.json` (every resolved flag), `personality.json`, `decisions.jsonl` (situation shown,
-options in screen and presented order, answer, probabilities, confidence, source, latency, fallback reason),
+Run directory files: `scenario.json` (every resolved flag), `personality.json`, `decisions.jsonl` (`situation_shown`:
+the exact state sent to Jev, or the buckets and tactic state a fallback or warp answer used; options in screen and
+presented order, answer, probabilities, confidence, source, latency, fallback reason; a replay ignores
+`situation_shown`, and recordings without it still replay),
 `findings.jsonl`, `timeline.jsonl` (one row per run second), `hits.jsonl` (every landed hit), `record.json`
 (`record_tier<N>.json` in a chain), `fingerprint.json`, `evaluations.json` (results and the exact states sent),
 `game.log`, `report.md`, `report.json`.
@@ -167,8 +214,8 @@ options in screen and presented order, answer, probabilities, confidence, source
 | Code | Meaning |
 |---|---|
 | 0 | clean: no deterministic problems (Jev opinions and patterns never count) |
-| 1 | deterministic problems: an invariant finding, a `SCRIPT ERROR` / `ERROR:` in `game.log`, or a replay divergence; with `--strict-eval`, Jev-flagged results too ("needs review" never counts) |
-| 2 | infrastructure error: Godot or the cache missing, an invalid personality or scenario, `--brain=jev` without a key, a protocol violation, no `end` message, no output for `--liveness-s` (default 60 s) |
+| 1 | deterministic problems: an invariant finding (including `missing_asset`), a `SCRIPT ERROR` / `ERROR:` in `game.log`, or a replay divergence; with `--strict-eval`, Jev-flagged results too ("needs review" never counts) |
+| 2 | infrastructure error: Godot missing, a round that cannot start (no asset cache, no map), an invalid personality or scenario, `--brain=jev` without a key, a protocol violation, no `end` message, no output for `--liveness-s` (default 60 s) |
 
 A matrix exits with the worst code over its cells. A windowed replay exits 0 on a match, 1 on a divergence, 2 on an
 infrastructure error.
@@ -190,7 +237,8 @@ recording made before a code change is also a regression check: it diverges when
 and a forced 800x600 view), then checks the fingerprint the same way:
 
 - Screenshots are saved at each `--shots-at` time (comma separated run seconds), at every timed finding of the
-  recording, and at RunScene's own event shots (levels <= 2 and every 10th, job changes, bosses, death, clear).
+  recording, and at RunScene's own event shots: every level-up (RunScene's tool-only `shot_every_level_up`; normal
+  runs keep levels <= 2 and every 10th), job changes, bosses, death, clear.
 - Output goes to a new `<run dir>_windowed_<time>/` directory (`shots/`, `replay.json`, `report.md`); the
   recording's `report.md` gets a "Windowed replays" pointer.
 - `--skip-to=<s>` fast-forwards without drawing (every tick still plays); shots before it are skipped. `--speed`
