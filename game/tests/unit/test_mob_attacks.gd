@@ -223,3 +223,44 @@ func test_scheduled_boss_keeps_boss_attack_events_only() -> void:
 				kinds[String(e.type)] = true
 	assert_true(kinds.has("boss_attack"))
 	assert_false(kinds.has("mob_attack"), "a scheduled boss never goes through the ordinary path")
+
+
+## A Tauro fixture whose only attack is replaced by a synthetic type 1 (targeted) or type 2 (ball) attack1.
+func _variant_world(type: int) -> RunWorld:
+	var setup := MF.setup()
+	var info: Dictionary = setup.mob_imgs[MF.TAURO].attack1.info
+	info.type = float(type)
+	info.range = {"r": 300.0, "sp": {"$v": [-20.0, -40.0]}}
+	if type == 2:
+		info["bulletSpeed"] = 300.0
+		info["ball"] = RF._anim(2, 100.0, 20, 20)
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.god = true
+	return w
+
+
+func test_ordinary_type_two_ball_hits_as_a_mob_attack() -> void:
+	var w := _variant_world(2)
+	RF.put_mob(w, MF.TAURO, 600)
+	assert_false(_until(w, 600, func(e: Dictionary) -> bool: return e.type == "mob_projectile_spawned").is_empty(),
+		"an ordinary type 2 attack launches its ball")
+	w.god = false
+	var hit := _until(w, 120, func(e: Dictionary) -> bool: return e.type == "player_hit")
+	assert_false(hit.is_empty(), "the ball reaches the character")
+	if not hit.is_empty():
+		assert_eq(hit.source_kind, "mob_attack", "an ordinary mob's ball is a mob attack, not a boss projectile")
+		assert_false(bool(hit.boss))
+
+
+func test_ordinary_type_one_strike_hits_as_a_mob_attack() -> void:
+	var w := _variant_world(1)
+	RF.put_mob(w, MF.TAURO, 600)
+	var start := _until(w, 600, _is_start)
+	assert_false(start.is_empty(), "an ordinary type 1 attack locks the character in r")
+	w.god = false
+	var hit := _until(w, 60, func(e: Dictionary) -> bool: return e.type == "player_hit")
+	assert_false(hit.is_empty())
+	if not hit.is_empty():
+		assert_eq(hit.source_kind, "mob_attack")
+		assert_false(bool(hit.boss))
