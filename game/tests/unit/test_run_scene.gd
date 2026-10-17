@@ -201,8 +201,10 @@ func test_events_become_visuals() -> void:
 	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
 	scene.handle_events([{"type": "level_up", "level": 2}])
 	assert_eq(scene.fx.active_count(), fx0 + 2, "LevelUp effect")
-	scene.handle_events([{"type": "job_changed", "job_id": 200, "name": "Magician"}])
-	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the Wooden Wand")
+	scene.world.drain_events()
+	scene.world.change_job(200) # job_changed, then the Wooden Wand grant's equipment_changed
+	scene.handle_events(scene.world.drain_events())
+	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the granted Wooden Wand")
 	assert_true(scene.fx_back.active_count() >= 1, "JobChanged (z < 0) plays behind the character")
 	scene.handle_events([{"type": "pickup_collected", "pickup": 0, "item_id": 4000019, "exp": 5, "pos": p},
 		{"type": "pickup_collected", "pickup": 1, "item_id": 4000019, "exp": 7, "pos": p}])

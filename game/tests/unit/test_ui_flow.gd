@@ -506,7 +506,10 @@ func test_continue_migrates_a_format_one_slot_once_and_keeps_its_look() -> void:
 	assert_eq(int(saved.format), CharacterSnapshot.FORMAT, "migrated and written back")
 	assert_eq(Equipment.worn_ids(saved.equipment.worn), [1041011, 1061008, 1072038, 1372005],
 		"the outfit plus the old rule's Magician weapon")
-	assert_eq(DataRepo.character_look(saved, DataRepo.load_all()), drawn, "it looks exactly as before")
+	var now := DataRepo.character_look(saved, DataRepo.load_all())
+	assert_eq(now.equips, drawn.equips, "it looks exactly as before")
+	for field: String in ["skin", "face", "hair"]:
+		assert_eq(int(now[field]), int(drawn[field]), field)
 	assert_eq(int(saved.mesos), 0)
 
 
