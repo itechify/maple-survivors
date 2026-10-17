@@ -295,6 +295,14 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
 		_check(event, seen)
+	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
+	var blocked := RF.quiet_world()
+	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
+	while blocked.equipment.inventory.size() < blocked.inventory_slots():
+		blocked.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
+	blocked.change_job(200)
+	for event: Dictionary in blocked.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()
