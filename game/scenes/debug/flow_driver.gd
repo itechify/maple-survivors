@@ -62,6 +62,10 @@ extends Node
 ##           opens his shop (60% stock); NPC Chat is rebound in Key Config's draft. All input is injected. Shots:
 ##           shop_npcs, shop_open, shop_selected, shop_quantity, shop_bought, shop_refused, shop_sell_use, shop_sell_confirm,
 ##           shop_sold, shop_barun, shop_vega.
+##   botshop the bot shop plan (#112) in the Free Market: the same fixture with 600,000 mesos and spare equipment; the
+##           hub's bot hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and
+##           saves; the Item and Equip windows show the result. Shots: botshop_before_item, botshop_after_equip,
+##           botshop_after_item.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -127,6 +131,8 @@ func _ready() -> void:
 			_scenario_scrolls()
 		"shops":
 			_scenario_shops()
+		"botshop":
+			_scenario_botshop()
 		"full":
 			_scenario_full()
 		_:
@@ -1326,6 +1332,60 @@ func _scenario_shops() -> void:
 	_collect_missing(hub)
 	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
 	print("flow_driver: shops scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## The bot shop plan (#112) in the Free Market: the hub's bot hook visits the shops, the windows show the result.
+func _scenario_botshop() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Bot112"):
+		return
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
+		_fail("the Lv38 F/P fixture did not load")
+		return
+	var lib := AssetLibrary.get_default()
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = fixture
+	character.erase("_doc")
+	character.mesos = 600000
+	for id: int in [1002001, 1382001, 1082002, 1040004]:
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
+	slot.character = character
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
+	flow.continue_character(flow.active_slot)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	await _key(KEY_I)
+	await _sleep(0.5)
+	await _shot("botshop_before_item")
+	await _key(KEY_ESCAPE)
+	var mesos_before := hub.inventory.mesos
+	var record := hub.bot_shop("bot", 1)
+	await _sleep(1.0)
+	print("flow_driver: bot shop record ", JSON.stringify(record))
+	_check(int(record.bought) > 0 and int(record.used) == int(record.bought), "the bot bought and read scrolls (%s)" % [record])
+	_check(int(record.spent) > 0 and hub.inventory.mesos == mesos_before + int(record.sale_mesos) - int(record.spent),
+		"mesos add up (%d -> %d)" % [mesos_before, hub.inventory.mesos])
+	_check(int(flow.save.slot(flow.active_slot).character.mesos) == hub.inventory.mesos, "the visit was saved at once")
+	await _key(KEY_E)
+	await _sleep(0.5)
+	await _shot("botshop_after_equip")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_I)
+	await _sleep(0.5)
+	await _shot("botshop_after_item")
+	_collect_missing(hub)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	print("flow_driver: botshop scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
