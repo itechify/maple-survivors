@@ -144,6 +144,30 @@ func test_warp_with_a_policy_is_played_by_the_policy() -> void:
 	assert_eq(stub.observed, 300, "and observed it (warp events go to the policy, not dropped)")
 
 
+## The level-up screenshots RunScene schedules for levels 2..12 with `options` (shots_dir set; nothing is saved).
+func _levelup_shots(options: Dictionary) -> Array:
+	scene = _make("henesys_hg1", 7, options.merged({"autoplay": true, "autopick": true, "shots_dir": "user://unused_shots"}))
+	assert_eq(scene.error, "", "scene started")
+	var events: Array = []
+	for lv in range(2, 13):
+		events.append({"type": "level_up", "level": lv})
+	scene.handle_events(events)
+	var names: Array = scene._timed_shots.map(func(s: Array) -> String: return String(s[1]))
+	scene.free()
+	scene = null
+	return names.filter(func(n: String) -> bool: return n.begins_with("levelup_"))
+
+
+func test_level_up_shots_default_to_levels_up_to_2_and_every_10th_and_an_option_shoots_every_level() -> void:
+	if not require_cache():
+		return
+	assert_eq(_levelup_shots({}), ["levelup_2.png", "levelup_10.png"], "the default (playtest.sh, production) is unchanged")
+	var every: Array = []
+	for lv in range(2, 13):
+		every.append("levelup_%d.png" % lv)
+	assert_eq(_levelup_shots({"shot_every_level_up": true}), every, "the windowed replay's option: every level-up")
+
+
 func test_stop_tick_holds_the_sim_until_raised() -> void:
 	if not require_cache():
 		return

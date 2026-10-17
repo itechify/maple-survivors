@@ -15,9 +15,10 @@ extends Node
 ## exactly that tick and --speed never changes which ticks run. --skip-to fast-forwards (RunScene warp, nothing
 ## drawn) through the policy too; shots before it are skipped.
 ## Screenshots (out/shots/, 800x600): at_<t>s.png per --shots-at time, finding_<kind>_<t>s.png at each timed entry of
-## the recording's findings.jsonl, final.png at a TIMEOUT, plus RunScene's own event shots (levelup_N, job_N,
-## death_fall / death_land, clear, boss_*, window_*...). A shot needs a drawn frame: an occluded or minimized window
-## draws none, and after SHOT_TIMEOUT real seconds the shot is recorded as skipped.
+## the recording's findings.jsonl, final.png at a TIMEOUT, plus RunScene's own event shots (levelup_N at every level-up
+## through options.shot_every_level_up, job_N, death_fall / death_land, clear, boss_*, window_*...). A shot needs a
+## drawn frame: an occluded or minimized window draws none, and after SHOT_TIMEOUT real seconds the shot is recorded
+## as skipped.
 ## Writes out/: fingerprint.json, decisions.jsonl (as applied), timeline.jsonl, replay.json (verdict: match,
 ## divergences with the first one first, the first timeline row that differs from the recording, view checks, shots).
 ## Exit code 0 match, 1 replay divergence, 2 infrastructure error (bad recording, asset cache missing). Tool code only.
@@ -111,7 +112,8 @@ func _start() -> void:
 			shots.erase(s)
 	_force_view()
 	var options := {"use_flow": false, "autoplay": true, "autopick": true, "speed": speed, "policy": policy,
-		"view_size": VIEW, "shots_dir": out_dir.path_join("shots"), "stop_tick": _next_stop(), "warp": warp}
+		"view_size": VIEW, "shots_dir": out_dir.path_join("shots"), "stop_tick": _next_stop(), "warp": warp,
+		"shot_every_level_up": true}
 	if r.get("character") is String and String(r.character) != "":
 		options["character"] = String(r.character)
 	print("agent_replay: replaying %s (%s seed %d, cap %d ticks, %d recorded decisions) at x%d -> %s" % [replay_dir,
