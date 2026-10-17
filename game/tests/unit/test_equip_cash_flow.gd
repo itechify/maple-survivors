@@ -12,7 +12,7 @@ var _nodes: Array[Node] = []
 
 
 func after_each() -> void:
-	for node in _nodes:
+	for node: Node in _nodes:
 		if is_instance_valid(node):
 			node.free()
 	_nodes.clear()

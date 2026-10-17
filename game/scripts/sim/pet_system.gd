@@ -16,46 +16,23 @@ extends RefCounted
 ##   wing_boots (1812004)  run to the nearest resting drop within `leash` px of the player, then come back
 ##   binocular (1812005)   `pickup_radius` x `binocular_mult`
 ##   vac (9990000, survivor-only)  every drop on the map flies to the pet (PickupSystem does the flying)
-## All numbers are tier C survivor data (`cash_items.json` "pet"), listed in docs/GAME_DESIGN.md.
+## All numbers are tier C survivor data (`cash_items.json` "pet", the only place they live: callers pass that block as
+## `tuning`, there are no defaults here), listed in docs/GAME_DESIGN.md.
 
-const UPGRADE_AUTO_HP := 1812002
-const UPGRADE_AUTO_MP := 1812003
-const UPGRADE_WING_BOOTS := 1812004
-const UPGRADE_BINOCULAR := 1812005
-const UPGRADE_VAC := 9990000
+const UPGRADE_AUTO_HP := 1812002  # tier A: v83 Auto HP Potion Pouch item id
+const UPGRADE_AUTO_MP := 1812003  # tier A: v83 Auto MP Potion Pouch item id
+const UPGRADE_WING_BOOTS := 1812004  # tier A: v83 Wing Boots item id
+const UPGRADE_BINOCULAR := 1812005  # tier A: v83 Binocular item id
+const UPGRADE_VAC := 9990000  # tier C: survivor-only item, id reserved by spec #34 (not a v83 item)
 ## Ability name -> the owned pet upgrade that grants it.
 const ABILITY_ITEMS := {"auto_hp": UPGRADE_AUTO_HP, "auto_mp": UPGRADE_AUTO_MP, "wing_boots": UPGRADE_WING_BOOTS,
 	"binocular": UPGRADE_BINOCULAR, "vac": UPGRADE_VAC}
-
-const TUNING_DEFAULTS := {
-	"pickup_radius": 60.0,  # tier C: the base pet picks up drops this close to its centre
-	"center_up": 15.0,  # tier C: the pet's centre is this far above its feet
-	"binocular_mult": 2.0,  # tier C: Binocular roughly doubles the pickup radius
-	"follow_gap": 40.0,  # tier C: stands still this close (px) to the player
-	"beside_offset": 30.0,  # tier C: a pet brought out stands this far (px) behind the player, not on top of it
-	"follow_speed_mult": 1.1,  # tier C: walks a little faster than the player so it catches up
-	"teleport_distance": 600.0,  # tier C: farther than this from the player -> teleports at once
-	"lost_distance": 280.0,  # tier C: farther than this for lost_seconds -> teleports
-	"lost_seconds": 3.0,  # tier C
-	"leash": 220.0,  # tier C: Wing Boots fetch drops at most this far (px) from the player
-	"fetch_dy": 80.0,  # tier C: ... and at most this far above or below the player (the pet jumps ~77 px)
-	"fetch_gap": 6.0,  # tier C: how close the pet walks to a drop it fetches
-	"fetch_speed_mult": 1.5,  # tier C: Wing Boots run
-	"fetch_give_up": 2.5,  # tier C: seconds on one fetch before the pet gives up on it and follows again
-	"fetch_pause": 2.0,  # tier C: seconds without fetching after giving up
-	"potion_delay": 1.0,  # tier C: minimum seconds between the pet's drinks of one kind
-	"jump_min_rise": 20.0,  # tier C: hops up when the player's feet are at least this far above its own
-	"jump_max_rise": 70.0,  # tier C: ... and at most this far (the jump apex is 77 px)
-	"jump_reach_dx": 80.0,  # tier C: ... and the player is at most this far sideways
-	"down_min_drop": 20.0,  # tier C: drops through the floor when the player is this far below
-	"down_dx": 60.0,  # tier C: ... and at most this far sideways
-	"stuck_seconds": 0.3,  # tier C: jumps after pushing against a wall this long
-}
 
 ## Pet species item id (5000000...).
 var species := 0
 ## {auto_hp, auto_mp, wing_boots, binocular, vac}: bool.
 var abilities := {"auto_hp": false, "auto_mp": false, "wing_boots": false, "binocular": false, "vac": false}
+## The survivor "pet" block of cash_items.json, as floats.
 var tuning: Dictionary
 ## The pet's body, a PlayerMotion on the round's footholds (read pos, facing, vel; never written by outsiders).
 var motion: PlayerMotion
@@ -82,10 +59,8 @@ func _init(p_species: int, p_abilities: Dictionary, p_tuning: Dictionary, consta
 	species = p_species
 	for key: String in abilities:
 		abilities[key] = bool(p_abilities.get(key, false))
-	tuning = TUNING_DEFAULTS.duplicate()
 	for key: String in p_tuning:
-		if tuning.has(key):
-			tuning[key] = float(p_tuning[key])
+		tuning[key] = float(p_tuning[key])
 	motion = PlayerMotion.new(constants)
 
 
@@ -93,7 +68,7 @@ func _init(p_species: int, p_abilities: Dictionary, p_tuning: Dictionary, consta
 static func abilities_from(owned: Array) -> Dictionary:
 	var out := {}
 	for ability: String in ABILITY_ITEMS:
-		out[ability] = _owns(owned, int(ABILITY_ITEMS[ability]))
+		out[ability] = Account.owns(owned, int(ABILITY_ITEMS[ability]))
 	return out
 
 
@@ -115,10 +90,11 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 ## player's way. Used when it is first brought out (teleports and tests use place()).
 func place_beside(player: PlayerMotion, fhm: FootholdMap) -> void:
 	var offset := float(tuning.beside_offset)
+	var tolerance := float(tuning.floor_tolerance)
 	for side: int in [-1, 1]:
 		var x := player.pos.x + float(side * player.facing) * offset
-		var f := fhm.find_below(x, player.pos.y - 2.0) if fhm != null else FootholdMap.NONE
-		if f >= 0 and absf(fhm.y_at(f, x) - player.pos.y) <= 2.0:
+		var f := fhm.find_below(x, player.pos.y - tolerance) if fhm != null else FootholdMap.NONE
+		if f >= 0 and absf(fhm.y_at(f, x) - player.pos.y) <= tolerance:
 			place(Vector2(x, player.pos.y), fhm)
 			motion.facing = player.facing
 			return
@@ -154,27 +130,29 @@ func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drop
 	_hanging = false
 	var gap := motion.pos.distance_to(player.pos)
 	if gap > float(tuning.teleport_distance):
-		_teleport(player, fhm, events)
+		teleport_to(player, fhm, events)
 	elif gap > float(tuning.lost_distance):
 		_apart_t += dt
 		if _apart_t >= float(tuning.lost_seconds):
-			_teleport(player, fhm, events)
+			teleport_to(player, fhm, events)
 	else:
 		_apart_t = 0.0
 	var target := _target(dt, player, drops)
 	var input := _input(dt, player, target)
 	var mult := float(tuning.fetch_speed_mult) if fetching else float(tuning.follow_speed_mult)
-	motion.speed_stat = roundi(maxf(100.0, float(player.speed_stat)) * mult)
+	motion.speed_stat = roundi(maxf(float(tuning.speed_stat_floor), float(player.speed_stat)) * mult)
 	var before := motion.pos.x
 	motion.step(dt, input, fhm, null, bounds)
 	_moved = absf(motion.pos.x - before)
 	action = _action_name()
 
 
-## Whether the pet should drink `kind` now: it has the ability, ALERT is on and above the level, and the delay is over.
-func drink_ready(kind: String, fraction: float, alert_level: float) -> bool:
-	return bool(abilities["auto_" + kind]) and alert_level > 0.0 and fraction < alert_level \
-		and float(_drink_cd[kind]) <= 0.0
+## Whether the pet should drink `kind` ("hp" / "mp") now, given the character's current and maximum value of it and the
+## ALERT level (fraction of max, 0 = off): it has the pouch, there is a maximum, the value is below the level and the
+## delay since its last drink is over.
+func should_drink(kind: String, current: float, maximum: int, alert_level: float) -> bool:
+	return bool(abilities["auto_" + kind]) and alert_level > 0.0 and maximum > 0 \
+		and current / float(maximum) < alert_level and float(_drink_cd[kind]) <= 0.0
 
 
 ## Records a drink: counts it and starts the delay.
@@ -196,7 +174,9 @@ func _hang(player: PlayerMotion) -> void:
 	action = "hang"
 
 
-func _teleport(player: PlayerMotion, fhm: FootholdMap, events: Array) -> void:
+## Moves the pet onto the player at once, facing the player's way, and appends `pet_teleported` to events. The follow
+## controller uses it when the pet is left behind; the Free Market uses it when a portal moves the player.
+func teleport_to(player: PlayerMotion, fhm: FootholdMap, events: Array) -> void:
 	var from := motion.pos
 	place(player.pos, fhm)
 	motion.facing = player.facing
@@ -268,7 +248,7 @@ func _input(dt: float, player: PlayerMotion, target: Vector2) -> MoveInput:
 		input.down = true
 		input.jump_pressed = true
 		input.jump_held = true
-	elif input.dir() != 0 and _moved < 0.2:
+	elif input.dir() != 0 and _moved < float(tuning.stuck_move_px):
 		_stuck_t += dt
 		if _stuck_t >= float(tuning.stuck_seconds):
 			_stuck_t = 0.0
@@ -286,10 +266,3 @@ func _action_name() -> String:
 		PlayerMotion.ST_WALK:
 			return "move"
 	return "stand"
-
-
-static func _owns(owned: Array, id: int) -> bool:
-	for have: Variant in owned:
-		if int(have) == id:
-			return true
-	return false

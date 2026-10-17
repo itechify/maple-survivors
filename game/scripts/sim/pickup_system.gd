@@ -194,7 +194,8 @@ func alpha(i: int) -> float:
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
 ## A pet out (spec #34) is a second collector: a drop within `pet_r` of `pet_center` is collected by it (the EXP and
 ## potions count as the player's, the event says `collector: "pet"`), and with `pet_vac` every drop that is not about
-## to be magnetised by the player flies to the pet at the same speed. Without a pet (pet_r 0) nothing changes.
+## to be magnetised by the player flies to the pet at the same speed; a drop flying to the pet when `pet_vac` ends
+## (the pet is dismissed) falls and lands as an ordinary drop. Without a pet (pet_r 0) nothing else changes.
 func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array,
 		pet_center := Vector2.ZERO, pet_r := 0.0, pet_vac := false) -> int:
 	var got := 0
@@ -228,6 +229,14 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 		var dy := cy - py
 		var d2 := dx * dx + dy * dy
 		var st := state[i]
+		if to_pet[i] != 0 and not pet_vac:
+			# The pet was dismissed (or lost VAC) while this drop flew to it: an ordinary drop again, which falls from
+			# where it is and lands, or is magnetised by the player as usual.
+			to_pet[i] = 0
+			st = AIR
+			state[i] = AIR
+			vx[i] = 0.0
+			vy[i] = 0.0
 		if to_pet[i] != 0:
 			dx = pet_center.x - px
 			dy = pet_center.y - py

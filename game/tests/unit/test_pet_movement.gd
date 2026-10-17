@@ -98,6 +98,29 @@ func test_pet_teleports_when_it_stays_out_of_reach_too_long() -> void:
 	assert_between(w.pet_state().pos.distance_to(w.player.pos), 0.0, 5.0)
 
 
+func test_teleport_to_lands_on_the_player_facing_its_way_and_announces_it() -> void:
+	var w := PF.world()
+	PF.put_player(w, 900.0, 0.0)
+	PF.put_pet(w, Vector2(100.0, 0.0))
+	w.player.facing = -1
+	var events: Array = []
+	w.pet_system.teleport_to(w.player, w.fhm, events)
+	assert_eq(w.pet_system.motion.pos, w.player.pos)
+	assert_eq(w.pet_system.motion.facing, -1)
+	assert_eq(events, [{"type": "pet_teleported", "from": Vector2(100.0, 0.0), "pos": w.player.pos}])
+
+
+func test_the_pet_tuning_is_only_what_the_data_gives() -> void:
+	var w := PF.world()
+	var block: Dictionary = PF.data().cash_items.pet
+	for key: String in ["speed_stat_floor", "stuck_move_px", "floor_tolerance"]:
+		assert_true(block.has(key), "cash_items.json pet has %s" % key)
+	assert_false(PetSystem.new(PF.KITTY, {}, block, w.physics).tuning.is_empty())
+	assert_eq(PetSystem.new(PF.KITTY, {}, block, w.physics).tuning.pickup_radius, float(block.pickup_radius))
+	var consts: Dictionary = (PetSystem as Script).get_script_constant_map()
+	assert_false(consts.has("TUNING_DEFAULTS"), "no second copy of the numbers in the script")
+
+
 func test_pet_hangs_while_the_player_climbs() -> void:
 	var s := PF.setup(PF.data(), PF.KITTY, [PF.KITTY])
 	s.map_img = PF.RF.big_map_img()

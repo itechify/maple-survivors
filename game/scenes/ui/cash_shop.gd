@@ -129,11 +129,11 @@ func _ready() -> void:
 	stage.gui_input.connect(_on_stage_input)
 	stage.mouse_exited.connect(_on_stage_exit)
 	add_child(stage)
+	_worn_cash = DataRepo.worn_cash(snapshot.get("character", {}), _data, _owned())
+	preview_cash = _worn_cash.duplicate()  # before _build_preview(): the avatar's first look wears it
 	_build_preview()
 	_build_buttons()
 	_build_overlays()
-	_worn_cash = DataRepo.worn_cash(snapshot.get("character", {}), _data, _owned())
-	preview_cash = _worn_cash.duplicate()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_refresh()

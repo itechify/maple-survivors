@@ -77,6 +77,18 @@ func test_mp_alert_drinks_mp() -> void:
 	assert_eq(int(w.potions.stock.mp.count), 3)
 
 
+func test_the_pet_decides_from_the_current_and_maximum_value() -> void:
+	var w := PF.world([PF.KITTY, PF.AUTO_HP])
+	var pet := w.pet_system
+	assert_true(pet.should_drink("hp", 40.0, 100, 0.5), "40/100 is below the 50 % level")
+	assert_false(pet.should_drink("hp", 50.0, 100, 0.5), "exactly at the level is not below it")
+	assert_false(pet.should_drink("hp", 40.0, 100, 0.0), "ALERT off")
+	assert_false(pet.should_drink("hp", 0.0, 0, 0.5), "no maximum, nothing to compare")
+	assert_false(pet.should_drink("mp", 10.0, 100, 0.5), "no Auto MP pouch")
+	pet.drank("hp")
+	assert_false(pet.should_drink("hp", 40.0, 100, 0.5), "the delay after a drink")
+
+
 func test_pet_and_player_drinks_are_counted_separately() -> void:
 	var w := _world({"hp": 0.5, "mp": 0.0}, 0.3, 5)
 	PF.run(w, 2)

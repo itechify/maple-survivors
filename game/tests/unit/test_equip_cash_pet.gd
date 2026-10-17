@@ -24,7 +24,7 @@ var _nodes: Array[Node] = []
 
 
 func after_each() -> void:
-	for n in _nodes:
+	for n: Node in _nodes:
 		if is_instance_valid(n):
 			n.free()
 	_nodes.clear()

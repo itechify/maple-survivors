@@ -7,9 +7,14 @@ const DT := 1.0 / 60.0
 const SPECIES := [5000000, 5000001, 5000002]
 
 
+## The real pet tuning block (cash_items.json "pet" is the one source of the numbers).
+func _tuning() -> Dictionary:
+	return DataRepo.load_all().cash_items.pet
+
+
 func _hub_with_pet() -> FreeMarketMotion:
 	var hub := FreeMarketMotion.new(FM.hub_map())
-	hub.set_pet(5000000, {})
+	hub.set_pet(5000000, _tuning())
 	return hub
 
 
@@ -82,7 +87,7 @@ func test_free_market_pet_snaps_with_the_player_through_a_portal_and_says_so() -
 	map.portal["3"] = {"pn": "up00", "pt": 1, "x": 800, "y": 200, "tm": 910000000, "tn": "up01"}
 	map.portal["4"] = {"pn": "up01", "pt": 1, "x": 1000, "y": 200, "tm": 999999999, "tn": ""}
 	var hub := FreeMarketMotion.new(map)
-	hub.set_pet(5000001, {})
+	hub.set_pet(5000001, _tuning())
 	hub.player.place(Vector2(800, 200), hub.fhm)
 	hub.pet.place(Vector2(800, 200), hub.fhm)
 	var events := hub.step(DT, MoveInput.make(false, false, true))
@@ -96,7 +101,7 @@ func test_free_market_pet_hangs_on_the_rope_with_the_player() -> void:
 	var map := FM.hub_map()
 	map.ladderRope = {"0": {"l": 1, "uf": 1, "x": 100, "y1": 0, "y2": 200}}
 	var hub := FreeMarketMotion.new(map)
-	hub.set_pet(5000002, {})
+	hub.set_pet(5000002, _tuning())
 	hub.player.place(Vector2(100, 200), hub.fhm)
 	hub.pet.place(Vector2(100, 200), hub.fhm)
 	for tick in 30:
