@@ -1911,6 +1911,34 @@ for a clear (the later equipment sales are not in this number). The multiplier i
 raise it. Because the coin sprite follows the final amount, a x14 Snail drop (56-84) already shows the gold coin.
 Raw records: ignored `_scratch/t107_smoke/` and `_scratch/t107_base/`.
 
+#### Spec #33 / #109 equipment drops regression smoke (2026-10-17)
+
+No tuning: `ISOLATE=s33t109 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache, no held-out seeds, on the ticket branch (base: the #107 integration branch). "Before" is the #107
+smoke above. All 12 runs finished with no script errors and no world warnings. Henesys still reaches Magician
+(4:20-4:41) and Mano in every bot run, and its random policy clears one of three; Tree remains record-only.
+
+| Stage / policy | Clear / dead before -> after | End seconds seed 1/2/2026, before -> after | Equipment dropped per round (seed 1/2/2026) |
+|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 859/778/899 -> 834/784/917 | 5 / 5 / 7 |
+| Henesys random | 1/2 -> 1/2 | C 995/462/346 -> C 980/462/543 | 7 / 0 / 4 |
+| Tree bot | 0/3 -> 0/3 | 622/157/128 -> 622/156/128 | 2 / 0 / 0 |
+| Tree random | 0/3 -> 0/3 | 747/158/88 -> 729/158/88 | 5 / 0 / 0 |
+
+Every dropped item was picked up (`equips_collected` equals `equips_dropped` in all 12 records; the Equip tab never filled).
+The runs diverge slightly from "before" because equipment drops use the shared drop-pop RNG stream and the sensible bot
+walks to them like any other drop; the one Henesys random run that moved a lot (seed 2026) now dies at 9:03 instead of
+5:46, after Mano. That is recorded as changed, not tuned.
+
+Items per round: the chance (`equipment_drops.chance` 0.002 per ordinary kill) was sized once from an estimate, a full
+Henesys clear being about 3,300 kills: 6.6 ordinary drops plus the 3 boss drops is about 9.6 items. The only Henesys clear
+in the smoke (random seed 1, 3,069 kills, all three bosses) dropped 7 (3 boss + 4 ordinary), below the 8-12 target but
+inside the Poisson spread of about 6; the sensible bot's deaths at 13-15 minutes (1,300-1,900 kills, two bosses) dropped 5,
+5 and 7. The value is data (`game/data/survivor/equipment_drops.json`) and is not tuned further here; the dedicated
+balance pass owns it. The character baseline golden changed only by the new equipment pickup events: with `chance` and
+`boss_drops` set to 0 the #107 hash `08f7edf3...` is reproduced exactly. Raw records: ignored
+`research/spec33/t109/balance/` (outside the repo).
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2701,6 +2729,19 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Pickup sound | `Sound.wz/Game.img/PickUpItem` (v83 Game.img has no separate meso sound; DropItem plays on the drop) | A | v83 Sound.wz |
 | Pickup notice | "You have gained mesos (+N)" in the system-message queue, one sum per frame | B | v83 client string pool 0x12F (open client reimplementations) |
 | Carry | `CharacterSnapshot.mesos` carries across rounds and is lost with the run; the HUD shows no meso total | C | Owner #33 |
+
+| Equipment drop rule (spec #33, #109) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Eligible list | `survivor/equipment_drops.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
+| Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
+| Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
+| Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
+| Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), sized once from an estimate: about 3,300 kills in a full Henesys round and about 8-12 items a round including the 3 boss drops. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
+| Boss drop | Each scheduled boss death drops exactly 1 item (`equipment_drops.boss_drops`), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Ours (ticket #109) |
+| Random stats | Every non-zero `inc*` stat of a drop varies by a whole number up to 10% of its base (rounded up) either side, capped at 5 for STR DEX INT LUK PAD MAD ACC EVA Speed Jump and at 10 for PDD MDD MHP MMP, uniform, never below 0; upgrade slots (`tuc`) never vary; other `inc*` keys keep their base (`Equipment.create_drop`) | B | The v83 server rule as the ticket #109 states it (implemented from that prose) |
+| RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
+| Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
+| Notices | "You have gained an item (Name)" on pickup (name from String.wz/Eqp.img) and "You can't get anymore items." when a full tab refuses a drop, in the system-message queue | B | v83 client string pool (open client reimplementations) |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
