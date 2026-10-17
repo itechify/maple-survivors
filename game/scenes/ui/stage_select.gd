@@ -91,9 +91,10 @@ func _ready() -> void:
 	back_button.label = "Save & quit"
 	back_button.pressed.connect(_on_back)
 	_ui.add_child(back_button)
-	character_label = MapleText.new("Tier %d / %s / Lv. %d %s" % [int(snapshot.get("tier", 0)) + 1,
+	character_label = MapleText.new("Tier %d / %s / Lv. %d %s / %s NX" % [int(snapshot.get("tier", 0)) + 1,
 		snapshot.get("name", ""), int(snapshot.get("character", {}).get("level", 1)),
-		JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(snapshot.get("character", {}).get("job_id", 0)))],
+		JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(snapshot.get("character", {}).get("job_id", 0))),
+		SaveData._group(int(save.account.nx))],
 		MapleText.SIZE, MapleText.WHITE, true)
 	_ui.add_child(character_label)
 	get_viewport().size_changed.connect(_layout)

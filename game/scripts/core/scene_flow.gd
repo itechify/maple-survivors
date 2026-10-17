@@ -23,7 +23,10 @@ extends Node
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
-## damage_dealt, skills: [{key, name, icon, rank}], seed}; persistent endings add ending and tiers_cleared.
+## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent endings
+## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
+## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,
+## Quit round and deletion never credit it.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
 ## Emitted after a scene swap (title, character_select, history, free_market, stage_select, run, results, import, error).
@@ -253,18 +256,19 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	_swap_to(results, "results")
 
 
-## Saves the carried non-final boundary before entering the Free Market.
+## Saves the carried non-final boundary (and the round's NX, in the same write) before entering the Free Market.
 func _after_round_cleared(snapshot: Dictionary) -> void:
 	snapshot.phase = "free_market"
 	if save_data().update_slot(active_slot, snapshot, last_summary) != OK:
 		_swap_to(error_screen("Could not save the cleared round."), "error")
 		return
-	_open_free_market(snapshot)
+	var nx := int(last_summary.get("nx_awarded", 0))
+	_open_free_market(snapshot, "You have gained %d NX." % nx if nx > 0 else "")
 
 
-func _open_free_market(snapshot: Dictionary) -> void:
+func _open_free_market(snapshot: Dictionary, notice: String = "") -> void:
 	var screen := _instance(FREE_MARKET)
-	screen.configure(snapshot, self)
+	screen.configure(snapshot, self, notice)
 	_swap_to(screen, "free_market")
 
 

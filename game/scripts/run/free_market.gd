@@ -6,7 +6,12 @@ extends Node2D
 const DT := 1.0 / 60.0 # tier C: same fixed tick as RunScene.
 const MAX_TICKS := 4 # tier C: same catch-up cap as RunScene.
 
+const NOTICE_TIME := 6.0 # tier C: seconds the arrival notice stays before fading.
+
 var snapshot: Dictionary = {}
+## One-time arrival notice text ("" = none) and its label while shown.
+var notice := ""
+var notice_label: MapleText
 var flow: SceneFlow
 var library: AssetLibrary
 var motion: FreeMarketMotion
@@ -22,9 +27,11 @@ var _leaving := false
 
 
 ## Supplies the saved boundary and owning flow before entering the tree.
-func configure(p_snapshot: Dictionary, p_flow: SceneFlow) -> void:
+## An arrival notice (e.g. "You have gained 140 NX.") is shown once for NOTICE_TIME seconds.
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_notice: String = "") -> void:
 	snapshot = p_snapshot.duplicate(true)
 	flow = p_flow
+	notice = p_notice
 
 
 func _ready() -> void:
@@ -155,6 +162,15 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	plate.content_margin_bottom = NameTags.GAP_Y
 	help.add_theme_stylebox_override("normal", plate)
 	layer.add_child(help)
+	if notice != "":
+		notice_label = MapleText.new(notice, MapleText.SIZE, Color8(255, 255, 102), true)
+		notice_label.position = Vector2(12, 38) # tier C: under the hub instruction line.
+		notice_label.add_theme_stylebox_override("normal", plate)
+		layer.add_child(notice_label)
+		var fade := create_tween()
+		fade.tween_interval(NOTICE_TIME)
+		fade.tween_property(notice_label, "modulate:a", 0.0, 1.0)
+		fade.tween_callback(notice_label.queue_free)
 	pause_menu = PauseMenu.new()
 	pause_menu.boundary_mode = true
 	pause_menu.quit_requested.connect(func() -> void:

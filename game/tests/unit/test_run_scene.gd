@@ -26,6 +26,22 @@ func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	_assert_nothing_missing(scene, "selected look and job weapon")
 
 
+func test_summary_reports_round_levels_bosses_and_nx() -> void:
+	if not require_cache():
+		return
+	scene = _make("henesys_hg1", 5, {})
+	var w := scene.world
+	var start := w.progression.level
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.progression.queue.clear()
+	var summary := scene.build_summary()
+	assert_eq(int(summary.levels_gained), w.progression.level - start)
+	assert_eq(int(summary.levels_gained), 1)
+	assert_eq(int(summary.bosses_killed), 0)
+	assert_eq(int(summary.nx_awarded), int(w.balance.nx_award.per_level), "alive at the end of an unfinished round: levels only, no clear bonus")
+	assert_eq(int(summary.nx_awarded), w.nx_awarded())
+
+
 func test_one_off_character_file_option_restores_character() -> void:
 	if not require_cache():
 		return

@@ -68,5 +68,7 @@
 			"_potions": "Tier C: halve the MP bundle to 3 for the initial scarcity pass (#37); HP remains 3.",
 			"potions": {"hp": 3, "mp": 3}, "bonus_choices": 1}},
 	"_run_time_cap": "Tier C: balance/full-run harness timeout, allowing the finale to continue beyond 15:00.",
-	"run_time_cap": 1800
+	"run_time_cap": 1800,
+	"_nx_award": "Tier C placeholders (spec #34 / #115; the balance pass sets them): NX paid at the end of every round. A clear pays clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round; a death pays the same without the clear bonus. clear_bonus is indexed by the stage's 0-based tier (later tiers reuse the last entry). Deletion, Quit round and tool rounds are never credited.",
+	"nx_award": {"clear_bonus": [100, 250], "per_level": 5, "per_boss": 40}
 }
