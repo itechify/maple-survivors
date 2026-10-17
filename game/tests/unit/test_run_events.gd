@@ -10,7 +10,7 @@ const DT := 1.0 / 60.0
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
-const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
+const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "applied"]
 const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
 
 
@@ -44,7 +44,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			fail("%s.%s is %s, not bool" % [type, k, type_string(typeof(v))])
 		elif k in STRING_FIELDS and typeof(v) != TYPE_STRING:
 			fail("%s.%s is %s, not String" % [type, k, type_string(typeof(v))])
-		elif k in ["time", "hit_after", "interval", "impact_time", "duration", "range", "speed"] and typeof(v) != TYPE_FLOAT:
+		elif k in ["time", "hit_after", "interval", "impact_time", "duration", "range", "speed", "remaining"] and typeof(v) != TYPE_FLOAT:
 
 
 			fail("%s.time is not float" % type)
@@ -165,6 +165,15 @@ func test_every_event_matches_the_schema() -> void:
 	for tick in 180:
 		slam.step(DT, MoveInput.new())
 	for event: Dictionary in slam.drain_events():
+		_check(event, seen)
+	# #76: an ordinary Tauro attack and Jr. Boogie's Seal (mob_attack, mob_skill, player_status_applied).
+	var ordinary := preload("res://tests/fixtures/mob_attack_fixtures.gd").world()
+	ordinary.god = true
+	RF.put_mob(ordinary, 7130100, 600)
+	RF.put_mob(ordinary, 3230300, 620)
+	for tick in 15 * 60:
+		ordinary.step(DT, MoveInput.new())
+	for event: Dictionary in ordinary.drain_events():
 		_check(event, seen)
 	var stumpy := RunWorld.new(preload("res://tests/fixtures/stumpy_fixtures.gd").setup())
 	stumpy.god = true
