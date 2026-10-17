@@ -4,6 +4,7 @@
 //   node tools/playtest/src/cli.ts --stage=henesys_hg1 --seed=2026 --minutes=3
 //   node tools/playtest/src/cli.ts --scenario=matrix          # scenario file; several cells in parallel + summary
 //   node tools/playtest/src/cli.ts --replay=<run dir>         # exact re-run from the recorded answers (no Jev)
+//   node tools/playtest/src/cli.ts --replay=<run dir> --windowed --shots-at=412.5   # in the game window + screenshots
 //   ISOLATE=<name> node tools/playtest/src/cli.ts ...   # run the game from a private project mirror
 //
 // Exit code: 0 clean, 1 deterministic problems found, 2 infrastructure error (Godot missing, cache missing, no end).
@@ -17,13 +18,14 @@ import { defineInvariantFlags, invariantChecks } from "./maple/invariant_flags.t
 import { defineJevFlags } from "./maple/jev_flags.ts";
 import type { RunOptions } from "./maple/run.ts";
 import { defineScenarioFlags } from "./maple/scenario_flags.ts";
+import { defineWindowedFlags } from "./maple/windowed_flags.ts";
 import { runCli } from "./maple/scenario_run.ts";
 
 const USAGE = "usage: bash scripts/agent_playtest.sh [flags]";
 
 /** Every CLI flag. */
 export function cliFlags(): FlagRegistry {
-	return defineScenarioFlags(defineInvariantFlags(defineJevFlags(defineMapleFlags(defineCoreFlags(new FlagRegistry())))));
+	return defineWindowedFlags(defineScenarioFlags(defineInvariantFlags(defineJevFlags(defineMapleFlags(defineCoreFlags(new FlagRegistry()))))));
 }
 
 /** The run options of one run from flag values. A scenario cell's values, and a replay's recorded values
