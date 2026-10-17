@@ -1552,7 +1552,7 @@ func _automation_end(summary: Dictionary) -> void:
 		_request_shot("final.png")
 		get_tree().create_timer(FINAL_SHOT_TIMEOUT, true, false, true).timeout.connect(_quit_without_final_shot)
 	else:
-		get_tree().quit()
+		WebHandoff.exit_app(get_tree())
 
 
 ## --quit-after fallback: no frame was drawn in FINAL_SHOT_TIMEOUT real seconds, so quit without final.png.
@@ -1562,7 +1562,7 @@ func _quit_without_final_shot() -> void:
 	_quit_after_capture = false
 	print("RunScene: final.png skipped: no frame was drawn within %.0f s (window occluded or minimized?)"
 		% FINAL_SHOT_TIMEOUT)
-	get_tree().quit()
+	WebHandoff.exit_app(get_tree())
 
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
@@ -1643,7 +1643,7 @@ func _capture() -> void:
 	_skip_perf_frames = 2
 	if _quit_after_capture:
 		_quit_after_capture = false
-		get_tree().quit()
+		WebHandoff.exit_app(get_tree())
 
 
 func _record_frame(frame_ms: float, work_us: int) -> void:

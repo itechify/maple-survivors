@@ -685,7 +685,7 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 
 - Our code: original. Godot (MIT) notices ship with exports: `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
   engine's licence, its bundled components and their licence texts, from the engine itself), `WZIMPORT_LICENSES.txt`
-  (every crate's licence files) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
+  (every crate's licence files), `ARIMO_OFL.txt` (the bundled font's licence) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
   (MIT/Apache/Zlib); the list is in `THIRD_PARTY_NOTICES.md`.
 - Cosmic (AGPL-3.0) and the AGPL/GPL/MPL clients: facts and prose descriptions only, never code. Where a constant comes
   from them it is labelled with its tier and source in `docs/GAME_DESIGN.md`.
@@ -782,3 +782,56 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 **Verdict: pass.** In Chrome the game holds the desktop bar (60 FPS at 330-400 mobs on the dev PC) at the 330-341 mobs
 it reaches, with no engine or presentation change. On web the sim costs about 1.4x desktop and frame time about
 1.6-1.8x.
+
+### Web profile (#134)
+
+Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`: `OS.has_feature("web")`, with a
+`forced` override so unit tests can run the web branches on desktop). Desktop behaviour is unchanged. There is no
+`JavaScriptBridge` and no JavaScript in `game/`: the game talks to the web shell (`web/`) with files and by quitting.
+
+- **Cache location:** `AssetCachePaths.resolve_cache_root()` is always `<user data dir>/asset_cache/v83`, i.e.
+  `/userfs/MapleSurvivors/asset_cache/v83`, where the shell writes it. The `MAPLE_SURVIVORS_CACHE` env var and the
+  `cache_dir` / `wz_root` settings are skipped, and `resolve_wz_root()` is `""`. The pure rule is
+  `AssetCachePaths.cache_root_for(web, env, configured, user_dir)`.
+- **Hand-off (`scripts/core/web_handoff.gd`, `WebHandoff`):** the browser build cannot run `wzimport` or copy files, so
+  the title's "Re-import WZ data", "Export save" and "Import save" (and the import screen's button when there is no
+  cache) write the request marker and quit; the shell reads and deletes it after the engine exits, does the work and
+  starts a new engine. Marker: `user://web_request.json` = `{"format":1,"request":"reimport"|"export_save"|"import_save"}`,
+  written with `FileAccess` and closed in a normal frame (the engine syncs `/userfs` to IndexedDB after any frame in
+  which a file was closed after writing, and once more on quit; nothing written during teardown arrives).
+  `WebHandoff.quit_to_shell(tree, kind)` runs the BINDING sequence: flush `user://save.json` for the two save kinds
+  (`Flow`'s `SaveData.save_file()`), write the marker, stop every `AudioStreamPlayer` under the root, set
+  `tree.paused = true`, then `tree.quit()`. Without the audio stop and the pause Godot 4.7.2's web teardown throws on
+  the closed AudioContext and `onExit` never fires (section 10 "Quitting on web"). `WebHandoff.exit_app(tree, code)` is
+  the same quit without a marker, used on web by the tool quits (`--shot`, `--quit-after`, run launcher) so automated
+  browser runs also end with `onExit`. Seams for tests: marker path, save and the final quit callable are parameters
+  (`tests/unit/test_web_handoff.gd`).
+- **Import screen:** on web it has no folder field, Browse or `FileDialog` and never reaches `OS.execute*`; one button
+  hands over with `reimport` (the screen only shows when the cache is missing; the title goes straight to the marker).
+- **Title:** no Quit (hidden; Esc does nothing there). Three plates on the bottom plank: Fullscreen, Export save,
+  Import save.
+- **Fonts (`MapleFonts`, `assets/fonts/arimo/`):** a browser has no system fonts, and a `SystemFont` with no match is
+  drawn with Godot's built-in font whatever its `fallbacks` hold (checked on desktop with a font name that does not
+  exist: same size as `ThemeDB.fallback_font`). `MapleFonts.make(names, weight)` therefore returns the bundled Arimo
+  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont: no
+  antialiasing, normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
+  `SystemFont` (Arial, Tahoma, Dotum) with Arimo in its `fallbacks` otherwise, so desktop keeps real Arial. Arimo is
+  metric compatible with Arial. Licence: SIL OFL 1.1 (`assets/fonts/arimo/OFL.txt`, `THIRD_PARTY_NOTICES.md`;
+  `scripts/export.sh` copies it to `ARIMO_OFL.txt` beside the exe). `MapleText.font`, `HudWidget.make_font` and
+  `Hud.make_font` return `Font` now.
+- **Display:** no window size/position calls (`window_scale` ignored) and no `Engine.max_fps` / vsync (the browser paces
+  frames with requestAnimationFrame); the project's stretch (800x600 expand, integer scale, fractional below 800x600)
+  is applied to the tab size by the existing `fit_viewport()` logic (`fill_window` keeps its default off, as on
+  desktop). Godot emits no `size_changed` when a tab shrinks below the base size while the stretched view stays 800x600
+  (seen in Chrome: 800x600 -> 640x480 kept a cropped 1x view), so on web `Settings._process` re-fits whenever
+  `root.size` changed. The Options window shows a FULLSCREEN check box in place of the FRAME CAP row, and the title has a
+  Fullscreen plate; both call `GameSettings.toggle_fullscreen()` straight from the click (browsers only allow fullscreen
+  inside an input handler) and read the state back from `window_get_mode()`, so leaving with Esc cannot desync them.
+- **Keys:** Godot's web input calls `preventDefault()` on every key event of the focused canvas (the shell focuses it,
+  `html/focus_canvas_on_start`), so Left Alt (Firefox/Chrome menu), Space, arrows, Tab and F5/F11/F12 should not
+  trigger browser actions while the game has focus. Checked under Playwright's synthetic key events in Chrome and
+  Firefox: every key above reached the page with `defaultPrevented` set and Alt jumps. Synthetic events do not run the
+  browser's own accelerators (reload, fullscreen, developer tools), so the real-keyboard behaviour of F5/F11/F12 and of
+  the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
+  bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
+  Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).

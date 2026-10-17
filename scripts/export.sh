@@ -3,7 +3,8 @@
 # plus the release wzimport.exe next to it (the import screen looks for the importer beside the game executable) and
 # the licence notices that must ship with them: THIRD_PARTY_NOTICES.md, GODOT_LICENSES.txt (the engine's MIT licence
 # and its bundled components, written by game/tools/write_licenses.gd from the engine itself) and WZIMPORT_LICENSES.txt
-# (the licence files of every crate in tools/wzimport/Cargo.lock, found through `cargo metadata --offline`).
+# (the licence files of every crate in tools/wzimport/Cargo.lock, found through `cargo metadata --offline`) and
+# ARIMO_OFL.txt (the licence of the bundled fallback font).
 # game/export/ is gitignored; nothing from the player's WZ files is bundled (the build reads the asset cache at
 # %APPDATA%/MapleSurvivors/asset_cache/v83, or runs the bundled importer from its import screen).
 #
@@ -55,6 +56,8 @@ set -e
 
 # Licence notices for the engine.
 cp "$REPO/THIRD_PARTY_NOTICES.md" "$OUT_DIR/"
+# The bundled Arimo font is inside the exe's pck; its licence (SIL OFL 1.1) travels beside it.
+cp "$PROJECT/assets/fonts/arimo/OFL.txt" "$OUT_DIR/ARIMO_OFL.txt"
 GODOT_LIC="$OUT_DIR/GODOT_LICENSES.txt"
 "${GODOT_CMD[@]}" --headless --path "$PROJECT" --script res://tools/write_licenses.gd -- \
   "$(cygpath -m "$GODOT_LIC" 2>/dev/null || echo "$GODOT_LIC")" >/dev/null 2>&1 || true
