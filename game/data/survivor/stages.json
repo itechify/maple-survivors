@@ -97,7 +97,7 @@
 			"original_life": {"210100": 25, "130101": 5}
 		},
 		"dark_cave": {
-			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Ordinary mobs use contact damage only (#76).",
+			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks and Jr. Boogie casts Seal (#76; cadence in balance.json mob_attacks / mob_skills.seal).",
 			"map_id": 105050400,
 			"name": "Dark Cave",
 			"duration": 900,
