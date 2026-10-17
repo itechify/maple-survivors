@@ -36,8 +36,8 @@ The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking
 existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
 and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
 tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
-The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
-Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK's face and hair) with the
+character's worn equipment (spec #33, #105). Hub movement never changes the saved character.
 
 ## 2. Controls
 
@@ -53,7 +53,10 @@ Beginner's nonzero beginner_weapon overrides its default. Hub movement never cha
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
-| Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
+| Equip window | E (also Menu -> Equip; in the Free Market too): double-click a worn item to take it off, drag it onto the Item window likewise |
+| Item window | I (also Menu -> Item; in the Free Market too): tabs Equip / Use / Set-up / Etc / Cash; double-click an item or drag it onto the Equip window to wear it; drag it off the windows to discard it (asks first) |
+| HP / MP potion | Del (also Q) / End (E opens the Equip window, as in v83) |
+| Menu | the status bar's Menu button: Equip, Item, Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
@@ -65,7 +68,7 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
-Teleport, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+Teleport, Equip, Item, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
@@ -77,6 +80,22 @@ stack (a click brings one to the front). The run is paused while any is open, as
 also open over a level-up, job or advancement choice; they draw above it, and the choice ignores input until they are
 closed. The Stat window is the v83 one (`UIWindow.img/Stat` with its detail panel), read-only: AP is spent
 automatically, so there are no +AP buttons, and stats the game does not model (guild, fame, hands) show "-".
+
+The Equip and Item windows (#108) are the v83 ones (`UIWindow.img/Equip`, `UIWindow.img/Item`) and open in a round
+(pausing it like the other in-run windows) and in the Free Market, which hosts the same window stack. The Equip
+window shows each worn item's icon in its v83 slot (CAP, CLOTHES for a top or an overall, PANTS, SHOES, GLOVES,
+WEAPON); a double-click takes an item off into the inventory, as does dragging it onto the Item window. The Item
+window has the v83 tabs: Equip holds the 24 slots of spare equipment (a double-click, or a drag onto the Equip
+window, wears an item, swapping out what was in its slot; a refused v83 requirement shows a message and changes
+nothing), Use holds the HP and MP potion stacks (read-only, the potions keep their quickslot keys) and the scroll
+stacks, Set-up / Etc / Cash are empty, and the meso line shows the character's mesos. Dragging equipment or a scroll
+stack off the windows asks v83's YesNo question and then destroys the item (it is not dropped on the ground, the
+magnet would take it straight back; worn items have to be taken off first, potions are never discarded). Hovering
+an item shows the v83 tooltip (name with "(+N)" after N successful scrolls, icon, REQ LEV / STR / DEX / INT / LUK
+with the unmet ones in red, the job row, CATEGORY, ATTACK SPEED, the stats, NUMBER OF UPGRADES AVAILABLE, the
+String.wz description). Every change goes through the character's RunWorld, so the derived stats, the drawn look
+(hat, top, bottom, overall, shoes, gloves, weapon, on character select too) and, in the hub, the save slot follow at
+once.
 
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
@@ -389,6 +408,29 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
+
+`ISOLATE=s33t105 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache (spec #33 copy plus the `barehands` weapon sound), unforced branches, 1,800 s cap, no PATCH or
+tuning, on the ticket branch (base `db1c5cb`, before #106). The fixed `balance.player.equipment` outfit is gone: a
+fresh Beginner now wears the first MakeCharInfo outfit as worn equipment (1040002 / 1060002 / 1072001 / 1302000),
+which has exactly the old outfit's stats, and Magician advancement grants the same Wooden Wand the old weapon rule
+used. So every outcome, end time, Magician time and potion total equals the #79 combined smoke below; the only new
+simulation output is one `equipment_changed` event at the wand grant (the `test_character_baseline` stream hash
+changes by that event alone: filtering it out reproduces the old hash). All 12 runs finish with no crashes, script
+errors or world warnings. Raw records: ignored `_scratch/t105_smoke/`.
+
+| Stage / policy | Clear/dead #79 -> #105 | End seconds (seed order 1/2/2026) | MP collected/used | Magician s |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 780.4/791.1/907.5 (unchanged) | 158/158 (unchanged) | 266.1–274.7 |
+| Henesys random | 1/2 -> 1/2 | C/437.8/624.0 (unchanged) | 168/168 (unchanged) | 265.4–271.6 |
+| Tree bot | 0/3 -> 0/3 | 652.3/677.4/128.3 (unchanged) | 136/136 (unchanged) | 224.5–249.6 (2 runs) |
+| Tree random | 0/3 -> 0/3 | 617.5/165.0/88.4 (unchanged) | 80/77 (unchanged) | 217.8 (1 run) |
+
+Henesys reaches Magician and Mano in 3/3 per policy; Mano completes 3/3 (bot) and 2/3 (random). Tree is record-only.
+No stop-and-ask gate. Characters created with other clothes or weapons now get those items' own stats (every
+creation top/bottom/shoes is W.DEF 3/2/2 in v83, so only the Beginner weapon choice differs, as before).
 
 #### #34 / #115 NX award regression smoke (2026-10-16)
 
@@ -1882,6 +1924,55 @@ long platform above the ground (mobs walking to its near drop, one mid-fall at 1
 and 14:00; they are on their way in, not queueing. On the Hill the crowd presses the player along its own floor from
 5:00 (a row of snails on a small platform above, mobs dropping in at the screen edge).
 
+#### #106 automatic LUK for Magicians regression smoke (2026-10-16)
+
+No tuning: `ISOLATE=s33t106 MAPLE_SURVIVORS_CACHE=<spec33 cache-t106> bash scripts/balance.sh 1 2 2026`, both stages and
+`bot`/`random`, real cache, no patch. Baseline is the same smoke on db1c5cb (pre-change main, extracted to `_scratch`).
+All 12 runs completed with exit 0, no script errors, no world warnings. Henesys still reaches Magician (about 4:30 Lv10,
+266-275 s Magician seconds) and the first boss in every run; Tree remains record-only. No held-out seeds were used.
+
+| Stage / policy | Clear / dead | Death seconds, after (before) | Lv27-35 end level, after (before) | MP-short s, after (before) |
+|---|---|---|---|---|
+| Henesys bot | 0 / 3 | 14:46, 13:52, 15:58 (13:00, 13:11, 15:07) | 27, 34, 35 (25, 33, 33) | 142, 220, 246 (117, 260, 287) |
+| Henesys random | 1 / 2 | 7:46, 9:39 (7:17, 10:24) | 11, 24, 42 (11, 27, 44) | 56, 99, 202 (54, 71, 176) |
+| Tree bot | 0 / 3 | 10:42, 11:06, 2:08 (10:52, 11:17, 2:08) | 3, 22, 24 (3, 22, 25) | 92, 125, 196 (92, 114, 202) |
+| Tree random | 0 / 3 | 10:47, 2:45, 1:28 (10:17, 2:45, 1:28) | 3, 4, 25 (3, 4, 24) | 58, 100, 123 (58, 100, 123) |
+
+Magician seconds are identical in every row. Henesys bot fight times for the first boss (2220000) are unchanged except one seed at 19.4 s -> 19.6 s; the
+second boss (6130101) completed-fight range moved from 51-64 s to 30-65 s (n=2 completed each, one unfinished each), so
+its timing is recorded here as changed, not tuned. The expected effect is visible only in Magician
+stats: at Lv10 LUK is 12 (was 4) and INT 41 (was 49), and at Lv70 INT is 281 instead of 349. Those are the
+recorded trade-off, not a tuning result. Raw records stay in `_scratch/t106_smoke/` and `_scratch/t106_smoke_base/`.
+
+#### Spec #33 / #107 meso drops regression smoke (2026-10-17)
+
+No tuning: `ISOLATE=s33t107<a-d> bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache, no held-out seeds, on the ticket branch (base: the #105 + #106 integration branch). "Before" is the
+same code with `PATCH={"balance":{"mesos":{"chance":0,"boss_drops":0}}}`, which reproduces the pre-#107 event stream
+byte for byte (`test_character_baseline` hash `6ff18c3e...`), and its numbers equal the #106 smoke above. All 12 runs
+completed with exit 0, no script errors and no world warnings. Henesys still reaches Magician (4:30-4:45) and Mano in
+every bot run; Tree remains record-only.
+
+| Stage / policy | Clear / dead before -> after | End seconds seed 1/2/2026, before -> after | Mesos earned per round (seed 1/2/2026) |
+|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 887/833/959 -> 859/778/899 | 210,406 / 83,846 / 209,566 |
+| Henesys random | 1/2 -> 1/2 | C 1003/466/580 -> C 995/462/346 | 321,062 / 18,298 / 11,452 |
+| Tree bot | 0/3 -> 0/3 | 643/666/128 -> 622/157/128 | 208,404 / 3,108 / 1,680 |
+| Tree random | 0/3 -> 0/3 | 648/165/88 -> 747/158/88 | 289,758 / 2,520 / 1,218 |
+
+The runs diverge slightly from "before" because mesos change the drop-pop RNG draws and the sensible bot now walks to
+coins like any other drop (its drop-chasing code is unchanged and covers every pickup kind); two seeds die earlier
+(Henesys random 2026, 9:40 -> 5:46, before Mano; Tree bot seed 2, 11:06 -> 2:37), none die later by more than that
+chaos allows, and bosses killed per run match "before" except those two runs and Tree random seed 1 (one more). That is
+recorded as changed, not tuned.
+
+Meso calibration (set once, no loop): the multiplier `balance.mesos.mult` is 14. At multiplier 1 the only Henesys
+clear in the smoke (random policy, seed 1, 3,259 kills, all three bosses) earned 22.9k mesos, and the sensible bot
+earned about 15k by its 14:19 and 14:59 deaths, so 14 puts that clear at 321k, inside the owner's 300-350k target
+for a clear (the later equipment sales are not in this number). The multiplier is a data value; NX upgrades (#34) may
+raise it. Because the coin sprite follows the final amount, a x14 Snail drop (56-84) already shows the gold coin.
+Raw records: ignored `_scratch/t107_smoke/` and `_scratch/t107_base/`.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2104,6 +2195,11 @@ quantities per kind.
 - **Attributes and AP** (tier C, survivor choices): start at STR 12, DEX 5, INT 4, LUK 4, with 5 AP per level.
   Beginners assign AP to STR. On advancement the AP earned above those base stats moves to the new job's primary
   stat (INT for Magician); subsequent AP goes there too. The job's nearest configured ancestor supplies the rule.
+  A job line may name a secondary stat (`balance.json/player.ap_secondary`, #106): earned AP fills it first, up to
+  its base value's target for the character's level, and the rest goes to the primary stat. The Magician's LUK target
+  is about level + 2 (tier C; v83 reqLUK 15 at Lv13 ... 70 at Lv68), so a Magician meets the Lv68 equipment LUK and
+  its INT is lower by exactly the points moved to LUK (Lv70: INT 281 instead of 349). The split is recomputed from
+  earned AP and the level, so existing snapshots need no format change.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
@@ -2112,9 +2208,21 @@ quantities per kind.
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
   the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
   Max MP grows outside a level-up (job grants). It never restores HP.
-- **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
-  active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
+- **Defense and avoid**: W.DEF and M.DEF sum the worn equipment's `incPDD` and `incMDD`, plus active defense
+  modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
+- **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
+  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
+  accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
+  modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
+  Equipping checks v83 `reqLevel`, `reqJob` (bit mask 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate; 0 all)
+  and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
+  weapon are the first worn equipment with plain WZ stats; a character without a snapshot wears the first creation
+  options (`Equipment.DEFAULT_OUTFIT`, tier A). Advancing to Magician grants and wears the Wooden Wand 1372005 and
+  moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C). Without a weapon the basic
+  attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
+  impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
 
 ## 6. Combat
 
@@ -2622,12 +2730,42 @@ speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interva
 starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
 the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
 
-`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
-presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
-when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Spec #33 (#105) replaces that rule: the creation outfit and weapon are worn equipment instances in
+CharacterSnapshot format 2, and Magician advancement grants the Wooden Wand (the previous weapon goes to the
+inventory). `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the worn equipment. Slots, rounds and #71's Free Market use this shared presentation helper.
 Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
 with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
-shape). The snapshot's `beginner_weapon` persists even after advancement.
+shape). Format-1 characters keep loading: their look equips plus the frozen #32 weapon rule (`beginner_weapon` for a
+Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when they migrate.
+
+| Equipment rule (spec #33) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
+| `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
+| Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
+| Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
+| Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory, or is lost if it is full (`balance.player.weapon_grants`) | C | Owner #33 triage |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
+| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
+
+| Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Coin sprites | Amount < 50 bronze 09000000, 50-99 gold 09000001, 100-999 bundle 09000002, 1000+ bag 09000003 (`MesoDrops.BRACKETS`) | B | Two third-party client reimplementations |
+| Coin art and frames | `Item.wz/Special/0900.img/<id>/iconRaw/0..3` (no `info` node, no `delay`); item type 9 = `Special` in the importer and `AssetLibrary` | A | v83 Item.wz |
+| Frame time | 100 ms per coin frame | C | Ours (WZ has no delay) |
+| Per-mob amount | `mobs.json` `mesos` [min, max): uniform integer in [min, max); every mob of the three rosters and their bosses except the four 9300xxx event mobs (King Slime 9300003, 9300062-9300064) | B | v83 server drop data (Cosmic `drop_data` rows with itemid 0), used as facts |
+| Fallback amount | Mobs with no v83 range roll around 4 + 1.5 x level, x0.8 to x1.2 (`balance.mesos.fallback`) | C | Ours, fitted to the early-roster ranges |
+| Drop chance | `balance.mesos.chance` 0.4 per kill (elites too) | B | v83 server reference: 40% at rate 1 |
+| Multiplier | `balance.mesos.mult`, one number scaling every amount, set once from an estimate (see 4.2 #107; 14) | C | Owner: about 300-350k mesos per sensible-bot Henesys clear; NX upgrades (#34) may raise it |
+| Boss drops | `balance.mesos.boss_drops` (4) bundles per scheduled boss death, each rolled from its range, no chance roll | C | Ours |
+| Lifetime | Mesos never expire during a round, never merge, never count toward the EXP-drop cap; magnet and collect radius like EXP drops | C | Owner #33 |
+| Pickup sound | `Sound.wz/Game.img/PickUpItem` (v83 Game.img has no separate meso sound; DropItem plays on the drop) | A | v83 Sound.wz |
+| Pickup notice | "You have gained mesos (+N)" in the system-message queue, one sum per frame | B | v83 client string pool 0x12F (open client reimplementations) |
+| Carry | `CharacterSnapshot.mesos` carries across rounds and is lost with the run; the HUD shows no meso total | C | Owner #33 |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
@@ -2813,6 +2951,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP (v83 Beginner, owner decision), STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
 | Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |
+| Magician secondary AP (LUK) | earned AP fills LUK until base LUK = level + 2 (keyframes 1 → 3, 200 → 202), the rest to INT; Beginner none | C | v83 Character.wz reqLUK pattern (15 at Lv13 ... 70 at Lv68), ticket #106 |
 | INT MP growth | Magician adds floor(INT / 10) to base growth, before assigning the new level's AP | B | pre-Big-Bang formula compilations, refs/research/v83-mechanics |
 | Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
@@ -2928,7 +3067,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
-| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill; fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
@@ -2937,6 +3076,12 @@ items) reaches a round as the setup key `account`, never inside the character.
 | NX crediting and account block (#115) | the award is added to `account.nx` inside the same atomic write as the clear's round-boundary snapshot (so it is spendable in the Free Market at once) or the death/victory run archive; an optional top-level save key `account: {nx, owned}` (absent = 0 NX, nothing owned), `SaveData.FORMAT` stays 2; tool rounds record `nx_awarded` / `bosses_killed` / `levels_gained` and never write a save | C | ours; seams.md (no format bump) |
 | NX display (#115) | results screen row "NX earned: +N NX" (persistent endings only); Free Market arrival notice "You have gained N NX." for 6 s under the instruction line; map select heading ends with the account balance | C | ours |
 | Cash Shop screen (#118, spec #34) | `scenes/ui/cash_shop.gd`: the v83 `UI.wz/CashShop.img` screen, 800x600 centred, EQUIP. (Hat, Face, Eye, Overall, Top, Bottom, Shoes, Glove, Weapon, Cape) and PET (Pet, Pet Equip.) tabs, ten cards per page. Items are filed by Commodity SN (`CashShop.listing`: category 2 equipment, 6 pets; earrings under Face and shields under Weapon as in v83; VAC, which has no SN, last under Pet Equip.). Card art positions and the buy dialog are WZ/capture-measured (tier A/B, `CashShop` constants); other tabs, GIFT/RESERVE, Search Item, Best Item contents, Charge/Check Cash/Code, the family tabs and ON toggle, the Item Inventory tabs and slot buttons are not drawn (out of scope). Click = try on (`CashShop.try_on`), BUY = confirm dialog (NX CREDIT line checked, the only currency) then `CashShop.buy`, which deducts, adds, saves in one write and removes the item from the list; locked cards show "Needs a pet." / "Needs Wing Boots, Binocular and a pet." instead of BUY; too little NX shows the notice "You don't have enough NX."; BUY EQUIPPED ITEM is disabled (one purchase per card), RETURN TO DEFAULT / REMOVE ALL reset / strip the preview; the Cash Inventory lists owned items read-only. SHOP buttons: map select (every tier, plate button beside Save & quit) and the Free Market status bar (`StatusBar.img/BtShop` at bar +(688, 20)); Leave = EXIT or Esc, back to where it was opened | A for art and prices; B/C for positions, wording, SHOP button placement | cashshop-refs/layout.md (private), v83 WZ; owner rule: match the real client layout |
+| Equip window layout (#108) | `UIWindow.img/Equip/backgrnd` 175x304; 32 px slot cells hat (38, 35), top / overall (38, 134), bottom (38, 167), shoes (71, 200), gloves (5, 167), weapon (104, 134); BtUIClose at (10, 281); opens left of the view's centre, the Item window right of it | C (measured on the v83 art; the cells cross-checked B against JourneyClient's slot offsets), A (art) | ours; `UIWindow.img/Equip` |
+| Item window layout (#108) | `UIWindow.img/Item/backgrnd` 175x289; tab glyphs (`Tab/enabled` shown, `Tab/disabled` the rest) at x 10 / 42 / 74 / 108 / 139 in the 19 px strip at y 23; slots 4 x 6 from (8, 50), 36 px apart horizontally and 34 vertically; stack counts in `Basic.img/ItemNo` digits at the slot's (1, 21); mesos right-aligned in the field (25, 267, 113x14) beside the baked MESOS; `BtCoin` shown disabled (mesos are never dropped) | C (measured on the v83 art; tab offsets B from JourneyClient), A (art) | ours; `UIWindow.img/Item` |
+| Inventory mouse protocol (#108) | a double-click wears / takes off; a press that moves 4 px starts a drag drawn under the cursor; the release resolves against the window stack (another inventory window takes the drop, no window = discard after the YesNo box, anything else nothing); a drop anywhere on the Equip window wears the item in its own slot | C (ours; v83 drags onto the exact slot) | ours |
+| Item tooltip (#108) | drawn dark box 262 px wide (v83 UI.wz has no UIToolTip.img); `ToolTip/Equip/Can` / `Cannot` label and digit art for REQ LEV / STR / DEX / INT / LUK (three digits, 6 px cells) and the job words; `Property` labels 3 CATEGORY, 4 ATTACK SPEED, 6-11 and 13-14 the attack / defence / accuracy / avoid / speed / jump lines, 16 NUMBER OF UPGRADES AVAILABLE; `ItemCategory` 1 HAT, 5 TOP, 6 BOTTOM, 7 SHOES, 8 GLOVE, 21 LONGCOAT; `WeaponCategory` by item id / 10000 - 100; `Speed` 0-6 FASTEST..SLOWEST from attackSpeed 2, 3, 4-5, 6, 7, 8, 9; STR / DEX / INT / LUK / MaxHP / MaxMP as text; "(+N)" after the name for N successful scrolls | A (art, read), B (speed words, scroll count: RE clients), C (layout, mapping) | ours; `UIWindow.img/ToolTip` |
+| Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
+| Cap hair cover (#108) | a cap whose `info/vslot` contains H5 (CpH5 half-cover, CpH1H5 full-cover) hides the hair's `hairOverHead` layers; a headband (CpH1) hides nothing; without a cap the `*BelowCap` layers are not drawn. Both this rule and the smap vslot hiding above apply (the drawn cap decides, a worn cash hat instead of the regular one); they differ only for CpH5 (this rule hides hairOverHead, the smap rule alone would not) and a hypothetical CpH1 (the reverse) | B | v83 client cap types (RE clients), re-implemented from prose |
 
 ## 12. Later phases
 

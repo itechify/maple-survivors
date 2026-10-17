@@ -156,6 +156,9 @@ func test_damage_digits_and_hud_art() -> void:
 	assert_eq(lib.anim("Skill.wz/000.img/skill/0001000/level/1/hit/0").frame_count(), 6)
 	assert_true(lib.anim("Map.wz/MapHelper.img/portal/game/pv").frame_count() > 1, "portal animation")
 	assert_true(lib.frame(AssetLibrary.item_icon_path(4000019)) != null, "Snail Shell iconRaw")
+	for coin in [9000000, 9000001, 9000002, 9000003]:
+		for frame in 4:
+			assert_true(lib.frame(AssetLibrary.meso_frame_path(coin, frame)) != null, "meso %d frame %d" % [coin, frame])
 	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
 
 

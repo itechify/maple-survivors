@@ -70,7 +70,8 @@ static func apply(setup: Dictionary, account: Dictionary) -> void:
 	if setup.has("character"):
 		character = (setup.character as Dictionary).duplicate(true)
 	else:
-		character = RunWorld.new({"data": setup.get("data", {})}).character_snapshot()
+		character = RunWorld.new({"data": setup.get("data", {}),
+			"equipment_info": setup.get("equipment_info", {})}).character_snapshot()
 	if account.has("cash"):
 		_set_or_erase(character, "cash", not account.cash.is_empty(), account.cash.duplicate())
 	if account.has("pet"):

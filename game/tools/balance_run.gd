@@ -216,7 +216,7 @@ func _init() -> void:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return _json(root, p),
-			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing)
+			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing, character)
 		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
 			quit(1)
@@ -493,6 +493,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
+		"mesos_earned": w.pickups.collected_mesos, "mesos_total": w.mesos,
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"potions_start": potions_start, "potions_left": {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)},
 		"potion_uses": potion_uses,
@@ -582,7 +583,8 @@ static func describe(r: Dictionary) -> String:
 		_mmss(float(r.job_t)), int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
-		"  EXP collected %d, expired %d (%d drops)" % [int(r.exp_collected), int(r.expired_exp), int(r.expired_drops)]])
+		"  EXP collected %d, expired %d (%d drops); mesos earned %d" % [int(r.exp_collected), int(r.expired_exp),
+			int(r.expired_drops), int(r.get("mesos_earned", 0))]])
 	for k: String in ["alive_by_min", "near_by_min", "eng_by_min", "stale_by_min", "drops_by_min", "level_by_min",
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
@@ -675,6 +677,7 @@ static func aggregate(records: Array) -> Dictionary:
 	result["late_mp_observed_runs"] = 0
 	result["late_mp_short_runs"] = 0
 	var magician_times: Array = []
+	var mesos_earned: Array = []
 	var fractions: Array = []
 	var fight_samples := {}
 	var censored_samples := {}
@@ -726,6 +729,8 @@ static func aggregate(records: Array) -> Dictionary:
 		if job_time >= 0.0:
 			magician_times.append(job_time)
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
+		if record.has("mesos_earned"):
+			mesos_earned.append(int(record.mesos_earned))
 		for key: String in ["potions_collected", "potions_used"]:
 			for kind: String in ["hp", "mp"]:
 				result[key][kind] += int(record.get(key, {}).get(kind, 0))
@@ -774,6 +779,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var mp_used := int(result.potions_used.mp)
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
+	result["mesos_earned"] = statistics(mesos_earned)
 	result["boss_hit_fraction"] = statistics(fractions)
 	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
@@ -847,6 +853,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
 	if summary.has("nx_awarded"):
 		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
+	if summary.has("mesos_earned"):
+		lines.append("  mesos earned per round " + _range(summary.mesos_earned))
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
 	for tier: String in UpgradePool.TIERS:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),

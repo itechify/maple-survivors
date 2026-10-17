@@ -86,7 +86,7 @@ bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` deco
 for both RunWorld and the Free Market.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
-draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while
+draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
 life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
 `--run` calls `start_run`, an independent one-off with no save writes.
@@ -169,7 +169,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, accessors `pos(i)`, `is_live(i)`, `is_settled(i)` (live and fully faded in), `mob_kind(i)`, `live_in_rect(area)` (ascending slots), `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray())`, per-shot pierce and already-hit list; optional live defense/immunity arrays are indexed by target slot at impact |
-| `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
+| `PickupSystem` | EXP, potion and meso drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `spawn_meso(pos, amount)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
 | `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `clone()` (an independent copy for previews) |
@@ -210,8 +210,10 @@ var setup := {
 	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
-		1302000: Dictionary, 1372005: Dictionary}, # canonical info of balance.player.equipment + every weapon_by_job
-		                                       # weapon (DataRepo.starter_equipment_ids), keyed by original item id
+		1302000: Dictionary, 1372005: Dictionary}, # canonical Character.wz info of Equipment.DEFAULT_OUTFIT, the
+		                                       # weapon_grants wand, every MakeCharInfo top/bottom/shoes/weapon and
+		                                       # every item setup.character holds (DataRepo.starter_equipment_ids),
+		                                       # keyed by original item id; req*, attackSpeed, afterImage, sfx
 	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
 	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots the worn weapons'
 	                                  # canonical info/afterImage names (WeaponInfo.afterimage_name)
@@ -280,8 +282,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count`, `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same) |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso), `potion_kind`, `count` (potion bundle or meso amount), `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos included) |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
@@ -302,6 +304,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
+| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item` and the Magician weapon grant in `change_job` |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
@@ -552,6 +555,18 @@ What the tables above leave open; the class doc comments have the rest.
   Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
   Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
   `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
+  **Mesos (#107):** kind `MESO` = 3 (`EQUIP` = 4 is reserved for #109) with `meso[i]` = the amount; `spawn_meso(pos, amount)`
+  picks the coin sprite item from the amount (`MesoDrops.sprite_item`: <50 bronze 09000000, 50-99 gold 09000001, 100-999
+  bundle 09000002, 1000+ bag 09000003). Like potions they never expire, merge or count toward `max_active`. A collected
+  one adds its amount to `step_mesos` (this step; RunWorld adds it to `mesos`) and `collected_mesos` (the round's total),
+  and its `pickup_collected` / `pickup_spawned` events carry `kind` `"meso"` with the amount in `count`.
+- **Mesos:** `MesoDrops` (pure statics) holds the brackets, `amount_range(level, listed, fallback)` and `roll(rng, span,
+  mult)` (uniform in [min, max), times the multiplier). A kill rolls `balance.mesos.chance` on its own RNG stream (9,
+  `meso_rng`), then the amount from `mobs.json` `mesos` (or the level fallback) x `balance.mesos.mult`;
+  a scheduled boss's death drops `balance.mesos.boss_drops` bundles with no chance roll. `RunWorld.spawn_meso(pos, amount)`
+  is the public seam; `RunWorld.mesos` is the carried total (snapshot format 2). PickupRenderer animates the coins
+  (`AssetLibrary.meso_frame_path`: `Item.wz/Special/0900.img/<id>/iconRaw/0..3`, 100 ms a frame); RunScene sums the frame's
+  collected mesos into one "You have gained mesos (+N)" message. The balance record carries `mesos_earned` per round.
 - **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
   `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
   `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
@@ -583,11 +598,15 @@ What the tables above leave open; the class doc comments have the rest.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
-`RunWorld` accepts an optional `setup.character` format-1 `CharacterSnapshot` and exposes
-`character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
+`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
+exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
 it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look and Beginner weapon.
-Resolved attributes/Fortune are also included for consumers. Each new world refills computed HP/MP and creates
+skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look, worn equipment and
+inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
+Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
+only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
+snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices worn equipment and
+`continue_character` migrates a format-1 save slot once. Each new world refills computed HP/MP and creates
 fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
 choice push an error, return empty in release and assert in debug. With no character the original setup/event
 path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
@@ -626,7 +645,7 @@ score setting. Both knobs are tier C survivor tuning.
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
 | `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the pure `sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. The one HUD control that takes the mouse is the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`, process mode ALWAYS so it works while the HUD is frozen). |
-| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
+| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The Equip and Item windows (#108; `InventoryWindow` base: the v83 double-click / drag protocol, `ItemTooltip`, `DropConfirm` on `Basic.img/YesNo`) show and change the character only through a RunWorld (`equip_item`, `unequip_item`, `discard_item`, `discard_scrolls`) and read their plain data through `InventoryModel`; `RunScene._on_item_action` maps the world's `equipment_changed` at once. The Free Market hosts the same stack (`FreeMarket.ui_windows`) over `FreeMarket.inventory`, a map-less RunWorld of the saved character whose `character_snapshot()` is written back into the save slot after every change. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 `RunScene.boss_bars()` builds presentation-only snapshots from live encounter records and swarm HP, independently
@@ -703,8 +722,9 @@ The real client's physics integrator and timestep, mob speed-stat conversion, pr
 fade timing, climb speed, camera smoothing, and the touch-damage formula are not recoverable from data or clean
 sources. Each is implemented as a labelled, data-driven constant so it can be corrected when better evidence appears.
 
-The canonical `equipment_info` supplies physical `incPAD`, magic `incMAD`, weapon speed, `afterImage` and `sfx`.
-`RunWorld.weapon_id()` selects the configured job weapon; `mob_defense(slot, magic)` reads live slot defense, and
+Worn equipment instances supply every `inc*` stat (W.ATT summed over all worn items); the canonical `equipment_info`
+supplies requirements, weapon speed, `afterImage` and `sfx`. `RunWorld.weapon_id()` is the worn weapon (0 means a
+bare-handed punch, `BasicAttack.BARE_HANDS`); `mob_defense(slot, magic)` reads live slot defense, and
 `physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
 new skills retain standing-only action presentation. Neither action changes movement or locks it.
 

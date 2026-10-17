@@ -10,6 +10,8 @@ extends Node2D
 ## --mode=montage --from=<items dir>: stacks the one-row sheets two per image (montage_<n>.png) for quick review.
 ## --mode=sets: every cash slot filled at once (a top + bottom set and an overall set, with a wand and a sword wearer,
 ##   standing and walking), named set_<n>.png.
+## --outfit=<ids> (any mode): the regular worn equipment under the cash items instead of the starter outfit (e.g. a
+##   B2 #108 hat, overall and gloves: --outfit=1002001,1050018,1082002,1072001); the weapons stay sword and wand.
 ## Needs the asset cache to contain the manifest's cash equipment (MAPLE_SURVIVORS_CACHE).
 
 const OUTFIT := [1040002, 1060002, 1072001]
@@ -19,6 +21,7 @@ const CELL := Vector2(190, 300)
 const SCALE := 3.0
 
 var _shots_dir := ""
+var _outfit: Array = OUTFIT
 
 
 func _ready() -> void:
@@ -26,6 +29,8 @@ func _ready() -> void:
 	var args := _args()
 	_shots_dir = String(args.get("shots", OS.get_user_data_dir().path_join("_test_cache")))
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
+	if args.has("outfit"):
+		_outfit = Array(String(args.outfit).split(",")).map(func(s: String) -> int: return int(s))
 	if String(args.get("mode", "items")) == "sets":
 		await _sets()
 	elif String(args.get("mode", "items")) == "montage":
@@ -52,7 +57,7 @@ func _items(args: Dictionary) -> void:
 			cash[slot] = id
 		var is_cover := _slot_name(id) == "weapon"
 		await _sheet("%s_%d" % [_slot_name(id), id], func(weapon: int) -> Dictionary:
-			return {"skin": 0, "face": 20000, "hair": 30030, "equips": OUTFIT + [weapon], "cash": cash},
+			return {"skin": 0, "face": 20000, "hair": 30030, "equips": _outfit + [weapon], "cash": cash},
 			2 if is_cover else 1)
 
 
@@ -68,7 +73,7 @@ func _sets() -> void:
 	for i in sets.size():
 		var cash: Dictionary = sets[i]
 		await _sheet("set_%d" % (i + 1), func(weapon: int) -> Dictionary:
-			return {"skin": 0, "face": 20000, "hair": 30030, "equips": OUTFIT + [weapon], "cash": cash})
+			return {"skin": 0, "face": 20000, "hair": 30030, "equips": _outfit + [weapon], "cash": cash})
 
 
 func _sheet(file_name: String, look_for: Callable, rows: int = 2) -> void:

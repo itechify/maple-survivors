@@ -50,9 +50,12 @@ func test_slow_respects_canonical_area_and_composes_with_speed_upgrades() -> voi
 	w.refresh_player_stats()
 	_ticks(w, 900)
 	assert_eq(w.player.speed_stat, 100, "125 upgraded speed times retained 80%")
+	w.loadout.add_player_mod("speed", "add", 10)
+	w.refresh_player_stats()
+	assert_eq(w.player.speed_stat, 108, "refreshing stats preserves the timed slow (135 x 80%)")
 	w.loadout.add_player_mod("speed", "add", 25)
 	w.refresh_player_stats()
-	assert_eq(w.player.speed_stat, 120, "refreshing stats preserves the timed slow")
+	assert_eq(w.player.speed_stat, 112, "the slow applies after the v83 speed cap (160 -> 140, x 80%)")
 
 
 

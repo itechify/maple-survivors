@@ -142,3 +142,51 @@ func test_without_vac_far_drops_stay_put() -> void:
 	var slot := _rest_drop(w, 1180.0)
 	PF.run(w, 240)
 	assert_eq(w.pickups.active[slot], 1)
+
+
+## A resting meso bundle of `amount` at (x, 0) (spec #33 #107 drops), without stepping the world.
+func _rest_meso(w: RunWorld, x: float, amount: int) -> int:
+	var slot := w.pickups.spawn_meso(Vector2(x, 0.0), amount)
+	w.pickups.state[slot] = PickupSystem.REST
+	w.pickups.vx[slot] = 0.0
+	w.pickups.vy[slot] = 0.0
+	return slot
+
+
+func test_the_pet_collects_mesos_credited_exactly_like_the_players_pickup() -> void:
+	var by_pet := _far_pet_world()
+	var by_player := _far_pet_world()
+	var start := by_pet.mesos
+	assert_eq(by_player.mesos, start)
+	var pet_slot := _rest_meso(by_pet, FAR.x + 30.0, 57)
+	var player_slot := _rest_meso(by_player, 120.0, 57)
+	var pet_got := PF.of_type(PF.run(by_pet, 40), "pickup_collected")
+	var player_got := PF.of_type(PF.run(by_player, 40), "pickup_collected")
+	assert_eq(pet_got.size(), 1)
+	assert_eq(player_got.size(), 1)
+	assert_eq(pet_got[0].pickup, pet_slot)
+	assert_eq(player_got[0].pickup, player_slot)
+	assert_eq(pet_got[0].collector, "pet")
+	assert_eq(player_got[0].collector, "player")
+	for e: Dictionary in [pet_got[0], player_got[0]]:
+		assert_eq(e.kind, "meso")
+		assert_eq(e.count, 57, "a meso event carries its amount")
+		assert_eq(e.exp, 0)
+	assert_eq(by_pet.mesos, start + 57, "the pet's mesos are the character's")
+	assert_eq(by_pet.mesos, by_player.mesos, "credited the same as the player's own pickup")
+	assert_eq(by_pet.pickups.collected_mesos, by_player.pickups.collected_mesos)
+	assert_eq(by_pet.pet_system.pickups, 1)
+	assert_eq(int(by_pet.character_snapshot().mesos), start + 57, "and carried into the snapshot")
+
+
+func test_vac_pulls_far_mesos_to_the_pet() -> void:
+	var w := PF.world([PF.KITTY, PF.WING, PF.BINOCULAR, PF.VAC])
+	PF.put_player(w, 300.0, 0.0)
+	PF.put_pet(w, Vector2(300.0, 0.0))
+	var start := w.mesos
+	for x in [20.0, 900.0, 1180.0]:
+		_rest_meso(w, x, 11)
+	var got := PF.of_type(PF.run(w, 360), "pickup_collected")
+	assert_eq(got.size(), 3)
+	assert_eq(w.mesos, start + 33)
+	assert_true(got.any(func(e: Dictionary) -> bool: return e.collector == "pet"), "far mesos flew to the pet")

@@ -80,6 +80,9 @@ func test_path_helpers() -> void:
 	assert_eq(AssetLibrary.mob_img_path(100100), "Mob.wz/0100100.img")
 	assert_eq(AssetLibrary.item_icon_path(4000019), "Item.wz/Etc/0400.img/04000019/info/iconRaw")
 	assert_eq(AssetLibrary.item_icon_path(2000000, false), "Item.wz/Consume/0200.img/02000000/info/icon")
+	# Type 9 Special items (the meso coins) animate under iconRaw/<n> without an info node.
+	assert_eq(AssetLibrary.item_icon_path(9000002), "Item.wz/Special/0900.img/09000002/iconRaw/0")
+	assert_eq(AssetLibrary.meso_frame_path(9000003, 2), "Item.wz/Special/0900.img/09000003/iconRaw/2")
 	assert_eq(AssetLibrary.bgm_path("Bgm01/CavaBien"), "Sound.wz/Bgm01.img/CavaBien")
 
 

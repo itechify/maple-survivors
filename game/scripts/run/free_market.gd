@@ -2,9 +2,17 @@ class_name FreeMarket
 extends Node2D
 ## Walkable round boundary. SceneFlow owns the saved character and the next tier.
 ## Uses PlayerMotion/PortalSet directly, without a RunWorld, swarm, casting or round timer.
+##
+## In-run windows (#108): the hub hosts the same WindowStack as a round (`ui_windows`, CanvasLayer 11) with the Equip
+## (E) and Item (I) windows. They read and change the carried character through `inventory`, a map-less RunWorld
+## built from the saved snapshot (the one owner of equipment rules); every change is written back into the snapshot
+## and the character's save slot at once, and the drawn look and the hub's speed / jump follow. Movement holds while a
+## window is open; Esc closes the front window before it opens the pause menu (handle_hotkey).
 
 const DT := 1.0 / 60.0 # tier C: same fixed tick as RunScene.
 const MAX_TICKS := 4 # tier C: same catch-up cap as RunScene.
+## Input action -> the window it toggles (the same keys as in a round; rebindable in Settings).
+const WINDOW_HOTKEYS := {"equip_window": "equip", "item_window": "item"}
 
 const NOTICE_TIME := 6.0 # tier C: seconds the arrival notice stays before fading.
 
@@ -24,7 +32,13 @@ var pause_menu: PauseMenu
 var status: HudStatusBar
 ## The status bar SHOP button (StatusBar.img/BtShop) that opens the Cash Shop (#118).
 var shop_button: WzButton
+## Transient messages above the status bar (a refused equip).
+var messages: HudMessages
+## The Equip / Item windows' stack (above the pause menu) and the character they work on.
+var ui_windows: WindowStack
+var inventory: RunWorld
 var npcs: Array[Dictionary] = []
+var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
 var _leaving := false
@@ -50,11 +64,12 @@ func _ready() -> void:
 		layer.add_child(MapleText.new("Free Market assets are missing. Reimport your v83 data.", MapleText.SIZE, MapleText.WHITE))
 		return
 	var data := DataRepo.load_all()
+	_data = data
 	var physics := library.img(DataRepo.PHYSICS_IMG)
 	motion = FreeMarketMotion.new(map.map_root, physics.root if physics != null else {}, data.balance)
 	var character: Dictionary = snapshot.get("character", {})
 	var loadout := _boundary_loadout(character, data)
-	motion.player.speed_stat = roundi(loadout.player_stat("speed", 100.0))
+	_apply_movement_stats(character, loadout)
 	_build_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library
@@ -76,14 +91,23 @@ func _ready() -> void:
 	camera.make_current()
 	map.camera = camera
 	_build_hud(character, data, loadout)
+	_build_windows(character, data)
 	_present(0.0)
 	var sfx := get_node_or_null("/root/Sfx") as AudioService
 	if sfx != null:
 		sfx.play_bgm(String(map.map_root.get("info", {}).get("bgm", "")))
 
 
+## Worn equipment's speed / jump count in the hub too, under the same v83 caps as in a round.
+func _apply_movement_stats(character: Dictionary, loadout: Loadout) -> void:
+	var worn: Dictionary = character.get("equipment", {}).get("worn", {})
+	motion.player.speed_stat = mini(Equipment.SPEED_CAP,
+		roundi(loadout.player_stat("speed", 100.0) + Equipment.total(worn, "incSpeed")))
+	motion.player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(Equipment.total(worn, "incJump")))
+
+
 func _process(delta: float) -> void:
-	if motion == null or _leaving or pause_menu.is_open():
+	if motion == null or _leaving or pause_menu.is_open() or windows_open():
 		return
 	_accumulator = minf(_accumulator + delta, DT * MAX_TICKS)
 	while _accumulator >= DT and not _leaving:
@@ -99,7 +123,7 @@ func _process(delta: float) -> void:
 
 ## Advances one fixed tick with the same movement intent as a round; out00 enters the next map select.
 func step_input(dt: float, input: MoveInput) -> void:
-	if motion == null or _leaving or (pause_menu != null and pause_menu.is_open()):
+	if motion == null or _leaving or (pause_menu != null and pause_menu.is_open()) or windows_open():
 		return
 	for event: Dictionary in motion.step(dt, input):
 		if event.type == "exit_requested" and flow != null:
@@ -113,11 +137,36 @@ func step_input(dt: float, input: MoveInput) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("jump"):
+	if event.is_action_pressed("jump") and not windows_open():
 		_jump_latch = true
-	if MapleWindow.is_cancel(event) and pause_menu != null and not pause_menu.is_open():
-		open_pause()
+	if handle_hotkey(event):
 		get_viewport().set_input_as_handled()
+
+
+## The hub's window keys: Esc closes the front in-run window, else opens the pause menu; the Equip / Item actions
+## toggle their windows (not while the pause menu is open); any other key goes to the front window. True when used.
+func handle_hotkey(event: InputEvent) -> bool:
+	if pause_menu == null or event.is_echo():
+		return false
+	if MapleWindow.is_cancel(event):
+		if ui_windows != null and ui_windows.close_top():
+			return true
+		if not pause_menu.is_open():
+			open_pause()
+			return true
+		return false
+	if not pause_menu.is_open() and ui_windows != null:
+		for action: String in WINDOW_HOTKEYS:
+			if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
+				ui_windows.toggle(String(WINDOW_HOTKEYS[action]))
+				return true
+	var top := ui_windows.top() if ui_windows != null else null
+	return top != null and top.handle_key(event)
+
+
+## True while an Equip / Item window is open (movement holds).
+func windows_open() -> bool:
+	return ui_windows != null and ui_windows.has_windows()
 
 
 ## Opens the boundary pause menu; motion holds until Resume or Save & quit.
@@ -198,6 +247,9 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 		fade.tween_interval(NOTICE_TIME)
 		fade.tween_property(notice_label, "modulate:a", 0.0, 1.0)
 		fade.tween_callback(notice_label.queue_free)
+	messages = HudMessages.new()
+	messages.name = "Messages"
+	layer.add_child(messages)
 	pause_menu = PauseMenu.new()
 	pause_menu.boundary_mode = true
 	pause_menu.quit_requested.connect(func() -> void:
@@ -222,6 +274,52 @@ func _open_shop() -> void:
 		return
 	_leaving = true
 	flow.goto_cash_shop("free_market")
+
+
+## The window stack (above the pause menu's layer) with the Equip and Item windows over `inventory`, a map-less
+## RunWorld of the carried character with the info of every item it holds.
+func _build_windows(character: Dictionary, data: Dictionary) -> void:
+	var lib := library
+	var creation := lib.img(CharacterCreation.IMG)
+	var infos := DataRepo.equipment_info(DataRepo.starter_equipment_ids(data, creation.root if creation != null else {},
+		character), func(p: String) -> Dictionary:
+			var w := lib.img(p)
+			return w.root if w != null else {})
+	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character})
+	var layer := CanvasLayer.new()
+	layer.name = "UiWindows"
+	layer.layer = RunScene.UI_LAYER
+	add_child(layer)
+	ui_windows = WindowStack.new()
+	layer.add_child(ui_windows)
+	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(inventory)))
+	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(inventory)))
+	ui_windows.changed.connect(func() -> void:
+		if windows_open():
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+			_jump_latch = false
+			_accumulator = 0.0)
+
+
+func _inventory_window(w: InventoryWindow) -> UiWindow:
+	w.item_action.connect(_on_item_action)
+	w.notice.connect(func(text: String) -> void: messages.push_notice("inventory", text))
+	return w
+
+
+## After an Equip / Item window changed the character: the snapshot and its save slot, the drawn look, the hub's
+## speed / jump and the other window follow at once.
+func _on_item_action(_action: String) -> void:
+	inventory.drain_events()
+	snapshot.character = inventory.character_snapshot()
+	avatar.set_look(character_look(snapshot.character, _data, flow.save_data().account.owned if flow != null else []))
+	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
+	for id: String in ["equip", "item"]:
+		var w := ui_windows.find_window(id)
+		if w != null:
+			w.queue_redraw()
+	if flow != null and flow.active_slot >= 0 and flow.save_data().update_slot(flow.active_slot, snapshot) != OK:
+		messages.push_notice("inventory", "Could not save the character.")
 
 
 func _build_npcs() -> void:

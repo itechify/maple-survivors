@@ -137,6 +137,7 @@ pub fn item_path(id: u64) -> Option<(String, String)> {
         3 => "Install",
         4 => "Etc",
         5 => "Cash",
+        9 => "Special", // the meso coin sprites 09000000-09000003
         _ => return None,
     };
     Some((format!("Item.wz/{kind}/{:04}.img", id / 10000), format!("{id:08}")))
@@ -310,6 +311,7 @@ mod tests {
         assert!(character_img_path(1802000).is_none());
         assert_eq!(item_path(4000019).unwrap(), ("Item.wz/Etc/0400.img".to_string(), "04000019".to_string()));
         assert_eq!(item_path(2000000).unwrap().0, "Item.wz/Consume/0200.img");
+        assert_eq!(item_path(9000003).unwrap(), ("Item.wz/Special/0900.img".to_string(), "09000003".to_string()));
         assert!(item_path(1000000).is_none());
     }
 

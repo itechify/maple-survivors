@@ -14,7 +14,9 @@ extends Node2D
 ## and hats, eye accessories and earrings, which keep one `default` frame). Frames with `face = 0` (ladder, rope) hide
 ## the face and the face accessory. The face plays `default` with an occasional `blink` (tier C: every 2-5 s); a face
 ## accessory follows the same expression and frame. Without a cap the hair's *BelowCap layers are not drawn (they
-## replace hair under a cap).
+## replace hair under a cap); a cap whose `info/vslot` covers the top of the head (H5: CpH5 half-cover, CpH1H5
+## full-cover; tier B, RE of the v83 client's cap types) hides hairOverHead, a headband (CpH1) hides nothing
+## (hair_layers_skipped; the drawn cap decides, so a cash hat's vslot when one is worn).
 ## Cash equipment (`look.cash`, {slot: id} already filtered by account ownership, spec #34) draws instead of the regular
 ## equip of its slot (AvatarLayers.suppressed_by_cash); an overall is stored under top and bottom and drawn once. A
 ## weapon cover draws the art of the real weapon's type (AvatarLayers.weapon_type) for the current stance, and the real
@@ -60,6 +62,7 @@ var _sources: Array[Dictionary] = []
 var _weapon_type := 0
 var _smap: Dictionary = {}
 var _has_cap := false
+var _cap_vslot := ""
 var _zorder: Dictionary = {}
 var _delays: PackedFloat32Array = []
 var _expression := "default"
@@ -92,6 +95,7 @@ func set_look(d: Dictionary) -> void:
 	_hair = _load(part_img_path(int(look.get("hair", 30030))))
 	_sources.clear()
 	_has_cap = false
+	_cap_vslot = ""
 	_weapon_type = 0
 	var cash := _cash_slots()
 	for id: Variant in look.get("equips", []):
@@ -107,6 +111,11 @@ func set_look(d: Dictionary) -> void:
 			worn_cash.append(cash_id)
 			_add_source(cash_id, true)
 	_drop_regular_replaced_by_vslot()
+	for src in _sources:
+		if _category(src.id) == HAT_CATEGORY:
+			_has_cap = true
+			var info: Variant = (src.img as WzImg).root.get("info")
+			_cap_vslot = String(info.get("vslot", "")) if info is Dictionary else ""
 	_zorder = zmap_order(lib)
 	_smap = AvatarLayers.smap_codes(lib)
 	play(stance, true, looping)
@@ -290,7 +299,7 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 		var hair_frame: Variant = _frame_node(_hair.root.get(st), fi)
 		if hair_frame == null:
 			hair_frame = _hair.root.get("backDefault" if back else "default")
-		_collect(parts, hair_frame, _hair, not _has_cap)
+		_collect(parts, hair_frame, _hair, hair_layers_skipped(_has_cap, _cap_vslot))
 	var cover := _cover_frame(st, fi)
 	var vslots := {}
 	for src in _sources:
@@ -307,12 +316,23 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 		if fr[0] == null:
 			continue
 		vslots[id] = src.vslot
-		_collect(parts, fr[0], src.img, false, id, fr[1])
+		_collect(parts, fr[0], src.img, PackedStringArray(), id, fr[1])
 	var placed := layout_parts(parts)
 	for i in parts.size():
 		parts[i].pos = placed[i]
 	parts = AvatarLayers.hide_by_vslot(parts, _smap, vslots)
 	return sort_by_z(parts, _zorder)
+
+
+## Substrings of the hair layer names that are not drawn: "BelowCap" without a cap (those layers replace hair under
+## one); "OverHead" under a cap whose vslot covers the top of the head (H5); nothing under a headband (tier B: the v83
+## client's cap types, re-implemented from prose).
+static func hair_layers_skipped(has_cap: bool, vslot: String) -> PackedStringArray:
+	if not has_cap:
+		return PackedStringArray(["BelowCap"])
+	if vslot.contains("H5"):
+		return PackedStringArray(["OverHead"])
+	return PackedStringArray()
 
 
 ## Anchor math: positions (where each part's origin goes) for parts [{"map": {name: Vector2}}]; part 0 is the body
@@ -447,14 +467,12 @@ func _cash_slots() -> Dictionary:
 	return out
 
 
-## Loads a worn item and appends it to the sources; remembers a cap.
+## Loads a worn item and appends it to the sources (set_look then finds the drawn cap).
 func _add_source(id: int, is_cash: bool) -> void:
 	var w := _load(part_img_path(id))
 	if w == null:
 		return
 	_sources.append({"id": id, "img": w, "vslot": AvatarLayers.vslot_set(w), "cash": is_cash})
-	if _category(id) == HAT_CATEGORY:
-		_has_cap = true
 
 
 ## Drops the regular equips a worn cash item covers with its vslot (the pants under a MaPn vest, a plain cap under a hat).
@@ -486,10 +504,11 @@ static func _category(id: int) -> int:
 	return id / 10000
 
 
-## Collects the canvases of a frame node as parts. `part_owner` is the worn item's id (0 for body, head, face and hair);
-## `rel` is the frame node's path inside `w`, used to follow links the importer could not resolve.
-func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool = false, part_owner: int = 0,
-		rel: String = "") -> void:
+## Collects the canvases of a frame node as parts, leaving out layers whose name contains one of `skipped`.
+## `part_owner` is the worn item's id (0 for body, head, face and hair); `rel` is the frame node's path inside `w`, used
+## to follow links the importer could not resolve.
+func _collect(parts: Array, frame_node: Variant, w: WzImg, skipped: PackedStringArray = PackedStringArray(),
+		part_owner: int = 0, rel: String = "") -> void:
 	if not (frame_node is Dictionary) or w == null:
 		return
 	for k: Variant in (frame_node as Dictionary).keys():
@@ -498,7 +517,11 @@ func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool 
 			c = w.node(rel.path_join(String(k)))
 		if not WzImg.is_canvas(c):
 			continue
-		if skip_below_cap and String(k).contains("BelowCap"):
+		var hidden := false
+		for s in skipped:
+			if String(k).contains(s):
+				hidden = true
+		if hidden:
 			continue
 		var f := SpriteAnim.make_frame(c, w)
 		var m: Dictionary = {}

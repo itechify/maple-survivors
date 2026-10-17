@@ -94,7 +94,7 @@ The manifest says what to import. The importer expands convenience entries into 
 | `mapimgs[]` (full WZ path) | a map-structured img outside `Map.wz/Map` (the v83 login scene `UI.wz/MapLogin.img`: `back`, layers `0`-`7` with `obj`/`tile`, `info/bgm`): the whole img plus exactly the dependencies a `maps[]` entry gets (backs, tiles, objs, BGM, map mark, life mobs). A missing img is an error |
 | `mobs[]` | `Mob.wz/<7-digit>.img` + its `info/link` target(s) + `Sound.wz/Mob.img/<7-digit>` |
 | `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon |
-| `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash) |
+| `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash, 9 Special: the meso coins) |
 
 The 116 curated cash equipment ids of `game/data/survivor/cash_items.json` (spec #34) are in `character[]` (caps,
 accessories, coats, longcoats, pants, shoes, gloves, shields, capes and `Weapon/01702xxx` covers). The importer resolves
@@ -250,6 +250,17 @@ PNG measured in an exported build).
   104040000 foothold count 181).
 - Godot tests read a tiny cache written by the test itself (no Nexon data), plus `require_cache()` integration tests
   against the real cache.
+
+## Equip and Item windows (#108)
+
+The whole `UI.wz/UIWindow.img` already holds the `Equip` and `Item` window art, `IconBase`, `KeyConfig/icon/0-1`
+and the `ToolTip/Equip` label art the windows and the item tooltip draw; `Basic.img` holds `YesNo`, `BtYes`,
+`BtNo` and the `ItemNo` stack digits. The manifest adds whole `String.wz/Consume.img` (potion and scroll names and
+descriptions; keys are unpadded item ids, `desc` carries literal `\n`) and the `character` entries 1002001 (Metal
+Gear, a CpH1H5 full-cover cap), 1002067 (Green Headband, CpH5), 1050018 (Blue Sauna Robe) and 1050049 (Dark Calas,
+Longcoats), 1050035 (Brown Starlight) and 1082002 (Work Gloves), so the Cap, Longcoat and Glove categories draw
+and the evidence character can wear a hat, an overall and gloves. Equipment names come from `String.wz/Eqp.img`
+(`Eqp/<Character.wz folder>/<id>`), use items from `Consume.img/<id>` (InventoryModel.string_path).
 
 ## Second-job asset expansion (#53)
 

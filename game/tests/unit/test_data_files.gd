@@ -198,6 +198,8 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
 	assert_eq(b.player.ap_stat, {"0": "str", "200": "int"})
+	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
+	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
 
 
@@ -221,12 +223,12 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		assert_eq(int(b.potions[kind].item_id), int(PotionInventory.DEFAULT_ITEMS[kind]), "PotionInventory.DEFAULT_ITEMS.%s" % kind)
 	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
-	var outfit: Array = []
-	for id: Variant in b.player.equipment:
-		outfit.append(int(id))
-	assert_eq(outfit, AvatarRenderer.DEFAULT_LOOK.equips, "AvatarRenderer.DEFAULT_LOOK.equips is the worn outfit")
+	assert_false(b.player.has("equipment") or b.player.has("weapon_by_job"), "worn equipment is the only source")
+	assert_eq(int(b.player.inventory_slots), RunWorld.DEFAULT_INVENTORY_SLOTS, "RunWorld.DEFAULT_INVENTORY_SLOTS")
+	assert_eq(AvatarRenderer.DEFAULT_LOOK.equips, Equipment.DEFAULT_OUTFIT.slice(0, 3),
+		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	assert_eq(DataRepo.starter_equipment_ids(data), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
-		"setup loads the outfit and both job weapons")
+		"without MakeCharInfo the setup loads the default outfit and the granted wand")
 
 
 func test_build_setup_and_paths() -> void:

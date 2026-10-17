@@ -12,7 +12,7 @@ extends Node
 ## Cache index format this reader understands (cache.json "format").
 const FORMAT := 1
 ## Item.wz folder by id / 1000000 (docs/ASSET_PIPELINE.md section 4).
-const ITEM_TYPES := {2: "Consume", 3: "Install", 4: "Etc", 5: "Cash"}
+const ITEM_TYPES := {2: "Consume", 3: "Install", 4: "Etc", 5: "Cash", 9: "Special"}
 
 ## Absolute (or user://) cache root.
 var root := ""
@@ -308,8 +308,16 @@ func mob_root(mob_id: int) -> Dictionary:
 ## "Item.wz/Etc/0400.img/04000019/info/iconRaw" for an item id.
 @warning_ignore("integer_division")
 static func item_icon_path(item_id: int, raw: bool = true) -> String:
+	if item_id / 1000000 == 9:
+		return meso_frame_path(item_id, 0)
 	var t: String = ITEM_TYPES.get(item_id / 1000000, "Etc")
 	return "Item.wz/%s/%04d.img/%08d/info/%s" % [t, item_id / 10000, item_id, "iconRaw" if raw else "icon"]
+
+
+## "Item.wz/Special/0900.img/09000002/iconRaw/1": frame `frame` (0-3) of a Special item's (meso coin's) animation.
+@warning_ignore("integer_division")
+static func meso_frame_path(item_id: int, frame: int) -> String:
+	return "Item.wz/Special/%04d.img/%08d/iconRaw/%d" % [item_id / 10000, item_id, frame]
 
 
 ## "Sound.wz/Bgm01.img/CavaBien" for a map's info/bgm value "Bgm01/CavaBien".
