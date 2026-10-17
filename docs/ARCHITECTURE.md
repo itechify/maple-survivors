@@ -102,7 +102,7 @@ rewards and clear events. It checks presentation only; natural outcomes belong t
 | Autoload | Script | Role |
 |---|---|---|
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
-| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`) |
+| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP / MP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
 | `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
 

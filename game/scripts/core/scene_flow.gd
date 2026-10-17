@@ -59,6 +59,9 @@ var current_name := ""
 var deferred_swaps := true
 ## Local saves; created on first persistent/menu use (tests may assign their own).
 var save: SaveData
+## The Settings that persistent rounds take their HP / MP ALERT levels from and follow live (spec #34, #121); null =
+## the Settings autoload when this node is in the tree (tests may assign their own).
+var settings: GameSettings
 ## Living character slot, or -1 for tools and ended runs.
 var active_slot := -1
 ## User-facing validation or persistence error from the last character action.
@@ -218,11 +221,23 @@ func save_and_quit() -> void:
 
 
 func _resume_round(snapshot: Dictionary) -> void:
-	_launch_round(String(snapshot.stage), int(snapshot.round_seed),
-		{"character": snapshot.character, "name": snapshot.name})
+	var live := _live_settings()
+	var options := {"character": snapshot.character, "name": snapshot.name}
+	if live != null:
+		options["settings_alert"] = live.alert_levels()
+	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options, live)
 
 
-func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
+## The Settings a persistent round follows: `settings`, else the Settings autoload (null outside the tree).
+func _live_settings() -> GameSettings:
+	if settings != null:
+		return settings
+	if not is_inside_tree():
+		return null
+	return get_node_or_null("/root/Settings") as GameSettings
+
+
+func _launch_round(stage_key: String, p_seed: int, options: Dictionary, live: GameSettings = null) -> void:
 	last_stage = stage_key
 	if p_seed < 0:
 		p_seed = make_seed()
@@ -236,6 +251,8 @@ func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
 		return
 	if run.has_method("configure"):
 		run.configure(stage_key, p_seed, options)
+	if live != null and run is RunScene:
+		(run as RunScene).settings = live
 	_swap_to(run, "run")
 
 
