@@ -11,6 +11,10 @@ simulation stays one deterministic world per round that takes the carried charac
 back at the end. Saving the live simulation was rejected: it would tie the save format to every simulation detail,
 and it would let a player quit until a bad seed went away.
 
+Amended in the #33 triage (2026-10-16): the carried character also holds its mesos, worn equipment and inventory
+(spare equipment and scrolls). Equipment changed or scrolled mid-round is lost with the rest of that round's progress
+if the player quits and continues. Mesos, equipment and scrolls end with the run (ADR 0002).
+
 ## Consequences
 
 - Quitting mid-round loses that round's progress, and the pause menu has to say so.
