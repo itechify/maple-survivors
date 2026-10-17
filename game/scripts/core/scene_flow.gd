@@ -138,9 +138,10 @@ static func migrated_character(character: Dictionary, img_loader: Callable) -> D
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
 
-## An img loader over the default asset library for item info (empty roots without a cache: items then carry no stats).
-static func equipment_info_loader() -> Callable:
-	var library := AssetLibrary.get_default()
+## An img loader over `lib` (default: the default asset library) for img roots such as item info (empty roots without
+## a cache: items then carry no stats).
+static func equipment_info_loader(lib: AssetLibrary = null) -> Callable:
+	var library := lib if lib != null else AssetLibrary.get_default()
 	return func(path: String) -> Dictionary:
 		var img: WzImg = library.img(path) if library != null else null
 		return img.root if img != null else {}

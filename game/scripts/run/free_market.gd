@@ -35,6 +35,7 @@ var ui_windows: WindowStack
 var inventory: RunWorld
 ## The scroll result effect above the windows (#110).
 var enchant: EnchantFx
+var wiring: InventoryWiring
 var npcs: Array[Dictionary] = []
 ## The scroll NPCs (shops.json): {"id", "pos" (feet), "rect" (the drawn sprite's box), "sprite"}.
 var shop_npcs: Array[Dictionary] = []
@@ -186,12 +187,12 @@ func handle_hotkey(event: InputEvent) -> bool:
 func nearest_shop_npc() -> Dictionary:
 	if motion == null:
 		return {}
-	var reach: Dictionary = _data.get("shops", {}).get("talk_range", {})
+	var reach: Dictionary = _data.shops.talk_range
 	var best := {}
 	var best_dx := INF
 	for npc: Dictionary in shop_npcs:
 		var d: Vector2 = (npc.pos as Vector2) - motion.player.pos
-		if absf(d.x) <= float(reach.get("x", 100)) and absf(d.y) <= float(reach.get("y", 90)) and absf(d.x) < best_dx:
+		if absf(d.x) <= float(reach.x) and absf(d.y) <= float(reach.y) and absf(d.x) < best_dx: # shops.json talk_range is required
 			best = npc
 			best_dx = absf(d.x)
 	return best
@@ -214,7 +215,7 @@ func open_shop(npc_id: int) -> bool:
 		return false
 	var shop := ShopWindow.new(inventory, npc_id)
 	shop.player_name = String(snapshot.get("name", ""))
-	ui_windows.open(_inventory_window(shop))
+	ui_windows.open(wiring.wire(shop))
 	return true
 
 
@@ -294,15 +295,11 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 ## The window stack (above the pause menu's layer) with the Equip and Item windows over `inventory`, a map-less
 ## RunWorld of the carried character with the info of every item it holds.
 func _build_windows(character: Dictionary, data: Dictionary) -> void:
-	var lib := library
-	var creation := lib.img(CharacterCreation.IMG)
+	var loader := SceneFlow.equipment_info_loader(library)
+	var creation := library.img(CharacterCreation.IMG)
 	var infos := DataRepo.equipment_info(DataRepo.starter_equipment_ids(data, creation.root if creation != null else {},
-		character), func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {})
-	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), func(p: String) -> Dictionary:
-		var w := lib.img(p)
-		return w.root if w != null else {})
+		character), loader)
+	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), loader)
 	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
 	# being saved at once, changes the next seed.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
@@ -313,11 +310,9 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 	add_child(layer)
 	ui_windows = WindowStack.new()
 	layer.add_child(ui_windows)
-	enchant = EnchantFx.new()
-	enchant.renderer.library = library
-	add_child(enchant)
-	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(inventory)))
-	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(inventory)))
+	wiring = InventoryWiring.install(ui_windows, inventory, self, library, _on_item_action,
+		func(text: String) -> void: messages.push_notice("inventory", text), _play_sound)
+	enchant = wiring.enchant
 	ui_windows.changed.connect(func() -> void:
 		if windows_open():
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -325,10 +320,10 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 			_accumulator = 0.0)
 
 
-func _inventory_window(w: InventoryWindow) -> UiWindow:
-	w.item_action.connect(_on_item_action)
-	w.notice.connect(func(text: String) -> void: messages.push_notice("inventory", text))
-	return w
+func _play_sound(path: String) -> void:
+	var sfx := get_node_or_null("/root/Sfx") as AudioService
+	if sfx != null:
+		sfx.play(path)
 
 
 ## After an Equip / Item window changed the character: the snapshot and its save slot, the drawn look, the hub's
@@ -336,7 +331,7 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 func _on_item_action(_action: String) -> void:
 	for event: Dictionary in inventory.drain_events():
 		if event.type == "scroll_used":
-			_on_scroll_used(String(event.result))
+			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
 	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
 	avatar.set_look(character_look(snapshot.character, _data))
@@ -362,14 +357,6 @@ func bot_shop(policy := "bot", seed_value := 0) -> Dictionary:
 	var record := BotShop.visit(inventory, policy, rng)
 	_on_item_action("bot_shop")
 	return record
-
-
-## A scroll was read: the Enchant effect over the character and its sound (as in a round).
-func _on_scroll_used(result: String) -> void:
-	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
-	var sfx := get_node_or_null("/root/Sfx") as AudioService
-	if sfx != null:
-		sfx.play(EnchantFx.sound_path(result))
 
 
 func _build_npcs() -> void:
