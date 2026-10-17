@@ -72,6 +72,30 @@ test("a DEAD run with a finding: verdict first, then deterministic failures, the
 	assert.ok(!md.includes("test-key") && !read(out, "evaluations.json").includes("test-key"), "the key is never written");
 });
 
+test("the brain and the evaluations share one per-run Jev cap; the header shows one combined token total", async () => {
+	const out = path.join(tmp(), "run");
+	const t = jev();
+	await runPlaytest({ ...base, brain: "jev", jevMaxRequests: 4, out, env: { TYPESAFE_API_KEY: "k" }, launch: launch("dead"),
+		jevFetch: t.fetch });
+	assert.equal(t.sent.length, 4, "2 brain decisions + 2 of the 3 evaluation requests, then the shared cap");
+	const md = read(out, "report.md");
+	assert.match(md, /- \*\*Jev total:\*\* 4 requests \(cap 4 per run, shared by the brain and the evaluations; brain 2, evaluations 2\), 1648 tokens \(1600 input \+ 48 output; brain 824, evaluations 824\)/);
+	const ev = JSON.parse(read(out, "evaluations.json"));
+	assert.equal(ev.status, "partial");
+	assert.equal(ev.requests, 2, "requests actually sent (the capped one was not)");
+	assert.equal(ev.input_tokens, 800, "the evaluations' own tokens, not the run's");
+	assert.match(ev.errors.join(";"), /Jev request cap \(4\) reached/);
+	const json = JSON.parse(read(out, "report.json"));
+	assert.deepEqual([json.jev.requests, json.jev.input_tokens, json.jev.output_tokens], [4, 1600, 48], "report.json jev: the run's totals");
+});
+
+test("with a fallback brain the evaluations still count toward --jev-max-requests", async () => {
+	const t = jev();
+	await runPlaytest({ ...base, jevMaxRequests: 1, out: path.join(tmp(), "run"), env: { TYPESAFE_API_KEY: "k" }, launch: launch("dead"),
+		jevFetch: t.fetch });
+	assert.equal(t.sent.length, 1);
+});
+
 test("Jev results never change the exit code unless --strict-eval", async () => {
 	const plain = await runPlaytest({ ...base, out: path.join(tmp(), "run"), env: { TYPESAFE_API_KEY: "k" }, launch: launch("dead"),
 		jevFetch: jev().fetch });

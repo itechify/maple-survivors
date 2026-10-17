@@ -130,6 +130,7 @@ export async function runEvaluations(o: { client: JevClient | null; skip?: strin
 		models: [], states: {}, skipped_minutes: [], tier: finalRound(o.data).tier, thresholds: { flag_confidence: FLAG_CONFIDENCE, rules: RULES } };
 	if (!o.client) return { ...base, reason: o.skip ?? "no Jev client" };
 	const client = o.client;
+	const before = client.stats(); // a client shared with the brain: count only these requests' tokens
 	const results: EvalResult[] = [];
 	const errors: string[] = [];
 	const death = deathFacts(o.data);
@@ -184,8 +185,9 @@ export async function runEvaluations(o: { client: JevClient | null; skip?: strin
 	}
 	const stats = client.stats();
 	const status = errors.length === 0 ? "done" : errors.length < reqs.length ? "partial" : "failed";
-	return { ...base, status, errors, results, requests: replies.filter((r) => r.reply).length + errors.length,
-		input_tokens: stats.input_tokens, output_tokens: stats.output_tokens, models: stats.models,
+	return { ...base, status, errors, results, requests: stats.requests - before.requests,
+		input_tokens: stats.input_tokens - before.input_tokens, output_tokens: stats.output_tokens - before.output_tokens,
+		models: stats.models,
 		states: Object.fromEntries(reqs.map((r) => [r.id, r.state])), skipped_minutes: pacing.skipped };
 }
 
