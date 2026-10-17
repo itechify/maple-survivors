@@ -228,10 +228,11 @@ func test_the_roster_has_the_ticket_examples_by_rate() -> void:
 	assert_true(2043700 in ids and 2040818 in ids)
 	assert_false(2040016 in ids, "hat ACC 10% has no success in WZ")
 	assert_false(2040006 in ids, "the strong 100% is out")
-	var seen := {}
-	for id: int in ids:
-		assert_false(seen.has(id), "listed once: %d" % id)
-		seen[id] = true
+	var listed := 0
+	for slot: String in table.families:
+		for family: Dictionary in table.families[slot].values():
+			listed += family.size()
+	assert_eq(ids.size(), listed, "every id is listed once")
 
 
 func test_every_roster_scroll_fits_the_item_slot_it_is_listed_under() -> void:
@@ -242,3 +243,49 @@ func test_every_roster_scroll_fits_the_item_slot_it_is_listed_under() -> void:
 			for rate: String in table.families[slot][family]:
 				var id := int(table.families[slot][family][rate])
 				assert_eq(Scrolls.category_of_scroll(id), categories[slot], "%d under %s" % [id, slot])
+
+
+# --- WZ info plumbing -------------------------------------------------------------------------------------------------
+
+func test_scroll_info_keeps_only_the_numbers_a_scroll_needs() -> void:
+	var img := {"02043700": {"info": {"icon": {"w": 30}, "price": 1, "incMAD": 1.0, "success": 100.0, "tradeBlock": 1}},
+		"02043705": {"info": {"success": 30.0, "cursed": 50.0, "incMAD": 5.0, "incINT": 3.0, "incMDD": 1.0, "slotMax": 50.0}}}
+	var missing := PackedStringArray()
+	var loader := func(_p: String) -> Dictionary: return img
+	var info := DataRepo.scroll_info([2043700, 2043705, 2043999], loader, missing)
+	assert_eq(info[2043700], {"incMAD": 1, "success": 100})
+	assert_eq(info[2043705], {"incMAD": 5, "incINT": 3, "incMDD": 1, "success": 30, "cursed": 50, "slotMax": 50})
+	assert_false(info.has(2043999))
+	assert_eq(missing, PackedStringArray([DataRepo.SCROLL_IMG + "/02043999"]))
+
+
+func test_a_setup_loads_the_roster_and_the_scrolls_a_character_holds() -> void:
+	var data := DataRepo.load_all()
+	var ids := DataRepo.scroll_item_ids(data, {"scrolls": {"2049999": 3}})
+	assert_true(2043700 in ids and 2049999 in ids)
+	assert_eq(DataRepo.scroll_item_ids(data).size(), Scrolls.ids(data.scrolls).size())
+
+
+func test_every_roster_scroll_matches_its_declared_rate_in_the_real_wz_data() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	lib.open()
+	var data := DataRepo.load_all()
+	var loader := func(p: String) -> Dictionary:
+		var img := lib.img(p)
+		return img.root if img != null else {}
+	var missing := PackedStringArray()
+	var infos := DataRepo.scroll_info(Scrolls.ids(data.scrolls), loader, missing)
+	assert_eq(missing, PackedStringArray(), "every roster scroll is in the cache")
+	var rates := {"100": [100, 0], "60": [60, 0], "10": [10, 0], "dark70": [70, 50], "dark30": [30, 50]}
+	for slot: String in data.scrolls.families:
+		for family: String in data.scrolls.families[slot]:
+			for rate: String in data.scrolls.families[slot][family]:
+				var id := int(data.scrolls.families[slot][family][rate])
+				var info: Dictionary = infos.get(id, {})
+				assert_eq([int(info.get("success", -1)), int(info.get("cursed", 0))], rates[rate],
+					"%d %s %s %s" % [id, slot, family, rate])
+				assert_true(info.keys().any(func(k: String) -> bool: return k.begins_with("inc")), "%d adds a stat" % id)
+				var icon := lib.frame(AssetLibrary.item_icon_path(id, false))
+				assert_true(icon != null and icon.page != null, "%d has an icon (UOLs resolved)" % id)

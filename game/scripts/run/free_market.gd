@@ -225,7 +225,13 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 		character), func(p: String) -> Dictionary:
 			var w := lib.img(p)
 			return w.root if w != null else {})
-	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character})
+	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), func(p: String) -> Dictionary:
+		var w := lib.img(p)
+		return w.root if w != null else {})
+	# The hub is no seeded run: a fresh seed per visit keeps the scroll rolls unpredictable (a fixed one would repeat
+	# the same first roll every visit); every result is saved at once, so reloading cannot redo it.
+	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
+		"character": character, "seed": randi()})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
