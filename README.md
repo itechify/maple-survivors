@@ -31,7 +31,7 @@ needs no server, account or internet connection. (The web build is the same offl
 ## Play in the browser
 
 The same game runs as a web build: **https://itechify.github.io/maple-survivors/** (a desktop browser; Chrome or
-Firefox). The page ships no MapleStory data. On first visit it shows an import screen: choose your own v83 folder or a
+Firefox; the link works once the owner has enabled Pages, see below). The page ships no MapleStory data. On first visit it shows an import screen: choose your own v83 folder or a
 `.zip` of it, or type the address of a folder or `.zip` you have access to. The importer runs inside the page and keeps
 the result in that browser's storage; your files are not uploaded. Saves live in the browser too, and the title screen
 has Export save / Import save for backups.
