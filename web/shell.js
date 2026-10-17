@@ -516,6 +516,11 @@ function startEngine() {
 	window.godotEngine = engine;
 	window.godotExitCode = null;
 	note('engine start');
+	if (!state.toldStorage) {
+		// The persistence request's result, once per page load, unobtrusively.
+		state.toldStorage = true;
+		Promise.resolve(state.persistReady).then(() => toast($('storage-line').textContent));
+	}
 	engine.startGame({
 		args: userArgs(),
 		onProgress(current, total) {
@@ -790,7 +795,7 @@ function wire() {
 async function boot() {
 	wire();
 	setScreen('boot', 'Maple Survivors');
-	requestPersistence();
+	state.persistReady = requestPersistence();
 	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
 	if (missing.length) {
 		showError('This browser lacks features the game needs:\n' + missing.join('\n'), () => location.reload());

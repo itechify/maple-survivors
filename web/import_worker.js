@@ -4,7 +4,7 @@
 // the resulting asset cache straight into the IndexedDB database behind Godot's /userfs (idbfs.js), so it is there
 // when the engine starts. Three kinds of source, one per import:
 //   folder  {kind:'folder', files: {'Mob.wz': File, ...}}   Blob readers (FileReaderSync)
-//   zip     {kind:'zip', file: File}                        Blob reader + optional OPFS scratch for deflated entries
+//   zip     {kind:'zip', file: File}                        Blob reader (no scratch: decisions 7, offset-ordered reads)
 //   url     {kind:'url', parsed, probe}                     sync XHR with Range behind a block cache, or a whole-file
 //                                                           download into a Blob when the host has no range support
 // The page talks to it with messages: {type:'probe', id, parsed, manifestText} and {type:'import', id, source,
@@ -17,8 +17,6 @@ import init, { importWz } from './wzimport.js';
 import * as lib from './lib.js';
 
 const IdbFs = globalThis.IdbFs;
-const SCRATCH_DIR = 'maple-import-scratch';
-const SCRATCH_SLOTS = 16;
 
 let wasmReady = null;
 function ensureWasm() {
@@ -182,83 +180,6 @@ async function downloadToBlob(url, size, onBytes) {
 	return new Blob(chunks);
 }
 
-// ---- OPFS scratch for deflated zip entries (decisions 7) -------------------------------------------------------------
-// FileSystemSyncAccessHandle files are only creatable asynchronously, while the importer calls create() synchronously,
-// so a pool of handles is opened up front. Returns null when the browser has no OPFS sync access handles.
-
-async function openScratch() {
-	if (!navigator.storage || !navigator.storage.getDirectory) return null;
-	let dir;
-	try {
-		const root = await navigator.storage.getDirectory();
-		try {
-			await root.removeEntry(SCRATCH_DIR, { recursive: true }); // leftovers of an import that was killed
-		} catch (e) {
-			/* nothing to remove */
-		}
-		dir = await root.getDirectoryHandle(SCRATCH_DIR, { create: true });
-		const handles = [];
-		for (let i = 0; i < SCRATCH_SLOTS; i++) {
-			const fh = await dir.getFileHandle(`slot${i}`, { create: true });
-			if (typeof fh.createSyncAccessHandle !== 'function') return null;
-			handles.push(await fh.createSyncAccessHandle());
-		}
-		const free = handles.slice();
-		const stats = { created: 0, written: 0 };
-		return {
-			stats,
-			provider: {
-				create(name, length) {
-					const h = free.pop();
-					if (!h) throw new Error(`scratch is exhausted (${SCRATCH_SLOTS} slots) while creating ${name}`);
-					h.truncate(0);
-					stats.created++;
-					return {
-						write(offset, bytes) {
-							const n = h.write(bytes, { at: offset });
-							if (n !== bytes.length) throw new Error(`scratch write came up short (${n} of ${bytes.length})`);
-							stats.written += n;
-						},
-						readAt(offset, len) {
-							const buf = new Uint8Array(len);
-							const n = h.read(buf, { at: offset });
-							if (n !== len) throw new Error(`scratch read came up short (${n} of ${len}) in ${name}`);
-							return buf;
-						},
-						close() {
-							h.truncate(0);
-							free.push(h);
-						},
-					};
-				},
-			},
-			async dispose() {
-				for (const h of handles) {
-					try {
-						h.close();
-					} catch (e) {
-						/* already closed */
-					}
-				}
-				try {
-					const root = await navigator.storage.getDirectory();
-					await root.removeEntry(SCRATCH_DIR, { recursive: true });
-				} catch (e) {
-					/* gone already */
-				}
-			},
-		};
-	} catch (e) {
-		try {
-			const root = await navigator.storage.getDirectory();
-			await root.removeEntry(SCRATCH_DIR, { recursive: true });
-		} catch (e2) {
-			/* nothing */
-		}
-		return null;
-	}
-}
-
 // ---- The import -------------------------------------------------------------------------------------------------------
 
 async function runImport(id, source, manifestText) {
@@ -266,7 +187,6 @@ async function runImport(id, source, manifestText) {
 	const t0 = performance.now();
 	const manifest = lib.parseManifest(manifestText);
 	const stats = { reads: 0, bytes: 0, readers: [] };
-	let scratch = null;
 	const timing = {};
 	try {
 		await ensureWasm();
@@ -305,10 +225,6 @@ async function runImport(id, source, manifestText) {
 		} else {
 			throw fail('source', `unknown source kind ${source.kind}`);
 		}
-		if (sources.zip) {
-			scratch = await openScratch();
-			if (scratch) sources.scratch = scratch.provider;
-		}
 		timing.prepareMs = performance.now() - t0;
 
 		// Importing is synchronous: the sink only queues, and everything is written after importWz returns.
@@ -331,12 +247,6 @@ async function runImport(id, source, manifestText) {
 		});
 		timing.importMs = performance.now() - t1;
 		const report = JSON.parse(reportText);
-		// scratch.created counts entries the importer spilled to OPFS (zero until the importer uses `sources.scratch`).
-		const scratchInfo = scratch ? { offered: true, created: scratch.stats.created, written: scratch.stats.written } : { offered: false };
-		if (scratch) {
-			await scratch.dispose();
-			scratch = null;
-		}
 
 		// Write phase: no engine is mounted, so the records go straight into IndexedDB. cache.json goes last and the old
 		// cache is removed first, so an interrupted write leaves no cache.json and the shell treats it as "no cache".
@@ -363,12 +273,10 @@ async function runImport(id, source, manifestText) {
 			warningCount: report.warnings.length,
 			timing,
 			io: { readCalls: stats.reads + stats.readers.reduce((a, s) => a + s.reads, 0), httpRequests: requests, httpBytes: fetched, blobBytes: stats.bytes },
-			scratch: scratchInfo,
+			zipStats: report.zip_stats || null,
 		});
 	} catch (e) {
 		post({ type: 'error', code: e && e.code ? e.code : 'import', message: describe(e) });
-	} finally {
-		if (scratch) await scratch.dispose();
 	}
 }
 

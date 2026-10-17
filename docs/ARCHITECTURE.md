@@ -729,7 +729,8 @@ its `game/`.
   `game/export/web/index.{html,js,wasm,pck}` (wasm 39.5 MB, pck 0.9 MB). `node web/dev/serve.mjs <export dir>` serves
   it on 127.0.0.1:8060 with `application/wasm`, plus `web/dev/` at `/dev/`.
 - **Dev cache injection (never exported):** `http://127.0.0.1:8060/dev/inject.html` copies a desktop-built cache
-  folder straight into the IndexedDB database behind `user://` (`web/dev/idbfs.js` documents the record format).
+  folder straight into the IndexedDB database behind `user://` (`web/idbfs.js` documents the record format). The
+  import screen of section 10.2 replaces it for players.
 - **`user://` on web:** `OS.get_user_data_dir()` is `/userfs/MapleSurvivors` (Godot's web OS returns
   `/userfs/<custom_user_dir_name>`), so the cache is `/userfs/MapleSurvivors/asset_cache/v83`; the game prints that as
   its cache root. `/userfs` is Emscripten IDBFS: IndexedDB database `/userfs`, store `FILE_DATA`, keys are absolute
