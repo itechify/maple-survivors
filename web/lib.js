@@ -1,6 +1,6 @@
 // Pure helpers of the web shell (spec #130, ADR 0004): paths, manifest checks, source URL parsing, the block cache
 // that sits in front of ranged HTTP reads, the shell-game request marker and save validation. No DOM, no storage and
-// no network access in here, so `node --test web/dev/test/` covers it. Used by shell.js and import_worker.js.
+// no network access in here, so `node --test web/dev/test/*.test.mjs` covers it. Used by shell.js and import_worker.js.
 
 /** The game's user data dir on web: Godot's IDBFS is mounted at /userfs and the project's custom user dir is this. */
 export const USER_DIR = '/userfs/MapleSurvivors';

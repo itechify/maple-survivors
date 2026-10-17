@@ -8,7 +8,8 @@ Status: Phase 0 decision record (2026-10-13). Evidence lives in `docs/RESEARCH.m
 Make a single-player Vampire-Survivors-style game that looks, sounds and moves like MapleStory v83 (GMS, Feb 2010
 build), using the original assets, with a different combat and progression loop. Hard constraints from the brief:
 
-- Fully offline: no server, no localhost sockets, no database, no account, no Java process.
+- Fully offline: no server, no localhost sockets, no database, no account, no Java process. (The web build, section
+  10, adds one narrow exception in its page shell, outside `game/`: section 7.)
 - Authentic presentation: original maps, sprites, animations, frame timings, origins, sounds, UI art.
 - Hundreds of mobs, dozens to hundreds of projectiles and pickups, at a stable 60 FPS.
 - Original MapleStory assets are proprietary: never committed or distributed; the player points the game at their
@@ -673,17 +674,32 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 ## 7. Offline guarantees
 
 - No networking API is used by the game or the importer; enforced by `tests/unit/test_offline.gd` (scan of every
-  script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings) and the
-  importer's `no_network_deps` (Cargo.lock scan) and `no_network_src` (`std::net`/socket types in its sources) tests.
-- The importer is a local process reading local files; the game launches it with `OS.execute_with_pipe`/`OS.create_process`.
-- Settings and saves are local files under the user data folder.
+  script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings, and for
+  `JavaScriptBridge`) and the importer's `no_network_deps` (Cargo.lock scan) and `no_network_src`
+  (`std::net`/socket types in its sources) tests. This holds for every build, the web build included: `game/` and
+  `tools/wzimport/` have no networking and no JavaScript, and compile the same for desktop and web.
+- On desktop the importer is a local process reading local files; the game launches it with
+  `OS.execute_with_pipe`/`OS.create_process`.
+- Settings and saves are local files under the user data folder (in a browser: `user://` in the page's IndexedDB).
+- **What the web shell may fetch (ADR 0004).** The shell in `web/` is the only shipped code that makes requests, and
+  only two kinds: (1) the static bundle it was served with (`index.js`, `index.wasm`, `index.pck`, its own scripts,
+  `asset_manifest.json` and the licence files), and (2) when the player types a folder or `.zip` address into the
+  import screen, requests to that address: a `HEAD` / `GET Range: bytes=0-0` probe, then ranged or whole-file reads
+  for the import. Nothing is hard-coded: the repo, the site and the docs name no source or mirror, there is no
+  default address, no analytics, no service worker and no telemetry, and a folder or `.zip` import from the player's
+  disk makes no request at all. The player's files are read in the page and never uploaded. The importer's browser
+  readers (`Blob`, HTTP `Range`) live in `web/` as host callbacks, so the Rust side stays free of network code.
+- Developer tooling outside `game/` that uses the network ships in no build: `scripts/godot.sh` and
+  `scripts/godot_templates.sh` (the pinned Godot editor and web templates), the CI workflow, and the localhost test
+  servers in `web/dev/`.
 - Verified by process-level socket snapshots during a 15:00 playtest and of the exported build (0 TCP connections,
   0 UDP endpoints, no child process other than the local importer; `docs/IMPLEMENTATION_PLAN.md` acceptance checks).
   A run with the network adapter disabled has not been done.
 
 ## 8. Licensing and assets
 
-- Our code: original. Godot (MIT) notices ship with exports: `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
+- Our code: original. Godot (MIT) notices ship with exports (the web build too: the four notice files sit beside
+  `index.html` and are linked from the import screen): `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
   engine's licence, its bundled components and their licence texts, from the engine itself), `WZIMPORT_LICENSES.txt`
   (every crate's licence files), `ARIMO_OFL.txt` (the bundled font's licence) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
   (MIT/Apache/Zlib); the list is in `THIRD_PARTY_NOTICES.md`.
@@ -721,13 +737,14 @@ The web build (spec #130, ADR 0004) is the "Web" preset of `game/export_presets.
 project folder, so the shell stays beside `game/` without staging, and an ISOLATE mirror gets a copy of `web/` beside
 its `game/`.
 
-- **Templates:** the official 4.7.2 `web_nothreads_debug.zip` and `web_nothreads_release.zip` from
-  `https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz`:
-  `unzip -j <tpz> templates/web_nothreads_debug.zip templates/web_nothreads_release.zip -d
-  "$APPDATA/Godot/export_templates/4.7.2.stable"`.
-- **Export (dev, until `scripts/export.sh --web`):** `ISOLATE=<name> bash web/dev/export_web.sh [--debug]` writes
-  `game/export/web/index.{html,js,wasm,pck}` (wasm 39.5 MB, pck 0.9 MB). `node web/dev/serve.mjs <export dir>` serves
-  it on 127.0.0.1:8060 with `application/wasm`, plus `web/dev/` at `/dev/`.
+- **Templates:** the official 4.7.2 `web_nothreads_debug.zip` and `web_nothreads_release.zip`, installed by
+  `bash scripts/godot_templates.sh install-web` (downloads the official templates archive, checks its SHA-512 against
+  the release's `SHA512-SUMS.txt`, unpacks only those two into the editor's templates folder:
+  `%APPDATA%/Godot/export_templates/4.7.2.stable` on Windows, `~/.local/share/godot/export_templates/4.7.2.stable`
+  on Linux; `godot_templates.sh dir` prints it).
+- **Export:** `ISOLATE=<name> bash scripts/export.sh --web [--debug]` writes the whole site to `game/export/web/`
+  (`index.{html,js,wasm,pck}`: wasm 39.5 MB, pck 1.2 MB, plus everything of section 10.3). `node web/dev/serve.mjs
+  game/export/web` serves it on 127.0.0.1:8060 with `application/wasm`, plus `web/dev/` at `/dev/`.
 - **Dev cache injection (never exported):** `http://127.0.0.1:8060/dev/inject.html` copies a desktop-built cache
   folder straight into the IndexedDB database behind `user://` (`web/idbfs.js` documents the record format). The
   import screen of section 10.2 replaces it for players.
@@ -788,11 +805,10 @@ it reaches, with no engine or presentation change. On web the sim costs about 1.
 
 The shell is `web/index.html` (Godot's custom HTML shell, placeholders filled at export) plus files that must sit
 beside it in the export: `shell.css`, `shell.js` (page logic), `lib.js` (pure helpers, unit-tested with
-`node --test web/dev/test/`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
+`node --test web/dev/test/*.test.mjs`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
 worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (a copy of
-`game/data/asset_manifest.json`, fetched same-origin). Until `scripts/export.sh --web` (#135), `bash
-web/dev/export_web.sh` copies them (`WASM_DIR=<dir>` picks the wasm build, default `_scratch/wasm/`). `web/dev/` is
-never copied.
+`game/data/asset_manifest.json`, fetched same-origin). `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
+picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
 
 **Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
 IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
@@ -846,6 +862,40 @@ contents when it loads the file.
 for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`
 and `tools/wzimport/` stay offline (ADR 0004). `web/dev/serve_sources.mjs` is a localhost test host with range,
 no-range and CORS-blocked modes; test addresses are always `http://127.0.0.1:<port>/...`.
+
+### 10.3 Deploying the site (#135)
+
+`bash scripts/export.sh --web` (see the header of the script) is the single path that makes the site; `game/export/web/`
+is gitignored. It exports the Web preset, copies the shell files and `asset_manifest.json`, builds the wasm importer
+(`scripts/build_wasm.sh`) and places it beside `index.html`, writes the licence files linked from the import screen
+(`GODOT_LICENSES.txt`, `WZIMPORT_LICENSES.txt` including the wasm-only crates, `THIRD_PARTY_NOTICES.md` including the
+font, `ARIMO_OFL.txt`) and finishes with `scripts/check_web_artifact.sh`: the build fails if a `.wz`, `.img`,
+`*.img.json`, atlas `*.N.png`, `.mp3`/`.wav`, a `cache.json` or any file starting with the WZ signature (`PKG1`) is in
+the folder, or if a file the site needs is missing (`web/dev/test/artifact_check.test.mjs` plants each shape).
+`ISOLATE` and `EXPORT_DIR` work as for the Windows export. Everything is static, so the folder works on any static
+host and under a sub-path such as `/maple-survivors/` (the shell uses relative URLs only).
+
+The workflow `.github/workflows/pages.yml` ("Web build"): its `build` job runs on every pull request, on pushes to
+`main` and on `workflow_dispatch`. It installs the pinned Godot 4.7.2 editor (`scripts/godot.sh`) and its web templates
+(`scripts/godot_templates.sh install-web`), Rust with `wasm32-unknown-unknown` and the locked `wasm-bindgen-cli`, runs
+`cargo test`, `node --test web/dev/test/*.test.mjs` and `bash scripts/test.sh`, then `export.sh --web` and the artifact
+check again, and uploads `game/export/web` as the Pages artifact. Tests that need the real asset cache (or
+`MAPLE_WZ_ROOT`) SKIP in CI because CI has no WZ data and never will; a SKIP proves nothing, and the log counts them.
+The `deploy` job (`actions/deploy-pages`) runs only for pushes to `main` and `workflow_dispatch`, never for pull
+requests, so a pull request proves the whole pipeline except the final publish. `workflow_dispatch` is only offered
+for the copy of the workflow on the default branch.
+
+CI runs on Linux with no asset cache and no Arial/Tahoma/Dotum, which found two test assumptions that Windows runs hide
+(fixed in the tests only): `test_maple_text_wrap_and_ellipsize` now accepts the bundled-Arimo `FontVariation` as well as
+a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` keeps its 20-minute golden digest for
+Windows only: on Linux the same code and data produce other event bytes for seed 1 (cause not investigated, probably
+the platform's math library), so there it checks that two replays on the same machine agree. The web build's wasm
+output was recorded as identical to Windows in 10.1; the Linux difference was not compared against wasm.
+
+**One-time owner setup:** repository Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**. Until that
+is set the `deploy` job fails (the `build` job and pull requests are unaffected). The site is then at
+`https://itechify.github.io/maple-survivors/`. Out of scope by design: custom domains, analytics, a service worker and
+offline caching of the page.
 
 ### Web profile (#134)
 

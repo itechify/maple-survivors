@@ -1,4 +1,4 @@
-// DEV ONLY: unit tests of web/lib.js, the pure helpers of the web shell. Run: `node --test web/dev/test/`
+// DEV ONLY: unit tests of web/lib.js, the pure helpers of the web shell. Run: `node --test web/dev/test/*.test.mjs`
 // (Node 20+, no dependencies; browser behaviour is covered by the Playwright runs described in docs/ARCHITECTURE.md).
 import test from 'node:test';
 import assert from 'node:assert/strict';
