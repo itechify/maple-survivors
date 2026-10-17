@@ -40,9 +40,9 @@ const INVARIANTS := preload("res://tools/playtest/playtest_invariants.gd")
 const TIMELINE := preload("res://tools/playtest/playtest_timeline.gd")
 const FINGERPRINT := preload("res://tools/playtest/playtest_fingerprint.gd")
 const CHAIN := preload("res://tools/playtest/playtest_chain.gd")
-## Simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
+## tier C: simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
 const PROGRESS_EVERY := 60.0
-## Run time (s) of the --inject-finding finding.
+## tier C: run time (s) of the --inject-finding finding.
 const INJECT_AT := 10.0
 
 

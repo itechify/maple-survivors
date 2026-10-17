@@ -10,10 +10,12 @@ func _init() -> void:
 	kind = "job"
 
 
+## Open while the world waits in a job advancement window (CHOOSING_JOB).
 func pending(w: RunWorld) -> bool:
 	return w.state == RunWorld.CHOOSING_JOB
 
 
+## The available branches (job id as text, name, `describe`) in window order, then "not_now".
 func options(w: RunWorld) -> Array:
 	var out: Array = []
 	for o: Dictionary in w.pending_jobs:
@@ -47,10 +49,12 @@ func situation(w: RunWorld) -> Dictionary:
 	return s
 
 
+## The harness bot's branch: BotInput.pick_job on w.job_rng with the policy's forced branch ("not_now" for none).
 func baseline(w: RunWorld, policy: RUN_POLICY) -> Dictionary:
 	var job := BotInput.pick_job(w.pending_jobs, w.job_rng, int(policy.branch))
 	return {"sensible": str(job) if job >= 0 else NOT_NOW}
 
 
+## Takes branch `answer` (or declines for "not_now") through the run policy (run_policy.gd take_job).
 func apply(w: RunWorld, policy: RUN_POLICY, answer: String) -> void:
 	policy.take_job(w, -1 if answer == NOT_NOW else int(answer))

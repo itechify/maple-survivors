@@ -4,7 +4,7 @@ import { registerSection, runClock } from "../core/report.ts";
 import type { ReportContext } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 
-/** Switch log lines shown in report.md (report.json keeps all). */
+/** tier C: switch log lines shown in report.md (report.json keeps all). */
 const LOG_LINES = 20;
 
 type Switch = { tick?: number; time?: number; from?: string; to?: string; trigger?: string; source?: string };

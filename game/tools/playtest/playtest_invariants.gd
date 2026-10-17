@@ -6,7 +6,7 @@ extends RefCounted
 ## driver streams them as protocol `finding` lines). Never changes the world. Tool code only.
 
 const DT := 1.0 / 60.0
-## Snapshot: the nearest mobs listed.
+## tier C: the nearest mobs a finding's snapshot lists.
 const SNAPSHOT_MOBS := 5
 ## tier C: two findings of one kind and key closer than this (px) and DEDUP_S (run seconds) apart are one finding.
 const DEDUP_PX := 96.0

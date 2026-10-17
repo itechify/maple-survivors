@@ -31,13 +31,13 @@ const WINDOWED := preload("res://tools/playtest/windowed_replay.gd")
 const DT := 1.0 / 60.0
 ## The headless driver's logical view (playtest_driver.gd builds its setup with it).
 const VIEW := Vector2(800, 600)
-## Real seconds to wait for a drawn frame before a screenshot counts as skipped.
+## tier C: real seconds to wait for a drawn frame before a screenshot counts as skipped.
 const SHOT_TIMEOUT := 5.0
-## Real seconds to wait for the run's end sequence (death / clear) after its last tick.
+## tier C: real seconds to wait for the run's end sequence (death / clear) after its last tick.
 const END_TIMEOUT := 20.0
-## Real seconds left for RunScene's pending event shots once the round is over.
+## tier C: real seconds left for RunScene's pending event shots once the round is over.
 const SETTLE := 1.5
-## Run seconds between progress lines (the CLI's liveness timer counts any output line).
+## tier C: run seconds between progress lines (the CLI's liveness timer counts any output line).
 const PROGRESS_EVERY := 30.0
 
 var run: RunScene

@@ -14,6 +14,8 @@ func _init(write := Callable(), read := Callable()) -> void:
 	_read = read if read.is_valid() else func() -> String: return OS.read_string_from_stdin(PROTOCOL.READ_BUFFER)
 
 
+## Writes `decide` and blocks for its answer line: {id, answer, source, confidence}, or {error} when the brain is lost
+## (stdin closed) or the answer is malformed or for another decide.
 func ask(decide: Dictionary) -> Dictionary:
 	if lost:
 		return {"error": "brain lost"}
@@ -29,5 +31,6 @@ func ask(decide: Dictionary) -> Dictionary:
 	return answer
 
 
+## Writes `msg` as one protocol line (hello, finding, end, error); no answer is read.
 func send(msg: Dictionary) -> void:
 	_write.call(PROTOCOL.encode(msg))

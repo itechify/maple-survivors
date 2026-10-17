@@ -34,7 +34,7 @@ const TACTIC := preload("res://tools/playtest/tactic_decision.gd")
 const CONTROLLER := preload("res://tools/playtest/tactic_controller.gd")
 const MOTOR := preload("res://tools/playtest/motor_noise.gd")
 const DT := 1.0 / 60.0
-## Tactic switches shown on a tactic decide (situation.tactic.recent, oldest first).
+## tier C: tactic switches shown on a tactic decide (situation.tactic.recent, oldest first).
 const RECENT_SWITCHES := 3
 
 ## The brain answering decisions.
@@ -53,7 +53,7 @@ var _next_id := 1
 ## tier C: tactic decision timing: a checkpoint every checkpoint_s of run time, and a switched tactic held at least
 ## hold_s before a non-emergency trigger may change it (critical HP is the emergency). allowed: the offered tactics.
 const TACTIC_DEFAULTS := {"checkpoint_s": 8.0, "hold_s": 4.0, "allowed": CONTROLLER.TACTICS}
-## Trigger priority when several fire before a decision can be asked (higher first).
+## tier C: trigger priority when several fire before a decision can be asked (higher first; ours: danger first).
 const TRIGGER_PRIORITY := {"hp_critical": 6, "start": 5, "boss": 4, "hp_low": 3, "crowd": 2, "card": 1, "checkpoint": 0}
 ## The current tactic (tactic_controller.gd TACTICS).
 var tactic := "kite"

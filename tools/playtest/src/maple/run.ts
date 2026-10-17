@@ -9,6 +9,7 @@ import type { DecisionRecord, SessionResult } from "../core/session.ts";
 import { renderReport } from "../core/report.ts";
 import type { Problem, ReportContext } from "../core/report.ts";
 import { exitCodeFor } from "../core/exit_codes.ts";
+import { DEFAULT_LIVENESS_S } from "../core/args.ts";
 import { resolveGodot, prepareProject, importProjectAsync, driverArgs } from "./launcher.ts";
 import { createReplayBrain, compareFingerprints, compareHello, orderDivergences } from "../core/replay.ts";
 import type { Recording, ReplayBrain } from "../core/replay.ts";
@@ -312,9 +313,6 @@ export function rerunCommand(o: RunOptions, repo: string = REPO): string {
 		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : []),
 		...(o.livenessS !== DEFAULT_LIVENESS_S ? [`--liveness-s=${o.livenessS}`] : [])].map(shellQuote).join(" ");
 }
-
-/** The CLI's --liveness-s default (core/args.ts). */
-const DEFAULT_LIVENESS_S = 60;
 
 /** `word` as one bash word: as is when safe, else double-quoted with ", \\, $ and ` escaped. */
 export function shellQuote(word: string): string {

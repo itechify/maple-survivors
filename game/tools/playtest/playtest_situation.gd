@@ -55,7 +55,7 @@ const HITS_MANY := 3
 ## BOSS_CLOSE_X px horizontally (and on about the player's level, NEAR_Y).
 const BOSS_ATTACK_S := 3.0
 const BOSS_CLOSE_X := 200.0
-## Stage duration used when the stage has none (s).
+## tier C: stage duration (s) the phase thirds use when the stage has none (15:00, the shipped stages' length).
 const DEFAULT_DURATION := 900.0
 
 ## Run times of recent hits (oldest first).

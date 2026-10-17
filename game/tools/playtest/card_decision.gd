@@ -12,10 +12,12 @@ func _init() -> void:
 	kind = "card"
 
 
+## Open while the world waits in a card window (CHOOSING_UPGRADE).
 func pending(w: RunWorld) -> bool:
 	return w.state == RunWorld.CHOOSING_UPGRADE
 
 
+## The offered cards in on-screen order: id, the FIELDS the window shows, and the fallbacks' `tags`.
 func options(w: RunWorld) -> Array:
 	var out: Array = []
 	for c: Dictionary in w.pending_cards:
@@ -55,9 +57,11 @@ func situation(w: RunWorld) -> Dictionary:
 	return s
 
 
+## The sensible player's card: BotInput.pick_card_for over the offer.
 func baseline(w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": BotInput.pick_card_for(w, w.pending_cards)}
 
 
+## Takes card `answer` through the run policy (run_policy.gd take_card).
 func apply(w: RunWorld, policy: RUN_POLICY, answer: String) -> void:
 	policy.take_card(w, answer)

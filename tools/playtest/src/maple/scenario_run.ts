@@ -23,7 +23,7 @@ import { parseShotsAt } from "./windowed_flags.ts";
 /** The windowed replay's flags (maple/windowed_flags.ts): they steer the CLI, never a run. */
 const WINDOWED_FLAGS = ["windowed", "shots-at", "speed", "skip-to"];
 
-/** Report lines echoed to the console (the head: title, header, outcome, problems). */
+/** tier C: report lines echoed to the console (the head: title, header, outcome, problems). */
 const HEAD_LINES = 30;
 /** Flags that steer the CLI itself rather than a run; never recorded as a run's flags. */
 const CLI_ONLY = ["help", "out", "replay", "jobs", "summarize", "cluster-window-s", "cluster-share", ...WINDOWED_FLAGS];
