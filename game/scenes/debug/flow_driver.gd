@@ -36,6 +36,17 @@ extends Node
 ##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
 ##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
 ##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
+##   inventory the Equip and Item windows (#108): title -> new character; the slot's character becomes the Lv38
+##           F/P fixture (tests/fixtures/characters/lv35_magician_2nd.json) holding Metal Gear, a Blue Sauna Robe,
+##           Work Gloves and a Dark Calas it cannot wear, with 123,456 mesos -> map select -> run; E opens
+##           Equip, I opens Item (the sim is checked to hold), the robe's tooltip, the Calas's tooltip with its
+##           red requirements and the refused double-click, the hat worn by double-click, the robe by dragging it
+##           onto the Equip window, the gloves by double-click (hat, overall, gloves and wand drawn on the
+##           character), the Calas dragged out and the YesNo box answered No, the Use tab, Esc closes both; then
+##           the slot is moved to the Free Market and Continue opens the hub: E and I there, the hat taken off and
+##           put back, Save & quit shows the dressed character on character select. Shots: equip_window,
+##           item_windows, item_tooltip, item_tooltip_unmet, equip_refused, equip_worn, character_dressed,
+##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, character_select_dressed.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -94,6 +105,8 @@ func _ready() -> void:
 			_scenario_skill()
 		"keys":
 			_scenario_keys()
+		"inventory":
+			_scenario_inventory()
 		"full":
 			_scenario_full()
 		_:
@@ -848,6 +861,159 @@ func _scenario_keys() -> void:
 	_quit()
 
 
+## The Equip and Item windows (#108) in a round, in the Free Market and the dressed character on character select.
+func _scenario_inventory() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Inv108"):
+		return
+	# The slot's character becomes the Lv38 F/P fixture carrying the evidence items (tests grant equipment directly).
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
+		_fail("the Lv38 F/P fixture did not load")
+		return
+	var lib := AssetLibrary.get_default()
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = fixture
+	character.erase("_doc")
+	for id: int in [1002001, 1050018, 1082002, 1050049]:
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
+	character.mesos = 123456
+	slot.character = character
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	await _hold(KEY_RIGHT, 0.4)
+	await _key(KEY_E)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("equip") != null, 3.0, "Equip window (E)"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var t0 := run.world.time
+	await _sleep(0.8)
+	_check(run.world.time == t0, "the sim holds while Equip is open")
+	_check(ew.worn_id("weapon") == 1372005, "the Wooden Wand is worn (%d)" % ew.worn_id("weapon"))
+	await _shot("equip_window")
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null, 3.0, "Item window (I)"):
+		return
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	_check(iw.meso_text() == "123,456", "the meso line reads 123,456 (%s)" % iw.meso_text())
+	_check(iw.cells().size() == 4, "four items in the Equip tab (%d)" % iw.cells().size())
+	await _shot("item_windows")
+	var io := iw.get_global_rect().position
+	var eo := ew.get_global_rect().position
+	# Tooltips: the robe (wearable) and the Dark Calas (level, INT and LUK unmet, in red).
+	_hover(io + iw.slot_rect(1).get_center())
+	await _sleep(0.4)
+	_check(String(iw.tooltip().get("name", "")) == "Blue Sauna Robe" and bool(iw.tooltip().get("can_equip", false)),
+		"the robe's tooltip (%s)" % [iw.tooltip().get("name", "")])
+	await _shot("item_tooltip")
+	_hover(io + iw.slot_rect(3).get_center())
+	await _sleep(0.4)
+	_check(String(iw.tooltip().get("name", "")) == "Dark Calas" and not bool(iw.tooltip().get("can_equip", true)),
+		"the Calas's tooltip marks its unmet requirements")
+	await _shot("item_tooltip_unmet")
+	await _double_click_at(io + iw.slot_rect(3).get_center())
+	await _sleep(0.3)
+	_check(iw.cells().size() == 4 and not run.world.equipment.worn.has("overall"), "the refused Calas stays put")
+	await _shot("equip_refused")
+	# Wear the hat (double-click), the robe (drag onto the Equip window) and the gloves (double-click). The robe
+	# displaces the top (into its slot) and the bottom (appended): [top, gloves, calas, bottom].
+	await _double_click_at(io + iw.slot_rect(0).get_center())
+	await _sleep(0.3)
+	_check(ew.worn_id("hat") == 1002001, "Metal Gear worn by double-click")
+	await _drag(io + iw.slot_rect(0).get_center(), eo + ew.slot_rect("top").get_center())
+	await _sleep(0.3)
+	_check(ew.worn_id("overall") == 1050018, "the Sauna Robe worn by dragging it onto the Equip window")
+	await _double_click_at(io + iw.slot_rect(1).get_center())
+	await _sleep(0.3)
+	_check(ew.worn_id("gloves") == 1082002, "Work Gloves worn by double-click")
+	_check(iw.cells().size() == 3, "the top and bottom took the worn items' places, the Calas stays (%d)"
+		% iw.cells().size())
+	_hover(eo + ew.slot_rect("top").get_center())
+	await _sleep(0.4)
+	await _shot("equip_worn")
+	# Drag the Calas out: the YesNo box; No keeps it.
+	var calas := -1
+	for i in iw.cells().size():
+		if int(iw.cells()[i].id) == 1050049:
+			calas = i
+	await _drag(io + iw.slot_rect(calas).get_center(), Vector2(get_viewport().get_visible_rect().size.x - 60.0, 120.0))
+	await _sleep(0.4)
+	var confirm := run.ui_windows.top() as DropConfirm
+	_check(confirm != null, "dragging an item out asks the v83 question")
+	await _shot("drop_confirm")
+	if confirm != null:
+		await _click(confirm._bt_no)
+		await _sleep(0.3)
+	_check(iw.cells().size() == 3, "No kept the Calas")
+	await _click_at(io + iw.tab_rect(1).get_center())
+	await _sleep(0.3)
+	_check(iw.tab == 1 and iw.cells().size() >= 2, "the Use tab shows the potion stacks")
+	_hover(io + iw.slot_rect(0).get_center())
+	await _sleep(0.4)
+	await _shot("item_use_tab")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed both windows without pausing")
+	_check(run.world.time > t0, "the sim runs again")
+	await _shot("character_dressed")
+	_collect_missing(run)
+	# The same character in the Free Market: the slot moves to the hub and Continue opens it.
+	var carried := run.world.character_snapshot()
+	slot = flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the dressed character was saved at the hub")
+	flow.continue_character(flow.active_slot)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.4)
+	_check(hub.ui_windows.ids() == PackedStringArray(["equip", "item"]), "E and I open in the hub (%s)" % [hub.ui_windows.ids()])
+	await _shot("hub_windows")
+	var hew := hub.ui_windows.find_window("equip") as EquipWindow
+	if hew != null:
+		await _double_click_at(hew.get_global_rect().position + hew.slot_rect("hat").get_center())
+		await _sleep(0.4)
+		_check(hew.worn_id("hat") == 0 and not flow.save.slot(flow.active_slot).character.equipment.worn.has("hat"),
+			"the hat came off in the hub and the slot was saved")
+		await _shot("hub_hat_off")
+		var hiw := hub.ui_windows.find_window("item") as ItemWindow
+		var hat := -1
+		for i in hiw.cells().size():
+			if int(hiw.cells()[i].id) == 1002001:
+				hat = i
+		await _double_click_at(hiw.get_global_rect().position + hiw.slot_rect(hat).get_center())
+		await _sleep(0.3)
+		_check(hew.worn_id("hat") == 1002001, "and back on")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	_check(not hub.windows_open(), "Esc closed the hub's windows")
+	_collect_missing(hub)
+	flow.save_and_quit()
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return
+	await _sleep(1.5)
+	await _shot("character_select_dressed")
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	print("flow_driver: inventory scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
 ## Presses `k` once with the player standing; true when the player took off within 0.5 s.
 func _jumps(run: RunScene, k: Key) -> bool:
 	var p := run.world.player
@@ -1047,6 +1213,26 @@ func _click_at(p: Vector2) -> void:
 		b.global_position = w
 		Input.parse_input_event(b)
 		await get_tree().process_frame
+
+
+## A left double-click at logical position `p` (two clicks, the second press flagged double_click as Godot sends it).
+func _double_click_at(p: Vector2) -> void:
+	await _click_at(p)
+	var w := get_tree().root.get_final_transform() * p
+	var b := InputEventMouseButton.new()
+	b.button_index = MOUSE_BUTTON_LEFT
+	b.pressed = true
+	b.double_click = true
+	b.position = w
+	b.global_position = w
+	Input.parse_input_event(b)
+	await get_tree().process_frame
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.position = w
+	up.global_position = w
+	Input.parse_input_event(up)
+	await get_tree().process_frame
 
 
 ## One mouse-wheel notch (down or up) at logical position `p`.

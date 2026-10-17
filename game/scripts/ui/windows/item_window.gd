@@ -25,7 +25,7 @@ const TAB_NAMES := ["Equip", "Use", "Set-up", "Etc", "Cash"]
 ## tier C (ours, measured on the v83 backgrnd; the tab x offsets cross-checked tier B against JourneyClient): the
 ## tab strip, where each tab glyph starts, the first slot, the slot pitch and the meso field.
 const TAB_STRIP := Rect2(3, 23, 169, 19)
-const TAB_X := [10, 42, 74, 105, 138]
+const TAB_X := [10, 42, 74, 108, 139]
 const SLOT_ORIGIN := Vector2(8, 50)
 const SLOT_PITCH := Vector2(36, 34)
 const COLS := 4
