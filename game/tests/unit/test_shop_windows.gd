@@ -323,6 +323,26 @@ func test_selling_the_last_row_clears_the_selection() -> void:
 	assert_eq(shop.sell_cells(), [])
 
 
+func test_a_shop_row_cannot_be_dragged_onto_the_equip_window() -> void:
+	var world := _world(200, 0, [], {"2043700": 2})
+	var made := _shop(world)
+	var stack: WindowStack = made[0]
+	var shop: ShopWindow = made[1]
+	shop.select_tab(1)
+	var equip := EquipWindow.new(world)
+	stack.open(equip)
+	equip.position = Vector2(500, 0)
+	var from := shop.row_rect(1, 0).get_center()
+	shop._gui_input(IW.motion(from))
+	shop._gui_input(IW.press(from))
+	shop._gui_input(IW.motion(from + Vector2(20, 0)))
+	shop._gui_input(IW.motion(from + Vector2(60, 0)))
+	assert_false(shop.is_dragging_item(), "no drag starts in a shop")
+	shop._gui_input(IW.press(from, false))
+	assert_eq(world.scrolls, {"2043700": 2}, "the scroll was not read")
+	assert_eq(world.mesos, 0)
+
+
 # --- tooltips --------------------------------------------------------------------------------------------------------
 
 func test_hovering_a_stock_row_shows_the_scrolls_tooltip() -> void:

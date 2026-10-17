@@ -416,6 +416,8 @@ func _window_gui_input(event: InputEvent, local: Vector2) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and _left_press(local):
 			return
 	super._window_gui_input(event, local)
+	# A shop has no drags (a scroll dragged onto an open Equip window would be read): the base's press is forgotten.
+	_pressed = {}
 
 
 ## A left press on a tab, a scrollbar arrow or a row (selects it; the double-click still reaches the base). True when
