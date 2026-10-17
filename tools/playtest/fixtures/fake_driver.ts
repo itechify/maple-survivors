@@ -21,7 +21,7 @@ const read = async (): Promise<string> => {
 };
 
 send({ type: "hello", game: "fake", stage: "henesys_hg1", seed: 2026, minutes: 3, personality: "sensible",
-	brain: "stdio", args: process.argv.slice(2) });
+	brain: "stdio", args: process.argv.slice(2), key_in_env: Boolean(process.env.TYPESAFE_API_KEY) });
 console.log("fake_driver: a log line");
 const stuck = { kind: "stuck", severity: "warning", tick: 1500, time: 25, count: 1,
 	message: "the player stayed inside 24 px for 20 s while pressing movement (90% of ticks), tactic kite",

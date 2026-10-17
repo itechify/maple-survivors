@@ -5,6 +5,7 @@ extends RefCounted
 ## extending this one, registered in that list or asked directly through PlaytestPolicy.decide. Tool code only.
 
 const RUN_POLICY := preload("res://tools/run_policy.gd")
+const SITUATION := preload("res://tools/playtest/playtest_situation.gd")
 
 ## The protocol's decide `kind`.
 var kind := ""
@@ -24,6 +25,11 @@ func options(_w: RunWorld) -> Array:
 ## asked, so any RNG it consumes is consumed in the same order as the harness policies.
 func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": ""}
+
+
+## The decide message's situation for this kind (default: playtest_situation.gd `of`).
+func situation(w: RunWorld) -> Dictionary:
+	return SITUATION.of(w)
 
 
 ## Applies option `answer` (one of `options`) in `w` through `policy` (run_policy.gd take_card / take_job).

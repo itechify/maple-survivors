@@ -4,6 +4,9 @@
 # directory with a report (evidence/agent-playtest/<stage>_s<seed>_<time>/report.md). Needs the asset cache and Node 24.
 #
 #   bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=2026 --minutes=3
+#   bash scripts/agent_playtest.sh --brain=jev                # Jev (TypeSafe) decides cards and jobs; exit 2 without a key
+#   bash scripts/agent_playtest.sh --brain=fallback           # deterministic fallback, no network (default auto: Jev if a
+#                                                             # TYPESAFE_API_KEY resolves, incl. the Windows user env)
 #   bash scripts/agent_playtest.sh --brain=builtin            # the driver answers itself (no pipe)
 #   bash scripts/agent_playtest.sh --inject-finding=stuck     # test only: one fake finding at 0:10 (exit code 1)
 #   bash scripts/agent_playtest.sh --help                     # every flag
