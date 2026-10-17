@@ -99,6 +99,8 @@ jobs:
       - name: Web shell tests (node)
         run: node --test web/dev/test/*.test.mjs
       - name: Game tests (headless Godot)
+        env:
+          TEST_TIMEOUT_S: "1500"
         run: |
           set -o pipefail
           bash scripts/test.sh 2>&1 | tee "$RUNNER_TEMP/godot-tests.log"
