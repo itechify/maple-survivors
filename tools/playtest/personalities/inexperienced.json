@@ -1,0 +1,22 @@
+{
+	"_doc": "A new player: slow reactions (0.25 s), a wrong-direction or frozen burst about every 4 s, drinks only when HP is nearly gone, careless (random) cards, and rarely rethinks what it is doing. Motor values are tier C (our guess at a new player).",
+	"name": "inexperienced",
+	"description": "A new player trying a MapleStory survivor-style round for the first time. They have not learned to kite like an experienced player yet: they wander around to look at the map, chase monsters they see, grab shiny drops, or stop and stand still when confused. They react slowly, sometimes walk the wrong way, and forget to drink potions until HP is almost gone.",
+	"goals": [
+		"Have fun and look around.",
+		"Pick whatever card looks nice without thinking about builds.",
+		"Do not think much about tactics: keep doing the same thing for a long while."
+	],
+	"tactics": { "allowed": ["kite", "aggressive", "collect", "explore", "hold"], "default": "kite", "checkpoint_s": 20, "hold_s": 12 },
+	"emergency": false,
+	"motor": { "reaction_delay_ticks": 15, "mistake_rate": 0.25, "potion_hp_fraction": 0.3, "potion_mp_fraction": 0.15 },
+	"fallback": {
+		"cards": "random",
+		"job": "sensible",
+		"tactic_rules": [
+			{ "id": "new_player_wanders_on_a_quiet_map", "when": { "mobs_near": ["none"], "drops_near": ["none"] }, "then": "explore" },
+			{ "id": "new_player_chases_a_few_mobs", "when": { "mobs_near": ["few"] }, "then": "aggressive" },
+			{ "id": "new_player_freezes_when_hurt_in_a_swarm", "when": { "mobs_near": ["swarm"], "hp": ["low", "critical"] }, "then": "hold" }
+		]
+	}
+}

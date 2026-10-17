@@ -7,7 +7,7 @@ export function defineMapleFlags(flags: FlagRegistry): FlagRegistry {
 		.define({ name: "stage", kind: "string", default: "henesys_hg1", help: "stage key (game/data/survivor/stages.json)" })
 		.define({ name: "seed", kind: "int", default: 2026, help: "run seed (training seeds 1..60 and 2026 only)" })
 		.define({ name: "minutes", kind: "number", default: 3, help: "simulated time cap in minutes (0 = the stage's own cap)" })
-		.define({ name: "personality", kind: "string", default: "sensible", help: "playtest personality" })
+		.define({ name: "personality", kind: "string", default: "sensible", help: "playtest personality: a file in tools/playtest/personalities/ (sensible, inexperienced, aggressive, defensive, exploratory, completionist)" })
 		.define({ name: "brain", kind: "string", default: "auto", choices: ["auto", "jev", "fallback", "builtin"],
 			help: "auto: Jev if a TypeSafe key resolves, else the fallback; jev: Jev or exit 2; fallback: the deterministic fallback; builtin: the driver answers itself (no pipe)" });
 }

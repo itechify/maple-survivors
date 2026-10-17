@@ -15,6 +15,7 @@
 // decide comes at tick 150 instead of 120 when the card answer was "a", and the fingerprint carries the applied
 // answers, so a replay with a changed answer diverges. record.isolate echoes the ISOLATE env variable.
 // Any other argument is echoed in hello.args so tests can check what the launcher passed.
+import fs from "node:fs";
 import readline from "node:readline";
 
 const TACTICS = ["kite", "aggressive", "defensive", "explore", "collect", "hold"].map((id) => ({ id, name: id }));
@@ -39,6 +40,16 @@ const TACTICS_RECORD = {
 };
 
 const mode = (process.argv.find((a) => a.startsWith("--mode=")) ?? "--mode=ok").slice(7);
+/** Like the real driver: hello echoes the --personality-file content (not its path) as personality_params. */
+function personalityParams(): unknown {
+	const arg = process.argv.find((a) => a.startsWith("--personality-file="));
+	if (!arg) return {};
+	try {
+		return JSON.parse(fs.readFileSync(arg.slice("--personality-file=".length), "utf8"));
+	} catch {
+		return null;
+	}
+}
 const send = (msg: Record<string, unknown>) => process.stdout.write("@@PT " + JSON.stringify({ v: 1, ...msg }) + "\n");
 const lines = readline.createInterface({ input: process.stdin })[Symbol.asyncIterator]();
 const read = async (): Promise<string> => {
@@ -47,7 +58,8 @@ const read = async (): Promise<string> => {
 };
 
 send({ type: "hello", game: "fake", stage: "henesys_hg1", seed: 2026, minutes: 3, personality: "sensible",
-	brain: "stdio", args: process.argv.slice(2), key_in_env: Boolean(process.env.TYPESAFE_API_KEY) });
+	brain: "stdio", args: process.argv.slice(2).filter((a) => !a.startsWith("--personality-file=")),
+	key_in_env: Boolean(process.env.TYPESAFE_API_KEY), personality_params: personalityParams() });
 console.log("fake_driver: a log line");
 const stuck = { kind: "stuck", severity: "warning", tick: 1500, time: 25, count: 1,
 	message: "the player stayed inside 24 px for 20 s while pressing movement (90% of ticks), tactic kite",

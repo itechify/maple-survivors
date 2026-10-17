@@ -23,6 +23,8 @@ var trigger := ""
 var current := "kite"
 var held_s := 0.0
 var switches := 0
+## The last few switches, oldest first: [{time, from, to, trigger}] (#97: the Jev tactic question shows them).
+var recent: Array = []
 
 
 func _init() -> void:
@@ -37,10 +39,11 @@ func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": "kite" if "kite" in allowed else String(allowed[0])}
 
 
-## The base situation (facts and buckets) plus {"tactic": {current, trigger, held_s, switches}}.
+## The base situation (facts and buckets) plus {"tactic": {current, trigger, held_s, switches, recent}}.
 func situation(w: RunWorld) -> Dictionary:
 	var s := SITUATION.of(w, memory)
-	s["tactic"] = {"current": current, "trigger": trigger, "held_s": snappedf(held_s, 0.01), "switches": switches}
+	s["tactic"] = {"current": current, "trigger": trigger, "held_s": snappedf(held_s, 0.01), "switches": switches,
+		"recent": recent.duplicate(true)}
 	return s
 
 

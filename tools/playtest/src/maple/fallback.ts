@@ -1,6 +1,6 @@
 // Deterministic fallback brains for Maple Survivors (adapter). Each answers from the decide's baseline answers, which
 // the driver computes with real game code (BotInput.pick_card_for / BotInput.pick_job). No network, identical runs
-// for identical seeds. Personality-specific fallbacks (inexperienced, aggressive, ...) arrive with #94 / #95.
+// for identical seeds. Personality fallbacks (#97) are personality_fallback.ts; this is the sensible one without a file.
 import type { Brain } from "../core/session.ts";
 import { tacticFor } from "./tactic_rules.ts";
 

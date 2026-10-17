@@ -82,6 +82,8 @@ export type DriverOptions = {
 	character?: string;
 	/** Tier chain target (#98): >= 2 chains from tier 1 through this tier. */
 	tier?: number;
+	/** The personality's driver params (personality.json in the run directory, #97). */
+	personalityFile?: string;
 } & InvariantChecks;
 
 /** Godot arguments that run the playtest driver on `project`. */
@@ -94,5 +96,6 @@ export function driverArgs(project: string, o: DriverOptions): string[] {
 	if (o.injectFinding) args.push(`--inject-finding=${o.injectFinding}`);
 	if (o.character) args.push(`--character=${o.character.replaceAll("\\", "/")}`);
 	if (o.tier !== undefined && o.tier >= 2) args.push(`--tier=${o.tier}`);
+	if (o.personalityFile) args.push(`--personality-file=${o.personalityFile.replaceAll("\\", "/")}`);
 	return args;
 }

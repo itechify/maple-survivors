@@ -10,11 +10,12 @@ import { runCli } from "../src/maple/scenario_run.ts";
 import { runOptionsFrom, cliFlags } from "../src/cli.ts";
 import { EXIT } from "../src/core/exit_codes.ts";
 import { driverArgs } from "../src/maple/launcher.ts";
+import { personalityNames } from "../src/maple/personalities.ts";
 
 const FAKE = path.join(import.meta.dirname, "..", "fixtures", "fake_driver.ts");
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..");
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "playtest-scn-"));
-const KNOWN = { personalities: ["sensible"], stages: ["henesys_hg1", "tree_that_grew_1", "dark_cave"], tiers: 2, cores: 16 };
+const KNOWN = { personalities: personalityNames(), stages: ["henesys_hg1", "tree_that_grew_1", "dark_cave"], tiers: 2, cores: 16 };
 const launch = (mode = "ok") => ({ command: process.execPath, args: [FAKE, `--mode=${mode}`] });
 const noKey = () => { throw new Error("the user key must not be consulted"); };
 const readJsonl = (f: string) => fs.readFileSync(f, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
@@ -104,6 +105,26 @@ test("a replay of a Jev run needs no key (the recorded answers replace Jev)", as
 	assert.deepEqual(d[0].presented_order, ["a", "b"]);
 });
 
+test("a replay hands the driver the recording's personality.json, not today's personality file", async () => {
+	const orig = await recorded(["--personality=aggressive"]);
+	const params = { ...readJson(path.join(orig, "personality.json")), motor: { recorded_marker: 1 } };
+	fs.writeFileSync(path.join(orig, "personality.json"), JSON.stringify(params));
+	const s = readJson(path.join(orig, "scenario.json"));
+	s.hello.personality_params = params;
+	fs.writeFileSync(path.join(orig, "scenario.json"), JSON.stringify(s));
+	const out = path.join(tmp(), "replay");
+	const r = await cli([`--replay=${orig}`, `--out=${out}`]);
+	assert.equal(r.exitCode, EXIT.OK, fs.readFileSync(path.join(out, "report.md"), "utf8"));
+	assert.deepEqual(readJson(path.join(out, "personality.json")), params);
+	assert.deepEqual(readJson(path.join(out, "scenario.json")).hello.personality_params, params);
+	const changed = path.join(tmp(), "replay2");
+	s.hello.personality_params = { ...params, motor: { recorded_marker: 2 } };
+	fs.writeFileSync(path.join(orig, "scenario.json"), JSON.stringify(s));
+	const d = await cli([`--replay=${orig}`, `--out=${changed}`]);
+	assert.equal(d.exitCode, EXIT.PROBLEMS, "a driver that played other personality params diverges");
+	assert.match(readJsonl(path.join(changed, "findings.jsonl"))[0].message, /hello\.personality_params/);
+});
+
 test("a tampered offered answer diverges: replay_divergence names the first diverging decision (exit 1)", async () => {
 	const orig = await recorded();
 	const file = path.join(orig, "decisions.jsonl");
@@ -146,13 +167,14 @@ test("a matrix runs every cell in parallel with its own ISOLATE slot and writes 
 	const root = path.join(tmp(), "matrix");
 	const r = await cli(["--scenario=matrix", "--brain=fallback", "--jobs=2", `--out=${root}`], {});
 	assert.equal(r.exitCode, EXIT.OK);
-	const cells = ["matrix_henesys_hg1_sensible_s1", "matrix_henesys_hg1_sensible_s2", "matrix_henesys_hg1_sensible_s2026"];
+	const cells = personalityNames().flatMap((p) => [1, 2, 2026].map((seed) => `matrix_henesys_hg1_${p}_s${seed}`));
+	assert.equal(cells.length, 18, "six personalities x three seeds");
 	for (const c of cells) assert.ok(fs.existsSync(path.join(root, c, "report.json")), c);
 	const isolates = cells.map((c) => readJson(path.join(root, c, "record.json")).isolate);
 	assert.ok(isolates.every((i) => i === "matrix_j0" || i === "matrix_j1"), isolates.join());
 	const summary = readJson(path.join(root, "summary.json"));
 	assert.equal(summary.exit_code, EXIT.OK);
-	assert.equal(summary.cells.length, 3);
+	assert.equal(summary.cells.length, 18);
 	assert.match(fs.readFileSync(path.join(root, "summary.md"), "utf8"), /\| matrix_henesys_hg1_sensible_s2 \| sensible \| 2 \| 0 \| TIMEOUT 3:00 \|/);
 	assert.match(r.text, /summary\.md/);
 });
@@ -163,7 +185,7 @@ test("the matrix exit code is the worst over its cells", async () => {
 	assert.equal(r.exitCode, EXIT.PROBLEMS);
 	const summary = readJson(path.join(root, "summary.json"));
 	assert.deepEqual(summary.problems.map((g: { kind: string; cells: string[] }) => [g.kind, g.cells.length]),
-		[["hp_out_of_range", 3], ["stuck", 3]]);
+		[["hp_out_of_range", 18], ["stuck", 18]]);
 });
 
 test("a tier chain writes one record per round, and the driver gets --tier and --character", async () => {

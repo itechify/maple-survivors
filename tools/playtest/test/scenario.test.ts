@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { validateScenario, loadScenario, resolveScenario, SCENARIO_DIR, isTrainingSeed } from "../src/maple/scenario.ts";
 import { FlagRegistry, defineCoreFlags } from "../src/core/args.ts";
@@ -10,6 +11,15 @@ import { defineMapleFlags } from "../src/maple/flags.ts";
 import { defineInvariantFlags } from "../src/maple/invariant_flags.ts";
 import { defineJevFlags } from "../src/maple/jev_flags.ts";
 import { defineScenarioFlags } from "../src/maple/scenario_flags.ts";
+import { personalityNames } from "../src/maple/personalities.ts";
+import { SHIPPED_PERSONALITIES } from "../src/maple/personality.ts";
+
+test("scenario personality names come from #97's loader: the six shipped files, in their order", () => {
+	assert.deepEqual(personalityNames(), [...SHIPPED_PERSONALITIES]);
+	const dir = fs.mkdtempSync(path.join(os.tmpdir(), "personalities-"));
+	fs.writeFileSync(path.join(dir, "broken.json"), JSON.stringify({ name: "broken" }));
+	assert.deepEqual(personalityNames(dir), [], "a file that does not validate is not a known personality");
+});
 
 const REPO = path.resolve(import.meta.dirname, "..", "..", "..");
 const KNOWN = { personalities: ["sensible", "aggressive"], stages: ["henesys_hg1", "tree_that_grew_1", "dark_cave"], tiers: 2 };
@@ -53,8 +63,11 @@ test("every shipped scenario is valid and uses training seeds only", () => {
 	for (const n of names) {
 		const s = loadScenario(n);
 		assert.ok(!("error" in s), `${n}: ${"error" in s ? s.error : ""}`);
-		if ("scenario" in s) assert.deepEqual(validateScenario(s.scenario, { ...KNOWN, personalities: ["sensible"] }), [], n);
+		if ("scenario" in s) assert.deepEqual(validateScenario(s.scenario, { ...KNOWN, personalities: personalityNames() }), [], n);
 	}
+	const matrix = loadScenario("matrix");
+	assert.ok("scenario" in matrix);
+	assert.deepEqual(matrix.scenario.personalities, [...SHIPPED_PERSONALITIES], "the matrix covers every shipped personality");
 	assert.match(String((loadScenario("nope") as { error: string }).error), /unknown scenario nope \(known: fixture_dark_cave, henesys_full, matrix, smoke, tier_chain\)/);
 });
 

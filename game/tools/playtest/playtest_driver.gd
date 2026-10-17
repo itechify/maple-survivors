@@ -23,6 +23,10 @@ extends SceneTree
 ## end to end. Missing assets at setup stay an infrastructure error (`error` cache_missing), as in #93.
 ## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
 ## `tactics` (playtest_policy.gd tactic_summary: seconds, shares, switches, decisions, triggers, log).
+## --personality-file=<abs json> (#97) holds the personality's driver params ({name, tactics, motor}; the CLI writes
+## personality.json into the run directory): PlaytestPolicy.configure applies them, hello echoes them as
+## `personality_params`, and the record gains `motor` (motor_noise.gd summary). Without it: kite-capable defaults
+## (all tactics, quiet motor).
 ## Exit code 0 after `end`; 2 after an `error` message (bad arguments, asset cache missing).
 
 const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
@@ -46,6 +50,7 @@ func _init() -> void:
 	var minutes := 0.0
 	var brain := "stdio"
 	var personality := "sensible"
+	var personality_file := ""
 	var out_dir := ""
 	var character_file := ""
 	var tier := 1
@@ -62,6 +67,8 @@ func _init() -> void:
 			brain = a.substr(8)
 		elif a.begins_with("--personality="):
 			personality = a.substr(14)
+		elif a.begins_with("--personality-file="):
+			personality_file = a.substr(19)
 		elif a.begins_with("--out="):
 			out_dir = a.substr(6)
 		elif a.begins_with("--stuck-px=") and a.substr(11).is_valid_float():
@@ -82,7 +89,15 @@ func _init() -> void:
 	if not bad.is_empty():
 		_fail(link, "bad_args", "unknown or malformed arguments: %s" % ", ".join(bad))
 		return
+	var params := {}
+	if personality_file != "":
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(personality_file))
+		if not parsed is Dictionary:
+			_fail(link, "bad_args", "--personality-file=%s is not a JSON object" % personality_file)
+			return
+		params = parsed
 	var hello := PROTOCOL.hello(stage, seed_value, minutes, personality, link.mode)
+	hello["personality_params"] = params
 	hello.merge({"tier": tier, "character": character_file})
 	link.send(hello)
 	var data := DataRepo.load_all()
@@ -116,7 +131,7 @@ func _init() -> void:
 			return
 		setups.append(stage_setup)
 	if stages.size() > 1:
-		_play_chain(link, setups, seed_value, stage, personality, checks, out_dir)
+		_play_chain(link, setups, seed_value, stage, personality, checks, out_dir, params)
 		return
 	var setup: Dictionary = setups[0]
 	if character_file != "":
@@ -125,6 +140,7 @@ func _init() -> void:
 	var world := RunWorld.new(setup)
 	var start_character := world.character_snapshot()
 	var policy := POLICY.new(link, seed_value)
+	policy.configure(params)
 	var invariants := INVARIANTS.new(policy, checks, func(f: Dictionary) -> void: link.send(PROTOCOL.finding(f)))
 	invariants.attach(policy)
 	var timeline_file: FileAccess = null
@@ -144,6 +160,7 @@ func _init() -> void:
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
 		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
+	record["motor"] = policy.motor_summary()
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
 			record["tier"] = tier_index + 1
@@ -185,7 +202,7 @@ func _progress_observer() -> Callable:
 ## Plays a tier chain (playtest_chain.gd) and sends its `end`: the chain record (rounds[] plus the last round's outcome
 ## at the top level), the chain fingerprint, every round's decisions and findings. Timeline rows carry "tier".
 func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String, personality: String, checks: Dictionary,
-		out_dir: String) -> void:
+		out_dir: String, params: Dictionary = {}) -> void:
 	var timeline_file: FileAccess = null
 	if out_dir != "":
 		timeline_file = FileAccess.open(out_dir.path_join("timeline.jsonl"), FileAccess.WRITE)
@@ -198,14 +215,16 @@ func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String
 			if timeline_file != null:
 				timeline_file.store_line(line))
 	chain.extra_observers.append(_progress_observer())
+	chain.policy_setup = func(p: Object) -> void: p.configure(params) # the personality applies in every round (#97)
 	var result := chain.play(setups, seed_value)
 	if timeline_file != null:
 		timeline_file.close()
 	var record: Dictionary = result.record
 	record.merge({"seed": seed_value, "stage": stage, "personality": personality, "missing": [],
 		"tier": setups.size()}, true)
-	for r: Dictionary in record.rounds:
-		r["personality"] = personality
+	for i in record.rounds.size():
+		record.rounds[i]["personality"] = personality
+		record.rounds[i]["motor"] = chain.policies[i].motor_summary()
 	link.send(PROTOCOL.end(record, result.fingerprint, result.decisions, link.lost, result.findings))
 	print(BR.describe(record))
 	quit(0)
