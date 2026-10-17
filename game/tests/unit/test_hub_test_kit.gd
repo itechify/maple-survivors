@@ -184,6 +184,40 @@ func test_the_npc_chat_hint_only_appears_when_the_action_has_no_key() -> void:
 	assert_false(hint.contains("\n"), "one console line")
 
 
+func test_the_hub_spawn_stands_between_the_second_and_third_scroll_npc() -> void:
+	assert_eq(HubTestKit.spawn_x({"npcs": [{"x": -100}, {"x": 20}, {"x": 80}, {"x": 400}]}), 50.0)
+	assert_eq(HubTestKit.spawn_x({"npcs": [{"x": 7}]}), 7.0, "a single NPC is stood beside")
+	assert_eq(HubTestKit.spawn_x({}), 0.0)
+	var shops: Dictionary = DataRepo.load_json("res://data/survivor/shops.json")
+	assert_eq(HubTestKit.spawn_x(shops), -230.0, "between Barun (-280) and Tulcus (-180)")
+
+
+func test_start_hub_places_the_character_beside_the_scroll_npcs_and_normal_arrival_is_unchanged() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.start_hub({"character": FIXTURE, "mesos": 1}, work_dir.path_join("tool_hub.json"))
+	var hub := flow.current as FreeMarket
+	assert_true(hub != null and hub.motion != null, "the hub loaded")
+	if hub == null or hub.motion == null:
+		return
+	assert_eq(hub.motion.player.pos.x, -230.0)
+	assert_true(hub.motion.player.fh >= 0, "standing on the floor")
+	hub.camera.update_camera(0.0)
+	assert_true(hub.camera.view_rect().has_point(hub.motion.player.pos), "the camera shows the character at once")
+	assert_true(hub.camera.view_rect().has_point(Vector2(-280.0, hub.motion.player.pos.y - 10.0)), "Barun is in view")
+	assert_true(hub.camera.view_rect().has_point(Vector2(-180.0, hub.motion.player.pos.y - 10.0)), "Tulcus is in view")
+	# A real hub visit (no --hub) keeps the canonical arrival point.
+	var plain := _flow()
+	plain.save = SaveData.new(work_dir.path_join("plain.json"))
+	var snapshot := _snapshot()
+	snapshot.character = HubTestKit.apply(_fixture(), 1, _loader())
+	assert_eq(plain.save.create_slot(snapshot), 0)
+	plain.continue_character(0)
+	var arrival := plain.current as FreeMarket
+	assert_true(arrival.motion != null and arrival.motion.player.pos.x != -230.0, "normal play arrives elsewhere")
+
+
 func _snapshot() -> Dictionary:
 	return {"name": "HubTester", "created": "2026-01-01T00:00:00", "character": _fixture(), "tier": 1,
 		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1}

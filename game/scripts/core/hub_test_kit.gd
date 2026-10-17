@@ -80,6 +80,17 @@ static func fresh_save(path: String = SAVE_PATH) -> SaveData:
 	return SaveData.new(path)
 
 
+## Where `--hub` puts the character on the Free Market floor (x): midway between the second and third scroll NPC of
+## `shops` (shops.json; Barun and Tulcus), so every shop is a short walk away. tier C: ours.
+static func spawn_x(shops: Dictionary) -> float:
+	var npcs: Array = shops.get("npcs", [])
+	if npcs.is_empty():
+		return 0.0
+	if npcs.size() < 3:
+		return float(npcs[0].x)
+	return (float(npcs[1].x) + float(npcs[2].x)) / 2.0
+
+
 ## One console line when NPC Chat has no key (`events`: InputMap.action_get_events("npc_chat")), else "".
 static func npc_chat_hint(events: Array) -> String:
 	if not events.is_empty():

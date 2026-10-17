@@ -102,7 +102,7 @@ screenshots; numbers alone do not show a broken sprite.
 `bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`) skips
 the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`
-recreated at every launch; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
+recreated at every launch, standing on the floor between Barun and Tulcus; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
 
 The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
 movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:

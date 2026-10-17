@@ -62,6 +62,8 @@ var last_stage := ""
 ## The `--autoplay` option of this session: persistent rounds resumed from the flow play with the bot, and the Free Market
 ## runs the bot's shop visit on entry (spec #33, #112).
 var autoplay := false
+## True in a tool-only `--hub` session: the Free Market puts the character beside the scroll NPCs (start_hub).
+var hub_tool := false
 var last_summary: Dictionary = {}
 var last_new_best := false
 
@@ -192,6 +194,7 @@ func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) ->
 	if not String(loaded.error).is_empty():
 		_swap_to(error_screen("--hub: " + String(loaded.error)), "error")
 		return
+	hub_tool = true
 	save = HubTestKit.fresh_save(save_path)
 	var character := HubTestKit.apply(loaded.character, int(request.get("mesos", HubTestKit.DEFAULT_MESOS)),
 		equipment_info_loader())
@@ -335,7 +338,10 @@ func _after_round_cleared(snapshot: Dictionary) -> void:
 
 func _open_free_market(snapshot: Dictionary) -> void:
 	var screen := _instance(FREE_MARKET)
-	screen.configure(snapshot, self, {"autoplay": autoplay})
+	var options := {"autoplay": autoplay}
+	if hub_tool:
+		options["spawn_x"] = HubTestKit.spawn_x(DataRepo.load_all().get("shops", {}))
+	screen.configure(snapshot, self, options)
 	_swap_to(screen, "free_market")
 
 

@@ -101,6 +101,14 @@ func _ready() -> void:
 	_build_hud(character, data, loadout)
 	_build_windows(character, data)
 	_present(0.0)
+	if options.has("spawn_x"):
+		# Tool-only `--hub`: stand on the floor beside the scroll NPCs instead of the canonical arrival point.
+		var spawn := float(options.spawn_x)
+		var floor_fh := motion.fhm.find_below(spawn, 0.0)
+		if floor_fh >= 0:
+			motion.player.place(Vector2(spawn, motion.fhm.y_at(floor_fh, spawn)), motion.fhm)
+			camera.snap_to(motion.player.pos)
+			_present(0.0)
 	if RunScene.option_flag(options, "autoplay"):
 		# The playtest autoplay shops once on entry, like the headless chains between tiers (#112).
 		shop_visit = bot_shop("bot", int(snapshot.get("round_seed", 0)))
