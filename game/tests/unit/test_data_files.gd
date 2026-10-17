@@ -223,6 +223,10 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		assert_eq(int(b.potions[kind].item_id), int(PotionInventory.DEFAULT_ITEMS[kind]), "PotionInventory.DEFAULT_ITEMS.%s" % kind)
 	assert_eq(float(b.mob_projectiles.radius), MobProjectileSystem.DEFAULT_RADIUS, "MobProjectileSystem.DEFAULT_RADIUS")
+	assert_eq(float(b.mob_attacks.default_interval), MobAttacks.DEFAULT_INTERVAL, "MobAttacks.DEFAULT_INTERVAL")
+	for key: String in MobSkillRunner.SEAL_DEFAULTS:
+		assert_eq(float(b.mob_skills.seal[key]), float(MobSkillRunner.SEAL_DEFAULTS[key]), "MobSkillRunner.SEAL_DEFAULTS.%s" % key)
+	assert_eq(b.mob_skills.seal.size(), MobSkillRunner.SEAL_DEFAULTS.size(), "every seal value has its fallback")
 	assert_false(b.player.has("equipment") or b.player.has("weapon_by_job"), "worn equipment is the only source")
 	assert_eq(int(b.player.inventory_slots), RunWorld.DEFAULT_INVENTORY_SLOTS, "RunWorld.DEFAULT_INVENTORY_SLOTS")
 	assert_eq(AvatarRenderer.DEFAULT_LOOK.equips, Equipment.DEFAULT_OUTFIT.slice(0, 3),

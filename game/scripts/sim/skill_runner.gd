@@ -84,13 +84,15 @@ func step(dt: float, world: RunWorld) -> void:
 		cast_ready(dt, world)
 
 
-## Counts down every active skill, including while casting is blocked.
+## Counts down every active skill, including while casting is blocked, at RunWorld.skill_cooldown_rate() (half speed
+## while sealed, #76; buff readiness included; running buff durations are PlayerBuffs' own).
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
 	waiting_mp = false
+	var step := dt * world.skill_cooldown_rate()
 	for key: String in world.loadout.order:
 		if world.loadout.book.is_active(key):
-			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
+			cooldowns[key] = float(cooldowns.get(key, 0.0)) - step
 
 
 ## Fires one affordable skill, oldest-ready first; learned order breaks ties. Short MP never restarts cooldowns.
