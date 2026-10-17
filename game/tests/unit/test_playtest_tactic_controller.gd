@@ -126,6 +126,36 @@ func test_collect_climbs_to_a_drop_on_a_platform_above() -> void:
 	assert_eq(w.pickups.collected_exp, 7, "collect walked to the rope, climbed and swept the drop")
 
 
+## Henesys seed 2 at 1:05 (#96's stuck finding), rebuilt: the player stands on a floor that rises to the right (M,
+## 0..620). Drop A lies on a lower ledge to the right (L, reached by walking off M's right end); drop B lies on a high
+## platform (H) whose only way up is a rope at M's left end. Walking right toward A makes B the cheaper drop by the
+## travel cost and walking left toward B's rope makes A cheaper again, so a controller that re-picks the cheapest drop
+## every tick dithers in a ~12 px band on M and collects neither.
+func test_collect_commits_to_one_drop_instead_of_dithering_between_two() -> void:
+	var s := RF.setup("quiet", 32, RF.quiet_data())
+	s.map_img = RF.map_from_segments([
+		{"x1": 0, "y1": 300, "x2": 620, "y2": 269},
+		{"x1": 550, "y1": 340, "x2": 1100, "y2": 340},
+		{"x1": 0, "y1": 120, "x2": 800, "y2": 120},
+		{"x1": 0, "y1": 400, "x2": 1200, "y2": 400},
+	], [Vector2(450, 260)])
+	s.map_img["ladderRope"] = {"1": {"l": 0.0, "uf": 1.0, "x": 100.0, "y1": 125.0, "y2": 293.0, "page": 1.0}}
+	var w := RunWorld.new(s)
+	RF.place_player(w, 450.0, 250.0)
+	w.drain_events()
+	w.pickups.spawn(Vector2(900.0, 335.0), 3, 0)
+	w.pickups.spawn(Vector2(700.0, 115.0), 7, 0)
+	var controller := CONTROLLER.new()
+	var memo := {}
+	for i in 60 * 15:
+		w.step(DT, controller.input(w, "collect", memo))
+		w.drain_events()
+		if w.pickups.collected_exp > 0:
+			break
+	assert_true(w.pickups.collected_exp > 0, "collect swept one of the two drops within 15 s (player ended at x %.1f)"
+		% w.player.pos.x)
+
+
 func test_collect_walks_to_a_drop_on_its_floor() -> void:
 	var w := RF.quiet_world(800.0, 26)
 	w.pickups.spawn(Vector2(300.0, 195.0), 3, 0)

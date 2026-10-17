@@ -39,6 +39,8 @@ const DEFENSIVE_DRINK_GUARD := 0.25
 const EXPLORE_DWELL := 90
 const ROUTE_GIVE_UP := 20 * 60
 const EXPLORE_SKIP := 60 * 60
+## tier C: ticks collect chases one drop before skipping it (well inside the stuck invariant's 20 s).
+const COLLECT_GIVE_UP := 10 * 60
 ## tier C: ticks pressing a direction without moving before a hop to get over the obstacle.
 const STUCK_TICKS := 15
 ## tier C: a jump/drop takeoff point is reached within this many px (PortalApproach uses 3).
@@ -171,10 +173,10 @@ func _explore(w: RunWorld) -> MoveInput:
 
 
 func _collect(w: RunWorld, kite_memo: Dictionary) -> MoveInput:
+	var drop := _collect_target(w) # every tick, so the give-up clock also runs through hops and climbs
 	var mi := _begin(w, _bot_guard(w))
 	if _busy or w.player.fh < 0:
 		return _air(w, mi)
-	var drop := _nearest_drop(w, false)
 	if drop < 0:
 		return BotInput.decide(w, kite_memo)
 	var pk := w.pickups
@@ -186,6 +188,39 @@ func _collect(w: RunWorld, kite_memo: Dictionary) -> MoveInput:
 	if plat < 0 or not _go_to_platform(w, mi, plat, pk.x[drop]):
 		return BotInput.decide(w, kite_memo)
 	return mi
+
+
+## The drop collect goes for. It stays the one chosen first while that drop is on the map: re-picking the cheapest drop
+## every tick dithered between two drops whose travel costs cross as the player walks (#96: Henesys seed 2, 1:05).
+## A drop is the same while its slot is active and its age has not gone back (a reused or merged slot restarts it). A
+## drop not swept within COLLECT_GIVE_UP ticks is skipped while it stays; -1 when there is no drop to go for.
+func _collect_target(w: RunWorld) -> int:
+	var pk := w.pickups
+	var skip: Dictionary = _memo.get("collect_skip", {})
+	for k: int in skip.keys():
+		if not _same_drop(pk, k, float(skip[k])):
+			skip.erase(k)
+	var i := int(_memo.get("collect_drop", -1))
+	if int(_memo.get("collect_seen", -1)) != _tick - 1:
+		i = -1 # collect resumes after another tactic: choose afresh
+	_memo["collect_seen"] = _tick
+	if i >= 0 and _same_drop(pk, i, float(_memo.collect_age)):
+		_memo["collect_age"] = pk.age[i]
+		if _tick - int(_memo.collect_since) <= COLLECT_GIVE_UP:
+			return i
+		skip[i] = pk.age[i]
+	_memo["collect_skip"] = skip
+	i = _nearest_drop(w, false, skip)
+	_memo["collect_drop"] = i
+	if i >= 0:
+		_memo["collect_age"] = pk.age[i]
+		_memo["collect_since"] = _tick
+	return i
+
+
+## True while pickup slot `i` still holds the drop that was `age` seconds old when last seen.
+func _same_drop(pk: PickupSystem, i: int, age: float) -> bool:
+	return i < pk.capacity() and pk.active[i] != 0 and pk.age[i] >= age
 
 
 ## A MoveInput with the potion presses (BotInput.worth_drinking with `guard`) and, when a portal hop or a rope climb is
@@ -264,15 +299,16 @@ func _target_mob(w: RunWorld) -> int:
 
 
 ## The cheapest drop (BotInput's travel cost). `walkable_only`: drops on or below the player's level within 1200 px
-## and no mob within DEFENSIVE_DROP_CLEAR of them (the defensive rule); otherwise any drop on the map.
-func _nearest_drop(w: RunWorld, walkable_only: bool) -> int:
+## and no mob within DEFENSIVE_DROP_CLEAR of them (the defensive rule); otherwise any drop on the map. Slots in `skip`
+## are left out.
+func _nearest_drop(w: RunWorld, walkable_only: bool, skip: Dictionary = {}) -> int:
 	var pk := w.pickups
 	var p := w.player.pos
 	var reach_up := w.magnet_r * SITUATION.DROP_REACH_UP
 	var best := -1
 	var best_d := INF
 	for i in pk.capacity():
-		if pk.active[i] == 0:
+		if pk.active[i] == 0 or skip.has(i):
 			continue
 		var dx := pk.x[i] - p.x
 		var dy := pk.y[i] - p.y
