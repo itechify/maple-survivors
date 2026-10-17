@@ -8,8 +8,10 @@
 // Every message carries "v": 1 and "type". Shapes:
 //   hello   {v, type:"hello", game, stage, seed, minutes, personality, brain}             once, before the round
 //   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{<policy>: id}}
-//           id: 1, 2, 3... per run; kind: a decision kind of the game adapter ("card", "job"; later "tactic");
+//           id: 1, 2, 3... per run; kind: a decision kind of the game adapter (Maple: "card", "job", "tactic");
 //           option ids are strings; baseline answers come from real game code (Maple: "sensible").
+//           Maple's situation shape (facts plus named `buckets`, and `tactic` on tactic decides) is documented in
+//           game/tools/playtest/playtest_situation.gd and typed in maple/situation.ts.
 //   finding {v, type:"finding", kind, severity, tick, time, message, snapshot:{...}, count}   an invariant failure,
 //           sent when it first happens; count 1 then (repeats only raise the end count)
 //   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost, findings:[...]}  once,

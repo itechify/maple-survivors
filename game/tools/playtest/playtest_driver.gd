@@ -16,6 +16,8 @@ extends SceneTree
 ## second, playtest_timeline.gd) into that directory. --stuck-px / --stuck-s set the stuck detector's box and window.
 ## --inject-finding (test only) reports one finding of that kind at INJECT_AT run seconds, to show the reporting path
 ## end to end. Missing assets at setup stay an infrastructure error (`error` cache_missing), as in #93.
+## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
+## `tactics` (playtest_policy.gd tactic_summary: seconds, shares, switches, decisions, triggers, log).
 ## Exit code 0 after `end`; 2 after an `error` message (bad arguments, asset cache missing).
 
 const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
@@ -108,7 +110,7 @@ func _init() -> void:
 				w.swarm.alive_count()]))
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
-		"start_character": start_character, "missing": []})
+		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
 			record["tier"] = tier_index + 1

@@ -9,8 +9,10 @@ extends RefCounted
 ## Every message carries "v": 1 and "type". Shapes:
 ##   hello   {v, type:"hello", game, stage, seed, minutes, personality, brain}             once, before the round
 ##   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{sensible: id}}
-##           id 1, 2, 3... per run; kind "card" or "job" (later "tactic"); option ids are Strings (job ids as text,
-##           plus "not_now"); baseline answers come from real game code (BotInput.pick_card_for / pick_job).
+##           id 1, 2, 3... per run; kind "card", "job" or "tactic"; option ids are Strings (job ids as text,
+##           plus "not_now"; tactic ids from tactic_controller.gd TACTICS); baseline answers come from real game code
+##           (BotInput.pick_card_for / pick_job; "kite" for tactics). situation: playtest_situation.gd `of` (facts
+##           plus `buckets`); a tactic decide adds situation.tactic {current, trigger, held_s, switches}.
 ##   finding {v, type:"finding", kind, severity, tick, time, message, snapshot:{...}, count}   an invariant failure
 ##           (playtest_invariants.gd), sent when it first happens; count 1 then (repeats only raise the end count)
 ##   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost, findings:[...]}  once,

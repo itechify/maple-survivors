@@ -2,6 +2,7 @@
 // their sections (metrics, invariants, evaluations) in their own modules and import them here.
 import { registerSection, setSnapshotFormatter, genericSnapshot } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
+import "./report_tactics.ts";
 
 /** A Maple invariant snapshot (game/tools/playtest/playtest_invariants.gd `snapshot`) as Problems sub-bullets. */
 export function mapleSnapshot(s: Record<string, unknown>): string[] {
