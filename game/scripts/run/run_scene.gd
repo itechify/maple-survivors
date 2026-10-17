@@ -1505,6 +1505,8 @@ func build_summary() -> Dictionary:
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
+		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
+		"nx_awarded": world.nx_awarded(),
 	}
 
 

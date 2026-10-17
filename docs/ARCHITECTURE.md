@@ -108,7 +108,9 @@ rewards and clear events. It checks presentation only; natural outcomes belong t
 
 Everything else is owned by the scene that uses it.
 
-`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`.
+`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`, plus an
+optional `account: {nx, owned}` (spec #34; absent = an empty account, no format bump). A finished round's `nx_awarded`
+is credited inside the same atomic write as the clear boundary or the death/victory archive.
 The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
 `character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
 `map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.

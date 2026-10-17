@@ -164,6 +164,8 @@ var mob_projectiles := MobProjectileSystem.new()
 var events: Array = []
 var time := 0.0
 var kills := 0
+## Character level when the round began (a carried character keeps its level); see levels_gained().
+var start_level := 1
 ## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
 var damage_dealt: int:
 	get:
@@ -245,6 +247,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_directors()
 	_init_player_motion()
 	_init_player()
+	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
 	update_view()
 	_write_player_state(0.0)
@@ -361,6 +364,23 @@ func character_snapshot() -> Dictionary:
 		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
 		"fortune": float(player_state.fortune), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "beginner_weapon": beginner_weapon}
+
+
+## Levels the character gained in this round (queued level-ups included).
+func levels_gained() -> int:
+	return maxi(0, progression.level - start_level)
+
+
+## Scheduled bosses killed so far in this round.
+func bosses_killed() -> int:
+	return bosses.dead_count()
+
+
+## NX this round pays now (spec #34, NxAward): the tier's clear bonus only when CLEARED, plus levels and bosses.
+## Tools record it as `nx_awarded`; only Flow credits it, at the round boundary or the run archive.
+func nx_awarded() -> int:
+	return NxAward.compute(balance.get("nx_award", {}), NxAward.tier_of(data.get("stages", {}), stage_key),
+		state == CLEARED, levels_gained(), bosses_killed())
 
 
 ## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.

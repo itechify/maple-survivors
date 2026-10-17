@@ -471,6 +471,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
+		# #115: what the round would pay (tier C placeholders); tools record it and never credit it or write a save.
+		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
 
@@ -548,6 +550,8 @@ static func describe(r: Dictionary) -> String:
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
 		lines.append("  %-16s %s" % [k, r.get(k, [])])
+	lines.append("  NX awarded %d (bosses killed %d, levels gained %d)" % [int(r.get("nx_awarded", 0)),
+		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
 	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
 	lines.append("  camper %s" % [r.get("camper",{})])
@@ -638,6 +642,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var hit_samples := {}
 	var start_levels: Array = []
 	var end_levels: Array = []
+	var nx_samples: Array = []
 	result["lv70_reached"] = 0
 	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
@@ -645,6 +650,8 @@ static func aggregate(records: Array) -> Dictionary:
 			start_levels.append(int(record.start_character.level))
 		if record.has("level"):
 			end_levels.append(int(record.level))
+		if record.has("nx_awarded"):
+			nx_samples.append(int(record.nx_awarded))
 		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
 		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
 		if not result.branches.has(branch_key):
@@ -731,6 +738,7 @@ static func aggregate(records: Array) -> Dictionary:
 	result["boss_hit_fraction"] = statistics(fractions)
 	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
+	result["nx_awarded"] = statistics(nx_samples)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
 		bucket.mean = float(bucket.hits) / int(bucket.kills) if int(bucket.kills) > 0 else null
 	return result
@@ -798,6 +806,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	if summary.has("nx_awarded"):
+		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
 	for tier: String in UpgradePool.TIERS:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),

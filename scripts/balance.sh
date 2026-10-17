@@ -24,6 +24,9 @@
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
 #
+# Every record carries nx_awarded (plus bosses_killed, levels_gained): the NX the round would pay (balance.json nx_award,
+# tier C). Tools never credit it and never write a save; the table's NX column and the summary report it per run.
+#
 # Feature tickets run only a smoke (1 2 2026, both stages and policies) and never tune (AGENTS.md "Balance").
 # Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430, 501..530 and 601..630 are spent
 # or retired (#30 consumed 601..630). Reserve fresh 701..730 for the balance pass's frozen candidate's one-time
@@ -119,9 +122,9 @@ done
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
 if [[ -z "$EXTRA_TIER" ]]; then
-printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %s\n' seed Lv8 Lv10 Lv20 \
+printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %s\n' seed Lv8 Lv10 Lv20 \
   Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
-  "recyc/reloc"
+  "recyc/reloc" NX
 for s in "${SEEDS[@]}"; do
   f="$OUT/${RUN_KEY}_${s}.json"
   [[ -s "$f" ]] || continue
@@ -158,11 +161,11 @@ for s in "${SEEDS[@]}"; do
       sp = field("spawned") + 0; rc = field("recycled") + 0; rl = field("relocated") + 0
       h = 0; for (i = 9; i <= k; i++) h += H[i]
       e = 0; for (i = 1; i <= 6 && i <= k; i++) e += H[i]
-      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %s\n", seed, reach(8),
+      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %s\n", seed, reach(8),
         reach(10), reach(20), reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12],
         r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]), field("kills"), field("level"), field("state"),
         mmss(field("time")), pc(G[6]) "/" pc(G[9]) "/" pc(G[12]), pc(S[6]) "/" pc(S[9]) "/" pc(S[12]),
-        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-")
+        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded"))
     }' "$f"
 done | tee "$OUT/.table"
 # Summary: runs, clears, deaths (times), and min / median / max of the milestone times and the final level.
@@ -187,6 +190,7 @@ awk '
     split($16, g, "/"); split($17, q, "/"); split($18, rr, "/")
     for (k = 1; k <= 3; k++) { if (g[k] != "-") eg[k, ++neg[k]] = g[k] + 0; if (q[k] != "-") sg[k, ++nsg[k]] = q[k] + 0 }
     if (rr[1] != "-") { rcy[++nrc] = rr[1] + 0; rlc[nrc] = rr[2] + 0 }
+    if ($19 != "-") nxv[++nnx] = $19 + 0
   }
   function med(v, n,   i, j, t) {
     if (n == 0) return "-"
@@ -211,6 +215,7 @@ awk '
       col(sg, 3, nsg[3])
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
+    printf "  NX awarded per run (recorded, never credited) %s\n", med(nxv, nnx)
   }' "$OUT/.table"
 else
   # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by tier.
