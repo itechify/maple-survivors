@@ -758,16 +758,18 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 | uncapped 13:00-15:07 (death) | 292-341 / 341 | 3.7 / 8.7 / 10.9 / 83.7 | 2.01 / 5.33 / 6.91 / 17.0 | 3929 / 2849 |
 | capped 60 Hz 13:00-15:00 | 292-339 / 340 | 16.7 / 16.8 / 16.8 / 21.5 (work p95 6.8 ms) | not run | 3732 / not run |
 
-1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run drew 7,081 frames in 120 s with p99
-   16.8 ms and max 21.5 ms, and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
+1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run played all 7,200 ticks of its 120 s in
+   7,081 recorded frames (frames right after a screenshot are not recorded, and fewer than 2% ran a catch-up tick),
+   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
    reached: Henesys caps at 330 alive from 15:00 (`stages.json`), and in this seed the bot dies at 15:07 on both
    platforms.
 2. **Sim:** 1.38x desktop: 3.9 ms/tick at about 340 mobs, 1.7 ms at 200-290.
 3. **Peak wasm heap:** 178 MiB in a `--run` session with 200-341 mobs; it stops growing during the warp. The title
    screen alone takes the heap to 339 MiB, and the heap never shrinks, so a full title-to-round session peaks at 339
    MiB or more. Measuring the full flow needs menu input on web, which is left to the QA ticket. Chrome's
-   `usedJSHeapSize` (JS objects, including the in-memory IDBFS copy of the 157 MiB cache) is 330-340 MiB in rounds and
-   604 MiB on the title.
+   `usedJSHeapSize` peaks at 330-340 MiB in rounds (it swings between about 235 and 330 MiB, which is GC churn with no
+   visible frame cost) and 604 MiB on the title. Whether that figure counts the typed arrays holding the in-memory
+   IDBFS copy of the 157 MiB cache was not checked.
 4. **Max texture size:** WebGL2 `MAX_TEXTURE_SIZE` is 16384 (ANGLE D3D11). The largest cache page is 2493x340
    (`Map.wz/Back/grassySoil.img.0.png`), followed by 2048 px pages, so nothing comes close.
 5. **Rendering against desktop:** compared by eye on the same frames (`evidence/spec130/t131/`). Maps, mobs, skills,
