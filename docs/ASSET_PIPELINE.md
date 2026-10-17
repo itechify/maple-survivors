@@ -213,6 +213,10 @@ each used archive in host storage, even if the manifest needs only a few of its 
 pay that 1.78 GiB in host RAM instead. This is why scratch stays optional and the no-scratch path remains bounded.
 The private ZIP, Node/native harnesses and JSON measurements are outside the repo under
 `maple-survivors-refs/research/spec130/t132/round2/`; no proprietary input or decoded output is committed.
+Follow-up validation: 60 Rust tests passed (including all 17 real-data tests with `MAPLE_WZ_ROOT` set), with no skips;
+all 13 source-boundary tests also passed without default features, and all seven wasm callback checks passed.
+The isolated full Godot suite ran 822 tests: 816 passed, six failed, zero skipped. The six failures are the existing
+#103 key-config/key-window/run-scene/Teleport binding family documented in the spec's integration baseline.
 
 ## 3. WZ format facts (v83, verified)
 
