@@ -20,7 +20,13 @@
 #                                                             # an occluded window draws no frames); screenshots at
 #                                                             # those times and at every recorded finding, in
 #                                                             # <run dir>_windowed_<time>/shots/ (report.md lists them)
+#   bash scripts/agent_playtest.sh --strict-eval              # Jev-flagged evaluations count toward exit code 1
+#   bash scripts/agent_playtest.sh --summarize=<matrix dir>   # rewrite a matrix's summary.md from its cells (no runs)
 #   bash scripts/agent_playtest.sh --help                     # every flag
+#
+# report.md starts with a verdict and the next command. Problems lists deterministic failures, then Jev-flagged
+# evaluations, then ones that need human review (evaluations.json: death fairness, minute pacing, movement, card
+# offers; skipped without a TypeSafe key or on a replay). A matrix summary.md adds death-cluster patterns.
 #   ISOLATE=<name> bash scripts/agent_playtest.sh ...         # private project mirror (_scratch/godot_runs/<name>/game)
 #
 # Installs tools/playtest dependencies on first use (npm ci). Exit code: 0 clean, 1 deterministic problems found

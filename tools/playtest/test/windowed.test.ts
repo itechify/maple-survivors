@@ -12,6 +12,8 @@ import { runOptionsFrom, cliFlags } from "../src/cli.ts";
 import { EXIT } from "../src/core/exit_codes.ts";
 import { personalityNames } from "../src/maple/personalities.ts";
 import { windowedSceneArgs } from "../src/maple/windowed_replay.ts";
+import { parseShotsAt } from "../src/maple/windowed_flags.ts";
+import { windowedReplayCommand } from "../src/maple/run.ts";
 
 const FAKE = path.join(import.meta.dirname, "..", "fixtures", "fake_driver.ts");
 const FAKE_WINDOWED = path.join(import.meta.dirname, "..", "fixtures", "fake_windowed.ts");
@@ -100,6 +102,15 @@ test("a silent scene is killed by the liveness timeout", async () => {
 	const r = await cli([`--replay=${orig}`, "--windowed", `--out=${path.join(tmp(), "win")}`], "hang", 1);
 	assert.equal(r.exitCode, EXIT.INFRA);
 	assert.match(r.text, /no output from the windowed replay for 1 s/);
+});
+
+test("the windowed replay command the reports print (#99) parses with these flags", () => {
+	const cmd = windowedReplayCommand(path.join(REPO, "evidence", "agent-playtest", "x"), 412.46, REPO);
+	const argv = cmd.replace(/^bash scripts\/agent_playtest\.sh /, "").split(" ");
+	const parsed = cliFlags().parse(argv);
+	assert.deepEqual(parsed.errors, []);
+	assert.equal(parsed.values.windowed, true);
+	assert.deepEqual(parseShotsAt(String(parsed.values["shots-at"])), [412.5]);
 });
 
 test("--windowed needs --replay, and --shots-at takes run seconds", async () => {

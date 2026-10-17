@@ -28,6 +28,13 @@ import { loadPersonality, driverParams } from "./personality.ts";
 import type { Personality } from "./personality.ts";
 import { createFallbackBrain } from "./personality_fallback.ts";
 import "./report_personality.ts";
+import { runEvaluations, opinionsOf, evaluationsLine } from "./evaluations.ts";
+import type { Evaluations } from "./evaluations.ts";
+import { readRunData, readJsonl } from "./eval_facts.ts";
+import { outcomeOf } from "./report_sections.ts";
+import { runClock } from "../core/report.ts";
+import type { Opinion } from "../core/report.ts";
+import "./report_metrics.ts";
 
 /** The personality's driver params, written into the run directory and passed with --personality-file (#97). */
 export const PERSONALITY_FILE = "personality.json";
@@ -70,12 +77,14 @@ export type RunOptions = {
 	tier?: number;
 	/** Run seconds answered by the sensible baseline (source "warp") before the brain decides (#98). */
 	warp?: number;
-	/** Jev-assisted evaluations on (scenario field; #99 reads it). */
+	/** Jev-assisted evaluations on (#99; scenario field, default true through the CLI). Absent (a direct call): off. */
 	evaluations?: boolean;
 	/** Recorded in scenario.json besides the run options: the scenario (name, file), the cell and every flag value. */
 	record?: { scenario?: unknown; cell?: unknown; flags?: Record<string, unknown> };
 	/** Replay this recording (#98): its answers instead of a brain (no Jev, no key), compared at the end. */
 	replay?: Recording;
+	/** --strict-eval (#99): Jev-flagged evaluation results count toward exit code 1. */
+	strictEval?: boolean;
 };
 
 export type RunOutcome = { exitCode: number; dir: string; markdown: string };
@@ -169,7 +178,13 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	if (divergence) problems.unshift(divergence);
 	for (const p of problems) rec.jsonl("findings.jsonl", p);
 	rec.adopt("timeline.jsonl");
-	const exitCode = exitCodeFor(errors, problems.length);
+	rec.adopt("hits.jsonl");
+	const evaluation = await evaluate(o, env, dir, session, decisions, problems);
+	rec.json("evaluations.json", evaluation);
+	const opinions = withSnapshots(opinionsOf(evaluation), readJsonl(path.join(dir, "timeline.jsonl")));
+	const ended = outcomeOf(session?.end);
+	const flagged = opinions.filter((x) => x.class === "flagged").length;
+	const exitCode = exitCodeFor(errors, problems.length + (o.strictEval ? flagged : 0));
 	const brainLines = o.replay ? pick.header?.(divergence, session) ?? []
 		: brainHeader({ ...pick.facts, decisions, stats: pick.client?.stats(), brainLost: session?.end?.brain_lost === true });
 	const ctx: ReportContext = {
@@ -181,10 +196,14 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 			...((o.tier ?? 1) >= 2 ? [["tier chain", `tier 1 through ${o.tier} (a round feeds the next only when CLEARED)`] as [string, string]] : []),
 			...((o.warp ?? 0) > 0 && !o.replay ? [["warp", `the first ${o.warp} s took the sensible baseline (source warp: BotInput's choices, tactic kite); the brain decided after`] as [string, string]] : []),
 			...brainLines,
-			["exit code", String(exitCode)]],
+			["evaluations", evaluationsLine(evaluation)],
+			["exit code", `${exitCode}${o.strictEval ? " (--strict-eval: Jev-flagged results count)" : ""}`]],
 		infraErrors: errors, problems, decisions, files: rec.files(), exitCode,
-		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats(), personality }, rerun: rerunCommand(o, repo),
-		replay: replayCommand(o.replay?.dir ?? dir, repo),
+		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats(), personality, evaluations: evaluation },
+		rerun: rerunCommand(o, repo), replay: replayCommand(o.replay?.dir ?? dir, repo),
+		windowed: (t) => windowedReplayCommand(o.replay?.dir ?? dir, t, repo),
+		opinions, evaluations: { line: evaluationsLine(evaluation), skipped: evaluation.status === "skipped" }, strictEval: o.strictEval,
+		outcome: ended && ended.time !== null ? `${ended.state} at ${runClock(ended.time)}, Lv ${ended.level ?? "?"}` : undefined,
 	};
 	const report = renderReport(ctx);
 	rec.text("report.md", report.markdown);
@@ -212,6 +231,46 @@ export function displayPath(repo: string, p: string): string {
 /** The command that replays run directory `dir` exactly (#98). */
 export function replayCommand(dir: string, repo: string = REPO): string {
 	return `bash scripts/agent_playtest.sh --replay=${displayPath(repo, dir)}`;
+}
+
+/** The windowed replay of run directory `dir` with screenshots at run time `t` seconds. The command is #100's
+ * (--windowed --shots-at); it is printed as the documented next step, not validated here. */
+export function windowedReplayCommand(dir: string, t: number, repo: string = REPO): string {
+	return `${replayCommand(dir, repo)} --windowed --shots-at=${Math.round(t * 10) / 10}`;
+}
+
+/** `opinions` with the game state at their run time: the last timeline row at or before it (a chain: of its last
+ * tier, the round the evaluations judged). */
+export function withSnapshots(opinions: Opinion[], rows: Array<Record<string, unknown>>): Opinion[] {
+	const tier = Math.max(1, ...rows.map((r) => (typeof r.tier === "number" ? r.tier : 1)));
+	const round = rows.filter((r) => (typeof r.tier === "number" ? r.tier : 1) === tier);
+	return opinions.map((op) => {
+		if (op.time === undefined) return op;
+		const r = [...round].reverse().find((x) => typeof x.time === "number" && x.time <= op.time! + 1e-6) ?? round[0];
+		if (!r) return op;
+		return { ...op, snapshot: `${r.state}, Lv ${r.level}, HP ${r.hp}/${r.max_hp}, MP ${r.mp}/${r.max_mp}, platform ${r.platform}, ` +
+			`tactic ${r.tactic}, position (${r.x}, ${r.y}), mobs near ${r.near}, bosses ${r.bosses} (timeline at ${runClock(Number(r.time))})` };
+	});
+}
+
+/** tier C: Jev requests the evaluations of one run may make (death, pacing, movement need three). */
+export const EVAL_MAX_REQUESTS = 10;
+
+/** The Jev-assisted evaluations of this run (#99): skipped without an end record, on a replay (never calls Jev), when
+ * turned off, or when no TypeSafe key resolves (whatever the brain); otherwise their own JevClient (own cap and
+ * stats, so a brain at its request cap still gets evaluated). */
+async function evaluate(o: RunOptions, env: NodeJS.ProcessEnv, dir: string, session: SessionResult | undefined,
+	decisions: DecisionRecord[], problems: Problem[]): Promise<Evaluations> {
+	const skip = (reason: string) => runEvaluations({ client: null, skip: reason, data: { record: {}, timeline: [], hits: [], decisions, problems } });
+	if (!session?.end) return skip("no round record: the driver sent no end");
+	if (o.replay) return skip("replay: the recording's evaluations.json has the verdicts");
+	if (o.evaluations !== true) return skip("turned off by --evaluations=false or the scenario");
+	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
+	if (key.key === null) return skip(`no TypeSafe key: ${key.reason}`);
+	const data = readRunData(dir, decisions, problems);
+	if (!data) return skip("no readable record.json");
+	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: EVAL_MAX_REQUESTS, fetch: o.jevFetch, retry: o.jevRetry });
+	return runEvaluations({ client, data });
 }
 
 /** The command that plays this run again live (same stage, seed, cap, personality, brain, character, tier, warp and

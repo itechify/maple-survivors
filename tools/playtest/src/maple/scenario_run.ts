@@ -16,6 +16,7 @@ import type { RunOptions } from "./run.ts";
 import { loadScenario, resolveScenario, knownFacts, DEFAULT_SCENARIO } from "./scenario.ts";
 import type { Cell, Known } from "./scenario.ts";
 import { matrixSummary } from "./matrix_summary.ts";
+import { clusterOptions } from "./eval_flags.ts";
 import { runWindowedReplay } from "./windowed_replay.ts";
 import { parseShotsAt } from "./windowed_flags.ts";
 
@@ -25,7 +26,7 @@ const WINDOWED_FLAGS = ["windowed", "shots-at", "speed", "skip-to"];
 /** Report lines echoed to the console (the head: title, header, outcome, problems). */
 const HEAD_LINES = 30;
 /** Flags that steer the CLI itself rather than a run; never recorded as a run's flags. */
-const CLI_ONLY = ["help", "out", "replay", "jobs", ...WINDOWED_FLAGS];
+const CLI_ONLY = ["help", "out", "replay", "jobs", "summarize", "cluster-window-s", "cluster-share", ...WINDOWED_FLAGS];
 
 export type CliInput = {
 	values: Record<string, FlagValue>;
@@ -61,7 +62,8 @@ export function cellValues(cell: Cell, values: Record<string, FlagValue>): Recor
 /** The run options of `cell` with flag values `flags` (a live cell, or a replay's recorded cell and flags). */
 export function cellRunOptions(cell: Cell, flags: Record<string, FlagValue>, optionsFrom: CliInput["optionsFrom"],
 	scenario: unknown): RunOptions {
-	return { ...optionsFrom(flags), scenario: cell.scenario, warp: cell.warp, character: cell.character, tier: cell.tier,
+	return { ...optionsFrom(flags), strictEval: flags["strict-eval"] === true, scenario: cell.scenario, warp: cell.warp,
+		character: cell.character, tier: cell.tier,
 		evaluations: cell.evaluations, record: { scenario, cell, flags } };
 }
 
@@ -72,6 +74,7 @@ export async function runCli(i: CliInput): Promise<CliResult> {
 	if (i.values.windowed === true && i.values.replay === undefined) return fail("--windowed needs --replay=<run dir>");
 	if (i.values.replay !== undefined && i.values.windowed === true) return runWindowed(i, repo, env, now);
 	if (i.values.replay !== undefined) return runReplay(i, repo, env, now);
+	if (i.values.summarize !== undefined) return summarizeMatrix(path.resolve(i.cwd ?? process.cwd(), String(i.values.summarize)), i.values);
 	const name = i.explicit.has("scenario") ? String(i.values.scenario) : DEFAULT_SCENARIO;
 	const loaded = loadScenario(name, i.scenarioDir);
 	if ("error" in loaded) return fail(loaded.error);
@@ -105,12 +108,31 @@ export async function runCli(i: CliInput): Promise<CliResult> {
 		}
 	};
 	await Promise.all(Array.from({ length: Math.min(r.jobs, r.cells.length) }, (_, slot) => worker(slot)));
-	const summary = matrixSummary(name, dirs);
+	return writeSummary(name, root, dirs, i.values);
+}
+
+/** Writes summary.md / summary.json of matrix `root` over cell directories `dirs` (death clusters per the flags). */
+function writeSummary(name: string, root: string, dirs: string[], values: Record<string, FlagValue>): CliResult {
+	const summary = matrixSummary(name, dirs, clusterOptions(values));
 	fs.writeFileSync(path.join(root, "summary.md"), summary.markdown);
 	fs.writeFileSync(path.join(root, "summary.json"), JSON.stringify(summary.json, null, "\t") + "\n");
 	return { exitCode: summary.json.exit_code, dir: root,
 		text: `${summary.markdown.split("\n").slice(0, HEAD_LINES).join("\n")}\n\nsummary: ${path.join(root, "summary.md")}\n` +
 			`exit code: ${summary.json.exit_code}` };
+}
+
+/** --summarize=<matrix dir> (#99): the summary again from the cell directories already there (every subdirectory with
+ * a report.json), with today's summary code; nothing is played. The scenario name comes from the old summary.json. */
+function summarizeMatrix(root: string, values: Record<string, FlagValue>): CliResult {
+	if (!fs.existsSync(root)) return fail(`--summarize: ${root} does not exist`);
+	const dirs = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()
+		&& fs.existsSync(path.join(root, e.name, "report.json"))).map((e) => path.join(root, e.name)).sort();
+	if (!dirs.length) return fail(`--summarize: no cell directory with a report.json under ${root}`);
+	let name = path.basename(root);
+	try {
+		name = String(JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8")).scenario ?? name);
+	} catch { /* no old summary: the directory name */ }
+	return writeSummary(name, root, dirs, values);
 }
 
 /** --replay=<dir>: the recorded run again from its scenario.json (cell and every flag value) and decisions.jsonl. */
