@@ -31,7 +31,9 @@ extends Node2D
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
-## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86), the Equip and Item windows
+## (equip_window E / item_window I; #108: they change the character through `world` and `_on_item_action` makes the
+## drawn look, the Stat window and each other follow) and the status bar's Menu
 ## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
@@ -81,7 +83,8 @@ const WINDOW_DELAY := 1.2
 ## (otherwise the animation's own length, ~1.3 s, is used).
 const JOB_WINDOW_DELAY := 1.3
 ## Input action -> the in-run window it toggles (project.godot defaults S and K; rebindable in Settings).
-const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill"}
+const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill", "equip_window": "equip",
+	"item_window": "item"}
 ## CanvasLayer of the in-run windows: above the modal windows (10), below the perf overlay (20).
 const UI_LAYER := 11
 ## In-run windows that also open while the run is paused (from the pause menu, #87).
@@ -649,6 +652,8 @@ func _build_ui_windows() -> void:
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(world)))
+	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(world)))
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
@@ -656,6 +661,25 @@ func _build_ui_windows() -> void:
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 	if settings != null:
 		watch_settings(settings)
+
+
+## An Equip / Item window over `world`: its changes make the drawn look, the Stat window and the other inventory
+## window follow (the world's events are mapped at once, the run being held); its messages go to the HUD.
+func _inventory_window(w: InventoryWindow) -> UiWindow:
+	w.item_action.connect(_on_item_action)
+	w.notice.connect(func(text: String) -> void: hud.push_notice("inventory", text))
+	return w
+
+
+func _on_item_action(_action: String) -> void:
+	handle_events(world.drain_events())
+	for id: String in ["equip", "item"]:
+		var w := ui_windows.find_window(id)
+		if w != null:
+			w.queue_redraw()
+	var sw := ui_windows.find_window("stat") as StatWindow
+	if sw != null:
+		sw.set_info(stat_info())
 
 
 ## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
@@ -708,7 +732,8 @@ func _sync_modal_input() -> void:
 ## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
-			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t"]:
+			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
+			EquipWindow.ART + "backgrnd", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
 	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
 	if npc > 0:

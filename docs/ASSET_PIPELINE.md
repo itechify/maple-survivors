@@ -240,6 +240,17 @@ PNG measured in an exported build).
 - Godot tests read a tiny cache written by the test itself (no Nexon data), plus `require_cache()` integration tests
   against the real cache.
 
+## Equip and Item windows (#108)
+
+The whole `UI.wz/UIWindow.img` already holds the `Equip` and `Item` window art, `IconBase`, `KeyConfig/icon/0-1`
+and the `ToolTip/Equip` label art the windows and the item tooltip draw; `Basic.img` holds `YesNo`, `BtYes`,
+`BtNo` and the `ItemNo` stack digits. The manifest adds whole `String.wz/Consume.img` (potion and scroll names and
+descriptions; keys are unpadded item ids, `desc` carries literal `\n`) and the `character` entries 1002001 (Metal
+Gear, a CpH1H5 full-cover cap), 1002067 (Green Headband, CpH5), 1050018 (Blue Sauna Robe) and 1050049 (Dark Calas,
+Longcoats), 1050035 (Brown Starlight) and 1082002 (Work Gloves), so the Cap, Longcoat and Glove categories draw
+and the evidence character can wear a hat, an overall and gloves. Equipment names come from `String.wz/Eqp.img`
+(`Eqp/<Character.wz folder>/<id>`), use items from `Consume.img/<id>` (InventoryModel.string_path).
+
 ## Second-job asset expansion (#53)
 
 The manifest exports whole `Skill.wz/210.img`, `220.img` and `230.img`, including canonical tables, icons and effects

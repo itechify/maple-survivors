@@ -122,7 +122,7 @@ func test_a_click_selects_and_clear_all_unbinds_every_action() -> void:
 	w._gui_input(press(w.key_rect(KEY_E).get_center()))
 	w._gui_input(press(w.key_rect(KEY_E).get_center(), false))
 	assert_eq(w.selected_key, KEY_E, "a click selects (outlines) a bound key")
-	assert_eq(w.draft.action_on(KEY_E), "drink_mp", "a click does not move it")
+	assert_eq(w.draft.action_on(KEY_E), "equip_window", "a click does not move it")
 	w._bt_delete.pressed.emit()
 	for a: String in KeyBindings.BINDABLE:
 		assert_eq(w.draft.keys_of(a), PackedInt32Array(), "BtDelete (v83 CLEAR ALL) unbinds %s" % a)

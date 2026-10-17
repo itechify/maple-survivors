@@ -748,7 +748,7 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
 	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
-	assert_eq(mp.key_label, "End / E")
+	assert_eq(mp.key_label, "End", "E opens the Equip window (#108)")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
 	scene.world.drink_potion("hp")
 	scene.advance_frame(0.0)
@@ -765,7 +765,7 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
-	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END], ["drink_mp", KEY_E]]:
+	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END]]:
 		var event := InputEventKey.new()
 		event.physical_keycode = pair[1]
 		event.pressed = true

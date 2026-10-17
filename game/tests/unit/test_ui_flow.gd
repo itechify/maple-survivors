@@ -384,6 +384,59 @@ func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
 
 
 
+## The hub's Equip and Item windows (#108): E / I open them over the Free Market, movement holds while one is open,
+## a change goes through the carried character's RunWorld into the drawn look and the saved slot at once, Esc closes
+## the front window before the pause menu.
+func test_free_market_equip_window_changes_the_saved_character_at_once() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.create_character("Market108")
+	flow.finish_run(summary(true, 900, 35, 3000), flow.save.slot(0).character)
+	var hub := flow.current as FreeMarket
+	assert_true(hub != null and hub.ui_windows != null, "the hub hosts a window stack")
+	if hub == null or hub.ui_windows == null:
+		return
+	hub.set_process(false)
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_E
+	key.keycode = KEY_E
+	key.pressed = true
+	assert_true(hub.handle_hotkey(key), "E opens the Equip window in the hub")
+	var ew := hub.ui_windows.top() as EquipWindow
+	assert_true(ew != null)
+	if ew == null:
+		return
+	var x := hub.motion.player.pos.x
+	for tick in 10:
+		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
+	assert_eq(hub.motion.player.pos.x, x, "movement holds while a window is open")
+	assert_true(1302000 in hub.avatar.look.equips, "drawn with the creation sword")
+	assert_eq(ew.take_off("weapon"), "")
+	assert_false(1302000 in hub.avatar.look.equips, "the hub redraws the character bare-handed at once")
+	var saved := SaveData.new(save_path).slot(0)
+	assert_false(saved.character.equipment.worn.has("weapon"), "the slot's character was saved at once")
+	assert_eq(saved.character.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000])
+	key.physical_keycode = KEY_I
+	key.keycode = KEY_I
+	assert_true(hub.handle_hotkey(key), "I opens the Item window")
+	var iw := hub.ui_windows.top() as ItemWindow
+	assert_true(iw != null and iw.cell(0).get("id") == 1302000, "the Item window lists the sword")
+	assert_eq(hub.ui_windows.ids(), PackedStringArray(["equip", "item"]))
+	key.physical_keycode = KEY_ESCAPE
+	key.keycode = KEY_ESCAPE
+	assert_true(hub.handle_hotkey(key), "Esc closes the front window")
+	assert_eq(hub.ui_windows.ids(), PackedStringArray(["equip"]))
+	hub.handle_hotkey(key)
+	assert_false(hub.ui_windows.has_windows())
+	assert_false(hub.pause_menu.is_open(), "closing windows never opened the pause menu")
+	for tick in 10:
+		hub.step_input(1.0 / 60.0, MoveInput.make(false, true))
+	assert_true(hub.motion.player.pos.x > x, "walking again")
+	hub.handle_hotkey(key)
+	assert_true(hub.pause_menu.is_open(), "with no window open Esc pauses")
+
+
 func test_death_and_final_clear_end_run_and_results_return_to_characters() -> void:
 	var flow := _flow()
 	flow.create_character("Dead69")
