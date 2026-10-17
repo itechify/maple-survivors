@@ -226,7 +226,7 @@ func test_the_roster_has_the_ticket_examples_by_rate() -> void:
 	assert_eq(_family(table, "overall", "INT"), [2040512, 2040513, 2040514, 2040518, 2040519])
 	assert_eq(_family(table, "gloves", "Magic Att."), [2040818, 2040817, 2040816, 2040814, 2040815])
 	assert_true(2043700 in ids and 2040818 in ids)
-	assert_false(2040016 in ids, "hat ACC 10% has no success in WZ")
+	assert_true(2040016 in ids and table.families.hat.ACC["10"] == 2040016, "hat ACC 10%: its WZ success is the string \"10\"")
 	assert_false(2040006 in ids, "the strong 100% is out")
 	var listed := 0
 	for slot: String in table.families:
@@ -257,6 +257,14 @@ func test_scroll_info_keeps_only_the_numbers_a_scroll_and_the_shop_need() -> voi
 	assert_eq(info[2043705], {"incMAD": 5, "incINT": 3, "incMDD": 1, "success": 30, "cursed": 50, "slotMax": 50})
 	assert_false(info.has(2043999))
 	assert_eq(missing, PackedStringArray([DataRepo.SCROLL_IMG + "/02043999"]))
+
+
+func test_scroll_info_accepts_numeric_strings_as_the_wz_stores_hat_accuracy_10() -> void:
+	# Item.wz/Consume/0204.img/02040016/info/success is the string "10", not a number.
+	var img := {"02040016": {"info": {"price": 1, "success": "10", "incACC": 4, "incDEX": 2, "tradeBlock": "x", "cursed": "abc"}}}
+	var info := DataRepo.scroll_info([2040016], func(_p: String) -> Dictionary: return img)
+	assert_eq(info[2040016], {"price": 1, "success": 10, "incACC": 4, "incDEX": 2},
+		"numeric strings are cast; non-numeric strings are still dropped")
 
 
 func test_a_setup_loads_the_roster_and_the_scrolls_a_character_holds() -> void:

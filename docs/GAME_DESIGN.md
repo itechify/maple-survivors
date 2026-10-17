@@ -2336,7 +2336,7 @@ quantities per kind.
 
   | Slot | Families (each: 100%, 60%, 10%, dark 70%, dark 30%) |
   |---|---|
-  | Hat | DEF, HP, INT, DEX, ACC (no 10% ACC: 2040016 has no `success` in WZ) |
+  | Hat | DEF, HP, INT, DEX, ACC (2040016 is the 10% ACC scroll: its WZ `success` is the string "10", cast by the loader) |
   | Top | DEF, STR, HP, LUK, LUK (the newer series) |
   | Bottom | DEF, Jump, HP, DEX, DEX (the newer series) |
   | Overall | INT, DEX, DEF, LUK, STR |
@@ -3243,7 +3243,7 @@ fields round to six decimal places for readable committed JSON; generation never
 | Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
 | Cap hair cover (#108) | a cap whose `info/vslot` contains H5 (CpH5 half-cover, CpH1H5 full-cover) hides the hair's `hairOverHead` layers; a headband (CpH1) hides nothing; without a cap the `*BelowCap` layers are not drawn | B | v83 client cap types (RE clients), re-implemented from prose |
 | Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
-| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, no `success` in WZ) is left out; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
+| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
 | Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
 | Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |

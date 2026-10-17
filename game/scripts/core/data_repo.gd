@@ -189,7 +189,12 @@ static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringA
 		for field: Variant in info:
 			var name := String(field)
 			var value: Variant = info[field]
-			if (name.begins_with("inc") or name in ["success", "cursed", "slotMax", "price"]) and (value is int or value is float):
+			if not (name.begins_with("inc") or name in ["success", "cursed", "slotMax", "price"]):
+				continue
+			# Some WZ nodes store the number as a string (hat Accuracy 10%: success "10").
+			if value is String and (value as String).is_valid_int():
+				kept[name] = int(value)
+			elif value is int or value is float:
 				kept[name] = int(value)
 		out[int(id)] = kept
 	return out

@@ -90,9 +90,9 @@ func test_each_npc_sells_only_its_own_rates() -> void:
 
 
 func test_a_family_without_a_rate_is_left_out_at_that_npc() -> void:
-	# Hat ACC has no 10% scroll in v83, and shoes ATT has no dark scrolls.
+	# Hat ACC now has a 10% scroll (2040016, WZ success "10" cast by the loader); shoes ATT has no dark scrolls.
 	var ten := _stock(1052104, 210)
-	assert_eq(ten.filter(func(e: Dictionary) -> bool: return e.slot == "hat").size(), 4)
+	assert_eq(ten.filter(func(e: Dictionary) -> bool: return e.slot == "hat").size(), 5, "hat ACC 10% is stocked")
 	var dark := _stock(2041016, 0)
 	assert_eq(dark.size(), 36, "hat, top and bottom: five families with two dark rates each; shoes: three (ATT has none)")
 
