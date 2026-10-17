@@ -697,6 +697,7 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 
 func _on_item_action(_action: String) -> void:
 	handle_events(world.drain_events())
+	_sync_pet()
 	for id: String in ["equip", "item"]:
 		var w := ui_windows.find_window(id)
 		if w != null:
@@ -704,6 +705,22 @@ func _on_item_action(_action: String) -> void:
 	var sw := ui_windows.find_window("stat") as StatWindow
 	if sw != null:
 		sw.set_info(stat_info())
+
+
+## Draws the pet the world has out now: brought out from the Equip window's Pet page it appears at once beside the
+## player, a different one replaces it, and none removes it (#122).
+func _sync_pet() -> void:
+	if world.pet_system == null:
+		if pet_renderer != null:
+			pet_renderer.queue_free()
+			pet_renderer = null
+			_pet_layer = -1
+		return
+	if pet_renderer == null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
+	_update_pet(0.0)
 
 
 ## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
@@ -760,7 +777,7 @@ func _sync_modal_input() -> void:
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
-			EquipWindow.ART + "backgrnd", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
+			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
 	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
 	if npc > 0:

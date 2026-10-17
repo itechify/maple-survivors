@@ -88,6 +88,50 @@ func slots_for(id: int) -> PackedStringArray:
 	return PackedStringArray([CATEGORY_SLOT[category]])
 
 
+## `cash` ({slot: id}) after wearing catalog equipment `id` (spec #34 #122): the item takes its slots and every item
+## that covered one of them leaves ALL the slots it covered, so an overall clears top and bottom, a top or bottom takes
+## the overall off, and a two-handed cover takes weapon and shield (a shield or one-handed cover takes it off).
+## Anything that is not cash equipment changes nothing. Ownership is the caller's rule (RunWorld.wear_cash).
+func wear(cash: Dictionary, id: int) -> Dictionary:
+	var slots := slots_for(id)
+	var out := _expanded(cash)
+	if slots.is_empty() or kind_of(id) != "equip":
+		return out
+	for slot: String in slots:
+		if out.has(slot):
+			_clear(out, int(out[slot]))
+	for slot: String in slots:
+		out[slot] = id
+	return out
+
+
+## `cash` after taking off whatever is worn in `slot`, from every slot that item covers; an empty slot changes nothing.
+func take_off(cash: Dictionary, slot: String) -> Dictionary:
+	var out := _expanded(cash)
+	if out.has(slot):
+		_clear(out, int(out[slot]))
+	return out
+
+
+## A copy of `cash` with every item under all the slots it covers (an overall stored under `top` alone fills `bottom`
+## too, as resolve() reads it).
+func _expanded(cash: Dictionary) -> Dictionary:
+	var out := cash.duplicate()
+	for slot: String in cash:
+		var id := int(cash[slot])
+		if slots_for(id).has(slot):
+			for filled: String in slots_for(id):
+				out[filled] = id
+	return out
+
+
+## Removes item `id` from every slot of `cash` that holds it.
+static func _clear(cash: Dictionary, id: int) -> void:
+	for slot: String in cash.keys():
+		if int(cash[slot]) == id:
+			cash.erase(slot)
+
+
 ## What a character's worn cash equipment `cash` ({slot: item id}) and `pet` (species id, 0 = none) are worth when the
 ## account owns `owned` (item ids): {worn: {slot: id} of every slot actually filled, fortune: float, pet: int (0 when
 ## there is none or it is not an owned pet), warnings: PackedStringArray of what was ignored}.

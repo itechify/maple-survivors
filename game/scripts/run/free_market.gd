@@ -285,7 +285,10 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 		character), func(p: String) -> Dictionary:
 			var w := lib.img(p)
 			return w.root if w != null else {})
-	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character})
+	# The account's owned items let the Equip window's Cash tab and Pet page wear and bring them out (#122).
+	var owned: Array = flow.save_data().account.owned if flow != null else []
+	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character,
+		"account": {"owned": owned}})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
@@ -312,7 +315,9 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 func _on_item_action(_action: String) -> void:
 	inventory.drain_events()
 	snapshot.character = inventory.character_snapshot()
-	avatar.set_look(character_look(snapshot.character, _data, flow.save_data().account.owned if flow != null else []))
+	var owned: Array = flow.save_data().account.owned if flow != null else []
+	avatar.set_look(character_look(snapshot.character, _data, owned))
+	_sync_pet(owned)
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
 	for id: String in ["equip", "item"]:
 		var w := ui_windows.find_window(id)
@@ -320,6 +325,25 @@ func _on_item_action(_action: String) -> void:
 			w.queue_redraw()
 	if flow != null and flow.active_slot >= 0 and flow.save_data().update_slot(flow.active_slot, snapshot) != OK:
 		messages.push_notice("inventory", "Could not save the character.")
+
+
+## Brings the pet the character now has out beside it, swaps it for another, or puts it away (the Pet page, #122).
+func _sync_pet(owned: Array) -> void:
+	var species := owned_pet(snapshot.character, _data, owned)
+	if species == (motion.pet.species if motion.pet != null else 0):
+		return
+	if species == 0:
+		motion.pet = null
+		if pet_renderer != null:
+			pet_renderer.queue_free()
+			pet_renderer = null
+		return
+	motion.set_pet(species, _data.get("cash_items", {}).get("pet", {}))
+	if pet_renderer == null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
+	_present_pet(0.0)
 
 
 func _build_npcs() -> void:
