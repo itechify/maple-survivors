@@ -7,13 +7,13 @@ extends Node
 ## or by hand:
 ##
 ##   ISOLATE=<name> bash scripts/run.sh res://scenes/debug/agent_replay.tscn -- --replay=<abs run dir> --out=<abs dir>
-##       [--speed=4] [--shots-at=412.5,600] [--warp=<s>]
+##       [--speed=4] [--shots-at=412.5,600] [--skip-to=<s>]
 ##
 ## Determinism: RunScene gets the policy through options.policy (move / choose / observe in run_one's batches), the
 ## headless driver's 800x600 logical view (options.view_size, and the window letterboxed to it), and stop_tick, which
 ## holds the sim at the round's tick cap (run_one's tick count) and at every screenshot tick, so a screenshot shows
-## exactly that tick and --speed never changes which ticks run. --warp fast-forwards (nothing drawn) through the
-## policy too; shots before it are skipped.
+## exactly that tick and --speed never changes which ticks run. --skip-to fast-forwards (RunScene warp, nothing
+## drawn) through the policy too; shots before it are skipped.
 ## Screenshots (out/shots/, 800x600): at_<t>s.png per --shots-at time, finding_<kind>_<t>s.png at each timed entry of
 ## the recording's findings.jsonl, final.png at a TIMEOUT, plus RunScene's own event shots (levelup_N, job_N,
 ## death_fall / death_land, clear, boss_*, window_*...). A shot needs a drawn frame: an occluded or minimized window
@@ -76,7 +76,7 @@ func _start() -> void:
 		return
 	out_dir = String(args.get("out", replay_dir + "_windowed")).replace("\\", "/")
 	speed = maxi(1, int(args.get("speed", "4")))
-	warp = maxf(0.0, float(args.get("warp", "0")))
+	warp = maxf(0.0, float(args.get("skip-to", "0")))
 	DirAccess.make_dir_recursive_absolute(out_dir.path_join("shots"))
 	var scenario: Variant = _json(replay_dir.path_join("scenario.json"))
 	if not scenario is Dictionary or not (scenario as Dictionary).get("run") is Dictionary:
@@ -102,8 +102,13 @@ func _start() -> void:
 			_timeline_file.store_line(line))
 	policy.observers.append(timeline.observe)
 	policy.observers.append(fp.observe)
-	cap_tick = WINDOWED.tick_cap(WINDOWED.cap_seconds(float(r.get("minutes", 0.0)), DataRepo.load_all().get("balance", {})))
+	var balance: Dictionary = DataRepo.load_all().get("balance", {})
+	cap_tick = WINDOWED.tick_cap(WINDOWED.cap_seconds(float(r.get("minutes", 0.0)), balance))
 	_plan_shots(String(args.get("shots-at", "")))
+	for s: Dictionary in shots.duplicate():
+		if int(s.tick) < roundi(warp / DT): # stop_tick would hold the warp there
+			_log_shots(s, false, "before --skip-to")
+			shots.erase(s)
 	_force_view()
 	var options := {"use_flow": false, "autoplay": true, "autopick": true, "speed": speed, "policy": policy,
 		"view_size": VIEW, "shots_dir": out_dir.path_join("shots"), "stop_tick": _next_stop(), "warp": warp}
@@ -120,7 +125,7 @@ func _start() -> void:
 		return
 	for s: Dictionary in shots.duplicate():
 		if int(s.tick) < roundi(run.world.time / DT):
-			_log_shots(s, false, "before the warp time")
+			_log_shots(s, false, "before --skip-to (the warp ended there)")
 			shots.erase(s)
 	run.stop_tick = _next_stop()
 

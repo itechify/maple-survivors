@@ -15,6 +15,11 @@
 #   bash scripts/agent_playtest.sh --scenario=tier_chain      # --tier=2 chain; fixture_dark_cave: --character fixture
 #   bash scripts/agent_playtest.sh --replay=<run dir>         # exact re-run from decisions.jsonl (no Jev, no key);
 #                                                             # a fingerprint mismatch is replay_divergence (exit 1)
+#   bash scripts/agent_playtest.sh --replay=<run dir> --windowed --shots-at=412.5,600 [--speed=4] [--skip-to=<s>]
+#                                                             # the same replay in the game window (keep it visible:
+#                                                             # an occluded window draws no frames); screenshots at
+#                                                             # those times and at every recorded finding, in
+#                                                             # <run dir>_windowed_<time>/shots/ (report.md lists them)
 #   bash scripts/agent_playtest.sh --help                     # every flag
 #   ISOLATE=<name> bash scripts/agent_playtest.sh ...         # private project mirror (_scratch/godot_runs/<name>/game)
 #

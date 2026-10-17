@@ -16,11 +16,16 @@ import type { RunOptions } from "./run.ts";
 import { loadScenario, resolveScenario, knownFacts, DEFAULT_SCENARIO } from "./scenario.ts";
 import type { Cell, Known } from "./scenario.ts";
 import { matrixSummary } from "./matrix_summary.ts";
+import { runWindowedReplay } from "./windowed_replay.ts";
+import { parseShotsAt } from "./windowed_flags.ts";
+
+/** The windowed replay's flags (maple/windowed_flags.ts): they steer the CLI, never a run. */
+const WINDOWED_FLAGS = ["windowed", "shots-at", "speed", "skip-to"];
 
 /** Report lines echoed to the console (the head: title, header, outcome, problems). */
 const HEAD_LINES = 30;
 /** Flags that steer the CLI itself rather than a run; never recorded as a run's flags. */
-const CLI_ONLY = ["help", "out", "replay", "jobs"];
+const CLI_ONLY = ["help", "out", "replay", "jobs", ...WINDOWED_FLAGS];
 
 export type CliInput = {
 	values: Record<string, FlagValue>;
@@ -36,6 +41,8 @@ export type CliInput = {
 	scenarioDir?: string;
 	/** Test seam: merged into every run's options (e.g. a fake driver launch). */
 	overrides?: Partial<RunOptions>;
+	/** Test seam: the windowed replay runs this command (plus the scene arguments) instead of Godot (#100). */
+	windowedLaunch?: { command: string; args: string[] };
 };
 
 export type CliResult = { exitCode: number; dir: string; text: string };
@@ -62,6 +69,8 @@ export async function runCli(i: CliInput): Promise<CliResult> {
 	const repo = i.repo ?? REPO;
 	const env = i.env ?? process.env;
 	const now = i.now ?? new Date();
+	if (i.values.windowed === true && i.values.replay === undefined) return fail("--windowed needs --replay=<run dir>");
+	if (i.values.replay !== undefined && i.values.windowed === true) return runWindowed(i, repo, env, now);
 	if (i.values.replay !== undefined) return runReplay(i, repo, env, now);
 	const name = i.explicit.has("scenario") ? String(i.values.scenario) : DEFAULT_SCENARIO;
 	const loaded = loadScenario(name, i.scenarioDir);
@@ -115,6 +124,23 @@ async function runReplay(i: CliInput, repo: string, env: NodeJS.ProcessEnv, now:
 		: uniqueDir(`${dir}_replay_${stamp(now)}`);
 	const run = await runPlaytest({ ...cellRunOptions(s.cell, s.flags, i.optionsFrom, s.scenario), replay: recording, repo, env,
 		now, out, ...i.overrides });
+	return { exitCode: run.exitCode, dir: run.dir,
+		text: `${run.markdown.split("\n").slice(0, HEAD_LINES).join("\n")}\n\nrun directory: ${run.dir}\nexit code: ${run.exitCode}` };
+}
+
+/** --replay=<dir> --windowed (#100): the recorded run again in the game window with screenshots, written to
+ * <dir>_windowed_<time>/ (or --out); a mismatch is a replay_divergence problem (exit 1). */
+async function runWindowed(i: CliInput, repo: string, env: NodeJS.ProcessEnv, now: Date): Promise<CliResult> {
+	const dir = path.resolve(i.cwd ?? process.cwd(), String(i.values.replay));
+	const recording = readRecording(dir);
+	if ("error" in recording) return fail(recording.error);
+	const shotsAt = parseShotsAt(i.values["shots-at"] === undefined ? undefined : String(i.values["shots-at"]));
+	if (!Array.isArray(shotsAt)) return fail(shotsAt.error);
+	const out = i.explicit.has("out") && i.values.out !== undefined ? path.resolve(i.cwd ?? process.cwd(), String(i.values.out))
+		: uniqueDir(`${dir}_windowed_${stamp(now)}`);
+	const run = await runWindowedReplay({ recording, out, speed: Number(i.values.speed ?? 4), shotsAt,
+		skipTo: i.values["skip-to"] === undefined ? undefined : Number(i.values["skip-to"]),
+		livenessS: Number(i.values["liveness-s"] ?? 60), repo, env, launch: i.windowedLaunch });
 	return { exitCode: run.exitCode, dir: run.dir,
 		text: `${run.markdown.split("\n").slice(0, HEAD_LINES).join("\n")}\n\nrun directory: ${run.dir}\nexit code: ${run.exitCode}` };
 }
