@@ -19,7 +19,7 @@ import type { InvariantChecks } from "./invariant_flags.ts";
 import "./report_sections.ts";
 import type { Brain } from "../core/session.ts";
 import type { Fetch, RetryPolicy } from "@typesafe-ai/sdk";
-import { resolveApiKey, KEY_ENV } from "../core/key.ts";
+import { resolveApiKey, withoutKey } from "../core/key.ts";
 import { JevClient } from "../core/jev_client.ts";
 import { createJevBrain } from "./jev_brain.ts";
 import { brainHeader } from "./jev_report.ts";
@@ -148,7 +148,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 		else {
 			const project = prepareProject(repo, env);
 			rec.log(`agent_playtest: Godot ${godot.exe}, project ${project}`);
-			await importProjectAsync(godot.exe, project);
+			await importProjectAsync(godot.exe, project, env);
 			launch = { command: godot.exe, args: driverArgs(project, driverOptions) };
 		}
 	}
@@ -349,9 +349,9 @@ function warped(pick: BrainPick, warp: number): BrainPick {
 
 /** The CLI's brain for --brain: Jev when a key resolves (auto / jev), else the deterministic fallback; --brain=jev
  * without a key is a setup error (exit 2, the game is not started). The key goes only into the TypeSafe client. */
-function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, profile: Personality | undefined): BrainPick {
-	const fallback = profile ? createFallbackBrain(profile, o.seed) : sensibleBrain;
-	const fallbackFacts = { personality: profile?.name, cardPolicy: profile?.fallback.cards };
+function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, personality: Personality | undefined): BrainPick {
+	const fallback = personality ? createFallbackBrain(personality, o.seed) : sensibleBrain;
+	const fallbackFacts = { personality: personality?.name, cardPolicy: personality?.fallback.cards };
 	if (o.brain === "builtin") return { brain: fallback, facts: { requested: o.brain, mode: "builtin" } };
 	if (o.brain !== "auto" && o.brain !== "jev") return { brain: fallback, facts: { requested: o.brain, mode: "fallback", ...fallbackFacts } };
 	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
@@ -363,15 +363,8 @@ function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, profile: Personality
 	}
 	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch,
 		retry: o.jevRetry });
-	return { brain: createJevBrain({ client, seed: o.seed, profile, fallback }), client,
+	return { brain: createJevBrain({ client, seed: o.seed, personality, fallback }), client,
 		facts: { requested: o.brain, mode: "jev", keyFrom: key.from } };
-}
-
-/** `env` without the TypeSafe key: the game process never needs it. */
-function withoutKey(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-	const out = { ...env };
-	delete out[KEY_ENV];
-	return out;
 }
 
 /** The CLI's decision records completed with the driver's view (`end.decisions`): an answer the driver replaced with

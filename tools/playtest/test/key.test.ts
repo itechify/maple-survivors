@@ -2,7 +2,9 @@
 // through an injected reader. The key value itself is never part of a reason text.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveApiKey, NO_USER_KEY_ENV } from "../src/core/key.ts";
+import { noul } from "@typesafe-ai/sdk";
+import { resolveApiKey, NO_USER_KEY_ENV, withoutKey, redactSecrets } from "../src/core/key.ts";
+import { JevClient, JevUnavailable } from "../src/core/jev_client.ts";
 
 const reader = (value: string | null) => {
 	const calls: number[] = [];
@@ -47,4 +49,31 @@ test("the test hook disables the user-scope lookup and the reason says so", () =
 test("a failing user-scope reader counts as no key", () => {
 	const got = resolveApiKey({ env: {}, platform: "win32", readUserKey: () => { throw new Error("no powershell"); } });
 	assert.equal(got.key === null && got.reason, "key absent in process env; user env unreadable (no powershell)");
+});
+
+test("a Jev failure whose SDK message contains the key or a bearer token carries neither into the reason", async () => {
+	const key = "ts_live_SECRET123";
+	const fetch = async (): Promise<Response> => {
+		throw new Error(`socket hang up for Authorization: Bearer ${key} (key ${key}); retry with Bearer abc.def-ghi`);
+	};
+	const client = new JevClient({ apiKey: key, fetch, retry: { maxRetries: 0 } });
+	await assert.rejects(client.ask({ a: "b" }, { q: noul("Is it?") }), (e: unknown) => {
+		assert.ok(e instanceof JevUnavailable);
+		assert.ok(!e.reason.includes(key), e.reason);
+		assert.ok(!e.reason.includes("abc.def-ghi"), e.reason);
+		assert.ok(!e.message.includes(key), e.message);
+		assert.match(e.reason, /\[redacted\]/);
+		return true;
+	});
+});
+
+test("redactSecrets removes every listed secret and anything shaped like a bearer token", () => {
+	assert.equal(redactSecrets("x sk-1 y sk-1 Bearer t.o-k_en z", ["sk-1"]), "x [redacted] y [redacted] Bearer [redacted] z");
+	assert.equal(redactSecrets("nothing secret", ["", "k"]), "nothing secret", "an empty secret is ignored");
+});
+
+test("withoutKey drops the TypeSafe key from a child environment and keeps everything else", () => {
+	const env = { TYPESAFE_API_KEY: "k", PATH: "/bin", ISOLATE: "x" };
+	assert.deepEqual(withoutKey(env), { PATH: "/bin", ISOLATE: "x" });
+	assert.equal(env.TYPESAFE_API_KEY, "k", "the caller's env is not changed");
 });

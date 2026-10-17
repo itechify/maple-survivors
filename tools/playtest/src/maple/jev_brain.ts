@@ -15,7 +15,7 @@
 // order) plus a Noul "immediate danger of dying"; the state is the personality text, named buckets, the current tactic,
 // how long it has been held, why the decision is asked and the last switches. Policy in code (`tacticGate`): a
 // personality with `emergency` goes defensive when danger > 0.7; else confidence < 0.35 (or the personality's
-// min_confidence) keeps the current tactic; Jev's choice, the danger and the gate are recorded. With a `profile`, every
+// min_confidence) keeps the current tactic; Jev's choice, the danger and the gate are recorded. With a `personality`, every
 // request leads with the personality's text and failures use the personality's fallback brain.
 import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { Brain, BrainAnswer } from "../core/session.ts";
@@ -40,12 +40,12 @@ export type JevBrainOptions = {
 	client: JevClient;
 	/** The run seed: with the decision id it seeds the presented option order. */
 	seed: number;
-	/** The personality text that leads the state. Default the profile's text, else SENSIBLE_PLAYER. */
-	personality?: string;
+	/** The player text that leads the state. Default the personality's text, else SENSIBLE_PLAYER. */
+	playerText?: string;
 	/** The playtest personality (#97): its text leads every request, its allowed tactics, `emergency` and
 	 * `min_confidence` drive the tactic question, and its fallback brain answers failures. */
-	profile?: Personality;
-	/** Answers when Jev cannot. Default the profile's fallback brain, else the sensible fallback (the driver's
+	personality?: Personality;
+	/** Answers when Jev cannot. Default the personality's fallback brain, else the sensible fallback (the driver's
 	 * BotInput baseline). */
 	fallback?: Brain;
 };
@@ -228,19 +228,19 @@ export function tacticGate(d: DecideMessage, choice: string, confidence: number 
 
 /** The Jev brain: card, job and tactic decisions through Jev, anything else (and every failure) through `fallback`. */
 export function createJevBrain(o: JevBrainOptions): Brain {
-	const profile = o.profile;
-	const personality = o.personality ?? (profile ? personalityText(profile) : SENSIBLE_PLAYER);
-	const fallback = o.fallback ?? (profile ? createFallbackBrain(profile, o.seed) : sensibleBrain);
+	const p = o.personality;
+	const player = o.playerText ?? (p ? personalityText(p) : SENSIBLE_PLAYER);
+	const fallback = o.fallback ?? (p ? createFallbackBrain(p, o.seed) : sensibleBrain);
 	const fallBack = async (d: DecideMessage, reason: string): Promise<BrainAnswer> => ({ ...(await fallback.decide(d)), reason });
-	const minConfidence = profile?.tactics.min_confidence ?? DEFAULT_MIN_CONFIDENCE;
+	const minConfidence = p?.tactics.min_confidence ?? DEFAULT_MIN_CONFIDENCE;
 	return {
 		name: "jev",
 		async decide(d) {
 			const build = d.kind === "card" ? cardRequest : d.kind === "job" ? jobRequest
-				: d.kind === "tactic" ? (dd: DecideMessage, seed: number, text: string) => tacticRequest(dd, seed, text, profile?.tactics.allowed)
+				: d.kind === "tactic" ? (dd: DecideMessage, seed: number, text: string) => tacticRequest(dd, seed, text, p?.tactics.allowed)
 				: null;
 			if (!build) return fallBack(d, `no Jev question for decision kind ${d.kind}`);
-			const req = build(d, o.seed, personality);
+			const req = build(d, o.seed, player);
 			if (req.presented.length === 0) return fallBack(d, "no offered option is allowed for this personality");
 			let reply;
 			try {
@@ -265,7 +265,7 @@ export function createJevBrain(o: JevBrainOptions): Brain {
 				levels: MEANINGFUL_LEVELS.length };
 			if (d.kind === "tactic") {
 				const danger = typeof answers.danger?.noul === "number" ? answers.danger.noul : null;
-				const g = tacticGate(d, answer, confidence, danger, req.presented, profile?.emergency === true, minConfidence);
+				const g = tacticGate(d, answer, confidence, danger, req.presented, p?.emergency === true, minConfidence);
 				Object.assign(extra, { jev_choice: answer, danger, gate: g.gate });
 				return { answer: g.answer, source: "jev", confidence, extra };
 			}

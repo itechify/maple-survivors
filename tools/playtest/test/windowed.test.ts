@@ -106,6 +106,16 @@ test("a silent scene is killed by the liveness timeout", async () => {
 	assert.match(r.text, /no output from the windowed replay for 1 s/);
 });
 
+test("the windowed scene never gets the TypeSafe key, even when the CLI has one", async () => {
+	const orig = await recording();
+	const out = path.join(tmp(), "win");
+	const parsed = cliFlags().parse([`--replay=${orig}`, "--windowed", `--out=${out}`]);
+	const r = await runCli({ values: parsed.values, explicit: parsed.explicit, optionsFrom: runOptionsFrom, repo: REPO, known: KNOWN,
+		env: { TYPESAFE_API_KEY: "do-not-leak" }, windowedLaunch: { command: process.execPath, args: [FAKE_WINDOWED, "--mode=match"] } });
+	assert.equal(r.exitCode, EXIT.OK, r.text);
+	assert.equal(readJson(path.join(out, "replay.json")).key_in_env, false);
+});
+
 test("the windowed replay command the reports print (#99) parses with these flags", () => {
 	const cmd = windowedReplayCommand(path.join(REPO, "evidence", "agent-playtest", "x"), 412.46, REPO);
 	const argv = cmd.replace(/^bash scripts\/agent_playtest\.sh /, "").split(" ");

@@ -5,6 +5,7 @@
 import { TypeSafeClient, APIError, APITimeoutError, APIConnectionError, AuthenticationError,
 	PermissionDeniedError } from "@typesafe-ai/sdk";
 import type { Fetch, Questions, RetryPolicy, SystemOneResult } from "@typesafe-ai/sdk";
+import { redactSecrets } from "./key.ts";
 
 export const DEFAULT_MODEL = "jev-latest";
 /** tier C: Jev requests per run before later decisions use the fallback (spec #91 default). */
@@ -49,8 +50,11 @@ export type JevReply<Q extends Questions> = { result: SystemOneResult<Q>; latenc
 export class JevClient {
 	#client: TypeSafeClient;
 	#stats: JevStats;
+	/** Kept only to redact it from error texts. */
+	#apiKey: string;
 
 	constructor(o: JevClientOptions) {
+		this.#apiKey = o.apiKey;
 		this.#client = new TypeSafeClient({ apiKey: o.apiKey, defaultModel: o.model ?? DEFAULT_MODEL, logLevel: "off",
 			compression: false, ...(o.fetch ? { fetch: o.fetch } : {}), ...(o.timeoutMs ? { timeout: o.timeoutMs } : {}),
 			...(o.retry ? { retry: o.retry } : {}) });
@@ -73,7 +77,7 @@ export class JevClient {
 			return { result, latencyMs: performance.now() - t0 };
 		} catch (e) {
 			s.errors++;
-			const reason = describeJevError(e);
+			const reason = describeJevError(e, [this.#apiKey]);
 			if (e instanceof AuthenticationError || e instanceof PermissionDeniedError) {
 				s.disabled = `${reason}; Jev disabled for the rest of the run`;
 			}
@@ -87,8 +91,13 @@ export class JevClient {
 	}
 }
 
-/** A short, key-free description of a TypeSafe SDK failure. */
-export function describeJevError(e: unknown): string {
+/** A short, key-free description of a TypeSafe SDK failure: `secrets` (the API key) and anything shaped like a bearer
+ * token are redacted from any SDK message it quotes. */
+export function describeJevError(e: unknown, secrets: readonly string[] = []): string {
+	return redactSecrets(rawDescription(e), secrets);
+}
+
+function rawDescription(e: unknown): string {
 	if (e instanceof APIError) {
 		const what = e instanceof AuthenticationError ? " (authentication failed)" : e instanceof PermissionDeniedError ? " (access denied)" : "";
 		return `API error ${e.status}${what}`;

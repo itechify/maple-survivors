@@ -10,7 +10,7 @@
 //            check with #98's replay code must catch it)
 //   crash    prints a SCRIPT ERROR and exits 1 without replay.json
 //   hang     prints one line, then goes silent (liveness timeout)
-// replay.json echoes the scene args it got under "args".
+// replay.json echoes the scene args it got under "args", and key_in_env (whether TYPESAFE_API_KEY reached it).
 import fs from "node:fs";
 import path from "node:path";
 
@@ -61,7 +61,7 @@ if (mode === "hang") {
 		speed: Number(arg("speed")), view_size: [800, 600], view_mismatch_frames: 0, window_size: [1600, 1200],
 		fingerprint, decisions: decisions.length, recorded_decisions: decisions.length,
 		first_timeline_difference: diverged ? { row: 3, time: 3, tick: 180, fields: { x: [10, 12] } } : {},
-		shots, event_shots: ["levelup_2.png"], args: argv,
+		shots, event_shots: ["levelup_2.png"], args: argv, key_in_env: Boolean(process.env.TYPESAFE_API_KEY),
 	}, null, "\t"));
 	console.log(diverged ? `agent_replay: replay_divergence: ${divergences[0].message}` : "agent_replay: match");
 	process.exit(diverged ? 1 : 0);
