@@ -2,7 +2,7 @@
 // kind, different options, extra or missing decisions, applied answers that differ, and fingerprint fields that differ.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createReplayBrain, compareFingerprints } from "../src/core/replay.ts";
+import { createReplayBrain, compareFingerprints, orderDivergences } from "../src/core/replay.ts";
 import type { DecideMessage } from "../src/core/protocol.ts";
 import type { DecisionRecord } from "../src/core/session.ts";
 
@@ -73,6 +73,12 @@ test("an applied answer that differs from the recording (the driver rejected it)
 	const d = brain.finish(applied);
 	assert.equal(d.length, 1);
 	assert.match(d[0].message, /decision 2: the driver applied a, recorded zzz \(answer "zzz" is not an offered option\)/);
+});
+
+test("the earliest diverging decision comes first, run-level divergences after", () => {
+	const ordered = orderDivergences([{ message: "decision 10: tick", decision: 10 }, { message: "fp", field: "kills" },
+		{ message: "decision 6: applied", decision: 6 }]);
+	assert.deepEqual(ordered.map((d) => d.message), ["decision 6: applied", "decision 10: tick", "fp"]);
 });
 
 test("fingerprints compare field by field; the first differing field is named first", () => {

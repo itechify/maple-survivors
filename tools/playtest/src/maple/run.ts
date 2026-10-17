@@ -10,7 +10,7 @@ import { renderReport } from "../core/report.ts";
 import type { Problem, ReportContext } from "../core/report.ts";
 import { exitCodeFor } from "../core/exit_codes.ts";
 import { resolveGodot, prepareProject, importProjectAsync, driverArgs } from "./launcher.ts";
-import { createReplayBrain, compareFingerprints, compareHello } from "../core/replay.ts";
+import { createReplayBrain, compareFingerprints, compareHello, orderDivergences } from "../core/replay.ts";
 import type { Recording, ReplayBrain } from "../core/replay.ts";
 import { personalityFile } from "./personalities.ts";
 import { sensibleBrain } from "./fallback.ts";
@@ -213,11 +213,12 @@ function scenarioRecord(o: RunOptions, dir: string, driverArgv: string[] | null,
 /** The replay's verdict as one `replay_divergence` problem naming the first diverging decision or field (all of them
  * in `divergences`), or null when the decisions, the hello echo and the fingerprint all match. */
 function replayProblem(r: Recording, brain: ReplayBrain, session: SessionResult, decisions: DecisionRecord[]): Problem | null {
-	const divs = [...brain.finish(session.end?.decisions ?? decisions), ...compareHello(r.hello, session.hello)];
+	const found = [...brain.finish(session.end?.decisions ?? decisions), ...compareHello(r.hello, session.hello)];
 	if (session.end) {
-		if (!r.fingerprint) divs.push({ message: "the recording has no fingerprint.json (its run sent no end)" });
-		else divs.push(...compareFingerprints(r.fingerprint, session.end.fingerprint ?? {}));
+		if (!r.fingerprint) found.push({ message: "the recording has no fingerprint.json (its run sent no end)" });
+		else found.push(...compareFingerprints(r.fingerprint, session.end.fingerprint ?? {}));
 	}
+	const divs = orderDivergences(found);
 	if (!divs.length) return null;
 	const first = divs[0];
 	const at = first.decision !== undefined ? r.decisions.find((d) => d.id === first.decision) : undefined;

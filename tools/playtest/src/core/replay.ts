@@ -118,6 +118,13 @@ export function createReplayBrain(recording: readonly DecisionRecord[]): ReplayB
 	};
 }
 
+/** Divergences in report order: decision-level ones by decision id (the earliest first), then run-level ones (missing
+ * decisions, hello fields, fingerprint fields) in their given order. */
+export function orderDivergences(divs: readonly Divergence[]): Divergence[] {
+	const byDecision = divs.filter((d) => d.decision !== undefined).sort((a, b) => (a.decision ?? 0) - (b.decision ?? 0));
+	return [...byDecision, ...divs.filter((d) => d.decision === undefined)];
+}
+
 const canon = (v: unknown): string => JSON.stringify(v);
 
 /** Fingerprint fields that differ between the recorded and the replayed fingerprint, in the recorded field order
