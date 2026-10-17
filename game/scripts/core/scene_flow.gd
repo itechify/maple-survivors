@@ -7,8 +7,9 @@ extends Node
 ## #70 seam: character_select.gd/.tscn is a separate presentation. Use create_character(name, look, weapon),
 ## continue_character(slot), delete_character(slot) AFTER confirmation, and goto_history(). Creation returns its
 ## slot or -1 with action_error; it creates a Beginner via the same sim defaults as any fresh round.
-## Shared #70/#71 drawing: DataRepo.character_look(snapshot.character, DataRepo.load_all()) -> AvatarRenderer look.
-## CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs) is the shared pure weapon resolver.
+## Shared #70/#71 drawing: DataRepo.character_look(snapshot.character, DataRepo.load_all()) -> AvatarRenderer look,
+## the carried look with the character's worn equipment. Creation turns the chosen outfit and weapon into worn
+## equipment (new_character); continue_character migrates a format-1 character once (migrated_character).
 ## Only snapshot.character.look is authoritative; the old wrapper look is accepted for compatibility and ignored.
 ## EVERY persistent non-final clear calls _after_round_cleared(snapshot), which saves free_market before arrival.
 ## Continue resumes that phase; the hub's out00 calls goto_stage_select(). No other clear route exists.
@@ -96,9 +97,7 @@ func create_character(character_name: String, look: Dictionary = {}, beginner_we
 	action_error = save_data().name_error(character_name)
 	if not action_error.is_empty():
 		return -1
-	var character := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
-	character.look = look.duplicate(true)
-	character.beginner_weapon = beginner_weapon
+	var character := new_character(look, beginner_weapon, _equipment_info_loader())
 	var snapshot := {"name": character_name, "created": _date(),
 		"character": character, "tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}
 	var index := save_data().create_slot(snapshot)
@@ -107,6 +106,41 @@ func create_character(character_name: String, look: Dictionary = {}, beginner_we
 		active_slot = index
 		goto_stage_select()
 	return index
+
+
+## A fresh Beginner snapshot (the sim's defaults) wearing the creation choices: `look` {skin, face, hair, equips:
+## [top, bottom, shoes]} and `weapon` (0 = the default creation weapon) become worn equipment with plain WZ stats from
+## `img_loader` (path -> img root, {} when absent); an empty look wears Equipment.DEFAULT_OUTFIT.
+static func new_character(look: Dictionary, weapon: int, img_loader: Callable) -> Dictionary:
+	var data := DataRepo.load_all()
+	var ids: Array = look.get("equips", []).duplicate() if look.get("equips") is Array else []
+	if ids.is_empty():
+		ids = Equipment.DEFAULT_OUTFIT.filter(func(id: int) -> bool: return Equipment.slot_of(id) != "weapon")
+	ids.append(weapon if weapon > 0 else Equipment.DEFAULT_OUTFIT[-1])
+	var infos := DataRepo.equipment_info(PackedInt32Array(ids), img_loader)
+	var character := RunWorld.new({"data": data, "equipment_info": infos}).character_snapshot()
+	character.look = look.duplicate(true)
+	character.look.erase("equips")
+	character.equipment.worn = Equipment.worn_from_ids(ids, infos)
+	return character
+
+
+## A format-2 copy of a stored character: format 1 migrates with item info from `img_loader` (as new_character).
+static func migrated_character(character: Dictionary, img_loader: Callable) -> Dictionary:
+	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
+		return character.duplicate(true)
+	var data := DataRepo.load_all()
+	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
+	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
+
+
+## Item info from the default asset library (empty roots without a cache, so items then carry no stats).
+static func _equipment_info_loader() -> Callable:
+	var library := AssetLibrary.get_default()
+	return func(path: String) -> Dictionary:
+		var img: WzImg = library.img(path) if library != null else null
+		return img.root if img != null else {}
 
 
 ## Shows map select for the active character and autosaves the boundary.
@@ -167,6 +201,12 @@ func continue_character(index: int) -> void:
 	if snapshot.is_empty():
 		return
 	active_slot = index
+	if int(snapshot.character.get("format", 0)) != CharacterSnapshot.FORMAT:
+		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too.
+		snapshot.character = migrated_character(snapshot.character, _equipment_info_loader())
+		if save_data().update_slot(index, snapshot) != OK:
+			_swap_to(error_screen("Could not save the round boundary."), "error")
+			return
 	if snapshot.phase == "round":
 		_resume_round(snapshot)
 	elif snapshot.phase == "free_market":

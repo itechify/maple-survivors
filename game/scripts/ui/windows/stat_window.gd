@@ -8,6 +8,8 @@ extends UiWindow
 ##
 ##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp, mp, max_mp,
 ##                          # str, dex, int, luk, ap, attack, magic, weapon_def, magic_def, accuracy, avoid, speed, jump
+##                          # and str_bonus .. luk_bonus (what worn equipment adds)
+## A main stat with an equipment bonus shows the v83 way, "total (base+bonus)"; without one just the total.
 ##
 ## A row whose key is missing from `info` (guild, fame, hands: the sim has no such stat) shows "-". Without the cache
 ## the window keeps its size and draws plain panels with the labels.
@@ -95,6 +97,9 @@ func value_text(key: String) -> String:
 	var v: Variant = info[key]
 	if key == "speed" or key == "jump":
 		return "%d%%" % int(v)
+	var bonus := int(info.get(key + "_bonus", 0))
+	if key in ["str", "dex", "int", "luk"] and bonus != 0:
+		return "%d (%d+%d)" % [int(v), int(v) - bonus, bonus]
 	if v is String:
 		return v
 	return str(int(v))

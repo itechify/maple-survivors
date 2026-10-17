@@ -223,6 +223,15 @@ func test_skill_window_opens_over_a_level_up_choice() -> void:
 	assert_eq(w.state, RunWorld.PLAYING)
 
 
+func test_stat_window_shows_main_stats_as_total_with_base_plus_equipment_bonus() -> void:
+	var sw := StatWindow.new({"str": 15, "str_bonus": 3, "dex": 5, "dex_bonus": 0, "int": 4, "luk": 9, "luk_bonus": 5})
+	assert_eq(sw.value_text("str"), "15 (12+3)", "v83: total (base+bonus) when equipment adds")
+	assert_eq(sw.value_text("dex"), "5", "no bonus: just the total")
+	assert_eq(sw.value_text("int"), "4")
+	assert_eq(sw.value_text("luk"), "9 (4+5)")
+	sw.free()
+
+
 func test_stat_window_shows_the_sims_v83_stats() -> void:
 	if not require_cache():
 		return

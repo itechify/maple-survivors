@@ -20,9 +20,21 @@ extends RefCounted
 ## rank the card gives when taken. Swarm/projectile/pickup visuals are read from state (4.4.3).
 ##
 ## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
-## avoid, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
+## avoid, acc, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
 ## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
-## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started.
+## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started. Main stats, W.DEF,
+## M.DEF, acc, avoid and max HP/MP are totals: worn equipment's `inc*` adds on top of the base (equipment_bonus()).
+##
+## Live character state (docs/ARCHITECTURE.md 4.4): RunWorld owns the character's worn equipment and inventory
+## (`equipment`, the Equipment state shape), `scrolls` and `mesos`. UI and bots change them only through these
+## methods, which apply the pure Equipment functions, refresh the derived stats and emit `equipment_changed`; each
+## returns "" on success or an Equipment reason (reqLevel, reqJob, reqSTR..., inventory_full, no_item, empty) and then
+## changes nothing:
+##   equip_item(inventory_index)  - wear an inventory item (v83 requirements against total stats)
+##   unequip_item(slot)           - move a worn item to the inventory
+##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
+## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
+## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices.
@@ -77,6 +89,7 @@ const EVENT_FIELDS := {
 	"mob_projectile_hit": ["proj", "mob", "mob_id", "pos", "hit", "facing", "time"],
 	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
+	"equipment_changed": ["action", "slot", "item_id"],
 
 }
 
@@ -98,6 +111,8 @@ const DEFAULT_STATS := {"str": 12, "dex": 5, "int": 4, "luk": 4}
 const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
 ## tier C: px between MobSkill 200 summons and revive offspring when balance.mob_skills has no summon_spacing.
 const DEFAULT_SUMMON_SPACING := 24.0
+## balance.player.inventory_slots fallback. tier A: a new v83 character's Equip tab has 24 slots.
+const DEFAULT_INVENTORY_SLOTS := 24
 
 var setup: Dictionary
 var data: Dictionary
@@ -195,6 +210,8 @@ var mp_regen := 0.0
 var player_pdd := 0.0
 var player_mdd := 0.0
 var player_avoid := 0.0
+## Accuracy from worn equipment (incACC); Bless adds on top. Nothing rolls player accuracy yet (no hit-chance rule).
+var player_acc := 0.0
 var body := DEFAULT_BODY
 var cast_height := DEFAULT_CAST_HEIGHT
 var cast_forward := DEFAULT_CAST_FORWARD
@@ -213,9 +230,15 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
-## Carried appearance and the canonical weapon chosen at character creation.
+## Carried appearance {skin, face, hair}; worn equipment is drawn over it (drawn_look()).
 var character_look := {}
-var beginner_weapon := 0
+## Worn equipment and inventory (Equipment state); change it only through equip_item/unequip_item/discard_item.
+var equipment := Equipment.empty_state()
+## Scroll stacks: {"<scroll item id>": count}.
+var scrolls := {}
+var mesos := 0
+var _equipment_speed := 0.0
+var _equipment_jump := 0.0
 var _dead := false
 var basic: BasicAttack
 var basic_rng: RandomNumberGenerator
@@ -360,7 +383,8 @@ func character_snapshot() -> Dictionary:
 		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
 		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
 		"fortune": float(player_state.fortune), "base_fortune": _base_fortune,
-		"look": character_look.duplicate(true), "beginner_weapon": beginner_weapon}
+		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
+		"scrolls": scrolls.duplicate(), "mesos": mesos}
 
 
 ## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
@@ -695,6 +719,7 @@ func change_job(job_id: int) -> void:
 	_job_mp += float(grants.get("max_mp", 0.0))
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
+	_grant_job_weapon(job_id)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -750,11 +775,16 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	for stat: String in _base_stats:
 		_attributes[stat] = roundi(loadout.player_stat(stat, float(_base_stats[stat])
 			+ (_earned_ap if stat == primary else 0)))
+	# Total = base + worn equipment (decisions #33: the Stat window's "base + bonus" split).
+	for stat: String in _attributes:
+		_attributes[stat] += roundi(equipment_bonus("inc" + stat.to_upper()))
 	var old_hp := _max_hp
 	var old_mp := _max_mp
-	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
+	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive (v83 % buffs act on the base).
+	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP")))
 	var mp_percent := loadout.passive_total(Loadout.MAX_MP_PERCENT)
-	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)))
+	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
+		+ equipment_bonus("incMMP")))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
 	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
@@ -763,30 +793,37 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		_mp += _max_mp - old_mp
 	_hp = minf(_hp, _max_hp)
 	_mp = minf(_mp, _max_mp)
+	_equipment_speed = equipment_bonus("incSpeed")
+	_equipment_jump = equipment_bonus("incJump")
+	player_acc = equipment_bonus("incACC")
 	refresh_player_speed()
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
 	mp_regen = loadout.player_stat("mp_regen", float(balance.get("mp_regen", 0.0)))
-	player_pdd = loadout.player_stat("pdd", _equipment_total("incPDD")) + loadout.passive_total("pdd")
-	player_mdd = loadout.player_stat("mdd", _equipment_total("incMDD")) + loadout.passive_total("mdd")
+	player_pdd = loadout.player_stat("pdd", equipment_bonus("incPDD")) + loadout.passive_total("pdd")
+	player_mdd = loadout.player_stat("mdd", equipment_bonus("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
-		+ float(_attributes.luk) * AVOID_LUK_FACTOR + _equipment_total("incEVA"))
+		+ float(_attributes.luk) * AVOID_LUK_FACTOR + equipment_bonus("incEVA"))
 	_refresh_caster()
 	_write_player_state(0.0)
 
 
-## Upgraded movement speed plus active canonical buff points, composed with the canonical-area slow.
+## Upgraded movement speed plus worn equipment's incSpeed and active canonical buff points, capped at the v83 140
+## (Equipment.SPEED_CAP), then composed with the canonical-area slow.
 func player_speed_stat() -> float:
-	return (loadout.player_stat("speed", 100.0) + buffs.effect_total("speed")) * mob_skills.speed_multiplier(time)
+	var speed := loadout.player_stat("speed", 100.0) + _equipment_speed + buffs.effect_total("speed")
+	return minf(speed, Equipment.SPEED_CAP) * mob_skills.speed_multiplier(time)
 
 
 func _refresh_caster() -> void:
-	loadout.set_caster(float(_attributes.int), _equipment_total("incMAD") + buffs.effect_total("matk"), progression.level)
+	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 
 
-## Applies player_speed_stat() to the movement model (whole speed points).
+## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
+## capped at the v83 123, Equipment.JUMP_CAP).
 func refresh_player_speed() -> void:
 	player.speed_stat = roundi(player_speed_stat())
+	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump))
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -945,16 +982,85 @@ func start_action(action: String, seconds: float, airborne: bool = false) -> voi
 	upkeep.start_action(action, seconds, airborne)
 
 
-## Chosen Beginner weapon, otherwise the current job's survivor-data weapon rule.
+## The worn weapon's item id; 0 when bare-handed.
 func weapon_id() -> int:
-	return CharacterSnapshot.weapon_id(progression.job_id, beginner_weapon,
-		balance.get("player", {}).get("weapon_by_job", {}), jobs)
+	return int(equipment.worn.weapon.id) if equipment.worn.has("weapon") else 0
 
 
-## The current weapon's canonical info node (empty when absent).
+## The worn weapon's canonical info node (empty when bare-handed or absent from setup.equipment_info).
 func weapon_info() -> Dictionary:
-	var infos: Dictionary = setup.get("equipment_info", {})
-	return infos.get(weapon_id(), infos.get(str(weapon_id()), {}))
+	var id := weapon_id()
+	return Equipment.info_of(setup.get("equipment_info", {}), id) if id > 0 else {}
+
+
+## W.ATT: incPAD summed over every worn item (the weapon, and gloves or anything else that has it).
+func weapon_attack() -> float:
+	return equipment_bonus("incPAD")
+
+
+## What worn equipment adds to one `inc*` stat (the "bonus" of the Stat window's base + bonus).
+func equipment_bonus(field: String) -> float:
+	return Equipment.total(equipment.worn, field)
+
+
+## The look to draw: the carried {skin, face, hair} with `equips` = worn item ids (Equipment.worn_ids order).
+func drawn_look() -> Dictionary:
+	var look := character_look.duplicate(true)
+	look["equips"] = Equipment.worn_ids(equipment.worn)
+	return look
+
+
+## Wears inventory item `index`; "" or the Equipment reason it failed (nothing changes then). See the header.
+func equip_item(index: int) -> String:
+	if index < 0 or index >= equipment.inventory.size():
+		return "no_item"
+	var id := int(equipment.inventory[index].id)
+	var who := {"level": progression.level, "job_id": progression.job_id}
+	who.merge(_attributes)
+	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), who,
+		inventory_slots())
+	if reason == "":
+		_equipment_changed("equip", Equipment.slot_of(id), id)
+	return reason
+
+
+## Moves the item worn in `slot` to the inventory; "" or the Equipment reason (empty, inventory_full).
+func unequip_item(slot: String) -> String:
+	var id := int(equipment.worn[slot].id) if equipment.worn.has(slot) else 0
+	var reason := Equipment.unequip(equipment, slot, inventory_slots())
+	if reason == "":
+		_equipment_changed("unequip", slot, id)
+	return reason
+
+
+## Destroys inventory item `index`; "" or "no_item". Worn equipment cannot be discarded.
+func discard_item(index: int) -> String:
+	var id := int(equipment.inventory[index].id) if index >= 0 and index < equipment.inventory.size() else 0
+	var reason := Equipment.discard(equipment, index)
+	if reason == "":
+		_equipment_changed("discard", "", id)
+	return reason
+
+
+## The Equip tab's capacity (balance.player.inventory_slots).
+func inventory_slots() -> int:
+	return int(balance.get("player", {}).get("inventory_slots", DEFAULT_INVENTORY_SLOTS))
+
+
+func _equipment_changed(action: String, slot: String, id: int) -> void:
+	refresh_player_stats(false)
+	emit("equipment_changed", {"action": action, "slot": slot, "item_id": id})
+
+
+## tier C: advancing to a job in balance.player.weapon_grants (Magician 200 -> Wooden Wand) wears that weapon; the
+## previous one moves to the inventory (the last of spec #32's weapon_by_job rule).
+func _grant_job_weapon(job_id: int) -> void:
+	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
+	if id <= 0:
+		return
+	Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
+		inventory_slots())
+	_equipment_changed("grant", "weapon", id)
 
 
 ## Live defense at a mob slot; later timed boss buffs can override this shared hit seam.
@@ -1116,6 +1222,8 @@ func _init_player() -> void:
 	player.place(PortalSet.start_point(setup.get("map_img", {}), fhm, bounds, spawn_rng), fhm)
 	if setup.has("character"):
 		_restore_character(setup.character)
+	else:
+		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
 	refresh_player_stats()
 	_hp = _max_hp
 	_mp = _max_mp
@@ -1125,8 +1233,9 @@ func _init_player() -> void:
 	_action = player.stance()
 
 
-func _restore_character(character: Dictionary) -> void:
-	assert(int(character.get("format", 0)) == CharacterSnapshot.FORMAT, "Unsupported CharacterSnapshot format")
+func _restore_character(source: Dictionary) -> void:
+	assert(int(source.get("format", 0)) in CharacterSnapshot.FORMATS, "Unsupported CharacterSnapshot format")
+	var character := CharacterSnapshot.migrate(source, jobs, setup.get("equipment_info", {}))
 	progression.level = int(character.level)
 	progression.exp = int(character.exp)
 	progression.job_id = int(character.job_id)
@@ -1143,9 +1252,9 @@ func _restore_character(character: Dictionary) -> void:
 	for field: String in ["skin", "face", "hair"]:
 		if character_look.has(field):
 			character_look[field] = int(character_look[field])
-	if character_look.has("equips"):
-		character_look.equips = character_look.equips.map(func(id: Variant) -> int: return int(id))
-	beginner_weapon = int(character.get("beginner_weapon", 0))
+	equipment = Equipment.normalized(character.equipment)
+	scrolls = CharacterSnapshot.integers(character.scrolls)
+	mesos = int(character.mesos)
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
@@ -1396,20 +1505,6 @@ func _job_value(table: Variant, fallback: Variant) -> Variant:
 	return table.get("0", fallback)
 
 
-func _equipment_total(field: String) -> float:
-	var infos: Dictionary = setup.get("equipment_info", {})
-	var pb: Dictionary = balance.get("player", {})
-	var ids: Array = pb.get("equipment", []).duplicate()
-	var weapon := weapon_id()
-	if weapon > 0 and not (weapon in ids):
-		ids.append(weapon)
-	var total := 0.0
-	for id: Variant in ids:
-		var info: Dictionary = infos.get(int(id), infos.get(str(int(id)), {}))
-		total += float(info.get(field, 0.0))
-	return total
-
-
 func _advance_queue() -> void:
 	while pending_bonus_choices > 0:
 		choice_bonus = true
@@ -1462,8 +1557,8 @@ func _write_player_state(dt: float) -> void:
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
 	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
-	# Canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
-	player_state["acc"] = buffs.effect_total("acc")
+	# Equipment incACC plus canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
+	player_state["acc"] = player_acc + buffs.effect_total("acc")
 	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", _base_fortune))
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
