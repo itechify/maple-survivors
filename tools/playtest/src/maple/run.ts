@@ -127,10 +127,10 @@ function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv): BrainPick {
 	if (o.brain !== "auto" && o.brain !== "jev") return { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback" } };
 	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
 	if (key.key === null) {
-		const facts = { requested: o.brain, mode: "fallback" as const, noJevReason: key.reason };
 		return o.brain === "jev"
-			? { brain: sensibleBrain, facts, error: `--brain=jev needs a TypeSafe API key: ${key.reason}` }
-			: { brain: sensibleBrain, facts };
+			? { brain: sensibleBrain, facts: { requested: o.brain, mode: "none", noJevReason: key.reason },
+				error: `--brain=jev needs a TypeSafe API key: ${key.reason}` }
+			: { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback", noJevReason: key.reason } };
 	}
 	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch,
 		retry: o.jevRetry });

@@ -150,7 +150,9 @@ test("--brain=jev without a key is an infrastructure error before the game start
 	const r = await runPlaytest({ ...base, brain: "jev", out, env: {}, readUserKey: () => null,
 		launch: { command: process.execPath, args: ["-e", "process.exit(9)"] } });
 	assert.equal(r.exitCode, EXIT.INFRA);
-	assert.match(fs.readFileSync(path.join(out, "report.md"), "utf8"), /--brain=jev.*key absent in process and user env/);
+	const md = fs.readFileSync(path.join(out, "report.md"), "utf8");
+	assert.match(md, /--brain=jev.*key absent in process and user env/);
+	assert.match(md, /\*\*brain used:\*\* none \(the game was not started\)/);
 	const log = path.join(out, "game.log");
 	assert.ok(!fs.existsSync(log) || !fs.readFileSync(log, "utf8").includes("process.exit(9)"), "the game was not started");
 	assert.ok(!fs.existsSync(path.join(out, "record.json")));

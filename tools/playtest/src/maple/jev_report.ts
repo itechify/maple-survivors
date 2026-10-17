@@ -8,8 +8,9 @@ import type { JevStats } from "../core/jev_client.ts";
 export type BrainFacts = {
 	/** --brain as given: auto, jev, fallback or builtin. */
 	requested: string;
-	/** What answered: the Jev brain (with per-decision fallbacks), the fallback brain, or the driver's builtin. */
-	mode: "jev" | "fallback" | "builtin";
+	/** What answered: the Jev brain (with per-decision fallbacks), the fallback brain, the driver's builtin, or none
+	 * (--brain=jev without a key: no round was played). */
+	mode: "jev" | "fallback" | "builtin" | "none";
 	/** Why the fallback brain was used for the whole run (no key), if it was not requested. */
 	noJevReason?: string;
 	keyFrom?: "process" | "user";
@@ -27,7 +28,10 @@ export function brainHeader(f: BrainFacts): Array<[string, string]> {
 	const lost = f.brainLost ? "; the brain was lost mid-round, later decisions took the driver's baseline" : "";
 	let used: string;
 	let fallback: string;
-	if (f.mode === "builtin") {
+	if (f.mode === "none") {
+		used = "none (the game was not started)";
+		fallback = f.noJevReason ?? "none";
+	} else if (f.mode === "builtin") {
 		used = `builtin (the driver answered every decision with ${BASELINE}; no pipe)`;
 		fallback = "none (builtin brain)";
 	} else if (f.mode === "fallback") {

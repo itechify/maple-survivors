@@ -136,9 +136,10 @@ const jobLabel = (id: string) => (id === NOT_NOW ? NOT_NOW : `job_${id}`);
 export function jobRequest(d: DecideMessage, seed: number, personality: string) {
 	const s = d.situation ?? {};
 	const presented = seededShuffle(d.options, seed, d.id);
+	const current = String(s.job ?? "the current job");
 	const criteria = Object.fromEntries(presented.map((o) => [jobLabel(o.id), o.id === NOT_NOW
-		? `Not now: stay ${String(s.job ?? "in the current job")} for now and decide at a later level.`
-		: `${String(o.name ?? o.id)}${o.desc ? `: ${String(o.desc)}` : ""}`]));
+		? `Not now: stay ${current} with only the skills already learned, and be offered the advancement again later.`
+		: `Advance to ${String(o.name ?? o.id)} now${o.desc ? ` (${String(o.desc)})` : ""}.`]));
 	const state = { player: personality, character: character(s), situation: situationBuckets(s),
 		window: "job advancement" };
 	const questions = { job: choice("Which job advancement would this player take now?", criteria) };
