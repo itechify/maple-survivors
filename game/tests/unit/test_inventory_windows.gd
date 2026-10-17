@@ -281,6 +281,26 @@ func test_dragging_out_of_the_item_window_asks_before_discarding() -> void:
 	assert_eq(int(iw.cell(0).count), count, "the stack is untouched")
 
 
+func test_dragging_a_scroll_stack_out_asks_and_then_destroys_the_whole_stack() -> void:
+	var world := _world([], func(c: Dictionary) -> void: c.scrolls = {"2040002": 2, "2040000": 1})
+	var made := _windows(world)
+	var s: WindowStack = made[0]
+	var iw: ItemWindow = made[2]
+	iw.select_tab(1)
+	assert_eq(iw.cell(3), {"kind": "scroll", "id": 2040002, "count": 2}, "the second scroll stack after the potions")
+	world.drain_events()
+	drag_to(iw, iw.slot_rect(3).get_center(), Vector2(760, 40))
+	var confirm := s.top() as DropConfirm
+	assert_true(confirm != null, "scrolls ask the same question")
+	if confirm == null:
+		return
+	confirm.accept()
+	assert_eq(world.scrolls, {"2040000": 1}, "Yes destroyed the whole stack")
+	assert_eq(world.drain_events(), [{"type": "equipment_changed", "action": "discard", "slot": "", "item_id": 2040002}])
+	assert_eq(iw.cells().size(), 3, "the Use tab shows the two potions and the remaining stack")
+	assert_eq(world.discard_scrolls(2040002), "no_item", "a stack that is gone")
+
+
 # --- what the Item window shows ---------------------------------------------------------------------------------------
 
 func test_the_item_window_shows_the_mesos_and_the_use_tab_stacks_read_only() -> void:
