@@ -3,6 +3,7 @@
 use crate::import::{import_sources, Progress};
 use crate::sink::Sink;
 use crate::source::{NamedSources, ReadAt};
+use crate::zip::{Scratch, ScratchHandle};
 use crate::{Result, WzError};
 use js_sys::{Function, Object, Promise, Reflect, Uint8Array};
 use std::io;
@@ -90,6 +91,78 @@ struct HostSink {
     mkdir: Function,
     write: Function,
 }
+
+struct HostScratch {
+    object: JsValue,
+    create: Function,
+}
+struct HostScratchHandle {
+    reader: HostReader,
+    write: Function,
+    close: Function,
+}
+impl Scratch for HostScratch {
+    fn create(&self, name: &str, length: u64) -> io::Result<Box<dyn ScratchHandle>> {
+        let setup = || -> Result<Box<dyn ScratchHandle>> {
+            let object = self
+                .create
+                .call2(&self.object, &name.into(), &JsValue::from_f64(length as f64))
+                .map_err(error)?;
+            synchronous(object.clone())?;
+            let close = function(&object, "close")?;
+            let handle = (|| -> Result<HostScratchHandle> {
+                Ok(HostScratchHandle {
+                    reader: HostReader {
+                        object: object.clone(),
+                        read: function(&object, "readAt")?,
+                        len: length,
+                    },
+                    write: function(&object, "write")?,
+                    close: close.clone(),
+                })
+            })();
+            match handle {
+                Ok(handle) => Ok(Box::new(handle)),
+                Err(e) => {
+                    let _ = close.call0(&object);
+                    Err(e)
+                }
+            }
+        };
+        setup().map_err(|e| io::Error::other(format!("scratch.create({name}): {e}")))
+    }
+}
+impl ReadAt for HostScratchHandle {
+    fn len(&self) -> u64 {
+        self.reader.len
+    }
+    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> io::Result<()> {
+        self.reader.read_exact_at(offset, buf)
+    }
+}
+impl ScratchHandle for HostScratchHandle {
+    fn write(&self, offset: u64, bytes: &[u8]) -> io::Result<()> {
+        let call = || -> Result<()> {
+            synchronous(
+                self.write
+                    .call2(
+                        &self.reader.object,
+                        &JsValue::from_f64(offset as f64),
+                        &Uint8Array::from(bytes),
+                    )
+                    .map_err(error)?,
+            )
+        };
+        call().map_err(|e| io::Error::other(format!("scratch.write({offset}): {e}")))
+    }
+    fn close(&mut self) -> io::Result<()> {
+        let value = self
+            .close
+            .call0(&self.reader.object)
+            .map_err(|e| io::Error::other(message(e)))?;
+        synchronous(value).map_err(|e| io::Error::other(e.to_string()))
+    }
+}
 impl Sink for HostSink {
     fn create_dir(&self, relative: &str) -> Result<()> {
         synchronous(self.mkdir.call1(&self.object, &relative.into()).map_err(error)?)
@@ -139,8 +212,19 @@ pub fn import_wz(
                 "sources must contain exactly one of archives or zip".into(),
             ));
         }
+        let mut options = crate::zip::ZipOptions::default();
+        if has_zip {
+            let scratch = field(&sources, "scratch")?;
+            if !scratch.is_null() && !scratch.is_undefined() {
+                options.scratch = Some(Arc::new(HostScratch {
+                    create: function(&scratch, "create")?,
+                    object: scratch,
+                }));
+            }
+        }
+        let zip_stats = options.stats.clone();
         let sources = if has_zip {
-            crate::zip::zip_sources(Arc::new(HostReader::new(zip)?))?
+            crate::zip::zip_sources_with_options(Arc::new(HostReader::new(zip)?), options)?
         } else {
             if !archives.is_object() {
                 return Err(WzError::Other(
@@ -168,6 +252,7 @@ pub fn import_wz(
             return Err(WzError::Other(report.errors.join("\n")));
         }
         serde_json::to_string(&serde_json::json!({
+            "zip_stats": zip_stats.lock().unwrap().clone(),
             "index":report.index,"written":report.written,"warnings":report.warnings,
             "unresolved_uols":report.unresolved_uols,"uols_resolved":report.uols_resolved,"uols_external":report.uols_external
         })).map_err(|e| WzError::Other(e.to_string()))

@@ -137,14 +137,11 @@ fn execute(
             }
         }
     }
-    let jobs: Vec<(&String, &crate::manifest::ImgRequest)> = plan.imgs.iter().collect();
+    let mut jobs: Vec<(&String, &crate::manifest::ImgRequest)> = plan.imgs.iter().collect();
+    jobs.sort_by_cached_key(|(img, _)| wz.img_order(img));
     let done = AtomicUsize::new(0);
-    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
-    let iter = jobs.par_iter();
-    #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
-    let iter = jobs.iter();
-    let results: Vec<(String, JobResult)> = iter
-        .map(|(img, req)| {
+    let run_job = |(img, req): &(&String, &crate::manifest::ImgRequest)| {
+        let (img, result) = (|| {
             let archive = WzPath::parse(img).map(|p| p.archive).unwrap_or_default();
             let paths = req.output_paths();
             if let Some(entry) = context.out.and_then(|out| {
@@ -157,14 +154,22 @@ fn execute(
                 Ok(o) => (img.to_string(), JobResult::Written(Box::new(o))),
                 Err(e) => (img.to_string(), JobResult::Failed(format!("{img}: {e}"))),
             }
-        })
-        .map(
-            |(img, result)| match progress.update(&img, done.fetch_add(1, Ordering::Relaxed) + 1, jobs.len()) {
-                Ok(()) => (img, result),
-                Err(e) => (img, JobResult::Failed(format!("progress: {e}"))),
-            },
-        )
-        .collect();
+        })();
+        match progress.update(&img, done.fetch_add(1, Ordering::Relaxed) + 1, jobs.len()) {
+            Ok(()) => (img, result),
+            Err(e) => (img, JobResult::Failed(format!("progress: {e}"))),
+        }
+    };
+    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
+    let mut results: Vec<(String, JobResult)> = if wz.prefers_sequential() {
+        jobs.iter().map(run_job).collect()
+    } else {
+        jobs.par_iter().map(run_job).collect()
+    };
+    #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
+    let mut results: Vec<(String, JobResult)> = jobs.iter().map(run_job).collect();
+    // Keep report/diagnostic order stable even though the I/O schedule changed.
+    results.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut imgs = BTreeMap::new();
     let (mut written, mut skipped, mut unresolved) = (Vec::new(), Vec::new(), Vec::new());
