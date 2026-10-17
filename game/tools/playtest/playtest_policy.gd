@@ -59,7 +59,7 @@ func decide(point: POINT, w: RunWorld) -> String:
 	var options: Array = point.options(w)
 	var baseline: Dictionary = point.baseline(w, self)
 	var tick := roundi(w.time / DT)
-	var msg := PROTOCOL.decide(_next_id, point.kind, tick, w.time, SITUATION.of(w), options, baseline)
+	var msg := PROTOCOL.decide(_next_id, point.kind, tick, w.time, point.situation(w), options, baseline)
 	_next_id += 1
 	var reply: Dictionary = link.ask(msg)
 	var ids: Array = options.map(func(o: Dictionary) -> String: return String(o.id))
