@@ -12,6 +12,7 @@ extends RefCounted
 const DEFAULT_INTERVAL := 5.0
 ## tier C: the golden-ratio fraction that staggers each mob's first wait (see first_wait).
 const STAGGER_STEP := 0.6180339887498949
+## Float tolerance for sim-time comparisons (waits and windup timestamps); numeric, not a gameplay value.
 const EPS := 1e-6
 
 var _rules: Dictionary = {}
@@ -63,7 +64,8 @@ static func attack_names(img: Dictionary) -> PackedStringArray:
 
 
 ## tier C: a mob's first wait is 50-100% of its interval, by the golden-ratio fraction of its swarm identity, so mobs
-## spawned on one tick (consecutive identities) get distinct waits. Waits count only while the mob can act on screen,
+## spawned on one tick (consecutive identities) spread evenly over that half interval (distinct values; a burst larger
+## than about interval x 60 / 2 mobs must still share fixed ticks). Waits count only while the mob can act on screen,
 ## so this staggers mobs that walk into view together as well; it guarantees nothing for mobs that already waited.
 static func first_wait(interval: float, identity: int) -> float:
 	return interval * (0.5 + 0.5 * fposmod(float(identity) * STAGGER_STEP, 1.0))

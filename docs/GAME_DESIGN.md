@@ -3303,7 +3303,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Attack interval | `balance.mob_attacks`: 5 s for 7130100 and 7130101, `default_interval` 5 s (code fallback `MobAttacks.DEFAULT_INTERVAL`); per mob slot, start to start | C | ours; first pass before measurement, not tuned (#77) |
 | Attack damage scale | canonical attack damage unscaled, times per-mob `dmg_mult` 1.0; elites also take `elites.damage_mult` (as for contact) | C | owner #76 decision 4; ours (elite) |
 | Attack gate | grounded, fully faded in and not frozen (`MobSwarm.can_act`), feet inside the player-centred view, not inside another stance; the wait counts only while faded in, unfrozen and on screen | C | ours ("the boss rule" plus on screen) |
-| First readiness | first wait = interval x (0.5 + 0.5 x frac(identity x 0.618034)), identity = the swarm's monotonic spawn identity (kept through relocation); same-tick spawns get distinct waits | C | ours; `MobAttacks.first_wait` |
+| First readiness | first wait = interval x (0.5 + 0.5 x frac(identity x 0.618034)), identity = the swarm's monotonic spawn identity (kept through relocation); same-tick spawns spread evenly over half the interval (distinct values; a burst of more than ~interval x 30 mobs shares fixed ticks) | C | ours; `MobAttacks.first_wait` |
 | Slot lifecycle | a new mob in a slot starts unset (no wait, windup or stance); a relocation keeps waits, cancels a windup and clears the stance | C | ours |
 | Mob skills of ordinary mobs | none cast: Jr. Boogie's Seal (120) and Curse (124) are skipped like any unsupported mob skill; character statuses come only from bosses, and no current boss lists MobSkill 120 | C | owner #76 decision (2026-10-17), replacing the brief's Seal |
 

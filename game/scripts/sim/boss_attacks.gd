@@ -35,7 +35,7 @@ func step(world: RunWorld) -> void:
 		var img := world.mob_img(int(record.mob_id))
 		for attack: String in entry.get("attacks", []):
 			var key := "%d/%s" % [index, attack]
-			if now < float(_next.get(key, 0.0)) - 1e-6:
+			if now < float(_next.get(key, 0.0)) - MobAttacks.EPS:
 				continue
 			var pending := MobAttacks.plan(world, slot, img, attack, index,
 				float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))))
