@@ -60,7 +60,10 @@ func _chain_setups() -> Array:
 func test_a_chain_continues_decision_ids_across_rounds_and_keeps_round_records() -> void:
 	var rows: Array = []
 	var chain := CHAIN.new(BRAIN_LINK.new(), {}, Callable(), func(line: String) -> void: rows.append(line))
+	var configured: Array = []
+	chain.policy_setup = func(p: Object) -> void: configured.append(p)
 	var result := chain.play(_chain_setups(), 2026)
+	assert_eq(configured.size(), 2, "the policy setup hook runs once per round")
 	var record: Dictionary = result.record
 	assert_eq(record.rounds.size(), 2, "a CLEARED tier 1 feeds tier 2")
 	assert_eq(String(record.policy), "playtest")

@@ -26,6 +26,8 @@ var sink: Callable
 var write_timeline: Callable
 ## Extra per-tick observers added to every round's policy (e.g. the driver's progress lines).
 var extra_observers: Array = []
+## Called with each round's new policy before the round starts (hook: e.g. personality params, #97); may be invalid.
+var policy_setup := Callable()
 ## The policy of each round played, in order.
 var policies: Array = []
 ## The invariants of each round played, in order.
@@ -84,6 +86,8 @@ func all_decisions() -> Array:
 func _round_policy(tier_index: int, round_seed: int) -> POLICY:
 	var p := POLICY.new(link, round_seed)
 	p._next_id = all_decisions().size() + 1 # ids continue across rounds (the policy counts from 1 on its own)
+	if policy_setup.is_valid():
+		policy_setup.call(p)
 	var round_checks := checks.duplicate()
 	if tier_index > 0:
 		round_checks.erase("inject")
