@@ -16,6 +16,14 @@ extends Node2D
 ## run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
 ## with BotInput's choice after that long; demos and evidence runs), warp (run seconds: before the first frame the sim is
 ## fast-forwarded to that time by BotInput with autopick, nothing drawn; perf runs of the late game in real time).
+## Tool-only options (production launches never set them): policy (an object with the run policy interface of
+## game/tools/run_policy.gd, `move(world) -> MoveInput` and `choose(world)`, plus an optional `observe(world, events)`:
+## it replaces BotInput for autoplay, autopick and warp; the agent playtest's windowed replay, spec #91 / #100) and
+## stop_tick (no sim tick runs once the world reaches that tick, -1 = never; the `stop_tick` property may be changed
+## at any time) and view_size (a Vector2: the logical view the run uses instead of the viewport's, so the spawn
+## director sees the headless driver's 800x600 whatever the window). With a policy, every tick's drained events go to `observe` exactly in balance_run.gd run_one's
+## batches (the construction events ride with the first tick's, events emitted while choosing with the next tick's),
+## so a policy plays the same round here as in the headless run loop. Without one, nothing changes.
 ##
 ## Loop: advance_frame(delta) (called from _process; tests call it directly) accumulates delta, runs at most
 ## MAX_TICKS_PER_FRAME x speed ticks of RunWorld.step() with the keyboard or BotInput, drains and maps the events after
@@ -164,6 +172,10 @@ var window: Node
 var paused := false
 ## Visual counters (tests and the perf summary): damage numbers, hit effects and sounds started.
 var counters := {"numbers": 0, "hit_fx": 0, "sounds": 0, "exp_messages": 0, "windows": 0, "autopicks": 0}
+## options.policy (tool-only, see the header): moves, chooses and observes instead of BotInput; null = BotInput.
+var policy: Object = null
+## options.stop_tick (tool-only): the sim holds once the world reaches this tick; -1 = never.
+var stop_tick := -1
 
 var _autoplay := false
 var _autopick := false
@@ -174,6 +186,10 @@ var _drink_hp_latch := false
 var _drink_mp_latch := false
 var _teleport_latch := false
 var _bot_memo := {}
+## Construction events the policy observes with the first tick's batch (as run_one).
+var _policy_carry: Array = []
+## options.view_size (tool-only): the logical view the run uses instead of the viewport's; ZERO = the viewport's.
+var _forced_view := Vector2.ZERO
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
 var _slot_layers := PackedInt32Array()
@@ -262,6 +278,10 @@ func _ready() -> void:
 	_quit_after = float(options.get("quit_after", 0.0))
 	_perf_on = _autoplay and option_flag(options, "perf")
 	_window_auto = float(options.get("window_autopick", 0.0))
+	policy = options.get("policy") as Object
+	stop_tick = int(options.get("stop_tick", -1))
+	if options.get("view_size") is Vector2:
+		_forced_view = options.view_size
 	if run_seed < 0:
 		run_seed = randi() % 1000000
 	if library == null:
@@ -314,7 +334,10 @@ func _ready() -> void:
 	_warm_ui()
 	_warm_stage()
 	_apply_job_look(int(world.player_state.job_id))
-	handle_events(world.drain_events())
+	var initial := world.drain_events()
+	if policy != null:
+		_policy_carry = initial.duplicate()
+	handle_events(initial)
 	_start_title()
 	_play_bgm()
 	if _speed > 1:
@@ -452,7 +475,7 @@ func advance_frame(delta: float) -> void:
 		_acc += delta
 		var budget := MAX_TICKS_PER_FRAME * _speed
 		var first := true
-		while _acc >= DT and budget > 0:
+		while _acc >= DT and budget > 0 and not _held_at_stop():
 			_acc -= DT
 			budget -= 1
 			var input := _read_input(first)
@@ -462,12 +485,14 @@ func advance_frame(delta: float) -> void:
 			_sim_us += Time.get_ticks_usec() - t0
 			_sim_ticks += 1
 			_after_tick()
-			handle_events(world.drain_events())
+			handle_events(_drain_events())
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
 			if world.state != RunWorld.PLAYING:
 				break
-		if budget == 0 or world.state != RunWorld.PLAYING:
+		if _held_at_stop():
+			_acc = 0.0 # held time is not owed: the release resumes at one tick per DT
+		elif budget == 0 or world.state != RunWorld.PLAYING:
 			_acc = minf(_acc, DT) if world.state == RunWorld.PLAYING else 0.0
 	else:
 		_acc = 0.0
@@ -813,7 +838,7 @@ func _fail(msg: String) -> void:
 ## tick after the key went down).
 func _read_input(first_tick: bool) -> MoveInput:
 	if _autoplay:
-		return BotInput.decide(world, _bot_memo)
+		return policy.move(world) if policy != null else BotInput.decide(world, _bot_memo)
 	var mi := MoveInput.new()
 	mi.left = Input.is_action_pressed("move_left")
 	mi.right = Input.is_action_pressed("move_right")
@@ -832,6 +857,24 @@ func _read_input(first_tick: bool) -> MoveInput:
 		_drink_hp_latch = false
 		_drink_mp_latch = false
 	return mi
+
+
+## The events of the tick just stepped; with a policy that observes, they are also its observation batch (the
+## construction events carried into the first one, as balance_run.gd run_one does).
+func _drain_events() -> Array:
+	var events := world.drain_events()
+	if policy != null and policy.has_method("observe"):
+		var batch := events
+		if not _policy_carry.is_empty():
+			batch = _policy_carry + events
+			_policy_carry = []
+		policy.observe(world, batch)
+	return events
+
+
+## True while the world has reached stop_tick (no sim tick runs).
+func _held_at_stop() -> bool:
+	return stop_tick >= 0 and roundi(world.time / DT) >= stop_tick
 
 
 func _after_tick() -> void:
@@ -1026,15 +1069,21 @@ func _apply_job_look(job_id: int) -> void:
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
-## events are dropped. Stops early when the run ends.
+## events are dropped. Stops early when the run ends. With a policy, the policy chooses and moves instead and observes
+## the events (run_one's order: choose, step, observe), and stop_tick holds the warp too.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world, false, int(options.get("branch", 0)))
+		if policy != null:
+			if _held_at_stop():
+				break
+			policy.choose(world)
+		else:
+			BotInput.auto_choose(world, false, int(options.get("branch", 0)))
 		if world.state != RunWorld.PLAYING:
 			break
-		world.step(DT, BotInput.decide(world, _bot_memo))
+		world.step(DT, policy.move(world) if policy != null else BotInput.decide(world, _bot_memo))
 		_after_tick()
-		world.drain_events()
+		_drain_events()
 	_warped = world.time
 
 
@@ -1082,8 +1131,16 @@ func _sound(path: String, phase: String = "") -> void:
 
 # --- windows -------------------------------------------------------------------------------------------------
 
-## Opens the waiting window request (JobAdvanceWindow / LevelUpWindow), or with autopick resolves it at once.
+## Opens the waiting window request (JobAdvanceWindow / LevelUpWindow), or with autopick resolves it at once. With a
+## policy and autopick, the policy answers every open window of the world (its events are drained with the next
+## tick's, as in run_one) and the requests the presentation queued for them are dropped.
 func _service_windows() -> void:
+	if policy != null and _autopick:
+		_pending_window = {}
+		if world.state == RunWorld.CHOOSING_JOB or world.state == RunWorld.CHOOSING_UPGRADE:
+			counters.autopicks += 1
+			policy.choose(world)
+		return
 	var guard := 0
 	while not _pending_window.is_empty() and window == null and guard < 64:
 		guard += 1
@@ -1718,6 +1775,8 @@ func _player_name() -> String:
 
 
 func _view_size() -> Vector2:
+	if _forced_view != Vector2.ZERO:
+		return _forced_view
 	return get_viewport().get_visible_rect().size if is_inside_tree() else RunWorld.DEFAULT_VIEW
 
 
