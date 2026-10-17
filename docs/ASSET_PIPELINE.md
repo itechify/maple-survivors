@@ -96,6 +96,14 @@ The manifest says what to import. The importer expands convenience entries into 
 | `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon |
 | `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash) |
 
+The 116 curated cash equipment ids of `game/data/survivor/cash_items.json` (spec #34) are in `character[]` (caps,
+accessories, coats, longcoats, pants, shoes, gloves, shields, capes and `Weapon/01702xxx` covers). The importer resolves
+their UOLs (most covers reach their 37/38 art through links to another weapon type); the few it cannot resolve (some
+rare stances of overalls 1052135 and 1052194: heal, prone, shoot, stab; their link targets are missing in v83 itself)
+stay `$uol` nodes, so those sleeves are not drawn in those stances. `AvatarRenderer` follows any `$uol` that does
+resolve through `WzImg.node`.
+`Etc.wz/Commodity.img` is exported whole so a test can check each catalog price and SN.
+
 The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
 items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
 the other six `Use` nodes are UOLs to `../02000000/Use`. The importer resolves these links and exports the

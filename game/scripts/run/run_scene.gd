@@ -1044,7 +1044,7 @@ func _on_job_changed(job_id: int) -> void:
 func _apply_job_look(job_id: int) -> void:
 	avatar.set_look(DataRepo.character_look({"look": world.character_look,
 		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
-		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
+		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}, world.worn_cash))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the

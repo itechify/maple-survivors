@@ -66,7 +66,7 @@ func test_account_option_reaches_the_round_setup() -> void:
 	var path := ProjectSettings.globalize_path(test_dir("run account.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(JSON.stringify({"owned": [1000001, 5000001], "cash": {"hat": 1000001}, "pet": 5000001,
+	file.store_string(JSON.stringify({"owned": [1002279, 5000001], "cash": {"hat": 1002279}, "pet": 5000001,
 		"alert": {"hp": 0.4, "mp": 0.2}}))
 	file.close()
 	scene = _make("henesys_hg1", 1, {"account": path, "autoplay": true, "autopick": true})

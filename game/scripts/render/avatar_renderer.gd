@@ -10,9 +10,16 @@ extends Node2D
 ## z names front-most first; unknown names go to the very back).
 ##
 ## Stance frames and delays come from the body image; head/hair/equips use the same stance and frame index. A part
-## without the stance is skipped (equips), or falls back to `front`/`back` (head) and `default`/`backDefault` (hair).
-## Frames with `face = 0` (ladder, rope) hide the face. The face plays `default` with an occasional `blink`
-## (tier C: every 2-5 s). Without a cap the hair's *BelowCap layers are not drawn (they replace hair under a cap).
+## without the stance is skipped (equips), or falls back to `front`/`back` (head) and `default`/`backDefault` (hair,
+## and hats, eye accessories and earrings, which keep one `default` frame). Frames with `face = 0` (ladder, rope) hide
+## the face and the face accessory. The face plays `default` with an occasional `blink` (tier C: every 2-5 s); a face
+## accessory follows the same expression and frame. Without a cap the hair's *BelowCap layers are not drawn (they
+## replace hair under a cap).
+## Cash equipment (`look.cash`, {slot: id} already filtered by account ownership, spec #34) draws instead of the regular
+## equip of its slot (AvatarLayers.suppressed_by_cash); an overall is stored under top and bottom and drawn once. A
+## weapon cover draws the art of the real weapon's type (AvatarLayers.weapon_type) for the current stance, and the real
+## weapon stays when the cover has none (or the look has no weapon). Items hide the layers their `vslot` occupies
+## through Base.wz/smap.img (hat over hair, full-head hats over head and accessories).
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -22,6 +29,8 @@ const BLINK_MAX := 5.0
 const EQUIP_DIRS := {100: "Cap", 101: "Accessory", 102: "Accessory", 103: "Accessory", 104: "Coat", 105: "Longcoat",
 	106: "Pants", 107: "Shoes", 108: "Glove", 109: "Shield", 110: "Cape", 111: "Ring"}
 ## Stances drawn from behind: the hair falls back to backDefault and the head to back.
+const HAT_CATEGORY := 100
+const FACE_ACCESSORY_CATEGORY := 101
 const BACK_STANCES := ["ladder", "rope", "ladder2", "rope2"]
 ## MakeCharInfo male default look (docs/GAME_DESIGN.md section 1): no weapon; a job weapon (e.g. the Magician's Wooden
 ## Wand 1372005) is added to `equips` by whoever sets the look.
@@ -29,7 +38,7 @@ const DEFAULT_LOOK := {"skin": 0, "face": 20000, "hair": 30030, "equips": [10400
 
 ## Asset source; defaults to the "Assets" autoload.
 var library: AssetLibrary
-## Current look: {"skin": int, "face": int, "hair": int, "equips": [item ids]}.
+## Current look: {"skin": int, "face": int, "hair": int, "equips": [item ids], "cash": {slot: item id} (optional)}.
 var look: Dictionary = DEFAULT_LOOK.duplicate(true)
 ## Current stance name, frame index and time inside the stance.
 var stance := "stand1"
@@ -46,7 +55,10 @@ var _body: WzImg
 var _head: WzImg
 var _face: WzImg
 var _hair: WzImg
-var _equips: Array[WzImg] = []
+## Worn items in draw order: {"id": int, "img": WzImg, "vslot": {code: true}, "cash": bool}.
+var _sources: Array[Dictionary] = []
+var _weapon_type := 0
+var _smap: Dictionary = {}
 var _has_cap := false
 var _zorder: Dictionary = {}
 var _delays: PackedFloat32Array = []
@@ -78,15 +90,25 @@ func set_look(d: Dictionary) -> void:
 	_head = _load(part_img_path(12000 + skin))
 	_face = _load(part_img_path(int(look.get("face", 20000))))
 	_hair = _load(part_img_path(int(look.get("hair", 30030))))
-	_equips.clear()
+	_sources.clear()
 	_has_cap = false
+	_weapon_type = 0
+	var cash := _cash_slots()
 	for id: Variant in look.get("equips", []):
-		var w := _load(part_img_path(int(id)))
-		if w != null:
-			_equips.append(w)
-			if int(id) / 10000 == 100:
-				_has_cap = true
+		if AvatarLayers.suppressed_by_cash(int(id), cash):
+			continue
+		_add_source(int(id), false)
+		if _weapon_type == 0:
+			_weapon_type = AvatarLayers.weapon_type(int(id))
+	var worn_cash: Array[int] = []
+	for slot: String in CashCatalog.SLOTS:
+		var cash_id: int = cash.get(slot, 0)
+		if cash_id > 0 and not (cash_id in worn_cash):
+			worn_cash.append(cash_id)
+			_add_source(cash_id, true)
+	_drop_regular_replaced_by_vslot()
 	_zorder = zmap_order(lib)
+	_smap = AvatarLayers.smap_codes(lib)
 	play(stance, true, looping)
 
 
@@ -257,21 +279,39 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 	if head_frame == null and _head != null:
 		head_frame = _head.root.get("back" if back else "front")
 	_collect(parts, head_frame, _head)
-	if int(body_frame.get("face", 1)) != 0 and _face != null:
+	var face_visible := int(body_frame.get("face", 1)) != 0
+	var expr_index := frame_at(expression_delays(expression), expr_t, false)
+	if face_visible and _face != null:
 		var expr_node: Variant = _face.root.get(expression, _face.root.get("default"))
 		if expr_node is Dictionary and not SpriteAnim.frame_keys(expr_node).is_empty():
-			expr_node = _frame_node(expr_node, frame_at(expression_delays(expression), expr_t, false))
+			expr_node = _frame_node(expr_node, expr_index)
 		_collect(parts, expr_node, _face)
 	if _hair != null:
 		var hair_frame: Variant = _frame_node(_hair.root.get(st), fi)
 		if hair_frame == null:
 			hair_frame = _hair.root.get("backDefault" if back else "default")
 		_collect(parts, hair_frame, _hair, not _has_cap)
-	for w in _equips:
-		_collect(parts, _frame_node(w.root.get(st), fi), w)
+	var cover := _cover_frame(st, fi)
+	var vslots := {}
+	for src in _sources:
+		var id: int = src.id
+		var fr: Array
+		if _category(id) == FACE_ACCESSORY_CATEGORY:
+			fr = AvatarLayers.expression_frame(src.img, expression, expr_index) if face_visible else [null, ""]
+		elif _category(id) == CashCatalog.WEAPON_COVER_CATEGORY:
+			fr = cover
+		elif cover[0] != null and AvatarLayers.weapon_type(id) > 0:
+			continue # the cover replaces the real weapon only where it has art
+		else:
+			fr = AvatarLayers.stance_frame(src.img, st, fi, back)
+		if fr[0] == null:
+			continue
+		vslots[id] = src.vslot
+		_collect(parts, fr[0], src.img, false, id, fr[1])
 	var placed := layout_parts(parts)
 	for i in parts.size():
 		parts[i].pos = placed[i]
+	parts = AvatarLayers.hide_by_vslot(parts, _smap, vslots)
 	return sort_by_z(parts, _zorder)
 
 
@@ -396,11 +436,66 @@ static func _place(part: Dictionary, p: Vector2, anchors: Dictionary) -> void:
 			anchors[k] = p + (m[k] as Vector2)
 
 
-func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool = false) -> void:
+## The look's cash equipment as {slot: id} with whole, positive ids only.
+func _cash_slots() -> Dictionary:
+	var out := {}
+	var raw: Variant = look.get("cash", {})
+	if raw is Dictionary:
+		for slot: Variant in raw:
+			if int(raw[slot]) > 0:
+				out[String(slot)] = int(raw[slot])
+	return out
+
+
+## Loads a worn item and appends it to the sources; remembers a cap.
+func _add_source(id: int, is_cash: bool) -> void:
+	var w := _load(part_img_path(id))
+	if w == null:
+		return
+	_sources.append({"id": id, "img": w, "vslot": AvatarLayers.vslot_set(w), "cash": is_cash})
+	if _category(id) == HAT_CATEGORY:
+		_has_cap = true
+
+
+## Drops the regular equips a worn cash item covers with its vslot (the pants under a MaPn vest, a plain cap under a hat).
+func _drop_regular_replaced_by_vslot() -> void:
+	var kept: Array[Dictionary] = []
+	for src in _sources:
+		var replaced := false
+		if not bool(src.cash):
+			for other in _sources:
+				if bool(other.cash) and AvatarLayers.replaced_by_vslot(src.id, src.vslot, other.vslot):
+					replaced = true
+					break
+		if not replaced:
+			kept.append(src)
+	_sources = kept
+
+
+## The worn weapon cover's frame ([node, path]) for the real weapon's type and this stance; [null, ""] without a cover
+## or without art for that type/stance.
+func _cover_frame(st: String, fi: int) -> Array:
+	for src in _sources:
+		if _category(src.id) == CashCatalog.WEAPON_COVER_CATEGORY:
+			return AvatarLayers.cover_frame(src.img, _weapon_type, st, fi)
+	return [null, ""]
+
+
+@warning_ignore("integer_division")
+static func _category(id: int) -> int:
+	return id / 10000
+
+
+## Collects the canvases of a frame node as parts. `part_owner` is the worn item's id (0 for body, head, face and hair);
+## `rel` is the frame node's path inside `w`, used to follow links the importer could not resolve.
+func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool = false, part_owner: int = 0,
+		rel: String = "") -> void:
 	if not (frame_node is Dictionary) or w == null:
 		return
 	for k: Variant in (frame_node as Dictionary).keys():
 		var c: Variant = frame_node[k]
+		if c is Dictionary and (c as Dictionary).has("$uol") and rel != "":
+			c = w.node(rel.path_join(String(k)))
 		if not WzImg.is_canvas(c):
 			continue
 		if skip_below_cap and String(k).contains("BelowCap"):
@@ -411,7 +506,7 @@ func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool 
 		if mv is Dictionary:
 			for mk: Variant in (mv as Dictionary).keys():
 				m[mk] = WzImg.vec(mv[mk])
-		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO})
+		parts.append({"name": String(k), "frame": f, "map": m, "z": f.z, "pos": Vector2.ZERO, "owner": part_owner})
 
 
 func _load(path: String) -> WzImg:
