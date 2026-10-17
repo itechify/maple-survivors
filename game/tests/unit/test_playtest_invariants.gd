@@ -46,7 +46,16 @@ func test_a_normal_synthetic_run_with_windows_is_silent() -> void:
 	var r: Dictionary = BR.run_one(w, policy, 9, -1.0, 60.0, 0, policy.observe)
 	assert_true(int(r.spawned) > 0 and r.cards_taken.size() >= 3, "fixture: mobs, a job window and card windows")
 	assert_eq(inv.findings, [], "no invariant fires on a normal run")
-	assert_true(inv.checked_offers >= 3, "every card window was checked (%d)" % inv.checked_offers)
+	assert_eq(inv.checked_offers, r.cards_taken.size(), "every card window was checked, chained ones included")
+
+
+func test_observer_only_on_a_bot_run_through_windows_is_silent() -> void:
+	var inv := INVARIANTS.new()
+	var w := _lv10_world(_spawning_data())
+	w.pending_bonus_choices = 0 # the first window after a step is the job window
+	var r: Dictionary = BR.run_one(w, "bot", 9, -1.0, 60.0, 0, inv.observe)
+	assert_true(r.cards_taken.size() >= 2, "fixture: a job window and card windows resolved inside choose()")
+	assert_eq(inv.findings, [], "windows resolved between two observations are not bad transitions")
 
 
 func test_hp_above_max_is_a_finding_with_a_snapshot() -> void:

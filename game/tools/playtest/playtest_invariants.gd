@@ -159,6 +159,7 @@ func _judge_stuck(w: RunWorld) -> void:
 ## The decision check (playtest_policy.gd decision observer): `phase` "open" before a decision of `kind` is answered,
 ## "applied" after its answer took effect.
 func on_decision(w: RunWorld, _kind: String, _phase: String) -> void:
+	_hooked = true
 	_check_state(w)
 	_check_offer(w)
 
@@ -175,9 +176,14 @@ const TRANSITIONS := {
 	RunWorld.CLEARED: [RunWorld.CLEARED],
 }
 var _state := -1
+# True once on_decision ran: decision hooks are wired, so every window's state change is seen. With `observe` alone
+# (any run_one policy), windows resolve inside choose() between two observations and only their outcome is checked.
+var _hooked := false
 
 
 func _check_state(w: RunWorld) -> void:
+	if not _hooked and (_state == RunWorld.CHOOSING_JOB or _state == RunWorld.CHOOSING_UPGRADE):
+		_state = RunWorld.PLAYING # observer only: the policy resolved the windows unseen, back to play before the step
 	if _state >= 0 and _state != w.state and not (w.state in TRANSITIONS.get(_state, [])):
 		report(w, "bad_state_transition", "%d>%d" % [_state, w.state], "state %s -> %s is not in the pause protocol" % [
 			RunWorld.STATE_NAMES[_state], w.state_name()])

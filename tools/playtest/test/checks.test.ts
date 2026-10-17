@@ -8,6 +8,7 @@ import { scanLog } from "../src/core/log_scan.ts";
 import { EXIT, exitCodeFor } from "../src/core/exit_codes.ts";
 import { renderReport } from "../src/core/report.ts";
 import type { Problem, ReportContext } from "../src/core/report.ts";
+import { FINDING_KINDS } from "../src/maple/invariant_flags.ts";
 
 const LOG = path.join(import.meta.dirname, "..", "fixtures", "game_log_errors.txt");
 
@@ -21,6 +22,13 @@ test("SCRIPT ERROR and ERROR: lines in game.log are problems; engine leak noise 
 	assert.match(problems[1].message, /^ERROR: Condition "p_index >= size"/);
 	assert.match(problems[2].message, /^USER ERROR: a push_error/);
 	assert.ok(!problems.some((p) => /leaked|still in use/.test(p.message)), "leak noise is ignored, as scripts/test.sh does");
+});
+
+test("the CLI's finding kinds match the driver's invariant KINDS", () => {
+	const gd = fs.readFileSync(path.join(import.meta.dirname, "..", "..", "..", "game", "tools", "playtest", "playtest_invariants.gd"), "utf8");
+	const literal = /const KINDS := \[([^\]]*)\]/.exec(gd);
+	assert.ok(literal, "KINDS literal in playtest_invariants.gd");
+	assert.deepEqual([...literal[1].matchAll(/"([a-z_]+)"/g)].map((m) => m[1]), [...FINDING_KINDS]);
 });
 
 test("a clean log has no problems", () => {
