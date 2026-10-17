@@ -131,16 +131,17 @@ spill file or archive-sized wasm allocation is retained. Each active entry has c
 CPU time: repeated backward reads can repeatedly decompress most of a large entry. Stored ZIPs/folder readers are
 faster for random access. ZIP metadata is used for positional access; this is not a full-entry CRC verification pass.
 
-The WZ directory read window starts at 1 MiB and is capped at 16 MiB; pathological sparse/larger directory layouts
-fail explicitly. The import additionally holds one img's compressed bytes, parsed tree, decoded canvases/atlas pages
+WZ directory records are read at their own positions, including sparse layouts in edited archives. Each local
+metadata read window starts at 4 KiB and is capped at 16 MiB; oversized metadata records fail explicitly instead of
+buffering an entire WZ. The import additionally holds one img's compressed bytes, parsed tree, decoded canvases/atlas pages
 and any external UOL target imgs needed for that job. Peak memory therefore depends on the largest requested img,
 not just the input buffer; it does not include a whole 480–640 MiB WZ. JS reader fallbacks and queued sink writes
 have their own host memory costs. The host must dispose of a failed worker/staging cache and flush successful writes.
 
 Validation on the dev PC (#132, Node 24, release wasm): a generated 640 MiB sparse WZ with its img at the end,
-inside a 652,228-byte deflated ZIP, imported with a peak wasm linear memory of 2,490,368 bytes (2.4 MiB). This checks
+inside a 652,228-byte deflated ZIP, imported with a peak wasm linear memory of 1,507,328 bytes (1.4 MiB). This checks
 the inflation strategy, not a real img's decoding cost. The complete real v83 manifest (157 imgs) peaked at
-266,731,520 bytes (254.4 MiB); all 484 asset files matched the native importer byte for byte, with zero warnings.
+266,469,376 bytes (254.1 MiB); all 484 asset files matched the native importer byte for byte, with zero warnings.
 In both checks each JS reader call was at most 65,536 bytes. The native before/after `cache.json` also matched after
 excluding only `created` and `stats.seconds`; synthetic portable folder/stored-ZIP/deflated-ZIP caches matched
 including `cache.json`. The external harness and private outputs stay outside the repo; these are Node worker-API

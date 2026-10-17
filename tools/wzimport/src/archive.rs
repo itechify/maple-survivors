@@ -238,119 +238,117 @@ impl WzArchive {
     }
 }
 
-/// Parse the directory tree. The tree lives near the file start; read a window and widen it if a read
-/// runs past the window.
+/// Parse directory records at their own offsets; img payloads between directories are never buffered.
 fn parse_tree(file: &dyn ReadAt, file_len: u64, data_start: u32, hash: u32) -> Result<Dir> {
-    // Bound malformed/sparse directory layouts too, rather than widening to a whole large WZ.
-    const LIMIT: u64 = 16 * 1024 * 1024;
-    let mut window = file_len.min(1 << 20);
-    loop {
-        let mut buf = vec![0u8; window as usize];
-        file.read_exact_at(0, &mut buf)
-            .map_err(|e| WzError::Other(e.to_string()))?;
-        let ctx = DirCtx {
-            buf: &buf,
-            file_len,
-            data_start,
-            hash,
-        };
-        match ctx.parse_dir(data_start as usize + 2, 0) {
-            Err(WzError::Eof { .. }) if window < file_len => {
-                if window >= LIMIT {
-                    return Err(WzError::Other("WZ directory exceeds the 16 MiB read window".into()));
-                }
-                window = file_len.min(window * 4).min(LIMIT);
-            }
-            other => return other,
-        }
+    DirCtx {
+        file,
+        file_len,
+        data_start,
+        hash,
     }
+    .parse_dir(data_start as usize + 2, 0)
 }
 
 struct DirCtx<'a> {
-    buf: &'a [u8],
+    file: &'a dyn ReadAt,
     file_len: u64,
     data_start: u32,
     hash: u32,
 }
 
 impl DirCtx<'_> {
-    fn reader_at(&self, pos: u64) -> Result<Reader<'_>> {
+    /// Read one metadata record/list at its actual position, widening only that local window.
+    fn read_record<T>(&self, pos: u64, parse: impl Fn(&mut Reader<'_>) -> Result<T>) -> Result<T> {
+        const LIMIT: u64 = 16 * 1024 * 1024;
         if pos >= self.file_len {
             return Err(WzError::format(pos, "position past end of file"));
         }
-        if pos >= self.buf.len() as u64 {
-            return Err(WzError::Eof { pos, need: 1 });
+        let available = self.file_len - pos;
+        let mut window = available.min(4096);
+        loop {
+            let mut buf = vec![0; window as usize];
+            self.file
+                .read_exact_at(pos, &mut buf)
+                .map_err(|e| WzError::Other(e.to_string()))?;
+            match parse(&mut Reader::new(&buf, pos)) {
+                Err(WzError::Eof { .. }) if window < available => {
+                    if window >= LIMIT {
+                        return Err(WzError::Other(
+                            "WZ directory record exceeds the 16 MiB read window".into(),
+                        ));
+                    }
+                    window = available.min(window * 4).min(LIMIT);
+                }
+                other => return other,
+            }
         }
-        let mut r = Reader::new(self.buf, 0);
-        r.set_pos(pos as usize);
-        Ok(r)
     }
 
     fn parse_dir(&self, pos: usize, depth: u32) -> Result<Dir> {
         if depth > 32 {
             return Err(WzError::format(pos as u64, "directory nesting too deep"));
         }
-        let mut r = self.reader_at(pos as u64)?;
-        let count = r.cint()?;
-        if !(0..=200_000).contains(&count) {
-            return Err(WzError::format(
-                pos as u64,
-                format!("bad directory entry count {count}"),
-            ));
-        }
-        let mut entries = Vec::with_capacity(count as usize);
-        for _ in 0..count {
-            let at = r.abs_pos();
-            let t = r.u8()?;
-            let (kind, name) = match t {
-                2 => {
-                    let off = r.i32()?;
-                    let p = self.data_start as i64 + off as i64;
-                    if p < 0 {
-                        return Err(WzError::format(at, "negative name offset"));
-                    }
-                    let mut s = self.reader_at(p as u64)?;
-                    let t2 = s.u8()?;
-                    (t2, s.wz_string()?)
-                }
-                3 | 4 => (t, r.wz_string()?),
-                1 => {
-                    return Err(WzError::format(
-                        at,
-                        "directory entry type 1 (not used in v83) is not supported",
-                    ))
-                }
-                _ => return Err(WzError::format(at, format!("bad directory entry type {t}"))),
-            };
-            let size = r.cint()?;
-            let checksum = r.cint()?;
-            let fpos = r.abs_pos() as u32;
-            let stored = r.u32()?;
-            let offset = decrypt_offset(fpos, stored, self.data_start, self.hash);
-            if offset as u64 >= self.file_len {
+        let mut entries = self.read_record(pos as u64, |r| {
+            let count = r.cint()?;
+            if !(0..=200_000).contains(&count) {
                 return Err(WzError::format(
-                    at,
-                    format!("entry {name}: offset {offset} out of range"),
+                    pos as u64,
+                    format!("bad directory entry count {count}"),
                 ));
             }
-            let kind = match kind {
-                3 => EntryKind::Dir(Dir::default()),
-                4 => {
-                    if size < 0 || offset as u64 + size as u64 > self.file_len {
-                        return Err(WzError::format(at, format!("img {name}: size {size} out of range")));
+            let mut entries = Vec::with_capacity(count as usize);
+            for _ in 0..count {
+                let at = r.abs_pos();
+                let t = r.u8()?;
+                let (kind, name) = match t {
+                    2 => {
+                        let off = r.i32()?;
+                        let p = self.data_start as i64 + off as i64;
+                        if p < 0 {
+                            return Err(WzError::format(at, "negative name offset"));
+                        }
+                        self.read_record(p as u64, |s| Ok((s.u8()?, s.wz_string()?)))?
                     }
-                    EntryKind::Img
+                    3 | 4 => (t, r.wz_string()?),
+                    1 => {
+                        return Err(WzError::format(
+                            at,
+                            "directory entry type 1 (not used in v83) is not supported",
+                        ))
+                    }
+                    _ => return Err(WzError::format(at, format!("bad directory entry type {t}"))),
+                };
+                let size = r.cint()?;
+                let checksum = r.cint()?;
+                let fpos = r.abs_pos() as u32;
+                let stored = r.u32()?;
+                let offset = decrypt_offset(fpos, stored, self.data_start, self.hash);
+                if offset as u64 >= self.file_len {
+                    return Err(WzError::format(
+                        at,
+                        format!("entry {name}: offset {offset} out of range"),
+                    ));
                 }
-                k => return Err(WzError::format(at, format!("entry {name}: bad kind {k}"))),
-            };
-            entries.push(Entry {
-                name,
-                kind,
-                size,
-                checksum,
-                offset,
-            });
-        }
+                let kind = match kind {
+                    3 => EntryKind::Dir(Dir::default()),
+                    4 => {
+                        if size < 0 || offset as u64 + size as u64 > self.file_len {
+                            return Err(WzError::format(at, format!("img {name}: size {size} out of range")));
+                        }
+                        EntryKind::Img
+                    }
+                    k => return Err(WzError::format(at, format!("entry {name}: bad kind {k}"))),
+                };
+                entries.push(Entry {
+                    name,
+                    kind,
+                    size,
+                    checksum,
+                    offset,
+                });
+            }
+            Ok(entries)
+        })?;
         for e in entries.iter_mut() {
             if let EntryKind::Dir(d) = &mut e.kind {
                 *d = self.parse_dir(e.offset as usize, depth + 1)?;

@@ -261,7 +261,7 @@ fn zip64_sizes_and_directory_records_expose_the_same_reader() {
 }
 
 #[test]
-fn sparse_directory_layout_fails_before_reading_a_whole_large_archive() {
+fn sparse_edited_directory_is_read_without_buffering_a_whole_large_archive() {
     struct Virtual(Vec<u8>);
     impl ReadAt for Virtual {
         fn len(&self) -> u64 {
@@ -279,9 +279,6 @@ fn sparse_directory_layout_fails_before_reading_a_whole_large_archive() {
     }
     let mut header = write_archive(&[WEntry::Dir("far".into(), vec![])], 83, false);
     header[70..74].copy_from_slice(&crate::crypto::encrypt_offset(70, 32 * 1024 * 1024, 60, 1876).to_le_bytes());
-    let error = WzArchive::from_reader("Mob.wz", Arc::new(Virtual(header)), Some(83))
-        .err()
-        .unwrap()
-        .to_string();
-    assert!(error.contains("16 MiB read window"), "{error}");
+    let archive = WzArchive::from_reader("Mob.wz", Arc::new(Virtual(header)), Some(83)).unwrap();
+    assert!(archive.dir("far").unwrap().entries.is_empty());
 }
