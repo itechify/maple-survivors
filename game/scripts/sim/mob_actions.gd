@@ -1,9 +1,9 @@
 class_name MobActions
 extends RefCounted
-## Authored stances of ordinary (non-boss) mobs, per swarm slot in packed arrays: a mob attack's windup or a mob
-## skill's cast stance, held for its canonical duration (docs/ARCHITECTURE.md 4.4.1). Scheduled bosses keep theirs in
-## BossDirector; view() composes both into the one per-slot snapshot MobSwarm.step and MobRenderer read. While no
-## ordinary stance is live, view() returns the boss snapshot itself, so runs without ordinary attackers are unchanged.
+## Authored stances of ordinary (non-boss) mobs, per swarm slot in packed arrays: a mob attack's windup, held for its
+## canonical duration (docs/ARCHITECTURE.md 4.4.1). Scheduled bosses keep theirs in BossDirector; view() composes both
+## into the one per-slot snapshot MobSwarm.step and MobRenderer read. While no ordinary stance is live, view() returns
+## the boss snapshot itself, so runs without ordinary attackers are unchanged.
 
 var action := PackedStringArray()
 var start := PackedFloat64Array()
@@ -34,9 +34,9 @@ func begin(slot: int, stance: String, seconds: float, dir: int, now: float) -> v
 	facing[slot] = dir
 
 
-## Whether slot is still inside an authored stance at `now` (attacks and skills share this gate, like bosses).
+## Whether slot is still inside an authored stance at `now`.
 func busy(slot: int, now: float) -> bool:
-	return slot < action.size() and action[slot] != "" and now < until[slot] - 1e-6
+	return slot < action.size() and action[slot] != "" and now < until[slot] - MobAttacks.EPS
 
 
 ## A new mob in the slot (or one relocated out of it) starts without a stance.
@@ -87,7 +87,7 @@ func _expire(now: float) -> void:
 	var i := 0
 	while i < _acting.size():
 		var slot := _acting[i]
-		if action[slot] != "" and now < until[slot] - 1e-6:
+		if action[slot] != "" and now < until[slot] - MobAttacks.EPS:
 			i += 1
 			continue
 		action[slot] = ""

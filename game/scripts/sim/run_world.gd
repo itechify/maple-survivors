@@ -52,8 +52,7 @@ extends RefCounted
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
-## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
-## 12 ordinary mobs' mob skill prop rolls (Seal, #76; rolled only when a cast is attempted).
+## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -104,11 +103,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
-	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack), a mob skill cast and the status it put on
-	# the character (Seal: `remaining` seconds, `visual` the canonical affected animation).
+	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
 	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
-	"mob_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "effect", "applied"],
-	"player_status_applied": ["status", "skill_id", "level", "remaining", "mob", "mob_id", "visual"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
 	"mob_projectile_hit": ["proj", "mob", "mob_id", "pos", "hit", "facing", "time"],
 	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
@@ -157,8 +153,6 @@ var potion_rng: RandomNumberGenerator
 var meso_rng: RandomNumberGenerator
 var equip_rng: RandomNumberGenerator
 var scroll_rng: RandomNumberGenerator
-## Ordinary mobs' mob skill prop rolls (MobSkillRunner.step_ordinary).
-var mob_skill_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
@@ -342,7 +336,6 @@ func _init_rng_streams() -> void:
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
-	mob_skill_rng = _stream(12) # tier C: ordinary mobs' skill prop rolls never shift another stream, #76.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -406,7 +399,6 @@ func _init_directors() -> void:
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
-	mob_skills.bind_ordinary(self)
 	mob_attacks = MobAttacks.new(self)
 	_sync_slots()
 
@@ -584,7 +576,7 @@ func step(dt: float, input: MoveInput) -> void:
 
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
 func _step_player(dt: float, input: MoveInput) -> void:
-	_teleport_left = maxf(0.0, _teleport_left - dt * skill_cooldown_rate())
+	_teleport_left = maxf(0.0, _teleport_left - dt)
 	if input.drink_hp:
 		drink_potion("hp")
 	if input.drink_mp:
@@ -704,7 +696,6 @@ func _step_monsters(dt: float) -> void:
 	swarm.step(dt, _ctx)
 	bosses.step(self, dt)
 	mob_skills.step(self)
-	mob_skills.step_ordinary(self, dt)
 	boss_attacks.step(self)
 	mob_attacks.step(self, dt)
 	mob_projectiles.step(dt, self)
@@ -1292,12 +1283,6 @@ func _grant_job_weapon(job_id: int) -> void:
 		emit("grant_blocked", {"reason": reason, "item_id": id})
 		return
 	_equipment_changed("grant", "weapon", id)
-
-
-## Rate at which skill cooldowns (auto-cast, manual and buff readiness) count down: 1.0, or 1 / the Seal cooldown
-## multiplier while sealed (#76, tier C). The basic attack, MP costs and running buffs never use it.
-func skill_cooldown_rate() -> float:
-	return mob_skills.cooldown_rate(time)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1957,7 +1942,6 @@ func _write_player_state(dt: float) -> void:
 	player_state["exp"] = progression.exp
 	player_state["exp_next"] = progression.exp_to_next()
 	player_state["slow"] = mob_skills.slow_state(time)
-	player_state["seal"] = {} if _dead else mob_skills.seal_state(time)
 	player_state["level"] = progression.level
 	player_state["job_id"] = progression.job_id
 	for stat: String in _attributes:

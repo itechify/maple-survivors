@@ -236,11 +236,9 @@ var _quit_after_capture := false
 var _timed_shots: Array = []
 var _hit_shot_taken := false
 var _miss_shot_taken := false
-## #76: the Seal avatar effect handle and the one-off evidence shots of ordinary mob attacks and Seal.
-var _seal_fx := -1
+## #76: the one-off evidence shots of ordinary mob attacks.
 var _mob_attack_shot_taken := false
 var _mob_hit_shot_taken := false
-var _seal_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -865,8 +863,7 @@ func _warm_stage() -> void:
 			library.find_anim(stances + "/" + String(attack))
 			for part: String in ["effect", "ball", "hit"]:
 				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
-			var a := String(attack)
-			_warm_sound(SND_MOB % [id, a.left(1).to_upper() + a.substr(1)])
+			_warm_sound(MobAttacks.attack_sound(id, String(attack)))
 		if not (float(id) in enabled or id in enabled):
 			continue
 		for skill: Variant in info.get("skill", {}).values():
@@ -884,7 +881,7 @@ func _warm_stage() -> void:
 	_warm_ordinary_mobs()
 
 
-## Ordinary mobs' attack stances, info effect/hit art and sounds, and their mob skills' cast art (#76).
+## Ordinary mobs' attack stances, info effect/hit art and sounds (#76).
 func _warm_ordinary_mobs() -> void:
 	for kind: MobKind in world.mob_kinds:
 		var img := world.mob_img(kind.id)
@@ -893,16 +890,7 @@ func _warm_ordinary_mobs() -> void:
 			library.find_anim(stances + "/" + attack)
 			for part: String in ["effect", "ball", "hit"]:
 				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [kind.id, attack, part])
-			_warm_sound(SND_MOB % [kind.id, attack.left(1).to_upper() + attack.substr(1)])
-		for skill: Variant in img.get("info", {}).get("skill", {}).values():
-			if not (skill is Dictionary) or not (int(skill.get("skill", 0)) in MobSkillRunner.ORDINARY_SUPPORTED):
-				continue
-			var action := "skill%d" % int(skill.get("action", 1))
-			library.find_anim(stances + "/" + action)
-			_warm_sound(SND_MOB % [kind.id, action.replace("skill", "Skill")])
-			var base := "Skill.wz/MobSkill.img/%d/level/%d" % [int(skill.get("skill", 0)), int(skill.get("level", 0))]
-			for part: String in ["effect", "affected"]:
-				library.find_anim(base + "/" + part)
+			_warm_sound(MobAttacks.attack_sound(kind.id, attack))
 
 
 ## Caches a sound's stream when the node exists (absent optional sounds are not recorded as missing).
@@ -1000,10 +988,6 @@ func handle_events(events: Array) -> void:
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
 			"mob_attack":
 				_on_mob_attack(e)
-			"mob_skill":
-				_on_mob_skill(e)
-			"player_status_applied":
-				_on_player_status(e)
 			"cast":
 				_on_cast(e)
 			"teleport":
@@ -1139,28 +1123,6 @@ func _on_mob_attack(e: Dictionary) -> void:
 			if String(e.phase) == "hit" and not _mob_hit_shot_taken:
 				_mob_hit_shot_taken = true
 				_event_shot("mob_attack_hit.png", 0.1) # tier C: the hit art's first frames over the character.
-
-
-## An ordinary mob's skill cast (#76): the caster effect at its body centre (pos 3) and its Skill sound only when
-## Sound.wz has one (Jr. Boogie has none in v83, which is not a missing asset).
-func _on_mob_skill(e: Dictionary) -> void:
-	if String(e.effect) != "":
-		fx.play(String(e.effect), world.mob_center(int(e.mob)), int(e.facing) > 0)
-	var sound := SND_MOB % [int(e.mob_id), String(e.action).replace("skill", "Skill")]
-	if library.find(sound) != null:
-		_sound(sound)
-
-
-## A status on the character (#76 Seal): its canonical affected animation repeats over the head while it lasts
-## (like Slow's; `_present` stops it when player_state.seal empties), and the first one is captured for playtests.
-func _on_player_status(e: Dictionary) -> void:
-	if _seal_fx >= 0:
-		fx.stop(_seal_fx)
-	# tier C: affected pos 1 is anchored above the character's canonical body box, as for Slow.
-	_seal_fx = fx.play_repeating(String(e.visual), Vector2.ZERO, INF, false, avatar, Vector2(0, world.body.position.y))
-	if not _seal_shot_taken:
-		_seal_shot_taken = true
-		_event_shot("seal_first.png", 0.5)
 
 
 ## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
@@ -1471,9 +1433,6 @@ func _present(delta: float) -> void:
 	if _slow_fx >= 0 and (world.player_state.get("slow",{}).is_empty() or bool(world.player_state.dead)):
 		fx.stop(_slow_fx)
 		_slow_fx = -1
-	if _seal_fx >= 0 and (world.player_state.get("seal", {}).is_empty() or bool(world.player_state.dead)):
-		fx.stop(_seal_fx)
-		_seal_fx = -1
 	_update_mob_status_effects()
 	_update_player(delta)
 	_update_pet(delta)

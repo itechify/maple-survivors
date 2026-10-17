@@ -1,8 +1,9 @@
 extends RefCounted
-## Synthetic ordinary-mob attackers and casters for the #76 seams: a Tauromacis-shaped 7130100 (type 0 magic `attack1`,
-## the v83 range box and attackAfter, synthetic frames) and a Jr. Boogie-shaped 3230300 (`skill1` stance, MobSkill
-## 120 and 124 L1 with the v83 interval/time/prop/box, synthetic art). Canonical-shaped values are the ones checked
-## against the real v83 cache during #76 triage; frames, HP and speed are synthetic. Both mobs stand still (speed -100).
+## Synthetic ordinary-mob attackers for the #76 seams: a Tauromacis-shaped 7130100 (type 0 magic `attack1`, the v83
+## range box and attackAfter, synthetic frames) and a Jr. Boogie-shaped 3230300 (contact damage only; it still lists
+## MobSkill 120 and 124 L1 with the v83 interval/time/box and prop 100, which ordinary mobs never cast).
+## Canonical-shaped values are the ones checked against the real v83 cache during #76 triage; frames, HP and speed are
+## synthetic. Both mobs stand still (speed -100).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const TAURO := 7130100
@@ -14,10 +15,8 @@ const TAURO_AFTER_MS := 480.0
 const TAURO_MAD := 320.0
 
 
-## A quiet seeded setup with both fixture mobs in the (rate 0) pool. `attack` overrides balance.mob_attacks, `seal`
-## balance.mob_skills.seal; `prop` is MobSkill 120's prop; `boogie_skills` the MobSkill ids Jr. Boogie lists.
-static func setup(p_seed: int = 76, attack: Dictionary = {}, seal: Dictionary = {}, prop: float = 100.0,
-		boogie_skills: Array = [120, 124], view := Vector2(800, 600)) -> Dictionary:
+## A quiet seeded setup with both fixture mobs in the (rate 0) pool. `attack` overrides balance.mob_attacks.
+static func setup(p_seed: int = 76, attack: Dictionary = {}, view := Vector2(800, 600)) -> Dictionary:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.player.hp = 5000
@@ -27,24 +26,19 @@ static func setup(p_seed: int = 76, attack: Dictionary = {}, seal: Dictionary = 
 	data.balance.magnet_radius = 0
 	data.balance["mob_attacks"] = {"default_interval": 5.0,
 		"mobs": {str(TAURO): {"interval": 3.0, "dmg_mult": 0.5}}}.merged(attack, true)
-	if not data.balance.has("mob_skills"):
-		data.balance["mob_skills"] = {}
-	data.balance.mob_skills["seal"] = {"cooldown_multiplier": 2.0, "duration_mult": 1.0, "interval_mult": 1.0,
-		"prop_mult": 1.0}.merged(seal, true)
 	data.stages.stages.quiet.keyframes[0].pool[str(TAURO)] = 1.0
 	data.stages.stages.quiet.keyframes[0].pool[str(BOOGIE)] = 1.0
 	var out := RF.setup("quiet", p_seed, data)
 	out.view_size = view
 	out.mob_imgs[TAURO] = tauro_img()
-	out.mob_imgs[BOOGIE] = boogie_img(boogie_skills)
-	out["mob_skill_img"] = mob_skill_img(prop)
+	out.mob_imgs[BOOGIE] = boogie_img([120, 124])
+	out["mob_skill_img"] = mob_skill_img()
 	return out
 
 
 ## A RunWorld from setup() with the player standing on the ground at x = 400.
-static func world(p_seed: int = 76, attack: Dictionary = {}, seal: Dictionary = {}, prop: float = 100.0,
-		boogie_skills: Array = [120, 124], view := Vector2(800, 600)) -> RunWorld:
-	var w := RunWorld.new(setup(p_seed, attack, seal, prop, boogie_skills, view))
+static func world(p_seed: int = 76, attack: Dictionary = {}, view := Vector2(800, 600)) -> RunWorld:
+	var w := RunWorld.new(setup(p_seed, attack, view))
 	RF.place_player(w, 400)
 	return w
 
@@ -67,7 +61,7 @@ static func tauro_img() -> Dictionary:
 static func boogie_img(skills: Array) -> Dictionary:
 	var img: Dictionary = RF.mob_img(100100).duplicate(true)
 	img.info = {"level": 35.0, "maxHP": 1000000.0, "exp": 1.0, "PADamage": 50.0, "PDDamage": 0.0,
-		"MDDamage": 0.0, "speed": -100.0, "acc": 0.0, "skill": {}}
+		"MDDamage": 0.0, "speed": -100.0, "acc": 0.0, "bodyAttack": 1.0, "skill": {}}
 	for id: int in skills:
 		img.info.skill[str(img.info.skill.size())] = {"skill": float(id), "level": 1.0, "action": 1.0,
 			"effectAfter": 0.0}
@@ -79,10 +73,10 @@ static func boogie_img(skills: Array) -> Dictionary:
 	return img
 
 
-## Skill.wz/MobSkill.img-shaped 120 and 124 level 1 nodes (v83 values, synthetic art).
-static func mob_skill_img(prop: float) -> Dictionary:
+## Skill.wz/MobSkill.img-shaped 120 and 124 level 1 nodes (v83 values except prop 100, so any cast would land).
+static func mob_skill_img() -> Dictionary:
 	return {
-		"120": {"level": {"1": {"mpCon": 5.0, "interval": 10.0, "time": 30.0, "prop": prop,
+		"120": {"level": {"1": {"mpCon": 5.0, "interval": 10.0, "time": 30.0, "prop": 100.0,
 			"lt": {"$v": [-300.0, -120.0]}, "rb": {"$v": [300.0, 120.0]},
 			"affected": RF._anim(10, 100.0, 50, 42).merged({"pos": 1.0, "repeat": 1.0}),
 			"effect": RF._anim(8, 100.0, 110, 113).merged({"pos": 3.0})}}},

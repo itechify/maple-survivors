@@ -86,7 +86,7 @@ func test_out_of_range_never_attacks() -> void:
 
 func test_off_screen_never_attacks() -> void:
 	# A 300 px view puts the mob at x 600 outside it while the character stays inside the 404 px box.
-	var w := MF.world(76, {}, {}, 100.0, [120, 124], Vector2(300, 600))
+	var w := MF.world(76, {}, Vector2(300, 600))
 	RF.put_mob(w, MF.TAURO, 600)
 	assert_false(w.view.has_point(Vector2(600, 200)), "fixture: the mob stands outside the view")
 	assert_true(_starts(w, 900).is_empty(), "an off-screen mob never attacks")
@@ -211,6 +211,25 @@ func test_relocation_cancels_a_windup_and_keeps_the_mob_waiting() -> void:
 	assert_false(events.any(func(e: Dictionary) -> bool: return e.type == "mob_attack" and e.phase == "impact"),
 		"a relocated mob's windup is cancelled")
 	assert_true(moved >= 0)
+
+
+func test_jr_boogie_deals_contact_damage_only_and_casts_nothing() -> void:
+	# Owner (#76): character statuses come only from bosses. Boogie lists Seal (120) and Curse (124) at prop 100.
+	var w := MF.world()
+	var slot := RF.put_mob(w, MF.BOOGIE, 410)
+	var types := {}
+	var hits := 0
+	for tick in roundi(40.0 / DT):
+		w.step(DT, MoveInput.new())
+		for e: Dictionary in w.drain_events():
+			types[String(e.type)] = true
+			if e.type == "player_hit":
+				hits += 1
+				assert_eq(e.source_kind, "touch", "only contact damage")
+		assert_eq(w.mob_action_view().actions[slot], "", "no cast stance")
+	assert_true(hits > 0, "fixture: the Boogie touches the character")
+	assert_false(types.has("mob_attack"), "no attack stance either")
+	assert_true(w.player_state.slow.is_empty() and not w.player_state.has("seal"), "no status on the character")
 
 
 func test_scheduled_boss_keeps_boss_attack_events_only() -> void:

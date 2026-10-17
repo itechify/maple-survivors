@@ -32,9 +32,7 @@ func _init(world: RunWorld = null) -> void:
 	if world == null:
 		return
 	_rules = world.balance.get("mob_attacks", {})
-	var boss_ids := {}
-	for entry: Dictionary in world.stage.get("bosses", []):
-		boss_ids[int(entry.get("mob_id", 0))] = true
+	var boss_ids := boss_kind_ids(world)
 	for k in world.mob_kinds.size():
 		var kind: MobKind = world.mob_kinds[k]
 		var names := attack_names(world.mob_img(kind.id))
@@ -199,7 +197,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 		"jump_attack": int(info.get("jumpAttack", 0)) != 0,
 		"dmg_mult": dmg_mult,
 		"effect": "Mob.wz/%07d.img/%s/info/effect" % [id, attack] if info.has("effect") else "",
-		"sound": "Sound.wz/Mob.img/%07d/%s" % [id, attack.left(1).to_upper() + attack.substr(1)],
+		"sound": attack_sound(id, attack),
 		"duration": maxf(after, MobKind.stance_time(stance, after))}
 
 
@@ -291,6 +289,20 @@ static func emit(pending: Dictionary, phase: String, world: RunWorld) -> void:
 	world.emit("boss_attack" if boss else "mob_attack", fields)
 
 
+## The `{mob_id: true}` set of the stage's scheduled boss kinds (they attack through BossAttacks).
+static func boss_kind_ids(world: RunWorld) -> Dictionary:
+	var ids := {}
+	for entry: Dictionary in world.stage.get("bosses", []):
+		ids[int(entry.get("mob_id", 0))] = true
+	return ids
+
+
+## The WZ sound path of mob `id`'s attack stance (`attack1` -> `Sound.wz/Mob.img/<id>/Attack1`).
+static func attack_sound(id: int, attack: String) -> String:
+	return "Sound.wz/Mob.img/%07d/%s" % [id, attack.left(1).to_upper() + attack.substr(1)]
+
+
+## Reads a WZ `{"$v": [x, y]}` vector (or a Vector2); ZERO for anything else.
 static func vec(value: Variant) -> Vector2:
 	if value is Vector2:
 		return value

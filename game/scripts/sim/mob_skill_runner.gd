@@ -1,9 +1,7 @@
 class_name MobSkillRunner
 extends RefCounted
-## Canonical scheduled-boss skills (MobSkill 112/113/114/126/140/200), ordinary mobs' Seal (120, #76) and their timed
-## status state (docs/ARCHITECTURE.md 4.4.1 and 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat
-## mutation. Ordinary (non-boss) mobs keep per-slot cast waits in packed arrays, like MobAttacks; every other skill
-## they list (Jr. Boogie's Curse 124) is skipped and leaves no state or event.
+## Canonical scheduled-boss skills (MobSkill 112/113/114/126/140/200) and their timed status state
+## (docs/ARCHITECTURE.md 4.4.3, docs/GAME_DESIGN.md 4.3): no files, nodes or canonical-stat mutation.
 
 ## Original Skill.wz/MobSkill.img ids of the skills this runner casts.
 const SKILL_PDD_UP_AREA := 112
@@ -12,15 +10,9 @@ const SKILL_HEAL_AREA := 114
 const SKILL_SLOW := 126
 const SKILL_WEAPON_IMMUNITY := 140
 const SKILL_SUMMON := StageRoster.SUMMON_SKILL
-const SKILL_SEAL := 120
 ## Every MobSkill id `step` can cast; a boss's other listed skills are skipped.
 const SUPPORTED := [SKILL_SLOW, SKILL_SUMMON, SKILL_PDD_UP_AREA, SKILL_MDD_UP_AREA, SKILL_HEAL_AREA,
 	SKILL_WEAPON_IMMUNITY]
-## The only MobSkill ids an ordinary (non-boss) mob casts (`step_ordinary`, #76).
-const ORDINARY_SUPPORTED := [SKILL_SEAL]
-## tier C: balance.mob_skills.seal fallbacks. While sealed every skill cooldown takes cooldown_multiplier times as long
-## (Seal is not a silence); the canonical time/interval/prop are scaled by the other three.
-const SEAL_DEFAULTS := {"cooldown_multiplier": 2.0, "duration_mult": 1.0, "interval_mult": 1.0, "prop_mult": 1.0}
 
 var _images: Dictionary
 var _tables: Dictionary
@@ -36,17 +28,6 @@ var _mdd_until := PackedFloat64Array()
 var _weapon_until := PackedFloat64Array()
 var _weapon_visual := PackedStringArray()
 var _pending_heals: Array[Dictionary] = []
-var _seal_rules := SEAL_DEFAULTS.duplicate()
-var _seal_until := 0.0
-var _seal_level := 0
-var _seal_visual := ""
-## Per kind index: the ordinary casts it lists [{id, level, action, spec}] (ORDINARY_SUPPORTED only).
-var _kind_casts: Array[Array] = []
-## Per kind index: 1 when it has an ordinary cast (the hot loop's packed check).
-var _kind_casting := PackedByteArray()
-var _any_ordinary := false
-## Per slot: seconds of eligible (fully visible, on-screen) time before the next ordinary cast; NAN = unset.
-var _skill_wait := PackedFloat64Array()
 
 
 func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
@@ -54,112 +35,6 @@ func _init(setup: Dictionary, rules: Dictionary = {}) -> void:
 	_tables = setup.get("mob_skill_img", {})
 	for id: Variant in rules.get("enabled_ids", []):
 		_enabled.append(int(id))
-	_seal_rules.merge(rules.get("seal", {}), true)
-
-
-## Reads which mob kinds of `world` list an ordinary-supported skill with canonical data. Scheduled-boss kinds cast
-## through step() and are skipped here; their slots are excluded again with world.mob_boss.
-func bind_ordinary(world: RunWorld) -> void:
-	var boss_ids := {}
-	for entry: Dictionary in world.stage.get("bosses", []):
-		boss_ids[int(entry.get("mob_id", 0))] = true
-	_kind_casts.clear()
-	_kind_casting.clear()
-	for k in world.mob_kinds.size():
-		var kind: MobKind = world.mob_kinds[k]
-		var casts: Array = []
-		var image: Dictionary = _images.get(kind.id, _images.get(str(kind.id), {}))
-		if not boss_ids.has(kind.id):
-			for entry: Dictionary in image.get("info", {}).get("skill", {}).values():
-				var id := int(entry.skill)
-				var level := int(entry.level)
-				var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
-				if id in ORDINARY_SUPPORTED and not spec.is_empty():
-					casts.append({"id": id, "level": level, "action": "skill%d" % int(entry.get("action", 1)),
-						"spec": spec})
-		_kind_casts.append(casts)
-		_kind_casting.append(0 if casts.is_empty() else 1)
-		_any_ordinary = _any_ordinary or not casts.is_empty()
-
-
-## Public presentation state of the character's Seal (#76); empty when not sealed. multiplier = how many times as
-## long every skill cooldown takes; visual = the canonical affected animation; icon = its first frame (tier C: v83
-## has no Seal status icon).
-func seal_state(now: float) -> Dictionary:
-	if not sealed(now):
-		return {}
-	return {"skill_id": SKILL_SEAL, "level": _seal_level, "remaining": _seal_until - now,
-		"multiplier": float(_seal_rules.cooldown_multiplier), "visual": _seal_visual, "icon": _seal_visual + "/0"}
-
-
-## Whether the character is sealed at `now`.
-func sealed(now: float) -> bool:
-	return now < _seal_until - 1e-9
-
-
-## Skill cooldown countdown rate: exactly 1.0, or 1 / seal.cooldown_multiplier while sealed (tier C).
-func cooldown_rate(now: float) -> float:
-	if not sealed(now):
-		return 1.0
-	return 1.0 / maxf(1.0, float(_seal_rules.cooldown_multiplier))
-
-
-## Ordinary mobs' casts: a mob that can act on screen counts its wait down; once ready, not busy and with the
-## character's feet inside a listed skill's canonical box (mirrored by facing), it casts it: the action stance, the
-## caster effect and one prop roll on world.mob_skill_rng (rolled only here). A winning Seal roll seals the character
-## until the later of its current end and now + time x duration_mult (tier C: a recast extends, never stacks).
-func step_ordinary(world: RunWorld, dt: float) -> void:
-	if not _any_ordinary or world.state != RunWorld.PLAYING:
-		return
-	var swarm := world.swarm
-	var now := world.time
-	var view := world.view
-	var interval_mult := float(_seal_rules.interval_mult)
-	# Hot loop over every slot: packed arrays read through locals, cheapest rejections first.
-	var active := swarm.active
-	var kinds := swarm.kind
-	var boss := world.mob_boss
-	for slot in swarm.capacity():
-		if active[slot] == 0 or _kind_casting[kinds[slot]] == 0 or boss[slot] >= 0:
-			continue
-		var casts: Array = _kind_casts[kinds[slot]]
-		if not swarm.can_act(slot) or not view.has_point(swarm.pos(slot)):
-			continue
-		var wait := _skill_wait[slot]
-		if is_nan(wait):
-			# tier C: the first cast waits 50-100% of the canonical interval (MobAttacks.first_wait stagger).
-			wait = MobAttacks.first_wait(float(casts[0].spec.get("interval", 0.0)) * interval_mult,
-				swarm.identity[slot])
-		wait = maxf(0.0, wait - dt)
-		_skill_wait[slot] = wait
-		if wait > 1e-6 or world.mob_actions.busy(slot, now):
-			continue
-		var pos := swarm.pos(slot)
-		var facing := int(swarm.facing[slot])
-		for cast: Dictionary in casts:
-			var spec: Dictionary = cast.spec
-			if not _area(spec, pos, facing).has_point(world.player.pos):
-				continue
-			var id := int(cast.id)
-			var level := int(cast.level)
-			var mob_id := swarm.mob_kind(slot).id
-			var prop := float(spec.get("prop", 100.0)) * float(_seal_rules.prop_mult)
-			var applied := world.mob_skill_rng.randf() * 100.0 < prop
-			_skill_wait[slot] = float(spec.get("interval", 0.0)) * interval_mult
-			var path := "Skill.wz/MobSkill.img/%d/level/%d" % [id, level]
-			var action := String(cast.action)
-			world.mob_actions.begin(slot, action, MobKind.stance_time(world.mob_img(mob_id).get(action), 0.0),
-				facing, now)
-			world.emit("mob_skill", {"mob": slot, "mob_id": mob_id, "skill_id": id, "level": level, "pos": pos,
-				"facing": facing, "action": action, "effect": path + "/effect" if spec.has("effect") else "",
-				"applied": applied})
-			if applied and id == SKILL_SEAL:
-				_seal_until = maxf(_seal_until, now + float(spec.get("time", 0.0)) * float(_seal_rules.duration_mult))
-				_seal_level = level
-				_seal_visual = path + "/affected"
-				world.emit("player_status_applied", {"status": "seal", "skill_id": id, "level": level,
-					"remaining": _seal_until - now, "mob": slot, "mob_id": mob_id, "visual": _seal_visual})
-			break
 
 
 ## Current movement multiplier from the area's timed slow.
@@ -288,14 +163,9 @@ func resize(capacity: int) -> void:
 	_mdd_until.resize(capacity)
 	_weapon_until.resize(capacity)
 	_weapon_visual.resize(capacity)
-	var old := _skill_wait.size()
-	if old < capacity:
-		_skill_wait.resize(capacity)
-		for slot in range(old, capacity):
-			_skill_wait[slot] = NAN
 
 
-## A new mob in a reused slot starts without the previous occupant's defense statuses or cast wait.
+## A new mob in a reused slot starts without the previous occupant's defense statuses.
 func reset_slot(slot: int) -> void:
 	_pdd[slot] = 0
 	_mdd[slot] = 0
@@ -303,8 +173,6 @@ func reset_slot(slot: int) -> void:
 	_mdd_until[slot] = 0
 	_weapon_until[slot] = 0
 	_weapon_visual[slot] = ""
-	if slot < _skill_wait.size():
-		_skill_wait[slot] = NAN
 
 
 ## Transfers timed statuses with a relocation; a later reuse of the former slot gets no stale state.
@@ -317,7 +185,6 @@ func move_slot(from: int, to: int) -> void:
 	_mdd_until[to] = _mdd_until[from]
 	_weapon_until[to] = _weapon_until[from]
 	_weapon_visual[to] = _weapon_visual[from]
-	_skill_wait[to] = _skill_wait[from]
 	reset_slot(from)
 
 
