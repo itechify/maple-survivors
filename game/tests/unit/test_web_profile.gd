@@ -160,14 +160,15 @@ func _click(w: UiWindow, p: Vector2) -> void:
 
 func test_options_rows_desktop_keeps_frame_cap() -> void:
 	var w := _options(false)
-	assert_eq(OptionsWindow.row_ids(false), ["bgm", "sfx", "frame_cap", "movement"])
+	assert_eq(OptionsWindow.row_ids(false), ["bgm", "sfx", "frame_cap", "movement", "hp_alert", "mp_alert"])
 	assert_true(w.row_y("frame_cap") > 0.0)
 	assert_eq(w.row_y("fullscreen"), -1.0, "no fullscreen row on desktop")
 
 
 func test_options_rows_web_swaps_frame_cap_for_fullscreen() -> void:
 	var web := _options(true)
-	assert_eq(OptionsWindow.row_ids(true), ["bgm", "sfx", "fullscreen", "movement"])
+	assert_eq(OptionsWindow.row_ids(true), ["bgm", "sfx", "fullscreen", "movement", "hp_alert", "mp_alert"],
+		"the ALERT sliders stay on web")
 	assert_eq(web.row_y("frame_cap"), -1.0, "the frame cap is hidden on web")
 	var desktop := _options(false)
 	assert_eq(web.row_y("fullscreen"), desktop.row_y("frame_cap"), "same slot")
