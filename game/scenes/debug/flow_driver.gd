@@ -66,6 +66,19 @@ extends Node
 ##           hub's bot hook (FreeMarket.bot_shop, BotShop.visit) sells, buys and reads scrolls through RunWorld and
 ##           saves; the Item and Equip windows show the result. Shots: botshop_before_item, botshop_after_equip,
 ##           botshop_after_item.
+##   economy the whole spec-#33 loop (#113): title -> new character, whose slot becomes the Lv38 F/P fixture -> a Henesys
+##           round; four meso sprites and two items (Metal Gear, a Dark Calas) lie on the ground, the character walks
+##           over them (HUD notices); E and I, the tooltips, Metal Gear worn by double-click; the bot's fixed-tick warp
+##           clears the round into the Free Market (saved boundary checked: worn hat, inventory, mesos); the
+##           character walks past the four scroll NPCs, Space opens El Moth's shop, a 100% hat INT scroll is bought
+##           (quantity box) and the spare Calas sold (YesNo box), Space at Tulcus buys three 10% hat scrolls; they are
+##           dragged from the Use tab onto the worn hat (Enchant success, then until one fails); Save & quit,
+##           Continue: mesos, worn equipment, inventory and scrolls equal the snapshot before quitting. The warp
+##           takes a few minutes. Shots: economy_drops_on_the_ground, economy_pickup_notices, economy_picked_up,
+##           economy_item_window_tooltip, economy_tooltip_unmet, economy_equip_window_hat_worn, economy_scroll_npcs,
+##           economy_shop_open, economy_shop_buying, economy_shop_sell_selected, economy_shop_selling,
+##           economy_shop_sold, economy_shop_tulcus, economy_scroll_success, economy_scrolled_tooltip, economy_scroll_failure, economy_character_scrolled,
+##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -133,6 +146,8 @@ func _ready() -> void:
 			_scenario_shops()
 		"botshop":
 			_scenario_botshop()
+		"economy":
+			_scenario_economy()
 		"full":
 			_scenario_full()
 		_:
@@ -1388,6 +1403,334 @@ func _scenario_botshop() -> void:
 	print("flow_driver: botshop scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
+
+
+## The whole mesos / equipment / scrolls / shops loop of spec #33 (#113) with injected input. tier C: the drops the
+## character picks up are placed by the driver (a real kill drop is random), the round to the Free Market is the bot's
+## fixed-tick warp (`_warp_round`), and the hub is topped up to 150,000 mesos if the round earned less (printed).
+func _scenario_economy() -> void:
+	# tier C: training seed 1 (the fixture is a seed-1 Henesys clear); --seed overrides it.
+	if not args.has("seed"):
+		args["seed"] = "1"
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Loop113"):
+		return
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
+		_fail("the Lv38 F/P fixture did not load")
+		return
+	var lib := AssetLibrary.get_default()
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = fixture
+	character.erase("_doc")
+	slot.character = character
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Lv38 F/P fixture was saved into the slot")
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	var w := run.world
+	await _sleep(2.0)
+	# 1. Drops on the ground, then picked up by walking: four meso sprites and two items.
+	var mesos0 := w.mesos
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 113
+	var origin := w.player.pos
+	var ground_x := origin.x - 430.0 # open ground left of the hut below the spawn platform (as the drop driver)
+	var ground_y := w.fhm.y_at(w.fhm.find_below(ground_x, origin.y), ground_x)
+	w.player.place(Vector2(ground_x, ground_y), w.fhm)
+	w.update_view()
+	var meso_total := 0
+	for i in 4:
+		var amount: int = [30, 75, 400, 2500][i] # bronze, gold, bundle, bag
+		meso_total += amount
+		w.spawn_meso(Vector2(ground_x + 130.0 + 32.0 * i, ground_y - 30.0), amount)
+	var drop_ids := [1002001, 1050049] # Metal Gear (wearable) and a Dark Calas (not: kept to be sold)
+	for i in drop_ids.size():
+		var id: int = drop_ids[i]
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		w.spawn_equipment(Vector2(ground_x + 260.0 + 36.0 * i, ground_y - 30.0),
+			Equipment.create_drop(id, img.root.get("info", {}) if img != null else {}, rng))
+	await _sleep(1.2)
+	await _shot("economy_drops_on_the_ground")
+	var inventory0: int = w.equipment.inventory.size()
+	var t0 := Time.get_ticks_msec()
+	while w.equips_collected < 2 or w.mesos < mesos0 + meso_total:
+		if Time.get_ticks_msec() - t0 > 40000:
+			_release_all()
+			_fail("the character did not pick up the drops (equips %d, mesos %d / %d)" % [w.equips_collected, w.mesos,
+				mesos0 + meso_total])
+			return
+		_set_key("right", true)
+		if w.equips_collected >= 1 and not _memo.has("notice_shot"):
+			_memo["notice_shot"] = true
+			await _shot("economy_pickup_notices")
+		await get_tree().process_frame
+	_release_all()
+	_check(w.equipment.inventory.size() == inventory0 + 2, "both items went into the Equip tab")
+	await _sleep(0.6)
+	await _shot("economy_picked_up")
+	# 2. The Item window: tooltip of the drop, wear it by double-click; the Calas is refused (red requirements).
+	await _key(KEY_E)
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null, 3.0, "Item window (I)"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	var io := iw.get_global_rect().position
+	var eo := ew.get_global_rect().position
+	_check(iw.meso_text() == InventoryModel.meso_text(w.mesos), "the Item window shows the carried mesos (%s)" % iw.meso_text())
+	var hat := -1
+	var calas := -1
+	for i in iw.cells().size():
+		match int(iw.cells()[i].id):
+			1002001:
+				hat = i
+			1050049:
+				calas = i
+	_check(hat >= 0 and calas >= 0, "the drops are in the Item window's Equip tab")
+	_hover(io + iw.slot_rect(hat).get_center())
+	await _sleep(0.4)
+	_check(bool(iw.tooltip().get("can_equip", false)), "the hat's tooltip is wearable")
+	await _shot("economy_item_window_tooltip")
+	_hover(io + iw.slot_rect(calas).get_center())
+	await _sleep(0.4)
+	_check(not bool(iw.tooltip().get("can_equip", true)), "the Calas's tooltip shows unmet requirements")
+	await _shot("economy_tooltip_unmet")
+	await _double_click_at(io + iw.slot_rect(hat).get_center())
+	await _sleep(0.4)
+	_check(ew.worn_id("hat") == 1002001, "Metal Gear was worn by double-click")
+	_hover(eo + ew.slot_rect("hat").get_center())
+	await _sleep(0.4)
+	await _shot("economy_equip_window_hat_worn")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(not run.ui_windows.has_windows(), "Esc closed both windows")
+	var mesos_round := w.mesos
+	# 3. Clear the round (the bot's fixed-tick warp) and arrive in the Free Market with everything carried.
+	if not await _warp_round():
+		return
+	if not _expect(w.state == RunWorld.CLEARED, "the round was not cleared (%s)" % w.state_name()):
+		return
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the clear"):
+		return
+	var boundary: Dictionary = flow.save.slot(flow.active_slot).character
+	_check(boundary.equipment.worn.has("hat") and int(boundary.equipment.worn.hat.id) == 1002001, "the hat is worn at the boundary")
+	_check(boundary.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == 1050049),
+		"the Calas is in the boundary inventory")
+	_check(int(boundary.mesos) >= mesos_round, "mesos carried to the hub (%d, was %d at the pickups)" % [int(boundary.mesos), mesos_round])
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	# The player's own settings.cfg may have given Space to another action: put NPC Chat on its project default in
+	# the InputMap only, so the evidence run does not depend on the developer's keys.
+	InputMap.action_erase_events("npc_chat")
+	for code in GameSettings.default_keys("npc_chat"):
+		var ev := InputEventKey.new()
+		ev.physical_keycode = code as Key
+		InputMap.action_add_event("npc_chat", ev)
+	if hub.inventory.mesos < 150000:
+		print("flow_driver: the round earned %d mesos; the hub is topped up to 150,000 for the shopping" % hub.inventory.mesos)
+		hub.inventory.mesos = 150000
+	# 4. Walk to the NPCs (the four are shown on the way), Space opens El Moth's shop.
+	if not await _walk_hub_to(hub, -100.0):
+		return
+	await _sleep(0.6)
+	_check(hub.shop_npcs.map(func(n: Dictionary) -> int: return int(n.id)) == [1032103, 2022002, 1052104, 2041016],
+		"the four scroll NPCs stand in the Free Market")
+	await _shot("economy_scroll_npcs")
+	if not await _walk_hub_to(hub, -350.0):
+		return
+	await _key(KEY_SPACE)
+	await _sleep(0.6)
+	var shop := hub.ui_windows.find_window("shop") as ShopWindow
+	if shop == null or shop.npc_id != 1032103:
+		_fail("Space next to El Moth did not open his shop")
+		return
+	await _shot("economy_shop_open")
+	# 5. Buy a 100% hat INT scroll, sell the spare Calas.
+	var mesos_hub := hub.inventory.mesos
+	if not await _buy_at_shop(hub, shop, 2040024, 1, "economy_shop_buying"):
+		return
+	_check(int(hub.inventory.scrolls.get("2040024", 0)) == 1 and hub.inventory.mesos == mesos_hub - 35000,
+		"one 100%% hat scroll bought for 35,000 (mesos %d)" % hub.inventory.mesos)
+	_check(int(flow.save.slot(flow.active_slot).character.mesos) == hub.inventory.mesos, "the purchase was saved at once")
+	var origin_shop := shop.get_global_rect().position
+	await _click_at(origin_shop + shop.tab_rect(0).get_center())
+	await _sleep(0.3)
+	var sell_index := -1
+	for i in shop.sell_cells().size():
+		if int(shop.sell_cells()[i].id) == 1050049:
+			sell_index = i
+	_check(sell_index >= 0, "the Calas is listed in the shop's sell panel")
+	shop.scroll_panel(1, -999)
+	shop.scroll_panel(1, maxi(0, sell_index - ShopWindow.ROWS + 1))
+	await _click_at(origin_shop + shop.row_rect(1, sell_index - shop.sell_offset).get_center())
+	await _sleep(0.3)
+	var price := shop.row_price(shop.selected_sale())
+	var before_sale := hub.inventory.mesos
+	await _shot("economy_shop_sell_selected")
+	await _click(shop._bt_sell)
+	await _sleep(0.4)
+	_check(hub.ui_windows.find_window("drop_confirm") != null, "selling equipment asks first")
+	await _shot("economy_shop_selling")
+	await _key(KEY_ENTER)
+	await _sleep(0.5)
+	_check(price > 0 and hub.inventory.mesos == before_sale + price, "the Calas sold for %d" % price)
+	_check(not hub.inventory.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == 1050049), "and left the inventory")
+	await _shot("economy_shop_sold")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	# Tulcus: three 10% hat INT scrolls (a failure is the point of those).
+	if not await _walk_hub_to(hub, -165.0):
+		return
+	await _key(KEY_SPACE)
+	await _sleep(0.6)
+	var tulcus := hub.ui_windows.find_window("shop") as ShopWindow
+	if tulcus == null or tulcus.npc_id != 1052104:
+		_fail("Space next to Tulcus did not open his shop")
+		return
+	if not await _buy_at_shop(hub, tulcus, 2040026, 3, "economy_shop_tulcus"):
+		return
+	_check(int(hub.inventory.scrolls.get("2040026", 0)) == 3, "three 10% hat scrolls bought")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	# 6. Read them on the worn hat from the Equip window: a success (100%), then 10% scrolls until one fails.
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.4)
+	var hew := hub.ui_windows.find_window("equip") as EquipWindow
+	var hiw := hub.ui_windows.find_window("item") as ItemWindow
+	if hew == null or hiw == null:
+		_fail("the hub's Equip and Item windows did not open")
+		return
+	var hio := hiw.get_global_rect().position
+	var heo := hew.get_global_rect().position
+	await _click_at(hio + hiw.tab_rect(1).get_center())
+	await _sleep(0.3)
+	var worn_hat: Dictionary = hub.inventory.equipment.worn.hat
+	var slots0 := int(worn_hat.slots)
+	var use_ids := hiw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	_check(2040024 in use_ids and 2040026 in use_ids, "the Use tab holds the two new scroll stacks (%s)" % [use_ids])
+	await _drag(hio + hiw.slot_rect(use_ids.find(2040024)).get_center(), heo + hew.slot_rect("hat").get_center())
+	worn_hat = hub.inventory.equipment.worn.hat
+	_check(int(worn_hat.scrolls) == 1 and int(worn_hat.slots) == slots0 - 1, "the 100% scroll succeeded: +1, one slot spent")
+	_check(hub.enchant.renderer.active_count() == 1, "the Enchant effect plays over the character")
+	await _shot("economy_scroll_success")
+	_hover(heo + hew.slot_rect("hat").get_center())
+	await _sleep(0.5)
+	await _shot("economy_scrolled_tooltip")
+	var failed := false
+	for attempt in 3:
+		var before_count := int(hub.inventory.equipment.worn.hat.scrolls)
+		var cells := hiw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+		await _drag(hio + hiw.slot_rect(cells.find(2040026)).get_center(), heo + hew.slot_rect("hat").get_center())
+		var plain_failed: bool = int(hub.inventory.equipment.worn.hat.scrolls) == before_count
+		print("flow_driver: 10%% hat scroll %d: %s" % [attempt + 1, "failure" if plain_failed else "success"])
+		if plain_failed:
+			failed = true
+			await _shot("economy_scroll_failure")
+			break
+		await _sleep(1.2)
+	_check(failed, "a 10 percent scroll failed within three tries")
+	await _sleep(1.5)
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	await _shot("economy_character_scrolled")
+	# 7. Save & quit, then Continue: mesos, worn equipment, inventory and scrolls come back from the saved snapshot.
+	var active := flow.active_slot
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	_collect_missing(hub)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6) # the pause menu ignores input while it opens
+	await _shot("economy_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("economy_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for key: String in ["mesos", "equipment", "scrolls"]:
+		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(80)])
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for key: String in ["mesos", "equipment", "scrolls"]:
+		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.5)
+	var aew := again.ui_windows.find_window("equip") as EquipWindow
+	var aiw := again.ui_windows.find_window("item") as ItemWindow
+	_check(aew != null and aew.worn_id("hat") == 1002001, "the Equip window shows the restored hat")
+	_check(aiw != null and aiw.meso_text() == InventoryModel.meso_text(int(expected.mesos)),
+		"the Item window shows the restored mesos (%s)" % [aiw.meso_text() if aiw != null else ""])
+	await _shot("economy_continue_restored")
+	_collect_missing(again)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	var report := {"scenario": "economy", "mesos_picked_up": meso_total, "mesos_at_clear": int(boundary.mesos),
+		"hat_scrolls": int(expected.equipment.worn.hat.scrolls), "mesos_final": int(expected.mesos),
+		"missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	print("flow_driver: economy scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## Holds the arrow keys until the hub's player stands within 8 px of `x`; false (and a failure) after 40 s.
+func _walk_hub_to(hub: FreeMarket, x: float) -> bool:
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 40000:
+			_release_all()
+			_fail("walking to x %.0f in the Free Market timed out (at %.0f)" % [x, hub.motion.player.pos.x])
+			return false
+		_set_key("left", hub.motion.player.pos.x > x)
+		_set_key("right", hub.motion.player.pos.x < x)
+		await get_tree().process_frame
+	_release_all()
+	await _sleep(0.2)
+	return true
+
+
+## In an open shop: selects scroll `id` in the stock by mouse, clicks Buy, types `count` and confirms. Saves a shot of
+## the selected row with its tooltip as `shot`. False (and a failure) when the scroll is not in the stock.
+func _buy_at_shop(hub: FreeMarket, shop: ShopWindow, id: int, count: int, shot: String) -> bool:
+	var index := shop.stock.map(func(e: Dictionary) -> int: return int(e.id)).find(id)
+	if index < 0:
+		_fail("scroll %d is not in %s's stock" % [id, shop.npc_name])
+		return false
+	var origin := shop.get_global_rect().position
+	shop.scroll_panel(0, -999)
+	shop.scroll_panel(0, maxi(0, index - ShopWindow.ROWS + 1))
+	var row := index - shop.buy_offset
+	await _click_at(origin + shop.row_rect(0, row).get_center())
+	await _sleep(0.3)
+	_check(shop.buy_selected == index, "a click selected scroll %d (selected %d)" % [id, shop.buy_selected])
+	_hover(origin + shop.row_rect(0, row).get_center() + Vector2(60, 0))
+	await _sleep(0.5)
+	await _shot(shot)
+	await _click(shop._bt_buy)
+	await _sleep(0.4)
+	if hub.ui_windows.find_window("shop_quantity") == null:
+		_fail("Buy did not ask how many")
+		return false
+	await _key([KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5][clampi(count, 0, 5)])
+	await _sleep(0.3)
+	await _key(KEY_ENTER)
+	await _sleep(0.5)
+	return true
 
 
 ## Presses `k` once with the player standing; true when the player took off within 0.5 s.

@@ -76,6 +76,12 @@ at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not p
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
 key label (potion quickslots, Teleport) shows the current binding.
 
+Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
+second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
+holds Space (jump rebound to Space, say), that action keeps the key and **NPC Chat has no key until it is rebound** in
+Key Config (a key holds one action; Default gives Space back to NPC Chat). Double-clicking a shop NPC works either way.
+A file that never rebound anything simply gains the new defaults.
+
 In-run windows (Stat, the Menu popup, later Skill / Key Config / Options) are draggable by their title bar and
 stack (a click brings one to the front). The run is paused while any is open, as with the pause menu. Stat and Skill
 also open over a level-up, job or advancement choice; they draw above it, and the choice ignores input until they are
@@ -2020,6 +2026,52 @@ scrolls keeps its books across 12 seeds) and a two-tier chain (`test_bot_shop`, 
 4 failures, all the known #103 key-config tests that read the developer's own `settings.cfg` (unrelated).
 Raw records: ignored `research/spec33/t112_balance/` and `t112_smoke.log` (outside the repo).
 
+#### Spec #33 / #113 combined regression smoke for the whole spec (2026-10-17)
+
+No tuning, no held-out seeds: `ISOLATE=s33t113smoke bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` plus `--tier=2 --policy=<bot|random>` chains, private real cache, on the #113 branch (base: the
+integration branch with #105-#112 merged). This covers the UI tickets that skipped their own smoke (#108 windows,
+#110 scrolls, #111 shops); "before" is the #112 smoke above. All 14 runs finished with no script errors and no world
+warnings. The results are **identical to #112 run for run** (same end times, same mesos and equipment counts): #108,
+#110, #111 and #113 change no sim rule a bot run exercises (the windows are held-run UI, scroll and shop rules run
+only when a bot or the player visits a shop), so a different number would have been a bug. Henesys bots still reach
+Magician (4:20-4:41, 6/6 runs); Tree remains record-only.
+
+| Stage / policy | Clear / dead | End m:ss seed 1/2/2026 (same as #112) | Mesos earned per round (seed 1/2/2026) | Equipment dropped (seed 1/2/2026) |
+|---|---|---|---|---|
+| Henesys bot | 0/3 | 20:14 / 14:40 / 22:16 | 211,036 / 101,766 / 206,066 | 5 / 5 / 7 |
+| Henesys random | 1/2 | C 16:28 / 7:42 / 10:59 | 323,932 / 18,298 / 72,898 | 9 / 0 / 4 |
+| Tree bot | 0/3 | 10:26 / 2:36 / 2:08 | 208,558 / 3,108 / 1,680 | 2 / 0 / 0 |
+| Tree random | 0/3 | 20:23 / 2:38 / 1:28 | 433,930 / 2,520 / 1,218 | 5 / 0 / 0 |
+
+Every dropped item was picked up except one (Henesys random seed 1 dropped 9 and picked up 8: one was still lying
+on the ground when the round ended). Items per round: the Henesys bot runs, which last 14-22 minutes and kill 1,300-2,100 monsters, dropped
+5-7 against the 8-12 target for a clear, and the one real clear (Henesys random seed 1, 3 bosses) dropped 9, inside
+it. Recorded, not tuned (#77 owns `equipment_drops.chance`). Mesos per round on Henesys: 100-210k for a bot dying at
+14-22 minutes, 324k for the clear (the owner's 300-350k target for a clear).
+
+Scrolls (only the chain's one Free Market visit, Henesys random seed 1): 323,932 mesos earned, nothing to sell, 9
+scrolls bought for 315,000 (8,932 left) and all 9 read: 3 succeeded, 6 failed, 0 items destroyed (the careless plan
+reads dark scrolls too, none destroyed this time). Tier 2 then started at Lv 41 and died at 22:04 at Lv 62 after
+1,397,158 more mesos, 5 items dropped and 2 more worn. The sensible bot never cleared tier 1, so no sensible shop visit
+happened in the smoke (`test_bot_shop` covers it with seeded tests). Chains: bot 0/3 tier-1 clears, random 1/3.
+
+Full suite on the branch: 1,042 tests, 4 failures: the known #103 key-config tests (`test_key_config`,
+`test_key_config_window` x2, `test_teleport`) that read the developer's own `settings.cfg` (their Teleport key
+shows "Space" there); nothing else, 0 SKIP with the real cache. Raw records: ignored `research/spec33/t113_balance/`
+and `t113_smoke.log` (outside the repo).
+
+#### Spec #33 / #113 whole-loop flow-driver run (2026-10-17)
+
+`--scenario=economy` (AGENTS.md; header of `flow_driver.gd`) drives the loop with injected input on the real cache and
+checks it at every step: the picked-up mesos and items, the Item window and tooltips, the hat worn by double-click,
+a real tier-1 Henesys clear by the bot's fixed-tick warp (the Lv38 F/P fixture, seed 1) into the Free Market with the
+worn hat, the spare item and the mesos in the saved boundary, the four scroll NPCs, Space at El Moth (buy a 100% hat
+INT scroll, sell the spare Dark Calas for 90,000) and at Tulcus (three 10% scrolls), the scrolls dragged onto the worn
+hat (success, then a failure), and Save & quit -> Continue restoring mesos, equipment, inventory and scrolls from the
+saved snapshot (550,461 mesos at the clear, 500,461 after shopping, all equal after Continue). The 25 screenshots were
+looked at and the run reported `missing` empty (not committed: `evidence/spec33/t113/economy2/`).
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2743,6 +2795,35 @@ MP Eaters, Invincible and both Slows):
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
 | Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
+
+### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
+
+The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
+every constant, with its tier, is in section 11 under the tables named below):
+
+1. **Mesos** drop from kills (40% per kill from the mob's v83 meso range, x14 survivor multiplier) and 4 bundles from
+   each boss, with the v83 coin sprites; the magnet collects them like EXP. They are carried across rounds with the
+   character and lost with the run. ("Meso rule", section 11.)
+2. **Equipment** drops from kills (0.2% per ordinary kill, one guaranteed from each boss): a v83 hat, top, bottom,
+   overall, shoes, gloves, wand or staff that the character's current job can wear, near its level, with v83's random
+   stat rolls. It goes to the Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
+3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
+   open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
+4. In the **Free Market**, four NPCs sell scrolls only, one per success rate (100%, 60%, 10%, dark 70% / 30%), at 35,000
+   mesos (armour) or 70,000 (wand, staff); any shop buys spare equipment and scrolls back at their v83 sell price. NPC
+   Chat (Space) or a double-click opens a shop. ("Scroll NPCs", "Shop stock", "Sell rule" and the other #111 rows.)
+5. A **scroll** is dragged from the Use tab onto a worn item: it succeeds at its rate (adding its v83 stats and one to
+   the "(+N)" count) or fails; either way it spends one upgrade slot, and a failed dark scroll can destroy the item.
+   ("Scroll rules", "Scroll effect" and the other #110 rows.)
+6. Everything is saved with the character at each boundary, so Save & quit -> Continue restores mesos, worn equipment,
+   inventory and scrolls. Quitting a round and continuing replays it from its boundary, so what changed mid-round is
+   lost (ADR 0001, amended).
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
+   `balance.sh --tier=N` chain. ("Bot shopping rule".)
+
+Verified end to end by `flow_driver --scenario=economy` (AGENTS.md) and by the combined regression smoke in 4.2
+"Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
+8-12 target (4.2 #109, #113), and the dedicated balance pass (#77) owns them.
 
 
 ## 9. Jobs

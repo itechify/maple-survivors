@@ -167,7 +167,8 @@ A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong aga
 ## Mesos and equipment
 
 **Mesos**:
-The run's money: dropped by monsters, spent and earned only in the Free Market shops, and lost when the run ends.
+The run's money: dropped by monsters, spent on scrolls in the Free Market shops (which also buy spare equipment and
+scrolls back), carried between rounds with the character, and lost when the run ends.
 _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
@@ -193,7 +194,8 @@ An NPC's stock of scrolls in the Free Market, opened by talking to the NPC. Shop
 _Avoid_: Store, vendor
 
 **NPC Chat**:
-The key (Space by default, as in v83) that opens the shop of the Free Market NPC the character stands next to.
+The key (Space by default, as in v83, rebindable in Key Config) that opens the shop of the Free Market NPC the
+character stands next to.
 _Avoid_: Interact key, talk key
 
 **Scroll**:
