@@ -262,7 +262,8 @@ func save_and_quit() -> void:
 
 func _resume_round(snapshot: Dictionary) -> void:
 	var live := _live_settings()
-	var options := {"character": snapshot.character, "name": snapshot.name}
+	# The account's owned cash items decide which of the character's worn cash equipment and pet count (spec #34).
+	var options := {"character": snapshot.character, "name": snapshot.name, "account": save_data().account}
 	if live != null:
 		options["settings_alert"] = live.alert_levels()
 	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options, live)

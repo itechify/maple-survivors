@@ -60,6 +60,7 @@
 		{"img": "Npc.wz/1090000.img"},
 		{"img": "Npc.wz/9010000.img"},
 		{"img": "Character.wz/PetEquip/01812000.img", "paths": ["info"]},
+		{"img": "Character.wz/PetEquip/01812001.img", "paths": ["info"]},
 		{"img": "Item.wz/Pet/5000000.img", "paths": ["info/icon", "info/iconRaw", "stand0", "stand1", "move", "jump", "hang", "fly"]},
 		{"img": "Item.wz/Pet/5000001.img", "paths": ["info/icon", "info/iconRaw", "stand0", "stand1", "move", "jump", "hang", "fly"]},
 		{"img": "Item.wz/Pet/5000002.img", "paths": ["info/icon", "info/iconRaw", "stand0", "stand1", "move", "jump", "hang", "fly"]}

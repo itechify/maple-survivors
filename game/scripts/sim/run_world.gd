@@ -1386,6 +1386,58 @@ func _init_cash() -> void:
 		_init_pet(CashCatalog.from_data(data))
 
 
+## Wears the owned cash equipment `id` (the Equip window's Cash tab, spec #34 #122): it takes its slots and replaces what
+## covered them (CashCatalog.wear: an overall clears top and bottom, a two-handed cover weapon and shield). "" or
+## "not_cash" (not cash equipment) / "not_owned" (the account does not own it); nothing changes on a refusal. Wearing
+## never uses the item up. Fortune follows at once, so the next card draw uses it.
+func wear_cash(id: int) -> String:
+	var catalog := CashCatalog.from_data(data)
+	if catalog.kind_of(id) != "equip" or catalog.slots_for(id).is_empty():
+		return "not_cash"
+	if not account_owned.has(id):
+		return "not_owned"
+	_cash_carried = catalog.wear(_cash_carried, id)
+	_cash_changed("wear_cash", "", id)
+	return ""
+
+
+## Takes off the cash equipment worn in `slot` (every slot it covers); "" or "empty" when nothing is worn there.
+func take_off_cash(slot: String) -> String:
+	var catalog := CashCatalog.from_data(data)
+	var id := int(_cash_carried.get(slot, 0))
+	if id == 0:
+		return "empty"
+	_cash_carried = catalog.take_off(_cash_carried, slot)
+	_cash_changed("take_off_cash", slot, id)
+	return ""
+
+
+## Brings the owned pet `species` out in place of any other, or none (0). "" or "not_pet" / "not_owned"; nothing
+## changes on a refusal. The pet is simulated from the next tick, at the player's feet, with the owned upgrades.
+func set_pet(species: int) -> String:
+	var catalog := CashCatalog.from_data(data)
+	if species != 0:
+		if catalog.kind_of(species) != "pet":
+			return "not_pet"
+		if not account_owned.has(species):
+			return "not_owned"
+	_pet_carried = species
+	pet = species
+	pet_system = null
+	if species > 0:
+		_init_pet(catalog)
+	emit("equipment_changed", {"action": "pet", "slot": "", "item_id": species})
+	return ""
+
+
+## Re-reads the worn cash equipment after a change (Fortune included) and announces it.
+func _cash_changed(action: String, slot: String, id: int) -> void:
+	var resolved := CashCatalog.from_data(data).resolve(_cash_carried, 0, account_owned)
+	worn_cash = resolved.worn
+	cash_fortune = resolved.fortune
+	_equipment_changed(action, slot, id)
+
+
 ## The pet simulation of this round: abilities from the owned upgrades whose prerequisites the account meets.
 func _init_pet(catalog: CashCatalog) -> void:
 	var abilities := {}

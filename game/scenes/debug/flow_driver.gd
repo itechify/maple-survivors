@@ -53,6 +53,10 @@ extends Node
 ##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
 ##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
 ##           back to the Free Market. Shots: shop_*.png (the first is the Cash Shop shot to compare with the v83 references).
+##   cash_equip  the Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: 12,000 NX -> new character ->
+##           map select SHOP -> buy the first hat and the first pet -> Free Market (boundary patched, Save & quit, Continue) ->
+##           E, Cash tab, a double-click wears the hat -> PET EQUIP., a double-click brings the pet out -> out00 -> the next
+##           round has both. Shots: equip_00..07 (equip_02/03 Cash tab, equip_04/05 Pet page).
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
 ## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
 ##
@@ -113,6 +117,8 @@ func _ready() -> void:
 			_scenario_cash_shop()
 		"inventory":
 			_scenario_inventory()
+		"cash_equip":
+			_scenario_cash_equip()
 		"full":
 			_scenario_full()
 		_:
@@ -765,6 +771,123 @@ func _scenario_cash_shop() -> void:
 	await _shot("shop_11_back_in_free_market")
 	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
 	_quit()
+
+
+## The Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: a prepared save with 12,000 NX -> new
+## character -> map select SHOP -> buy the first hat (Equip tab) and the first pet (Pet tab) through the confirm dialog ->
+## EXIT -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> E, the Cash tab, a double-click
+## wears the hat (saved at once) -> the PET EQUIP. button, a double-click on the owned pet brings it out -> Esc, walk to
+## out00, Up -> tier-2 map select -> Start: the round's character wears the hat and has the pet out.
+func _scenario_cash_equip() -> void:
+	flow.save.set_account({"nx": 12000, "owned": []})
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(1.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Dress122"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
+		return
+	var shop = flow.current
+	await _sleep(0.5)
+	var hat: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	_check(shop.owned_ids() == [hat], "bought the first hat")
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	var pet: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	_check(shop.owned_ids() == [hat, pet] and shop.nx() >= 0, "bought the first pet: %s NX left" % shop.nx())
+	await _shot("equip_00_bought")
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
+		return
+	var boundary := flow.save.slot(flow.active_slot)
+	boundary.phase = "free_market"
+	boundary.tier = 1
+	flow.save.update_slot(flow.active_slot, boundary)
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	await _key(KEY_E)
+	await _sleep(0.4)
+	var ew := hub.ui_windows.find_window("equip") as EquipWindow
+	_check(ew != null, "E opened the Equip window in the Free Market")
+	if ew == null:
+		return
+	await _shot("equip_01_equip_page")
+	await _click_at(ew.get_global_rect().position + ew.tab_rect("cash").get_center())
+	_check(ew.page == "cash" and ew.owned_items() == [hat], "the Cash tab lists the owned hat")
+	await _shot("equip_02_cash_tab_owned")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.4)
+	_check(ew.world.worn_cash.size() == 1 and CharacterSnapshot.integers(
+		flow.save.slot(flow.active_slot).character.get("cash", {})).values() == [hat],
+		"the double-click wore the hat and the slot was saved")
+	_check(hub.avatar.look.get("cash", {}).size() == 1, "the avatar wears it at once")
+	await _hover(ew.get_global_rect().position + ew.cash_rect(ew.world.worn_cash.keys()[0]).get_center())
+	await _shot("equip_03_cash_worn_tooltip")
+	await _click(ew._bt_pet)
+	_check(ew.page == "pet" and ew.owned_items() == [pet], "PET EQUIP. opens the Pet page listing the owned pet")
+	await _shot("equip_04_pet_page")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.6)
+	_check(ew.world.pet == pet and hub.pet_renderer != null, "the double-click brought the pet out beside the character")
+	_check(int(flow.save.slot(flow.active_slot).character.get("pet", 0)) == pet, "and the slot was saved")
+	var catalog := CashCatalog.from_data(hub.inventory.data)
+	var no_icon: Array[int] = []
+	for c: Dictionary in ew.pet_cells():
+		if String(c.payload.kind) == "pet_upgrade" and UiArt.frame(CashShop.icon_path(catalog, int(c.payload.id))) == null:
+			no_icon.append(int(c.payload.id))
+	_check(no_icon.is_empty(), "every pet upgrade cell has its icon: missing %s" % [no_icon])
+	await _shot("equip_05_pet_out")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	_check(not hub.windows_open(), "Esc closed the window")
+	_collect_missing(hub)
+	var exit_pos := Vector2.ZERO
+	for portal: Dictionary in hub.motion.portals.links:
+		if portal.name == "out00":
+			exit_pos = portal.pos
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 30000:
+			_fail("walking to out00 timed out")
+			return
+		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
+		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
+		await get_tree().process_frame
+	_release_all()
+	await _shot("equip_06_dressed_at_out00")
+	await _key(KEY_UP)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
+		return
+	await _sleep(2.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "the next round"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(1.0)
+	await _hold(KEY_RIGHT, 1.0)
+	_check(run.world.worn_cash.size() == 1 and run.world.pet == pet, "the next round: the character wears the hat and has the pet out")
+	_check(run.world.cash_fortune > 0.0 and run.world.player_state.fortune > 0.0, "the hat's Fortune applies")
+	_check(run.pet_renderer != null and run.avatar.look.get("cash", {}).size() == 1, "and both are drawn")
+	await _shot("equip_07_next_round")
+	_collect_missing(run)
+	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
+	print("flow_driver: cash_equip scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
 
 
 func _scenario_skill() -> void:
