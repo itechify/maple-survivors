@@ -390,6 +390,15 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #131 web build spike regression smoke (2026-10-17)
+
+`ISOLATE=s130t131 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning. The ticket adds only the "Web" export preset (no game code). All 12 runs finish with
+no crashes or world warnings. Every end time equals the #79 combined smoke: Henesys bot 0/3 (780.4/791.1/907.5 s),
+random 1/3 (clear on seed 1, then 437.8/624.0 s); Tree bot 0/3 (652.3/677.4/128.3 s), random 0/3
+(617.5/165.0/88.4 s). Henesys reaches Magician 3/3 (bot). The web build replays seed 2026 bit-identically to the
+desktop exe (`docs/ARCHITECTURE.md` 10.1).
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
