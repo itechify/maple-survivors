@@ -943,7 +943,7 @@ func handle_events(events: Array) -> void:
 			"pickup_collected":
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
-			"potion_used":
+			"potion_used", "pet_potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
 			"level_up":
@@ -1608,6 +1608,9 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 	}
 	if _account_name != "":
 		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
+	if world.pet_system != null:
+		out["pet"] = {"species": world.pet_system.species, "pickups": world.pet_system.pickups,
+			"potions_used": world.potions.pet_used.duplicate()} # #119: pet drinks and pickups, apart from the player's
 	return out
 
 

@@ -58,8 +58,11 @@ const EVENT_FIELDS := {
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
-	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
+	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count", "collector"],
 	"potion_used": ["kind", "item_id", "restored", "count"],
+	# Spec #34 pet events (only with a pet out): its own drinks (never counted as the player's) and its teleports.
+	"pet_potion_used": ["kind", "item_id", "restored", "count"],
+	"pet_teleported": ["from", "pos"],
 	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
@@ -225,6 +228,8 @@ var worn_cash := {}
 var pet := 0
 var cash_fortune := 0.0
 var alert := {"hp": 0.0, "mp": 0.0}
+## The pet simulation (PetSystem), null when no owned pet is out. See pet_state() and pet_has().
+var pet_system: PetSystem
 var _cash_carried := {}
 var _pet_carried := 0
 ## Carried appearance and the canonical weapon chosen at character creation.
@@ -416,9 +421,14 @@ func can_clear() -> bool:
 
 ## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
 func drink_potion(kind: String) -> bool:
+	return _drink(kind, false)
+
+
+## The shared drink: `by_pet` counts it in the pet's totals and reports `pet_potion_used` instead of `potion_used`.
+func _drink(kind: String, by_pet: bool) -> bool:
 	if state != PLAYING or _dead:
 		return false
-	var sip := potions.consume(kind)
+	var sip := potions.consume(kind, by_pet)
 	if sip.is_empty():
 		return false
 	var before := int(player_state[kind])
@@ -427,7 +437,7 @@ func drink_potion(kind: String) -> bool:
 	else:
 		_mp = minf(_max_mp, _mp + int(sip.amount))
 	_write_player_state(0.0)
-	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
+	emit("pet_potion_used" if by_pet else "potion_used", {"kind": kind, "item_id": int(sip.item_id),
 		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
 	return true
 
@@ -495,6 +505,8 @@ func step(dt: float, input: MoveInput) -> void:
 	_step_player(dt, input)
 	_step_monsters(dt)
 	_step_player_attacks(dt)
+	if pet_system != null:
+		_step_pet(dt)
 	var got := _step_pickups(dt)
 	_touch()
 	if got > 0 and not _dead:
@@ -649,10 +661,39 @@ func _step_player_attacks(dt: float) -> void:
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
 func _step_pickups(dt: float) -> int:
-	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
+	var got := 0
+	if pet_system == null:
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events)
+	else:
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events, pet_system.center(), pet_system.pickup_radius(),
+			pet_system.abilities.vac)
+		pet_system.pickups += pickups.pet_collected
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	return got
+
+
+## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
+func _step_pet(dt: float) -> void:
+	pet_system.step(dt, player, fhm, bounds, pickups, events)
+	for kind: String in ["hp", "mp"]:
+		var max_value := _max_hp if kind == "hp" else _max_mp
+		if max_value <= 0:
+			continue
+		var fraction := (_hp if kind == "hp" else _mp) / float(max_value)
+		if pet_system.drink_ready(kind, fraction, float(alert[kind])) and _drink(kind, true):
+			pet_system.drank(kind)
+
+
+## What the pet looks like right now ({} without a pet): species, pos (feet), facing (-1/1), action (stand, move, jump,
+## hang), fetching, abilities. Position jumps are announced by `pet_teleported` events.
+func pet_state() -> Dictionary:
+	return pet_system.view() if pet_system != null else {}
+
+
+## Whether a pet with `ability` (auto_hp, auto_mp, wing_boots, binocular, vac) is out.
+func pet_has(ability: String) -> bool:
+	return pet_system != null and bool(pet_system.abilities.get(ability, false))
 
 
 ## After a living tick: boss bonus choices first, then the clear, then queued level-ups.
@@ -1207,6 +1248,23 @@ func _init_cash() -> void:
 	cash_fortune = resolved.fortune
 	for message: String in resolved.warnings:
 		warnings.append(message)
+	if pet > 0:
+		_init_pet(CashCatalog.from_data(data))
+
+
+## The pet simulation of this round: abilities from the owned upgrades whose prerequisites the account meets.
+func _init_pet(catalog: CashCatalog) -> void:
+	var abilities := {}
+	var owned := PetSystem.abilities_from(account_owned)
+	for ability: String in owned:
+		var id := int(PetSystem.ABILITY_ITEMS[ability])
+		if bool(owned[ability]) and not catalog.prerequisites_met(id, account_owned):
+			warnings.append("pet upgrade %d is owned but its prerequisites are not: ignored" % id)
+		else:
+			abilities[ability] = bool(owned[ability])
+	pet_system = PetSystem.new(pet, abilities, data.get("cash_items", {}).get("pet", {}), physics)
+	pet_system.place(player.pos, fhm)
+	pet_system.motion.facing = player.facing
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
