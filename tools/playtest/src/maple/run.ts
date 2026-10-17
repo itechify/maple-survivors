@@ -11,6 +11,8 @@ import type { ReportContext } from "../core/report.ts";
 import { exitCodeFor } from "../core/exit_codes.ts";
 import { resolveGodot, prepareProject, importProject, driverArgs } from "./launcher.ts";
 import { sensibleBrain } from "./fallback.ts";
+import { sessionProblems } from "../core/findings.ts";
+import type { InvariantChecks } from "./invariant_flags.ts";
 import "./report_sections.ts";
 import type { Brain } from "../core/session.ts";
 import type { Fetch, RetryPolicy } from "@typesafe-ai/sdk";
@@ -48,6 +50,8 @@ export type RunOptions = {
 	now?: Date;
 	/** Test seam: run this command instead of resolving Godot (no import pass). */
 	launch?: { command: string; args: string[] };
+	/** Invariant thresholds and the test-only injected finding (driver defaults when absent). */
+	checks?: InvariantChecks;
 };
 
 export type RunOutcome = { exitCode: number; dir: string; markdown: string };
@@ -71,6 +75,8 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	const dir = o.out ? path.resolve(o.out) : defaultRunDir(repo, o.stage, o.seed, o.now ?? new Date());
 	const rec = new RunRecorder(dir);
 	rec.touch("decisions.jsonl");
+	rec.touch("findings.jsonl");
+	const checks = o.checks ?? {};
 	const driverBrain = o.brain === "builtin" ? "builtin" : "stdio";
 	let launch = o.launch;
 	const setupErrors: string[] = [];
@@ -86,14 +92,19 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 			rec.log(`agent_playtest: Godot ${godot.exe}, project ${project}`);
 			importProject(godot.exe, project);
 			launch = { command: godot.exe, args: driverArgs(project, { stage: o.stage, seed: o.seed, minutes: o.minutes,
-				personality: o.personality, brain: driverBrain }) };
+				personality: o.personality, brain: driverBrain, out: dir, ...checks }) };
 		}
 	}
 	let session: SessionResult | undefined;
+	const logLines: string[] = [];
 	if (launch) {
 		rec.log(`agent_playtest: ${launch.command} ${launch.args.join(" ")}`);
 		session = await runSession({ command: launch.command, args: launch.args, cwd: repo, env: withoutKey(env), brain: pick.brain,
-			livenessMs: o.livenessS * 1000, onLine: (line, stream) => rec.log(stream === "stderr" ? `[stderr] ${line}` : line) });
+			livenessMs: o.livenessS * 1000, onLine: (line, stream) => {
+				const logged = stream === "stderr" ? `[stderr] ${line}` : line;
+				logLines.push(logged);
+				rec.log(logged);
+			} });
 	}
 	const errors = [...setupErrors, ...(session ? infraErrors(session) : [])];
 	const decisions = mergeDecisions(session);
@@ -102,20 +113,32 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 		rec.json("record.json", session.end.record);
 		if (session.end.fingerprint) rec.json("fingerprint.json", session.end.fingerprint);
 	}
-	const exitCode = exitCodeFor(errors, 0);
+	const problems = sessionProblems(session, logLines);
+	for (const p of problems) rec.jsonl("findings.jsonl", p);
+	rec.adopt("timeline.jsonl");
+	const exitCode = exitCodeFor(errors, problems.length);
 	const ctx: ReportContext = {
 		title: `Agent playtest: ${o.stage} seed ${o.seed}`,
 		header: [["stage", o.stage], ["seed", String(o.seed)], ["time cap", o.minutes > 0 ? `${o.minutes} min` : "stage cap"],
 			["personality", o.personality],
 			...brainHeader({ ...pick.facts, decisions, stats: pick.client?.stats(), brainLost: session?.end?.brain_lost === true }),
 			["exit code", String(exitCode)]],
-		infraErrors: errors, problems: [], decisions, files: rec.files(), exitCode,
-		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats() },
+		infraErrors: errors, problems, decisions, files: rec.files(), exitCode,
+		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats() }, rerun: rerunCommand(o),
 	};
 	const report = renderReport(ctx);
 	rec.text("report.md", report.markdown);
 	rec.json("report.json", report.json);
 	return { exitCode, dir, markdown: report.markdown };
+}
+
+/** The command that plays this run again live (same stage, seed, cap, personality, brain and invariant flags). */
+export function rerunCommand(o: RunOptions): string {
+	const c = o.checks ?? {};
+	return ["bash scripts/agent_playtest.sh", `--stage=${o.stage}`, `--seed=${o.seed}`, `--minutes=${o.minutes}`,
+		`--personality=${o.personality}`, `--brain=${o.brain}`,
+		...(c.stuckPx !== undefined ? [`--stuck-px=${c.stuckPx}`] : []), ...(c.stuckS !== undefined ? [`--stuck-s=${c.stuckS}`] : []),
+		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : [])].join(" ");
 }
 
 type BrainPick = { brain: Brain; client?: JevClient; facts: Omit<BrainFacts, "decisions">; error?: string };

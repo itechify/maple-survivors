@@ -4,8 +4,12 @@
 //   0 header, 10 outcome, 20 problems, 40 metrics, 60 decisions, 90 files.
 import type { DecisionRecord } from "./session.ts";
 
-/** A deterministic problem (invariant failure, process check). Filled in by #96; empty until then. */
-export type Problem = { kind: string; message: string; time?: number; tick?: number; [key: string]: unknown };
+/** A deterministic problem: a game-side invariant finding (protocol `finding`, source "invariant") or a process-level
+ * check such as an error line in game.log (source "game.log"). `count` is how often it repeated (de-duplicated). */
+export type Problem = {
+	kind: string; message: string; severity?: string; time?: number; tick?: number; count?: number; source?: string;
+	snapshot?: Record<string, unknown>; location?: string; [key: string]: unknown;
+};
 
 export type ReportContext = {
 	title: string;
@@ -19,7 +23,58 @@ export type ReportContext = {
 	exitCode: number;
 	/** Adapter data for adapter sections (Maple: hello, end record, fingerprint). */
 	data: Record<string, unknown>;
+	/** The command that re-runs this run live (shown with every problem). */
+	rerun?: string;
 };
+
+/** Renders a finding's state snapshot as Markdown sub-bullets; a game adapter may replace it (setSnapshotFormatter). */
+export type SnapshotFormatter = (snapshot: Record<string, unknown>) => string[];
+
+const plain = (v: unknown): string => (v !== null && typeof v === "object"
+	? Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k} ${plain(x)}`).join(", ") : String(v));
+
+/** The game-agnostic snapshot rendering: one `key value` list, arrays of objects on their own lines. */
+export const genericSnapshot: SnapshotFormatter = (s) => {
+	const flat = Object.entries(s).filter(([, v]) => !Array.isArray(v)).map(([k, v]) => `${k} ${plain(v)}`);
+	const lists = Object.entries(s).filter(([, v]) => Array.isArray(v))
+		.map(([k, v]) => `${k}: ${(v as unknown[]).length ? (v as unknown[]).map((x) => `(${plain(x)})`).join("; ") : "none"}`);
+	return [...(flat.length ? [flat.join(", ")] : []), ...lists];
+};
+
+let snapshotFormatter: SnapshotFormatter = genericSnapshot;
+
+/** Sets how finding snapshots are shown in the Problems section. */
+export function setSnapshotFormatter(f: SnapshotFormatter): void {
+	snapshotFormatter = f;
+}
+
+const SEVERITY_RANK: Record<string, number> = { error: 0, warning: 1 };
+
+/** Problems in report order: errors before warnings, then by run time (untimed last); stable otherwise. */
+export function orderProblems(problems: readonly Problem[]): Problem[] {
+	const rank = (p: Problem) => SEVERITY_RANK[p.severity ?? "error"] ?? 2;
+	return [...problems].sort((a, b) => rank(a) - rank(b) || (a.time ?? Infinity) - (b.time ?? Infinity));
+}
+
+/** "m:ss" (or "m:ss.s" when the time has a fraction) for run seconds. */
+export function runClock(t: number): string {
+	const s = t % 60;
+	const whole = Math.abs(s - Math.round(s)) < 0.05;
+	return `${Math.floor(t / 60)}:${whole ? String(Math.round(s)).padStart(2, "0") : s.toFixed(1).padStart(4, "0")}`;
+}
+
+/** Markdown for one problem (a numbered entry with sub-bullets). */
+function problemLines(p: Problem, i: number, rerun: string | undefined): string[] {
+	const when = [p.time !== undefined ? `at ${runClock(p.time)}` : "", p.tick !== undefined ? `tick ${p.tick}` : ""]
+		.filter(Boolean).join(", ");
+	const seen = (p.count ?? 1) > 1 ? `, seen ${p.count} times` : "";
+	const lines = [`${i + 1}. **${p.kind}** (${p.severity ?? "error"})${when ? ` ${when}` : ""}${seen}: ${p.message}`];
+	if (p.location) lines.push(`   - where: ${p.location}`);
+	if (p.snapshot) lines.push(...snapshotFormatter(p.snapshot).map((l) => `   - ${l}`));
+	if (p.source && p.source !== "invariant") lines.push(`   - from: ${p.source}`);
+	if (rerun) lines.push(`   - re-run: \`${rerun}\``);
+	return lines;
+}
 
 export type ReportSection = {
 	id: string;
@@ -86,11 +141,13 @@ registerSection({
 	markdown: (ctx) => {
 		const lines = ["## Problems", ""];
 		if (ctx.infraErrors.length) lines.push("Infrastructure errors (exit code 2):", "", ...ctx.infraErrors.map((e) => `- ${e}`), "");
-		if (ctx.problems.length) lines.push(...ctx.problems.map((p) => `- **${p.kind}**${p.time !== undefined ? ` at ${p.time} s` : ""}: ${p.message}`));
-		else if (!ctx.infraErrors.length) lines.push("No deterministic problems detected (no invariant checks run yet).");
+		if (ctx.problems.length) {
+			lines.push(`### Deterministic failures (${ctx.problems.length})`, "");
+			orderProblems(ctx.problems).forEach((p, i) => lines.push(...problemLines(p, i, ctx.rerun)));
+		} else lines.push("No deterministic problems found (invariants, game.log errors).");
 		return lines;
 	},
-	json: (ctx) => ({ infrastructure: ctx.infraErrors, deterministic: ctx.problems }),
+	json: (ctx) => ({ infrastructure: ctx.infraErrors, deterministic: orderProblems(ctx.problems), rerun: ctx.rerun ?? null }),
 });
 
 registerSection({
