@@ -1,0 +1,8 @@
+{
+	"description": "The default: one short Henesys round (3 minutes, seed 2026) by the sensible personality.",
+	"stage": "henesys_hg1",
+	"seeds": [2026],
+	"personalities": ["sensible"],
+	"minutes": 3,
+	"brain": "auto"
+}

@@ -1,0 +1,28 @@
+{
+	"title": "Agent playtest: henesys_hg1 seed 2",
+	"exit_code": 1,
+	"header": {
+		"scenario": "matrix",
+		"stage": "henesys_hg1",
+		"seed": "2",
+		"time cap": "10 min",
+		"personality": "sensible",
+		"brain used": "fallback:sensible",
+		"exit code": "1"
+	},
+	"outcome": { "state": "TIMEOUT", "time": 600, "level": 20, "job": 200, "kills": 650, "cards_taken": 19, "brain_lost": false },
+	"problems": {
+		"infrastructure": [],
+		"deterministic": [
+			{ "kind": "stuck", "severity": "warning", "time": 300, "tick": 18000, "count": 1, "source": "invariant",
+				"message": "the player stayed inside 24 px for 20 s while pressing movement (98% of ticks), tactic collect",
+				"snapshot": { "x": 125.0, "y": -390.9, "fh": 59, "platform": 7, "level": 9, "tactic": "collect", "mobs": [] } },
+			{ "kind": "stuck", "severity": "warning", "time": 410, "tick": 24600, "count": 1, "source": "invariant",
+				"message": "the player stayed inside 24 px for 20 s while pressing movement (80% of ticks), tactic explore",
+				"snapshot": { "x": 900.0, "y": 215, "fh": 12, "platform": 3, "level": 12, "tactic": "explore", "mobs": [] } }
+		],
+		"rerun": "bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=2 --minutes=10 --personality=sensible --brain=fallback",
+		"replay": "bash scripts/agent_playtest.sh --replay=evidence/agent-playtest/matrix_x/matrix_henesys_hg1_sensible_s2"
+	},
+	"decisions": { "total": 80, "by_source": { "fallback:sensible": 19, "fallback:tactic-rules": 61 } }
+}

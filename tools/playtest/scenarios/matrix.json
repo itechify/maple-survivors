@@ -1,0 +1,8 @@
+{
+	"description": "Every shipped personality x training seeds 1, 2 and 2026 on Henesys, 10-minute cap, cells in parallel; one aggregate summary.",
+	"stage": "henesys_hg1",
+	"seeds": [1, 2, 2026],
+	"personalities": "all",
+	"minutes": 10,
+	"brain": "auto"
+}

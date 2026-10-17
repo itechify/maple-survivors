@@ -1,0 +1,21 @@
+{
+	"title": "Agent playtest: henesys_hg1 seed 2026",
+	"exit_code": 2,
+	"header": {
+		"scenario": "matrix",
+		"stage": "henesys_hg1",
+		"seed": "2026",
+		"time cap": "10 min",
+		"personality": "sensible",
+		"brain used": "fallback:sensible",
+		"exit code": "2"
+	},
+	"outcome": null,
+	"problems": {
+		"infrastructure": ["no output from the driver for 60 s (liveness timeout); killed"],
+		"deterministic": [],
+		"rerun": "bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=2026 --minutes=10 --personality=sensible --brain=fallback",
+		"replay": "bash scripts/agent_playtest.sh --replay=evidence/agent-playtest/matrix_x/matrix_henesys_hg1_sensible_s2026"
+	},
+	"decisions": { "total": 3, "by_source": { "fallback:sensible": 1, "fallback:tactic-rules": 2 } }
+}

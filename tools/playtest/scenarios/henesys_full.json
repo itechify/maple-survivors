@@ -1,0 +1,8 @@
+{
+	"description": "One personality (sensible; override with --personality) through the Henesys finale, 30-minute cap, seed 2026.",
+	"stage": "henesys_hg1",
+	"seeds": [2026],
+	"personalities": ["sensible"],
+	"minutes": 30,
+	"brain": "auto"
+}
