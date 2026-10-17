@@ -121,11 +121,15 @@ function writeSummary(name: string, root: string, dirs: string[], values: Record
 			`exit code: ${summary.json.exit_code}` };
 }
 
+/** A replay's or windowed replay's output directory name (<recording>_replay_<time> / _windowed_<time>[_N]). */
+const REPLAY_DIR = /_(replay|windowed)_\d{8}-\d{6}(_\d+)?$/;
+
 /** --summarize=<matrix dir> (#99): the summary again from the cell directories already there (every subdirectory with
- * a report.json), with today's summary code; nothing is played. The scenario name comes from the old summary.json. */
+ * a report.json, except the replays of a cell written beside it), with today's summary code; nothing is played. The
+ * scenario name comes from the old summary.json. */
 function summarizeMatrix(root: string, values: Record<string, FlagValue>): CliResult {
 	if (!fs.existsSync(root)) return fail(`--summarize: ${root} does not exist`);
-	const dirs = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()
+	const dirs = fs.readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory() && !REPLAY_DIR.test(e.name)
 		&& fs.existsSync(path.join(root, e.name, "report.json"))).map((e) => path.join(root, e.name)).sort();
 	if (!dirs.length) return fail(`--summarize: no cell directory with a report.json under ${root}`);
 	let name = path.basename(root);

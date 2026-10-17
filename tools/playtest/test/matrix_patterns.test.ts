@@ -132,3 +132,19 @@ test("--summarize rewrites an existing matrix's summary from its cell directorie
 	assert.match(md, /death cluster/);
 	assert.ok(JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8")).patterns.length === 1);
 });
+
+test("--summarize leaves out the replay and windowed replay directories a cell's replay writes beside it", async () => {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), "clusters-"));
+	eighteen(root);
+	// The summary's own Next command replays a cell; its output lands in <cell>_replay_<time> / <cell>_windowed_<time>.
+	for (const suffix of ["_replay_20261016-202625", "_windowed_20261016-203000", "_windowed_20261016-203000_2"]) {
+		fs.cpSync(path.join(root, "matrix_henesys_hg1_aggressive_s1"), path.join(root, `matrix_henesys_hg1_aggressive_s1${suffix}`),
+			{ recursive: true });
+	}
+	const { values, explicit } = cliFlags().parse([`--summarize=${root}`]);
+	const r = await runCli({ values, explicit, optionsFrom: runOptionsFrom, cwd: root });
+	assert.equal(r.exitCode, 0);
+	const json = JSON.parse(fs.readFileSync(path.join(root, "summary.json"), "utf8"));
+	assert.equal(json.cells.length, 18, "replays are not cells");
+	assert.ok(!json.cells.some((c: { cell: string }) => /_(replay|windowed)_/.test(c.cell)));
+});

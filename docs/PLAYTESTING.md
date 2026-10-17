@@ -183,7 +183,8 @@ timeline). Any mismatch is one `replay_divergence` problem naming the earliest d
 recording made before a code change is also a regression check: it diverges when the change alters the round.
 
 - Replay one cell directory at a time; a matrix root directory is not replayable as a whole.
-- Replays write a new run directory; the recording stays byte-for-byte replayable.
+- A replay writes a new `<run dir>_replay_<time>/` beside the recording (`--out` overrides), so the recording stays
+  byte-for-byte replayable. Inside a matrix directory, `--summarize` skips these and `_windowed_` directories.
 
 `--replay=<run dir> --windowed` plays the same decisions in the real game window (RunScene with the playtest policy
 and a forced 800x600 view), then checks the fingerprint the same way:
