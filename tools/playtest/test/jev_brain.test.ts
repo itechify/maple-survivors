@@ -51,7 +51,7 @@ const CARD: DecideMessage = {
 	situation: { state: "CHOOSING_UPGRADE", time: 96.983, level: 4, job_id: 0, job: "Beginner", hp: 20, max_hp: 92,
 		mp: 35, max_mp: 35, kills: 20, alive: 4, skills: ["three_snails:2"], advancement: false, bonus: false,
 		owned_skills: [{ key: "three_snails", name: "Three Snails", rank: 2, max_rank: 20 }],
-		bosses_alive: 0, bosses_defeated: 0, bosses_scheduled: 3 },
+		bosses_alive: 0, bosses_defeated: 0, bosses_scheduled: 3, buckets: { hp: "critical", mp: "full", mobs_near: "few" } },
 	options: [
 		{ id: "three_snails_pierce", name: "Piercing Shells", desc: "Shells pass through +2 more monster.", kind: "skill_mod",
 			rank: 2, rank_before: 0, max_rank: 3, skill: "three_snails", skill_name: "Three Snails", tier: "rare" },
@@ -67,7 +67,7 @@ const CARD: DecideMessage = {
 const JOB: DecideMessage = {
 	v: 1, type: "decide", id: 9, kind: "job", tick: 30000, time: 500,
 	situation: { state: "CHOOSING_JOB", time: 500, level: 30, job_id: 200, job: "Magician", hp: 300, max_hp: 300, mp: 50,
-		max_mp: 500, owned_skills: [], bosses_alive: 1, bosses_defeated: 1, bosses_scheduled: 3 },
+		max_mp: 500, owned_skills: [], bosses_alive: 1, bosses_defeated: 1, bosses_scheduled: 3, buckets: { hp: "full", mp: "critical" } },
 	options: [
 		{ id: "210", name: "Wizard (Fire, Poison)", desc: "2nd-job Magician branch; skills: Fire Arrow, Poison Breath" },
 		{ id: "220", name: "Wizard (Ice, Lightning)", desc: "2nd-job Magician branch; skills: Cold Beam, Thunder Bolt" },
@@ -104,7 +104,7 @@ test("a card decision asks one request: a Choice over the card ids in a seeded o
 	assert.equal(body.state.character.level, 4);
 	assert.equal(body.state.character.job, "Beginner");
 	assert.deepEqual(body.state.character.skills, [{ name: "Three Snails", rank: "2 of 20" }]);
-	assert.equal(body.state.situation.hp, "low");
+	assert.equal(body.state.situation.hp, "critical", "the decide's game-side bucket");
 	assert.equal(body.state.situation.mp, "full");
 	assert.equal(body.state.situation["boss present"], "no");
 	assert.equal(body.state.situation["run phase"], "opening minutes");
@@ -215,13 +215,13 @@ test("a decision kind without a Jev question uses the fallback without a request
 	assert.match(String(a.reason), /shop/);
 });
 
-test("situation buckets: HP/MP named levels, run phase from time and boss progress, boss present", () => {
+test("situation buckets: HP/MP are the game-side buckets the decide carries, run phase from time and boss progress", () => {
 	const b = (s: Record<string, unknown>) => situationBuckets({ hp: 10, max_hp: 100, mp: 50, max_mp: 100, time: 400,
-		bosses_alive: 0, bosses_defeated: 0, bosses_scheduled: 3, ...s });
-	assert.deepEqual(b({}), { hp: "critical", mp: "medium", "run phase": "early, before the first boss", "boss present": "no" });
-	assert.equal(b({ hp: 100 }).hp, "full");
-	assert.equal(b({ hp: 70 }).hp, "high");
-	assert.equal(b({ hp: 20 }).hp, "low");
+		bosses_alive: 0, bosses_defeated: 0, bosses_scheduled: 3, buckets: { hp: "ok", mp: "critical" }, ...s });
+	assert.deepEqual(b({}), { hp: "ok", mp: "critical", "run phase": "early, before the first boss", "boss present": "no" },
+		"the buckets win over the raw pools (10/100 would never read ok)");
+	assert.deepEqual([b({ buckets: undefined }).hp, b({ buckets: undefined }).mp], ["unknown", "unknown"],
+		"no buckets: no HP/MP words are invented on the Node side");
 	assert.equal(b({ time: 30 })["run phase"], "opening minutes");
 	assert.deepEqual([b({ bosses_alive: 1 })["run phase"], b({ bosses_alive: 1 })["boss present"]], ["boss fight", "yes"]);
 	assert.equal(b({ bosses_defeated: 1 })["run phase"], "middle, between bosses");

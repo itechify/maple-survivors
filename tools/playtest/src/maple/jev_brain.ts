@@ -1,7 +1,7 @@
 // The Jev brain for Maple Survivors card and job decisions (adapter, spec #91 / #94). One System One request per
 // decision, following the TypeSafe docs (State, Choice/Score, Confidence, Speculative fan-out, Jev 1.13 jaggedness):
 //   - the state is small and named: the player personality first, then the character (level, job, owned skills with
-//     "r of max" ranks), a bucketed situation (HP/MP as named levels, run phase, boss present; arithmetic stays here
+//     "r of max" ranks), a bucketed situation (the game-side HP/MP buckets, run phase, boss present; arithmetic stays
 //     in code), then the offer;
 //   - card: a Choice "which offered card would this player take now" over the card ids plus a Score of how meaningful
 //     the offer is (kept in decisions.jsonl for the evaluations); job: a Choice over the branches and "not now";
@@ -53,17 +53,6 @@ export type JevBrainOptions = {
 type Situation = Record<string, unknown>;
 const num = (s: Situation, k: string) => (typeof s[k] === "number" ? (s[k] as number) : 0);
 
-/** A pool as a named level (tier C thresholds: ours). */
-export function poolLevel(value: number, max: number): string {
-	if (max <= 0) return "none";
-	const f = value / max;
-	if (f >= 0.999) return "full";
-	if (f >= 0.6) return "high"; // tier C
-	if (f >= 0.35) return "medium"; // tier C
-	if (f >= 0.15) return "low"; // tier C
-	return "critical";
-}
-
 /** The run phase from run time and boss progress (tier C: ours). */
 export function runPhase(s: Situation): string {
 	const alive = num(s, "bosses_alive");
@@ -78,9 +67,11 @@ export function runPhase(s: Situation): string {
 	return "middle, between bosses";
 }
 
-/** The bucketed situation Jev sees (named levels, no raw numbers to compare). */
+/** The bucketed situation Jev sees (named levels, no raw numbers to compare): HP and MP are the decide's game-side
+ * buckets (playtest_situation.gd, the same ones the tactic question and the fallback rules read). */
 export function situationBuckets(s: Situation): Record<string, string> {
-	return { hp: poolLevel(num(s, "hp"), num(s, "max_hp")), mp: poolLevel(num(s, "mp"), num(s, "max_mp")),
+	const b = bucketsOf(s);
+	return { hp: String(b?.hp ?? "unknown"), mp: String(b?.mp ?? "unknown"),
 		"run phase": runPhase(s), "boss present": num(s, "bosses_alive") > 0 ? "yes" : "no" };
 }
 
@@ -164,7 +155,7 @@ export function jobRequest(d: DecideMessage, seed: number, personality: string) 
 
 /** tier C: a danger Noul above this forces defensive for personalities with `emergency` (ticket #97). */
 export const DANGER_FORCES_DEFENSIVE = 0.7;
-/** Recent tactic switches shown to Jev (newest last). */
+/** tier C: recent tactic switches shown to Jev (newest last). */
 const RECENT_SWITCHES = 3;
 
 /** Why a tactic decision was asked, as words (playtest_policy.gd TRIGGER_PRIORITY keys). */
