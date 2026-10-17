@@ -9,6 +9,15 @@ extends RefCounted
 ## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
 ## potions: {hp: {item_id, count}, mp: {item_id, count}} (item_id IS the potion tier);
 ## look: {skin, face, hair, equips}, possibly empty; beginner_weapon: item id (0 = job default).
+## Optional spec #34 keys, added without a FORMAT bump (a file without them has no cash equipment and no pet; the
+## snapshot writes them only when set):
+##   cash: {slot: item id}, the character's worn cash equipment; slots are CashCatalog.SLOTS (hat, face, eye, earrings,
+##     top, bottom, shoes, gloves, cape, weapon, shield). An overall's id is stored under both top and bottom, a
+##     two-handed weapon cover's under both weapon and shield.
+##   pet: species id of the owned pet that is out (0 or absent = none).
+## Both are only what the character wears and takes out; whether the account owns them is decided each round
+## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
+## base_fortune and fortune above exclude it.
 ## No HP/MP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
 ## computed maxima and creates new systems. Extra metadata such as fixture _doc is ignored.
 
@@ -65,7 +74,25 @@ static func validation_error(value: Variant) -> String:
 			return "invalid potion " + kind
 		if int(potion.item_id) <= 0 or int(potion.count) < 0:
 			return "invalid potion " + kind
+	return cash_error(value)
+
+
+## Validates the optional cash/pet keys of a CharacterSnapshot-shaped Dictionary (also used by the tool account file).
+static func cash_error(value: Dictionary) -> String:
+	if value.has("cash"):
+		if not value.cash is Dictionary:
+			return "invalid cash"
+		for slot: Variant in value.cash:
+			var id: Variant = value.cash[slot]
+			if not slot is String or not CashCatalog.SLOTS.has(slot) or not _whole(id) or int(id) <= 0:
+				return "invalid cash"
+	if value.has("pet") and (not _whole(value.pet) or int(value.pet) < 0):
+		return "invalid pet"
 	return ""
+
+
+static func _whole(value: Variant) -> bool:
+	return _number(value) and float(value) == floorf(float(value))
 
 
 static func _number(value: Variant) -> bool:

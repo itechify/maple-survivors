@@ -215,6 +215,18 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
+## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
+## character's worn cash equipment and pet count; `setup.alert` ({hp, mp}: fractions of max, 0 = do not alert).
+## worn_cash: {slot: id} of the cash slots actually filled by owned items; pet: the owned pet species out (0 = none);
+## cash_fortune: the Fortune those slots add, computed live and added to player_state.fortune, never stored in the
+## character; account_owned: the owned item ids; alert: {hp, mp}.
+var account_owned: Array = []
+var worn_cash := {}
+var pet := 0
+var cash_fortune := 0.0
+var alert := {"hp": 0.0, "mp": 0.0}
+var _cash_carried := {}
+var _pet_carried := 0
 ## Carried appearance and the canonical weapon chosen at character creation.
 var character_look := {}
 var beginner_weapon := 0
@@ -355,15 +367,26 @@ func character_snapshot() -> Dictionary:
 	for key: String in loadout.order:
 		skills[key] = {"rank": loadout.rank(key),
 			"mods": CharacterSnapshot.encode_mods(loadout.skill_mods.get(key, {}))}
-	return {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
+	var snapshot := {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
 		"job_id": progression.job_id, "attributes": _attributes.duplicate(),
 		"base_attributes": _base_stats.duplicate(), "earned_ap": _earned_ap,
 		"base_hp": _base_hp, "base_mp": _base_mp, "job_mp": _job_mp,
 		"skills": skills, "skill_order": loadout.order.duplicate(),
 		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
 		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
-		"fortune": float(player_state.fortune), "base_fortune": _base_fortune,
+		"fortune": _own_fortune(), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "beginner_weapon": beginner_weapon}
+	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
+	if not _cash_carried.is_empty():
+		snapshot["cash"] = _cash_carried.duplicate()
+	if _pet_carried > 0:
+		snapshot["pet"] = _pet_carried
+	return snapshot
+
+
+## The character's own Fortune (base plus card modifiers), without the live cash-slot part.
+func _own_fortune() -> float:
+	return maxf(0.0, loadout.player_stat("fortune", _base_fortune))
 
 
 ## Levels the character gained in this round (queued level-ups included).
@@ -1136,6 +1159,7 @@ func _init_player() -> void:
 	player.place(PortalSet.start_point(setup.get("map_img", {}), fhm, bounds, spawn_rng), fhm)
 	if setup.has("character"):
 		_restore_character(setup.character)
+	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
 	_mp = _max_mp
@@ -1166,6 +1190,23 @@ func _restore_character(character: Dictionary) -> void:
 	if character_look.has("equips"):
 		character_look.equips = character_look.equips.map(func(id: Variant) -> int: return int(id))
 	beginner_weapon = int(character.get("beginner_weapon", 0))
+	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
+	_pet_carried = int(character.get("pet", 0))
+
+
+## Resolves the account, the worn cash equipment and the pet of this round (spec #34); what the account does not
+## own is ignored and reported in `warnings`.
+func _init_cash() -> void:
+	var account: Dictionary = setup.get("account", {})
+	account_owned = Array(account.get("owned", []))
+	var levels: Dictionary = setup.get("alert", {})
+	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
+	var resolved := CashCatalog.from_data(data).resolve(_cash_carried, _pet_carried, account_owned)
+	worn_cash = resolved.worn
+	pet = resolved.pet
+	cash_fortune = resolved.fortune
+	for message: String in resolved.warnings:
+		warnings.append(message)
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
@@ -1484,7 +1525,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
 	# Canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
 	player_state["acc"] = buffs.effect_total("acc")
-	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", _base_fortune))
+	player_state["fortune"] = _own_fortune() + cash_fortune
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t

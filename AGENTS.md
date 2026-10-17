@@ -120,6 +120,9 @@ the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays t
 `--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-1
 `CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`); omitted means a fresh Beginner.
 The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+`--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
+the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/scripts/core/account_file.gd`); without it
+the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
 The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 

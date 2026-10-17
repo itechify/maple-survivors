@@ -6,6 +6,11 @@
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
+#   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
+#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
+#   # cash/pet = what the run's character wears/has out (replacing a --character's), alert = HP/MP ALERT fractions. Works with
+#   # --tier chains. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
+#   # output files <stage>_<policy>_acct-<name>_<seed>.json, so runs with different accounts never overwrite each other.
 #   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
 #   bash scripts/balance.sh 1 --tier=2 --stage=tree_that_grew_1  # select tier 1 (default Henesys)
 #   # --tier=N reads stages.json tiers, selecting the first stage of each later tier through N.
@@ -56,6 +61,7 @@ EXTRA_IDLE=""
 EXTRA_CAP=""
 EXTRA_CAMP=""
 EXTRA_CHARACTER=""
+EXTRA_ACCOUNT=""
 EXTRA_TIER=""
 SEEDS=()
 for a in "$@"; do
@@ -69,6 +75,7 @@ for a in "$@"; do
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
     --character=*) EXTRA_CHARACTER="$a" ;;
+    --account=*) EXTRA_ACCOUNT="$a" ;;
     --tier=*) EXTRA_TIER="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
@@ -80,6 +87,11 @@ RUN_KEY="${STAGE}_${POLICY}"
 if [[ -n "$EXTRA_TIER" ]]; then
   [[ "${EXTRA_TIER#--tier=}" =~ ^[0-9]+$ ]] || { echo "--tier must be an integer >= 2" >&2; exit 2; }
   RUN_KEY="${STAGE}_chain_tier${EXTRA_TIER#--tier=}_${POLICY}"
+fi
+if [[ -n "$EXTRA_ACCOUNT" ]]; then
+  # The account file's name is part of the output names, so runs with different accounts do not overwrite each other.
+  ACCOUNT_NAME="$(basename "${EXTRA_ACCOUNT#--account=}")"
+  RUN_KEY="${RUN_KEY}_acct-$(printf '%s' "${ACCOUNT_NAME%.json}" | tr -c 'A-Za-z0-9._-' '_')"
 fi
 
 if [[ -n "${ISOLATE:-}" ]]; then
@@ -103,6 +115,7 @@ EXTRA=()
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
 [[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
 [[ -n "$EXTRA_CHARACTER" ]] && EXTRA+=("$EXTRA_CHARACTER")
+[[ -n "$EXTRA_ACCOUNT" ]] && EXTRA+=("$EXTRA_ACCOUNT")
 [[ -n "$EXTRA_TIER" ]] && EXTRA+=("$EXTRA_TIER")
 MAXJ="${JOBS:-12}"
 PIDS=()

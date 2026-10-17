@@ -60,6 +60,28 @@ func test_one_off_character_file_option_restores_character() -> void:
 	assert_eq(int(scene.world.player_state.level), 35)
 	_assert_nothing_missing(scene, "one-off character file")
 
+func test_account_option_reaches_the_round_setup() -> void:
+	if not require_cache():
+		return
+	var path := ProjectSettings.globalize_path(test_dir("run account.json"))
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"owned": [1000001, 5000001], "cash": {"hat": 1000001}, "pet": 5000001,
+		"alert": {"hp": 0.4, "mp": 0.2}}))
+	file.close()
+	scene = _make("henesys_hg1", 1, {"account": path, "autoplay": true, "autopick": true})
+	assert_eq(scene.world.player_state.fortune, 10.0, "the worn hat adds its slot's Fortune")
+	assert_eq(scene.world.pet, 5000001)
+	assert_eq(scene.world.alert, {"hp": 0.4, "mp": 0.2})
+	assert_eq(scene.world.warnings.size(), 0)
+	assert_eq(scene.perf_summary().account, "run account.json", "summary.json names the account file")
+	_assert_nothing_missing(scene, "tool account file")
+	var plain := _make("henesys_hg1", 1, {"autoplay": true, "autopick": true})
+	assert_eq(plain.world.player_state.fortune, 0.0)
+	assert_false(plain.perf_summary().has("account"))
+	plain.free()
+
+
 var lib: AssetLibrary
 var scene: RunScene
 var finished: Array = []

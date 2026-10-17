@@ -243,6 +243,21 @@ var _perf_on := false
 var _perf_refresh := 0.0
 var _perf_lines := PackedStringArray()
 var _perf_canvas: Node2D
+## File name of the tool account file (--account) this run applied; "" without one.
+var _account_name := ""
+
+
+## options.account (spec #34): an absolute JSON path (--account, tool rounds) or an already normalised account
+## Dictionary (Flow). Returns {account: normalised Dictionary or {} when none, errors, name: the file name for a path,
+## else ""}. A missing or malformed file is an error, never an empty account.
+static func account_from_options(p_options: Dictionary) -> Dictionary:
+	var errors := PackedStringArray()
+	if not p_options.has("account"):
+		return {"account": {}, "errors": errors, "name": ""}
+	if p_options.account is Dictionary:
+		return {"account": p_options.account, "errors": errors, "name": ""}
+	var path := String(p_options.account)
+	return {"account": AccountFile.load_file(path, errors), "errors": errors, "name": path.get_file()}
 
 
 ## Sets the stage, seed (-1 = random) and options; call before adding the scene to the tree.
@@ -301,6 +316,13 @@ func _ready() -> void:
 			_fail("; ".join(character_errors))
 			return
 		setup["character"] = character
+	var tool_account := account_from_options(options)
+	if not tool_account.errors.is_empty():
+		_fail("; ".join(tool_account.errors))
+		return
+	if not tool_account.account.is_empty():
+		AccountFile.apply(setup, tool_account.account)
+		_account_name = String(tool_account.name)
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -1573,7 +1595,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 	s.sort()
 	var pr := _present_us.duplicate()
 	pr.sort()
-	return {
+	var out := {
 		"summary": summary, "frames": s.size(), "frame_ms": {"p50": _pct(s, 0.5), "p95": _pct(s, 0.95),
 			"p99": _pct(s, 0.99), "max": s[s.size() - 1] if not s.is_empty() else 0.0, "avg": _avg(s)},
 		"frame_work_us": {"p50": _pct(pr, 0.5), "p95": _pct(pr, 0.95), "avg": _avg(pr)},
@@ -1584,6 +1606,9 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}
+	if _account_name != "":
+		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
+	return out
 
 
 ## Frame-time percentiles per run minute with the mean / max alive mobs of those frames.

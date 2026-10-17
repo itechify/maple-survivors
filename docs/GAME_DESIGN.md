@@ -2396,7 +2396,10 @@ nor exempt.
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 
 Fortune is a survivor run stat in `player_state.fortune`, separate from canonical LUK. Its base is
-`balance.player.fortune` (0); this spec adds no equipment or NX sources. It changes only card rarity, leaving
+`balance.player.fortune` (0) plus card modifiers, plus (spec #34) the live Fortune of the character's filled cash slots
+(`player_state.fortune` = own Fortune + `RunWorld.cash_fortune`). Only cash items the account owns count; anything
+else worn is ignored with a world warning. The cash part is never written into the CharacterSnapshot (`base_fortune`
+and `fortune` stay the character's own), so it cannot compound across rounds; values per slot are in section 11. It changes only card rarity, leaving
 drop and critical rolls untouched. Every scalable offered card, including every advancement-draw skill, rolls a tier
 using the existing seeded card RNG stream 3 after card identities are selected. A choice retains its final `tier`
 and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
@@ -2690,6 +2693,9 @@ growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortun
 refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
 player statuses and map entities restart. Format 1 is a serialization version, not balance tuning. Fixture float
 fields round to six decimal places for readable committed JSON; generation never changes the survivor data.
+Spec #34 adds the optional snapshot keys `cash` ({cash slot: item id}) and `pet` (species id) without a format bump;
+a file without them wears nothing and has no pet, and the snapshot writes them only when set. The account (owned cash
+items) reaches a round as the setup key `account`, never inside the character.
 
 | Dark Cave addition (#72) | Values | Tier | Evidence / rationale |
 |---|---|---|---|
@@ -2816,6 +2822,10 @@ fields round to six decimal places for readable committed JSON; generation never
 | EXP curve, pacing keyframes | sections 4.1, 5 (`balance.json` `exp_curve`, `stages.json`), tuned with `scripts/balance.sh` | C | ours |
 | Skill rank tables | every rank equals its canonical level; Beginner skills 3, first-job attacks/buffs 20, MP Recovery 16, Fire Arrow 30 | A (level counts); C (tier gain per card) | v83 Skill.wz level tables; owner choices #39 / #30 |
 | Fortune and card odds | base 0; Normal/Rare/Epic/Unique/Legendary weights 75/18/5/1.7/0.3; non-Normal weights ×(1 + max(0, Fortune) ×0.02), normalized | C | spec #30 weights (owner restored them over C46 on 2026-10-15; untuned); upgrades.rarity and balance.player.fortune; cards only, not canonical LUK/drops/crits |
+| Cash slot Fortune | 11 cash slots (hat, face, eye, earrings, top, bottom, shoes, gloves, cape, weapon, shield); each filled slot adds hat 10, face 8, eye 8, earrings 6, top 10, bottom 10, shoes 9, gloves 9, cape 10, weapon 12, shield 8 (sum 100); overall = top + bottom, two-handed cover = weapon + shield; computed live, never stored in the character | C | spec #34 / #116, ADR 0003; placeholders in `cash_items.json` `slot_fortune`, set by the balance pass |
+| Cash slot from item id | id / 10000: 100 hat, 101 face, 102 eye, 103 earrings, 104 top, 105 overall, 106 bottom, 107 shoes, 108 gloves, 109 shield, 110 cape, 170 weapon cover | A | v83 item id categories (spec #34 research) |
+| Pet and pet upgrade prices | Brown Kitty 5000000, Brown Puppy 5000001, Pink Bunny 5000002: 4,900 NX; Auto HP Pouch 1812002, Auto MP Pouch 1812003, Wing Boots 1812004, Binocular 1812005: 1,800 NX | A | Etc.wz/Commodity.img OnSale listings (`cash_items.json`, with the SN) |
+| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet; behaviour comes with the pet ticket (#119) | C | spec #34, ADR 0003; our design |
 | Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
 | Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |

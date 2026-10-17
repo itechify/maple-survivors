@@ -36,6 +36,9 @@ extends SceneTree
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
+## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
+## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
 ## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
 ## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
 ## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
@@ -115,6 +118,8 @@ func _init() -> void:
 	var branch := 0
 	var character_file := ""
 	var has_character := false
+	var account_file := ""
+	var has_account := false
 	var chain := false
 	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
@@ -128,6 +133,9 @@ func _init() -> void:
 		elif a.begins_with("--character="):
 			character_file = a.substr(12)
 			has_character = true
+		elif a.begins_with("--account="):
+			account_file = a.substr(10)
+			has_account = true
 		elif a.begins_with("--tier="):
 			chain = true
 			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
@@ -194,6 +202,14 @@ func _init() -> void:
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
 			return
+	var account := {}
+	if has_account:
+		var account_errors := PackedStringArray()
+		account = AccountFile.load_file(account_file, account_errors)
+		if not account_errors.is_empty():
+			print("balance_run: " + "; ".join(account_errors))
+			quit(1)
+			return
 	var root := AssetCachePaths.resolve_cache_root()
 	var setups: Array = []
 	for stage_key: String in stages:
@@ -208,6 +224,8 @@ func _init() -> void:
 		if has_character:
 			setup.character = character
 		setups.append(setup)
+	if has_account:
+		apply_account(setups, account)
 	for s in seeds:
 		var r: Dictionary
 		if chain:
@@ -222,9 +240,21 @@ func _init() -> void:
 			for tier_index in tiers.size():
 				if stage in tiers[tier_index]:
 					r["tier"] = tier_index + 1
+		if has_account:
+			r["account"] = account_file.get_file() # spec #34: the record names the account file; absent without the flag.
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
+
+
+## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on
+## the first round's character only; later tiers carry the character from the clear, which keeps them.
+static func apply_account(setups: Array, account: Dictionary) -> void:
+	var later := account.duplicate()
+	later.erase("cash")
+	later.erase("pet")
+	for index in setups.size():
+		AccountFile.apply(setups[index], account if index == 0 else later)
 
 
 ## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
