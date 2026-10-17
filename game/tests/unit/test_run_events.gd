@@ -166,6 +166,15 @@ func test_every_event_matches_the_schema() -> void:
 		slam.step(DT, MoveInput.new())
 	for event: Dictionary in slam.drain_events():
 		_check(event, seen)
+	# #76: an ordinary Tauro attack (mob_attack); Jr. Boogie beside it deals contact damage only.
+	var ordinary := preload("res://tests/fixtures/mob_attack_fixtures.gd").world()
+	ordinary.god = true
+	RF.put_mob(ordinary, 7130100, 600)
+	RF.put_mob(ordinary, 3230300, 620)
+	for tick in 15 * 60:
+		ordinary.step(DT, MoveInput.new())
+	for event: Dictionary in ordinary.drain_events():
+		_check(event, seen)
 	var stumpy := RunWorld.new(preload("res://tests/fixtures/stumpy_fixtures.gd").setup())
 	stumpy.god = true
 	for tick in 600:

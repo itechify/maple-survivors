@@ -236,6 +236,9 @@ var _quit_after_capture := false
 var _timed_shots: Array = []
 var _hit_shot_taken := false
 var _miss_shot_taken := false
+## #76: the one-off evidence shots of ordinary mob attacks.
+var _mob_attack_shot_taken := false
+var _mob_hit_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -860,8 +863,7 @@ func _warm_stage() -> void:
 			library.find_anim(stances + "/" + String(attack))
 			for part: String in ["effect", "ball", "hit"]:
 				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
-			var a := String(attack)
-			_warm_sound(SND_MOB % [id, a.left(1).to_upper() + a.substr(1)])
+			_warm_sound(MobAttacks.attack_sound(id, String(attack)))
 		if not (float(id) in enabled or id in enabled):
 			continue
 		for skill: Variant in info.get("skill", {}).values():
@@ -876,6 +878,19 @@ func _warm_stage() -> void:
 			var spec: Variant = library.find(base)
 			if spec is Dictionary and spec.has("summonEffect"):
 				library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
+	_warm_ordinary_mobs()
+
+
+## Ordinary mobs' attack stances, info effect/hit art and sounds (#76).
+func _warm_ordinary_mobs() -> void:
+	for kind: MobKind in world.mob_kinds:
+		var img := world.mob_img(kind.id)
+		var stances := library.mob_anim_img_path(kind.id)
+		for attack: String in MobAttacks.attack_names(img):
+			library.find_anim(stances + "/" + attack)
+			for part: String in ["effect", "ball", "hit"]:
+				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [kind.id, attack, part])
+			_warm_sound(MobAttacks.attack_sound(kind.id, attack))
 
 
 ## Caches a sound's stream when the node exists (absent optional sounds are not recorded as missing).
@@ -971,6 +986,8 @@ func handle_events(events: Array) -> void:
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
+			"mob_attack":
+				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
 			"teleport":
@@ -1088,6 +1105,24 @@ func _on_boss_skill(e: Dictionary) -> void:
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+
+
+## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
+## playtest evidence of the first windup and the first hit.
+func _on_mob_attack(e: Dictionary) -> void:
+	match String(e.phase):
+		"start":
+			_sound(String(e.sound))
+			if not _mob_attack_shot_taken:
+				_mob_attack_shot_taken = true
+				# tier C: capture the first windup halfway to its impact, like the boss windup shots.
+				_event_shot("mob_attack_windup.png", maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
+		"effect", "hit":
+			if String(e.effect) != "":
+				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+			if String(e.phase) == "hit" and not _mob_hit_shot_taken:
+				_mob_hit_shot_taken = true
+				_event_shot("mob_attack_hit.png", 0.1) # tier C: the hit art's first frames over the character.
 
 
 ## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
@@ -1402,9 +1437,9 @@ func _present(delta: float) -> void:
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
-	var boss_actions := world.bosses.action_snapshot(world.swarm)
+	var mob_actions := world.mob_action_view()
 	for i in mob_renderers.size():
-		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
+		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
