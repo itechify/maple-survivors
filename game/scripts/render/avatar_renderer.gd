@@ -14,9 +14,9 @@ extends Node2D
 ## and hats, eye accessories and earrings, which keep one `default` frame). Frames with `face = 0` (ladder, rope) hide
 ## the face and the face accessory. The face plays `default` with an occasional `blink` (tier C: every 2-5 s); a face
 ## accessory follows the same expression and frame. Without a cap the hair's *BelowCap layers are not drawn (they
-## replace hair under a cap); a cap whose `info/vslot` covers the top of the head (H5: CpH5 half-cover, CpH1H5
-## full-cover; tier B, RE of the v83 client's cap types) hides hairOverHead, a headband (CpH1) hides nothing
-## (hair_layers_skipped; the drawn cap decides, so a cash hat's vslot when one is worn).
+## replace hair under a cap); a cap whose `info/vslot` holds H1 (CpH1H5 half-cover, full covers) hides
+## hairOverHead, a CpH5 headband keeps it drawn over the band (hair_layers_skipped, #126; the drawn cap decides, so a cash
+## hat's vslot when one is worn).
 ## Cash equipment (`look.cash`, {slot: id} already filtered by account ownership, spec #34) draws instead of the regular
 ## equip of its slot (AvatarLayers.suppressed_by_cash); an overall is stored under top and bottom and drawn once. A
 ## weapon cover draws the art of the real weapon's type (AvatarLayers.weapon_type) for the current stance, and the real
@@ -325,12 +325,13 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 
 
 ## Substrings of the hair layer names that are not drawn: "BelowCap" without a cap (those layers replace hair under
-## one); "OverHead" under a cap whose vslot covers the top of the head (H5); nothing under a headband (tier B: the v83
-## client's cap types, re-implemented from prose).
+## one); "OverHead" under a cap whose vslot holds H1, the smap code of hairOverHead (CpH1H5 half-cover, full covers). A
+## CpH5 headband keeps the bangs over the band (tier A: Base.wz/smap.img + Cap `info/vslot`; the v83 clients agree, tier B:
+## they draw the overhead hair layers for CpH5 and not for CpH1H5; #126). Base.wz smap hiding gives the same result.
 static func hair_layers_skipped(has_cap: bool, vslot: String) -> PackedStringArray:
 	if not has_cap:
 		return PackedStringArray(["BelowCap"])
-	if vslot.contains("H5"):
+	if AvatarLayers.codes(vslot).has("H1"):
 		return PackedStringArray(["OverHead"])
 	return PackedStringArray()
 

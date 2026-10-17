@@ -75,10 +75,14 @@ func test_part_paths() -> void:
 func test_a_cap_hides_the_hair_layers_its_vslot_covers() -> void:
 	assert_eq(AvatarRenderer.hair_layers_skipped(false, ""), PackedStringArray(["BelowCap"]),
 		"no cap: the *BelowCap layers are not drawn")
-	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH1"), PackedStringArray(), "a headband hides nothing")
-	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH5"), PackedStringArray(["OverHead"]),
-		"a half-cover cap hides hairOverHead")
+	# v83 data (#126): hairOverHead is smap code H1, so only a cap whose vslot holds H1 hides it. The CpH5 caps (headbands,
+	# 68 real ones) leave the bangs drawn over the band; the third-party v83 clients agree (CpH5 = headband draws the
+	# hair's overhead layers, CpH1H5 = half-cover does not).
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH5"), PackedStringArray(), "a CpH5 headband keeps hairOverHead")
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "Cp"), PackedStringArray(), "so does a cap without hair codes")
 	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH1H5"), PackedStringArray(["OverHead"]),
+		"a half-cover cap (H1) hides hairOverHead")
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpHdH1H2H3H4H5H6HsHfHbAfAyAsAe"), PackedStringArray(["OverHead"]),
 		"so does a full-cover cap")
 
 
