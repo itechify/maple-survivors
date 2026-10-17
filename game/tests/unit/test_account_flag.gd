@@ -160,3 +160,23 @@ func _cli(args: Array) -> Dictionary:
 		if line.begins_with("BALANCE "):
 			record = JSON.parse_string(line.substr(8))
 	return {"status": status, "record": record}
+
+
+func test_committed_fixture_accounts_load_and_wear_what_they_say() -> void:
+	# #126: the two full accounts used by the regression smoke and the dressed playtest.
+	var pet_errors := PackedStringArray()
+	var full_pet := AccountFile.load_file(ProjectSettings.globalize_path("res://tests/fixtures/accounts/full_pet.json"), pet_errors)
+	assert_eq(pet_errors, PackedStringArray())
+	assert_eq(full_pet.pet, 5000000)
+	assert_eq(full_pet.owned.size(), 6, "the pet and its five upgrades")
+	var errors := PackedStringArray()
+	var dressed := AccountFile.load_file(ProjectSettings.globalize_path("res://tests/fixtures/accounts/full_cash_pet.json"), errors)
+	assert_eq(errors, PackedStringArray())
+	assert_eq(dressed.cash.size(), 11, "a cash item in every slot")
+	var data := DataRepo.load_all()
+	var setup := RF.setup("quiet", 5, RF.quiet_data())
+	AccountFile.apply(setup, dressed)
+	var catalog := CashCatalog.from_data(data)
+	var resolved := catalog.resolve(setup.character.cash, setup.character.pet, setup.account.owned)
+	assert_eq(resolved.worn.size(), 11, "the catalog accepts every worn item: %s" % [resolved.worn])
+	assert_eq(resolved.pet, 5000000)

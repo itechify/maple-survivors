@@ -1973,6 +1973,52 @@ for a clear (the later equipment sales are not in this number). The multiplier i
 raise it. Because the coin sprite follows the final amount, a x14 Snail drop (56-84) already shows the gold coin.
 Raw records: ignored `_scratch/t107_smoke/` and `_scratch/t107_base/`.
 
+#### #34 / #126 NX and Cash Shop QA: regression smoke and a full-account record (2026-10-17)
+
+No tuning, no held-out seeds: `ISOLATE=... bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` (private real cache), 12 runs per row set, on the #34 integration branch (all of #115-#122, with
+B2's #105-#108 merged in). "Base" is the same smoke on `1d453b1`, the B2 integration tip without any #34 code, from a
+`git archive`. **Empty account:** all 12 records are identical to the base's (every key compared; only `nx_awarded`,
+`bosses_killed` and `levels_gained` exist only on the new side), and every end time equals the latest earlier smoke
+(#107 above), so B3 adds nothing to a round without a pet or worn cash equipment; the #105-#108 gameplay difference to the
+older NX / pet smokes is therefore B2's (mesos and the drop-chasing bot, #106 LUK), not B3's. No crash, script error,
+world warning or missing asset in any of the 24 runs.
+
+**Full account** (`--account=game/tests/fixtures/accounts/full_pet.json`: Brown Kitty, Auto HP/MP, Wing Boots, Binocular, VAC,
+ALERT 50 % / 30 %; record only). Seeds 1 / 2 / 2026, the same bot, `pickups` = drops the pet collected:
+
+| Stage / policy | Empty account (end time; Henesys random seed 1 clears) | Full pet account (end time, level) | Pet pickups | NX per run (empty / full pet) |
+|---|---|---|---|---|
+| Henesys bot | 14:19 / 12:57 / 14:59 | 17:55 / 20:19 / 16:15 (Lv 37 / 41 / 33) | 3235 / 4065 / 2292 | 245, 160, 245 / 260, 280, 240 |
+| Henesys random | **clear 16:35** / 7:42 / 5:45 | 17:47 / 6:37 / 10:45 (Lv 38 / 12 / 17) | 3440 / 345 / 635 | 420, 65, 50 / 265, 55, 120 |
+| Tree bot | 10:21 / 2:36 / 2:08 | 11:01 / 12:25 / 10:13 (Lv 24 / 23 / 23) | 3043 / 2883 / 2572 | 155, 15, 10 / 155, 150, 150 |
+| Tree random | 12:27 / 2:38 / 1:28 | 15:24 / 5:05 / 4:54 (Lv 30 / 10 / 4) | 4634 / 486 / 81 | 220, 15, 10 / 225, 45, 15 |
+
+Henesys still reaches Magician (257-283 s) and the first boss in every run, with and without the account; Tree stays
+record-only. With the pet 10 of 12 runs live longer than without; the exceptions are Henesys random seed 2 (6:37 against
+7:42) and seed 1, which no longer clears (it dies at 17:47 after two bosses; it did not clear on the integration tip
+`25826a6` with this account either: 0/3 clears, deaths between 10:03 and 19:35, so that change is B2's, not this ticket's
+pet placement fix). Chaotic, recorded, not tuned. The pet
+drinks little (0-10 MP, 0-1 HP drinks a run) because the bot drinks first, as in the #119 record. Raw records: ignored
+`_scratch/s126/{base,new,acct,int}/`.
+
+**Flow-driver `account` scenario** (injected input only, 29 shots in ignored `evidence/spec34/126/account_flow/`): 11,000 NX
+-> hat 4,000 + pet 4,900 bought at map select -> round 1 Equip window wears the hat and brings the pet out -> warp clear
+(+430 NX, notice "You have gained 430 NX.", 2,530 NX saved) -> pet upgrade (Auto HP, 1,800) bought in the Free Market ->
+Save & quit, Continue (still dressed, pet out) -> tier-2 map select shows 730 NX -> death (+30 NX, results row) -> slot freed,
+account holds 760 NX and all three items -> a new character's shop lists everything as owned and its round's Equip window
+wears the hat and brings the pet with Auto HP out. Round 1 is invulnerable (tier C): with the hat and pet the bot no longer
+clears Henesys on seeds 1 / 2 / 2026 / 7 either (it has 0/3 clears there anyway), so a natural clear is not available
+for the scenario; `--natural-clear=1` plays it as is.
+
+**Real-game playtest** (`scripts/playtest.sh --account=game/tests/fixtures/accounts/full_cash_pet.json --speed=1 --minutes=2
+--seed=2026`, ignored `evidence/spec34/126/playtest/`): a Beginner wearing a cash item in all 11 slots with Brown Kitty out and
+every upgrade; no missing assets, 60 FPS, and the screenshots show the worn hat, outfit and accessories and the pet trailing
+the character. Eye checks of the Cash Shop (equip and pet tabs, owned items in the Cash Inventory), the Equip window's
+Cash tab and Pet page, the "+N NX" notice, the results row and the pet beside the character are the `account_flow/` shots.
+**Two QA fixes** came out of this ticket: the CpH5 headband hair rule (section 11, "Cap hair cover") and the pet
+standing on top of the character (section 11, "Pet in the round").
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
