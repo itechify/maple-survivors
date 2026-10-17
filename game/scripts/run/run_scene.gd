@@ -323,6 +323,11 @@ func _ready() -> void:
 	if not tool_account.account.is_empty():
 		AccountFile.apply(setup, tool_account.account)
 		_account_name = String(tool_account.name)
+	# A persistent round's ALERT levels come from the player's settings (SceneFlow hands them over and the Options
+	# window follows them, see _on_settings_changed); a tool round has no such option and keeps its account's levels.
+	var live_alert: Variant = options.get("settings_alert")
+	if live_alert is Dictionary:
+		setup["alert"] = (live_alert as Dictionary).duplicate()
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -672,6 +677,9 @@ func watch_settings(s: GameSettings) -> void:
 
 
 func _on_settings_changed() -> void:
+	# A persistent round follows the ALERT levels live (tool rounds never read the settings).
+	if world != null and settings != null and options.get("settings_alert") is Dictionary:
+		world.set_alert(settings.alert_levels())
 	_teleport_label = _first_key_label("teleport")
 	if hud == null or world == null:
 		return

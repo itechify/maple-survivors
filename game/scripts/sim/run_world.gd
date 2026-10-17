@@ -1235,13 +1235,18 @@ func _restore_character(character: Dictionary) -> void:
 	_pet_carried = int(character.get("pet", 0))
 
 
+## Sets the ALERT levels from {hp, mp} (fractions of max, clamped; 0 = do not alert). The pet reads them every tick, so
+## a change takes effect at once (a live round follows the Options window, spec #34 #121).
+func set_alert(levels: Dictionary) -> void:
+	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
+
+
 ## Resolves the account, the worn cash equipment and the pet of this round (spec #34); what the account does not
 ## own is ignored and reported in `warnings`.
 func _init_cash() -> void:
 	var account: Dictionary = setup.get("account", {})
 	account_owned = Array(account.get("owned", []))
-	var levels: Dictionary = setup.get("alert", {})
-	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
+	set_alert(setup.get("alert", {}))
 	var resolved := CashCatalog.from_data(data).resolve(_cash_carried, _pet_carried, account_owned)
 	worn_cash = resolved.worn
 	pet = resolved.pet
