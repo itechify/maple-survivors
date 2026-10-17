@@ -272,6 +272,31 @@ func test_missing_assets_are_findings() -> void:
 	assert_true(String(inv.findings[0].message).contains("Mob.wz/9300003.img"))
 
 
+func test_missing_assets_given_at_setup_are_reported_once_on_the_first_tick() -> void:
+	var w := RF.quiet_world(400.0, 5)
+	var seen: Array = []
+	var inv := INVARIANTS.new(null, {"missing": PackedStringArray(["Mob.wz/9300003.img", "Map.wz/Back/x.img"])},
+		func(f: Dictionary) -> void: seen.append(f))
+	inv.observe(w, [])
+	w.time += DT
+	inv.observe(w, [])
+	assert_eq(_kinds(inv), ["missing_asset", "missing_asset"], "one finding per missing entry, not per tick")
+	assert_eq(seen.size(), 2, "streamed like every finding")
+	assert_eq(int(inv.findings[0].tick), 0, "reported at the round start")
+	assert_true(String(inv.findings[1].message).contains("Map.wz/Back/x.img"))
+
+
+func test_the_driver_starts_a_round_with_missing_entries_but_not_without_a_map() -> void:
+	var driver: GDScript = load("res://tools/playtest/playtest_driver.gd")
+	var setup := {"map_img": {"info": {}}}
+	assert_eq(driver.setup_error(setup, PackedStringArray()), "")
+	assert_eq(driver.setup_error(setup, PackedStringArray(["Mob.wz/9300003.img"])), "",
+		"missing entries are a missing_asset finding, not an infrastructure error")
+	var no_map: String = driver.setup_error({"map_img": {}}, PackedStringArray(["Map.wz/Map/Map1/104040000.img"]))
+	assert_true(no_map.contains("104040000"), "no map: the round cannot start (cache_missing, exit 2)")
+	assert_true(driver.setup_error({}, PackedStringArray()) != "")
+
+
 func test_repeats_of_one_kind_at_one_place_count_once() -> void:
 	var w := RF.quiet_world(400.0, 5)
 	var inv := _watch(w)

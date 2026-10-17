@@ -30,6 +30,9 @@ var write_hits := Callable()
 var extra_observers: Array = []
 ## Called with each round's new policy before the round starts (hook: e.g. personality params, #97); may be invalid.
 var policy_setup := Callable()
+## Each round's missing assets (PackedStringArray per tier, DataRepo.build_setup's lists): that round's invariants
+## report them on its first tick and its record lists them under `missing`. Shorter or empty: none.
+var missing_by_round: Array = []
 ## The policy of each round played, in order.
 var policies: Array = []
 ## The invariants of each round played, in order.
@@ -61,6 +64,7 @@ func play(setups: Array, run_seed: int) -> Dictionary:
 	var cards: Array = []
 	for i in rounds.size():
 		rounds[i]["policy"] = "playtest"
+		rounds[i]["missing"] = Array(_missing_of(i))
 		rounds[i]["tactics"] = policies[i].tactic_summary()
 		cards.append_array(rounds[i].get("cards_taken", []))
 	var last: Dictionary = rounds[rounds.size() - 1]
@@ -94,6 +98,7 @@ func _round_policy(tier_index: int, round_seed: int) -> POLICY:
 	if tier_index > 0:
 		round_checks.erase("inject")
 		fingerprint.next_round()
+	round_checks["missing"] = _missing_of(tier_index)
 	var inv := INVARIANTS.new(p, round_checks, sink)
 	inv.attach(p)
 	invariants.append(inv)
@@ -110,6 +115,11 @@ func _round_policy(tier_index: int, round_seed: int) -> POLICY:
 	p.observers.append_array(extra_observers)
 	policies.append(p)
 	return p
+
+
+## Round `tier_index`'s missing assets (none when missing_by_round has no entry for it).
+func _missing_of(tier_index: int) -> PackedStringArray:
+	return PackedStringArray(missing_by_round[tier_index]) if tier_index < missing_by_round.size() else PackedStringArray()
 
 
 ## The rounds' tactic telemetry combined: seconds, decisions, switches, triggers and platforms summed, shares over the
