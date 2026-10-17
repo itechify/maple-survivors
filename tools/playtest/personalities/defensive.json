@@ -15,7 +15,7 @@
 		"weights": {
 			"base": 1,
 			"kind": { "potion_tier": 50 },
-			"stat": { "hp": 60, "pdd": 50, "mp_guard": 60, "weapon_damage_reduction": 45, "max_mp_percent": 15 },
+			"stat": { "hp": 60, "pdd": 50, "mp_guard": 40, "weapon_damage_reduction": 45, "max_mp_percent": 15 },
 			"role": { "support": 20, "attack": -10 }
 		},
 		"job": ["230", "220", "210"],
