@@ -186,3 +186,112 @@ func test_options_fullscreen_click_toggles() -> void:
 	d.fullscreen_toggle = func() -> void: calls[0] += 10
 	_click(d, Vector2(d.PANEL_X + 10.0, d.row_y("frame_cap") + 14.0))
 	assert_eq(calls[0], 1, "desktop has no fullscreen choice")
+
+
+# --- title screen ----------------------------------------------------------------------------------------------------
+
+func _title(web: bool) -> Node2D:
+	WebProfile.forced = 1 if web else 0
+	var t := load("res://scenes/ui/title_screen.tscn").instantiate() as Node2D
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(t)
+	_nodes.append(t)
+	return t
+
+
+func _esc() -> InputEventKey:
+	var e := InputEventKey.new()
+	e.keycode = KEY_ESCAPE
+	e.physical_keycode = KEY_ESCAPE
+	e.pressed = true
+	return e
+
+
+func test_desktop_title_keeps_quit_and_has_no_web_entries() -> void:
+	var t := _title(false)
+	var quits := [0]
+	t.quit_fn = func() -> void: quits[0] += 1
+	assert_true(t.quit_button.visible)
+	assert_true(t.fullscreen_button == null and t.export_save_button == null and t.import_save_button == null)
+	t._unhandled_input(_esc())
+	assert_eq(quits[0], 1, "Esc quits on desktop")
+
+
+func test_web_title_hides_quit_and_ignores_esc() -> void:
+	var t := _title(true)
+	var quits := [0]
+	t.quit_fn = func() -> void: quits[0] += 1
+	assert_false(t.quit_button.visible, "no Quit on web")
+	t._unhandled_input(_esc())
+	assert_eq(quits[0], 0, "Esc does not quit on web")
+	t.quit_button.pressed.emit()
+	assert_eq(quits[0], 0, "and neither does the hidden button")
+
+
+func test_web_title_entries_request_the_shell() -> void:
+	var t := _title(true)
+	var asked: Array[String] = []
+	t.web_request = func(kind: String) -> void: asked.append(kind)
+	t.reimport.pressed.emit()
+	t.export_save_button.pressed.emit()
+	t.import_save_button.pressed.emit()
+	assert_eq(asked, ["reimport", "export_save", "import_save"] as Array[String])
+	var fs := [0]
+	t.fullscreen_toggle = func() -> void: fs[0] += 1
+	t.fullscreen_button.pressed.emit()
+	assert_eq(fs[0], 1, "Fullscreen entry")
+	for b: Control in [t.fullscreen_button, t.export_save_button, t.import_save_button]:
+		assert_true(b.visible and b.size.x > 40.0)
+		assert_true(Rect2(Vector2.ZERO, t.get_viewport_rect().size).encloses(Rect2(b.position, b.size)),
+			"%s is inside the view" % b.name)
+
+
+# --- import screen ---------------------------------------------------------------------------------------------------
+
+func _import_screen(web: bool) -> Control:
+	WebProfile.forced = 1 if web else 0
+	var s := load("res://scenes/ui/import_screen.tscn").instantiate() as Control
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(s)
+	_nodes.append(s)
+	return s
+
+
+func test_web_import_screen_hands_over_to_the_shell() -> void:
+	var s := _import_screen(true)
+	var asked: Array[String] = []
+	s.web_request = func(kind: String) -> void: asked.append(kind)
+	assert_false(s.path_edit.visible, "no folder field on web")
+	assert_false(s.browse_button.visible, "no native folder dialog on web")
+	assert_false(s.import_button.disabled, "the button is always ready")
+	assert_true(s.start_import(), "starting the import = handing over")
+	assert_eq(asked, ["reimport"] as Array[String])
+	assert_eq(s.state, "idle", "no importer process was started")
+	assert_eq(s._pid, -1)
+
+
+func test_desktop_import_screen_still_validates_the_folder() -> void:
+	var s := _import_screen(false)
+	var asked: Array[String] = []
+	s.web_request = func(kind: String) -> void: asked.append(kind)
+	assert_true(s.path_edit.visible and s.browse_button.visible)
+	s.path_edit.text = "" # the developer's own wz_root must never start a real import here
+	s._validate_now()
+	assert_true(s.import_button.disabled, "no valid folder yet")
+	assert_false(s.start_import())
+	assert_eq(asked.size(), 0, "desktop never writes a marker")
+
+
+# --- keys ------------------------------------------------------------------------------------------------------------
+
+func test_key_bindings_reserve_browser_keys_on_web_only() -> void:
+	var desktop := KeyBindings.new()
+	assert_false(desktop.is_fixed(KEY_F11))
+	assert_true(desktop.bind("jump", KEY_F12), "desktop may bind F12")
+	WebProfile.forced = 1
+	var kb := KeyBindings.new()
+	for k in [KEY_F11, KEY_F12]:
+		assert_true(kb.is_fixed(k), "%s stays with the browser" % OS.get_keycode_string(k))
+		assert_eq(kb.fixed_label(k), "Web")
+		assert_false(kb.bind("jump", k), "cannot bind a browser key")
+	assert_false(kb.is_fixed(KEY_F5), "F5 is captured by the canvas (preventDefault), so it can be bound")
+	assert_true(kb.bind("jump", KEY_F5))
+	assert_true(kb.is_fixed(KEY_ESCAPE), "Esc stays the menu key")

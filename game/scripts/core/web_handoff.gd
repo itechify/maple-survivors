@@ -47,15 +47,24 @@ static func stop_all_audio(tree: SceneTree) -> void:
 		(node as AudioStreamPlayer).stop()
 
 
-## The web quit: audio off, tree paused, then `quit_fn` (default SceneTree.quit). Desktop code calls SceneTree.quit()
-## directly; use this wherever the web build quits so the shell sees `onExit`.
-static func quit(tree: SceneTree, quit_fn: Callable = Callable()) -> void:
+## The web quit: audio off, tree paused, then `quit_fn` (default SceneTree.quit(exit_code)). Use this wherever the web
+## build quits so the shell sees `onExit`; exit_app() picks it only on web.
+static func quit(tree: SceneTree, quit_fn: Callable = Callable(), exit_code: int = 0) -> void:
 	stop_all_audio(tree)
 	tree.paused = true
 	if quit_fn.is_valid():
 		quit_fn.call()
 	else:
-		tree.quit()
+		tree.quit(exit_code)
+
+
+## Quits the application: the plain SceneTree.quit() on desktop, the web quit above on web. For the tool quits
+## (--shot, --quit-after) so QA runs in the browser end with `onExit` too.
+static func exit_app(tree: SceneTree, exit_code: int = 0) -> void:
+	if WebProfile.is_web():
+		quit(tree, Callable(), exit_code)
+	else:
+		tree.quit(exit_code)
 
 
 ## Request `kind` from the shell and quit: flush the save (the save kinds), write the marker, then the web quit.
