@@ -4,6 +4,7 @@ extends TestCase
 ## are identical.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
@@ -302,6 +303,14 @@ func test_every_event_matches_the_schema() -> void:
 		blocked.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
 	blocked.change_job(200)
 	for event: Dictionary in blocked.drain_events():
+		_check(event, seen)
+	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
+	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5, "mp": 0.0})
+	pet_world.potions.stock.hp.count = 3
+	pet_world._hp = 1.0
+	PF.put_pet(pet_world, Vector2(30.0, 0.0))
+	PF.put_player(pet_world, 1100.0, 0.0)
+	for event: Dictionary in PF.run(pet_world, 3):
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

@@ -23,6 +23,7 @@ const FILES := {
 	"shops": "survivor/shops.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
+	"cash_items": "survivor/cash_items.json",
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
@@ -127,14 +128,25 @@ static func equipment_info(ids: PackedInt32Array, img_loader: Callable,
 ## Shared player drawing for rounds, Free Market and slots. Empty look means AvatarRenderer.DEFAULT_LOOK's face/hair.
 ## `equips` is the worn equipment only (format 2), or for a format-1 / format-less dictionary what migration would
 ## wear (CharacterSnapshot.held_item_ids: its outfit plus the old weapon rule). Never mutates the snapshot.
-static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
+## `worn_cash` ({slot: id}, see worn_cash()) is the cash equipment drawn over the worn equipment; the look has a `cash`
+## key only when it is not empty.
+static func character_look(character: Dictionary, data: Dictionary, worn_cash: Dictionary = {}) -> Dictionary:
 	var look := AvatarRenderer.DEFAULT_LOOK.duplicate(true)
 	look.merge(character.get("look", {}), true)
 	if character.get("equipment") is Dictionary:
 		look.equips = Equipment.worn_ids(character.equipment.get("worn", {}))
 	else:
 		look.equips = CharacterSnapshot.held_item_ids(character, _jobs(data))
+	if not worn_cash.is_empty():
+		look["cash"] = worn_cash.duplicate()
 	return look
+
+
+## The cash equipment of `character` ({slot: id} from its snapshot `cash`) that the account owns (`owned`: item ids),
+## the one rule for what any screen draws: the same filter the round applies (CashCatalog.resolve).
+static func worn_cash(character: Dictionary, data: Dictionary, owned: Array) -> Dictionary:
+	var cash: Dictionary = CharacterSnapshot.integers(character.get("cash", {}))
+	return CashCatalog.from_data(data).resolve(cash, 0, owned).worn
 
 
 static func _jobs(data: Dictionary) -> JobTree:

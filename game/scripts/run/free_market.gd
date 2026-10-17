@@ -19,15 +19,24 @@ const MAX_TICKS := 4 # tier C: same catch-up cap as RunScene.
 ## Input action -> the window it toggles (the same keys as in a round; rebindable in Settings).
 const WINDOW_HOTKEYS := {"equip_window": "equip", "item_window": "item"}
 
+const NOTICE_TIME := 6.0 # tier C: seconds the arrival notice stays before fading.
+
 var snapshot: Dictionary = {}
+## One-time arrival notice text ("" = none) and its label while shown.
+var notice := ""
+var notice_label: MapleText
 var flow: SceneFlow
 var library: AssetLibrary
 var motion: FreeMarketMotion
 var map: MapRenderer
 var avatar: AvatarRenderer
+## The character's pet (spec #34, #120), null without an owned one; it follows with the round's PetSystem.
+var pet_renderer: PetRenderer
 var camera: CameraRig
 var pause_menu: PauseMenu
 var status: HudStatusBar
+## The status bar SHOP button (StatusBar.img/BtShop) that opens the Cash Shop (#118).
+var shop_button: WzButton
 ## Transient messages above the status bar (a refused equip).
 var messages: HudMessages
 ## The Equip / Item windows' stack (above the pause menu) and the character they work on.
@@ -50,10 +59,12 @@ var _leaving := false
 
 
 ## Supplies the saved boundary, owning flow and run options before entering the tree.
-func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary = {}) -> void:
+## An arrival notice (e.g. "You have gained 140 NX.") is shown once for NOTICE_TIME seconds.
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary = {}, p_notice: String = "") -> void:
 	snapshot = p_snapshot.duplicate(true)
 	flow = p_flow
 	options = p_options.duplicate()
+	notice = p_notice
 
 
 ## The seed of the hub's scroll rolls, a pure function of the saved boundary: the run's stored seed mixed with a hash of
@@ -88,8 +99,15 @@ func _ready() -> void:
 	_build_shop_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library
+	var owned: Array = flow.save_data().account.owned if flow != null else []
 	# Configure before entering the tree, so _ready never loads a different default outfit first.
-	avatar.set_look(character_look(character, data))
+	avatar.set_look(character_look(character, data, owned))
+	var species := owned_pet(character, data, owned)
+	if species > 0:
+		motion.set_pet(species, data.get("cash_items", {}).get("pet", {}))
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
 	map.actor_layer(_player_layer()).add_child(avatar)
 	_add_name_tag(avatar, String(snapshot.get("name", "")))
 	camera = CameraRig.new()
@@ -151,6 +169,8 @@ func step_input(dt: float, input: MoveInput) -> void:
 			return
 		if event.type == "portal_used" and camera != null:
 			camera.snap_to(motion.player.pos)
+		if event.type == "pet_teleported" and pet_renderer != null:
+			pet_renderer.snap()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -252,8 +272,14 @@ func missing_paths() -> PackedStringArray:
 
 
 ## Uses the shared character look and current job weapon without mutating the snapshot.
-static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
-	return DataRepo.character_look(character, data)
+## `owned` (account item ids) decides which worn cash equipment is drawn.
+static func character_look(character: Dictionary, data: Dictionary, owned: Array = []) -> Dictionary:
+	return DataRepo.character_look(character, data, DataRepo.worn_cash(character, data, owned))
+
+
+## The pet species the character brings that the account owns (0 = none).
+static func owned_pet(character: Dictionary, data: Dictionary, owned: Array) -> int:
+	return CashCatalog.from_data(data).resolve({}, int(character.get("pet", 0)), owned).pet
 
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:
@@ -269,6 +295,14 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	status = HudStatusBar.new()
 	status.library = library
 	layer.add_child(status)
+	shop_button = WzButton.new(HudWidget.SB + "BtShop")
+	shop_button.name = "ShopButton"
+	shop_button.fallback_size = Vector2(54, 34)
+	shop_button.label = "" if shop_button.has_art() else "SHOP"
+	shop_button.pressed.connect(_open_shop)
+	layer.add_child(shop_button)
+	get_viewport().size_changed.connect(_place_shop_button)
+	_place_shop_button()
 	var hp := maxi(1, roundi(loadout.player_stat("max_hp", float(character.get("base_hp", 1)))))
 	var mp := maxi(0, roundi(loadout.player_stat("max_mp", float(character.get("base_mp", 0))
 		+ float(character.get("job_mp", 0))) * (1.0 + loadout.passive_total(Loadout.MAX_MP_PERCENT))))
@@ -288,6 +322,15 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	plate.content_margin_bottom = NameTags.GAP_Y
 	help.add_theme_stylebox_override("normal", plate)
 	layer.add_child(help)
+	if notice != "":
+		notice_label = MapleText.new(notice, MapleText.SIZE, Color8(255, 255, 102), true)
+		notice_label.position = Vector2(12, 38) # tier C: under the hub instruction line.
+		notice_label.add_theme_stylebox_override("normal", plate)
+		layer.add_child(notice_label)
+		var fade := create_tween()
+		fade.tween_interval(NOTICE_TIME)
+		fade.tween_property(notice_label, "modulate:a", 0.0, 1.0)
+		fade.tween_callback(notice_label.queue_free)
 	messages = HudMessages.new()
 	messages.name = "Messages"
 	layer.add_child(messages)
@@ -300,6 +343,23 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	layer.add_child(pause_menu)
 
 
+## tier C: BtShop sits left of where the run HUD puts BtMenu (744, 20), in the 800 px status bar.
+const SHOP_BUTTON_POS := Vector2(688, 20)
+
+
+func _place_shop_button() -> void:
+	if shop_button != null:
+		shop_button.position = HudWidget.bar_origin(get_viewport().get_visible_rect().size) + SHOP_BUTTON_POS
+
+
+## The status bar SHOP button: opens the Cash Shop as this character; Leave comes back here.
+func _open_shop() -> void:
+	if flow == null or _leaving or (pause_menu != null and pause_menu.is_open()):
+		return
+	_leaving = true
+	flow.goto_cash_shop("free_market")
+
+
 ## The window stack (above the pause menu's layer) with the Equip and Item windows over `inventory`, a map-less
 ## RunWorld of the carried character with the info of every item it holds.
 func _build_windows(character: Dictionary, data: Dictionary) -> void:
@@ -308,10 +368,12 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 	var infos := DataRepo.equipment_info(DataRepo.starter_equipment_ids(data, creation.root if creation != null else {},
 		character), loader)
 	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), loader)
+	# The account's owned items let the Equip window's Cash tab and Pet page wear and bring them out (#122).
+	var owned: Array = flow.save_data().account.owned if flow != null else []
 	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
 	# being saved at once, changes the next seed.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
-		"character": character, "seed": scroll_seed(snapshot)})
+		"character": character, "seed": scroll_seed(snapshot), "account": {"owned": owned}})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
@@ -342,7 +404,9 @@ func _on_item_action(_action: String) -> void:
 			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
 	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
-	avatar.set_look(character_look(snapshot.character, _data))
+	var owned: Array = flow.save_data().account.owned if flow != null else []
+	avatar.set_look(character_look(snapshot.character, _data, owned))
+	_sync_pet(owned)
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
 	for id: String in ["equip", "item", "shop"]:
 		var w := ui_windows.find_window(id)
@@ -350,6 +414,25 @@ func _on_item_action(_action: String) -> void:
 			w.queue_redraw()
 	if flow != null and flow.active_slot >= 0 and flow.save_data().update_slot(flow.active_slot, snapshot) != OK:
 		messages.push_notice("inventory", "Could not save the character.")
+
+
+## Brings the pet the character now has out beside it, swaps it for another, or puts it away (the Pet page, #122).
+func _sync_pet(owned: Array) -> void:
+	var species := owned_pet(snapshot.character, _data, owned)
+	if species == (motion.pet.species if motion.pet != null else 0):
+		return
+	if species == 0:
+		motion.pet = null
+		if pet_renderer != null:
+			pet_renderer.queue_free()
+			pet_renderer = null
+		return
+	motion.set_pet(species, _data.get("cash_items", {}).get("pet", {}))
+	if pet_renderer == null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
+	_present_pet(0.0)
 
 
 ## Bot hook (spec #33, #112; autoplay and driver scenes): the character visits the scroll shops as a bot would (BotShop.visit
@@ -437,6 +520,24 @@ func _player_layer() -> int:
 	return int(motion.fhm.layer[fh]) if fh >= 0 else 0
 
 
+## Draws the pet in the layer of the foothold it stands on (the player's while it hangs or flies), behind the avatar.
+func _present_pet(delta: float) -> void:
+	if pet_renderer == null:
+		return
+	var fh := motion.pet.motion.fh
+	var layer := int(motion.fhm.layer[fh]) if fh >= 0 and motion.pet.action != "hang" else _player_layer()
+	pet_renderer.show_state(motion.pet_state(), delta)
+	var parent := map.actor_layer(layer)
+	if pet_renderer.get_parent() != parent:
+		if pet_renderer.get_parent() != null:
+			pet_renderer.get_parent().remove_child(pet_renderer)
+		parent.add_child(pet_renderer)
+	if avatar.get_parent() == parent:
+		parent.move_child(pet_renderer, avatar.get_index())
+	else:
+		parent.move_child(pet_renderer, 0)
+
+
 func _present(delta: float) -> void:
 	var parent := map.actor_layer(_player_layer())
 	if avatar.get_parent() != parent:
@@ -445,5 +546,6 @@ func _present(delta: float) -> void:
 	avatar.set_facing(motion.player.facing)
 	avatar.play(motion.player.stance())
 	avatar.advance(delta)
+	_present_pet(delta)
 	for npc: Dictionary in npcs + shop_npcs:
 		(npc.sprite as MapDrawList).advance(delta)

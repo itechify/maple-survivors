@@ -11,6 +11,15 @@ extends RefCounted
 ## look: {skin, face, hair}, possibly empty (worn equipment is what is drawn over it);
 ## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes);
 ## scrolls: {"<scroll item id>": count} (the Use tab's scroll stacks); mesos: integer, 0 for a new character.
+## Optional spec #34 keys, added without a FORMAT bump (valid in format 1 and 2; a file without them has no cash
+## equipment and no pet; the snapshot writes them only when set):
+##   cash: {slot: item id}, the character's worn cash equipment; slots are CashCatalog.SLOTS (hat, face, eye, earrings,
+##     top, bottom, shoes, gloves, cape, weapon, shield). An overall's id is stored under both top and bottom, a
+##     two-handed weapon cover's under both weapon and shield.
+##   pet: species id of the owned pet that is out (0 or absent = none).
+## Both are only what the character wears and takes out; whether the account owns them is decided each round
+## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
+## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
 ## No HP/MP, map state, buffs, statuses, choices, RNG states or timers are persisted. The next round refills
 ## computed maxima and creates new systems. Extra metadata such as fixture _doc is ignored.
 ##
@@ -111,6 +120,9 @@ static func validation_error(value: Variant) -> String:
 			return "invalid potion " + kind
 		if int(potion.item_id) <= 0 or int(potion.count) < 0:
 			return "invalid potion " + kind
+	var cash_message := cash_error(value)
+	if cash_message != "":
+		return cash_message
 	if format == 1:
 		return ""
 	var equipment_error := Equipment.validation_error(value.get("equipment"))
@@ -125,6 +137,24 @@ static func validation_error(value: Variant) -> String:
 	if float(value.mesos) != floorf(float(value.mesos)):
 		return "invalid mesos"
 	return ""
+
+
+## Validates the optional cash/pet keys of a CharacterSnapshot-shaped Dictionary (also used by the tool account file).
+static func cash_error(value: Dictionary) -> String:
+	if value.has("cash"):
+		if not value.cash is Dictionary:
+			return "invalid cash"
+		for slot: Variant in value.cash:
+			var id: Variant = value.cash[slot]
+			if not slot is String or not CashCatalog.SLOTS.has(slot) or not _whole(id) or int(id) <= 0:
+				return "invalid cash"
+	if value.has("pet") and (not _whole(value.pet) or int(value.pet) < 0):
+		return "invalid pet"
+	return ""
+
+
+static func _whole(value: Variant) -> bool:
+	return _number(value) and float(value) == floorf(float(value))
 
 
 static func _number(value: Variant) -> bool:

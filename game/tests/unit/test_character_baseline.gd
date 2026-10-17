@@ -24,7 +24,11 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	for tick in 72000:
 		BotInput.auto_choose(w)
 		w.step(DT, BotInput.decide(w, memo))
-		digest.update(JSON.stringify(w.drain_events(), "", false, true).to_utf8_buffer())
+		var events := w.drain_events()
+		for event: Dictionary in events:
+			# Spec #34 (#119) added `collector` to pickup_collected; the stream is otherwise unchanged, which is the point.
+			event.erase("collector")
+		digest.update(JSON.stringify(events, "", false, true).to_utf8_buffer())
 	assert_eq(digest.finish().hex_encode(), "ce161497e36a96ac333f9c4a91ae672374cca7468971871f4ae2da9d7e979546", "20-minute pre-change event bytes, seed 1")
 
 

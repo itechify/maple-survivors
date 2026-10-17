@@ -81,6 +81,21 @@ extends Node
 ##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
+##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
+##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
+##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
+##           back to the Free Market. Shots: shop_*.png (the first is the Cash Shop shot to compare with the v83 references).
+##   cash_equip  the Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: 12,000 NX -> new character ->
+##           map select SHOP -> buy the first hat and the first pet -> Free Market (boundary patched, Save & quit, Continue) ->
+##           E, Cash tab, a double-click wears the hat -> PET EQUIP., a double-click brings the pet out -> out00 -> the next
+##           round has both. Shots: equip_00..07 (equip_02/03 Cash tab, equip_04/05 Pet page).
+##   account the whole NX and Cash Shop loop (#126): 11,000 NX prepared -> new character -> tier-1 map select SHOP (buy a hat
+##           and a pet) -> round 1: Equip window Cash tab wears the hat, Pet page brings the pet out -> warp clear -> Free
+##           Market "+N NX" notice and saved balance -> SHOP: buy Auto HP Potion Pouch -> Save & quit, Continue -> out00 ->
+##           tier-2 map select (balance) -> round 2 -> warp death -> results (NX earned) -> the slot is freed and the account
+##           keeps NX and every item -> a NEW character: shop shows everything owned, its round's Equip window wears the hat
+##           and brings the pet (with the upgrade) out. Shots acct_*.png (+ *_zoom.png crops around character and pet).
+##           --account-nx=<n> changes the prepared balance; --seed defaults to 4.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
 ## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
 ##
@@ -90,6 +105,7 @@ extends Node
 ## tier C: diagnostic names, seeds 1 (full) and 4 (rounds), 1800s combat cap, 600-tick yields, 100s progress logs,
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
+const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const MAIN := "res://scenes/main.tscn"
 ## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
 ## the Equip window).
@@ -138,8 +154,14 @@ func _ready() -> void:
 			_scenario_skill()
 		"keys":
 			_scenario_keys()
+		"cash_shop":
+			_scenario_cash_shop()
+		"account":
+			_scenario_account()
 		"inventory":
 			_scenario_inventory()
+		"cash_equip":
+			_scenario_cash_equip()
 		"scrolls":
 			_scenario_scrolls()
 		"shops":
@@ -713,6 +735,447 @@ func _scenario_windows() -> void:
 	print("flow_driver: windows scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
+
+
+func _scenario_cash_shop() -> void:
+	# tier C: the prepared save gives the account 5,000 NX: one 3,700 NX hat is affordable, a second item is not.
+	flow.save.set_account({"nx": 5000, "owned": []})
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(1.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Shop118"):
+		return
+	await _sleep(1.5)
+	await _shot("shop_00_map_select_button")
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
+		return
+	var shop: CashShopScene = flow.current
+	await _sleep(0.5)
+	_check(shop.snapshot.name == "Shop118" and shop.nx() == 5000, "the shop opened as the current character with its NX")
+	await _shot("shop_01_equip_hat")
+	# Try on the first hat: the preview wears it, nothing is bought.
+	await _click_at(shop.stage.global_position + shop.card_rect(0).position + Vector2(30, 30))
+	await _sleep(0.4)
+	_check(shop.preview_cash.size() == 1 and shop.owned_ids().is_empty(), "clicking a card tried the hat on")
+	await _shot("shop_01b_tried_on")
+	await _hover(shop.stage.global_position + shop.card_rect(3).position + Vector2(100, 20))
+	await _shot("shop_02_preview_tooltip")
+	# Sub-tab Overall by mouse.
+	var subs: Array = shop.sub_rects()
+	await _click_at(shop.stage.global_position + subs[3].get_center())
+	_check(shop.sub == "Overall", "the Overall sub-tab opened")
+	await _shot("shop_03_overall")
+	await _click_at(shop.stage.global_position + shop.sub_rects()[0].get_center())
+	# BUY the first hat -> confirm dialog.
+	var hat: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	_check(shop.pending_id == hat and shop.nx() == 5000, "BUY opened the confirm dialog without spending")
+	await _shot("shop_04_buy_dialog")
+	await _click(shop.ok_button)
+	_check(shop.nx() < 5000 and shop.owned_ids() == [hat] and not shop.listing_ids().has(hat), "OK bought it: NX down, owned, off the list")
+	_reload_save()
+	_check(flow.save.account.owned == [hat], "the purchase was saved at once")
+	await _shot("shop_05_bought")
+	# Too expensive now.
+	await _click(shop.buy_buttons[1])
+	_check(shop.notice_text == "You don't have enough NX.", "the not-enough-NX notice")
+	await _shot("shop_06_not_enough_nx")
+	await _key(KEY_ENTER)
+	_check(shop.notice_text == "", "Enter closed the notice")
+	# Pet tab: pet equipment is locked without a pet.
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	_check(shop.tab_key == "pet", "the Pet tab opened")
+	await _shot("shop_07_pet")
+	await _click_at(shop.stage.global_position + shop.sub_rects()[1].get_center())
+	await _shot("shop_08_pet_equip_locked")
+	_check(shop.lock_text(1812002) == "Needs a pet.", "pet upgrades say they need a pet")
+	# EXIT -> map select; prepare the Free Market boundary, Save & quit, Continue.
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
+		return
+	var boundary := flow.save.slot(flow.active_slot)
+	boundary.phase = "free_market"
+	boundary.tier = 1
+	flow.save.update_slot(flow.active_slot, boundary)
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	await _sleep(1.0)
+	await _shot("shop_09_free_market_shop_button")
+	await _click((flow.current as FreeMarket).shop_button)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from the Free Market"):
+		return
+	shop = flow.current
+	await _sleep(0.5)
+	_check(shop.owned_ids().size() == 1, "the purchase is still owned when reopened")
+	await _shot("shop_10_reopened_from_free_market")
+	await _key(KEY_ESCAPE)
+	_check(await _until(func() -> bool: return flow.current_name == "free_market", 5.0, "Esc back to the Free Market"),
+		"Leave returned to the Free Market")
+	await _shot("shop_11_back_in_free_market")
+	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
+	_quit()
+
+
+## The Equip window's Cash tab and Pet page (#122), continuing the #118 purchase: a prepared save with 12,000 NX -> new
+## character -> map select SHOP -> buy the first hat (Equip tab) and the first pet (Pet tab) through the confirm dialog ->
+## EXIT -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> E, the Cash tab, a double-click
+## wears the hat (saved at once) -> the PET EQUIP. button, a double-click on the owned pet brings it out -> Esc, walk to
+## out00, Up -> tier-2 map select -> Start: the round's character wears the hat and has the pet out.
+func _scenario_cash_equip() -> void:
+	flow.save.set_account({"nx": 12000, "owned": []})
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(1.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Dress122"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
+		return
+	var shop: CashShopScene = flow.current
+	await _sleep(0.5)
+	var hat: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	_check(shop.owned_ids() == [hat], "bought the first hat")
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	var pet: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	_check(shop.owned_ids() == [hat, pet] and shop.nx() >= 0, "bought the first pet: %s NX left" % shop.nx())
+	await _shot("equip_00_bought")
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
+		return
+	var boundary := flow.save.slot(flow.active_slot)
+	boundary.phase = "free_market"
+	boundary.tier = 1
+	flow.save.update_slot(flow.active_slot, boundary)
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	await _key(KEY_E)
+	await _sleep(0.4)
+	var ew := hub.ui_windows.find_window("equip") as EquipWindow
+	_check(ew != null, "E opened the Equip window in the Free Market")
+	if ew == null:
+		return
+	await _shot("equip_01_equip_page")
+	await _click_at(ew.get_global_rect().position + ew.tab_rect("cash").get_center())
+	_check(ew.page == "cash" and ew.owned_items() == [hat], "the Cash tab lists the owned hat")
+	await _shot("equip_02_cash_tab_owned")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.4)
+	_check(ew.world.worn_cash.size() == 1 and CharacterSnapshot.integers(
+		flow.save.slot(flow.active_slot).character.get("cash", {})).values() == [hat],
+		"the double-click wore the hat and the slot was saved")
+	_check(hub.avatar.look.get("cash", {}).size() == 1, "the avatar wears it at once")
+	await _hover(ew.get_global_rect().position + ew.cash_rect(ew.world.worn_cash.keys()[0]).get_center())
+	await _shot("equip_03_cash_worn_tooltip")
+	await _click(ew._bt_pet)
+	_check(ew.page == "pet" and ew.owned_items() == [pet], "PET EQUIP. opens the Pet page listing the owned pet")
+	await _shot("equip_04_pet_page")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.6)
+	_check(ew.world.pet == pet and hub.pet_renderer != null, "the double-click brought the pet out beside the character")
+	_check(int(flow.save.slot(flow.active_slot).character.get("pet", 0)) == pet, "and the slot was saved")
+	var catalog := CashCatalog.from_data(hub.inventory.data)
+	var no_icon: Array[int] = []
+	for c: Dictionary in ew.pet_cells():
+		if String(c.payload.kind) == "pet_upgrade" and UiArt.frame(CashShop.icon_path(catalog, int(c.payload.id))) == null:
+			no_icon.append(int(c.payload.id))
+	_check(no_icon.is_empty(), "every pet upgrade cell has its icon: missing %s" % [no_icon])
+	await _shot("equip_05_pet_out")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.3)
+	_check(not hub.windows_open(), "Esc closed the window")
+	_collect_missing(hub)
+	var exit_pos := Vector2.ZERO
+	for portal: Dictionary in hub.motion.portals.links:
+		if portal.name == "out00":
+			exit_pos = portal.pos
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 30000:
+			_fail("walking to out00 timed out")
+			return
+		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
+		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
+		await get_tree().process_frame
+	_release_all()
+	await _shot("equip_06_dressed_at_out00")
+	await _key(KEY_UP)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select via out00"):
+		return
+	await _sleep(2.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "the next round"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(1.0)
+	await _hold(KEY_RIGHT, 1.0)
+	_check(run.world.worn_cash.size() == 1 and run.world.pet == pet, "the next round: the character wears the hat and has the pet out")
+	_check(run.world.cash_fortune > 0.0 and run.world.player_state.fortune > 0.0, "the hat's Fortune applies")
+	_check(run.pet_renderer != null and run.avatar.look.get("cash", {}).size() == 1, "and both are drawn")
+	await _shot("equip_07_next_round")
+	_collect_missing(run)
+	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
+	print("flow_driver: cash_equip scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## The whole NX and Cash Shop loop (spec #34, #126) with injected input only: a prepared save (11,000 NX) -> new character ->
+## tier-1 map select SHOP: buy a hat and a pet -> round 1: E, Cash tab (wear the hat), Pet page (bring the pet out) -> a
+## fixed-tick warp clears it -> Free Market: the "+N NX" notice and the saved balance, SHOP: buy Auto HP Potion Pouch ->
+## Save & quit, Continue -> out00 -> tier-2 map select (balance shown) -> round -> a warp dies -> results (NX earned),
+## the slot is freed, the account keeps NX and every item -> a NEW character: the shop lists everything as owned, the
+## round's Equip window offers the hat and the pet with its upgrade, and wears/brings them out.
+## Shots: acct_*.png; acct_*_zoom.png are 3x crops around the character and its pet. Uses --seed (default 4, a Henesys
+## clear). Pass --account-nx=<n> to change the prepared balance.
+func _scenario_account() -> void:
+	if not args.has("seed"):
+		args["seed"] = "4"
+	var start_nx := int(args.get("account-nx", "11000"))
+	flow.save.set_account({"nx": start_nx, "owned": []})
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(1.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Acct126"):
+		return
+	await _sleep(1.5)
+	await _shot("acct_00_map_select_balance")
+	_check(flow.current.character_label.text.contains("11,000 NX"), "map select shows the NX balance: %s" % flow.current.character_label.text)
+	# 1. Cash Shop from tier-1 map select: buy the first hat and the first pet.
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
+		return
+	var shop: CashShopScene = flow.current
+	await _sleep(0.5)
+	var hat: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	var pet: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	var spent := int(CashCatalog.from_data(shop._data).price_of(hat)) + int(CashCatalog.from_data(shop._data).price_of(pet))
+	_check(shop.owned_ids() == [hat, pet] and shop.nx() == start_nx - spent, "bought hat %d and pet %d: %d NX left" % [hat, pet, shop.nx()])
+	await _shot("acct_01_bought_hat_and_pet")
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
+		return
+	_reload_save()
+	_check(flow.save.account.owned == [hat, pet] and int(flow.save.account.nx) == start_nx - spent, "the purchases are in the save file")
+	# 2. Round 1: wear the hat and bring the pet out through the Equip window.
+	await _sleep(2.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "round 1"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(1.0)
+	await _key(KEY_E)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("equip") != null, 3.0, "Equip window in round 1"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	await _click_at(ew.get_global_rect().position + ew.tab_rect("cash").get_center())
+	_check(ew.page == "cash" and ew.owned_items() == [hat], "the Cash tab lists the bought hat")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.3)
+	_check(run.world.worn_cash.size() == 1, "round 1: the hat is worn")
+	await _click(ew._bt_pet)
+	_check(ew.page == "pet" and ew.owned_items() == [pet], "the Pet page lists the bought pet")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.5)
+	_check(run.world.pet == pet and run.pet_renderer != null, "round 1: the pet is out")
+	await _shot("acct_02_round1_equip_window")
+	await _key(KEY_ESCAPE)
+	await _sleep(1.5)
+	await _shot("acct_03_round1_dressed")
+	await _shot_zoom("acct_03_round1_dressed_zoom", run.avatar, run.pet_renderer)
+	var gap := (run.world.pet_state().pos as Vector2).distance_to(run.world.player.pos)
+	_check(gap < 250.0, "the pet stays beside the character (%.0f px)" % gap)
+	# 3. Clear (fixed-tick warp): the Free Market arrival shows "+N NX" and the balance is saved.
+	# tier C: the bot with a hat and a pet no longer clears Henesys on the training seeds (it has 0/3 clears anyway), so
+	# round 1 is invulnerable (round 2 exercises the real death path); --natural-clear=1 plays it as is.
+	run.world.god = String(args.get("natural-clear", "0")) != "1"
+	if not await _warp_round():
+		return
+	var nx_awarded := int(_rounds.back().get("nx_awarded", 0))
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 15.0, "Free Market after the clear"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(0.8)
+	nx_awarded = int(flow.last_summary.get("nx_awarded", nx_awarded))
+	_check(nx_awarded > 0 and hub.notice == "You have gained %d NX." % nx_awarded, "the Free Market notice: '%s'" % hub.notice)
+	var balance := start_nx - spent + nx_awarded
+	_check(int(flow.save.account.nx) == balance, "the clear's %d NX is in the account (%d)" % [nx_awarded, int(flow.save.account.nx)])
+	await _shot("acct_04_free_market_notice")
+	await _shot_zoom("acct_04_free_market_zoom", hub.avatar, hub.pet_renderer)
+	_check(hub.pet_renderer != null and hub.avatar.look.get("cash", {}).size() == 1, "the Free Market draws the hat and the pet")
+	# 4. Buy a pet upgrade in the Free Market shop.
+	await _click(hub.shop_button)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from the Free Market"):
+		return
+	shop = flow.current
+	await _sleep(0.5)
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	await _click_at(shop.stage.global_position + shop.sub_rects()[1].get_center())
+	var upgrade: int = shop.page_ids()[0]
+	await _shot("acct_05_upgrades_unlocked")
+	await _click(shop.buy_buttons[0])
+	await _click(shop.ok_button)
+	var price := int(CashCatalog.from_data(shop._data).price_of(upgrade))
+	_check(shop.owned_ids() == [hat, pet, upgrade] and shop.nx() == balance - price, "bought pet upgrade %d for %d NX" % [upgrade, price])
+	balance -= price
+	await _shot("acct_06_upgrade_bought")
+	await _key(KEY_ESCAPE)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 5.0, "back in the Free Market"):
+		return
+	# 5. Save & quit, Continue: the account and the dressed, accompanied character survive.
+	await _sleep(1.0)
+	await _key(KEY_ESCAPE)
+	await _shot("acct_06b_free_market_pause")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "Save & quit"):
+		return
+	_reload_save()
+	_check(flow.save.account.owned == [hat, pet, upgrade] and int(flow.save.account.nx) == balance, "the file holds the account after Save & quit")
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Continue"):
+		return
+	hub = flow.current as FreeMarket
+	await _sleep(1.5)
+	_check(hub.pet_renderer != null and hub.avatar.look.get("cash", {}).size() == 1, "Continue: the hat is worn and the pet is out")
+	await _shot("acct_07_continued_free_market")
+	await _shot_zoom("acct_07_continued_zoom", hub.avatar, hub.pet_renderer)
+	# 6. out00 -> tier-2 map select (balance) -> round 2 -> death.
+	var exit_pos := Vector2.ZERO
+	for portal: Dictionary in hub.motion.portals.links:
+		if portal.name == "out00":
+			exit_pos = portal.pos
+	var t0 := Time.get_ticks_msec()
+	while absf(hub.motion.player.pos.x - exit_pos.x) > 8.0:
+		if Time.get_ticks_msec() - t0 > 30000:
+			_fail("walking to out00 timed out")
+			return
+		_set_key("left", hub.motion.player.pos.x > exit_pos.x)
+		_set_key("right", hub.motion.player.pos.x < exit_pos.x)
+		await get_tree().process_frame
+	_release_all()
+	_collect_missing(hub)
+	await _key(KEY_UP)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 10.0, "tier-2 map select"):
+		return
+	await _sleep(2.0)
+	_check(flow.current.character_label.text.contains(SaveData._group(balance) + " NX"), "tier-2 map select shows %d NX: %s" % [balance, flow.current.character_label.text])
+	await _shot("acct_08_tier2_map_select")
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "round 2"):
+		return
+	run = flow.current as RunScene
+	await _sleep(1.0)
+	_check(run.world.worn_cash.size() == 1 and run.world.pet == pet and run.world.pet_has("auto_hp"),
+		"round 2: the hat, the pet and its Auto HP upgrade carry over")
+	await _shot("acct_09_round2_start")
+	await _shot_zoom("acct_09_round2_zoom", run.avatar, run.pet_renderer)
+	if not await _warp_round():
+		return
+	if not await _until(func() -> bool: return flow.current_name == "results", 15.0, "results after the death"):
+		return
+	await _sleep(1.0)
+	var death_nx := int(flow.last_summary.get("nx_awarded", 0))
+	_check(flow.last_summary.ending == "died" and death_nx >= 0, "round 2 ended in death (+%d NX)" % death_nx)
+	await _shot("acct_10_results_nx")
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select after the death"):
+		return
+	_reload_save()
+	_check(flow.save.slot(0).is_empty(), "the dead character freed its slot")
+	_check(flow.save.account.owned == [hat, pet, upgrade] and int(flow.save.account.nx) == balance + death_nx,
+		"the account kept every item and %d NX after the death (%d)" % [balance + death_nx, int(flow.save.account.nx)])
+	balance += death_nx
+	# 7. A NEW character uses the account's items.
+	if not await _create_character("Heir126"):
+		return
+	await _sleep(1.5)
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop for the new character"):
+		return
+	shop = flow.current
+	await _sleep(0.5)
+	_check(shop.snapshot.name == "Heir126" and shop.nx() == balance and shop.owned_ids() == [hat, pet, upgrade]
+		and not shop.listing_ids().has(hat), "the new character's shop: same NX, everything owned and off the list")
+	await _shot("acct_11_new_character_shop")
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "back to map select"):
+		return
+	await _sleep(2.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "the new character's round"):
+		return
+	run = flow.current as RunScene
+	await _sleep(1.0)
+	await _key(KEY_E)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("equip") != null, 3.0, "Equip window (new character)"):
+		return
+	ew = run.ui_windows.find_window("equip") as EquipWindow
+	await _click_at(ew.get_global_rect().position + ew.tab_rect("cash").get_center())
+	_check(ew.owned_items() == [hat], "the new character's Cash tab lists the account's hat")
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _click(ew._bt_pet)
+	await _double_click_at(ew.get_global_rect().position + ew.panel_cell(0).get_center())
+	await _sleep(0.5)
+	_check(run.world.worn_cash.size() == 1 and run.world.pet == pet and run.world.pet_has("auto_hp")
+		and run.world.cash_fortune > 0.0, "the new character wears the hat and brings the pet with its upgrade out")
+	await _key(KEY_ESCAPE)
+	await _sleep(1.5)
+	await _shot("acct_12_new_character_dressed")
+	await _shot_zoom("acct_12_new_character_zoom", run.avatar, run.pet_renderer)
+	_collect_missing(run)
+	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
+	print("flow_driver: account scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## Saves a 3x enlarged crop of the last drawn frame around `around` (and `also`, e.g. the pet): the evidence that the pet
+## and the worn items are visible beside the character.
+func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
+	await _sleep(0.2)
+	RenderingServer.force_draw()
+	var img := get_viewport().get_texture().get_image()
+	if img == null or around == null:
+		_fail("no frame to crop for " + step)
+		return
+	var a: Vector2 = around.get_global_transform_with_canvas().origin
+	var b: Vector2 = a if also == null else also.get_global_transform_with_canvas().origin
+	print("flow_driver: zoom centre ", a, " ", b, " img ", img.get_size())
+	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
+	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
+	var crop := img.get_region(Rect2i(Vector2i(lo), Vector2i(hi - lo)))
+	crop.resize(crop.get_width() * 3, crop.get_height() * 3, Image.INTERPOLATE_NEAREST)
+	_n += 1
+	crop.save_png(shots_dir.path_join("%02d_%s.png" % [_n, step]))
+	print("flow_driver: shot %02d_%s.png (zoom)" % [_n, step])
 
 
 func _scenario_skill() -> void:
