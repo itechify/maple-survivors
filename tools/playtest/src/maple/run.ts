@@ -12,6 +12,13 @@ import { exitCodeFor } from "../core/exit_codes.ts";
 import { resolveGodot, prepareProject, importProject, driverArgs } from "./launcher.ts";
 import { sensibleBrain } from "./fallback.ts";
 import "./report_sections.ts";
+import type { Brain } from "../core/session.ts";
+import type { Fetch, RetryPolicy } from "@typesafe-ai/sdk";
+import { resolveApiKey, KEY_ENV } from "../core/key.ts";
+import { JevClient } from "../core/jev_client.ts";
+import { createJevBrain } from "./jev_brain.ts";
+import { brainHeader } from "./jev_report.ts";
+import type { BrainFacts } from "./jev_report.ts";
 
 export const REPO = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 
@@ -20,8 +27,19 @@ export type RunOptions = {
 	seed: number;
 	minutes: number;
 	personality: string;
-	/** "fallback": the CLI answers over the pipe; "builtin": the driver answers itself. */
+	/** "auto" (Jev if a key resolves, else fallback), "jev" (exit 2 without a key), "fallback" (the CLI answers with
+	 * the deterministic fallback over the pipe) or "builtin" (the driver answers itself). */
 	brain: string;
+	/** TypeSafe model for the Jev brain (default jev-latest). */
+	model?: string;
+	/** Jev requests per run (default 400). */
+	jevMaxRequests?: number;
+	/** Test seam: reads the Windows user-scope key (default powershell.exe). */
+	readUserKey?: () => string | null;
+	/** Test seam: the TypeSafe SDK's HTTP transport. */
+	jevFetch?: Fetch;
+	/** Test seam: SDK retry overrides. */
+	jevRetry?: Partial<RetryPolicy>;
 	livenessS: number;
 	/** Run directory; default <repo>/evidence/agent-playtest/<stage>_s<seed>_<time>. */
 	out?: string;
@@ -56,7 +74,11 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	const driverBrain = o.brain === "builtin" ? "builtin" : "stdio";
 	let launch = o.launch;
 	const setupErrors: string[] = [];
-	if (!launch) {
+	const pick = chooseBrain(o, env);
+	if (pick.error) {
+		setupErrors.push(pick.error);
+		launch = undefined;
+	} else if (!launch) {
 		const godot = resolveGodot(env);
 		if ("error" in godot) setupErrors.push(godot.error);
 		else {
@@ -70,7 +92,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	let session: SessionResult | undefined;
 	if (launch) {
 		rec.log(`agent_playtest: ${launch.command} ${launch.args.join(" ")}`);
-		session = await runSession({ command: launch.command, args: launch.args, cwd: repo, env, brain: sensibleBrain,
+		session = await runSession({ command: launch.command, args: launch.args, cwd: repo, env: withoutKey(env), brain: pick.brain,
 			livenessMs: o.livenessS * 1000, onLine: (line, stream) => rec.log(stream === "stderr" ? `[stderr] ${line}` : line) });
 	}
 	const errors = [...setupErrors, ...(session ? infraErrors(session) : [])];
@@ -84,10 +106,11 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	const ctx: ReportContext = {
 		title: `Agent playtest: ${o.stage} seed ${o.seed}`,
 		header: [["stage", o.stage], ["seed", String(o.seed)], ["time cap", o.minutes > 0 ? `${o.minutes} min` : "stage cap"],
-			["personality", o.personality], ["brain", brainLine(o.brain, session)],
-			["Jev", "not used (the Jev brain arrives with #94)"], ["exit code", String(exitCode)]],
+			["personality", o.personality],
+			...brainHeader({ ...pick.facts, decisions, stats: pick.client?.stats(), brainLost: session?.end?.brain_lost === true }),
+			["exit code", String(exitCode)]],
 		infraErrors: errors, problems: [], decisions, files: rec.files(), exitCode,
-		data: { hello: session?.hello, end: session?.end },
+		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats() },
 	};
 	const report = renderReport(ctx);
 	rec.text("report.md", report.markdown);
@@ -95,11 +118,30 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	return { exitCode, dir, markdown: report.markdown };
 }
 
-/** Which brain decided and why, for the report header. */
-function brainLine(brain: string, session: SessionResult | undefined): string {
-	const lost = session?.end?.brain_lost ? "; the brain was lost mid-round, later decisions took the driver's baseline" : "";
-	if (brain === "builtin") return `builtin (the driver answered every decision with its baseline, BotInput.pick_card_for / pick_job; no pipe)${lost}`;
-	return `fallback:sensible (deterministic fallback over the decision protocol: the driver's baseline, BotInput.pick_card_for / pick_job; no Jev brain in this build)${lost}`;
+type BrainPick = { brain: Brain; client?: JevClient; facts: Omit<BrainFacts, "decisions">; error?: string };
+
+/** The CLI's brain for --brain: Jev when a key resolves (auto / jev), else the deterministic fallback; --brain=jev
+ * without a key is a setup error (exit 2, the game is not started). The key goes only into the TypeSafe client. */
+function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv): BrainPick {
+	if (o.brain === "builtin") return { brain: sensibleBrain, facts: { requested: o.brain, mode: "builtin" } };
+	if (o.brain !== "auto" && o.brain !== "jev") return { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback" } };
+	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
+	if (key.key === null) {
+		return o.brain === "jev"
+			? { brain: sensibleBrain, facts: { requested: o.brain, mode: "none", noJevReason: key.reason },
+				error: `--brain=jev needs a TypeSafe API key: ${key.reason}` }
+			: { brain: sensibleBrain, facts: { requested: o.brain, mode: "fallback", noJevReason: key.reason } };
+	}
+	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch,
+		retry: o.jevRetry });
+	return { brain: createJevBrain({ client, seed: o.seed }), client, facts: { requested: o.brain, mode: "jev", keyFrom: key.from } };
+}
+
+/** `env` without the TypeSafe key: the game process never needs it. */
+function withoutKey(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const out = { ...env };
+	delete out[KEY_ENV];
+	return out;
 }
 
 /** The CLI's decision records completed with the driver's view (`end.decisions`): an answer the driver replaced with

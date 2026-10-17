@@ -2,8 +2,10 @@ extends "res://tools/playtest/decision_point.gd"
 ## The `card` decision: an open card window (normal level-up, advancement or boss bonus). Options are the offered
 ## cards in on-screen order; the baseline is the sensible player's BotInput.pick_card_for. Tool code only.
 
-## Card fields copied into each option (see UpgradePool's pending card entries).
-const FIELDS := ["name", "desc", "kind", "tier", "rank", "rank_before", "max_rank", "skill", "skill_name"]
+## Card fields copied into each option (see UpgradePool's pending card entries). The skill levels are what the
+## level-up window shows for skill_new / skill_rank cards (LevelUpWindow.rank_text).
+const FIELDS := ["name", "desc", "kind", "tier", "rank", "rank_before", "max_rank", "skill", "skill_name",
+	"skill_level", "skill_level_next", "skill_level_max"]
 
 
 func _init() -> void:
@@ -23,6 +25,13 @@ func options(w: RunWorld) -> Array:
 				o[f] = c[f]
 		out.append(o)
 	return out
+
+
+## The base situation plus the Jev brain's facts (owned skills, boss counts).
+func situation(w: RunWorld) -> Dictionary:
+	var s := SITUATION.of(w, memory)
+	s.merge(SITUATION.brain_facts(w))
+	return s
 
 
 func baseline(w: RunWorld, _policy: RUN_POLICY) -> Dictionary:

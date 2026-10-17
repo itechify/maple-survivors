@@ -2,7 +2,7 @@ extends "res://tools/playtest/decision_point.gd"
 ## The `tactic` decision (spec #91, ticket #95): which play style the tactic controller carries out next. Never pending
 ## in the window poll; the playtest policy asks it from `move` at checkpoints and triggers (playtest_policy.gd).
 ## Options are the allowed tactics (tactic_controller.gd TACTICS order) with a one-line description; the baseline is
-## the sensible player, who always kites. The situation gains a `tactic` entry (see `extra_situation`). Tool code only.
+## the sensible player, who always kites. The situation gains a `tactic` entry (see `situation`). Tool code only.
 
 const CONTROLLER := preload("res://tools/playtest/tactic_controller.gd")
 ## What each tactic does, as the option text.
@@ -37,9 +37,11 @@ func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": "kite" if "kite" in allowed else String(allowed[0])}
 
 
-## {"tactic": {current, trigger, held_s, switches}} merged into the decide's situation.
-func extra_situation(_w: RunWorld) -> Dictionary:
-	return {"tactic": {"current": current, "trigger": trigger, "held_s": snappedf(held_s, 0.01), "switches": switches}}
+## The base situation (facts and buckets) plus {"tactic": {current, trigger, held_s, switches}}.
+func situation(w: RunWorld) -> Dictionary:
+	var s := SITUATION.of(w, memory)
+	s["tactic"] = {"current": current, "trigger": trigger, "held_s": snappedf(held_s, 0.01), "switches": switches}
+	return s
 
 
 func apply(w: RunWorld, policy: RUN_POLICY, answer: String) -> void:

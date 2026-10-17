@@ -18,9 +18,33 @@ func options(w: RunWorld) -> Array:
 	var out: Array = []
 	for o: Dictionary in w.pending_jobs:
 		if bool(o.get("available", false)):
-			out.append({"id": str(int(o.job_id)), "name": w.jobs.name_of(int(o.job_id))})
+			out.append({"id": str(int(o.job_id)), "name": w.jobs.name_of(int(o.job_id)), "desc": describe(w, int(o.job_id))})
 	out.append({"id": NOT_NOW, "name": "Not now"})
 	return out
+
+
+## A one-line description of job `id` derived from data (neither jobs.json has description text): its tier and parent
+## from the canonical job tree, and the names of its skills in skills.json ("2nd job of the Magician line; skills: ...").
+static func describe(w: RunWorld, id: int) -> String:
+	var j := w.jobs.job(id)
+	var tier := int(j.get("tier", 0))
+	var ordinal: String = ["", "1st", "2nd", "3rd", "4th"][tier] if tier >= 0 and tier <= 4 else "%dth" % tier
+	var parent := int(j.get("parent", -1))
+	var line := "%s job" % ordinal
+	if tier >= 2 and parent >= 0:
+		line += " of the %s line" % w.jobs.name_of(parent)
+	var skills: Array = []
+	for k: String in w.book.defs:
+		if int(w.book.def(k).get("job", -1)) == id:
+			skills.append(String(w.book.def(k).get("name", k)))
+	return line + ("; skills: " + ", ".join(skills) if not skills.is_empty() else "")
+
+
+## The base situation plus the Jev brain's facts (owned skills, boss counts).
+func situation(w: RunWorld) -> Dictionary:
+	var s := SITUATION.of(w, memory)
+	s.merge(SITUATION.brain_facts(w))
+	return s
 
 
 func baseline(w: RunWorld, policy: RUN_POLICY) -> Dictionary:

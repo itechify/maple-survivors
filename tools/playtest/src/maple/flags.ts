@@ -8,6 +8,6 @@ export function defineMapleFlags(flags: FlagRegistry): FlagRegistry {
 		.define({ name: "seed", kind: "int", default: 2026, help: "run seed (training seeds 1..60 and 2026 only)" })
 		.define({ name: "minutes", kind: "number", default: 3, help: "simulated time cap in minutes (0 = the stage's own cap)" })
 		.define({ name: "personality", kind: "string", default: "sensible", help: "playtest personality" })
-		.define({ name: "brain", kind: "string", default: "fallback", choices: ["fallback", "builtin"],
-			help: "fallback: the CLI answers each decision with the deterministic fallback; builtin: the driver answers itself (no pipe)" });
+		.define({ name: "brain", kind: "string", default: "auto", choices: ["auto", "jev", "fallback", "builtin"],
+			help: "auto: Jev if a TypeSafe key resolves, else the fallback; jev: Jev or exit 2; fallback: the deterministic fallback; builtin: the driver answers itself (no pipe)" });
 }

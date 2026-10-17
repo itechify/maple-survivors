@@ -77,6 +77,8 @@ func _init(p_link: BRAIN_LINK = null, seed_value := 0, p_branch := 0) -> void:
 	controller = CONTROLLER.new()
 	tactic_point = TACTIC.new()
 	observers.append(_observe_tactics)
+	for p: POINT in decision_points + [tactic_point]:
+		p.memory = situation
 
 
 ## Answers every pending decision of `w` through the brain (at most 64 in one call).
@@ -99,9 +101,7 @@ func decide(point: POINT, w: RunWorld) -> String:
 	var options: Array = point.options(w)
 	var baseline: Dictionary = point.baseline(w, self)
 	var tick := roundi(w.time / DT)
-	var facts := SITUATION.of(w, situation)
-	facts.merge(point.extra_situation(w), true)
-	var msg := PROTOCOL.decide(_next_id, point.kind, tick, w.time, facts, options, baseline)
+	var msg := PROTOCOL.decide(_next_id, point.kind, tick, w.time, point.situation(w), options, baseline)
 	_next_id += 1
 	var reply: Dictionary = link.ask(msg)
 	var ids: Array = options.map(func(o: Dictionary) -> String: return String(o.id))

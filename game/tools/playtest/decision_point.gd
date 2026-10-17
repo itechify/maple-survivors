@@ -5,9 +5,12 @@ extends RefCounted
 ## extending this one, registered in that list or asked directly through PlaytestPolicy.decide. Tool code only.
 
 const RUN_POLICY := preload("res://tools/run_policy.gd")
+const SITUATION := preload("res://tools/playtest/playtest_situation.gd")
 
 ## The protocol's decide `kind`.
 var kind := ""
+## The situation memory (playtest_situation.gd instance: recent hits, boss attacks), set by the policy; null: none.
+var memory: Variant = null
 
 
 ## True when this decision is open in `w` and must be answered before the next tick.
@@ -26,9 +29,9 @@ func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": ""}
 
 
-## Keys this decision adds to the decide's situation (playtest_situation.gd `of`), e.g. the tactic state; {} by default.
-func extra_situation(_w: RunWorld) -> Dictionary:
-	return {}
+## The decide message's situation for this kind (default: playtest_situation.gd `of` with `memory`).
+func situation(w: RunWorld) -> Dictionary:
+	return SITUATION.of(w, memory)
 
 
 ## Applies option `answer` (one of `options`) in `w` through `policy` (run_policy.gd take_card / take_job).

@@ -5,8 +5,11 @@ import readline from "node:readline";
 import { parseLine, serializeAnswer } from "./protocol.ts";
 import type { DecideMessage, EndMessage, ErrorMessage, FindingMessage, HelloMessage } from "./protocol.ts";
 
-/** What a brain returns for one decision. `reason` explains a fallback (e.g. why Jev was not used). */
-export type BrainAnswer = { answer: string; source: string; confidence: number | null; reason?: string };
+/** What a brain returns for one decision. `reason` explains a fallback (e.g. why Jev was not used); `extra` holds
+ * brain-specific facts recorded in decisions.jsonl only (probabilities, presented order, model, ...), never sent to
+ * the driver. */
+export type BrainAnswer = { answer: string; source: string; confidence: number | null; reason?: string;
+	extra?: Record<string, unknown> };
 
 /** Answers decisions. Implementations: maple/fallback.ts (deterministic), later Jev (#94) and replay (#98). */
 export type Brain = {
@@ -19,6 +22,7 @@ export type DecisionRecord = {
 	id: number; kind: string; tick: number | null; time: number | null; options: string[]; baseline: string | null;
 	answer: string; source: string; confidence: number | null; latency_ms: number | null; reason?: string;
 	fallback_reason?: string;
+	[extra: string]: unknown;
 };
 
 export type SessionOptions = {
@@ -98,7 +102,8 @@ export function runSession(opts: SessionOptions): Promise<SessionResult> {
 			const record: DecisionRecord = { id: decide.id, kind: decide.kind, tick: decide.tick ?? null, time: decide.time ?? null,
 				options: decide.options.map((o) => String(o.id)), baseline: decide.baseline.sensible ?? null,
 				answer: reply.answer, source: reply.source, confidence: reply.confidence,
-				latency_ms: Math.round(latency * 1000) / 1000, ...(reply.reason ? { reason: reply.reason } : {}) };
+				latency_ms: Math.round(latency * 1000) / 1000, ...(reply.reason ? { reason: reply.reason } : {}),
+				...(reply.extra ?? {}) };
 			result.decisions.push(record);
 			opts.onDecision?.(record);
 		};
