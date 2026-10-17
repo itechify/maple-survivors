@@ -227,8 +227,12 @@ static func frame_cap(setting: int, refresh_rate: float) -> int:
 
 ## Turns vsync on and caps the frame rate at frame_cap(setting, the current screen's refresh rate) - the cap holds even
 ## where the driver ignores the swap interval (seen with GL Compatibility on Windows: 300-1300 fps with vsync "on").
-## `uncapped` (--vsync=off perf runs, setting -1) turns vsync off and removes the cap. No-op headless.
+## `uncapped` (--vsync=off perf runs, setting -1) turns vsync off and removes the cap. No-op headless; on web the
+## browser paces the frames, so no cap is set at all.
 static func apply_frame_cap(setting: int, uncapped: bool = false) -> void:
+	if WebProfile.is_web():
+		Engine.max_fps = 0 # requestAnimationFrame paces the frames; no vsync or cap calls on web
+		return
 	if DisplayServer.get_name() == "headless":
 		return
 	if uncapped or setting < 0:
@@ -390,14 +394,45 @@ func _restore_default(action: String) -> void:
 		InputMap.action_add_event(action, e)
 
 
-## Applies window_scale to the main window (800x600 x scale, centred); no-op headless or when 0.
+## Applies window_scale to the main window (800x600 x scale, centred); no-op headless, when 0, and on web (the browser
+## tab sets the canvas size; fit_viewport() scales the view to it).
 func apply_window_scale() -> void:
-	if window_scale <= 0 or DisplayServer.get_name() == "headless":
+	var size := window_scale_size(window_scale, WebProfile.is_web())
+	if size == Vector2i.ZERO or DisplayServer.get_name() == "headless":
 		return
-	var size := Vector2i(800, 600) * window_scale
 	DisplayServer.window_set_size(size)
 	var screen := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
 	DisplayServer.window_set_position(screen.position + (screen.size - size) / 2)
+
+
+## The window size a window_scale asks for: BASE_VIEW x scale, or Vector2i.ZERO for "leave the window alone"
+## (scale 0, or any scale on web).
+static func window_scale_size(scale: int, web: bool) -> Vector2i:
+	if scale <= 0 or web:
+		return Vector2i.ZERO
+	return BASE_VIEW * scale
+
+
+## True when the window is fullscreen (on web: the canvas element, which the browser may leave on its own with Esc).
+static func is_fullscreen() -> bool:
+	var mode := DisplayServer.window_get_mode()
+	return mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+
+
+## The window mode a fullscreen toggle goes to from `mode`.
+static func toggled_window_mode(mode: int) -> int:
+	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+		return DisplayServer.WINDOW_MODE_WINDOWED
+	return DisplayServer.WINDOW_MODE_FULLSCREEN
+
+
+## Toggles fullscreen (the web Options/title entry). On web the browser only allows the request while it is
+## handling a user input, so call this straight from the click/key handler, never from a timer or a deferred call.
+## No-op headless. The state is read back from the window, so a browser-side exit (Esc) cannot desync it.
+static func toggle_fullscreen() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(toggled_window_mode(DisplayServer.window_get_mode()))
 
 
 static func _put(cfg: ConfigFile, section: String, key: String, value: Variant, default: Variant) -> void:
