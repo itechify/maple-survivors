@@ -155,6 +155,8 @@ var hud: Hud
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
+## The scroll result effect (Enchant Success / Failure) above the in-run windows (#110).
+var enchant: EnchantFx
 ## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
 var ui_layer: CanvasLayer
 var ui_windows: WindowStack
@@ -621,6 +623,9 @@ func _build_overlays() -> void:
 	windows_layer.layer = 10
 	add_child(windows_layer)
 	_build_ui_windows()
+	enchant = EnchantFx.new()
+	enchant.renderer.library = library
+	add_child(enchant)
 	perf_layer = CanvasLayer.new()
 	perf_layer.name = "Perf"
 	perf_layer.layer = 20
@@ -976,6 +981,8 @@ func handle_events(events: Array) -> void:
 				_on_job_changed(int(e.job_id))
 			"equipment_changed":
 				_apply_look()
+			"scroll_used":
+				_on_scroll_used(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -1003,6 +1010,15 @@ func _on_boss_skill(e: Dictionary) -> void:
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+
+
+## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
+## and an evidence shot of the result for playtests.
+func _on_scroll_used(e: Dictionary) -> void:
+	var result := String(e.result)
+	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
+	_sound(EnchantFx.sound_path(result))
+	_event_shot("scroll_%s.png" % result, 0.35)
 
 
 func _on_cast(e: Dictionary) -> void:
