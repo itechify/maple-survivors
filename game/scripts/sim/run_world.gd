@@ -37,7 +37,8 @@ extends RefCounted
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices.
+## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
+## 9 meso drop chance and amount rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -127,6 +128,7 @@ var spawn_rng: RandomNumberGenerator
 var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
+var meso_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
@@ -283,6 +285,7 @@ func _init_rng_streams() -> void:
 	potion_rng = _stream(7)
 	reward_rng = _stream(6)
 	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
+	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -633,6 +636,7 @@ func _step_pickups(dt: float) -> int:
 	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
+	mesos += pickups.step_mesos
 	return got
 
 
@@ -1333,6 +1337,26 @@ func _on_kill(m: int) -> void:
 			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+	var meso_cfg: Dictionary = balance.get("mesos", {})
+	var meso_chance := float(meso_cfg.get("chance", 0.0))
+	if meso_chance > 0.0 and meso_rng.randf() < meso_chance:
+		spawn_meso(pos, _roll_mesos(mk))
+
+
+## Rolls one meso amount for a mob kind: its listed v83 range (or the level fallback) times balance.mesos.mult.
+func _roll_mesos(mk: MobKind) -> int:
+	var cfg: Dictionary = balance.get("mesos", {})
+	var span := MesoDrops.amount_range(mk.level, mk.mesos, cfg.get("fallback", {}))
+	return MesoDrops.roll(meso_rng, span, float(cfg.get("mult", 1.0)))
+
+
+## Drops `amount` mesos on the ground at pos (the sprite follows the amount); the magnet collects them like EXP.
+func spawn_meso(pos: Vector2, amount: int) -> int:
+	var slot := pickups.spawn_meso(pos, amount)
+	if slot >= 0:
+		emit("pickup_spawned", {"pickup": slot, "item_id": pickups.item_id[slot], "pos": pos,
+			"kind": "meso", "potion_kind": "", "count": amount})
+	return slot
 
 
 ## A scheduled boss died: boss_died, mob_died with the boss reward EXP (canonical EXP x rewards.exp_mult; no ordinary
@@ -1344,6 +1368,15 @@ func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	emit("mob_died", {"mob": m, "mob_id": mk.id, "pos": pos, "exp": e, "elite": elite})
 	_spawn_revives(m, pos)
 	_drop_boss_rewards(pos, e, mk.exp_item, rewards)
+	_drop_boss_mesos(pos, mk, float(rewards.get("spread", 0.0)))
+
+
+## balance.mesos.boss_drops bundles, each rolled from the boss's range and scattered over `spread` px (no chance roll).
+func _drop_boss_mesos(pos: Vector2, mk: MobKind, spread: float) -> void:
+	var count := int(balance.get("mesos", {}).get("boss_drops", 0))
+	for i in count:
+		var point := pos + Vector2(meso_rng.randf_range(-spread, spread) if spread > 0.0 else 0.0, 0)
+		spawn_meso(point, _roll_mesos(mk))
 
 
 func _spawn_revives(source: int, pos: Vector2) -> void:

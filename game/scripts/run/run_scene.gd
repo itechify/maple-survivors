@@ -194,6 +194,8 @@ var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
+var _frame_mesos := 0
+var _meso_shot_ids := {}
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -488,6 +490,9 @@ func advance_frame(delta: float) -> void:
 		hud.show_exp(_frame_exp)
 		counters.exp_messages += 1
 	_frame_exp = 0
+	if _frame_mesos > 0 and hud != null:
+		hud.show_mesos(_frame_mesos)
+	_frame_mesos = 0
 	_advance_end(delta)
 	if not held:
 		_present(delta)
@@ -921,9 +926,16 @@ func handle_events(events: Array) -> void:
 				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
+				if String(e.kind) == "meso" and not _meso_shot_ids.has(int(e.item_id)):
+					# tier C: capture the first drop of each coin sprite while it lies on the ground.
+					_meso_shot_ids[int(e.item_id)] = true
+					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
 			"pickup_collected":
+				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
+				if String(e.get("kind", "")) == "meso":
+					_frame_mesos += int(e.count)
 			"potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))

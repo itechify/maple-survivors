@@ -37,6 +37,8 @@
 	"portals": {"reach_x": 25, "reach_above": 100, "reach_below": 25, "arrival_lift": 30, "cooldown": 0.384},
 	"magnet_radius": 90,
 	"collect_radius": 24,
+	"_mesos": "Meso drops (#107). Per-mob ranges are survivor data in mobs.json (\"mesos\": [min, max), tier B: v83 server drop data). chance: tier B reference (v83 servers drop a meso entry 40% of the time at rate 1); mult scales every amount, tier C (set once from an estimate: the only Henesys clear in the smoke (random policy, seed 1, 3259 kills, all three bosses) earned 22.9k mesos at mult 1, so 14 gives about 320k, the owner's 300-350k target for a clear (the sensible bot dies at 13-15 min with about 15k at mult 1; see docs/GAME_DESIGN.md 4.2 #107; NX upgrades, #34, may raise it later; it is not tuned further here). boss_drops: tier C, bundles a scheduled boss's death drops, each rolled from its range (bosses always drop, there is no chance roll). fallback: tier C, mobs without a v83 range roll around base + per_level x mob level, low/high x that centre (fitted to the v83 early-roster ranges: level 1 = 4-6, level 22 = 28-42, level 50 = 60-90).",
+	"mesos": {"chance": 0.4, "mult": 14.0, "boss_drops": 4, "fallback": {"base": 4.0, "per_level": 1.5, "low": 0.8, "high": 1.2}},
 	"_magic_defense": "magic damage x (1 - MDD / (MDD + k))",
 	"magic_defense_k": 150,
 	"_mob_speed_factor": "mob move speed px/s = (speed stat + 100) x this x stage speed (MobKind.SPEED_SCALE is the same 0.625; a different value here rescales every mob)",

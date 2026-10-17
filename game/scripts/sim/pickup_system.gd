@@ -1,6 +1,6 @@
 class_name PickupSystem
 extends RefCounted
-## EXP and potion drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
+## EXP, potion and meso drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
 ##
 ## A drop pops up (vy = -pop_speed, a small sideways drift from `rng`), falls with gravity up to fall_speed and lands
 ## on the first floor below it (FootholdMap.find_landing; a drop with nothing below stops where it is once it is below
@@ -10,7 +10,8 @@ extends RefCounted
 ## drop absorbs the EXP drop farthest from the player and replaces it at the new death position (`merged` reports
 ## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
 ## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
-## the player never expires. All motion and lifetime constants are tier C (ours).
+## the player never expires. Potions and mesos (spawn_meso, kind MESO) never expire, merge or count toward the EXP
+## cap; a collected meso drop adds its amount to `step_mesos` (this step) and `collected_mesos` (total). All motion and lifetime constants are tier C (ours).
 
 const AIR := 0
 const REST := 1
@@ -19,6 +20,7 @@ const MAGNET := 2
 const EXP := 0
 const HP_POTION := 1
 const MP_POTION := 2
+const MESO := 3
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -44,6 +46,8 @@ var exp := PackedInt32Array()
 var item_id := PackedInt32Array()
 var kind := PackedByteArray()
 var potion_count := PackedInt32Array()
+## Meso amount of a MESO drop (0 for every other kind).
+var meso := PackedInt32Array()
 ## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
 var collected_potions := {"hp": 0, "mp": 0}
 ## AIR / REST / MAGNET.
@@ -57,6 +61,9 @@ var rng: RandomNumberGenerator
 var merged := false
 ## Total EXP collected so far.
 var collected_exp := 0
+## Mesos collected in the most recent step() (read by RunWorld) and in total.
+var step_mesos := 0
+var collected_mesos := 0
 ## Drops expired so far and the EXP they held.
 var expired := 0
 var expired_exp := 0
@@ -118,6 +125,16 @@ func spawn_potion(pos: Vector2, count: int, p_item_id: int, potion_kind: String)
 	return _spawn(pos, 0, p_item_id, HP_POTION if potion_kind == "hp" else MP_POTION, count)
 
 
+## Drops `amount` mesos (the coin sprite follows the amount) independently of the EXP cap; -1 for amount <= 0.
+func spawn_meso(pos: Vector2, amount: int) -> int:
+	if amount <= 0:
+		return -1
+	merged = false
+	var i := _spawn(pos, 0, MesoDrops.sprite_item(amount), MESO, 0)
+	meso[i] = amount
+	return i
+
+
 func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -> int:
 	if _free.is_empty():
 		_grow(capacity() * 2)
@@ -133,6 +150,7 @@ func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -
 	item_id[i] = p_item_id
 	kind[i] = p_kind
 	potion_count[i] = count
+	meso[i] = 0
 	state[i] = AIR
 	age[i] = 0.0
 	_count += 1
@@ -168,6 +186,7 @@ func alpha(i: int) -> float:
 func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
 	var got := 0
 	collected_potions = {"hp": 0, "mp": 0}
+	step_mesos = 0
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
 	var acc := float(tuning.magnet_acc)
@@ -244,11 +263,16 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
 			if potion_kind != "":
 				collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
+			var is_meso := kind[i] == MESO
+			if is_meso:
+				step_mesos += meso[i]
+			# A meso event carries its amount in `count`.
 			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
-				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else "potion",
-				"potion_kind": potion_kind, "count": potion_count[i]})
+				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else ("meso" if is_meso else "potion"),
+				"potion_kind": potion_kind, "count": meso[i] if is_meso else potion_count[i]})
 			despawn(i)
 	collected_exp += got
+	collected_mesos += step_mesos
 	return got
 
 
@@ -260,7 +284,7 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
-	for arr: Variant in [exp, item_id, potion_count]:
+	for arr: Variant in [exp, item_id, potion_count, meso]:
 		arr.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
