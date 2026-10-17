@@ -197,6 +197,42 @@ func test_ok_never_saves_a_fixed_key() -> void:
 	s.free()
 
 
+## reload_from is how the test runner drops the developer's own settings.cfg (#103): every field, the InputMap and the
+## save path end up as a fresh GameSettings on that path, and `changed` tells listeners (audio volumes) to re-read.
+func test_reload_from_a_missing_file_restores_every_default_and_the_project_keys() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("assets", "wz_root", "C:/wz")
+	cfg.set_value("assets", "cache_dir", "C:/cache")
+	cfg.set_value("audio", "master", 0.5)
+	cfg.set_value("audio", "bgm", 0.1)
+	cfg.set_value("audio", "sfx", 0.2)
+	cfg.set_value("display", "window_scale", 2)
+	cfg.set_value("display", "fill_window", true)
+	cfg.set_value("display", "max_fps", 60)
+	cfg.set_value("controls", "movement", "wasd")
+	cfg.set_value("input", "jump", [KEY_Z])
+	cfg.set_value("input", "teleport", [KEY_SPACE])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	s.apply_movement()
+	assert_eq(s.binding_keys("teleport"), PackedInt32Array([KEY_SPACE]), "the file's rebinds are live")
+	var emitted := [0]
+	s.changed.connect(func() -> void: emitted[0] += 1)
+	var missing := TestCase.test_dir("no_such_settings.cfg")
+	s.reload_from(missing)
+	assert_eq(emitted[0], 1, "changed emitted once")
+	var fresh := GameSettings.new(missing)
+	for p: Dictionary in s.get_script().get_script_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			assert_eq(s.get(p.name), fresh.get(p.name), "%s back to its default" % p.name)
+	for action in ["jump", "teleport", "move_left", "move_up"]:
+		assert_eq(s.binding_keys(action), GameSettings.default_keys(action), "%s has its project keys" % action)
+	assert_false(FileAccess.file_exists(missing), "reloading never writes")
+	s.free()
+	fresh.free()
+
+
 func test_hud_key_labels_read_the_live_bindings() -> void:
 	assert_eq(KeyBindings.key_name(KEY_DELETE), "Del")
 	assert_eq(KeyBindings.key_name(KEY_END), "End")

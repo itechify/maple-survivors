@@ -15,6 +15,8 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# reproduced exactly, so the only new bytes are the meso pickup events (amounts at the shipped multiplier) and their pop positions.
 	# re-captured for #109 (equipment drops): with equipment_drops.chance and boss_drops set to 0 the #107 hash 08f7edf3...
 	# is reproduced exactly, so the only new bytes are the equipment pickup events and the pop positions they shift.
+	# re-captured for #63 (the bot scores a card by the steps it grants): with balance.bot.gain_step_score set to 0 the hash
+	# ce161497... is reproduced exactly, so the only new bytes are the bot taking a higher-tier card over a Normal-preferred one.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
 	w.god = true
@@ -29,6 +31,6 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 			# Spec #34 (#119) added `collector` to pickup_collected; the stream is otherwise unchanged, which is the point.
 			event.erase("collector")
 		digest.update(JSON.stringify(events, "", false, true).to_utf8_buffer())
-	assert_eq(digest.finish().hex_encode(), "ce161497e36a96ac333f9c4a91ae672374cca7468971871f4ae2da9d7e979546", "20-minute pre-change event bytes, seed 1")
+	assert_eq(digest.finish().hex_encode(), "823defb05bfcb5a7a10b25f1e679e5be7979ce4562a93ec2ce53f448eb5c6f0e", "20-minute pre-change event bytes, seed 1")
 
 

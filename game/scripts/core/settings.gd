@@ -83,6 +83,27 @@ func _init(p_path: String = PATH) -> void:
 	load_settings()
 
 
+## Starts over, in place, from `p_path` (defaults when it is missing) and the project's input map; emits `changed`.
+func reload_from(p_path: String) -> void:
+	wz_root = ""
+	cache_dir = ""
+	master_volume = 1.0
+	bgm_volume = DEFAULT_BGM
+	sfx_volume = DEFAULT_SFX
+	window_scale = 0
+	fill_window = false
+	max_fps = 0
+	movement_keys = DEFAULT_MOVEMENT
+	bindings = {}
+	_default_events = {}
+	_path = p_path
+	InputMap.load_from_project_settings()
+	load_settings()
+	apply_bindings()
+	apply_movement()
+	changed.emit()
+
+
 func _ready() -> void:
 	apply_bindings()
 	apply_movement()
