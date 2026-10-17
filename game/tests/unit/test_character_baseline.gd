@@ -12,7 +12,7 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# re-captured for #105 (worn equipment replaces the fixed starter outfit): the only new bytes are the one
 	# equipment_changed event of the Wooden Wand grant (filtering it out reproduces the #106 hash b17af353...).
 	# re-captured for #107 (meso drops): with balance.mesos.chance and boss_drops set to 0 the old hash 6ff18c3e... is
-	# reproduced exactly, so the only new bytes are the meso pickup events and their pop positions.
+	# reproduced exactly, so the only new bytes are the meso pickup events (amounts at the shipped multiplier) and their pop positions.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
 	w.god = true
@@ -23,6 +23,6 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 		BotInput.auto_choose(w)
 		w.step(DT, BotInput.decide(w, memo))
 		digest.update(JSON.stringify(w.drain_events(), "", false, true).to_utf8_buffer())
-	assert_eq(digest.finish().hex_encode(), "51ab780f6e8a65bf0bd748cb8730afdb6af33b50f18a0a5c36be176024d8f99e", "20-minute pre-change event bytes, seed 1")
+	assert_eq(digest.finish().hex_encode(), "08f7edf307d19c9f0d69dd005a7af6dc23aeb6b3ac2d3d80a6e2cc8bc628e03e", "20-minute pre-change event bytes, seed 1")
 
 

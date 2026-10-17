@@ -214,6 +214,7 @@ func test_meso_drops_do_not_count_toward_the_exp_drop_cap() -> void:
 
 func test_a_boss_drops_its_configured_number_of_range_rolled_bundles() -> void:
 	var data := RF.quiet_data()
+	data.balance.mesos.mult = 1.0
 	data.balance.mesos.boss_drops = 3
 	data.balance.player.skills = []
 	data.stages.stages.quiet.bosses = [{"time": 0.1, "mob_id": 2220000, "hp_mult": 1.0,
