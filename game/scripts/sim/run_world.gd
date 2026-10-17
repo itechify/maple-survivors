@@ -1185,7 +1185,7 @@ func _init_cash() -> void:
 	worn_cash = resolved.worn
 	pet = resolved.pet
 	cash_fortune = resolved.fortune
-	for message in resolved.warnings:
+	for message: String in resolved.warnings:
 		warnings.append(message)
 
 

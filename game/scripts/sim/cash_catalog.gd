@@ -105,7 +105,7 @@ func resolve(cash: Dictionary, pet: int, owned: Array) -> Dictionary:
 		elif not _owns(owned, id):
 			warnings.append("cash item %d is not owned by the account: ignored" % id)
 		else:
-			for filled in slots_for(id):
+			for filled: String in slots_for(id):
 				worn[filled] = id
 	var fortune := 0.0
 	for slot: String in worn:
