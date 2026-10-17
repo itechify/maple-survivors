@@ -2369,6 +2369,10 @@ quantities per kind.
 - **Critical hits:** base 0% (Beginner/Magician cannot crit in v83); upgrades may add crit (×1.5) as survivor modifiers.
   Crits use the `NoCri` digits and the `NoCri1/effect` burst.
 - Mob defence: magic damage × (1 - MDD/(MDD+150)) (tier C, keeps early mobs readable).
+- **Player accuracy (#33 review):** worn equipment's `incACC` (and Bless) is stored in `player_state.acc` and shown in the
+  Stat window, but the player's attacks never roll a hit chance: the v83 player-versus-monster hit roll is not modelled,
+  and no hit model is invented for it (tier C). Accuracy therefore has no combat effect; only mob attacks roll a hit
+  against the player's avoid (6.2).
 
 ### 6.1.1 Basic weapon attacks
 
