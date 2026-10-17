@@ -461,3 +461,34 @@ func test_esc_closes_the_top_window_then_pauses_then_resumes_without_the_cache()
 	assert_false(s.paused, "the next Esc resumes")
 	assert_eq(s.window, null, "and closes the pause menu")
 	_free_bare(made)
+
+
+# --- an equipment drop picked up under open Equip / Item windows (spec #33, #113) --------------------------------------
+
+func test_an_open_item_window_refreshes_when_an_equipment_drop_is_picked_up() -> void:
+	if not require_cache():
+		return
+	scene = _make(13, {})
+	var w := scene.world
+	_frames(5)
+	scene.handle_hotkey(_key(KEY_I))
+	var iw := scene.ui_windows.top() as ItemWindow
+	assert_true(iw != null, "the Item window opened")
+	if iw == null:
+		return
+	var had: int = w.equipment.inventory.size()
+	var drawn: int = iw.get("refresh_count") if iw.get("refresh_count") != null else -1
+	# The run is held while a window is open, so nothing is picked up through advance_frame; drive the sim directly,
+	# as a world that keeps running under the window (a bot's, a later feature's) would.
+	w.spawn_equipment(w.player.pos, {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0})
+	var events := []
+	for i in 120:
+		w.step(DT, MoveInput.new())
+		events.append_array(w.drain_events())
+		if w.equipment.inventory.size() > had:
+			break
+	assert_eq(w.equipment.inventory.size(), had + 1, "the magnet put the drop in the Equip tab")
+	scene.handle_events(events)
+	assert_eq(iw.cell(had).get("id"), 1002001, "the Item window's Equip tab lists the drop")
+	var after: Variant = iw.get("refresh_count")
+	assert_true(after != null and int(after) > drawn, "and the window redrew for it")

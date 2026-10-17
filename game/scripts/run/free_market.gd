@@ -8,6 +8,11 @@ extends Node2D
 ## built from the saved snapshot (the one owner of equipment rules); every change is written back into the snapshot
 ## and the character's save slot at once, and the drawn look and the hub's speed / jump follow. Movement holds while a
 ## window is open; Esc closes the front window before it opens the pause menu (handle_hotkey).
+##
+## Scroll shops (#111): the four scroll NPCs of shops.json (survivor data) stand on the floor (`shop_npcs`, drawn from
+## Npc.wz with their String.wz names). The NPC Chat action (Space, v83's default) next to one, or a double-click on one,
+## opens its ShopWindow (open_shop) in the same stack; the shop trades through `inventory` like the other windows and
+## every purchase or sale is saved at once.
 
 const DT := 1.0 / 60.0 # tier C: same fixed tick as RunScene.
 const MAX_TICKS := 4 # tier C: same catch-up cap as RunScene.
@@ -37,19 +42,39 @@ var messages: HudMessages
 ## The Equip / Item windows' stack (above the pause menu) and the character they work on.
 var ui_windows: WindowStack
 var inventory: RunWorld
+## The scroll result effect above the windows (#110).
+var enchant: EnchantFx
+var wiring: InventoryWiring
 var npcs: Array[Dictionary] = []
+## The scroll NPCs (shops.json): {"id", "pos" (feet), "rect" (the drawn sprite's box), "sprite"}.
+var shop_npcs: Array[Dictionary] = []
+## The run options the hub honours: `autoplay` makes the bot shop once on entry (spec #33 #112, the playtest autoplay).
+var options: Dictionary = {}
+## The record of the autoplay shop visit ({} when none ran), see BotShop.visit.
+var shop_visit: Dictionary = {}
 var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
 var _leaving := false
 
 
-## Supplies the saved boundary and owning flow before entering the tree.
+## Supplies the saved boundary, owning flow and run options before entering the tree.
 ## An arrival notice (e.g. "You have gained 140 NX.") is shown once for NOTICE_TIME seconds.
-func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_notice: String = "") -> void:
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary = {}, p_notice: String = "") -> void:
 	snapshot = p_snapshot.duplicate(true)
 	flow = p_flow
+	options = p_options.duplicate()
 	notice = p_notice
+
+
+## The seed of the hub's scroll rolls, a pure function of the saved boundary: the run's stored seed mixed with a hash of
+## the character's equipment, scrolls and mesos. The same save always rolls the same, every scroll (or purchase, sale
+## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
+static func scroll_seed(p_snapshot: Dictionary) -> int:
+	var character: Dictionary = p_snapshot.get("character", {})
+	var state := {"equipment": character.get("equipment", {}), "scrolls": character.get("scrolls", {}),
+		"mesos": int(character.get("mesos", 0))}
+	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
 
 func _ready() -> void:
@@ -71,6 +96,7 @@ func _ready() -> void:
 	var loadout := _boundary_loadout(character, data)
 	_apply_movement_stats(character, loadout)
 	_build_npcs()
+	_build_shop_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library
 	var owned: Array = flow.save_data().account.owned if flow != null else []
@@ -93,6 +119,17 @@ func _ready() -> void:
 	_build_hud(character, data, loadout)
 	_build_windows(character, data)
 	_present(0.0)
+	if options.has("spawn_x"):
+		# Tool-only `--hub`: stand on the floor beside the scroll NPCs instead of the canonical arrival point.
+		var spawn := float(options.spawn_x)
+		var floor_fh := motion.fhm.find_below(spawn, 0.0)
+		if floor_fh >= 0:
+			motion.player.place(Vector2(spawn, motion.fhm.y_at(floor_fh, spawn)), motion.fhm)
+			camera.snap_to(motion.player.pos)
+			_present(0.0)
+	if RunScene.option_flag(options, "autoplay"):
+		# The playtest autoplay shops once on entry, like the headless chains between tiers (#112).
+		shop_visit = bot_shop("bot", int(snapshot.get("round_seed", 0)))
 	var sfx := get_node_or_null("/root/Sfx") as AudioService
 	if sfx != null:
 		sfx.play_bgm(String(map.map_root.get("info", {}).get("bgm", "")))
@@ -139,6 +176,12 @@ func step_input(dt: float, input: MoveInput) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("jump") and not windows_open():
 		_jump_latch = true
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.pressed and mb.double_click and mb.button_index == MOUSE_BUTTON_LEFT:
+		var npc := shop_npc_at(make_canvas_position_local(mb.position))
+		if not npc.is_empty() and open_shop(int(npc.id)):
+			get_viewport().set_input_as_handled()
+			return
 	if handle_hotkey(event):
 		get_viewport().set_input_as_handled()
 
@@ -156,6 +199,10 @@ func handle_hotkey(event: InputEvent) -> bool:
 			return true
 		return false
 	if not pause_menu.is_open() and ui_windows != null:
+		if InputMap.has_action("npc_chat") and event.is_action_pressed("npc_chat", false, true):
+			var npc := nearest_shop_npc()
+			if not npc.is_empty() and open_shop(int(npc.id)):
+				return true
 		for action: String in WINDOW_HOTKEYS:
 			if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
 				ui_windows.toggle(String(WINDOW_HOTKEYS[action]))
@@ -164,7 +211,43 @@ func handle_hotkey(event: InputEvent) -> bool:
 	return top != null and top.handle_key(event)
 
 
-## True while an Equip / Item window is open (movement holds).
+## The scroll NPC the character stands next to (within shops.json talk_range), the nearest one; {} when none.
+func nearest_shop_npc() -> Dictionary:
+	if motion == null:
+		return {}
+	var reach: Dictionary = _data.shops.talk_range
+	var best := {}
+	var best_dx := INF
+	for npc: Dictionary in shop_npcs:
+		var d: Vector2 = (npc.pos as Vector2) - motion.player.pos
+		if absf(d.x) <= float(reach.x) and absf(d.y) <= float(reach.y) and absf(d.x) < best_dx: # shops.json talk_range is required
+			best = npc
+			best_dx = absf(d.x)
+	return best
+
+
+## The scroll NPC whose drawn sprite covers world point `p` ({} when none).
+func shop_npc_at(p: Vector2) -> Dictionary:
+	for npc: Dictionary in shop_npcs:
+		if (npc.rect as Rect2).has_point(p):
+			return npc
+	return {}
+
+
+## Opens scroll NPC `npc_id`'s shop window (the hub holds like for any window); false while the pause menu or a shop
+## is open, or without a window stack or character. Talking to an NPC through a double-click works from any distance
+## (tier C).
+func open_shop(npc_id: int) -> bool:
+	if ui_windows == null or inventory == null or pause_menu == null or pause_menu.is_open() \
+			or ui_windows.find_window("shop") != null:
+		return false
+	var shop := ShopWindow.new(inventory, npc_id)
+	shop.player_name = String(snapshot.get("name", ""))
+	ui_windows.open(wiring.wire(shop))
+	return true
+
+
+## True while an Equip / Item / shop window is open (movement holds).
 func windows_open() -> bool:
 	return ui_windows != null and ui_windows.has_windows()
 
@@ -228,7 +311,8 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "mp": mp, "max_hp": hp, "max_mp": mp},
 		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
-	var help := MapleText.new("Free Market  /  Up at the exit: next map  /  Esc: Save & quit", MapleText.SIZE, MapleText.WHITE, true)
+	var help := MapleText.new("Free Market  /  Up at the exit: next map  /  Space: talk to a scroll NPC  /  Esc: Save & quit",
+		MapleText.SIZE, MapleText.WHITE, true)
 	help.position = Vector2(12, 12) # tier C: hub instruction inset in logical pixels.
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = NameTags.BOX_COLOR
@@ -279,24 +363,26 @@ func _open_shop() -> void:
 ## The window stack (above the pause menu's layer) with the Equip and Item windows over `inventory`, a map-less
 ## RunWorld of the carried character with the info of every item it holds.
 func _build_windows(character: Dictionary, data: Dictionary) -> void:
-	var lib := library
-	var creation := lib.img(CharacterCreation.IMG)
+	var loader := SceneFlow.equipment_info_loader(library)
+	var creation := library.img(CharacterCreation.IMG)
 	var infos := DataRepo.equipment_info(DataRepo.starter_equipment_ids(data, creation.root if creation != null else {},
-		character), func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {})
+		character), loader)
+	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), loader)
 	# The account's owned items let the Equip window's Cash tab and Pet page wear and bring them out (#122).
 	var owned: Array = flow.save_data().account.owned if flow != null else []
-	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character,
-		"account": {"owned": owned}})
+	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
+	# being saved at once, changes the next seed.
+	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
+		"character": character, "seed": scroll_seed(snapshot), "account": {"owned": owned}})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
 	add_child(layer)
 	ui_windows = WindowStack.new()
 	layer.add_child(ui_windows)
-	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(inventory)))
-	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(inventory)))
+	wiring = InventoryWiring.install(ui_windows, inventory, self, library, _on_item_action,
+		func(text: String) -> void: messages.push_notice("inventory", text), _play_sound)
+	enchant = wiring.enchant
 	ui_windows.changed.connect(func() -> void:
 		if windows_open():
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -304,22 +390,25 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 			_accumulator = 0.0)
 
 
-func _inventory_window(w: InventoryWindow) -> UiWindow:
-	w.item_action.connect(_on_item_action)
-	w.notice.connect(func(text: String) -> void: messages.push_notice("inventory", text))
-	return w
+func _play_sound(path: String) -> void:
+	var sfx := get_node_or_null("/root/Sfx") as AudioService
+	if sfx != null:
+		sfx.play(path)
 
 
 ## After an Equip / Item window changed the character: the snapshot and its save slot, the drawn look, the hub's
 ## speed / jump and the other window follow at once.
 func _on_item_action(_action: String) -> void:
-	inventory.drain_events()
+	for event: Dictionary in inventory.drain_events():
+		if event.type == "scroll_used":
+			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
+	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
 	var owned: Array = flow.save_data().account.owned if flow != null else []
 	avatar.set_look(character_look(snapshot.character, _data, owned))
 	_sync_pet(owned)
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
-	for id: String in ["equip", "item"]:
+	for id: String in ["equip", "item", "shop"]:
 		var w := ui_windows.find_window(id)
 		if w != null:
 			w.queue_redraw()
@@ -346,6 +435,21 @@ func _sync_pet(owned: Array) -> void:
 	_present_pet(0.0)
 
 
+## Bot hook (spec #33, #112; autoplay and driver scenes): the character visits the scroll shops as a bot would (BotShop.visit
+## with balance card policy `policy`: "bot" sensible, "random" careless), changing `inventory` through the same RunWorld
+## calls as the windows and saving it like them. `seed_value` seeds the careless plan and, from its own stream, the
+## scroll rolls, so the same seed gives the same purchases and results. Returns the visit record.
+func bot_shop(policy := "bot", seed_value := 0) -> Dictionary:
+	if inventory == null:
+		return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("careless-shop-hub-%d" % seed_value)
+	inventory.scroll_rng.seed = hash("scrolls-shop-hub-%d" % seed_value)
+	var record := BotShop.visit(inventory, policy, rng)
+	_on_item_action("bot_shop")
+	return record
+
+
 func _build_npcs() -> void:
 	# tier C: owner #71 draws all four NPCs, including the hidden Maple TV; none accepts interactions.
 	for life: Dictionary in map.map_root.get("life", {}).values():
@@ -364,8 +468,37 @@ func _build_npcs() -> void:
 		sprite.position = pos.round()
 		sprite.add(anim, Vector2.ZERO, int(life.get("f", 0)) != 0)
 		map.actor_layer(layer).add_child(sprite)
-		_add_name_tag(sprite, library.string_name("Npc", id))
+		if npc_shows_name_tag(life):
+			_add_name_tag(sprite, library.string_name("Npc", id))
 		npcs.append({"id": id, "sprite": sprite})
+
+
+## Whether an NPC `life` entry gets a name tag: not when the map marks it hidden (v83 `hide` = 1, e.g. Maple TV).
+static func npc_shows_name_tag(life: Dictionary) -> bool:
+	return int(life.get("hide", 0)) == 0 # tier A: `hide` field of the map's life entry.
+
+
+## Draws the scroll NPCs of shops.json standing on the floor foothold below y 0 at their x.
+func _build_shop_npcs() -> void:
+	for entry: Dictionary in _data.get("shops", {}).get("npcs", []):
+		var id := int(entry.id)
+		var x := float(entry.x)
+		var floor := motion.fhm.find_below(x, 0.0)
+		if floor < 0:
+			continue
+		var anim := library.anim("Npc.wz/%07d.img/stand" % id)
+		if anim.is_empty():
+			continue
+		var pos := Vector2(x, motion.fhm.y_at(floor, x)).round()
+		var sprite := MapDrawList.new()
+		sprite.animated = true
+		sprite.position = pos
+		sprite.add(anim, Vector2.ZERO, true) # tier C: faces right, toward the arrival point.
+		map.actor_layer(int(motion.fhm.layer[floor])).add_child(sprite)
+		_add_name_tag(sprite, library.string_name("Npc", id))
+		var frame: SpriteFrame = anim.frames[0]
+		shop_npcs.append({"id": id, "pos": pos, "sprite": sprite,
+			"rect": Rect2(pos - frame.origin, frame.region.size)})
 
 
 func _add_name_tag(parent: Node2D, text: String) -> void:
@@ -414,5 +547,5 @@ func _present(delta: float) -> void:
 	avatar.play(motion.player.stance())
 	avatar.advance(delta)
 	_present_pet(delta)
-	for npc: Dictionary in npcs:
+	for npc: Dictionary in npcs + shop_npcs:
 		(npc.sprite as MapDrawList).advance(delta)

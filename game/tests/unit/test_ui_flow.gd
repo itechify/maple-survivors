@@ -385,6 +385,22 @@ func test_free_market_walk_to_scripted_exit_saves_next_map_select() -> void:
 
 
 ## The hub's Equip and Item windows (#108): E / I open them over the Free Market, movement holds while one is open,
+func test_the_autoplay_option_reaches_the_hub_and_its_shop_visit() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.create_character("Auto112")
+	var character: Dictionary = flow.save.slot(0).character
+	character.mesos = 200000
+	flow.autoplay = true
+	flow.finish_run(summary(true, 900, 35, 3000), character)
+	var hub := flow.current as FreeMarket
+	assert_true(hub != null and RunScene.option_flag(hub.options, "autoplay"), "the hub got the autoplay option")
+	if hub != null:
+		assert_true(not hub.shop_visit.is_empty(), "the bot shopped on entry")
+		assert_eq(int(flow.save.slot(0).character.mesos), hub.inventory.mesos, "and the visit was saved")
+
+
 ## a change goes through the carried character's RunWorld into the drawn look and the saved slot at once, Esc closes
 ## the front window before the pause menu.
 func test_free_market_equip_window_changes_the_saved_character_at_once() -> void:

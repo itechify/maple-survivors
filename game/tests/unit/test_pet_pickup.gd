@@ -173,9 +173,9 @@ func test_the_pickup_system_stops_steering_to_a_pet_that_is_no_longer_vacuuming(
 	var slot := drops.spawn(Vector2(500.0, 0.0), 1, 1)
 	drops.state[slot] = PickupSystem.REST
 	var events: Array = []
-	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, Vector2(0.0, -15.0), 60.0, true)
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, -1, Vector2(0.0, -15.0), 60.0, true)
 	assert_eq(drops.to_pet[slot], 1)
-	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, Vector2.ZERO, 0.0, false)
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, -1, Vector2.ZERO, 0.0, false)
 	assert_eq(drops.to_pet[slot], 0, "no VAC: back to an ordinary drop")
 	assert_true(drops.state[slot] != PickupSystem.MAGNET)
 	assert_true(drops.x[slot] > 400.0, "still far out, not pulled toward the origin: %.1f" % drops.x[slot])
@@ -237,3 +237,61 @@ func test_vac_pulls_far_mesos_to_the_pet() -> void:
 	assert_eq(got.size(), 3)
 	assert_eq(w.mesos, start + 33)
 	assert_true(got.any(func(e: Dictionary) -> bool: return e.collector == "pet"), "far mesos flew to the pet")
+
+
+## Fills the character's Equip tab (spec #33: a full tab leaves equipment drops on the ground).
+func _fill_equip_tab(w: RunWorld) -> void:
+	while w.equipment.inventory.size() < w.inventory_slots():
+		w.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
+
+
+## A resting equipment drop at (x, 0), without stepping the world.
+func _rest_equip(w: RunWorld, x: float) -> int:
+	var slot := w.spawn_equipment(Vector2(x, 0.0), {"id": 1372005, "stats": {}, "slots": 7, "scrolls": 0})
+	w.pickups.state[slot] = PickupSystem.REST
+	w.pickups.vx[slot] = 0.0
+	w.pickups.vy[slot] = 0.0
+	return slot
+
+
+func test_the_pet_takes_equipment_only_while_the_equip_tab_has_room() -> void:
+	var w := _far_pet_world()
+	_fill_equip_tab(w)
+	var slot := _rest_equip(w, FAR.x + 10.0)
+	PF.run(w, 10)
+	assert_eq(w.pickups.active[slot], 1, "a full Equip tab: the pet leaves it on the ground too")
+	w.equipment.inventory.pop_back()
+	var got := PF.of_type(PF.run(w, 3), "pickup_collected")
+	assert_eq(got.size(), 1)
+	assert_eq(got[0].kind, "equip")
+	assert_eq(got[0].collector, "pet")
+	assert_eq(int(w.equipment.inventory.back().id), 1372005, "the pet's pickup lands in the Equip tab")
+
+
+func test_vac_does_not_pull_equipment_the_equip_tab_has_no_room_for() -> void:
+	var drops := PickupSystem.new(4, {"spread": 0.0})
+	var slot := drops.spawn_equipment(Vector2(500.0, 0.0), {"id": 1372005, "stats": {}, "slots": 7, "scrolls": 0})
+	drops.state[slot] = PickupSystem.REST
+	var events: Array = []
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, 0, Vector2(0.0, -15.0), 60.0, true)
+	assert_eq(drops.to_pet[slot], 0, "no room: not pulled")
+	assert_eq(drops.x[slot], 500.0)
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, 1, Vector2(0.0, -15.0), 60.0, true)
+	assert_eq(drops.to_pet[slot], 1, "room again: VAC pulls it")
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, 0, Vector2(0.0, -15.0), 60.0, true)
+	assert_eq(drops.to_pet[slot], 0, "the tab filled while it flew: it drops like an ordinary drop")
+	assert_true(drops.state[slot] != PickupSystem.MAGNET)
+
+
+func test_wing_boots_do_not_fetch_equipment_the_equip_tab_has_no_room_for() -> void:
+	var w := PF.world([PF.KITTY, PF.WING])
+	PF.put_player(w, 300.0, 0.0)
+	PF.put_pet(w, Vector2(300.0, 0.0))
+	_fill_equip_tab(w)
+	var slot := _rest_equip(w, 480.0)
+	var seen_fetching := false
+	for tick in 120:
+		PF.run(w, 1)
+		seen_fetching = seen_fetching or bool(w.pet_state().fetching)
+	assert_false(seen_fetching, "nothing it could pick up")
+	assert_eq(w.pickups.active[slot], 1)

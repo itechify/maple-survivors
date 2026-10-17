@@ -52,7 +52,12 @@
 	"crit": {"chance": 0.0, "mult": 1.5},
 	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drop cap (the farthest from the player is absorbed into a fresh drop at each new kill), lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 0, "fade": 1.5},
-	"bot": {"card_scores":{"magic_guard_new":110,"magic_guard_rank":109},"_doc":"Tier C: sensible-policy final score overrides keyed by card ID; prioritize Guard before learning another attack. No job bonus is added. Missing entries preserve legacy scoring; random card choices remain uniform."},
+	"bot": {"card_scores":{"magic_guard_new":110,"magic_guard_rank":109},"_doc":"Tier C: sensible-policy final score overrides keyed by card ID; prioritize Guard before learning another attack. No job bonus is added. Missing entries preserve legacy scoring; random card choices remain uniform.",
+		"_equipment_weights": "Tier C (spec #33, #112): how much a bot values each inc* stat of an equipment instance (an item scores the sum of weight x value; stats not listed are worth 0). Keyed by job branch (job id / 100, '2' = Magician); 'default' covers every other branch, Beginners included. A Magician wants M.ATT, then INT (LUK a little), then defences (M.DEF over W.DEF), then pools and movement. The bot wears the best wearable item per slot at each equipment pickup and level-up (BotInput.auto_equip); BotShop also reads the weights to pick scrolls and to keep or sell spare equipment.",
+		"equipment_weights": {
+			"default": {"incPAD": 10, "incSTR": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
+			"2": {"incMAD": 10, "incINT": 6, "incLUK": 1, "incMDD": 2, "incPDD": 1.5, "incDEX": 0.2, "incPAD": 0.2, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.05, "incSpeed": 0.5, "incJump": 0.3}
+		}},
 	"_potions": "Tier C: starter stock, independent HP/MP drop chances per monster (higher for elites), and bot drink thresholds. Restore amounts come from each current item's canonical spec.",
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},

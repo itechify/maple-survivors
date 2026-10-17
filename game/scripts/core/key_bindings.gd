@@ -12,7 +12,7 @@ extends RefCounted
 
 ## The actions the player may rebind, in tray order.
 const BINDABLE := ["jump", "drink_hp", "drink_mp", "teleport", "equip_window", "item_window", "stat_window",
-	"skill_window"]
+	"skill_window", "npc_chat"]
 ## Fixed actions (shown on their keys, never rebound) -> the label the window shows: Esc and the card keys keep their
 ## project keys; movement uses the movement set (see fixed_keys()).
 const FIXED_LABELS := {"pause": "Menu", "choice_1": "Card 1", "choice_2": "Card 2", "choice_3": "Card 3"}

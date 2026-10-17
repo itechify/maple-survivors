@@ -50,6 +50,12 @@
 # showing tier-1 feed count, rounds started/cleared, start/end levels and Lv70 reach alongside death/boss metrics.
 # Each round records tier (1-based), stage, seed, start_character and lv70_reached; character is the outgoing
 # snapshot only on CLEARED ({} otherwise). missing=[] confirms setup asset validation, not rendering lookups.
+# Equipment and mesos (spec #33, #112): every bot wears the best item it owns at each equipment pickup, level-up and job
+# change (BotShop.auto_equip; equips_worn, equipment_worn {slot: item id}, scrolls_on_worn per round). In a --tier chain
+# the CLEARED round's record gets `shop`, the Free Market visit before the next tier (BotShop.visit: sensible plan for
+# bot/first, careless random one for --policy=random): equipped, sold/sale_mesos, bought/spent, used/succeeded/failed/
+# destroyed, refused, scrolls_left, mesos_before/after, worn. Mesos earned in a round stay `mesos_earned`; the summary
+# adds "shop ... per visit" lines. The last tier has no visit.
 set -uo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="$REPO/game"

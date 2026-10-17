@@ -33,12 +33,26 @@ extends RefCounted
 ##   equip_item(inventory_index)  - wear an inventory item (v83 requirements against total stats)
 ##   unequip_item(slot)           - move a worn item to the inventory
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
+## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
+## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
+## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
+##   use_scroll(scroll_id, slot)  - scroll the item worn in an equip slot (Scrolls rules, #110): "" when the scroll was
+##                                  used up (the result is the `scroll_used` event: success, failure or destroyed),
+##                                  else no_item (none held) or a Scrolls refusal (scroll_type, scroll_slots, empty,
+##                                  not_worn, scroll_unknown) and the scroll is kept
+##   grant_scrolls(scroll_id, count) - add scrolls to the Use tab stacks (test hook until shops); returns how many fit
+##   discard_scrolls(scroll_id)   - destroy a whole scroll stack
+## Scroll shops (#111, Shop): shop_stock(npc_id) lists what a Free Market NPC sells this character's job; buy_scroll(npc_id,
+## scroll_id, count), sell_item(inventory_index) and sell_scrolls(scroll_id, count) trade mesos for scrolls and spare
+## equipment and return "" or a Shop reason (count, mesos, use_full, no_item, unsellable, not_sold), changing nothing then;
+## each success emits equipment_changed (action "buy" / "sell"). Worn equipment is never sold (sell_item takes inventory
+## indices; Shop.sell_worn is the refusal).
 ## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
-## 9 meso drop chance and amount rolls.
+## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -94,6 +108,9 @@ const EVENT_FIELDS := {
 	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"equipment_changed": ["action", "slot", "item_id"],
+	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
+	"grant_blocked": ["reason", "item_id"],
+	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 
 }
 
@@ -132,6 +149,8 @@ var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
 var meso_rng: RandomNumberGenerator
+var equip_rng: RandomNumberGenerator
+var scroll_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
@@ -259,6 +278,9 @@ var equipment := Equipment.empty_state()
 ## Scroll stacks: {"<scroll item id>": count}.
 var scrolls := {}
 var mesos := 0
+## Equipment drops spawned and picked up this round (balance records, #109).
+var equips_dropped := 0
+var equips_collected := 0
 var _equipment_speed := 0.0
 var _equipment_jump := 0.0
 var _dead := false
@@ -307,6 +329,8 @@ func _init_rng_streams() -> void:
 	reward_rng = _stream(6)
 	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
+	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
+	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -689,22 +713,27 @@ func _step_player_attacks(dt: float) -> void:
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
 func _step_pickups(dt: float) -> int:
+	var equip_room := maxi(0, inventory_slots() - equipment.inventory.size())
 	var got := 0
 	if pet_system == null:
-		got = pickups.step(dt, player.pos, magnet_r, fhm, events)
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room)
 	else:
-		got = pickups.step(dt, player.pos, magnet_r, fhm, events, pet_system.center(), pet_system.pickup_radius(),
-			pet_system.abilities.vac)
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room, pet_system.center(),
+			pet_system.pickup_radius(), pet_system.abilities.vac)
 		pet_system.pickups += pickups.pet_collected
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
+	for instance: Dictionary in pickups.collected_equipment:
+		equipment.inventory.append(instance)
+		equips_collected += 1
+		_equipment_changed("pickup", "", int(instance.id))
 	return got
 
 
 ## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
 func _step_pet(dt: float) -> void:
-	pet_system.step(dt, player, fhm, bounds, pickups, events)
+	pet_system.step(dt, player, fhm, bounds, pickups, events, maxi(0, inventory_slots() - equipment.inventory.size()))
 	for kind: String in ["hp", "mp"]:
 		var current := _hp if kind == "hp" else _mp
 		var maximum := _max_hp if kind == "hp" else _max_mp
@@ -1145,9 +1174,87 @@ func discard_scrolls(item_id: int) -> String:
 	return ""
 
 
+## The canonical info of scroll `scroll_id` (setup.scroll_info; {} when absent).
+func scroll_info(scroll_id: int) -> Dictionary:
+	var infos: Dictionary = setup.get("scroll_info", {})
+	return infos.get(scroll_id, infos.get(str(scroll_id), {}))
+
+
+## Adds up to `count` scrolls to the Use tab (a stack stops at its info/slotMax, 100 without one; the two potion
+## stacks take two of the Use tab's slots); returns how many were added. Test and tool hook until shops exist.
+func grant_scrolls(scroll_id: int, count: int) -> int:
+	return Scrolls.add(scrolls, scroll_id, count, int(scroll_info(scroll_id).get("slotMax", 0)),
+		Shop.use_stack_limit(potions.stock))
+
+
+## What Free Market NPC `npc_id` (shops.json) sells this character's job: Shop.stock entries, [] for an unknown NPC.
+func shop_stock(npc_id: int) -> Array:
+	for npc: Dictionary in data.get("shops", {}).get("npcs", []):
+		if int(npc.id) == npc_id:
+			return Shop.stock(npc, data.shops, data.get("scrolls", {}), data.get("equipment_drops", {}).get("items", []),
+				setup.get("equipment_info", {}), progression.job_id)
+	return []
+
+
+## Buys `count` scrolls `scroll_id` from NPC `npc_id` (Shop.buy; "not_sold" when its stock lacks the scroll).
+func buy_scroll(npc_id: int, scroll_id: int, count: int) -> String:
+	for entry: Dictionary in shop_stock(npc_id):
+		if int(entry.id) == scroll_id:
+			var state := _shop_state()
+			var reason := Shop.buy(state, scroll_id, count, int(entry.price), int(scroll_info(scroll_id).get("slotMax", 0)))
+			if reason == "":
+				_shop_done("buy", scroll_id, state)
+			return reason
+	return "not_sold"
+
+
+## Sells the spare equipment at inventory `index` at its info/price (Shop.sell_equipment).
+func sell_item(index: int) -> String:
+	var id := int(equipment.inventory[index].id) if index >= 0 and index < equipment.inventory.size() else 0
+	var state := _shop_state()
+	var reason := Shop.sell_equipment(state, index, Equipment.info_of(setup.get("equipment_info", {}), id))
+	if reason == "":
+		_shop_done("sell", id, state)
+	return reason
+
+
+## Sells `count` scrolls `scroll_id` at their info/price (Shop.sell_scrolls).
+func sell_scrolls(scroll_id: int, count: int) -> String:
+	var state := _shop_state()
+	var reason := Shop.sell_scrolls(state, scroll_id, count, scroll_info(scroll_id))
+	if reason == "":
+		_shop_done("sell", scroll_id, state)
+	return reason
+
+
+## Reads scroll `scroll_id` onto the item worn in `slot` (Scrolls.use with the scroll stream): "" once it was used up
+## (success, failure or destruction, reported by `scroll_used`), or the refusal with the scroll kept. See the header.
+func use_scroll(scroll_id: int, slot: String) -> String:
+	if int(scrolls.get(str(scroll_id), 0)) <= 0:
+		return "no_item"
+	var item_id := int(equipment.worn[slot].id) if equipment.worn.has(slot) else 0
+	var result := Scrolls.use(equipment.worn, slot, scroll_id, scroll_info(scroll_id), scroll_rng)
+	if not result in Scrolls.OUTCOMES:
+		return result
+	Scrolls.take(scrolls, scroll_id)
+	_equipment_changed("scroll", slot, item_id)
+	emit("scroll_used", {"result": result, "scroll_id": scroll_id, "slot": slot, "item_id": item_id})
+	return ""
+
+
 ## The Equip tab's capacity (balance.player.inventory_slots).
 func inventory_slots() -> int:
 	return int(balance.get("player", {}).get("inventory_slots", DEFAULT_INVENTORY_SLOTS))
+
+
+## The character state Shop works on: mesos by value, the Use stacks and Equip tab by reference.
+func _shop_state() -> Dictionary:
+	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment, "potions": potions.stock}
+
+
+func _shop_done(action: String, item_id: int, state: Dictionary) -> void:
+	mesos = int(state.mesos)
+	emit("equipment_changed", {"action": action, "slot": "", "item_id": item_id})
 
 
 func _equipment_changed(action: String, slot: String, id: int) -> void:
@@ -1156,13 +1263,17 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 
 
 ## tier C: advancing to a job in balance.player.weapon_grants (Magician 200 -> Wooden Wand) wears that weapon; the
-## previous one moves to the inventory (the last of spec #32's weapon_by_job rule).
+## previous one moves to the inventory (the last of spec #32's weapon_by_job rule). tier C: when the previous weapon has
+## no room the grant is skipped (the character keeps its weapon, nothing is destroyed) and `grant_blocked` is emitted.
 func _grant_job_weapon(job_id: int) -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
 	if id <= 0:
 		return
-	Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
+	var reason := Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
 		inventory_slots())
+	if reason != "":
+		emit("grant_blocked", {"reason": reason, "item_id": id})
+		return
 	_equipment_changed("grant", "weapon", id)
 
 
@@ -1532,6 +1643,9 @@ func _on_kill(m: int) -> void:
 	var meso_chance := float(meso_cfg.get("chance", 0.0))
 	if meso_chance > 0.0 and meso_rng.randf() < meso_chance:
 		spawn_meso(pos, _roll_mesos(mk))
+	var equip_chance := float(data.get("equipment_drops", {}).get("chance", 0.0))
+	if equip_chance > 0.0 and equip_rng.randf() < equip_chance:
+		_drop_equipment(pos, false)
 
 
 ## Rolls one meso amount for a mob kind: its listed v83 range (or the level fallback) times balance.mesos.mult.
@@ -1539,6 +1653,29 @@ func _roll_mesos(mk: MobKind) -> int:
 	var cfg: Dictionary = balance.get("mesos", {})
 	var span := MesoDrops.amount_range(mk.level, mk.mesos, cfg.get("fallback", {}))
 	return MesoDrops.roll(meso_rng, span, float(cfg.get("mult", 1.0)))
+
+
+## One equipment drop for the character's current job and level (EquipmentDrops; `boss` takes the top of the level
+## window) with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
+func _drop_equipment(pos: Vector2, boss: bool) -> void:
+	var cfg: Dictionary = data.get("equipment_drops", {})
+	var infos: Dictionary = setup.get("equipment_info", {})
+	var items: Array = cfg.get("items", [])
+	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng) if boss \
+		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng)
+	if id > 0:
+		spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng))
+
+
+## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the
+## Equip tab has room, otherwise it lies there (pickup_blocked) until a slot is free. Returns the pickup slot.
+func spawn_equipment(pos: Vector2, instance: Dictionary) -> int:
+	var slot := pickups.spawn_equipment(pos, instance)
+	if slot >= 0:
+		equips_dropped += 1
+		emit("pickup_spawned", {"pickup": slot, "item_id": int(instance.id), "pos": pos,
+			"kind": "equip", "potion_kind": "", "count": 1})
+	return slot
 
 
 ## Drops `amount` mesos on the ground at pos (the sprite follows the amount); the magnet collects them like EXP.
@@ -1560,6 +1697,9 @@ func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	_spawn_revives(m, pos)
 	_drop_boss_rewards(pos, e, mk.exp_item, rewards)
 	_drop_boss_mesos(pos, mk, float(rewards.get("spread", 0.0)))
+	var spread := float(rewards.get("spread", 0.0))
+	for i in int(data.get("equipment_drops", {}).get("boss_drops", 0)):
+		_drop_equipment(pos + Vector2(equip_rng.randf_range(-spread, spread) if spread > 0.0 else 0.0, 0), true)
 
 
 ## balance.mesos.boss_drops bundles, each rolled from the boss's range and scattered over `spread` px (no chance roll).

@@ -221,7 +221,7 @@ func pages_loaded() -> int:
 
 
 ## String.wz names. kind: "Mob" (unpadded id), "Skill" (7-digit), "Book" (job id -> skill book name), "Map",
-## "Street", "Etc", "Eqp". Returns "" when unknown (not recorded as missing).
+## "Street", "Etc", "Eqp", "Npc" (unpadded id). Returns "" when unknown (not recorded as missing).
 func string_name(kind: String, id: int) -> String:
 	var v: Variant = null
 	match kind:
@@ -237,6 +237,8 @@ func string_name(kind: String, id: int) -> String:
 			v = map_strings(id).get("streetName", "")
 		"Etc":
 			v = find("String.wz/Etc.img/Etc/%d/name" % id)
+		"Npc":
+			v = find("String.wz/Npc.img/%d/name" % id)
 		"Eqp":
 			var eqp: Variant = find("String.wz/Eqp.img/Eqp")
 			if eqp is Dictionary:

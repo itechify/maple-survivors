@@ -11,11 +11,18 @@ extends RefCounted
 ## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
 ## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
 ## the player never expires. Potions and mesos (spawn_meso, kind MESO) never expire, merge or count toward the EXP
-## cap; a collected meso drop adds its amount to `step_mesos` (this step) and `collected_mesos` (total). All motion and lifetime constants are tier C (ours).
+## cap; a collected meso drop adds its amount to `step_mesos` (this step) and `collected_mesos` (total).
+## Equipment (spawn_equipment, kind EQUIP) carries its instance in `equip_instance`, never expires, merges or counts
+## toward the EXP cap, and is collected only while the caller says the Equip tab has room (step's `equip_room`, -1 =
+## unlimited): a collected one is appended to `collected_equipment` (this step) and reported by a `pickup_collected`
+## event (kind "equip", count 1). With no room it is not magnetised (one already flying falls back to the
+## floor), lies where it is and appends one `pickup_blocked` event (reason "inventory_full") each time the player comes
+## within magnet range, until room appears. All motion and lifetime constants are tier C (ours).
 ##
 ## A pet out (spec #34, PetSystem) is a second collector given to step(): a drop inside the pet's pickup radius is
 ## collected by it at once, and with VAC every drop outside the player's magnet radius flies to the pet (`to_pet`) at
-## the same speed. The `pickup_collected` event says who (`collector`); the EXP, potions and mesos are credited alike.
+## the same speed. The `pickup_collected` event says who (`collector`); the EXP, potions, mesos and equipment are
+## credited alike. Equipment the Equip tab has no room for is never taken by the pet either.
 
 const AIR := 0
 const REST := 1
@@ -25,6 +32,9 @@ const EXP := 0
 const HP_POTION := 1
 const MP_POTION := 2
 const MESO := 3
+const EQUIP := 4
+## The `kind` string of a `pickup_collected` event by pickup kind (both potion kinds are "potion").
+const KIND_NAMES := {EXP: "exp", HP_POTION: "potion", MP_POTION: "potion", MESO: "meso", EQUIP: "equip"}
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -52,6 +62,12 @@ var kind := PackedByteArray()
 var potion_count := PackedInt32Array()
 ## Meso amount of a MESO drop (0 for every other kind).
 var meso := PackedInt32Array()
+## Equipment instance of an EQUIP drop (null for every other kind); equipment is rare, so plain Variants.
+var equip_instance: Array = []
+## 1 once the "inventory full" notice was given for this drop and the player has not left magnet range since.
+var full_noted := PackedByteArray()
+## Equipment instances collected in the most recent step(), read by RunWorld to fill the inventory.
+var collected_equipment: Array = []
 ## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
 var collected_potions := {"hp": 0, "mp": 0}
 ## Drops the pet collected in the most recent step().
@@ -143,6 +159,17 @@ func spawn_meso(pos: Vector2, amount: int) -> int:
 	return i
 
 
+## Drops an equipment instance (see Equipment; the item's own id picks the icon) independently of the EXP cap; -1
+## for an instance without a positive id.
+func spawn_equipment(pos: Vector2, instance: Dictionary) -> int:
+	if int(instance.get("id", 0)) <= 0:
+		return -1
+	merged = false
+	var i := _spawn(pos, 0, int(instance.id), EQUIP, 0)
+	equip_instance[i] = instance
+	return i
+
+
 func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -> int:
 	if _free.is_empty():
 		_grow(capacity() * 2)
@@ -159,6 +186,8 @@ func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -
 	kind[i] = p_kind
 	potion_count[i] = count
 	meso[i] = 0
+	equip_instance[i] = null
+	full_noted[i] = 0
 	state[i] = AIR
 	to_pet[i] = 0
 	age[i] = 0.0
@@ -174,6 +203,7 @@ func despawn(i: int) -> void:
 	if i < 0 or i >= capacity() or active[i] == 0:
 		return
 	active[i] = 0
+	equip_instance[i] = null
 	_count -= 1
 	if kind[i] == EXP:
 		_exp_count -= 1
@@ -192,17 +222,21 @@ func alpha(i: int) -> float:
 
 
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
+## `equip_room` is how many more equipment items the Equip tab holds (-1: no limit); it counts down as items are collected.
 ## A pet out (spec #34) is a second collector: a drop within `pet_r` of `pet_center` is collected by it (the EXP and
 ## potions count as the player's, the event says `collector: "pet"`), and with `pet_vac` every drop that is not about
 ## to be magnetised by the player flies to the pet at the same speed; a drop flying to the pet when `pet_vac` ends
-## (the pet is dismissed) falls and lands as an ordinary drop. Without a pet (pet_r 0) nothing else changes.
-func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array,
+## (the pet is dismissed) or that the Equip tab has no room for falls and lands as an ordinary drop. Without a pet
+## (pet_r 0) nothing else changes.
+func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array, equip_room: int = -1,
 		pet_center := Vector2.ZERO, pet_r := 0.0, pet_vac := false) -> int:
 	var got := 0
 	collected_potions = {"hp": 0, "mp": 0}
+	collected_equipment = []
 	pet_collected = 0
 	var pr2 := pet_r * pet_r
 	step_mesos = 0
+	var room := equip_room
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
 	var acc := float(tuning.magnet_acc)
@@ -229,9 +263,10 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 		var dy := cy - py
 		var d2 := dx * dx + dy * dy
 		var st := state[i]
-		if to_pet[i] != 0 and not pet_vac:
-			# The pet was dismissed (or lost VAC) while this drop flew to it: an ordinary drop again, which falls from
-			# where it is and lands, or is magnetised by the player as usual.
+		var blocked := kind[i] == EQUIP and room == 0
+		if to_pet[i] != 0 and (not pet_vac or blocked):
+			# The pet was dismissed (or lost VAC), or the Equip tab filled, while this drop flew to it: an ordinary drop
+			# again, which falls from where it is and lands, or is magnetised by the player as usual.
 			to_pet[i] = 0
 			st = AIR
 			state[i] = AIR
@@ -241,7 +276,7 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			dx = pet_center.x - px
 			dy = pet_center.y - py
 			d2 = dx * dx + dy * dy
-		elif pet_vac and st != MAGNET and d2 > mr2:
+		elif pet_vac and not blocked and st != MAGNET and d2 > mr2:
 			st = MAGNET  # VAC: out of the player's reach, so it flies to the pet
 			state[i] = MAGNET
 			vx[i] = float(tuning.magnet_speed)
@@ -256,7 +291,21 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 				expired_exp += exp[i]
 				despawn(i)
 				continue
-		if st != MAGNET and d2 <= mr2:
+		if blocked:
+			if st == MAGNET:  # the last slot filled while it was flying: it drops back to the floor
+				st = AIR
+				state[i] = AIR
+				vx[i] = 0.0
+				vy[i] = 0.0
+			if d2 <= mr2 and full_noted[i] == 0:
+				full_noted[i] = 1
+				events.append({"type": "pickup_blocked", "pickup": i, "item_id": item_id[i],
+					"pos": Vector2(px, py), "reason": "inventory_full"})
+			elif d2 > mr2:
+				full_noted[i] = 0
+		else:
+			full_noted[i] = 0
+		if st != MAGNET and d2 <= mr2 and not blocked:
 			st = MAGNET
 			state[i] = MAGNET
 			vx[i] = float(tuning.magnet_speed)  # vx holds the magnet speed while attracted
@@ -300,8 +349,8 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			y[i] = ny
 			d2 = (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny)
 		var by_pet := to_pet[i] != 0
-		var reached := d2 <= cr2
-		if not reached and pr2 > 0.0 and not by_pet:
+		var reached := d2 <= cr2 and not blocked
+		if not reached and pr2 > 0.0 and not by_pet and not blocked:
 			var ex := pet_center.x - x[i]
 			var ey := pet_center.y - y[i]
 			if ex * ex + ey * ey <= pr2:
@@ -317,11 +366,18 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			var is_meso := kind[i] == MESO
 			if is_meso:
 				step_mesos += meso[i]
-			# A meso event carries its amount in `count`.
-			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
-				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else ("meso" if is_meso else "potion"),
-				"potion_kind": potion_kind, "count": meso[i] if is_meso else potion_count[i],
-				"collector": "pet" if by_pet else "player"})
+			var is_equip := kind[i] == EQUIP
+			var kind_name: String = KIND_NAMES[kind[i]]
+			# A meso event carries its amount in `count`; the instance of equipment goes to `collected_equipment`.
+			var event := {"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
+				"pos": Vector2(x[i], y[i]), "kind": kind_name,
+				"potion_kind": potion_kind, "count": meso[i] if is_meso else (1 if is_equip else potion_count[i]),
+				"collector": "pet" if by_pet else "player"}
+			if is_equip:
+				collected_equipment.append(equip_instance[i])
+				if room > 0:
+					room -= 1
+			events.append(event)
 			despawn(i)
 	collected_exp += got
 	collected_mesos += step_mesos
@@ -332,8 +388,9 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, state, kind, to_pet]:
+	for arr: Variant in [active, state, kind, to_pet, full_noted]:
 		arr.resize(n)
+	equip_instance.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
 	for arr: Variant in [exp, item_id, potion_count, meso]:

@@ -61,6 +61,9 @@ const DEFAULT_RUN_CAP := 1800.0
 const LATE_MP_START := 480.0
 ## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
 const EARLY_MINUTES := 5
+## The numeric fields of a round record's `shop` (the Free Market visit at its end) that aggregate() summarises.
+const SHOP_FIELDS := ["sold", "sale_mesos", "spent", "bought", "used", "succeeded", "failed", "destroyed", "equipped",
+	"scrolls_left", "mesos_after"]
 const LEVEL_TARGET := 70 # tier C: spec #32 requested reach metric; no success/clear rule or tuning target.
 
 
@@ -267,13 +270,11 @@ static func round_seed(run_seed: int, tier_index: int) -> int:
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
 		camp_after := 60.0, branch := 0) -> Dictionary:
 	var rounds: Array = []
-	var character := {}
+	var carried: RunWorld = null
 	for tier_index in setups.size():
 		var setup: Dictionary = setups[tier_index].duplicate()
 		setup.seed = round_seed(run_seed, tier_index)
-		if tier_index > 0:
-			setup.character = character
-		var world := RunWorld.new(setup)
+		var world := carried if carried != null else RunWorld.new(setup)
 		var start_character := world.character_snapshot()
 		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, branch)
 		record["start_character"] = start_character
@@ -281,7 +282,19 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 		rounds.append(record)
 		if record.state != "CLEARED":
 			break
-		character = record.character
+		carried = null
+		if tier_index + 1 < setups.size():
+			# The Free Market between the tiers (spec #33, #112): the next round's world, built from the boundary snapshot,
+			# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
+			# its own stream.
+			var next_setup: Dictionary = setups[tier_index + 1].duplicate()
+			next_setup.seed = round_seed(run_seed, tier_index + 1)
+			next_setup.character = record.character
+			carried = RunWorld.new(next_setup)
+			var shop_rng := RandomNumberGenerator.new()
+			shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, tier_index])
+			record["shop"] = BotShop.visit(carried, policy, shop_rng)
+			carried.drain_events()
 	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
 		"target_tier": setups.size(), "rounds": rounds}
 
@@ -356,6 +369,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var recycled0 := 0
 	var hp_low := 1.0
 	var hits := 0
+	var equips_worn := 0
 	var teleports := 0
 	var taken := 0
 	var max_alive := 0
@@ -391,7 +405,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			max_alive_t = w.time
 		if w.time > 60.0:
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
-		for e: Dictionary in w.drain_events():
+		var events := w.drain_events()
+		# Mid-round equipping (spec #33, #112): not a decision point, no RNG; changes stats before the next tick.
+		equips_worn += BotShop.equip_after(w, events)
+		for e: Dictionary in events:
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):
 				"teleport":
@@ -494,6 +511,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
 		"mesos_earned": w.pickups.collected_mesos, "mesos_total": w.mesos,
+		"equips_dropped": w.equips_dropped, "equips_collected": w.equips_collected,
+		"equips_worn": equips_worn, "equipment_worn": _worn_ids(w), "scrolls_on_worn": _scrolls_on_worn(w),
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"potions_start": potions_start, "potions_left": {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)},
 		"potion_uses": potion_uses,
@@ -513,6 +532,22 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			"pickups": w.pet_system.pickups, "potions_used": w.potions.pet_used.duplicate(),
 			"alert": w.alert.duplicate()}
 	return record
+
+
+## The worn equipment at this moment, {slot: item id}.
+static func _worn_ids(w: RunWorld) -> Dictionary:
+	var out := {}
+	for slot: String in w.equipment.worn:
+		out[slot] = int(w.equipment.worn[slot].id)
+	return out
+
+
+## Successful scrolls read onto the worn items, in total.
+static func _scrolls_on_worn(w: RunWorld) -> int:
+	var n := 0
+	for instance: Dictionary in w.equipment.worn.values():
+		n += int(instance.scrolls)
+	return n
 
 
 ## Live mobs within NEAR_X px horizontally and NEAR_Y px vertically of the player's feet.
@@ -583,8 +618,17 @@ static func describe(r: Dictionary) -> String:
 		_mmss(float(r.job_t)), int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
-		"  EXP collected %d, expired %d (%d drops); mesos earned %d" % [int(r.exp_collected), int(r.expired_exp),
-			int(r.expired_drops), int(r.get("mesos_earned", 0))]])
+		"  EXP collected %d, expired %d (%d drops); mesos earned %d; equipment %d dropped, %d picked up" % [int(r.exp_collected), int(r.expired_exp),
+			int(r.expired_drops), int(r.get("mesos_earned", 0)), int(r.get("equips_dropped", 0)), int(r.get("equips_collected", 0))]])
+	lines.append("  equipment worn %s (%d put on mid-round, %d scrolls succeeded on it)" % [
+		JSON.stringify(r.get("equipment_worn", {})), int(r.get("equips_worn", 0)), int(r.get("scrolls_on_worn", 0))])
+	if r.has("shop"):
+		var shop: Dictionary = r.shop
+		lines.append(("  shop: mesos %d -> %d (earned this round %d; sold %d for %d, spent %d); scrolls bought %d, used %d "
+			+ "(%d succeeded, %d failed, %d items destroyed), %d left; refused %s") % [
+			int(shop.mesos_before), int(shop.mesos_after), int(r.get("mesos_earned", 0)), int(shop.sold),
+			int(shop.sale_mesos), int(shop.spent), int(shop.bought), int(shop.used), int(shop.succeeded),
+			int(shop.failed), int(shop.destroyed), int(shop.scrolls_left), shop.refused])
 	for k: String in ["alive_by_min", "near_by_min", "eng_by_min", "stale_by_min", "drops_by_min", "level_by_min",
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
@@ -678,6 +722,12 @@ static func aggregate(records: Array) -> Dictionary:
 	result["late_mp_short_runs"] = 0
 	var magician_times: Array = []
 	var mesos_earned: Array = []
+	var equips_dropped: Array = []
+	var equips_collected: Array = []
+	var equips_worn: Array = []
+	var shop_samples := {}
+	for field: String in SHOP_FIELDS:
+		shop_samples[field] = []
 	var fractions: Array = []
 	var fight_samples := {}
 	var censored_samples := {}
@@ -729,6 +779,14 @@ static func aggregate(records: Array) -> Dictionary:
 		if job_time >= 0.0:
 			magician_times.append(job_time)
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
+		if record.has("equips_dropped"):
+			equips_dropped.append(int(record.equips_dropped))
+			equips_collected.append(int(record.get("equips_collected", 0)))
+		if record.has("equips_worn"):
+			equips_worn.append(int(record.equips_worn))
+		if record.has("shop"):
+			for field: String in SHOP_FIELDS:
+				shop_samples[field].append(int(record.shop.get(field, 0)))
 		if record.has("mesos_earned"):
 			mesos_earned.append(int(record.mesos_earned))
 		for key: String in ["potions_collected", "potions_used"]:
@@ -780,6 +838,14 @@ static func aggregate(records: Array) -> Dictionary:
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
 	result["mesos_earned"] = statistics(mesos_earned)
+	result["equips_dropped"] = statistics(equips_dropped)
+	result["equips_collected"] = statistics(equips_collected)
+	if not equips_worn.is_empty():
+		result["equips_worn"] = statistics(equips_worn)
+	if not shop_samples.sold.is_empty():
+		result["shop"] = {"visits": shop_samples.sold.size()}
+		for field: String in SHOP_FIELDS:
+			result.shop[field] = statistics(shop_samples[field])
 	result["boss_hit_fraction"] = statistics(fractions)
 	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
@@ -855,6 +921,14 @@ static func describe_metrics(summary: Dictionary) -> String:
 		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	if summary.has("mesos_earned"):
 		lines.append("  mesos earned per round " + _range(summary.mesos_earned))
+	if summary.has("equips_dropped"):
+		lines.append("  equipment dropped per round " + _range(summary.equips_dropped) + ", picked up " + _range(summary.equips_collected))
+	if summary.has("equips_worn"):
+		lines.append("  equipment put on mid-round per round " + _range(summary.equips_worn))
+	if summary.has("shop"):
+		lines.append("  Free Market visits after this tier: %d" % int(summary.shop.visits))
+		for field: String in SHOP_FIELDS:
+			lines.append("    shop %s per visit %s" % [field, _range(summary.shop[field])])
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
 	for tier: String in UpgradePool.TIERS:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),

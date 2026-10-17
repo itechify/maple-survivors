@@ -57,6 +57,39 @@ static func create(id: int, info: Dictionary) -> Dictionary:
 	return {"id": id, "stats": stats, "slots": maxi(0, int(info.get("tuc", 0))), "scrolls": 0}
 
 
+## Spread cap per `inc*` key for a dropped item's random stats. tier B: the v83 server's rule (open server
+## reimplementations): a stat varies by up to 10% of its base, rounded up, capped at 5 for these keys and at 10 for the
+## defence and HP/MP keys; keys in neither list (resistances, craft) keep their base.
+const DROP_SPREAD_CAP := {"incSTR": 5, "incDEX": 5, "incINT": 5, "incLUK": 5, "incPAD": 5, "incMAD": 5, "incACC": 5,
+	"incEVA": 5, "incSpeed": 5, "incJump": 5, "incPDD": 10, "incMDD": 10, "incMHP": 10, "incMMP": 10}
+
+
+## A dropped instance of item `id`: like create(), but every non-zero `inc*` stat in DROP_SPREAD_CAP is rolled uniformly
+## by a whole number up to its spread either side of the canonical base (never below 0; a result of 0 is left out).
+## Upgrade slots (`tuc`) never vary. All randomness comes from `rng`.
+static func create_drop(id: int, info: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+	var instance := create(id, info)
+	var rolled := {}
+	for key: String in instance.stats:
+		var base := int(instance.stats[key])
+		var cap: int = DROP_SPREAD_CAP.get(key, 0)
+		if cap > 0 and base > 0:
+			var spread := mini(cap, ceili(float(base) * 0.1))
+			base = maxi(0, base + rng.randi_range(-spread, spread))
+		if base != 0:
+			rolled[key] = base
+	instance.stats = rolled
+	return instance
+
+
+## Whether `info`'s reqJob admits `job_id`: 0 admits every job, otherwise the branch's bit must be set (Beginner,
+## job 0, has no bit and so only wears all-job items).
+@warning_ignore("integer_division")
+static func job_allows(info: Dictionary, job_id: int) -> bool:
+	var mask := int(info.get("reqJob", 0))
+	return mask == 0 or mask & int(JOB_BITS.get(job_id / 100, 0)) != 0
+
+
 ## An empty equipment state.
 static func empty_state() -> Dictionary:
 	return {"worn": {}, "inventory": []}
@@ -172,19 +205,19 @@ static func discard(state: Dictionary, index: int) -> String:
 	return ""
 
 
-## Wears a granted instance without requirement checks; what it replaces moves to the inventory while there is room.
-## Returns the replaced instances that did not fit (tier C: they are lost; a grant never fails).
-static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> Array:
+## Wears a granted instance without requirement checks; what it replaces moves to the inventory. Returns "" or
+## "inventory_full" when the replaced items do not all fit: the grant is then skipped and the state is unchanged
+## (tier C: nothing is ever destroyed; the character keeps what it wears).
+static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> String:
 	var slot := slot_of(int(instance.id))
-	var lost := []
-	for moved_slot: String in _displaced(state.worn, slot):
-		if state.inventory.size() < capacity:
-			state.inventory.append(state.worn[moved_slot])
-		else:
-			lost.append(state.worn[moved_slot])
+	var displaced := _displaced(state.worn, slot)
+	if state.inventory.size() + displaced.size() > capacity:
+		return "inventory_full"
+	for moved_slot: String in displaced:
+		state.inventory.append(state.worn[moved_slot])
 		state.worn.erase(moved_slot)
 	state.worn[slot] = instance
-	return lost
+	return ""
 
 
 static func _displaced(worn: Dictionary, slot: String) -> Array:

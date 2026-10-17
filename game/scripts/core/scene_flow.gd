@@ -31,6 +31,7 @@ extends Node
 ## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the
 ## boundary screen it names ("stage_select" or "free_market"; no-op without a living character) and leave_cash_shop()
 ## returns to that origin. The saved boundary phase is untouched while shopping. Purchases are CashShop.buy on save_data().
+## start_hub(request) is the tool-only `--hub` (HubTestKit): a throwaway save, a test kit and the real Free Market.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
 ## Emitted after a scene swap (title, character_select, history, free_market, stage_select, run, results, import, error).
@@ -68,6 +69,11 @@ var active_slot := -1
 ## User-facing validation or persistence error from the last character action.
 var action_error := ""
 var last_stage := ""
+## The `--autoplay` option of this session: persistent rounds resumed from the flow play with the bot, and the Free Market
+## runs the bot's shop visit on entry (spec #33, #112).
+var autoplay := false
+## True in a tool-only `--hub` session: the Free Market puts the character beside the scroll NPCs (start_hub).
+var hub_tool := false
 var last_summary: Dictionary = {}
 var last_new_best := false
 
@@ -145,9 +151,10 @@ static func migrated_character(character: Dictionary, img_loader: Callable) -> D
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
 
-## An img loader over the default asset library for item info (empty roots without a cache: items then carry no stats).
-static func equipment_info_loader() -> Callable:
-	var library := AssetLibrary.get_default()
+## An img loader over `lib` (default: the default asset library) for img roots such as item info (empty roots without
+## a cache: items then carry no stats).
+static func equipment_info_loader(lib: AssetLibrary = null) -> Callable:
+	var library := lib if lib != null else AssetLibrary.get_default()
 	return func(path: String) -> Dictionary:
 		var img: WzImg = library.img(path) if library != null else null
 		return img.root if img != null else {}
@@ -205,7 +212,32 @@ func goto_import() -> void:
 ## Starts a tool-only one-off round; does not read or write any save state.
 func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) -> void:
 	active_slot = -1
+	autoplay = RunScene.option_flag(options, "autoplay")
 	_launch_round(stage_key, p_seed, options)
+
+
+## Tool-only `--hub` (HubTestKit): opens the Free Market with a test character. `request` is HubTestKit.parse_args'
+## {character, mesos}. The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
+## now, in phase free_market, and is continued as in real play; user://save.json is never read or written.
+func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
+	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.DEFAULT_CHARACTER)),
+		equipment_info_loader())
+	if not String(loaded.error).is_empty():
+		_swap_to(error_screen("--hub: " + String(loaded.error)), "error")
+		return
+	hub_tool = true
+	save = HubTestKit.fresh_save(save_path)
+	var character := HubTestKit.apply(loaded.character, int(request.get("mesos", HubTestKit.DEFAULT_MESOS)),
+		equipment_info_loader())
+	# A cleared first tier: out00 opens the second tier's map select, like the hub after a real clear.
+	var snapshot := {"name": HubTestKit.CHARACTER_NAME, "created": _date(), "character": character, "tier": 1,
+		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1, "stage": "henesys_hg1",
+		"round_seed": make_seed()}
+	var index := save.create_slot(snapshot)
+	if index < 0:
+		_swap_to(error_screen("--hub: the test character could not be saved to %s." % save_path), "error")
+		return
+	continue_character(index)
 
 
 ## Saves the selected stage and seed before launching a persistent round. Rejects stages outside this tier.
@@ -266,6 +298,8 @@ func _resume_round(snapshot: Dictionary) -> void:
 	var options := {"character": snapshot.character, "name": snapshot.name, "account": save_data().account}
 	if live != null:
 		options["settings_alert"] = live.alert_levels()
+	if autoplay:
+		options["autoplay"] = true
 	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options, live)
 
 
@@ -351,7 +385,10 @@ func _after_round_cleared(snapshot: Dictionary) -> void:
 
 func _open_free_market(snapshot: Dictionary, notice: String = "") -> void:
 	var screen := _instance(FREE_MARKET)
-	screen.configure(snapshot, self, notice)
+	var options := {"autoplay": autoplay}
+	if hub_tool:
+		options["spawn_x"] = HubTestKit.spawn_x(DataRepo.load_all().get("shops", {}))
+	screen.configure(snapshot, self, options, notice)
 	_swap_to(screen, "free_market")
 
 

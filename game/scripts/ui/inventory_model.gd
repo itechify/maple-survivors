@@ -92,6 +92,12 @@ static func desc_path(id: int) -> String:
 	return string_path(id, "desc")
 
 
+## A String.wz description as shown: its literal `\n` become line breaks, and the dark scrolls' broken break
+## ("...+1nIf failed, the item will be destroyed...": the backslash is missing in v83's data) is repaired (tier C).
+static func clean_desc(text: String) -> String:
+	return text.replace("\\n", "\n").replace("nIf failed", "\nIf failed")
+
+
 ## Mesos with thousands separators, as the v83 meso line shows them.
 static func meso_text(mesos: int) -> String:
 	var s := str(maxi(0, mesos))

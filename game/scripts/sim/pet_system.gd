@@ -120,7 +120,10 @@ func view() -> Dictionary:
 
 
 ## Advances the pet by dt: teleport check, then follow (or fetch, or hang). Appends `pet_teleported` to events.
-func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drops: PickupSystem, events: Array) -> void:
+## `equip_room` is how many more equipment items the Equip tab holds (-1: no limit); with none the pet does not fetch
+## equipment drops, which it could not pick up.
+func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drops: PickupSystem, events: Array,
+		equip_room: int = -1) -> void:
 	_drink_cd.hp = maxf(0.0, float(_drink_cd.hp) - dt)
 	_drink_cd.mp = maxf(0.0, float(_drink_cd.mp) - dt)
 	_fetch_pause_t = maxf(0.0, _fetch_pause_t - dt)
@@ -137,7 +140,7 @@ func step(dt: float, player: PlayerMotion, fhm: FootholdMap, bounds: Rect2, drop
 			teleport_to(player, fhm, events)
 	else:
 		_apart_t = 0.0
-	var target := _target(dt, player, drops)
+	var target := _target(dt, player, drops, equip_room)
 	var input := _input(dt, player, target)
 	var mult := float(tuning.fetch_speed_mult) if fetching else float(tuning.follow_speed_mult)
 	motion.speed_stat = roundi(maxf(float(tuning.speed_stat_floor), float(player.speed_stat)) * mult)
@@ -184,10 +187,10 @@ func teleport_to(player: PlayerMotion, fhm: FootholdMap, events: Array) -> void:
 
 
 ## Where the pet is heading: a resting drop within the leash (Wing Boots), else the player.
-func _target(dt: float, player: PlayerMotion, drops: PickupSystem) -> Vector2:
+func _target(dt: float, player: PlayerMotion, drops: PickupSystem, equip_room: int) -> Vector2:
 	fetching = false
 	if abilities.wing_boots and _fetch_pause_t <= 0.0:
-		var slot := _nearest_drop(player.pos, drops)
+		var slot := _nearest_drop(player.pos, drops, equip_room != 0)
 		if slot >= 0:
 			if slot != _fetch_slot:
 				_fetch_slot = slot
@@ -204,14 +207,16 @@ func _target(dt: float, player: PlayerMotion, drops: PickupSystem) -> Vector2:
 	return player.pos
 
 
-## The resting drop nearest the pet that lies within the leash of the player (-1 = none).
-func _nearest_drop(anchor: Vector2, drops: PickupSystem) -> int:
+## The resting drop nearest the pet that lies within the leash of the player (-1 = none); equipment only with `equip_ok`.
+func _nearest_drop(anchor: Vector2, drops: PickupSystem, equip_ok: bool) -> int:
 	var leash := float(tuning.leash)
 	var dy_max := float(tuning.fetch_dy)
 	var best := -1
 	var best_d := INF
 	for i in drops.capacity():
 		if drops.active[i] == 0 or drops.state[i] != PickupSystem.REST:
+			continue
+		if not equip_ok and drops.kind[i] == PickupSystem.EQUIP:
 			continue
 		var px := drops.x[i]
 		var py := drops.y[i]

@@ -163,6 +163,30 @@ func load_settings() -> void:
 				for k: Variant in v:
 					keys.append(int(k))
 				bindings[action] = keys
+	_yield_defaults()
+
+
+## A key held by a rebound action leaves every action that was never rebound (a key holds one action), so a settings
+## file saved before NPC Chat took Space (#111) and whose jump still holds Space does not also talk to NPCs: the
+## stripped default is stored as a binding, like apply_movement does.
+func _yield_defaults() -> void:
+	var held := PackedInt32Array()
+	for keys: PackedInt32Array in bindings.values():
+		held.append_array(keys)
+	if held.is_empty():
+		return
+	var moves: Dictionary = MOVEMENT_SETS.get(movement_keys, MOVEMENT_SETS[DEFAULT_MOVEMENT])
+	for action: StringName in InputMap.get_actions():
+		var a := String(action)
+		if moves.has(a) or a.begins_with("ui_") or bindings.has(a):
+			continue
+		var defaults := default_keys(a)
+		var kept := PackedInt32Array()
+		for k in defaults:
+			if not (k in held):
+				kept.append(k)
+		if kept.size() != defaults.size():
+			bindings[a] = kept
 
 
 ## Writes only the keys that differ from the defaults, merged into the existing file (other sections are kept).
