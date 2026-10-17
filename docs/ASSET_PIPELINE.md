@@ -103,6 +103,9 @@ rare stances of overalls 1052135 and 1052194: heal, prone, shoot, stab; their li
 stay `$uol` nodes, so those sleeves are not drawn in those stances. `AvatarRenderer` follows any `$uol` that does
 resolve through `WzImg.node`.
 `Etc.wz/Commodity.img` is exported whole so a test can check each catalog price and SN.
+The Cash Shop screen (#118) adds `UI.wz/CashShop.img` (`Base`, `CSChar`, `CSInventory`, `CSTab`, `CSList`, `CSStatus`, `CSNotice`), the
+three pet species (`Item.wz/Pet/5000000-5000002.img` `info`: icons) and `String.wz/Pet.img` for them, and the four pet equips
+`Character.wz/PetEquip/01812002-01812005.img` (`info`: icons; their names are already in `String.wz/Eqp.img`).
 
 The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
 items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;

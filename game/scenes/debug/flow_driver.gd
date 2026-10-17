@@ -38,6 +38,10 @@ extends Node
 ##           options, options_wasd. These three create a character in the evidence-only driver_save.json (3 slots).
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
+##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
+##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
+##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
+##           back to the Free Market. Shots: shop_*.png (the first is the Cash Shop shot to compare with the v83 references).
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
 ## effects too), --stop-at=<run s> (full: 300), --seed=<n> (full: 1, rounds: 4), --wz=<folder> (import).
 ##
@@ -94,6 +98,8 @@ func _ready() -> void:
 			_scenario_skill()
 		"keys":
 			_scenario_keys()
+		"cash_shop":
+			_scenario_cash_shop()
 		"full":
 			_scenario_full()
 		_:
@@ -659,6 +665,92 @@ func _scenario_windows() -> void:
 	print("flow_driver: windows scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
+
+
+func _scenario_cash_shop() -> void:
+	# tier C: the prepared save gives the account 5,000 NX: one 3,700 NX hat is affordable, a second item is not.
+	flow.save.set_account({"nx": 5000, "owned": []})
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(1.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Shop118"):
+		return
+	await _sleep(1.5)
+	await _shot("shop_00_map_select_button")
+	await _click(flow.current.get("shop_button") as Control)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
+		return
+	var shop = flow.current
+	await _sleep(0.5)
+	_check(shop.snapshot.name == "Shop118" and shop.nx() == 5000, "the shop opened as the current character with its NX")
+	await _shot("shop_01_equip_hat")
+	# Try on the first hat: the preview wears it, nothing is bought.
+	await _click_at(shop.stage.global_position + shop.card_rect(0).position + Vector2(30, 30))
+	await _sleep(0.4)
+	_check(shop.preview_cash.size() == 1 and shop.owned_ids().is_empty(), "clicking a card tried the hat on")
+	await _shot("shop_01b_tried_on")
+	await _hover(shop.stage.global_position + shop.card_rect(3).position + Vector2(100, 20))
+	await _shot("shop_02_preview_tooltip")
+	# Sub-tab Overall by mouse.
+	var subs: Array = shop.sub_rects()
+	await _click_at(shop.stage.global_position + subs[3].get_center())
+	_check(shop.sub == "Overall", "the Overall sub-tab opened")
+	await _shot("shop_03_overall")
+	await _click_at(shop.stage.global_position + shop.sub_rects()[0].get_center())
+	# BUY the first hat -> confirm dialog.
+	var hat: int = shop.page_ids()[0]
+	await _click(shop.buy_buttons[0])
+	_check(shop.pending_id == hat and shop.nx() == 5000, "BUY opened the confirm dialog without spending")
+	await _shot("shop_04_buy_dialog")
+	await _click(shop.ok_button)
+	_check(shop.nx() < 5000 and shop.owned_ids() == [hat] and not shop.listing_ids().has(hat), "OK bought it: NX down, owned, off the list")
+	_reload_save()
+	_check(flow.save.account.owned == [hat], "the purchase was saved at once")
+	await _shot("shop_05_bought")
+	# Too expensive now.
+	await _click(shop.buy_buttons[1])
+	_check(shop.notice_text == "You don't have enough NX.", "the not-enough-NX notice")
+	await _shot("shop_06_not_enough_nx")
+	await _key(KEY_ENTER)
+	_check(shop.notice_text == "", "Enter closed the notice")
+	# Pet tab: pet equipment is locked without a pet.
+	await _click_at(shop.stage.global_position + shop.TAB_RECTS.pet.get_center())
+	_check(shop.tab_key == "pet", "the Pet tab opened")
+	await _shot("shop_07_pet")
+	await _click_at(shop.stage.global_position + shop.sub_rects()[1].get_center())
+	await _shot("shop_08_pet_equip_locked")
+	_check(shop.lock_text(1812002) == "Needs a pet.", "pet upgrades say they need a pet")
+	# EXIT -> map select; prepare the Free Market boundary, Save & quit, Continue.
+	await _click(shop.exit_button)
+	if not await _until(func() -> bool: return flow.current_name == "stage_select", 5.0, "EXIT back to map select"):
+		return
+	var boundary := flow.save.slot(flow.active_slot)
+	boundary.phase = "free_market"
+	boundary.tier = 1
+	flow.save.update_slot(flow.active_slot, boundary)
+	await _click(flow.current.back_button)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
+		return
+	_reload_save()
+	await _click(flow.current.slot_buttons[0])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	await _sleep(1.0)
+	await _shot("shop_09_free_market_shop_button")
+	await _click((flow.current as FreeMarket).shop_button)
+	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from the Free Market"):
+		return
+	shop = flow.current
+	await _sleep(0.5)
+	_check(shop.owned_ids().size() == 1, "the purchase is still owned when reopened")
+	await _shot("shop_10_reopened_from_free_market")
+	await _key(KEY_ESCAPE)
+	_check(await _until(func() -> bool: return flow.current_name == "free_market", 5.0, "Esc back to the Free Market"),
+		"Leave returned to the Free Market")
+	await _shot("shop_11_back_in_free_market")
+	_quit()
 
 
 func _scenario_skill() -> void:
