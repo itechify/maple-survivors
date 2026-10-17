@@ -126,6 +126,15 @@ func test_equip_triggers_are_equipment_pickups_level_ups_and_job_changes() -> vo
 	assert_false(BotShop.equip_trigger([]))
 
 
+func test_equip_after_wears_only_when_the_drained_events_are_a_trigger() -> void:
+	var w := _world(10, 0, [1372006])
+	assert_eq(BotShop.equip_after(w, [{"type": "mob_died"}]), 0, "no trigger, no change")
+	assert_eq(w.weapon_id(), 1372005)
+	assert_eq(BotShop.equip_after(w, [{"type": "pickup_collected", "kind": "equip"}]), 1)
+	assert_eq(w.weapon_id(), 1372006)
+	assert_eq(BotShop.equip_after(w, [{"type": "level_up", "level": 11}]), 0, "nothing left to improve")
+
+
 # --- the shop plan ---
 
 const DARK := [2043704, 2040008]

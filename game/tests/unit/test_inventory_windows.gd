@@ -281,6 +281,26 @@ func test_dragging_out_of_the_item_window_asks_before_discarding() -> void:
 	assert_eq(int(iw.cell(0).count), count, "the stack is untouched")
 
 
+func test_a_discard_confirmation_acts_only_on_the_instance_it_asked_about() -> void:
+	var world := _world([1082002, 1002001])
+	var made := _windows(world)
+	var s: WindowStack = made[0]
+	var iw: ItemWindow = made[2]
+	drag_to(iw, iw.slot_rect(1).get_center(), Vector2(760, 40))
+	var confirm := s.top() as DropConfirm
+	assert_true(confirm != null, "the confirmation opened")
+	if confirm == null:
+		return
+	# The window is not modal: a differently rolled copy of the same hat takes the slot before Yes.
+	var swapped := Equipment.create(1002001, INFO[1002001])
+	swapped.stats["incPDD"] = int(swapped.stats.get("incPDD", 0)) + 5
+	swapped.scrolls = 1
+	world.equipment.inventory[1] = swapped
+	confirm.accept()
+	assert_eq(world.equipment.inventory.size(), 2, "the replacement was not destroyed")
+	assert_eq(world.equipment.inventory[1], swapped)
+
+
 func test_dragging_a_scroll_stack_out_asks_and_then_destroys_the_whole_stack() -> void:
 	var world := _world([], func(c: Dictionary) -> void: c.scrolls = {"2040002": 2, "2040000": 1})
 	var made := _windows(world)

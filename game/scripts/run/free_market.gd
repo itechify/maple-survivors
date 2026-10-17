@@ -35,19 +35,35 @@ var ui_windows: WindowStack
 var inventory: RunWorld
 ## The scroll result effect above the windows (#110).
 var enchant: EnchantFx
+var wiring: InventoryWiring
 var npcs: Array[Dictionary] = []
 ## The scroll NPCs (shops.json): {"id", "pos" (feet), "rect" (the drawn sprite's box), "sprite"}.
 var shop_npcs: Array[Dictionary] = []
+## The run options the hub honours: `autoplay` makes the bot shop once on entry (spec #33 #112, the playtest autoplay).
+var options: Dictionary = {}
+## The record of the autoplay shop visit ({} when none ran), see BotShop.visit.
+var shop_visit: Dictionary = {}
 var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
 var _leaving := false
 
 
-## Supplies the saved boundary and owning flow before entering the tree.
-func configure(p_snapshot: Dictionary, p_flow: SceneFlow) -> void:
+## Supplies the saved boundary, owning flow and run options before entering the tree.
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary = {}) -> void:
 	snapshot = p_snapshot.duplicate(true)
 	flow = p_flow
+	options = p_options.duplicate()
+
+
+## The seed of the hub's scroll rolls, a pure function of the saved boundary: the run's stored seed mixed with a hash of
+## the character's equipment, scrolls and mesos. The same save always rolls the same, every scroll (or purchase, sale
+## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
+static func scroll_seed(p_snapshot: Dictionary) -> int:
+	var character: Dictionary = p_snapshot.get("character", {})
+	var state := {"equipment": character.get("equipment", {}), "scrolls": character.get("scrolls", {}),
+		"mesos": int(character.get("mesos", 0))}
+	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
 
 func _ready() -> void:
@@ -85,6 +101,9 @@ func _ready() -> void:
 	_build_hud(character, data, loadout)
 	_build_windows(character, data)
 	_present(0.0)
+	if RunScene.option_flag(options, "autoplay"):
+		# The playtest autoplay shops once on entry, like the headless chains between tiers (#112).
+		shop_visit = bot_shop("bot", int(snapshot.get("round_seed", 0)))
 	var sfx := get_node_or_null("/root/Sfx") as AudioService
 	if sfx != null:
 		sfx.play_bgm(String(map.map_root.get("info", {}).get("bgm", "")))
@@ -168,12 +187,12 @@ func handle_hotkey(event: InputEvent) -> bool:
 func nearest_shop_npc() -> Dictionary:
 	if motion == null:
 		return {}
-	var reach: Dictionary = _data.get("shops", {}).get("talk_range", {})
+	var reach: Dictionary = _data.shops.talk_range
 	var best := {}
 	var best_dx := INF
 	for npc: Dictionary in shop_npcs:
 		var d: Vector2 = (npc.pos as Vector2) - motion.player.pos
-		if absf(d.x) <= float(reach.get("x", 100)) and absf(d.y) <= float(reach.get("y", 90)) and absf(d.x) < best_dx:
+		if absf(d.x) <= float(reach.x) and absf(d.y) <= float(reach.y) and absf(d.x) < best_dx: # shops.json talk_range is required
 			best = npc
 			best_dx = absf(d.x)
 	return best
@@ -196,7 +215,7 @@ func open_shop(npc_id: int) -> bool:
 		return false
 	var shop := ShopWindow.new(inventory, npc_id)
 	shop.player_name = String(snapshot.get("name", ""))
-	ui_windows.open(_inventory_window(shop))
+	ui_windows.open(wiring.wire(shop))
 	return true
 
 
@@ -276,30 +295,24 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 ## The window stack (above the pause menu's layer) with the Equip and Item windows over `inventory`, a map-less
 ## RunWorld of the carried character with the info of every item it holds.
 func _build_windows(character: Dictionary, data: Dictionary) -> void:
-	var lib := library
-	var creation := lib.img(CharacterCreation.IMG)
+	var loader := SceneFlow.equipment_info_loader(library)
+	var creation := library.img(CharacterCreation.IMG)
 	var infos := DataRepo.equipment_info(DataRepo.starter_equipment_ids(data, creation.root if creation != null else {},
-		character), func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {})
-	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), func(p: String) -> Dictionary:
-		var w := lib.img(p)
-		return w.root if w != null else {})
-	# The hub is no seeded run: a fresh seed per visit keeps the scroll rolls unpredictable (a fixed one would repeat
-	# the same first roll every visit); every result is saved at once, so reloading cannot redo it.
+		character), loader)
+	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), loader)
+	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
+	# being saved at once, changes the next seed.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
-		"character": character, "seed": randi()})
+		"character": character, "seed": scroll_seed(snapshot)})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
 	add_child(layer)
 	ui_windows = WindowStack.new()
 	layer.add_child(ui_windows)
-	enchant = EnchantFx.new()
-	enchant.renderer.library = library
-	add_child(enchant)
-	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(inventory)))
-	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(inventory)))
+	wiring = InventoryWiring.install(ui_windows, inventory, self, library, _on_item_action,
+		func(text: String) -> void: messages.push_notice("inventory", text), _play_sound)
+	enchant = wiring.enchant
 	ui_windows.changed.connect(func() -> void:
 		if windows_open():
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -307,10 +320,10 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 			_accumulator = 0.0)
 
 
-func _inventory_window(w: InventoryWindow) -> UiWindow:
-	w.item_action.connect(_on_item_action)
-	w.notice.connect(func(text: String) -> void: messages.push_notice("inventory", text))
-	return w
+func _play_sound(path: String) -> void:
+	var sfx := get_node_or_null("/root/Sfx") as AudioService
+	if sfx != null:
+		sfx.play(path)
 
 
 ## After an Equip / Item window changed the character: the snapshot and its save slot, the drawn look, the hub's
@@ -318,8 +331,9 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 func _on_item_action(_action: String) -> void:
 	for event: Dictionary in inventory.drain_events():
 		if event.type == "scroll_used":
-			_on_scroll_used(String(event.result))
+			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
+	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
 	avatar.set_look(character_look(snapshot.character, _data))
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
 	for id: String in ["equip", "item", "shop"]:
@@ -332,23 +346,17 @@ func _on_item_action(_action: String) -> void:
 
 ## Bot hook (spec #33, #112; autoplay and driver scenes): the character visits the scroll shops as a bot would (BotShop.visit
 ## with balance card policy `policy`: "bot" sensible, "random" careless), changing `inventory` through the same RunWorld
-## calls as the windows and saving it like them. `seed_value` seeds the careless plan. Returns the visit record.
+## calls as the windows and saving it like them. `seed_value` seeds the careless plan and, from its own stream, the
+## scroll rolls, so the same seed gives the same purchases and results. Returns the visit record.
 func bot_shop(policy := "bot", seed_value := 0) -> Dictionary:
 	if inventory == null:
 		return {}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-shop-hub-%d" % seed_value)
+	inventory.scroll_rng.seed = hash("scrolls-shop-hub-%d" % seed_value)
 	var record := BotShop.visit(inventory, policy, rng)
 	_on_item_action("bot_shop")
 	return record
-
-
-## A scroll was read: the Enchant effect over the character and its sound (as in a round).
-func _on_scroll_used(result: String) -> void:
-	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
-	var sfx := get_node_or_null("/root/Sfx") as AudioService
-	if sfx != null:
-		sfx.play(EnchantFx.sound_path(result))
 
 
 func _build_npcs() -> void:

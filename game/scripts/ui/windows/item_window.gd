@@ -144,20 +144,26 @@ func drop_outside(payload: Dictionary) -> void:
 	var stack := get_parent() as WindowStack
 	if stack == null:
 		return
+	# The confirmation is not modal: remember the exact instance asked about, so a swapped-in copy is never destroyed.
+	var instance := {}
+	if String(payload.kind) == "inventory":
+		var index := int(payload.index)
+		if world == null or index < 0 or index >= world.equipment.inventory.size():
+			return
+		instance = world.equipment.inventory[index].duplicate(true)
 	var confirm := DropConfirm.new(DropConfirm.DROP_QUESTION)
-	confirm.confirmed.connect(_discard.bind(payload))
+	confirm.confirmed.connect(_discard.bind(payload, instance))
 	stack.open(confirm)
 
 
-func _discard(payload: Dictionary) -> void:
+func _discard(payload: Dictionary, instance: Dictionary) -> void:
 	if world == null:
 		return
 	if String(payload.kind) == "scroll":
 		apply("discard", world.discard_scrolls(int(payload.id)))
 		return
-	# The confirmation is not modal: the slot must still hold the same item.
 	var index := int(payload.index)
-	if index < 0 or index >= world.equipment.inventory.size() or int(world.equipment.inventory[index].id) != int(payload.id):
+	if index < 0 or index >= world.equipment.inventory.size() or world.equipment.inventory[index] != instance:
 		return
 	apply("discard", world.discard_item(index))
 

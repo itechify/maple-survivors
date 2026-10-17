@@ -106,6 +106,7 @@ const EVENT_FIELDS := {
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"equipment_changed": ["action", "slot", "item_id"],
 	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
+	"grant_blocked": ["reason", "item_id"],
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 
 }
@@ -1179,13 +1180,17 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 
 
 ## tier C: advancing to a job in balance.player.weapon_grants (Magician 200 -> Wooden Wand) wears that weapon; the
-## previous one moves to the inventory (the last of spec #32's weapon_by_job rule).
+## previous one moves to the inventory (the last of spec #32's weapon_by_job rule). tier C: when the previous weapon has
+## no room the grant is skipped (the character keeps its weapon, nothing is destroyed) and `grant_blocked` is emitted.
 func _grant_job_weapon(job_id: int) -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
 	if id <= 0:
 		return
-	Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
+	var reason := Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
 		inventory_slots())
+	if reason != "":
+		emit("grant_blocked", {"reason": reason, "item_id": id})
+		return
 	_equipment_changed("grant", "weapon", id)
 
 

@@ -157,6 +157,7 @@ var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
 ## The scroll result effect (Enchant Success / Failure) above the in-run windows (#110).
 var enchant: EnchantFx
+var wiring: InventoryWiring
 ## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
 var ui_layer: CanvasLayer
 var ui_windows: WindowStack
@@ -304,9 +305,7 @@ func _ready() -> void:
 	var lib := library
 	# The character's held items join the equipment info the setup loads.
 	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
-		func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {},
+		SceneFlow.equipment_info_loader(lib),
 		func(id: int) -> Dictionary: return lib.mob_root(id),
 		setup_missing, character)
 	for m in setup_missing:
@@ -477,8 +476,8 @@ func advance_frame(delta: float) -> void:
 			_after_tick()
 			var drained := world.drain_events()
 			handle_events(drained)
-			if _autoplay and BotShop.equip_trigger(drained):
-				BotShop.auto_equip(world) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
+			if _autoplay:
+				BotShop.equip_after(world, drained) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
 			if world.state != RunWorld.PLAYING:
@@ -636,9 +635,6 @@ func _build_overlays() -> void:
 	windows_layer.layer = 10
 	add_child(windows_layer)
 	_build_ui_windows()
-	enchant = EnchantFx.new()
-	enchant.renderer.library = library
-	add_child(enchant)
 	perf_layer = CanvasLayer.new()
 	perf_layer.name = "Perf"
 	perf_layer.layer = 20
@@ -660,8 +656,9 @@ func _build_ui_windows() -> void:
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
-	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(world)))
-	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(world)))
+	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
+		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
+	enchant = wiring.enchant
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
@@ -671,14 +668,8 @@ func _build_ui_windows() -> void:
 		watch_settings(settings)
 
 
-## An Equip / Item window over `world`: its changes make the drawn look, the Stat window and the other inventory
-## window follow (the world's events are mapped at once, the run being held); its messages go to the HUD.
-func _inventory_window(w: InventoryWindow) -> UiWindow:
-	w.item_action.connect(_on_item_action)
-	w.notice.connect(func(text: String) -> void: hud.push_notice("inventory", text))
-	return w
-
-
+## An Equip / Item window's change makes the drawn look, the Stat window and the other inventory window follow (the
+## world's events are mapped at once, the run being held); the windows' messages go to the HUD (InventoryWiring).
 func _on_item_action(_action: String) -> void:
 	handle_events(world.drain_events())
 	_refresh_inventory_windows()
@@ -985,8 +976,8 @@ func handle_events(events: Array) -> void:
 					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
 					_equip_shot_taken = true
 					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
-			"pickup_blocked":
-				_frame_inventory_full = true
+			"pickup_blocked", "grant_blocked":
+				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
@@ -1046,8 +1037,7 @@ func _on_boss_skill(e: Dictionary) -> void:
 ## and an evidence shot of the result for playtests.
 func _on_scroll_used(e: Dictionary) -> void:
 	var result := String(e.result)
-	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
-	_sound(EnchantFx.sound_path(result))
+	wiring.scroll_used(result, avatar.get_global_transform_with_canvas().origin)
 	_event_shot("scroll_%s.png" % result, 0.35)
 
 
@@ -1121,8 +1111,7 @@ func _warp(to: float) -> void:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
-		if BotShop.equip_trigger(world.drain_events()):
-			BotShop.auto_equip(world)
+		BotShop.equip_after(world, world.drain_events())
 	_warped = world.time
 
 

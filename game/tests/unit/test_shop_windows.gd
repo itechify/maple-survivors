@@ -309,16 +309,37 @@ func test_a_double_click_on_an_inventory_row_asks_to_sell_it() -> void:
 func test_a_confirmation_for_an_item_that_moved_sells_nothing() -> void:
 	var world := _world(200, 0, [1002001, 1040002])
 	var shop: ShopWindow = _shop(world)[1]
-	assert_eq(shop.sell_item(0, 1040002), "no_item", "index 0 is the hat now")
+	assert_eq(shop.sell_item(0, Equipment.create(1040002, INFO[1040002])), "no_item", "index 0 is the hat now")
 	assert_eq(world.equipment.inventory.size(), 2)
 	assert_eq(world.mesos, 0)
+
+
+func test_a_sell_confirmation_acts_only_on_the_instance_it_asked_about() -> void:
+	var world := _world(200, 0, [1002001, 1040002])
+	var made := _shop(world)
+	var shop: ShopWindow = made[1]
+	_click_row(shop, 1, 0)
+	shop.begin_sell()
+	var confirm := (made[0] as WindowStack).find_window("drop_confirm") as DropConfirm
+	assert_true(confirm != null, "the YesNo box opened")
+	if confirm == null:
+		return
+	# A differently scrolled copy of the same hat takes the row before Yes.
+	var swapped := Equipment.create(1002001, INFO[1002001])
+	swapped.scrolls = 2
+	swapped.slots = 5
+	world.equipment.inventory[0] = swapped
+	confirm.accept()
+	assert_eq(world.mesos, 0, "nothing was paid")
+	assert_eq(world.equipment.inventory.size(), 2, "the replacement was not sold")
+	assert_eq(world.equipment.inventory[0], swapped)
 
 
 func test_selling_the_last_row_clears_the_selection() -> void:
 	var world := _world(200, 0, [1002001])
 	var shop: ShopWindow = _shop(world)[1]
 	_click_row(shop, 1, 0)
-	assert_eq(shop.sell_item(0, 1002001), "")
+	assert_eq(shop.sell_item(0, Equipment.create(1002001, INFO[1002001])), "")
 	assert_eq(shop.sell_selected, -1)
 	assert_eq(shop.sell_cells(), [])
 

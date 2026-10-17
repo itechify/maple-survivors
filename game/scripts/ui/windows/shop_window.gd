@@ -310,8 +310,12 @@ func begin_sell() -> void:
 	var stack := get_parent() as WindowStack
 	if stack == null:
 		return
+	var index := int(cell.index)
+	if index < 0 or index >= world.equipment.inventory.size():
+		return
+	# The confirmation is not modal: remember the exact instance asked about, so a swapped-in copy is never sold.
 	var confirm := DropConfirm.new(SELL_CONFIRM)
-	confirm.confirmed.connect(sell_item.bind(int(cell.index), int(cell.id)))
+	confirm.confirmed.connect(sell_item.bind(index, world.equipment.inventory[index].duplicate(true)))
 	stack.open(confirm)
 
 
@@ -322,10 +326,10 @@ func buy(index: int, count: int) -> String:
 	return _done("buy", world.buy_scroll(npc_id, int(stock[index].id), count))
 
 
-## Sells the spare equipment at inventory `index` when it still is item `id` (the confirmation is not modal).
-func sell_item(index: int, id: int) -> String:
+## Sells the spare equipment at inventory `index` when it still equals `instance` (the confirmation is not modal).
+func sell_item(index: int, instance: Dictionary) -> String:
 	if world == null or index < 0 or index >= world.equipment.inventory.size() \
-			or int(world.equipment.inventory[index].id) != id:
+			or world.equipment.inventory[index] != instance:
 		return "no_item"
 	return _done("sell", world.sell_item(index))
 

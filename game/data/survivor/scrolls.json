@@ -1,11 +1,11 @@
 {
-	"_doc": "Which v83 scrolls (Item.wz/Consume/0204.img) are in the game, by item slot -> family (the stat it improves) -> rate. Rates: '100', '60', '10' (plain) and 'dark70', 'dark30' (dark: a failure can destroy the item). Only the ids are ours; every scroll's stats, info/success and info/cursed come from WZ unchanged. Out: event 65%/15%, 50%, the 'strong' 100% (stats of the 10% scroll), Balrog's, Chaos, Clean Slate, White and the other classes' weapon scrolls. tier C (our selection; v83 has no INT scroll for tops or bottoms and none is invented). 2040016 (hat Accuracy 10%) is left out: its WZ node has no info/success. The hat DEX/ACC, top LUK and bottom DEX scroll lines exist twice in v83 (an old and a newer series), both are listed as separate families.",
+	"_doc": "Which v83 scrolls (Item.wz/Consume/0204.img) are in the game, by item slot -> family (the stat it improves) -> rate. Rates: '100', '60', '10' (plain) and 'dark70', 'dark30' (dark: a failure can destroy the item). Only the ids are ours; every scroll's stats, info/success and info/cursed come from WZ unchanged. Out: event 65%/15%, 50%, the 'strong' 100% (stats of the 10% scroll), Balrog's, Chaos, Clean Slate, White and the other classes' weapon scrolls. tier C (our selection; v83 has no INT scroll for tops or bottoms and none is invented). 2040016 (hat Accuracy 10%) is in: its WZ info/success is the string 10 (a number in quotes), which the loader casts. The hat DEX/ACC, top LUK and bottom DEX scroll lines exist twice in v83 (an old and a newer series), both are listed as separate families.",
 	"families": {
 		"hat": {
 			"DEF": {"100": 2040000, "60": 2040001, "10": 2040002, "dark70": 2040008, "dark30": 2040009},
 			"HP": {"100": 2040003, "60": 2040004, "10": 2040005, "dark70": 2040010, "dark30": 2040011},
 			"INT": {"100": 2040024, "60": 2040025, "10": 2040026, "dark70": 2040012, "dark30": 2040013},
-			"ACC": {"100": 2040018, "60": 2040017, "dark70": 2040014, "dark30": 2040015},
+			"ACC": {"100": 2040018, "60": 2040017, "10": 2040016, "dark70": 2040014, "dark30": 2040015},
 			"DEX": {"100": 2040027, "60": 2040029, "10": 2040031, "dark70": 2040028, "dark30": 2040030}
 		},
 		"top": {

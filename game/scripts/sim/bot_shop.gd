@@ -46,6 +46,12 @@ static func equip_trigger(events: Array) -> bool:
 	return false
 
 
+## The mid-round hook of every bot loop: auto_equip when `events` (the drained RunWorld events) are an equip_trigger, else
+## nothing. Returns how many items it put on.
+static func equip_after(w: RunWorld, events: Array) -> int:
+	return auto_equip(w) if equip_trigger(events) else 0
+
+
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
 ## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items

@@ -58,6 +58,9 @@ var active_slot := -1
 ## User-facing validation or persistence error from the last character action.
 var action_error := ""
 var last_stage := ""
+## The `--autoplay` option of this session: persistent rounds resumed from the flow play with the bot, and the Free Market
+## runs the bot's shop visit on entry (spec #33, #112).
+var autoplay := false
 var last_summary: Dictionary = {}
 var last_new_best := false
 
@@ -135,9 +138,10 @@ static func migrated_character(character: Dictionary, img_loader: Callable) -> D
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
 
-## An img loader over the default asset library for item info (empty roots without a cache: items then carry no stats).
-static func equipment_info_loader() -> Callable:
-	var library := AssetLibrary.get_default()
+## An img loader over `lib` (default: the default asset library) for img roots such as item info (empty roots without
+## a cache: items then carry no stats).
+static func equipment_info_loader(lib: AssetLibrary = null) -> Callable:
+	var library := lib if lib != null else AssetLibrary.get_default()
 	return func(path: String) -> Dictionary:
 		var img: WzImg = library.img(path) if library != null else null
 		return img.root if img != null else {}
@@ -174,6 +178,7 @@ func goto_import() -> void:
 ## Starts a tool-only one-off round; does not read or write any save state.
 func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) -> void:
 	active_slot = -1
+	autoplay = RunScene.option_flag(options, "autoplay")
 	_launch_round(stage_key, p_seed, options)
 
 
@@ -230,8 +235,10 @@ func save_and_quit() -> void:
 
 
 func _resume_round(snapshot: Dictionary) -> void:
-	_launch_round(String(snapshot.stage), int(snapshot.round_seed),
-		{"character": snapshot.character, "name": snapshot.name})
+	var options := {"character": snapshot.character, "name": snapshot.name}
+	if autoplay:
+		options["autoplay"] = true
+	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options)
 
 
 func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
@@ -304,7 +311,7 @@ func _after_round_cleared(snapshot: Dictionary) -> void:
 
 func _open_free_market(snapshot: Dictionary) -> void:
 	var screen := _instance(FREE_MARKET)
-	screen.configure(snapshot, self)
+	screen.configure(snapshot, self, {"autoplay": autoplay})
 	_swap_to(screen, "free_market")
 
 

@@ -132,13 +132,22 @@ func test_discard_removes_only_inventory_items() -> void:
 
 func test_a_grant_is_worn_and_the_previous_item_moves_to_the_inventory() -> void:
 	var state := _state([1040002, 1302000], [])
-	Equipment.grant(state, Equipment.create(1372005, INFO[1372005]), 24)
+	assert_eq(Equipment.grant(state, Equipment.create(1372005, INFO[1372005]), 24), "")
 	assert_eq(state.worn.weapon.id, 1372005)
 	assert_eq(state.inventory.map(func(i: Dictionary) -> int: return i.id), [1302000])
 	var bare := _state([1040002], [])
-	Equipment.grant(bare, Equipment.create(1372005, INFO[1372005]), 24)
+	assert_eq(Equipment.grant(bare, Equipment.create(1372005, INFO[1372005]), 24), "")
 	assert_eq(bare.worn.weapon.id, 1372005)
 	assert_eq(bare.inventory, [])
+
+
+func test_a_grant_that_would_push_an_item_out_of_a_full_inventory_changes_nothing() -> void:
+	var state := _state([1040002, 1302000], [1002001, 1060002])
+	var before := state.duplicate(true)
+	assert_eq(Equipment.grant(state, Equipment.create(1372005, INFO[1372005]), 2), "inventory_full")
+	assert_eq(state, before, "the worn weapon stays and nothing is destroyed")
+	assert_eq(Equipment.grant(state, Equipment.create(1372005, INFO[1372005]), 3), "", "room for the old weapon")
+	assert_eq(state.worn.weapon.id, 1372005)
 
 
 func test_state_validation_accepts_json_and_rejects_malformed_instances() -> void:
