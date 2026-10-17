@@ -444,9 +444,31 @@ Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` 
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
 rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
-survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
-takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
+survivor score overrides, then the existing attack, shot, damage, pierce and defence scores, each plus
+`bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
+card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #63 sensible bot values card tiers: regression smoke (2026-10-17)
+
+`ISOLATE=<tag> bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` plus
+`bash scripts/balance.sh 1 2 2026 --tier=2 --policy=bot`, shared real cache, unforced branches, default cap, no PATCH
+or tuning. "Before" ran on a detached copy of `ff71af2`; "after" adds `bot.gain_step_score` 6 (card score = base +
+6 x (magnitude - 1)). No balance data changed. All runs finish with no crashes, script errors or world warnings.
+`random` never calls `card_score`, and its rows are identical before and after (Henesys 1/2 with deaths at 7:42/10:59;
+Tree 0/3 with deaths at 20:23/2:38/1:28). Raw records are outside the repo.
+
+| Stage / policy | Clear/dead before -> after | End (seed order 1/2/2026) before -> after | Final Lv | Non-Normal cards picked / offered |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 1/2 | D 20:14 / D 14:40 / D 22:16 -> C 15:29 / D 23:44 / D 21:08 | 34/27/33 -> 43/41/35 | 24/92 (Epic 0/12, Legendary 0/2) -> 41/109 (Epic 8/17, Legendary 1/1) |
+| Tree bot | 0/3 -> 0/3 | D 10:26 / 2:36 / 2:08 -> D 11:18 / 2:36 / 2:08 | 24/4/3 -> 25/4/3 | 4/25 -> 5/25 |
+| Henesys random / Tree random | unchanged | unchanged | unchanged | not scored by the bot |
+
+Henesys bot: all 3 runs still reach Magician (265.9–281.3 s) and Mano (3/3 completed). The third boss (9400205) completes
+1/3 (before: 0/2 spawned, 1 never spawned). Tier-2 chain (bot): before, no tier-1 clear fed Dark Cave (0/3). After, seed 1
+feeds 1/3, and that Dark Cave round dies at 13:57 (Lv 43 -> 55, Zombie Mushmom killed, Snack Bar alive, Jr. Balrog not
+spawned). Every sensible-policy number before this entry comes from a bot that ignored card tiers. #77 tunes tier 2
+against this bot.
 
 #### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
 
@@ -2317,7 +2339,9 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
   its own scale to land in the 40-50% band; reward overrides support early builds (Mano 6 HP / 6 MP, Stumpy 3 HP / 6 MP) and
   limit later stock (second bosses 1 HP).
 - **`balance.bot.card_scores`** (tier C): the sensible bot learns and ranks Magic Guard before another attack (scores
-  110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform.
+  110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform. Since #63 the
+  override replaces only the base score: the sensible bot adds `bot.gain_step_score` per step an offered card grants beyond
+  its first, still with no job bonus.
 - **Retuned survivor EXP curve** `4 + 15L + 3.8L²` (tier C): V27 kept the Magician's exact 980 EXP cost (Mage near
   3:00) while the quadratic term carries the late game toward Lv 30 at 12:00-15:00 (section 5, 4.2).
 - **Boss defense buffs reach ordinary mobs** (tier A area and values, tier C arithmetic): MobSkill 112/113 are v83
@@ -3308,7 +3332,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
 | Bot sword duel | a lone ordinary mob within 160 px and 40 px of the feet while no attack skill is ready and affordable: stand facing it so the basic attack swings; flee from two or more | C | owner review of #29; BotInput, shared by every movement policy that uses it |
-| Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
+| Bot Guard preference / offers | base-score overrides learn 110, rank 109 (the #63 gain term is added on top); no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
+| Bot card gain step (#63) | sensible bot card score = base + `gain_step_score` x (offered `magnitude` - 1); `gain_step_score` 6 (coded default `BotInput.SCORE_GAIN_STEP` 6 when absent); missing or <= 0 magnitude counts as 1; potion-tier and Elixir cards ignore the gain; no tier name or `max` is special-cased; first/random policies unaffected | C | owner #63 triage 2026-10-17; survivor balance.bot.gain_step_score |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
 | Advancement draws / skill counts | no skill grants; extra new-job attack-first draw with rarity before the normal level draw; no skill slot caps | C | owner decisions #31 / #53; sections 8?9 |
