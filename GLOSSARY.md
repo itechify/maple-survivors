@@ -76,11 +76,16 @@ _Avoid_: Meta upgrade
 
 **Cash Shop**:
 The v83-style screen where NX is spent on cash items.
-_Avoid_: Store, meta shop
+_Avoid_: Store, meta shop (a shop is a Free Market NPC's scroll stock)
 
 **Cash equipment**:
-Cash items a character wears in its own cash slots, apart from regular equipment; every filled slot adds Fortune.
-_Avoid_: NX gear, cosmetics
+Cash items a character wears in its cash slots, drawn over its equipment; every filled cash slot adds Fortune.
+_Avoid_: NX gear, cosmetics, outfit; not equipment (equipment drops from monsters and has stats)
+
+**Cash slot**:
+One place cash equipment is worn: hat, face accessory, eye accessory, earrings, top, bottom, shoes, gloves, cape,
+weapon cover or shield. Cash slots are separate from equip slots; an overall fills the top and bottom cash slots.
+_Avoid_: Slot (on its own), equip slot
 
 **Pet**:
 A cash item companion that follows the character and picks up drops near it; a character has at most one out.
