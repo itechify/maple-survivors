@@ -195,6 +195,7 @@ var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
+var _meso_shot_ids := {}
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -925,6 +926,10 @@ func handle_events(events: Array) -> void:
 				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
+				if String(e.kind) == "meso" and not _meso_shot_ids.has(int(e.item_id)):
+					# tier C: capture the first drop of each coin sprite while it lies on the ground.
+					_meso_shot_ids[int(e.item_id)] = true
+					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)

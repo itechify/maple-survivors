@@ -2666,7 +2666,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Per-mob amount | `mobs.json` `mesos` [min, max): uniform integer in [min, max); every mob of the three rosters and their bosses except the four 9300xxx event mobs (King Slime 9300003, 9300062-9300064) | B | v83 server drop data (Cosmic `drop_data` rows with itemid 0), used as facts |
 | Fallback amount | Mobs with no v83 range roll around 4 + 1.5 x level, x0.8 to x1.2 (`balance.mesos.fallback`) | C | Ours, fitted to the early-roster ranges |
 | Drop chance | `balance.mesos.chance` 0.4 per kill (elites too) | B | v83 server reference: 40% at rate 1 |
-| Multiplier | `balance.mesos.mult`, one number scaling every amount, set once from an estimate (see 4.2 #107) | C | Owner: about 300-350k mesos per sensible-bot Henesys clear; NX upgrades (#34) may raise it |
+| Multiplier | `balance.mesos.mult`, one number scaling every amount, set once from an estimate (see 4.2 #107; 14) | C | Owner: about 300-350k mesos per sensible-bot Henesys clear; NX upgrades (#34) may raise it |
 | Boss drops | `balance.mesos.boss_drops` (4) bundles per scheduled boss death, each rolled from its range, no chance roll | C | Ours |
 | Lifetime | Mesos never expire during a round, never merge, never count toward the EXP-drop cap; magnet and collect radius like EXP drops | C | Owner #33 |
 | Pickup sound | `Sound.wz/Game.img/PickUpItem` (v83 Game.img has no separate meso sound; DropItem plays on the drop) | A | v83 Sound.wz |
