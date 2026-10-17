@@ -399,6 +399,14 @@ base `09b239f` (`ISOLATE=t92base`) and after the change (`ISOLATE=t92`) for seed
 `tree_that_grew_1` x `bot` / `random` / `first`, plus the `--tier=2` bot chain on seed 1: 19 records, `diff` empty
 (byte-identical). `scripts/balance.sh` flags and output unchanged. No data change, no tuning, no held-out seeds.
 
+#### Spec #91 / #101 agent playtest matrix QA, observation only (2026-10-16)
+
+`bash scripts/agent_playtest.sh --scenario=matrix` (live Jev, Henesys, 10-minute cap, seeds 1/2/2026): no
+deterministic problem in any cell. Sensible TIMEOUT 10:00 Lv 32 / DEAD 9:03 Lv 25 / TIMEOUT 10:00 Lv 30. The five
+other personalities all die: 12 of their 15 deaths fall in 4:17-5:13, around Mano's 5:00 arrival (aggressive 5:04-5:05
+in every seed). The same cluster appeared in #98's and #99's matrices. It is recorded for the balance pass in #127; no
+tuning, no data change, no held-out seeds.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
@@ -2879,6 +2887,34 @@ fields round to six decimal places for readable committed JSON; generation never
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
+
+### 11.1 Agent playtest tool constants (spec #91)
+
+Tool-only thresholds of the agent playtests (`docs/PLAYTESTING.md`). None of them changes gameplay; they decide what
+the agent player sees and does, and what the report calls a problem. All are tier C (ours), commented in code.
+
+| Constant | Value | Tier | Where / source |
+|---|---|---|---|
+| Situation HP/MP buckets (tactic triggers and rules) | critical < 25%, low < 50%, full >= 95% of the pool | C | `playtest_situation.gd` `POOL_*` |
+| Jev HP/MP words (card and job decides, evaluation facts) | critical < 15%, low < 35%, medium < 60%, high, full >= 99.9% | C | `jev_brain.ts` `poolLevel`; a second table, see the note below |
+| "Mobs near" box and counts | 300 px either side, 150 px above/below the feet (the balance metrics' box); few >= 1, crowd >= 4, swarm >= 12 | C | `playtest_situation.gd` `NEAR_*`, `MOBS_*` |
+| Potions, drops | stock "plenty" at >= 5; drops "many" at >= 6; "drops near" within 400 px, "drops above" within BotInput's 1200 px climb window and 0.7 of the magnet radius above the feet | C | `playtest_situation.gd` |
+| Recent hits, boss attacking | "recent" = last 5 s, "many" >= 3; boss "attacking" for 3 s after it hits or attacks, or while within 200 px | C | `playtest_situation.gd` |
+| Run phase words | "opening minutes" before 2:00, then by bosses alive / defeated / scheduled | C | `jev_brain.ts` `runPhase` |
+| Tactic timing | checkpoint every 8 s of run time, a switch held >= 4 s unless HP is critical; trigger priority hp_critical > start > boss > hp_low > crowd (mob bucket up two steps) > card > checkpoint | C | `playtest_policy.gd` `TACTIC_DEFAULTS`, `TRIGGER_PRIORITY`; personalities override timing (inexperienced 20 s / 12 s, defensive 6 s / 3 s) |
+| Tactic controller | aggressive: targets within 600 px, duels within 50 px, hops every 90 ticks, kites at low HP; defensive: flees within 320 px (twice BotInput's 160), skips drops with a mob within 250 px, drinks once a quarter of a potion's restore is missing; explore: dwell 90 ticks, give up a route after 20 s and skip it 60 s; collect: commits to one drop, gives up after 10 s (`COLLECT_GIVE_UP`, inside the stuck window); hop after 15 ticks pressing without moving; takeoff within 3 px; down-jump to drops 40 px below within 60 px; height costs twice | C | `tactic_controller.gd` |
+| Jev tactic gates | confidence below 0.35 keeps the current tactic (per-personality `min_confidence`); danger above 0.7 forces defensive for `emergency` personalities; held time words < 5 s / 5-20 s / > 20 s | C | `personality.ts` `DEFAULT_MIN_CONFIDENCE`, `jev_brain.ts` `DANGER_FORCES_DEFENSIVE`, `heldText` |
+| Motor noise | a mistake burst lasts 20-50 ticks (wrong direction or no movement key); inexperienced: 15-tick reaction delay, 0.25 bursts/s, drinks HP below 30% and MP below 15% | C | `motor_noise.gd` `BURST_MIN/MAX`; `personalities/*.json` |
+| Fallback card weights and tactic rules | per-personality `weights` and `tactic_rules`; the sensible rule table | C | `personalities/*.json`, `tactic_rules.ts` |
+| Invariants | out of bounds beyond MapBounds + 64 px; stuck = inside a 24 px box for 20 s while walking or airborne on >= 50% of ticks; repeats of one kind and key within 96 px and 30 s count once | C | `playtest_invariants.gd` `BOUNDS_MARGIN`, `STUCK_*`, `DEDUP_*` |
+| Evaluation flags | Jev-flagged at confidence >= 0.6 (a Noul's confidence is \|2p-1\|), else "needs review"; death unfairness >= 2 of 3; avoidable p <= 0.4; minute dullness >= 2 of 3; card offer meaningfulness <= 1 of 3; movement p(stuck or awkward) >= 0.6 | C | `evaluations.ts` `FLAG_CONFIDENCE`, `RULES` |
+| Evaluation facts | death window 30 s in 5 s chunks; a partial last minute under 15 s is not judged; count, damage share, duration, boss arrival, kill and drop words | C | `eval_facts.ts` |
+| Death clusters (matrix) | the densest 90 s window holding the deaths of >= 40% of the cells; the last hit within 2 s of death is the killing blow | C | `eval_flags.ts`, `death_clusters.ts` `LAST_HIT_S` |
+| Request caps, liveness | Jev brain 400 requests per run; evaluations 10; no driver output for 60 s is an infrastructure error | C | `core/jev_client.ts` `DEFAULT_MAX_REQUESTS`, `run.ts` `EVAL_MAX_REQUESTS`, `core/args.ts` `--liveness-s` |
+
+Two HP/MP bucket tables exist on purpose for now: the game-side buckets drive tactic triggers and the fallback rules,
+and the Node words are what Jev reads on card and job decides and in the evaluation facts. Unifying them would change
+what Jev sees and every recorded situation, so it is left for a follow-up.
 
 ## 12. Later phases
 

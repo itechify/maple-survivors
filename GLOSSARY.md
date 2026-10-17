@@ -139,3 +139,35 @@ _Avoid_: dialog, popup
 A draggable MapleStory window the player opens during a run (Stat, Skill, Key Config, Options) or the Menu list.
 In-run windows stack, the run is paused while any is open, and Esc closes the front one first.
 _Avoid_: panel, overlay
+
+## Agent playtests
+
+**Agent playtest**:
+A tool-only one-off round (or tier chain) played by an autonomous player whose decisions are recorded, ending in a
+report of the problems found.
+_Avoid_: Autoplay, bot run (the fixed kiting bot of the balance and playtest tools), AI test
+
+**Playtest personality**:
+A kind of player an agent playtest plays as, such as inexperienced, aggressive or completionist; it shapes both
+the decisions and the movement.
+_Avoid_: Profile, persona, difficulty
+
+**Tactic**:
+The play style the agent player keeps until its brain changes it: kite, aggressive, defensive, explore, collect or
+hold.
+_Avoid_: Mode, behaviour, strategy
+
+**Decision point**:
+A moment in an agent playtest where the round waits for the brain's answer: a card choice, a job advancement or a
+tactic check.
+_Avoid_: Prompt, query, step
+
+**Brain**:
+What answers an agent playtest's decision points: Jev, the personality's deterministic fallback, or a replay of
+recorded answers.
+_Avoid_: AI, agent (the coding agent running the playtest), policy
+
+**Replay**:
+Playing a recorded agent playtest again from its recorded answers, without Jev, and confirming it ends exactly the
+same way.
+_Avoid_: Re-run (a fresh live playtest with the same flags), rerecord

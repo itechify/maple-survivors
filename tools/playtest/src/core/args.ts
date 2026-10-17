@@ -16,7 +16,7 @@ export type FlagSpec = {
 export function defineCoreFlags(flags: FlagRegistry): FlagRegistry {
 	return flags
 		.define({ name: "help", kind: "bool", default: false, help: "print this help" })
-		.define({ name: "out", kind: "string", help: "run directory (default evidence/agent-playtest/<stage>_s<seed>_<time>)" })
+		.define({ name: "out", kind: "string", help: "run directory (default evidence/agent-playtest/<scenario>_<stage>_<personality>_s<seed>_<time>)" })
 		.define({ name: "liveness-s", kind: "number", default: 60, help: "kill the game after this many seconds without output (infrastructure error)" });
 }
 

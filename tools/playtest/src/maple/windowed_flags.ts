@@ -4,7 +4,7 @@ import type { FlagRegistry } from "../core/args.ts";
 
 export function defineWindowedFlags(flags: FlagRegistry): FlagRegistry {
 	return flags
-		.define({ name: "windowed", kind: "bool", default: false, help: "with --replay: replay in the real game window (RunScene) and save screenshots into the replay's shots/" })
+		.define({ name: "windowed", kind: "bool", default: false, help: "with --replay: replay in the real game window (RunScene) and save screenshots into a new <run dir>_windowed_<time>/shots/" })
 		.define({ name: "shots-at", kind: "string", help: "with --windowed: run seconds to screenshot, comma separated (e.g. 412.5,600); every timed finding of the recording is shot too" })
 		.define({ name: "speed", kind: "int", default: 4, help: "with --windowed: sim ticks per 60 Hz frame (Engine.time_scale; the ticks played never change)" })
 		.define({ name: "skip-to", kind: "number", help: "with --windowed: fast-forward to this run time before drawing (the replay still plays every tick)" });

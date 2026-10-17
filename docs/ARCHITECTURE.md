@@ -642,6 +642,39 @@ a window smaller than 800x600 on either axis is scaled down (fractional) instead
 (`GameSettings.fit_size`: 3440x1440 -> 1720x720 at 2x, 1920x1080 -> 1920x1080 at 1x; much more map on screen, so it is
 off by default).
 
+### 4.6 Agent playtest driver and the RunScene policy seam
+
+Agent playtests (spec #91, [ADR 0004](adr/0004-agent-playtests-over-stdio.md), usage in `docs/PLAYTESTING.md`) are
+two processes in lockstep. `tools/playtest/` (Node 24, outside `game/`) spawns the console Godot exe running
+`game/tools/playtest/playtest_driver.gd`, a SceneTree script that plays the real `RunWorld` through
+`balance_run.gd`'s `run_one` / `run_chain`. At each decision point the driver prints one `@@PT {json}` line and
+blocks on one answer line from stdin; protocol v1 is documented in `playtest_protocol.gd` and its twin
+`tools/playtest/src/core/protocol.ts`. Nothing in `game/` opens a network connection.
+
+| Piece | Role |
+|---|---|
+| `tools/run_policy.gd` | The run policy `run_one` calls: `choose(world)` answers open windows, `move(world)` returns the tick's `MoveInput`. `bot` / `random` / `first` / camper are instances; their `BALANCE` records are byte-identical to before the seam (#92). |
+| `playtest_policy.gd` | The playtest run policy: polls its `decision_points` (`card_decision.gd`, `job_decision.gd`), asks `tactic_decision.gd` at checkpoints and triggers, fans `observe(w, events)` out to its observers, and calls decision observers at every window open/applied. |
+| Brain links | `brain_link.gd` (builtin baseline, no pipe), `stdio_brain_link.gd` (the pipe; on stdin EOF it finishes on the baseline), `replay_brain_link.gd` (in-process recorded answers for the windowed replay). |
+| `tactic_controller.gd`, `motor_noise.gd` | Turn the current tactic into a `MoveInput` every tick (`kite` is `BotInput.decide` unchanged), then apply the personality's reaction delay, seeded mistake bursts and potion thresholds with their own RNG (`hash("motor-<seed>")`). |
+| `playtest_situation.gd` | Plain facts plus named buckets for decides and tactic triggers. |
+| `playtest_invariants.gd`, `playtest_timeline.gd`, `playtest_fingerprint.gd` | Read-only observers: findings, one `timeline.jsonl` row per run second plus `hits.jsonl`, and the replay fingerprint. |
+| `playtest_chain.gd` | Tier chains over `run_chain`, one policy per round, decision ids continuing across rounds. |
+
+`BotInput` and every sim rule are untouched; tool randomness never draws from the sim's RNG streams.
+
+**RunScene policy seam.** `RunScene.configure(stage, seed, options)` accepts tool-only options that production
+launches never set:
+- `options.policy` (an object with `move(w)`, `choose(w)` and optional `observe(w, events)`) replaces `BotInput`
+  for autoplay, autopick and warp. `observe` gets events in exactly `run_one`'s batches, so a windowed run of the same
+  policy produces the headless fingerprint.
+- `stop_tick` holds the sim at a tick (a screenshot shows exactly that tick).
+- `view_size` forces the logical view (800x600 for replays, so spawn logic matches the headless run).
+
+Without these options RunScene's autoplay is exactly `BotInput.decide` + `auto_choose`
+(`test_playtest_run_scene_policy.gd`). `game/scenes/debug/agent_replay.tscn` (`agent_replay.gd`, helpers in
+`game/tools/playtest/windowed_replay.gd`) is the only user: the windowed replay.
+
 ## 5. Data architecture
 
 | Layer | Where | Examples | Rule |
@@ -677,6 +710,9 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
   importer's `no_network_deps` (Cargo.lock scan) and `no_network_src` (`std::net`/socket types in its sources) tests.
 - The importer is a local process reading local files; the game launches it with `OS.execute_with_pipe`/`OS.create_process`.
 - Settings and saves are local files under the user data folder.
+- The dev-only agent playtest tool `tools/playtest/` (Node, outside `game/`) installs npm packages and calls the
+  TypeSafe API; the game side reaches it only through the driver's stdin/stdout (section 4.6). `game/` stays free of
+  networking code.
 - Verified by process-level socket snapshots during a 15:00 playtest and of the exported build (0 TCP connections,
   0 UDP endpoints, no child process other than the local importer; `docs/IMPLEMENTATION_PLAN.md` acceptance checks).
   A run with the network adapter disabled has not been done.
