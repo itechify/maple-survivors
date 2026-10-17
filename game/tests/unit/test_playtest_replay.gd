@@ -87,3 +87,19 @@ func test_a_chain_continues_decision_ids_across_rounds_and_keeps_round_records()
 	assert_eq(int(JSON.parse_string(rows[0]).tier), 1)
 	assert_eq(int(JSON.parse_string(rows[rows.size() - 1]).tier), 2, "timeline rows carry their tier")
 	assert_true(String(rows[0]).contains("\"hp\":"), "rows keep the timeline's integer fields")
+
+
+## #99: a chain's hits.jsonl lines carry their round's tier, like its timeline rows.
+func test_chain_hit_lines_carry_their_tier() -> void:
+	var hits: Array = []
+	var chain := CHAIN.new(BRAIN_LINK.new())
+	chain.write_hits = func(line: String) -> void: hits.append(line)
+	chain.play(_chain_setups(), 2026)
+	hits.clear()
+	var w := RunWorld.new(_chain_setups()[1])
+	chain.timelines[1].observe(w, [{"type": "player_hit", "damage": 5, "miss": false, "max_hp": 50, "source_kind": "touch",
+		"boss": false, "mob_id": 100100}])
+	assert_eq(hits.size(), 1)
+	var hit: Dictionary = JSON.parse_string(hits[0])
+	assert_eq(int(hit.tier), 2)
+	assert_eq(String(hit.source), "touch")
