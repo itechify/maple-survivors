@@ -704,7 +704,10 @@ async function autoReimport(url, why) {
 	logTo('run-log', `Importing again, automatically, from the address you used before (${parsed.ok ? parsed.host : url}).`);
 	try {
 		const probe = await callWorker({ type: 'probe', parsed, manifestText: state.manifestText });
-		await runImport({ kind: 'url', label: parsed.url, parsed, probe, total: probe.total }, { title: 'Re-importing...' });
+		await runImport({ kind: 'url', label: parsed.url, parsed, probe, total: probe.total }, {
+			title: 'Re-importing...',
+			reason: `${why}\nImporting again, automatically, from the address you used before (${parsed.host}).`,
+		});
 	} catch (e) {
 		if (e.code === 'cancelled') {
 			await showImport({ tab: 'url' });

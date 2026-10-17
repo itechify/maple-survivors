@@ -147,6 +147,30 @@ excluding only `created` and `stats.seconds`; synthetic portable folder/stored-Z
 including `cache.json`. The external harness and private outputs stay outside the repo; these are Node worker-API
 checks, not browser/storage/UI QA (owned by #133/#136).
 
+### 2.4 Web import sources (#133)
+
+The web shell (`web/import_worker.js`, docs/ARCHITECTURE.md 10.2) feeds `importWz` from three kinds of source. The
+worker is created per import and terminated afterwards; the importer's memory goes with it.
+
+| Source | `importWz` sources | Reader |
+|---|---|---|
+| Folder (`showDirectoryPicker` or `<input webkitdirectory>`) | `{archives}`: the archives the manifest needs, matched case-insensitively in the chosen folder (or one folder level below it) | `File` slices through `FileReaderSync`, one call per importer read |
+| Zip (file picker or drop) | `{zip}` | the same `File` reader; stored and deflated entries both work |
+| URL: folder base (`<base>/Mob.wz`) or a `.zip` | `{archives}` or `{zip}` | host supports `Range`: synchronous `XMLHttpRequest` with `Range` behind a block cache (1 MiB aligned blocks, 16-block LRU, adjacent missing blocks fetched in one request); host does not: the whole file is streamed into a `Blob` first (browsers may keep it on disk) and read like a folder file |
+
+The archives an import needs are derived from the manifest (`requiredArchives` in `web/lib.js`): the archive of every
+named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, music), `Mob.wz` and `Sound.wz` for mobs,
+`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
+import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
+records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
+until the write phase, and an interrupted write leaves no `cache.json`. No `sources.scratch` is passed: the importer reads
+deflated entries in offset order (decisions.md 7).
+
+A re-import for missing imgs is a complete import of the manifest; the importer has no incremental mode in portable
+mode, and a partial manifest would write partial copies of imgs shared between entries (`MapHelper.img`, `Mob.img`).
+The shell's manifest check (`assessCache`) is exact for the imgs the manifest names and for the files every listed img
+needs, not for dependencies the importer derives by reading WZ data.
+
 ## 3. WZ format facts (v83, verified)
 
 Verified against all 16 PKG1 archives of the vanilla install (0 parse errors, `docs/research/wz-inventory.md`):

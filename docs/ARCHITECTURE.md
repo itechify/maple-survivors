@@ -783,3 +783,66 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 **Verdict: pass.** In Chrome the game holds the desktop bar (60 FPS at 330-400 mobs on the dev PC) at the 330-341 mobs
 it reaches, with no engine or presentation change. On web the sim costs about 1.4x desktop and frame time about
 1.6-1.8x.
+
+### 10.2 Web shell and the shell-game protocol (#133)
+
+The shell is `web/index.html` (Godot's custom HTML shell, placeholders filled at export) plus files that must sit
+beside it in the export: `shell.css`, `shell.js` (page logic), `lib.js` (pure helpers, unit-tested with
+`node --test web/dev/test/`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
+worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (a copy of
+`game/data/asset_manifest.json`, fetched same-origin). Until `scripts/export.sh --web` (#135), `bash
+web/dev/export_web.sh` copies them (`WASM_DIR=<dir>` picks the wasm build, default `_scratch/wasm/`). `web/dev/` is
+never copied.
+
+**Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
+IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
+check is exact for what the manifest names and nothing else: every `imgs[]` entry, every `mapimgs` entry and the imgs
+the `maps`/`mobs`/`character`/`items` ids resolve to (the formulas of `tools/wzimport/src/manifest.rs`), plus
+`Map.wz/MapHelper.img` and `Sound.wz/Mob.img`, must be listed in `cache.json`; and for every img the index lists, its
+`.json` and `.N.png` records must exist. Dependencies the importer derives by reading WZ data (map backs, tiles, objs,
+mob links) are only caught by the second rule. A cache that fails is "incomplete":
+- remembered source is a **URL**: the shell re-imports from it at once, automatically, and says so on screen;
+- remembered source is a **folder or zip**: the import screen says what is missing and asks the player to pick it
+  again. Where `showDirectoryPicker` exists the folder handle is kept in a separate IndexedDB (`maple-shell`, never
+  `/userfs`), and a "Use ... again" button plus the browser's permission prompt replaces the picker.
+
+Re-imports are complete imports (docs/ASSET_PIPELINE.md 2.4). The old cache is replaced only after the new one has
+been read successfully.
+
+**Import.** One source per import: a folder (`showDirectoryPicker`, else `<input webkitdirectory>`; a dropped folder
+where the browser offers a handle), a zip (picker or drop) or a web address (a folder base URL or a `.zip` URL). The
+work is in `import_worker.js` and never runs while an engine is mounted. For a URL the worker first probes: a
+`Range: bytes=0-0` GET per file gives size and range support; the player sees the total size and that the download
+comes straight from the host they named, and only then confirms. CORS refusals and unreachable hosts are told apart (a
+`no-cors` HEAD) and get distinct messages. The URL is remembered in `localStorage`, with the kind and label of the last
+source. Nothing the engine could sync lives in `/userfs` but the cache, saves and settings.
+
+**Storage.** The worker deletes the old cache records, writes directory records and files straight into IndexedDB
+`/userfs` (`idbfs.js`: batches of at most 50 records or 32 MiB) and `cache.json` last, so an interrupted import leaves no
+`cache.json` and reads as "no cache". `navigator.storage.persist()` runs at boot and after an import. The result shows
+in the footer of the shell screens and in a toast at the first game start ("kept (persistent)" or "best effort").
+
+**Request marker (the protocol).** `user://web_request.json`, i.e. `/userfs/MapleSurvivors/web_request.json`:
+
+```json
+{"format": 1, "request": "reimport"}
+```
+
+`request` is one of `reimport` (show the import screen), `export_save` (download `user://save.json` as
+`maple-survivors-save-YYYYMMDD-HHMMSS.json`, then restart the engine) or `import_save` (ask for a save file, validate it,
+keep the old file as `save.json.bak` the way `SaveData` does, write `save.json`, restart). The game writes the file,
+closes it in a normal frame, stops its audio players, pauses the tree and calls `get_tree().quit()` (the game side is the
+web profile ticket, #134). When the engine exits the shell reads the marker from IndexedDB, deletes it, handles it and
+starts a **new** `Engine` on a fresh canvas element. An unknown `request`, a wrong `format` or invalid JSON is logged,
+deleted and ignored; no marker is a plain quit. Both end on a "The game has quit" screen with Play again. Exit is
+detected from `onExit`, and also from a page error mentioning `currentTime` of null while an engine runs (Godot 4.7.2's
+teardown after a quit with audio alive; the final IndexedDB sync has already happened by then).
+
+Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
+or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
+contents when it loads the file.
+
+**Network.** The shell requests its own static bundle and, when the player enters an address, that address (`fetch`
+for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`
+and `tools/wzimport/` stay offline (ADR 0004). `web/dev/serve_sources.mjs` is a localhost test host with range,
+no-range and CORS-blocked modes; test addresses are always `http://127.0.0.1:<port>/...`.
