@@ -23,11 +23,16 @@ signal notice(text: String)
 const MESSAGES := {"requirement": "You do not meet the requirements to equip this item.",
 	"inventory_full": "Your inventory is full. Make room before taking an item off.",
 	"scroll_type": "This scroll cannot be used on that item.",
-	"scroll_slots": "That item has no upgrade slots left."}
+	"scroll_slots": "That item has no upgrade slots left.",
+	# tier B: the GMS client string pool (v95; v83 wording unverified) for a refused purchase or sale in a shop (#111).
+	"mesos": "You do not have enough mesos.", "use_full": "Please check if your inventory is full or not.",
+	"unsellable": "You can't sell it anymore."}
 ## tier C (ours): a press that moves this far starts a drag; a shorter press is a click.
 const DRAG_START := 4.0
 ## The v83 inventory slot (icons are 27-32 px, centred in it).
 const ICON_SLOT := Vector2(32, 32)
+## The stack count digits (Basic.img/ItemNo).
+const COUNT := "UI.wz/Basic.img/ItemNo/"
 
 ## The live character.
 var world: RunWorld
@@ -243,3 +248,16 @@ func _draw_drag() -> void:
 		return
 	UiArt.blit_icon(self, UiArt.icon_or_fallback(InventoryModel.icon_path(int(_drag.get("id", 0)))),
 		_mouse - ICON_SLOT * 0.5, ICON_SLOT, Color(1, 1, 1, 0.8))
+
+
+## A stack count in Basic.img/ItemNo digits (plain text without the cache).
+func _draw_count(at: Vector2, count: int) -> void:
+	var s := str(count)
+	var x := at.x
+	for ch in s:
+		var d := UiArt.frame(COUNT + ch)
+		if d == null:
+			MapleText.draw(self, at, s, MapleText.WHITE, 9, true, 1)
+			return
+		UiArt.blit(self, d, Vector2(x, at.y))
+		x += d.region.size.x

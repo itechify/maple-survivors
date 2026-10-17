@@ -269,6 +269,13 @@ func test_a_worn_item_is_not_sellable_through_the_world() -> void:
 	assert_eq(world.mesos, 0)
 
 
+func test_scroll_info_keeps_the_sell_price() -> void:
+	var loader := func(_p: String) -> Dictionary:
+		return {"02040000": {"info": {"price": 1.0, "success": 100.0, "incPDD": 2.0, "icon": {"x": 1}}}}
+	var info := DataRepo.scroll_info([2040000], loader)
+	assert_eq(info[2040000], {"price": 1, "success": 100, "incPDD": 2}, "numbers only, price included")
+
+
 func test_grant_scrolls_and_the_shop_agree_on_the_use_tab_size() -> void:
 	var world := _world()
 	for i in 22:

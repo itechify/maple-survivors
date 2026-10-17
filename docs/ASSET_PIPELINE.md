@@ -208,7 +208,9 @@ and approved its fit for Unique / Legendary offers, completing listening accepta
 
 Free Market (#71) selects map 910000000. The map expansion includes its backgrounds, objects, tiles, portal art,
 FreeMarket mark and `Sound.wz/Bgm00.img/FloralLife`. NPCs are explicit manifest entries (maps expand life mobs,
-not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names.
+not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names. The four scroll
+NPCs of the shops (#111) are the same kind of entry: `Npc.wz/1032103.img` (El Moth), `2022002.img` (Barun),
+`1052104.img` (Tulcus) and `2041016.img` (Vega), with their `String.wz/Npc.img` paths.
 Spec #32 branch imports use private caches per the binding decisions; #71 uses
 `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71`. No decoded assets are committed.
 

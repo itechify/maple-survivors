@@ -192,6 +192,10 @@ _Avoid_: Bag, stash
 An NPC's stock of scrolls in the Free Market, opened by talking to the NPC. Shops never sell equipment or potions.
 _Avoid_: Store, vendor
 
+**NPC Chat**:
+The key (Space by default, as in v83) that opens the shop of the Free Market NPC the character stands next to.
+_Avoid_: Interact key, talk key
+
 **Scroll**:
 A v83 item that, used on a piece of equipment, tries to add stats with its success rate (10%, 60%, 100% ...) and
 uses up one of that equipment's upgrade slots.
