@@ -3,7 +3,8 @@
 use crate::archive::WzArchive;
 use crate::error::{Result, WzError};
 use crate::property::Img;
-use std::collections::HashMap;
+use crate::source::NamedSources;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
@@ -36,7 +37,12 @@ impl WzPath {
                 is_img: true,
                 sub: rest[i + 1..].join("/"),
             }),
-            None => Some(WzPath { archive, inner: rest.join("/"), is_img: false, sub: String::new() }),
+            None => Some(WzPath {
+                archive,
+                inner: rest.join("/"),
+                is_img: false,
+                sub: String::new(),
+            }),
         }
     }
 
@@ -54,12 +60,95 @@ impl WzPath {
 pub struct WzRoot {
     pub dir: PathBuf,
     archives: Mutex<HashMap<String, Arc<WzArchive>>>,
+    sources: Option<NamedSources>,
+    missing: Mutex<BTreeSet<String>>,
+    failures: Mutex<BTreeSet<String>>,
 }
 
 impl WzRoot {
     /// A root over the folder holding `Map.wz`, `Mob.wz`, ...
     pub fn new(dir: impl AsRef<Path>) -> Self {
-        WzRoot { dir: dir.as_ref().to_path_buf(), archives: Mutex::new(HashMap::new()) }
+        WzRoot {
+            dir: dir.as_ref().to_path_buf(),
+            archives: Mutex::new(HashMap::new()),
+            sources: None,
+            missing: Mutex::new(BTreeSet::new()),
+            failures: Mutex::new(BTreeSet::new()),
+        }
+    }
+
+    /// Lazily open named positional readers, accepting any valid GMS v83 archive.
+    pub fn from_sources(sources: NamedSources) -> Self {
+        Self {
+            sources: Some(sources),
+            ..Self::new("")
+        }
+    }
+
+    /// Fail with all missing archive names before exporting an incomplete cache.
+    pub fn require_archives(&self, manifest: &crate::manifest::Manifest) -> Result<()> {
+        let mut names = BTreeSet::new();
+        for path in manifest
+            .imgs
+            .iter()
+            .map(|s| s.img.as_str())
+            .chain(manifest.mapimgs.iter().map(String::as_str))
+        {
+            if let Some(p) = WzPath::parse(path) {
+                names.insert(p.archive);
+            }
+        }
+        if !manifest.maps.is_empty() || !manifest.mapimgs.is_empty() {
+            names.insert("Map.wz".into());
+        }
+        if !manifest.mobs.is_empty() {
+            names.extend(["Mob.wz".into(), "Sound.wz".into()]);
+        }
+        if !manifest.character.is_empty() {
+            names.insert("Character.wz".into());
+        }
+        if !manifest.items.is_empty() {
+            names.insert("Item.wz".into());
+        }
+        for name in names {
+            if !self.has_archive(&name) {
+                self.missing.lock().unwrap().insert(name);
+            }
+        }
+        self.check_missing()
+    }
+
+    fn has_archive(&self, name: &str) -> bool {
+        self.sources
+            .as_ref()
+            .map_or_else(|| self.archive_path(name).is_file(), |s| s.contains_key(name))
+    }
+
+    /// Include archives discovered during map/mob dependency expansion.
+    pub fn check_missing(&self) -> Result<()> {
+        let missing = self.missing.lock().unwrap();
+        if !missing.is_empty() {
+            return Err(WzError::Other(format!(
+                "{} not found in this source",
+                missing.iter().cloned().collect::<Vec<_>>().join(", ")
+            )));
+        }
+        let failures = self.failures.lock().unwrap();
+        if failures.is_empty() {
+            return Ok(());
+        }
+        Err(WzError::Other(failures.iter().cloned().collect::<Vec<_>>().join("\n")))
+    }
+
+    /// Source stamp; injected readers have no modification time.
+    pub fn source_stamp(&self, name: &str) -> Option<crate::cache::SourceStamp> {
+        match &self.sources {
+            Some(s) => s.get(name).map(|r| crate::cache::SourceStamp {
+                size: r.len(),
+                mtime: 0,
+            }),
+            None => crate::cache::stamp(&self.archive_path(name)),
+        }
     }
 
     /// Path of an archive file in the folder.
@@ -73,10 +162,17 @@ impl WzRoot {
             return Ok(a.clone());
         }
         let path = self.archive_path(name);
-        if !path.is_file() {
+        if !self.has_archive(name) {
+            self.missing.lock().unwrap().insert(name.to_string());
             return Err(WzError::NotFound(format!("{} (no such file)", path.display())));
         }
-        let a = Arc::new(WzArchive::open(&path)?);
+        let opened = match &self.sources {
+            Some(s) => WzArchive::from_reader(name, s[name].clone(), Some(83)),
+            None => WzArchive::open(&path),
+        };
+        let a = Arc::new(opened.inspect_err(|e| {
+            self.failures.lock().unwrap().insert(format!("{name}: {e}"));
+        })?);
         let mut map = self.archives.lock().unwrap();
         Ok(map.entry(name.to_string()).or_insert(a).clone())
     }
@@ -87,12 +183,16 @@ impl WzRoot {
         if !p.is_img {
             return false;
         }
-        self.archive(&p.archive).map(|a| a.entry(&p.inner).is_some_and(|e| e.is_img())).unwrap_or(false)
+        self.archive(&p.archive)
+            .map(|a| a.entry(&p.inner).is_some_and(|e| e.is_img()))
+            .unwrap_or(false)
     }
 
     /// Parse the img at a WZ path (`Mob.wz/0100100.img`; any sub-path is ignored).
     pub fn load_img(&self, path: &str) -> Result<Img> {
-        let p = WzPath::parse(path).filter(|p| p.is_img).ok_or_else(|| WzError::NotFound(path.to_string()))?;
+        let p = WzPath::parse(path)
+            .filter(|p| p.is_img)
+            .ok_or_else(|| WzError::NotFound(path.to_string()))?;
         self.archive(&p.archive)?.load_img(&p.inner)
     }
 }

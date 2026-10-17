@@ -7,16 +7,18 @@ use crate::crypto::{decrypt_offset, enc_version, version_hash};
 use crate::error::{Result, WzError};
 use crate::property::{parse_img, Img};
 use crate::reader::Reader;
+use crate::source::ReadAt;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// One opened `.wz` archive.
 pub struct WzArchive {
     /// File name, e.g. `Mob.wz`.
     pub name: String,
     pub path: PathBuf,
-    file: File,
+    file: Arc<dyn ReadAt>,
     pub file_len: u64,
     pub data_start: u32,
     pub copyright: String,
@@ -65,23 +67,8 @@ impl Dir {
 }
 
 /// Read exactly `buf.len()` bytes at `offset` without moving a shared cursor (thread-safe).
-pub fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> {
-    while !buf.is_empty() {
-        #[cfg(windows)]
-        let r = std::os::windows::fs::FileExt::seek_read(file, buf, offset);
-        #[cfg(unix)]
-        let r = std::os::unix::fs::FileExt::read_at(file, buf, offset);
-        match r {
-            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected end of file")),
-            Ok(n) => {
-                buf = &mut buf[n..];
-                offset += n as u64;
-            }
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-            Err(e) => return Err(e),
-        }
-    }
-    Ok(())
+pub fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<()> {
+    file.read_exact_at(offset, buf)
 }
 
 /// Versions tried when the stored encrypted version does not match v83: every version whose hash gives the
@@ -98,10 +85,16 @@ impl WzArchive {
     pub fn open_with_version(path: impl AsRef<Path>, version: Option<u32>) -> Result<Self> {
         let path = path.as_ref();
         let file = File::open(path).map_err(|e| WzError::io(path, e))?;
-        let file_len = file.metadata().map_err(|e| WzError::io(path, e))?.len();
+        Self::from_reader(path.to_string_lossy().as_ref(), Arc::new(file), version)
+    }
+
+    /// Open an injected reader; optional version is forced, otherwise detected as for native files.
+    pub fn from_reader(name: &str, file: Arc<dyn ReadAt>, version: Option<u32>) -> Result<Self> {
+        let path = Path::new(name);
+        let file_len = file.len();
         let head_len = file_len.min(4096) as usize;
         let mut head = vec![0u8; head_len];
-        read_exact_at(&file, &mut head, 0).map_err(|e| WzError::io(path, e))?;
+        file.read_exact_at(0, &mut head).map_err(|e| WzError::io(path, e))?;
         let mut r = Reader::new(&head, 0);
         let magic = r.bytes(4)?;
         if magic != b"PKG1" {
@@ -115,6 +108,13 @@ impl WzArchive {
         }
         r.set_pos(data_start as usize);
         let enc = r.u16()?;
+        if let Some(v) = version {
+            if enc_version(version_hash(v)) != enc {
+                return Err(WzError::Other(format!(
+                    "{name}: encrypted version 0x{enc:04X} does not match v{v}"
+                )));
+            }
+        }
 
         let candidates: Vec<u32> = match version {
             Some(v) => vec![v],
@@ -130,13 +130,16 @@ impl WzArchive {
         let mut last_err = None;
         for v in candidates {
             let hash = version_hash(v);
-            match parse_tree(&file, file_len, data_start, hash) {
+            match parse_tree(file.as_ref(), file_len, data_start, hash) {
                 Ok(root) => {
-                    if let Err(e) = validate(&file, &root) {
+                    if let Err(e) = validate(file.as_ref(), &root) {
                         last_err = Some(e);
                         continue;
                     }
-                    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    let name = path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
                     return Ok(WzArchive {
                         name,
                         path: path.to_path_buf(),
@@ -194,7 +197,9 @@ impl WzArchive {
             return Err(WzError::Other(format!("{}: {} is not an img", self.name, entry.name)));
         }
         let mut buf = vec![0u8; entry.size as usize];
-        read_exact_at(&self.file, &mut buf, entry.offset as u64).map_err(|e| WzError::io(&self.path, e))?;
+        self.file
+            .read_exact_at(entry.offset as u64, &mut buf)
+            .map_err(|e| WzError::io(&self.path, e))?;
         Ok(buf)
     }
 
@@ -205,14 +210,22 @@ impl WzArchive {
             .filter(|e| e.is_img())
             .ok_or_else(|| WzError::NotFound(format!("{}/{}", self.name, path)))?;
         let bytes = self.img_bytes(entry)?;
-        parse_img(format!("{}/{}", self.name, path.trim_matches('/')), bytes, entry.offset as u64)
+        parse_img(
+            format!("{}/{}", self.name, path.trim_matches('/')),
+            bytes,
+            entry.offset as u64,
+        )
     }
 
     /// Every img path in the archive (relative to the archive root), in archive order.
     pub fn img_paths(&self) -> Vec<String> {
         fn walk(d: &Dir, prefix: &str, out: &mut Vec<String>) {
             for e in &d.entries {
-                let p = if prefix.is_empty() { e.name.clone() } else { format!("{prefix}/{}", e.name) };
+                let p = if prefix.is_empty() {
+                    e.name.clone()
+                } else {
+                    format!("{prefix}/{}", e.name)
+                };
                 match &e.kind {
                     EntryKind::Dir(sub) => walk(sub, &p, out),
                     EntryKind::Img => out.push(p),
@@ -225,89 +238,117 @@ impl WzArchive {
     }
 }
 
-/// Parse the directory tree. The tree lives near the file start; read a window and widen it if a read
-/// runs past the window.
-fn parse_tree(file: &File, file_len: u64, data_start: u32, hash: u32) -> Result<Dir> {
-    let mut window = file_len.min(1 << 20);
-    loop {
-        let mut buf = vec![0u8; window as usize];
-        read_exact_at(file, &mut buf, 0).map_err(|e| WzError::Other(e.to_string()))?;
-        let ctx = DirCtx { buf: &buf, file_len, data_start, hash };
-        match ctx.parse_dir(data_start as usize + 2, 0) {
-            Err(WzError::Eof { .. }) if window < file_len => window = file_len.min(window * 4),
-            other => return other,
-        }
+/// Parse directory records at their own offsets; img payloads between directories are never buffered.
+fn parse_tree(file: &dyn ReadAt, file_len: u64, data_start: u32, hash: u32) -> Result<Dir> {
+    DirCtx {
+        file,
+        file_len,
+        data_start,
+        hash,
     }
+    .parse_dir(data_start as usize + 2, 0)
 }
 
 struct DirCtx<'a> {
-    buf: &'a [u8],
+    file: &'a dyn ReadAt,
     file_len: u64,
     data_start: u32,
     hash: u32,
 }
 
 impl DirCtx<'_> {
-    fn reader_at(&self, pos: u64) -> Result<Reader<'_>> {
+    /// Read one metadata record/list at its actual position, widening only that local window.
+    fn read_record<T>(&self, pos: u64, parse: impl Fn(&mut Reader<'_>) -> Result<T>) -> Result<T> {
+        const LIMIT: u64 = 16 * 1024 * 1024;
         if pos >= self.file_len {
             return Err(WzError::format(pos, "position past end of file"));
         }
-        if pos >= self.buf.len() as u64 {
-            return Err(WzError::Eof { pos, need: 1 });
+        let available = self.file_len - pos;
+        let mut window = available.min(4096);
+        loop {
+            let mut buf = vec![0; window as usize];
+            self.file
+                .read_exact_at(pos, &mut buf)
+                .map_err(|e| WzError::Other(e.to_string()))?;
+            match parse(&mut Reader::new(&buf, pos)) {
+                Err(WzError::Eof { .. }) if window < available => {
+                    if window >= LIMIT {
+                        return Err(WzError::Other(
+                            "WZ directory record exceeds the 16 MiB read window".into(),
+                        ));
+                    }
+                    window = available.min(window * 4).min(LIMIT);
+                }
+                other => return other,
+            }
         }
-        let mut r = Reader::new(self.buf, 0);
-        r.set_pos(pos as usize);
-        Ok(r)
     }
 
     fn parse_dir(&self, pos: usize, depth: u32) -> Result<Dir> {
         if depth > 32 {
             return Err(WzError::format(pos as u64, "directory nesting too deep"));
         }
-        let mut r = self.reader_at(pos as u64)?;
-        let count = r.cint()?;
-        if !(0..=200_000).contains(&count) {
-            return Err(WzError::format(pos as u64, format!("bad directory entry count {count}")));
-        }
-        let mut entries = Vec::with_capacity(count as usize);
-        for _ in 0..count {
-            let at = r.abs_pos();
-            let t = r.u8()?;
-            let (kind, name) = match t {
-                2 => {
-                    let off = r.i32()?;
-                    let p = self.data_start as i64 + off as i64;
-                    if p < 0 {
-                        return Err(WzError::format(at, "negative name offset"));
-                    }
-                    let mut s = self.reader_at(p as u64)?;
-                    let t2 = s.u8()?;
-                    (t2, s.wz_string()?)
-                }
-                3 | 4 => (t, r.wz_string()?),
-                1 => return Err(WzError::format(at, "directory entry type 1 (not used in v83) is not supported")),
-                _ => return Err(WzError::format(at, format!("bad directory entry type {t}"))),
-            };
-            let size = r.cint()?;
-            let checksum = r.cint()?;
-            let fpos = r.abs_pos() as u32;
-            let stored = r.u32()?;
-            let offset = decrypt_offset(fpos, stored, self.data_start, self.hash);
-            if offset as u64 >= self.file_len {
-                return Err(WzError::format(at, format!("entry {name}: offset {offset} out of range")));
+        let mut entries = self.read_record(pos as u64, |r| {
+            let count = r.cint()?;
+            if !(0..=200_000).contains(&count) {
+                return Err(WzError::format(
+                    pos as u64,
+                    format!("bad directory entry count {count}"),
+                ));
             }
-            let kind = match kind {
-                3 => EntryKind::Dir(Dir::default()),
-                4 => {
-                    if size < 0 || offset as u64 + size as u64 > self.file_len {
-                        return Err(WzError::format(at, format!("img {name}: size {size} out of range")));
+            let mut entries = Vec::with_capacity(count as usize);
+            for _ in 0..count {
+                let at = r.abs_pos();
+                let t = r.u8()?;
+                let (kind, name) = match t {
+                    2 => {
+                        let off = r.i32()?;
+                        let p = self.data_start as i64 + off as i64;
+                        if p < 0 {
+                            return Err(WzError::format(at, "negative name offset"));
+                        }
+                        self.read_record(p as u64, |s| Ok((s.u8()?, s.wz_string()?)))?
                     }
-                    EntryKind::Img
+                    3 | 4 => (t, r.wz_string()?),
+                    1 => {
+                        return Err(WzError::format(
+                            at,
+                            "directory entry type 1 (not used in v83) is not supported",
+                        ))
+                    }
+                    _ => return Err(WzError::format(at, format!("bad directory entry type {t}"))),
+                };
+                let size = r.cint()?;
+                let checksum = r.cint()?;
+                let fpos = r.abs_pos() as u32;
+                let stored = r.u32()?;
+                let offset = decrypt_offset(fpos, stored, self.data_start, self.hash);
+                if offset as u64 >= self.file_len {
+                    return Err(WzError::format(
+                        at,
+                        format!("entry {name}: offset {offset} out of range"),
+                    ));
                 }
-                k => return Err(WzError::format(at, format!("entry {name}: bad kind {k}"))),
-            };
-            entries.push(Entry { name, kind, size, checksum, offset });
-        }
+                let kind = match kind {
+                    3 => EntryKind::Dir(Dir::default()),
+                    4 => {
+                        if size < 0 || offset as u64 + size as u64 > self.file_len {
+                            return Err(WzError::format(at, format!("img {name}: size {size} out of range")));
+                        }
+                        EntryKind::Img
+                    }
+                    k => return Err(WzError::format(at, format!("entry {name}: bad kind {k}"))),
+                };
+                entries.push(Entry {
+                    name,
+                    kind,
+                    size,
+                    checksum,
+                    offset,
+                });
+            }
+            Ok(entries)
+        })?;
         for e in entries.iter_mut() {
             if let EntryKind::Dir(d) = &mut e.kind {
                 *d = self.parse_dir(e.offset as usize, depth + 1)?;
@@ -318,7 +359,7 @@ impl DirCtx<'_> {
 }
 
 /// Spot-check that imgs start with the `0x73 "Property"` header byte (catches a wrong version hash).
-fn validate(file: &File, root: &Dir) -> Result<()> {
+fn validate(file: &dyn ReadAt, root: &Dir) -> Result<()> {
     let mut checked = 0;
     let mut stack = vec![root];
     while let Some(d) = stack.pop() {
@@ -327,9 +368,13 @@ fn validate(file: &File, root: &Dir) -> Result<()> {
                 EntryKind::Dir(sub) => stack.push(sub),
                 EntryKind::Img if e.size > 0 && checked < 32 => {
                     let mut b = [0u8; 1];
-                    read_exact_at(file, &mut b, e.offset as u64).map_err(|e| WzError::Other(e.to_string()))?;
+                    file.read_exact_at(e.offset as u64, &mut b)
+                        .map_err(|e| WzError::Other(e.to_string()))?;
                     if b[0] != 0x73 {
-                        return Err(WzError::format(e.offset as u64, format!("img {} has no 0x73 header", e.name)));
+                        return Err(WzError::format(
+                            e.offset as u64,
+                            format!("img {} has no 0x73 header", e.name),
+                        ));
                     }
                     checked += 1;
                 }

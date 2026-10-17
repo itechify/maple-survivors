@@ -44,6 +44,109 @@ with `MAPLE_WZ_ROOT` (also used by tests).
 Import is incremental: an img is rewritten only when its source archive (size + mtime) or the importer version changed,
 or `--force` is given.
 
+### 2.1 Portable importer and ZIP input (#132)
+
+`wzimport import --wz <file.zip> --manifest <manifest.json> --out <private-cache>` also accepts a ZIP. Entries may
+be nested (`83/Mob.wz`); archive basenames must be unique. ZIP and ZIP64 stored/deflated entries are supported.
+Encrypted entries, other compression methods and multi-disk ZIPs fail with readable errors. ZIP imports are fresh
+imports (no mtime-based skip); folder imports keep their existing incremental behaviour. Nothing changes the manifest
+or the cache format. Any PKG1 archive with the GMS v83 version hash is accepted, including edited archives; there
+is no known-file hash list. Native inspection commands retain version autodetection for other WZ versions.
+
+The public Rust boundaries are `ReadAt` (`len() -> u64`, `read_exact_at(offset, &mut [u8]) -> io::Result<()>`),
+`NamedSources` (`BTreeMap<String, Arc<dyn ReadAt>>`), and `Sink` (`create_dir(relative)`,
+`write_file(relative, bytes)`, both returning `wzimport::Result<()>`). `File` implements `ReadAt`; `FileSink` uses
+the existing atomic filesystem writer. `WzArchive::from_reader(name, reader, version)` reads an injected archive;
+`zip::zip_sources(reader)` produces named readers. `import::import_sources(sources, manifest_json, sink, progress)`
+imports them; progress implements `Progress::update(current_img, done, total) -> Result<()>` (closures work).
+Missing archives, including dependencies found while expanding maps/mobs, fail with names such as
+`Effect.wz, Sound.wz not found in this source`. Errors while opening archives retain their underlying reader error.
+Native reader/sink/progress implementations must be `Send + Sync`; wasm callbacks stay in one worker.
+
+Portable imports always export the requested selection. They use reproducible index provenance (`wz_root` and
+`created` empty, source `mtime` zero, `stats.seconds` zero), without accessing a platform clock. Native folder imports
+retain their normal provenance and timings. The host owns staging, replacement and removal of obsolete files for
+portable imports. It must treat an error/report with errors as a failed import and must not start the engine on it.
+
+### 2.2 Wasm build and worker API
+
+Prerequisites: Rust with `wasm32-unknown-unknown`, and `wasm-bindgen-cli` matching the locked `wasm-bindgen` crate
+(currently **0.2.105**, pinned together with `js-sys` 0.3.82). Install the dev tools, then build:
+
+```bash
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.105 --locked
+bash scripts/build_wasm.sh [output-directory]    # default: _scratch/wasm/
+# Rust-only compile check (without JS glue):
+cargo build --locked --manifest-path tools/wzimport/Cargo.toml --lib \
+  --target wasm32-unknown-unknown --no-default-features
+```
+
+Use Git Bash for these scripts on Windows. The build script checks the tool version against Cargo.lock, honours
+`CARGO_TARGET_DIR`, and emits `wzimport.js`, `wzimport_bg.wasm` and TypeScript declarations into the chosen output
+directory. These are generated artifacts; never commit them. Cargo's default-on `parallel` feature enables rayon
+for native builds. The wasm implementation is sequential even if the feature is accidentally enabled; the supported
+build command disables it. Rust includes no browser readers, requests or networking dependencies. The adapter
+only invokes host callbacks, using [wasm-bindgen](https://wasm-bindgen.github.io/wasm-bindgen/).
+
+The ES module exports default async `init` and synchronous **`importWz`** (the JS name avoids the `import` keyword):
+
+```js
+import init, { importWz } from './wzimport.js';
+await init(); // resolves wzimport_bg.wasm beside the JS module
+// Reader = { length: number, readAt(offset: number, length: number): Uint8Array }
+const sources = { archives: { 'Mob.wz': mobReader, 'Sound.wz': soundReader /* ... */ } };
+// Alternatively, exactly one ZIP reader: const sources = { zip: zipReader };
+const report = JSON.parse(importWz(sources, manifestJson, {
+  createDir(relativePath) { /* create a directory record, including '' for the cache root */ },
+  writeFile(relativePath, bytes) { /* enqueue an owned Uint8Array into the host's destination */ }
+}, (currentImg, done, total) => {
+  postMessage({ currentImg, done, total });
+}));
+// Await all host writes/transactions before reporting success or starting Godot.
+```
+
+Reader lengths and offsets are nonnegative JS safe integers (numbers, not BigInt). `readAt` receives at most 64 KiB
+per call and must return exactly that many bytes synchronously. All callbacks may throw an Error or a string;
+the API throws a readable string, including context. Callback promises are unsupported (sink/progress promises
+are rejected). Progress fires after each img job, `done = 1..total`; there are no progress events for a zero-job
+manifest or while expanding its dependencies. The returned JSON string contains `index`, `written`, `warnings`,
+`unresolved_uols`, `uols_resolved`, and `uols_external`. Per-img failures throw a joined error string.
+
+`createDir` receives each cumulative parent (duplicates are allowed); `writeFile` receives a validated, slash-separated
+relative cache path and a JS-owned copy of bytes, safe to retain after returning. No absolute cache root or browser
+filesystem is baked into Rust. #133 chooses `/userfs/MapleSurvivors/asset_cache/v83` and creates all its ancestor
+records in IndexedDB while no engine is mounted. Its worker supplies the synchronous readers and queues/flushes
+IndexedDB writes. Reader callbacks may depend on `this`, which is bound to their reader object; sink callbacks are
+bound to their sink object. Report progress from the worker with `postMessage`, since the import itself is synchronous.
+
+### 2.3 ZIP memory trade-off
+
+The ZIP reader scans the central directory using small records (the end search is at most 65,557 bytes), then
+exposes stored entries as offset views. A deflated entry keeps a forward raw-DEFLATE decoder with a 64 KiB
+compressed input buffer and the decoder's fixed-size history. Reads ahead discard through a 64 KiB scratch buffer;
+a backward read resets the decoder and replays from the entry start. No inflated entry, full compressed archive,
+spill file or archive-sized wasm allocation is retained. Each active entry has constant decoder/buffer overhead
+(roughly a few hundred KiB), whether its WZ is 480 MiB or 640 MiB. This favours bounded memory and portability over
+CPU time: repeated backward reads can repeatedly decompress most of a large entry. Stored ZIPs/folder readers are
+faster for random access. ZIP metadata is used for positional access; this is not a full-entry CRC verification pass.
+
+WZ directory records are read at their own positions, including sparse layouts in edited archives. Each local
+metadata read window starts at 4 KiB and is capped at 16 MiB; oversized metadata records fail explicitly instead of
+buffering an entire WZ. The import additionally holds one img's compressed bytes, parsed tree, decoded canvases/atlas pages
+and any external UOL target imgs needed for that job. Peak memory therefore depends on the largest requested img,
+not just the input buffer; it does not include a whole 480–640 MiB WZ. JS reader fallbacks and queued sink writes
+have their own host memory costs. The host must dispose of a failed worker/staging cache and flush successful writes.
+
+Validation on the dev PC (#132, Node 24, release wasm): a generated 640 MiB sparse WZ with its img at the end,
+inside a 652,228-byte deflated ZIP, imported with a peak wasm linear memory of 1,507,328 bytes (1.4 MiB). This checks
+the inflation strategy, not a real img's decoding cost. The complete real v83 manifest (157 imgs) peaked at
+266,469,376 bytes (254.1 MiB); all 484 asset files matched the native importer byte for byte, with zero warnings.
+In both checks each JS reader call was at most 65,536 bytes. The native before/after `cache.json` also matched after
+excluding only `created` and `stats.seconds`; synthetic portable folder/stored-ZIP/deflated-ZIP caches matched
+including `cache.json`. The external harness and private outputs stay outside the repo; these are Node worker-API
+checks, not browser/storage/UI QA (owned by #133/#136).
+
 ## 3. WZ format facts (v83, verified)
 
 Verified against all 16 PKG1 archives of the vanilla install (0 parse errors, `docs/research/wz-inventory.md`):
