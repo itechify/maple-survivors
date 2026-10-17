@@ -24,3 +24,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# Agent playtest tool (Node): dependencies are installed by scripts/agent_playtest.sh
+tools/playtest/node_modules/
