@@ -82,11 +82,13 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 		const o = outcomeOf(c);
 		const state = o?.state ?? "no end";
 		outcomes[state] = (outcomes[state] ?? 0) + 1;
-		const src = (c.report?.decisions as { by_source?: Record<string, number> } | undefined)?.by_source ?? {};
+		const dec = c.report?.decisions as { total?: number; by_source?: Record<string, number> } | undefined;
+		const src = dec?.by_source ?? {};
 		for (const [k, n] of Object.entries(src)) bySource[k] = (bySource[k] ?? 0) + n;
+		const decisions = { jev: src.jev ?? 0, total: dec?.total ?? Object.values(src).reduce((a, n) => a + n, 0) };
 		const problems = (c.report?.problems ?? {}) as { infrastructure?: string[]; replay?: string; rerun?: string };
 		return { cell: c.name, dir: c.dir, personality: header(c).personality ?? "?", seed: header(c).seed ?? "?",
-			stage: header(c).stage ?? "?", exit_code: cellExit(c), outcome: o, problems: cellProblems(c).length,
+			stage: header(c).stage ?? "?", exit_code: cellExit(c), outcome: o, decisions, problems: cellProblems(c).length,
 			infrastructure: c.error ? [c.error] : problems.infrastructure ?? [], replay: problems.replay ?? null,
 			rerun: problems.rerun ?? null };
 	});
@@ -106,13 +108,13 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 		`- **cells:** ${cells.length}`, `- **outcomes:** ${Object.entries(outcomes).map(([k, n]) => `${k} ${n}`).join(", ")}`,
 		`- **exit code:** ${exit} (the worst over the cells; patterns and Jev opinions never change it)`, "",
 		"TIMEOUT means the time cap ended a living round; it is not a clear.", "",
-		"## Outcomes", "", "| cell | personality | seed | exit | outcome | level | job | kills | problems |",
-		"|---|---|---|---|---|---|---|---|---|",
+		"## Outcomes", "", "| cell | personality | seed | exit | outcome | level | job | kills | Jev decisions | problems |",
+		"|---|---|---|---|---|---|---|---|---|---|",
 		...rows.map((r) => {
 			const o = r.outcome;
 			const out = o ? `${o.state ?? "?"} ${typeof o.time === "number" ? mmss(o.time) : "?"}` : "no end";
 			return `| ${r.cell} | ${r.personality} | ${r.seed} | ${r.exit_code} | ${out} | ${o ? `Lv ${o.level ?? "?"}` : "-"} | ` +
-				`${o?.job ?? "-"} | ${o?.kills ?? "-"} | ${r.problems} |`;
+				`${o?.job ?? "-"} | ${o?.kills ?? "-"} | ${r.decisions.jev}/${r.decisions.total} | ${r.problems} |`;
 		}), ""];
 	if (infra.length) {
 		md.push("## Infrastructure errors", "");

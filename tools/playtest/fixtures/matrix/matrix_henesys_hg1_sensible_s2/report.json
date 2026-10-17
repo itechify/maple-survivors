@@ -24,5 +24,5 @@
 		"rerun": "bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=2 --minutes=10 --personality=sensible --brain=fallback",
 		"replay": "bash scripts/agent_playtest.sh --replay=evidence/agent-playtest/matrix_x/matrix_henesys_hg1_sensible_s2"
 	},
-	"decisions": { "total": 80, "by_source": { "fallback:sensible": 19, "fallback:tactic-rules": 61 } }
+	"decisions": { "total": 80, "by_source": { "jev": 75, "fallback:sensible": 5 } }
 }
