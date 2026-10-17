@@ -42,7 +42,7 @@ static func describe(w: RunWorld, id: int) -> String:
 
 ## The base situation plus the Jev brain's facts (owned skills, boss counts).
 func situation(w: RunWorld) -> Dictionary:
-	var s := SITUATION.of(w)
+	var s := SITUATION.of(w, memory)
 	s.merge(SITUATION.brain_facts(w))
 	return s
 

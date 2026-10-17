@@ -2,6 +2,7 @@
 // their sections (metrics, invariants, evaluations) in their own modules and import them here.
 import { registerSection } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
+import "./report_tactics.ts";
 
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
