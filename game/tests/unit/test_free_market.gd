@@ -66,7 +66,7 @@ func test_look_comes_only_from_character_and_weapon_follows_job() -> void:
 	var character := {"look": {}, "job_id": 0, "beginner_weapon": 0}
 	var look := FreeMarket.character_look(character, data)
 	assert_eq(look.face, 20000, "empty look uses AvatarRenderer's default")
-	assert_true(1302000 in look.equips, "Beginner gets weapon_by_job default")
+	assert_true(1302000 in look.equips, "a format-1 Beginner draws the default creation weapon")
 	character.look = {"skin": 2, "face": 21000, "hair": 31000, "equips": [1041002, 1061002, 1072001, 1302000]}
 	character.beginner_weapon = 1322005
 	look = FreeMarket.character_look(character, data)

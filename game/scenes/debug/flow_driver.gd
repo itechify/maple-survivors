@@ -304,7 +304,7 @@ func _warp_round() -> bool:
 			print("flow_driver: warp %.0f s / Lv %d" % [run.world.time, run.world.player_state.level])
 	if not _expect(run.world.state in [RunWorld.DEAD, RunWorld.CLEARED], "round timed out during warp"):
 		return false
-	run._apply_job_look(int(run.world.player_state.job_id))
+	run._apply_look()
 	run._present(0.0)
 	_collect_missing(run)
 	_rounds.append(run.build_summary())

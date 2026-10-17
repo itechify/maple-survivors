@@ -315,8 +315,11 @@ func test_creation_persists_one_authoritative_look_and_the_beginner_weapon() -> 
 	var look := {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
 	assert_eq(flow.create_character("Maple70", look, 1322005), 0)
 	var saved := SaveData.new(save_path).slot(0)
-	assert_eq(saved.character.look, JSON.parse_string(JSON.stringify(look)), "look survives JSON's numeric conversion")
-	assert_eq(int(saved.character.beginner_weapon), 1322005)
+	assert_eq(saved.character.look, JSON.parse_string(JSON.stringify({"skin": 3, "face": 21002, "hair": 31057})),
+		"look survives JSON's numeric conversion; its equips are worn equipment now")
+	assert_eq(Equipment.worn_ids(saved.character.equipment.worn), [1041011, 1061008, 1072038, 1322005],
+		"the creation outfit and weapon are the first worn equipment")
+	assert_eq(int(saved.character.format), CharacterSnapshot.FORMAT)
 	assert_false(saved.has("look"), "new run wrappers never duplicate the character's look")
 	flow.save_and_quit()
 	flow.current.show_creation()
@@ -483,6 +486,28 @@ func _first_minute(world: RunWorld) -> String:
 		world.step(1.0 / 60.0, BotInput.decide(world, memo))
 		events += JSON.stringify(world.drain_events(), "", false, true)
 	return events
+
+
+func test_continue_migrates_a_format_one_slot_once_and_keeps_its_look() -> void:
+	var flow := _flow()
+	var old := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
+	for key: String in ["equipment", "scrolls", "mesos"]:
+		old.erase(key)
+	old.format = 1
+	old.job_id = 200
+	old.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
+	old.beginner_weapon = 1322005
+	assert_eq(flow.save.create_slot({"name": "Older69", "character": old, "created": "2026-10-16", "tier": 0,
+		"phase": "map_select", "rounds_played": 1, "tiers_cleared": 0}), 0, "a spec #32 save still loads")
+	var drawn := DataRepo.character_look(flow.save.slot(0).character, DataRepo.load_all())
+	flow.continue_character(0)
+	assert_eq(flow.current_name, "stage_select")
+	var saved := SaveData.new(save_path).slot(0).character as Dictionary
+	assert_eq(int(saved.format), CharacterSnapshot.FORMAT, "migrated and written back")
+	assert_eq(Equipment.worn_ids(saved.equipment.worn), [1041011, 1061008, 1072038, 1372005],
+		"the outfit plus the old rule's Magician weapon")
+	assert_eq(DataRepo.character_look(saved, DataRepo.load_all()), drawn, "it looks exactly as before")
+	assert_eq(int(saved.mesos), 0)
 
 
 func test_save_and_quit_continue_map_select_and_delete_history() -> void:

@@ -97,7 +97,7 @@ func create_character(character_name: String, look: Dictionary = {}, beginner_we
 	action_error = save_data().name_error(character_name)
 	if not action_error.is_empty():
 		return -1
-	var character := new_character(look, beginner_weapon, _equipment_info_loader())
+	var character := new_character(look, beginner_weapon, equipment_info_loader())
 	var snapshot := {"name": character_name, "created": _date(),
 		"character": character, "tier": 0, "phase": "map_select", "rounds_played": 0, "tiers_cleared": 0}
 	var index := save_data().create_slot(snapshot)
@@ -135,8 +135,8 @@ static func migrated_character(character: Dictionary, img_loader: Callable) -> D
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
 
-## Item info from the default asset library (empty roots without a cache, so items then carry no stats).
-static func _equipment_info_loader() -> Callable:
+## An img loader over the default asset library for item info (empty roots without a cache: items then carry no stats).
+static func equipment_info_loader() -> Callable:
 	var library := AssetLibrary.get_default()
 	return func(path: String) -> Dictionary:
 		var img: WzImg = library.img(path) if library != null else null
@@ -203,7 +203,7 @@ func continue_character(index: int) -> void:
 	active_slot = index
 	if int(snapshot.character.get("format", 0)) != CharacterSnapshot.FORMAT:
 		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too.
-		snapshot.character = migrated_character(snapshot.character, _equipment_info_loader())
+		snapshot.character = migrated_character(snapshot.character, equipment_info_loader())
 		if save_data().update_slot(index, snapshot) != OK:
 			_swap_to(error_screen("Could not save the round boundary."), "error")
 			return

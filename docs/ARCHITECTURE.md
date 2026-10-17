@@ -86,7 +86,7 @@ bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` deco
 for both RunWorld and the Free Market.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
-draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while
+draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
 life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
 `--run` calls `start_run`, an independent one-off with no save writes.
@@ -208,8 +208,10 @@ var setup := {
 	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
-		1302000: Dictionary, 1372005: Dictionary}, # canonical info of balance.player.equipment + every weapon_by_job
-		                                       # weapon (DataRepo.starter_equipment_ids), keyed by original item id
+		1302000: Dictionary, 1372005: Dictionary}, # canonical Character.wz info of Equipment.DEFAULT_OUTFIT, the
+		                                       # weapon_grants wand, every MakeCharInfo top/bottom/shoes/weapon and
+		                                       # every item setup.character holds (DataRepo.starter_equipment_ids),
+		                                       # keyed by original item id; req*, attackSpeed, afterImage, sfx
 	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
 	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots the worn weapons'
 	                                  # canonical info/afterImage names (WeaponInfo.afterimage_name)
@@ -298,6 +300,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
+| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item` and the Magician weapon grant in `change_job` |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
@@ -578,11 +581,15 @@ What the tables above leave open; the class doc comments have the rest.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
-`RunWorld` accepts an optional `setup.character` format-1 `CharacterSnapshot` and exposes
-`character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
+`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
+exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
 it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look and Beginner weapon.
-Resolved attributes/Fortune are also included for consumers. Each new world refills computed HP/MP and creates
+skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look, worn equipment and
+inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
+Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
+only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
+snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices worn equipment and
+`continue_character` migrates a format-1 save slot once. Each new world refills computed HP/MP and creates
 fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
 choice push an error, return empty in release and assert in debug. With no character the original setup/event
 path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
@@ -698,8 +705,9 @@ The real client's physics integrator and timestep, mob speed-stat conversion, pr
 fade timing, climb speed, camera smoothing, and the touch-damage formula are not recoverable from data or clean
 sources. Each is implemented as a labelled, data-driven constant so it can be corrected when better evidence appears.
 
-The canonical `equipment_info` supplies physical `incPAD`, magic `incMAD`, weapon speed, `afterImage` and `sfx`.
-`RunWorld.weapon_id()` selects the configured job weapon; `mob_defense(slot, magic)` reads live slot defense, and
+Worn equipment instances supply every `inc*` stat (W.ATT summed over all worn items); the canonical `equipment_info`
+supplies requirements, weapon speed, `afterImage` and `sfx`. `RunWorld.weapon_id()` is the worn weapon (0 means a
+bare-handed punch, `BasicAttack.BARE_HANDS`); `mob_defense(slot, magic)` reads live slot defense, and
 `physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
 new skills retain standing-only action presentation. Neither action changes movement or locks it.
 

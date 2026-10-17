@@ -112,5 +112,6 @@ func test_imported_creation_options_have_every_renderable_variant_and_canonical_
 	assert_eq(int(setup.equipment_info[1372005].reqLevel), 8)
 	var fresh := RunWorld.new(setup)
 	assert_eq(fresh.player_state.pdd, 7.0, "the default outfit's W.DEF 3 + 2 + 2")
+	assert_true(lib.sound(WeaponInfo.sound_path(BasicAttack.BARE_HANDS)) != null, "the bare-handed punch sound")
 	assert_eq(lib.missing, PackedStringArray())
 	lib.free()

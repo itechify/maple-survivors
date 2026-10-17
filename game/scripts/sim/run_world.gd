@@ -230,7 +230,7 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
-## Carried appearance {skin, face, hair}; worn equipment is drawn over it (drawn_look()).
+## Carried appearance {skin, face, hair}; worn equipment is drawn over it (DataRepo.character_look).
 var character_look := {}
 ## Worn equipment and inventory (Equipment state); change it only through equip_item/unequip_item/discard_item.
 var equipment := Equipment.empty_state()
@@ -1001,13 +1001,6 @@ func weapon_attack() -> float:
 ## What worn equipment adds to one `inc*` stat (the "bonus" of the Stat window's base + bonus).
 func equipment_bonus(field: String) -> float:
 	return Equipment.total(equipment.worn, field)
-
-
-## The look to draw: the carried {skin, face, hair} with `equips` = worn item ids (Equipment.worn_ids order).
-func drawn_look() -> Dictionary:
-	var look := character_look.duplicate(true)
-	look["equips"] = Equipment.worn_ids(equipment.worn)
-	return look
 
 
 ## Wears inventory item `index`; "" or the Equipment reason it failed (nothing changes then). See the header.

@@ -6,7 +6,7 @@
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
-		{"img": "Sound.wz/Weapon.img", "paths": ["swordL", "mace"]},
+		{"img": "Sound.wz/Weapon.img", "paths": ["swordL", "mace", "barehands"]},
 		{"img": "Map.wz/Physics.img"},
 		{"img": "Map.wz/MapHelper.img", "paths": ["mark"]},
 		{"img": "Base.wz/zmap.img"},
