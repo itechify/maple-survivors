@@ -377,8 +377,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		var events := w.drain_events()
 		# Mid-round equipping (spec #33, #112): not a decision point, no RNG; changes stats before the next tick.
-		if BotShop.equip_trigger(events):
-			equips_worn += BotShop.auto_equip(w)
+		equips_worn += BotShop.equip_after(w, events)
 		for e: Dictionary in events:
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):

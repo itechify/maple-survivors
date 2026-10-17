@@ -28,6 +28,8 @@ const HP_POTION := 1
 const MP_POTION := 2
 const MESO := 3
 const EQUIP := 4
+## The `kind` string of a `pickup_collected` event by pickup kind (both potion kinds are "potion").
+const KIND_NAMES := {EXP: "exp", HP_POTION: "potion", MP_POTION: "potion", MESO: "meso", EQUIP: "equip"}
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -312,7 +314,7 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			if is_meso:
 				step_mesos += meso[i]
 			var is_equip := kind[i] == EQUIP
-			var kind_name := "exp" if kind[i] == EXP else ("meso" if is_meso else ("equip" if is_equip else "potion"))
+			var kind_name: String = KIND_NAMES[kind[i]]
 			# A meso event carries its amount in `count`; the instance of equipment goes to `collected_equipment`.
 			var event := {"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
 				"pos": Vector2(x[i], y[i]), "kind": kind_name,
