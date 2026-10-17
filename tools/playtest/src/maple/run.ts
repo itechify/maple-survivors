@@ -260,7 +260,7 @@ export function withSnapshots(opinions: Opinion[], rows: Array<Record<string, un
 }
 
 /** The Jev-assisted evaluations of this run (#99): skipped without an end record, on a replay (never calls Jev), when
- * turned off (the default for the fallback and builtin brains), or when no TypeSafe key resolves; otherwise asked
+ * turned off (by default for the fallback and builtin brains), or when no TypeSafe key resolves; otherwise asked
  * through the run's one JevClient (`shared`: the Jev brain's, so the brain and the evaluations share one request cap
  * and one token total; a new one with the same cap when the brain was not Jev). Returns the client used, if any. */
 async function evaluate(o: RunOptions, env: NodeJS.ProcessEnv, dir: string, session: SessionResult | undefined,
@@ -269,7 +269,9 @@ async function evaluate(o: RunOptions, env: NodeJS.ProcessEnv, dir: string, sess
 		data: { record: {}, timeline: [], hits: [], decisions, problems } }) });
 	if (!session?.end) return skip("no round record: the driver sent no end");
 	if (o.replay) return skip("replay: the recording's evaluations.json has the verdicts");
-	if (o.evaluations !== true) return skip(`turned off (${o.brain === "fallback" || o.brain === "builtin" ? `the default with --brain=${o.brain}; --evaluations=true turns them on` : "--evaluations=false or the scenario"})`);
+	if (o.evaluations !== true) return skip(o.brain === "fallback" || o.brain === "builtin"
+		? `turned off: --brain=${o.brain} stays offline by default (--evaluations=true turns them on)`
+		: "turned off by --evaluations=false or the scenario");
 	let client = shared;
 	if (!client) {
 		const key = resolveApiKey({ env, readUserKey: o.readUserKey });
@@ -292,16 +294,32 @@ export function jevTotals(total: JevStats | undefined, e: Evaluations): { brain?
 		`${total.output_tokens} output; brain ${tokens(brain)}, evaluations ${tokens(e)})` };
 }
 
-/** The command that plays this run again live (same stage, seed, cap, personality, brain, character, tier, warp and
- * invariant flags). */
+/** The command that plays this run again live (#98): every flag that changes decisions or output, so it parses back
+ * into the same run options (test/scenario_run.test.ts): the scenario, stage, seed, cap, personality, brain, model,
+ * request cap, evaluations and --strict-eval, character, tier, warp, the invariant flags and a non-default liveness.
+ * Fields a scenario could supply are always explicit (tier, warp), so its file never fills them in differently. */
 export function rerunCommand(o: RunOptions, repo: string = REPO): string {
 	const c = o.checks ?? {};
-	return ["bash scripts/agent_playtest.sh", `--stage=${o.stage}`, `--seed=${o.seed}`, `--minutes=${o.minutes}`,
-		`--personality=${o.personality}`, `--brain=${o.brain}`,
+	return ["bash scripts/agent_playtest.sh",
+		...(o.scenario && o.scenario !== "adhoc" ? [`--scenario=${o.scenario}`] : []),
+		`--stage=${o.stage}`, `--seed=${o.seed}`, `--minutes=${o.minutes}`, `--personality=${o.personality}`, `--brain=${o.brain}`,
+		...(o.model !== undefined ? [`--model=${o.model}`] : []),
+		...(o.jevMaxRequests !== undefined ? [`--jev-max-requests=${o.jevMaxRequests}`] : []),
+		`--evaluations=${o.evaluations === true}`, ...(o.strictEval ? ["--strict-eval"] : []),
 		...(o.character ? [`--character=${displayPath(repo, o.character)}`] : []),
-		...((o.tier ?? 1) >= 2 ? [`--tier=${o.tier}`] : []), ...((o.warp ?? 0) > 0 ? [`--warp=${o.warp}`] : []),
+		`--tier=${o.tier ?? 1}`, `--warp=${o.warp ?? 0}`,
 		...(c.stuckPx !== undefined ? [`--stuck-px=${c.stuckPx}`] : []), ...(c.stuckS !== undefined ? [`--stuck-s=${c.stuckS}`] : []),
-		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : [])].join(" ");
+		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : []),
+		...(o.livenessS !== DEFAULT_LIVENESS_S ? [`--liveness-s=${o.livenessS}`] : [])].map(shellQuote).join(" ");
+}
+
+/** The CLI's --liveness-s default (core/args.ts). */
+const DEFAULT_LIVENESS_S = 60;
+
+/** `word` as one bash word: as is when safe, else double-quoted with ", \\, $ and ` escaped. */
+export function shellQuote(word: string): string {
+	return /^[A-Za-z0-9_@%+=:,./-]*$/.test(word) || word === "bash scripts/agent_playtest.sh" ? word
+		: `"${word.replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
 /** scenario.json: everything a replay needs to play this run again (#98): the scenario and its file, the cell, every
