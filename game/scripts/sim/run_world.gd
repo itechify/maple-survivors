@@ -747,9 +747,22 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
+	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
+	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {})
+	var secondary := String(secondary_cfg.get("stat", ""))
+	if secondary == primary or not _base_stats.has(secondary):
+		secondary = ""
+	var secondary_ap := 0
+	if secondary != "":
+		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level, float(_base_stats[secondary]),
+			secondary_cfg.get("keyframes", []))
 	for stat: String in _base_stats:
-		_attributes[stat] = roundi(loadout.player_stat(stat, float(_base_stats[stat])
-			+ (_earned_ap if stat == primary else 0)))
+		var ap := 0
+		if stat == primary:
+			ap = _earned_ap - secondary_ap
+		elif stat == secondary:
+			ap = secondary_ap
+		_attributes[stat] = roundi(loadout.player_stat(stat, float(_base_stats[stat]) + ap))
 	var old_hp := _max_hp
 	var old_mp := _max_mp
 	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp)))
