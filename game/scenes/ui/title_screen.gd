@@ -38,6 +38,8 @@ const PLANK_MID := Vector2(183, 106)
 const PLANK_LOW := Vector2(307, 159)
 ## Web only: gap between the three plates that stand in for Quit on the bottom plank.
 const WEB_PLATE_GAP := 4.0 # tier C: ours.
+## Sign-local x of the centre of the bottom plank (the plates are centred on it; PLANK_LOW.x is where Quit sits).
+const WEB_ROW_X := 212.0 # tier C: measured on the Title/signboard art.
 
 var backdrop: LoginBackdrop
 var ui: CanvasLayer
@@ -149,7 +151,7 @@ func _layout() -> void:
 		var total := WEB_PLATE_GAP * (row.size() - 1)
 		for b in row:
 			total += b.size.x
-		var x := sign_tl.x + PLANK_LOW.x - total * 0.5
+		var x := sign_tl.x + WEB_ROW_X - total * 0.5
 		for b in row:
 			b.position = Vector2(floorf(x), floorf(sign_tl.y + PLANK_LOW.y - b.size.y * 0.5))
 			x += b.size.x + WEB_PLATE_GAP

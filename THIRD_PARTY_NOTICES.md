@@ -3,6 +3,7 @@
 | Component | Licence | Where |
 |---|---|---|
 | Godot Engine 4.7.2 | MIT (plus its bundled third-party licences, e.g. zlib, libpng, dr_mp3) | runtime; `scripts/export.sh` writes the engine's licence, its components' copyrights and their licence texts to `GODOT_LICENSES.txt` next to the exported exe |
+| Arimo (variable font, `game/assets/fonts/arimo/Arimo-Variable.ttf`) | SIL Open Font License 1.1, Copyright The Arimo Project Authors (https://github.com/googlefonts/arimo); licence text in `game/assets/fonts/arimo/OFL.txt`, taken with the font from the `ofl/arimo` folder of google/fonts | the web build's text: bundled as the fallback for the Arial/Tahoma/Dotum `SystemFont`s (`MapleFonts`), because a browser has no system fonts; unmodified. `scripts/export.sh` copies the licence to `ARIMO_OFL.txt` next to the exported exe |
 | Rust crates used by `tools/wzimport` | listed in the table below; all MIT, Apache-2.0, Zlib or similar permissive licences | importer binary; `scripts/export.sh` collects every crate's licence files into `WZIMPORT_LICENSES.txt` next to `wzimport.exe` (and copies this file there) |
 
 Reference projects consulted for facts only (no code copied): Cosmic (AGPL-3.0), HeavenClient / JourneyClient /

@@ -60,6 +60,8 @@ var movement_keys := DEFAULT_MOVEMENT
 var bindings: Dictionary = {}
 
 var _path := PATH
+## The window size the view was last fitted for (fit_viewport).
+var _fitted_window := Vector2i.ZERO
 ## Events an action had before this object first rebound it (for actions without a project-settings entry).
 var _default_events: Dictionary = {}
 
@@ -79,6 +81,16 @@ func _ready() -> void:
 	# Godot's own viewport update for the resize (the blit rect stays at the old size, a non-integer stretch).
 	root.size_changed.connect(fit_viewport, CONNECT_DEFERRED)
 	fit_viewport()
+	# Web: the tab can shrink below the base size while the stretched view stays 800x600 (integer scale cannot go
+	# under 1), and then Godot emits no size_changed (seen in Chrome: 800x600 -> 640x480 kept the cropped 1x view). A
+	# per-frame size check catches that case; desktop windows keep the signal only.
+	set_process(WebProfile.is_web())
+
+
+## Web: re-fits the view whenever the tab (canvas) size changed, signal or not.
+func _process(_delta: float) -> void:
+	if get_tree().root.size != _fitted_window:
+		fit_viewport()
 
 
 ## The view Godot's aspect "expand" makes of `base` for a window: the base grown along the window's wider axis
@@ -119,6 +131,7 @@ func fit_viewport() -> void:
 	if root.content_scale_stretch != stretch:
 		root.content_scale_stretch = stretch
 	var want := fit_size(root.size) if fill_window else BASE_VIEW
+	_fitted_window = root.size
 	if root.content_scale_size != want:
 		root.content_scale_size = want
 
