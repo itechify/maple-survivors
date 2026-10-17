@@ -3,6 +3,7 @@
 import { registerSection, setSnapshotFormatter, genericSnapshot } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 import "./report_tactics.ts";
+import "./report_rounds.ts";
 
 /** A Maple invariant snapshot (game/tools/playtest/playtest_invariants.gd `snapshot`) as Problems sub-bullets. */
 export function mapleSnapshot(s: Record<string, unknown>): string[] {

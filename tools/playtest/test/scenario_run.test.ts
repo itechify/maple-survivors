@@ -172,7 +172,11 @@ test("a tier chain writes one record per round, and the driver gets --tier and -
 	assert.equal(r.exitCode, EXIT.OK);
 	assert.equal(readJson(path.join(out, "record_tier1.json")).state, "CLEARED");
 	assert.equal(readJson(path.join(out, "record_tier2.json")).stage, "dark_cave");
-	assert.match(fs.readFileSync(path.join(out, "report.md"), "utf8"), /--tier=2/);
+	const md = fs.readFileSync(path.join(out, "report.md"), "utf8");
+	assert.match(md, /--tier=2/);
+	assert.match(md, /## Rounds/);
+	assert.match(md, /\| 1 \| henesys_hg1 \|[^\n]*CLEARED 3:00[^\n]*`record_tier1\.json` \|/);
+	assert.match(md, /\| 2 \| dark_cave \|[^\n]*`record_tier2\.json` \|/);
 	const args = driverArgs("game", { stage: "henesys_hg1", seed: 1, minutes: 1, personality: "sensible", brain: "stdio",
 		tier: 2 });
 	assert.ok(args.includes("--tier=2"));

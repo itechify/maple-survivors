@@ -96,7 +96,7 @@ else if (mode === "error") {
 	if (mode === "findings") send({ type: "finding", ...hp });
 	send({ type: "end", record: { ...round, received, isolate: process.env.ISOLATE ?? null,
 		...(mode === "tactics" ? { tactics: TACTICS_RECORD } : {}),
-		...(mode === "chain" ? { mode: "chain", rounds: [{ ...round, tier: 1, state: "CLEARED" }, { ...round, tier: 2, stage: "dark_cave" }] } : {}) },
+		...(mode === "chain" ? { mode: "chain", rounds: [{ ...round, tier: 1, stage: "henesys_hg1", state: "CLEARED" }, { ...round, tier: 2, stage: "dark_cave" }] } : {}) },
 		fingerprint: { ticks: 10800, state: "TIMEOUT", answers: answers.join(",") }, decisions: applied,
 		brain_lost: false, findings: mode === "findings" ? [{ ...stuck, count: 4 }, hp] : [] });
 	process.exit(0);
