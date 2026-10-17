@@ -174,8 +174,8 @@ Tauromacis and Taurospear have. A boss attack is the same thing used by a schedu
 _Avoid_: monster skill (that is a mob skill)
 
 **Mob skill**:
-A canonical Skill.wz/MobSkill.img skill a monster casts, such as Slow or a summon. Only bosses cast mob skills that
-affect the character.
+A canonical Skill.wz/MobSkill.img skill a monster casts, such as Slow or a summon. Only bosses cast mob skills
+that affect the character.
 
 ## Mesos and equipment
 
