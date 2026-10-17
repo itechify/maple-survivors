@@ -11,6 +11,14 @@ export type Problem = {
 	snapshot?: Record<string, unknown>; location?: string; [key: string]: unknown;
 };
 
+/** A model's opinion on something subjective (a Jev-assisted evaluation, #99), kept apart from deterministic problems:
+ * "flagged" (past its threshold with enough confidence) or "review" (past it with low confidence: needs a human). */
+export type Opinion = {
+	kind: string; class: "flagged" | "review"; title: string; message: string;
+	/** The model's numbers, as one line ("unfairness 2.6 of 3 (confidence 0.8); ..."). */
+	evidence: string; time?: number; tick?: number;
+};
+
 export type ReportContext = {
 	title: string;
 	/** Ordered header facts (label, value): scenario, stage, seed, brain and why, ... */
