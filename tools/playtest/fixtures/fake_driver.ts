@@ -11,12 +11,17 @@
 //   stall           hello, one decide, then silent after the answer (liveness timeout mid-round)
 //   tactics hello, three tactic decides (calm map, drops near, critical HP), end with a fixed record.tactics
 //   chain   like ok, but the end record is a tier chain (rounds[] with two round records)
+//   dead / dead_findings / cleared  like ok, but the round is fixtures/run_fixtures.ts deadRun / clearedRun: its record,
+//           and its timeline.jsonl and hits.jsonl written into the run directory (the --personality-file's directory);
+//           dead_findings also streams the stuck finding (#99)
 // Like the real driver, an answer that is not an offered option applies the baseline (fallback_reason). The job
 // decide comes at tick 150 instead of 120 when the card answer was "a", and the fingerprint carries the applied
 // answers, so a replay with a changed answer diverges. record.isolate echoes the ISOLATE env variable.
 // Any other argument is echoed in hello.args so tests can check what the launcher passed.
 import fs from "node:fs";
 import readline from "node:readline";
+import path from "node:path";
+import { deadRun, clearedRun } from "./run_fixtures.ts";
 
 const TACTICS = ["kite", "aggressive", "defensive", "explore", "collect", "hold"].map((id) => ({ id, name: id }));
 const CALM = { hp: "full", mp: "full", mobs_near: "none", mobs_near_step: 0, boss: "none", potions_hp: "few",
@@ -68,7 +73,7 @@ const stuck = { kind: "stuck", severity: "warning", tick: 1500, time: 25, count:
 const hp = { kind: "hp_out_of_range", severity: "error", tick: 3600, time: 60, count: 1, message: "HP 60 outside 0..50",
 	snapshot: { x: 0, y: 0, fh: 1, platform: 0, hp: 60, max_hp: 50, mp: 5, max_mp: 5, level: 4, job: 0, tactic: "kite",
 		state: "PLAYING", mobs: [] } };
-if (mode === "findings" || mode === "findings_no_end") send({ type: "finding", ...stuck });
+if (mode === "findings" || mode === "findings_no_end" || mode === "dead_findings") send({ type: "finding", ...stuck });
 if (mode === "no_end" || mode === "findings_no_end") process.exit(0);
 if (mode === "script_error") {
 	process.stderr.write("SCRIPT ERROR: Invalid access to property or key 'fh' on a base object of type 'Nil'.\n");
@@ -104,12 +109,20 @@ else if (mode === "error") {
 		if (d.kind === "card" && !why && answer.answer === "a" && decides[1]) (decides[1] as Record<string, unknown>).tick = 150;
 	}
 	const answers = applied.map((a) => `${a.kind}:${a.answer}`);
-	const round = { state: "TIMEOUT", time: 180, level: 11, job: 200, kills: 42, cards_taken: ["0:b"] };
+	const fixture = mode.startsWith("dead") ? deadRun() : mode === "cleared" ? clearedRun() : null;
+	const pfile = process.argv.find((a) => a.startsWith("--personality-file="));
+	if (fixture && pfile) {
+		const dir = path.dirname(pfile.slice("--personality-file=".length));
+		fs.writeFileSync(path.join(dir, "timeline.jsonl"), fixture.timeline.map((r) => JSON.stringify(r) + "\n").join(""));
+		fs.writeFileSync(path.join(dir, "hits.jsonl"), fixture.hits.map((h) => JSON.stringify(h) + "\n").join(""));
+	}
+	const round: Record<string, unknown> = fixture ? fixture.record
+		: { state: "TIMEOUT", time: 180, level: 11, job: 200, kills: 42, cards_taken: ["0:b"] };
 	if (mode === "findings") send({ type: "finding", ...hp });
 	send({ type: "end", record: { ...round, received, isolate: process.env.ISOLATE ?? null,
 		...(mode === "tactics" ? { tactics: TACTICS_RECORD } : {}),
 		...(mode === "chain" ? { mode: "chain", rounds: [{ ...round, tier: 1, stage: "henesys_hg1", state: "CLEARED" }, { ...round, tier: 2, stage: "dark_cave" }] } : {}) },
-		fingerprint: { ticks: 10800, state: "TIMEOUT", answers: answers.join(",") }, decisions: applied,
-		brain_lost: false, findings: mode === "findings" ? [{ ...stuck, count: 4 }, hp] : [] });
+		fingerprint: { ticks: 10800, state: round.state, answers: answers.join(",") }, decisions: applied,
+		brain_lost: false, findings: mode === "findings" ? [{ ...stuck, count: 4 }, hp] : mode === "dead_findings" ? [stuck] : [] });
 	process.exit(0);
 }
