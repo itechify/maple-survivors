@@ -20,6 +20,10 @@ impl<T: ?Sized> HostBound for T {}
 
 /// Immutable length and exact positional reads, without changing a shared cursor.
 pub trait ReadAt: HostBound {
+    /// True for forward decoders that would replay when concurrent img jobs seek backwards.
+    fn prefers_sequential(&self) -> bool {
+        false
+    }
     fn len(&self) -> u64;
     fn is_empty(&self) -> bool {
         self.len() == 0

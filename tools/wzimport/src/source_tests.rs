@@ -7,6 +7,160 @@ use std::io;
 use std::sync::Arc;
 
 struct Memory(Vec<u8>);
+
+#[derive(Default)]
+struct TestScratch {
+    events: Arc<std::sync::Mutex<Vec<String>>>,
+    fail_write: bool,
+}
+struct TestHandle {
+    bytes: std::sync::Mutex<Vec<u8>>,
+    name: String,
+    events: Arc<std::sync::Mutex<Vec<String>>>,
+    fail_write: bool,
+    written: std::sync::Mutex<u64>,
+}
+impl crate::zip::Scratch for TestScratch {
+    fn create(&self, name: &str, length: u64) -> io::Result<Box<dyn crate::zip::ScratchHandle>> {
+        self.events.lock().unwrap().push(format!("create:{name}"));
+        Ok(Box::new(TestHandle {
+            bytes: std::sync::Mutex::new(vec![0; length as usize]),
+            name: name.into(),
+            events: self.events.clone(),
+            fail_write: self.fail_write,
+            written: std::sync::Mutex::new(0),
+        }))
+    }
+}
+impl ReadAt for TestHandle {
+    fn len(&self) -> u64 {
+        self.bytes.lock().unwrap().len() as u64
+    }
+    fn read_exact_at(&self, offset: u64, buf: &mut [u8]) -> io::Result<()> {
+        buf.copy_from_slice(&self.bytes.lock().unwrap()[offset as usize..offset as usize + buf.len()]);
+        Ok(())
+    }
+}
+impl crate::zip::ScratchHandle for TestHandle {
+    fn write(&self, offset: u64, bytes: &[u8]) -> io::Result<()> {
+        if self.fail_write { return Err(io::Error::other("scratch quota exhausted")); }
+        let mut written = self.written.lock().unwrap();
+        assert_eq!(offset, *written, "scratch writes must be sequential");
+        assert!(bytes.len() <= 65536);
+        *written += bytes.len() as u64;
+        let mut b = self.bytes.lock().unwrap();
+        b[offset as usize..offset as usize + bytes.len()].copy_from_slice(bytes);
+        Ok(())
+    }
+    fn close(&mut self) -> io::Result<()> {
+        self.events.lock().unwrap().push(format!("close:{}", self.name));
+        Ok(())
+    }
+}
+
+#[test]
+fn failed_scratch_inflation_closes_its_handle_and_is_not_retried() {
+    let bytes = vec![0; 150_000];
+    let zip = write_zip(&[("83/Mob.wz", &bytes, true)]);
+    let scratch = Arc::new(TestScratch { fail_write: true, ..Default::default() });
+    let options = crate::zip::ZipOptions { scratch: Some(scratch.clone()), ..Default::default() };
+    let sources = crate::zip::zip_sources_with_options(Arc::new(Memory(zip)), options).unwrap();
+    for _ in 0..2 {
+        let error = sources["Mob.wz"].read_exact_at(0, &mut [0; 4]).unwrap_err();
+        assert!(error.to_string().contains("scratch quota exhausted"));
+    }
+    assert_eq!(*scratch.events.lock().unwrap(), ["create:Mob.wz", "close:Mob.wz"]);
+}
+
+#[test]
+fn scratch_handles_close_when_import_fails_after_inflation() {
+    let bytes = write_archive(&[WEntry::Img("a.img".into(), write_img(&[p("v", W::Int(1))], false))], 83, false);
+    let scratch = Arc::new(TestScratch::default());
+    let options = crate::zip::ZipOptions { scratch: Some(scratch.clone()), ..Default::default() };
+    let sources = crate::zip::zip_sources_with_options(Arc::new(Memory(write_zip(&[("83/Mob.wz", &bytes, true)]))), options).unwrap();
+    let error = crate::import::import_sources(sources, r#"{"format":1,"imgs":[{"img":"Mob.wz/a.img"}]}"#, &MemorySink::default(), &|_: &str, _, _| Err(crate::WzError::Other("host cancelled".into()))).unwrap();
+    assert!(error.errors.iter().any(|e| e.contains("host cancelled")));
+    assert_eq!(*scratch.events.lock().unwrap(), ["create:Mob.wz", "close:Mob.wz"]);
+}
+
+#[test]
+fn scratch_import_matches_replay_and_closes_one_handle_per_used_deflated_entry() {
+    let bytes = write_archive(
+        &[WEntry::Img("a.img".into(), write_img(&[p("value", W::Int(42))], false))],
+        83,
+        false,
+    );
+    let zip = write_zip(&[
+        ("83/Mob.wz", &bytes, true),
+        ("83/Effect.wz", &bytes, true),
+        ("83/Unused.wz", &bytes, true),
+        ("83/Stored.wz", &bytes, false),
+    ]);
+    let manifest =
+        r#"{"format":1,"imgs":[{"img":"Mob.wz/a.img"},{"img":"Effect.wz/a.img"},{"img":"Stored.wz/a.img"}]}"#;
+    let replay = MemorySink::default();
+    crate::import::import_sources(
+        crate::zip::zip_sources(Arc::new(Memory(zip.clone()))).unwrap(),
+        manifest,
+        &replay,
+        &|_: &str, _, _| Ok(()),
+    )
+    .unwrap();
+    let scratch = Arc::new(TestScratch::default());
+    let options = crate::zip::ZipOptions {
+        scratch: Some(scratch.clone()),
+        ..Default::default()
+    };
+    let stats = options.stats.clone();
+    let sources = crate::zip::zip_sources_with_options(Arc::new(Memory(zip)), options).unwrap();
+    assert!(scratch.events.lock().unwrap().is_empty(), "scratch must be lazy");
+    let cached = MemorySink::default();
+    let report = crate::import::import_sources(sources, manifest, &cached, &|_: &str, _, _| Ok(())).unwrap();
+    assert!(report.errors.is_empty());
+    assert_eq!(*cached.0.lock().unwrap(), *replay.0.lock().unwrap());
+    let mut events = scratch.events.lock().unwrap().clone();
+    events.sort();
+    assert_eq!(
+        events,
+        ["close:Effect.wz", "close:Mob.wz", "create:Effect.wz", "create:Mob.wz"]
+    );
+    assert_eq!(stats.lock().unwrap().bytes_inflated, 2 * bytes.len() as u64);
+    assert_eq!(stats.lock().unwrap().decoder_resets, 0);
+}
+
+#[test]
+fn zip_import_visits_imgs_in_physical_order_and_preserves_cache_bytes() {
+    let bytes = write_archive(
+        &["z.img", "a.img", "m.img"].map(|name| WEntry::Img(name.into(), write_img(&[p("value", W::Int(42))], false))),
+        83,
+        false,
+    );
+    let manifest = r#"{"format":1,"imgs":[{"img":"Mob.wz/a.img"},{"img":"Mob.wz/m.img"},{"img":"Mob.wz/z.img"}]}"#;
+    let plain = MemorySink::default();
+    crate::import::import_sources(
+        [("Mob.wz".into(), Arc::new(Memory(bytes.clone())) as Arc<dyn ReadAt>)].into(),
+        manifest,
+        &plain,
+        &|_: &str, _, _| Ok(()),
+    )
+    .unwrap();
+    let zip = write_zip(&[("83/Mob.wz", &bytes, true)]);
+    let sources = crate::zip::zip_sources(Arc::new(Memory(zip))).unwrap();
+    let zipped = MemorySink::default();
+    let visited = std::sync::Mutex::new(Vec::new());
+    let report = crate::import::import_sources(sources, manifest, &zipped, &|file: &str, _, _| {
+        visited.lock().unwrap().push(file.to_string());
+        Ok(())
+    })
+    .unwrap();
+    assert!(report.errors.is_empty());
+    assert_eq!(
+        *visited.lock().unwrap(),
+        ["Mob.wz/z.img", "Mob.wz/a.img", "Mob.wz/m.img"]
+    );
+    assert_eq!(*plain.0.lock().unwrap(), *zipped.0.lock().unwrap());
+    assert_eq!(zipped.0.lock().unwrap()["Mob.wz/z.img.json"], br#"{"value":42}"#);
+}
 impl ReadAt for Memory {
     fn len(&self) -> u64 {
         self.0.len() as u64

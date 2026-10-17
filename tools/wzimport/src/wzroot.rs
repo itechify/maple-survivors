@@ -66,6 +66,25 @@ pub struct WzRoot {
 }
 
 impl WzRoot {
+    /// Stable archive/offset ordering for img reads whose order is otherwise free.
+    pub(crate) fn img_order(&self, path: &str) -> (String, u32, String) {
+        let Some(p) = WzPath::parse(path) else {
+            return (path.into(), u32::MAX, path.into());
+        };
+        let offset = self
+            .archive(&p.archive)
+            .ok()
+            .and_then(|a| a.entry(&p.inner).map(|e| e.offset))
+            .unwrap_or(u32::MAX);
+        (p.archive, offset, p.inner)
+    }
+
+    /// Keep forward-only readers out of concurrent random-seek jobs.
+    pub(crate) fn prefers_sequential(&self) -> bool {
+        self.sources
+            .as_ref()
+            .is_some_and(|s| s.values().any(|r| r.prefers_sequential()))
+    }
     /// A root over the folder holding `Map.wz`, `Mob.wz`, ...
     pub fn new(dir: impl AsRef<Path>) -> Self {
         WzRoot {
@@ -179,7 +198,9 @@ impl WzRoot {
 
     /// True when the img at the WZ path exists (archive opened if needed).
     pub fn img_exists(&self, img_path: &str) -> bool {
-        let Some(p) = WzPath::parse(img_path) else { return false };
+        let Some(p) = WzPath::parse(img_path) else {
+            return false;
+        };
         if !p.is_img {
             return false;
         }
