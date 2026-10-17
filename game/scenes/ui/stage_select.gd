@@ -6,7 +6,8 @@ extends Node2D
 ## Left column: one entry per stage with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>), map name and street
 ## name (String.wz/Map.img). Right column, for the selected stage: names, survival time, the best result from SaveData,
 ## and the survivor roster (each mob's Mob.wz stand/0 frame and String.wz name). Buttons: Start (Login.img/CharSelect/
-## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book.
+## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book and the
+## v83 status-bar CASH SHOP button (StatusBar.img/BtShop, #118) beside it.
 ## Keys: Up/Down select, Enter starts, Esc saves and returns to character select.
 ## Flow supplies the snapshot and owner through configure(); only its next tier is displayed.
 
@@ -93,11 +94,10 @@ func _ready() -> void:
 	back_button.label = "Save & quit"
 	back_button.pressed.connect(_on_back)
 	_ui.add_child(back_button)
-	shop_button = WzButton.new(BT_BACK)
-	shop_button.set_plate(124, 4)
+	shop_button = WzButton.new(HudWidget.SB + "BtShop")
 	shop_button.name = "Shop"
-	shop_button.fallback_size = Vector2(124, 52)
-	shop_button.label = "Cash Shop"
+	shop_button.fallback_size = Vector2(54, 34)
+	shop_button.label = "" if shop_button.has_art() else "SHOP"
 	shop_button.pressed.connect(_on_shop)
 	_ui.add_child(shop_button)
 	character_label = MapleText.new("Tier %d / %s / Lv. %d %s / %s NX" % [int(snapshot.get("tier", 0)) + 1,
@@ -229,7 +229,9 @@ func _layout() -> void:
 	var r := ParchmentScroll.PARCHMENT
 	start_button.position = Vector2(LIST_X + floorf((LIST_W - start_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
-	shop_button.position = back_button.position + Vector2(back_button.size.x + 8.0, 0)
+	# tier C: the v83 status-bar CASH SHOP button (54x34) beside Save & quit, centred on its plank.
+	shop_button.position = back_button.position + Vector2(back_button.size.x + 8.0,
+		floorf((back_button.size.y - shop_button.size.y) * 0.5))
 	# tier C: #69 character/tier heading, above the existing parchment.
 	character_label.position = Vector2(floorf((view.x - character_label.get_minimum_size().x) * 0.5), 32)
 
