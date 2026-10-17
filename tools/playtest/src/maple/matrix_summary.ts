@@ -16,8 +16,6 @@ type Outcome = { state?: string; time?: number | null; level?: number | null; jo
 	cards_taken?: number };
 export type Spread = { n: number; min: number; median: number; max: number } | { n: 0 };
 
-const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-
 /** n, min, median and max of the numbers in `xs`. */
 export function spread(xs: Array<number | null | undefined>): Spread {
 	const v = xs.filter((x): x is number => typeof x === "number").sort((a, b) => a - b);
@@ -112,7 +110,7 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 		"|---|---|---|---|---|---|---|---|---|---|",
 		...rows.map((r) => {
 			const o = r.outcome;
-			const out = o ? `${o.state ?? "?"} ${typeof o.time === "number" ? mmss(o.time) : "?"}` : "no end";
+			const out = o ? `${o.state ?? "?"} ${typeof o.time === "number" ? runClock(o.time) : "?"}` : "no end";
 			return `| ${r.cell} | ${r.personality} | ${r.seed} | ${r.exit_code} | ${out} | ${o ? `Lv ${o.level ?? "?"}` : "-"} | ` +
 				`${o?.job ?? "-"} | ${o?.kills ?? "-"} | ${r.decisions.jev}/${r.decisions.total} | ${r.problems} |`;
 		}), ""];
@@ -155,14 +153,14 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 function clusterLines(c: DeathCluster, i: number): string[] {
 	const n = c.cells.length;
 	const hits = Object.entries(c.last_hit).map(([k, v]) => `${k} ${v}`).join(", ");
-	const pers = Object.entries(c.personalities).map(([k, p]) => `${k} ${p.in}/${p.of} (${p.from === p.to ? mmss(p.from) : `${mmss(p.from)} to ${mmss(p.to)}`})`).join(", ");
+	const pers = Object.entries(c.personalities).map(([k, p]) => `${k} ${p.in}/${p.of} (${p.from === p.to ? runClock(p.from) : `${runClock(p.from)} to ${runClock(p.to)}`})`).join(", ");
 	const rep = c.representative;
-	return [`${i + 1}. **death cluster** ${mmss(c.from)} to ${mmss(c.to)}: ${n}/${c.cells_total} cells (${pct(n, c.cells_total)}) died inside a ` +
+	return [`${i + 1}. **death cluster** ${runClock(c.from)} to ${runClock(c.to)}: ${n}/${c.cells_total} cells (${pct(n, c.cells_total)}) died inside a ` +
 		`${c.window_s} s window (${n} of ${c.deaths_total} deaths; threshold ${pct(c.share, 1)} of the cells)`,
 		`   - boss alive at death: ${c.boss_alive.yes} yes, ${c.boss_alive.no} no; last hit: ${hits}`,
 		`   - by personality (deaths in the cluster / cells): ${pers}`,
-		`   - cells: ${c.cells.map((d) => `${d.cell} (${mmss(d.time)})`).join(", ")}`,
-		...(rep.replay ? [`   - replay (representative: median death time): \`${rep.replay}\` (${rep.cell}, died ${mmss(rep.time)})`,
+		`   - cells: ${c.cells.map((d) => `${d.cell} (${runClock(d.time)})`).join(", ")}`,
+		...(rep.replay ? [`   - replay (representative: median death time): \`${rep.replay}\` (${rep.cell}, died ${runClock(rep.time)})`,
 			`   - windowed replay: \`${windowed(rep.replay, rep.time)}\``] : [])];
 }
 
@@ -185,7 +183,7 @@ function matrixVerdict(v: { exit: number; infra: number; groups: ProblemGroup[];
 		: "no deterministic problems");
 	if (v.patterns.length) {
 		const p = v.patterns[0];
-		parts.push(`${v.patterns.length} pattern${v.patterns.length === 1 ? "" : "s"} (death cluster ${mmss(p.from)} to ${mmss(p.to)}, ${p.cells.length}/${p.cells_total} cells)`);
+		parts.push(`${v.patterns.length} pattern${v.patterns.length === 1 ? "" : "s"} (death cluster ${runClock(p.from)} to ${runClock(p.to)}, ${p.cells.length}/${p.cells_total} cells)`);
 	}
 	const flaggedCells = new Set(v.flagged.flatMap((g) => g.cells)).size;
 	parts.push(v.evaluated === 0 ? "Jev: no cell was evaluated"

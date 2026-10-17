@@ -121,7 +121,8 @@ test("a clean CLEARED run: a clean verdict, metrics with milestones and boss fig
 		"the outcome leads the verdict");
 	assert.match(md, /\*\*Next:\*\* nothing to fix/);
 	assert.match(md, /## Metrics/);
-	assert.match(md, /Milestones: Lv 8 1:15, Lv 10 1:35, Lv 20 -, Lv 30 -; 1st job \(Magician, 200\) 1:35/);
+	assert.match(md, /Milestones: Lv 8 1:15\.2, Lv 10 1:35\.1, Lv 20 -, Lv 30 -; 1st job \(Magician, 200\) 1:35\.1/,
+		"run times read like everywhere else in the report (core/report.ts runClock)");
 	assert.match(md, /\| level \| 7 \| 13 \|/);
 	assert.match(md, /Boss fights: 2220000 1:00 -> dead at 2:05 \(65 s\)/);
 	assert.match(md, /Potions: HP collected 2, used 1, left 4; MP collected 1, used 1, left 0/);

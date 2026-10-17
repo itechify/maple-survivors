@@ -29,6 +29,7 @@ import type { Personality } from "./personality.ts";
 import { createFallbackBrain } from "./personality_fallback.ts";
 import { bucketsOf, fallbackSituation } from "./situation.ts";
 import type { TacticState } from "./situation.ts";
+import { num } from "../core/num.ts";
 
 /** The player description Jev decides for, until personalities (#97) replace it. */
 export const SENSIBLE_PLAYER = "A sensible, experienced MapleStory player in a survivor-style round: skills attack " +
@@ -51,15 +52,14 @@ export type JevBrainOptions = {
 };
 
 type Situation = Record<string, unknown>;
-const num = (s: Situation, k: string) => (typeof s[k] === "number" ? (s[k] as number) : 0);
 
 /** The run phase from run time and boss progress (tier C: ours). */
 export function runPhase(s: Situation): string {
-	const alive = num(s, "bosses_alive");
-	const defeated = num(s, "bosses_defeated");
-	const scheduled = num(s, "bosses_scheduled");
+	const alive = num(s.bosses_alive);
+	const defeated = num(s.bosses_defeated);
+	const scheduled = num(s.bosses_scheduled);
 	if (alive > 0) return "boss fight";
-	if (num(s, "time") < 120) return "opening minutes"; // tier C: the first 2:00
+	if (num(s.time) < 120) return "opening minutes"; // tier C: the first 2:00
 	if (scheduled === 0) return "mid-round";
 	if (defeated === 0) return "early, before the first boss";
 	if (defeated >= scheduled) return "after the final boss";
@@ -72,13 +72,13 @@ export function runPhase(s: Situation): string {
 export function situationBuckets(s: Situation): Record<string, string> {
 	const b = bucketsOf(s);
 	return { hp: String(b?.hp ?? "unknown"), mp: String(b?.mp ?? "unknown"),
-		"run phase": runPhase(s), "boss present": num(s, "bosses_alive") > 0 ? "yes" : "no" };
+		"run phase": runPhase(s), "boss present": num(s.bosses_alive) > 0 ? "yes" : "no" };
 }
 
 /** The character facts: level, job and owned skills with "r of max" ranks. */
 function character(s: Situation) {
 	const owned = Array.isArray(s.owned_skills) ? (s.owned_skills as Array<Record<string, unknown>>) : [];
-	return { level: num(s, "level"), job: String(s.job ?? "?"),
+	return { level: num(s.level), job: String(s.job ?? "?"),
 		skills: owned.map((k) => ({ name: String(k.name ?? k.key ?? "?"), rank: `${k.rank} of ${k.max_rank}` })) };
 }
 

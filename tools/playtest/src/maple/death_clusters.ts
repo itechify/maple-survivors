@@ -9,6 +9,7 @@ import path from "node:path";
 import type { CellReport } from "../core/aggregate.ts";
 import { bossAliveAt, finalRound, hitSource, readJsonl } from "./eval_facts.ts";
 import type { Hit } from "./eval_facts.ts";
+import { num } from "../core/num.ts";
 
 /** tier C: the last hit counts as the killing blow when it landed within this many run seconds of the death. */
 export const LAST_HIT_S = 2;
@@ -17,7 +18,6 @@ export type DeathCell = { cell: string; dir: string; personality: string; seed: 
 	lastHit: string; replay: string | null };
 
 const header = (c: CellReport) => (c.report?.header ?? {}) as Record<string, string>;
-const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
 
 /** The DEAD cells of `cells` with their death time, boss alive at death and last hit source (from hits.jsonl; a cell
  * recorded before hits.jsonl existed falls back to the record's boss hits, else "unknown (no hits.jsonl)"). */

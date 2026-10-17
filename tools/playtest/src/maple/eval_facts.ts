@@ -10,6 +10,8 @@ import path from "node:path";
 import type { DecisionRecord } from "../core/session.ts";
 import type { Problem } from "../core/report.ts";
 import { poolBucket, mobsBucket } from "./situation.ts";
+import { runClock } from "../core/report.ts";
+import { num } from "../core/num.ts";
 
 export type Row = Record<string, unknown>;
 export type Hit = { time: number; tick: number; damage: number; max_hp: number; fraction: number; source: string; boss: boolean;
@@ -23,8 +25,6 @@ export const DEATH_CHUNK_S = 5;
 /** tier C: a partial last minute shorter than this is not judged for pacing (too short to be dull). */
 export const MIN_MINUTE_S = 15;
 
-const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 /** Reads a JSON Lines file (missing: []). */
 export function readJsonl<T = Row>(file: string): T[] {
@@ -226,7 +226,7 @@ export function minuteFacts(input: RunData): MinuteFacts {
 		const a = m * 60;
 		const b = Math.min(end, a + 60);
 		const partial = b < a + 60 - 1e-6;
-		const label = `minute ${m + 1} (${clock(a)} to ${clock(b)}${partial ? ", the round ended" : ""})`;
+		const label = `minute ${m + 1} (${runClock(a)} to ${runClock(b)}${partial ? ", the round ended" : ""})`;
 		if (partial && b - a < MIN_MINUTE_S) {
 			skipped.push(`${label}: shorter than ${MIN_MINUTE_S} s`);
 			continue;

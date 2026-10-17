@@ -1,12 +1,11 @@
 // The report's tier chain section (adapter, #98): one row per round of a chain record (rounds[]; record_tier<N>.json
 // in the run directory). The outcome section above shows the last round played.
-import { registerSection } from "../core/report.ts";
+import { registerSection, runClock } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 
 type Round = { tier?: number; stage?: string; seed?: number; state?: string; time?: number; level?: number; job?: number;
 	kills?: number; cards_taken?: unknown[]; start_character?: { level?: number; job_id?: number } };
 
-const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 registerSection({
 	id: "rounds",
@@ -20,7 +19,7 @@ registerSection({
 			"| tier | stage | round seed | start | outcome | level | job | kills | cards | record |", "|---|---|---|---|---|---|---|---|---|---|",
 			...rounds.map((r, i) => `| ${r.tier ?? i + 1} | ${r.stage ?? "?"} | ${r.seed ?? "?"} | ` +
 				`Lv ${r.start_character?.level ?? "?"} job ${r.start_character?.job_id ?? "?"} | ` +
-				`${r.state ?? "?"} ${typeof r.time === "number" ? mmss(r.time) : "?"} | Lv ${r.level ?? "?"} | ${r.job ?? "?"} | ` +
+				`${r.state ?? "?"} ${typeof r.time === "number" ? runClock(r.time) : "?"} | Lv ${r.level ?? "?"} | ${r.job ?? "?"} | ` +
 				`${r.kills ?? "?"} | ${Array.isArray(r.cards_taken) ? r.cards_taken.length : 0} | \`record_tier${r.tier ?? i + 1}.json\` |`)];
 	},
 	json: (ctx) => {

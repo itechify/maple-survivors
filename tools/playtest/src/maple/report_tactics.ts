@@ -1,6 +1,6 @@
 // The report's tactic section (adapter, #95): time per tactic, switches and what triggered the tactic decisions, from
 // the round record's `tactics` (playtest_policy.gd tactic_summary) and the tactic decisions by source.
-import { registerSection } from "../core/report.ts";
+import { registerSection, runClock } from "../core/report.ts";
 import type { ReportContext } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 
@@ -13,7 +13,6 @@ type TacticsRecord = {
 	triggers?: Record<string, number>; platforms_visited?: number; log?: Switch[];
 };
 
-const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 function tacticsOf(ctx: ReportContext): TacticsRecord | null {
 	const t = (ctx.data.end as EndMessage | undefined)?.record?.tactics;
@@ -45,7 +44,7 @@ registerSection({
 		if (log.length) {
 			lines.push("", "Switches:", "");
 			for (const s of log.slice(0, LOG_LINES)) {
-				lines.push(`- ${mmss(s.time ?? 0)} (tick ${s.tick ?? "?"}) ${s.from} -> ${s.to} (${s.trigger}, ${s.source})`);
+				lines.push(`- ${runClock(s.time ?? 0)} (tick ${s.tick ?? "?"}) ${s.from} -> ${s.to} (${s.trigger}, ${s.source})`);
 			}
 			if (log.length > LOG_LINES) lines.push(`- ... ${log.length - LOG_LINES} more in report.json`);
 		}
