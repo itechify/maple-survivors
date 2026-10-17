@@ -19,7 +19,7 @@ import type { Opinion } from "../core/report.ts";
 import { deathFacts, minuteFacts, movementFacts, cardOffers, finalRound } from "./eval_facts.ts";
 import type { RunData } from "./eval_facts.ts";
 
-/** Jev-flagged needs at least this confidence (ticket #99). */
+/** tier C: Jev-flagged needs at least this confidence (ticket #99). */
 export const FLAG_CONFIDENCE = 0.6;
 
 export type Rule = { type: "score" | "noul"; threshold: number; worse: "higher" | "lower" };

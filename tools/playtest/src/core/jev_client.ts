@@ -7,6 +7,7 @@ import { TypeSafeClient, APIError, APITimeoutError, APIConnectionError, Authenti
 import type { Fetch, Questions, RetryPolicy, SystemOneResult } from "@typesafe-ai/sdk";
 
 export const DEFAULT_MODEL = "jev-latest";
+/** tier C: Jev requests per run before later decisions use the fallback (spec #91 default). */
 export const DEFAULT_MAX_REQUESTS = 400;
 
 /** Jev could not answer this decision; `reason` says why (no key, auth, HTTP status, timeout, cap). */
