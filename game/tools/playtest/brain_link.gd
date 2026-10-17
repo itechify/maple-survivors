@@ -3,6 +3,8 @@ extends RefCounted
 ## (`--brain=builtin`, no pipe): it answers every decide with its "sensible" baseline, the answer real game code gives.
 ## stdio_brain_link.gd asks the Node CLI over the decision protocol instead. Tool code only.
 
+const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
+
 ## True once the brain can no longer answer (stdin EOF); every later decision then takes its baseline.
 var lost := false
 ## Name echoed in the hello message ("builtin", "stdio").
@@ -16,6 +18,7 @@ func ask(decide: Dictionary) -> Dictionary:
 		"confidence": null}
 
 
-## Sends a non-decide message (hello, finding, end, error). The builtin brain has no one to tell.
-func send(_msg: Dictionary) -> void:
-	pass
+## Sends a non-decide message (hello, finding, end, error) as one protocol line on stdout. The builtin brain reads no
+## answers, but a CLI that started the driver with --brain=builtin still gets the hello / end / error lines.
+func send(msg: Dictionary) -> void:
+	print(PROTOCOL.encode(msg))

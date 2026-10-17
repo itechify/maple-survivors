@@ -3,8 +3,6 @@ extends "res://tools/playtest/brain_link.gd"
 ## and, for a decide, blocks until one answer line arrives on stdin. On stdin EOF it logs "brain lost", sets `lost`
 ## and stops asking; the driver then finishes the round on its baseline. Tool code only.
 
-const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
-
 var _write: Callable
 var _read: Callable
 

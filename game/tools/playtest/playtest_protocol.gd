@@ -12,7 +12,9 @@ extends RefCounted
 ##           id 1, 2, 3... per run; kind "card" or "job" (later "tactic"); option ids are Strings (job ids as text,
 ##           plus "not_now"); baseline answers come from real game code (BotInput.pick_card_for / pick_job).
 ##   finding {v, type:"finding", ...}                                       reserved for invariant failures (#96)
-##   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions, brain_lost}       once, after the round
+##   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost}  once, after the round
+##           decisions as applied: [{id, kind, tick, time, options, baseline, answer, source, confidence,
+##           fallback_reason?}] (source "baseline" when an answer was invalid or the brain was lost)
 ##   error   {v, type:"error", reason, message}       infrastructure failure, then exit code 2 ("cache_missing", ...)
 ##   answer  {v, type:"answer", id, answer, source, confidence}      CLI -> driver; answer is one option id, source
 ##           names the brain ("fallback:sensible", later "jev", "replay"), confidence 0..1 or null.
@@ -45,8 +47,9 @@ static func decide(id: int, kind: String, tick: int, time: float, situation: Dic
 		"situation": situation, "options": options, "baseline": baseline}
 
 
-## The end message: the round record, its fingerprint, the decision count and whether the brain was lost.
-static func end(record: Dictionary, fingerprint: Dictionary, decisions: int, brain_lost: bool) -> Dictionary:
+## The end message: the round record, its fingerprint, the decisions as applied (playtest_policy.gd `decisions`) and
+## whether the brain was lost.
+static func end(record: Dictionary, fingerprint: Dictionary, decisions: Array, brain_lost: bool) -> Dictionary:
 	return {"type": "end", "record": record, "fingerprint": fingerprint, "decisions": decisions,
 		"brain_lost": brain_lost}
 
