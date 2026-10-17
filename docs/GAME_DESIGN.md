@@ -399,6 +399,19 @@ random 1/3 (clear on seed 1, then 437.8/624.0 s); Tree bot 0/3 (652.3/677.4/128.
 (617.5/165.0/88.4 s). Henesys reaches Magician 3/3 (bot). The web build replays seed 2026 bit-identically to the
 desktop exe (`docs/ARCHITECTURE.md` 10.1).
 
+#### #134 web profile regression smoke (2026-10-17)
+
+`ISOLATE=s130t134b bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning, after merging #132 into the ticket branch. The ticket changes only presentation and
+platform code (fonts, title/import/options/key-config UI, display settings, a web hand-off helper), nothing in the sim.
+All 12 runs finish with no crashes, script errors or world warnings and every end time equals the #131 smoke above:
+Henesys bot 0/3 (780.4/791.1/907.5 s, Magician at 266.1/269.5/274.7 s), random 1/3 (clear on seed 1, then
+437.8/624.0 s); Tree bot 0/3 (128.3/652.3/677.4 s), random 0/3 (88.4/165.0/617.5 s; Tree stays record-only). Full suite
+853 tests, 6 failed (the known #103 family: `test_key_config` 1, `test_key_config_window` 2, `test_run_scene` potion keys
+2, `test_teleport` key binding 1, all reading the developer's own `settings.cfg`), 0 skipped. The desktop flow driver
+`--scenario=full` finishes (12 level-up windows answered, job dialog true, no FAILED) with the title and pause menu
+unchanged by eye.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
