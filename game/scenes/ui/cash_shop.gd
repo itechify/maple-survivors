@@ -544,11 +544,8 @@ func _draw_stage() -> void:
 	UiArt.blit(stage, UiArt.frame("%sCSTab/Tab/%d" % [CS, TAB_FILES[tab_key]]), TAB_AT)
 	_draw_sub_strip()
 	var ids := page_ids()
-	for i in PAGE_SIZE:
-		if i < ids.size():
-			_draw_card(i, int(ids[i]))
-		else:
-			UiArt.blit(stage, UiArt.frame(CS + "CSList/Base"), card_rect(i).position) # blank card, as the client draws it
+	for i in ids.size(): # empty slots stay bare background cards, as in the client's half-loaded EVENT frame
+		_draw_card(i, int(ids[i]))
 	_draw_pages()
 	_draw_left_column()
 	_draw_status()

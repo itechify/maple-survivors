@@ -750,6 +750,7 @@ func _scenario_cash_shop() -> void:
 	_check(await _until(func() -> bool: return flow.current_name == "free_market", 5.0, "Esc back to the Free Market"),
 		"Leave returned to the Free Market")
 	await _shot("shop_11_back_in_free_market")
+	_check(_missing.is_empty(), "no asset lookups failed: %s" % [_missing])
 	_quit()
 
 
