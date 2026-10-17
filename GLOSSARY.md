@@ -128,6 +128,43 @@ lightning, poison or holy.
 **Undead**:
 A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong against it.
 
+## Mesos and equipment
+
+**Mesos**:
+The run's money: dropped by monsters, spent and earned only in the Free Market shops, and lost when the run ends.
+_Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
+
+**Equipment**:
+The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
+comes only from monster drops, never from shops.
+_Avoid_: Gear (in player-visible text), armour, loot
+
+**Equip slot**:
+One place equipment is worn: hat, top, bottom, overall, shoes, gloves or weapon. An overall fills the top and
+bottom slots together.
+_Avoid_: Equipment slot, gear slot
+
+**Worn equipment**:
+The equipment currently in a character's equip slots; only worn equipment adds stats.
+_Avoid_: Loadout (that is the character's skills and cards), outfit
+
+**Inventory**:
+The equipment and scrolls a character owns but is not wearing; it is carried between rounds with the character.
+_Avoid_: Bag, stash
+
+**Shop**:
+An NPC's stock of scrolls in the Free Market, opened by talking to the NPC. Shops never sell equipment or potions.
+_Avoid_: Store, vendor
+
+**Scroll**:
+A v83 item that, used on a piece of equipment, tries to add stats with its success rate (10%, 60%, 100% ...) and
+uses up one of that equipment's upgrade slots.
+_Avoid_: Enchant, upgrade (in player-visible text), rune
+
+**Upgrade slot**:
+One of a piece of equipment's limited chances to be scrolled; each scroll used on it spends one, pass or fail.
+_Avoid_: Slot (on its own; that means an equip slot), tuc
+
 ## Interface
 
 **Choice window**:
@@ -136,6 +173,7 @@ choices, and the pause menu.
 _Avoid_: dialog, popup
 
 **In-run window**:
-A draggable MapleStory window the player opens during a run (Stat, Skill, Key Config, Options) or the Menu list.
+A draggable MapleStory window the player opens during a run (Stat, Skill, Equip, Item, Key Config, Options) or the
+Menu list.
 In-run windows stack, the run is paused while any is open, and Esc closes the front one first.
 _Avoid_: panel, overlay
