@@ -66,6 +66,9 @@ const DELETE_POS := Vector2(74, BUTTON_Y)
 const OK_POS := Vector2(521, BUTTON_Y)
 const CANCEL_POS := Vector2(572, BUTTON_Y)
 const CLOSE_POS := Vector2(611, 6)
+## Web build: the note in the button strip about the keys the browser keeps (KeyBindings.WEB_RESERVED are tinted "Web").
+const NOTE_X := 160.0
+const WEB_NOTE := "F11 and F12 stay with the browser, and so do Ctrl+W, Ctrl+T and Ctrl+N."
 ## Fixed keys' tint (the art's own pink for v83's fixed keys) and the selected key's outline.
 const FIXED_TINT := Color8(187, 136, 170, 190)
 const SELECT_COLOR := Color8(255, 170, 0)
@@ -250,6 +253,8 @@ func _draw() -> void:
 		UiArt.blit(self, bg, Vector2.ZERO)
 	else:
 		_draw_plain()
+	if WebProfile.is_web():
+		MapleText.draw(self, Vector2(NOTE_X, BUTTON_Y + 3.0), WEB_NOTE, MapleText.BLACK, 9)
 	var fixed := draft.fixed_keys()
 	for code: int in fixed:
 		if code == KEY_ESCAPE and bg != null:

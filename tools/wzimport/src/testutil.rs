@@ -10,6 +10,65 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
+/// Minimal synthetic ZIP (stored/deflated, nested names and a normal central directory).
+pub fn write_zip(entries: &[(&str, &[u8], bool)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut central = Vec::new();
+    for &(name, data, deflated) in entries {
+        let payload = if deflated {
+            let mut enc = flate2::write::DeflateEncoder::new(Vec::new(), Compression::default());
+            enc.write_all(data).unwrap();
+            enc.finish().unwrap()
+        } else {
+            data.to_vec()
+        };
+        let mut crc = !0u32;
+        for &b in data {
+            crc ^= b as u32;
+            for _ in 0..8 {
+                crc = (crc >> 1) ^ (0xedb88320 & 0u32.wrapping_sub(crc & 1));
+            }
+        }
+        let offset = out.len() as u32;
+        out.extend_from_slice(&0x04034b50u32.to_le_bytes());
+        for v in [20u16, 0, if deflated { 8 } else { 0 }, 0, 0] {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        for v in [!crc, payload.len() as u32, data.len() as u32] {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out.extend_from_slice(&(name.len() as u16).to_le_bytes());
+        out.extend_from_slice(&0u16.to_le_bytes());
+        out.extend_from_slice(name.as_bytes());
+        out.extend_from_slice(&payload);
+        central.extend_from_slice(&0x02014b50u32.to_le_bytes());
+        for v in [20u16, 20, 0, if deflated { 8 } else { 0 }, 0, 0] {
+            central.extend_from_slice(&v.to_le_bytes());
+        }
+        for v in [!crc, payload.len() as u32, data.len() as u32] {
+            central.extend_from_slice(&v.to_le_bytes());
+        }
+        for v in [name.len() as u16, 0, 0, 0, 0] {
+            central.extend_from_slice(&v.to_le_bytes());
+        }
+        for v in [0u32, offset] {
+            central.extend_from_slice(&v.to_le_bytes());
+        }
+        central.extend_from_slice(name.as_bytes());
+    }
+    let start = out.len() as u32;
+    let size = central.len() as u32;
+    out.extend_from_slice(&central);
+    out.extend_from_slice(&0x06054b50u32.to_le_bytes());
+    for v in [0u16, 0, entries.len() as u16, entries.len() as u16] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(&size.to_le_bytes());
+    out.extend_from_slice(&start.to_le_bytes());
+    out.extend_from_slice(&0u16.to_le_bytes());
+    out
+}
+
 /// A property value to write.
 #[derive(Clone, Debug)]
 pub enum W {
@@ -75,7 +134,15 @@ pub fn sub(children: Vec<(String, W)>) -> W {
 /// Canvas helper.
 pub fn canvas(w: u32, h: u32, format: i32, raw: Vec<u8>, encrypted: bool, props: Vec<(String, W)>) -> W {
     let (fmt, fmt2) = if format == 517 { (513, 4) } else { (format, 0) };
-    W::Canvas(WCanvas { w, h, fmt, fmt2, raw, encrypted, props })
+    W::Canvas(WCanvas {
+        w,
+        h,
+        fmt,
+        fmt2,
+        raw,
+        encrypted,
+        props,
+    })
 }
 
 /// Encrypted WZ string. ASCII form when every char has a single-byte (cp1252) form, unless `force_unicode`.
@@ -85,7 +152,11 @@ pub fn encode_wz_string(s: &str, force_unicode: bool) -> Vec<u8> {
         out.push(0);
         return out;
     }
-    let single: Option<Vec<u8>> = if force_unicode { None } else { s.chars().map(cp1252_encode).collect() };
+    let single: Option<Vec<u8>> = if force_unicode {
+        None
+    } else {
+        s.chars().map(cp1252_encode).collect()
+    };
     let ks = Keystream::gms();
     match single {
         Some(bytes) => {
@@ -271,7 +342,11 @@ impl ImgW {
                 self.buf.push(c.fmt2);
                 self.buf.extend_from_slice(&0i32.to_le_bytes());
                 let z = zlib(&c.raw);
-                let data = if c.encrypted { block_encrypt(&z, 5.max(z.len() / 3)) } else { z };
+                let data = if c.encrypted {
+                    block_encrypt(&z, 5.max(z.len() / 3))
+                } else {
+                    z
+                };
                 self.buf.extend_from_slice(&((data.len() + 1) as i32).to_le_bytes());
                 self.buf.push(0);
                 self.buf.extend_from_slice(&data);
@@ -295,7 +370,9 @@ impl ImgW {
                 cint(&mut self.buf, s.duration_ms);
                 let mut media = vec![0u8; 51];
                 media[0] = if matches!(s.header, SoundHeader::NoWfx) { 1 } else { 2 };
-                media[1..17].copy_from_slice(&[0x83, 0xEB, 0x36, 0xE4, 0x4F, 0x52, 0xCE, 0x11, 0x9F, 0x53, 0x00, 0x20, 0xAF, 0x0B, 0xA7, 0x70]);
+                media[1..17].copy_from_slice(&[
+                    0x83, 0xEB, 0x36, 0xE4, 0x4F, 0x52, 0xCE, 0x11, 0x9F, 0x53, 0x00, 0x20, 0xAF, 0x0B, 0xA7, 0x70,
+                ]);
                 self.buf.extend_from_slice(&media);
                 let wfx = |tag: u16, ch: u16, rate: u32, bits: u16, extra: &[u8]| {
                     let align = (ch as u32 * bits as u32 / 8).max(1);
@@ -311,7 +388,13 @@ impl ImgW {
                     w
                 };
                 let w = match &s.header {
-                    SoundHeader::Mp3 { channels, rate } => Some(wfx(0x55, *channels, *rate, 0, &[1, 0, 2, 0, 0, 0, 0x0A, 0x02, 1, 0, 0, 0])),
+                    SoundHeader::Mp3 { channels, rate } => Some(wfx(
+                        0x55,
+                        *channels,
+                        *rate,
+                        0,
+                        &[1, 0, 2, 0, 0, 0, 0x0A, 0x02, 1, 0, 0, 0],
+                    )),
                     SoundHeader::Pcm { channels, rate, bits } => Some(wfx(1, *channels, *rate, *bits, &[])),
                     SoundHeader::NoWfx => None,
                     SoundHeader::BadTag => Some(wfx(0x3344, 3, 1234, 0, &[])),
@@ -335,7 +418,11 @@ impl ImgW {
 
 /// Serialize an img: `0x73 "Property" u16 0` + property list. `dedupe` writes repeated strings in offset form.
 pub fn write_img(props: &[(String, W)], dedupe: bool) -> Vec<u8> {
-    let mut w = ImgW { buf: Vec::new(), dedupe, seen: HashMap::new() };
+    let mut w = ImgW {
+        buf: Vec::new(),
+        dedupe,
+        seen: HashMap::new(),
+    };
     w.object(&W::Sub(props.to_vec()));
     w.buf
 }
@@ -501,7 +588,9 @@ pub fn write_wz_root(dir: &Path, archives: &[(&str, Vec<WEntry>)]) {
 
 /// Raw BGRA4444 bytes from (r, g, b, a) nibbles.
 pub fn bgra4444(px: &[(u8, u8, u8, u8)]) -> Vec<u8> {
-    px.iter().flat_map(|&(r, g, b, a)| [(g << 4) | b, (a << 4) | r]).collect()
+    px.iter()
+        .flat_map(|&(r, g, b, a)| [(g << 4) | b, (a << 4) | r])
+        .collect()
 }
 
 /// A solid-colour BGRA4444 canvas of w x h (nibbles).

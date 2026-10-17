@@ -240,3 +240,20 @@ A draggable MapleStory window the player opens during a run (Stat, Skill, Equip,
 Menu list.
 In-run windows stack, the run is paused while any is open, and Esc closes the front one first.
 _Avoid_: panel, overlay
+
+## Platforms
+
+**Web build**:
+The game exported to run in a desktop browser, from the same project as the desktop build; it plays on data the
+player imports into the page.
+_Avoid_: HTML5 version, online version (the game stays offline)
+
+**Web shell**:
+The web build's HTML/JS outside `game/`: the import screen, the importer worker and save backup. It is the only code
+allowed to make requests, and only for the game bundle and the import source the player named.
+_Avoid_: launcher, wrapper
+
+**Import source**:
+Where one import reads the player's v83 `.wz` files from: an install folder, a `.zip`, or (web build only) a URL the
+player pastes.
+_Avoid_: mirror (the project never names one), WZ root (that is the desktop folder setting)

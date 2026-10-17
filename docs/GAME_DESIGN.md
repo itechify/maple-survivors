@@ -449,6 +449,28 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #131 web build spike regression smoke (2026-10-17)
+
+`ISOLATE=s130t131 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning. The ticket adds only the "Web" export preset (no game code). All 12 runs finish with
+no crashes or world warnings. Every end time equals the #79 combined smoke: Henesys bot 0/3 (780.4/791.1/907.5 s),
+random 1/3 (clear on seed 1, then 437.8/624.0 s); Tree bot 0/3 (652.3/677.4/128.3 s), random 0/3
+(617.5/165.0/88.4 s). Henesys reaches Magician 3/3 (bot). The web build replays seed 2026 bit-identically to the
+desktop exe (`docs/ARCHITECTURE.md` 10.1).
+
+#### #134 web profile regression smoke (2026-10-17)
+
+`ISOLATE=s130t134b bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning, after merging #132 into the ticket branch. The ticket changes only presentation and
+platform code (fonts, title/import/options/key-config UI, display settings, a web hand-off helper), nothing in the sim.
+All 12 runs finish with no crashes, script errors or world warnings and every end time equals the #131 smoke above:
+Henesys bot 0/3 (780.4/791.1/907.5 s, Magician at 266.1/269.5/274.7 s), random 1/3 (clear on seed 1, then
+437.8/624.0 s); Tree bot 0/3 (128.3/652.3/677.4 s), random 0/3 (88.4/165.0/617.5 s; Tree stays record-only). Full suite
+853 tests, 6 failed (the known #103 family: `test_key_config` 1, `test_key_config_window` 2, `test_run_scene` potion keys
+2, `test_teleport` key binding 1, all reading the developer's own `settings.cfg`), 0 skipped. The desktop flow driver
+`--scenario=full` finishes (12 level-up windows answered, job dialog true, no FAILED) with the title and pause menu
+unchanged by eye.
+
 #### #63 sensible bot values card tiers: regression smoke (2026-10-17)
 
 `ISOLATE=<tag> bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` plus
@@ -3430,6 +3452,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
+| Web profile UI (#134) | title: Fullscreen / Export save / Import save plates (the re-import plate treatment) in one row, 4 px apart, centred on x 212 of the bottom signboard plank where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 | NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |

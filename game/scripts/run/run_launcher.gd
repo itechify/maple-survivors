@@ -93,4 +93,4 @@ func _on_run_finished(summary: Dictionary) -> void:
 	if get_node_or_null("/root/Flow") != null or float(run.options.get("quit_after", 0.0)) > 0.0:
 		return
 	print("RunLauncher: run finished %s" % JSON.stringify(summary))
-	get_tree().quit()
+	WebHandoff.exit_app(get_tree())

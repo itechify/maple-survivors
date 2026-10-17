@@ -5,6 +5,11 @@ extends Control
 ## streams its output into the log and, on success, saves the folder in Settings, reloads Assets and opens the title.
 ## Fully offline: a local process reading local files; no browser, no network.
 ##
+## Web build (WebProfile; docs/ARCHITECTURE.md 10 "Web profile"): the importer is not a child process there. The folder
+## field, Browse and the log are hidden and the one button writes the re-import request marker and quits to the web
+## shell (WebHandoff), which runs the importer in the page and restarts the game; start_import() never reaches
+## OS.execute_with_pipe.
+##
 ## The screen cannot rely on WZ art (there may be no cache yet), so it is drawn with plain controls in the v83 notice
 ## colours (blue plate, grey strip) and the Maple system font.
 ##
@@ -39,9 +44,14 @@ var _stdio: FileAccess
 var _stderr: FileAccess
 var _partial := ["", ""]
 var _dialog: FileDialog
+var _web := false
+
+## Web: what the Import button calls with a WebHandoff kind (marker + quit to the shell). Tests replace it.
+var web_request: Callable = Callable()
 
 
 func _ready() -> void:
+	_web = WebProfile.is_web()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
 	bg.color = Color8(12, 20, 32)
@@ -108,6 +118,8 @@ static func importer_args(wz: String, manifest: String, out: String) -> PackedSt
 func start_import() -> bool:
 	if state == "running":
 		return false
+	if _web:
+		return _hand_over_to_shell()
 	var folder := path_edit.text.strip_edges().replace("\\", "/").rstrip("/")
 	var v := validate_wz_folder(folder)
 	_show_validation(v)
@@ -138,6 +150,19 @@ func start_import() -> bool:
 	state = "running"
 	_status("Importing... this takes a minute.", MapleText.YELLOW)
 	_set_busy(true)
+	return true
+
+
+## Web: writes the re-import marker and quits so the shell can take over; false (with the reason shown) on failure.
+func _hand_over_to_shell() -> bool:
+	if web_request.is_valid():
+		web_request.call(WebHandoff.REIMPORT)
+		return true
+	var err := WebHandoff.quit_to_shell(get_tree(), WebHandoff.REIMPORT)
+	if err != OK:
+		_status("Could not hand over to the importer (%s)." % error_string(err), BAD_RED)
+		return false
+	_status("Leaving the game for the importer...", MapleText.YELLOW)
 	return true
 
 
@@ -218,11 +243,18 @@ func _build() -> void:
 	var sub := MapleText.new("Import your MapleStory v83 data", MapleText.SIZE, MapleText.WHITE, true)
 	sub.position = Vector2(22, 38)
 	_panel.add_child(sub)
-	var body := MapleText.new(
+	var body_text := (
 		"Maple Survivors draws every sprite, map and sound from your own copy of MapleStory v83 (GMS). Nothing is "
 		+ "downloaded and nothing is bundled with the game.\n\nChoose the folder of your v83 installation, the one "
 		+ "with Map.wz, Mob.wz, Character.wz and the other .wz files. The importer reads them once and writes a local "
-		+ "asset cache to:\n" + AssetCachePaths.resolve_cache_root(), MapleText.SIZE, MapleText.BLACK)
+		+ "asset cache to:\n" + AssetCachePaths.resolve_cache_root())
+	if _web:
+		body_text = (
+			"Maple Survivors draws every sprite, map and sound from your own copy of MapleStory v83 (GMS). Nothing "
+			+ "is bundled with the game.\n\nThe importer runs next to the game in this page. Press the button to "
+			+ "leave the game for it: it asks for your v83 files (Map.wz, Mob.wz, Character.wz and the other .wz "
+			+ "files), builds the asset cache in this browser's storage and brings you back here.")
+	var body := MapleText.new(body_text, MapleText.SIZE, MapleText.BLACK)
 	body.name = "Body"
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.position = Vector2(20, 72)
@@ -263,6 +295,18 @@ func _build() -> void:
 	_panel.add_child(log_box)
 	import_button = _make_button("Import", Vector2(PANEL_SIZE.x - 20 - 100, PANEL_SIZE.y - 40), Vector2(100, 26))
 	import_button.pressed.connect(start_import)
+	if _web:
+		path_edit.visible = false
+		browse_button.visible = false
+		for line: String in ["1. The game closes and the importer opens in this page.",
+				"2. You pick your MapleStory v83 files.",
+				"3. The asset cache is built and kept in this browser's storage.",
+				"4. The game starts again with it."]:
+			_log(line)
+		var w := 150.0
+		import_button.text = "Import WZ data"
+		import_button.position.x = PANEL_SIZE.x - 20 - w
+		import_button.size.x = w
 	back_button = _make_button("Back to title", Vector2(20, PANEL_SIZE.y - 40), Vector2(110, 26))
 	back_button.pressed.connect(_on_back)
 	var assets := get_node_or_null("/root/Assets") as AssetLibrary
@@ -334,6 +378,10 @@ func _draw_panel() -> void:
 
 
 func _validate_now() -> void:
+	if _web:
+		_status("Ready: the importer asks for your files.", OK_GREEN)
+		import_button.disabled = state == "running"
+		return
 	_show_validation(validate_wz_folder(path_edit.text))
 
 

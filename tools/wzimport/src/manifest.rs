@@ -169,11 +169,12 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     if !m.maps.is_empty() || !m.mapimgs.is_empty() {
         plan.add_path("Map.wz/MapHelper.img", "portal", false);
     }
-    let map_jobs = m
+    let mut map_jobs: Vec<_> = m
         .maps
         .iter()
         .map(|&id| (map_img_path(id), format!("map {id}")))
-        .chain(m.mapimgs.iter().map(|p| (p.trim_matches('/').to_string(), format!("mapimg {}", p.trim_matches('/')))));
+        .chain(m.mapimgs.iter().map(|p| (p.trim_matches('/').to_string(), format!("mapimg {}", p.trim_matches('/'))))).collect();
+    map_jobs.sort_by_cached_key(|(path, _)| wz.img_order(path));
     for (img_path, label) in map_jobs {
         let img = match wz.load_img(&img_path) {
             Ok(img) => img,
@@ -189,7 +190,10 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     // A mob named by the manifest is an error when missing, even if a map's life reached it first.
     let explicit_mobs: BTreeSet<u64> = m.mobs.iter().copied().collect();
     let mut seen = BTreeSet::new();
-    while let Some((id, via)) = mob_queue.pop() {
+    while !mob_queue.is_empty() {
+        // Links may add new jobs; choose the next lowest available offset each time.
+        let next = (0..mob_queue.len()).min_by_key(|&i| wz.img_order(&mob_img_path(mob_queue[i].0))).unwrap();
+        let (id, via) = mob_queue.remove(next);
         if !seen.insert(id) {
             continue;
         }

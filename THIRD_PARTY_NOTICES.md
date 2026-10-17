@@ -2,8 +2,9 @@
 
 | Component | Licence | Where |
 |---|---|---|
-| Godot Engine 4.7.2 | MIT (plus its bundled third-party licences, e.g. zlib, libpng, dr_mp3) | runtime; `scripts/export.sh` writes the engine's licence, its components' copyrights and their licence texts to `GODOT_LICENSES.txt` next to the exported exe |
-| Rust crates used by `tools/wzimport` | listed in the table below; all MIT, Apache-2.0, Zlib or similar permissive licences | importer binary; `scripts/export.sh` collects every crate's licence files into `WZIMPORT_LICENSES.txt` next to `wzimport.exe` (and copies this file there) |
+| Godot Engine 4.7.2 | MIT (plus its bundled third-party licences, e.g. zlib, libpng, dr_mp3) | runtime; `scripts/export.sh` (and `export.sh --web`) writes the engine's licence, its components' copyrights and their licence texts to `GODOT_LICENSES.txt` next to the exported exe or the web build's `index.html` |
+| Arimo (variable font, `game/assets/fonts/arimo/Arimo-Variable.ttf`) | SIL Open Font License 1.1, Copyright The Arimo Project Authors (https://github.com/googlefonts/arimo); licence text in `game/assets/fonts/arimo/OFL.txt`, taken with the font from the `ofl/arimo` folder of google/fonts | the web build's text: bundled as the fallback for the Arial/Tahoma/Dotum `SystemFont`s (`MapleFonts`), because a browser has no system fonts; unmodified. `scripts/export.sh` (also `--web`) copies the licence to `ARIMO_OFL.txt` next to the exported exe or `index.html` |
+| Rust crates used by `tools/wzimport` | listed in the table below; all MIT, Apache-2.0, Zlib or similar permissive licences | importer binary and the web build's wasm importer; `scripts/export.sh` collects every crate's licence files (all targets, so the wasm-only crates too) into `WZIMPORT_LICENSES.txt` next to `wzimport.exe` or `index.html`, and copies this file there; the web import screen links all four notice files |
 
 Reference projects consulted for facts only (no code copied): Cosmic (AGPL-3.0), HeavenClient / JourneyClient /
 MortalClient / NoLifeStory (AGPL-3.0), Harepacker-resurrected (MPL-2.0), MapleLib (GPL-3.0), WzComparerR2 and
@@ -15,9 +16,11 @@ repository and are never redistributed.
 ## Rust crates in `tools/wzimport` (from `tools/wzimport/Cargo.lock`)
 
 All are permissive (MIT, Apache-2.0, Zlib, 0BSD, Unlicense or Unicode-3.0); none is network-capable (enforced by the
-`no_network_deps` test). Licences as declared by each crate's `Cargo.toml` (`cargo metadata`). The importer binary
-compiles every crate below except `zlib-rs` (an optional flate2 backend that is only listed in the lock file; flate2
-uses the pure-Rust `miniz_oxide` backend) and `libc` (used by `cpufeatures` on non-Windows targets only).
+`no_network_deps` test). Licences as declared by each crate's `Cargo.toml` (`cargo metadata`). Rows marked wasm-only
+and their supporting proc macros compile for the wasm library; rayon and its worker dependencies are optional and
+disabled by the wasm build script. `zlib-rs` is a lock-file-only optional flate2 backend (we use `miniz_oxide`),
+and `libc` is used by `cpufeatures` on non-Windows targets only. The separately installed `wasm-bindgen-cli` is a
+development tool, not part of the importer's dependency graph or distributed worker.
 
 | Crate | Version | Licence | Use |
 |---|---|---|---|
@@ -30,6 +33,15 @@ uses the pure-Rust `miniz_oxide` backend) and `libc` (used by `cpufeatures` on n
 | serde | 1.0.229 | MIT OR Apache-2.0 | direct: manifest / cache.json |
 | serde_json | 1.0.154 | MIT OR Apache-2.0 | direct: manifest / cache.json |
 | thiserror | 2.0.21 | MIT OR Apache-2.0 | direct: error type |
+| wasm-bindgen | 0.2.105 | MIT OR Apache-2.0 | direct, wasm only: worker callback/byte boundary |
+| js-sys | 0.3.82 | MIT OR Apache-2.0 | direct, wasm only: functions, objects and typed arrays |
+| bumpalo | 3.20.3 | MIT OR Apache-2.0 | transitive (wasm-bindgen build macros) |
+| once_cell | 1.21.4 | MIT OR Apache-2.0 | transitive (wasm-bindgen) |
+| rustversion | 1.0.23 | MIT OR Apache-2.0 | transitive (wasm-bindgen build macros) |
+| syn | 2.0.119 | MIT OR Apache-2.0 | transitive (wasm-bindgen proc macros; alongside the native syn version below) |
+| wasm-bindgen-macro | 0.2.105 | MIT OR Apache-2.0 | transitive (proc macro) |
+| wasm-bindgen-macro-support | 0.2.105 | MIT OR Apache-2.0 | transitive (proc macro) |
+| wasm-bindgen-shared | 0.2.105 | MIT OR Apache-2.0 | transitive (wasm ABI definitions) |
 | adler2 | 2.0.1 | 0BSD OR MIT OR Apache-2.0 | transitive |
 | anstream | 1.0.0 | MIT OR Apache-2.0 | transitive |
 | anstyle | 1.0.14 | MIT OR Apache-2.0 | transitive |

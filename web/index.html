@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+	Maple Survivors web shell (spec #130, ADR 0004). The Web export preset in game/export_presets.cfg uses this file as
+	its custom HTML shell (html/custom_html_shell = "res://../web/index.html"); Godot fills in the $GODOT_* placeholders
+	at export. Beside it ship shell.css, shell.js, lib.js, idbfs.js, import_worker.js, the wasm importer (wzimport.js and
+	wzimport_bg.wasm, built by scripts/build_wasm.sh), asset_manifest.json and the licence files linked at the bottom of
+	the plate: Godot only processes this file, `bash scripts/export.sh --web` copies or writes the others next to it
+	(docs/ARCHITECTURE.md "Web build").
+
+	What the shell does: when the asset cache in the browser's storage is missing or incomplete it shows the import
+	screen (folder, zip or web address, run by a worker); otherwise it starts the game. When the game quits it reads
+	user://web_request.json and handles the request (re-import, save export, save import), then starts a new engine.
+
+	Query parameters: each `arg=<value>` is passed to the game as one user argument after `--`, the same as
+	`bash scripts/run.sh -- <args>` on desktop (e.g. `?arg=--run=henesys_hg1&arg=--autoplay&arg=--perf`). Tool flags
+	never write saves. Dev-only cache injection lives in web/dev/ and is never part of an export.
+
+	Network use: the static bundle (this site) and, when the player types an address, requests to that address.
+-->
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
+		<title>$GODOT_PROJECT_NAME</title>
+		<link rel="stylesheet" href="shell.css">
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status {
+	position: absolute;
+	inset: 0;
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-progress {
+	width: 50%;
+	display: none;
+}
+
+#status-notice {
+	display: none;
+	margin: 0 2rem;
+	padding: 1rem;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	background-color: #5b3943;
+	color: #e0e0e0;
+	font-family: Arial, sans-serif;
+	line-height: 1.3;
+	text-align: center;
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		<main id="shell" hidden>
+			<section id="plate" class="plate" data-screen="boot">
+				<header class="plate-top">
+					<h1>Maple Survivors</h1>
+					<p id="subtitle">Import your MapleStory v83 data</p>
+				</header>
+
+				<div class="plate-body">
+					<div class="screen" data-screens="boot">
+						<p id="boot-text">Checking your saved data...</p>
+					</div>
+
+					<div class="screen" data-screens="import">
+						<p class="intro">
+							Maple Survivors draws every sprite, map and sound from your own copy of MapleStory v83 (GMS).
+							Nothing is bundled with the game. The importer reads your files once, in this page, and keeps
+							the result in this browser's storage. Your files are not uploaded anywhere.
+						</p>
+						<p id="notice" class="notice" role="status" hidden></p>
+						<div class="tabs" role="tablist" aria-label="Where your data is">
+							<button type="button" role="tab" id="tab-folder" data-tab="folder" aria-selected="true">Folder</button>
+							<button type="button" role="tab" id="tab-zip" data-tab="zip" aria-selected="false">Zip file</button>
+							<button type="button" role="tab" id="tab-url" data-tab="url" aria-selected="false">Web address</button>
+						</div>
+						<div class="pane" data-pane="folder" role="tabpanel">
+							<p>Choose the folder of your v83 installation: the one with Map.wz, Mob.wz, Character.wz and the other .wz files.</p>
+							<p>
+								<button type="button" class="btn" id="btn-folder">Choose folder...</button>
+								<button type="button" class="btn" id="btn-reuse" hidden>Use the same folder again</button>
+							</p>
+							<input type="file" id="input-folder" webkitdirectory multiple hidden>
+						</div>
+						<div class="pane" data-pane="zip" role="tabpanel" hidden>
+							<p>Choose a .zip of that folder, or drop it on this window. It does not need to be unpacked.</p>
+							<p><button type="button" class="btn" id="btn-zip">Choose zip file...</button></p>
+							<input type="file" id="input-zip" accept=".zip,application/zip" hidden>
+						</div>
+						<div class="pane" data-pane="url" role="tabpanel" hidden>
+							<p>
+								Enter the address of the folder holding the .wz files (for example
+								<code>https://host/folder/</code>, so that <code>https://host/folder/Mob.wz</code> exists), or of one .zip file.
+							</p>
+							<p class="row">
+								<input type="url" id="input-url" class="field" placeholder="https://" spellcheck="false" autocomplete="off">
+								<button type="button" class="btn" id="btn-check">Check</button>
+							</p>
+							<p class="fine">
+								The files come straight from the host you name, to this browser. Nothing goes through us, and the
+								host has to allow it (CORS).
+							</p>
+						</div>
+						<p id="pick-status" class="status" role="status"></p>
+						<p id="pick-detail" class="fine"></p>
+					</div>
+
+					<div class="screen" data-screens="running">
+						<p id="run-title" class="run-title">Importing...</p>
+						<progress id="run-bar" max="1" value="0"></progress>
+						<p id="run-detail" class="status" role="status"></p>
+						<pre id="run-log" class="log" aria-label="Import log"></pre>
+					</div>
+
+					<div class="screen" data-screens="exited">
+						<p id="exited-text">The game has quit.</p>
+					</div>
+
+					<div class="screen" data-screens="saveimport">
+						<p>Choose a Maple Survivors save file (the kind the game exports). Your current save is kept as a backup
+							(<code>save.json.bak</code>) before it is replaced.</p>
+						<p><button type="button" class="btn" id="btn-save-file">Choose save file...</button></p>
+						<input type="file" id="input-save" accept=".json,application/json" hidden>
+						<p id="save-status" class="status" role="status"></p>
+					</div>
+
+					<div class="screen" data-screens="error">
+						<p id="error-text" class="status bad"></p>
+					</div>
+				</div>
+
+				<footer class="plate-bottom">
+					<span id="storage-line" class="storage" title="Whether the browser promised to keep this site's data">Storage: checking...</span>
+					<span class="spacer"></span>
+					<button type="button" class="btn quiet" id="btn-back" data-screens="import saveimport" hidden>Back to the game</button>
+					<button type="button" class="btn quiet" id="btn-cancel" data-screens="running">Cancel</button>
+					<button type="button" class="btn" id="btn-import" data-screens="import" disabled>Import</button>
+					<button type="button" class="btn" id="btn-again" data-screens="exited">Play again</button>
+					<button type="button" class="btn" id="btn-retry" data-screens="error">Back</button>
+				</footer>
+				<p class="legal">
+					Licences:
+					<a href="GODOT_LICENSES.txt" target="_blank" rel="noopener">Godot Engine</a> |
+					<a href="WZIMPORT_LICENSES.txt" target="_blank" rel="noopener">importer crates</a> |
+					<a href="ARIMO_OFL.txt" target="_blank" rel="noopener">Arimo font</a> |
+					<a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">third-party notices</a>
+				</p>
+			</section>
+			<p id="drop-hint" class="drop-hint" hidden>Drop the .zip to import it</p>
+		</main>
+		<div id="toast" class="toast" role="status" hidden></div>
+
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+		</script>
+		<script type="module" src="shell.js"></script>
+	</body>
+</html>
