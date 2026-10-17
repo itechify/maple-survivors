@@ -38,16 +38,31 @@ var enchant: EnchantFx
 var npcs: Array[Dictionary] = []
 ## The scroll NPCs (shops.json): {"id", "pos" (feet), "rect" (the drawn sprite's box), "sprite"}.
 var shop_npcs: Array[Dictionary] = []
+## The run options the hub honours: `autoplay` makes the bot shop once on entry (spec #33 #112, the playtest autoplay).
+var options: Dictionary = {}
+## The record of the autoplay shop visit ({} when none ran), see BotShop.visit.
+var shop_visit: Dictionary = {}
 var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
 var _leaving := false
 
 
-## Supplies the saved boundary and owning flow before entering the tree.
-func configure(p_snapshot: Dictionary, p_flow: SceneFlow) -> void:
+## Supplies the saved boundary, owning flow and run options before entering the tree.
+func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary = {}) -> void:
 	snapshot = p_snapshot.duplicate(true)
 	flow = p_flow
+	options = p_options.duplicate()
+
+
+## The seed of the hub's scroll rolls, a pure function of the saved boundary: the run's stored seed mixed with a hash of
+## the character's equipment, scrolls and mesos. The same save always rolls the same, every scroll (or purchase, sale
+## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
+static func scroll_seed(p_snapshot: Dictionary) -> int:
+	var character: Dictionary = p_snapshot.get("character", {})
+	var state := {"equipment": character.get("equipment", {}), "scrolls": character.get("scrolls", {}),
+		"mesos": int(character.get("mesos", 0))}
+	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
 
 func _ready() -> void:
@@ -85,6 +100,9 @@ func _ready() -> void:
 	_build_hud(character, data, loadout)
 	_build_windows(character, data)
 	_present(0.0)
+	if RunScene.option_flag(options, "autoplay"):
+		# The playtest autoplay shops once on entry, like the headless chains between tiers (#112).
+		shop_visit = bot_shop("bot", int(snapshot.get("round_seed", 0)))
 	var sfx := get_node_or_null("/root/Sfx") as AudioService
 	if sfx != null:
 		sfx.play_bgm(String(map.map_root.get("info", {}).get("bgm", "")))
@@ -285,10 +303,10 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), func(p: String) -> Dictionary:
 		var w := lib.img(p)
 		return w.root if w != null else {})
-	# The hub is no seeded run: a fresh seed per visit keeps the scroll rolls unpredictable (a fixed one would repeat
-	# the same first roll every visit); every result is saved at once, so reloading cannot redo it.
+	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
+	# being saved at once, changes the next seed.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
-		"character": character, "seed": randi()})
+		"character": character, "seed": scroll_seed(snapshot)})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
@@ -320,6 +338,7 @@ func _on_item_action(_action: String) -> void:
 		if event.type == "scroll_used":
 			_on_scroll_used(String(event.result))
 	snapshot.character = inventory.character_snapshot()
+	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
 	avatar.set_look(character_look(snapshot.character, _data))
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
 	for id: String in ["equip", "item", "shop"]:
@@ -332,12 +351,14 @@ func _on_item_action(_action: String) -> void:
 
 ## Bot hook (spec #33, #112; autoplay and driver scenes): the character visits the scroll shops as a bot would (BotShop.visit
 ## with balance card policy `policy`: "bot" sensible, "random" careless), changing `inventory` through the same RunWorld
-## calls as the windows and saving it like them. `seed_value` seeds the careless plan. Returns the visit record.
+## calls as the windows and saving it like them. `seed_value` seeds the careless plan and, from its own stream, the
+## scroll rolls, so the same seed gives the same purchases and results. Returns the visit record.
 func bot_shop(policy := "bot", seed_value := 0) -> Dictionary:
 	if inventory == null:
 		return {}
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("careless-shop-hub-%d" % seed_value)
+	inventory.scroll_rng.seed = hash("scrolls-shop-hub-%d" % seed_value)
 	var record := BotShop.visit(inventory, policy, rng)
 	_on_item_action("bot_shop")
 	return record

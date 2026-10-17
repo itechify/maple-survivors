@@ -134,3 +134,81 @@ func test_real_hub_hidden_maple_tv_has_no_name_tag() -> void:
 		var sprite := npc.sprite as Node2D
 		assert_eq(sprite.get_child_count(), 0 if int(npc.id) == 9250025 else 1, "tag children of %d" % int(npc.id))
 	hub.free()
+
+
+# --- the bot in the hub and the hub's scroll randomness (review fixes of spec #33) ----------------------------------
+
+## A real hub (needs the cache) for the Lv38 fixture carrying `mesos`; `options` as FreeMarket.configure takes them.
+func _bot_hub(mesos: int, options: Dictionary = {}, round_seed := 4242) -> FreeMarket:
+	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	character.mesos = mesos
+	var hub := FreeMarket.new()
+	hub.configure({"name": "BotHub", "character": character, "round_seed": round_seed}, null, options)
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
+	hub.set_process(false)
+	return hub
+
+
+func test_autoplay_runs_the_sensible_shop_visit_once_on_entering_the_hub() -> void:
+	if not require_cache():
+		return
+	var idle := _bot_hub(300000)
+	assert_eq(idle.shop_visit, {}, "no visit without autoplay")
+	assert_eq(idle.inventory.mesos, 300000)
+	idle.free()
+	var hub := _bot_hub(300000, {"autoplay": true})
+	assert_true(int(hub.shop_visit.get("bought", 0)) > 0, "the bot bought scrolls on entry: %s" % [hub.shop_visit])
+	assert_eq(int(hub.shop_visit.used), int(hub.shop_visit.bought), "and read them")
+	assert_true(hub.inventory.mesos < 300000, "mesos were spent")
+	assert_eq(int(hub.snapshot.character.mesos), hub.inventory.mesos, "the visit is in the carried snapshot")
+	hub.free()
+
+
+func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll() -> void:
+	var base := {"name": "A", "round_seed": 77, "character": {"mesos": 10, "scrolls": {"2043700": 2},
+		"equipment": {"worn": {"hat": {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0}}, "inventory": []}}}
+	var seed_a := FreeMarket.scroll_seed(base)
+	assert_eq(seed_a, FreeMarket.scroll_seed(base.duplicate(true)), "the same save always gives the same seed")
+	var read := base.duplicate(true)
+	read.character.scrolls["2043700"] = 1
+	read.character.equipment.worn.hat.slots = 6
+	read.character.equipment.worn.hat.scrolls = 1
+	assert_ne(FreeMarket.scroll_seed(read), seed_a, "every scroll changes the next seed")
+	var richer := base.duplicate(true)
+	richer.character.mesos = 11
+	assert_ne(FreeMarket.scroll_seed(richer), seed_a, "mesos are part of the state")
+	var other_run := base.duplicate(true)
+	other_run.round_seed = 78
+	assert_ne(FreeMarket.scroll_seed(other_run), seed_a, "the run's stored seed is mixed in")
+
+
+func test_two_hubs_from_the_same_save_read_the_same_scroll_results() -> void:
+	if not require_cache():
+		return
+	var outcomes := []
+	for _i in 2:
+		var hub := _bot_hub(0)
+		hub.inventory.scrolls["2043700"] = 3
+		var results := []
+		for _s in 3:
+			assert_eq(hub.inventory.use_scroll(2043700, "weapon"), "")
+			results.append(hub.inventory.equipment.worn.weapon.duplicate(true))
+		outcomes.append(results)
+		hub.free()
+	assert_eq(outcomes[0], outcomes[1])
+
+
+func test_bot_shop_is_reproducible_for_a_seed_in_purchases_and_scroll_results() -> void:
+	if not require_cache():
+		return
+	var records := []
+	var worn := []
+	for seed_value in [5, 5, 6]:
+		var hub := _bot_hub(400000)
+		records.append(hub.bot_shop("random", seed_value))
+		worn.append(hub.inventory.equipment.worn.duplicate(true))
+		hub.free()
+	assert_true(int(records[0].used) > 0, "the careless bot read scrolls")
+	assert_eq(records[0], records[1], "same seed, same purchases and results")
+	assert_eq(worn[0], worn[1], "same seed, same scrolled equipment")
+	assert_ne(JSON.stringify([records[0], worn[0]]), JSON.stringify([records[2], worn[2]]), "another seed, another visit")

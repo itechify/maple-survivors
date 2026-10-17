@@ -24,6 +24,7 @@ func _ready() -> void:
 	if assets == null or not assets.has_cache():
 		flow.goto_import()
 		return
+	flow.autoplay = flags.has("autoplay") and String(flags.autoplay) != "0" # menu-started characters play with the bot too
 	var run := SceneFlow.parse_run_args(OS.get_cmdline_user_args())
 	if not run.is_empty():
 		flow.start_run(String(run.run), int(run.seed), run.options)
