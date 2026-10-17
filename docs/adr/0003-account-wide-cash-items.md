@@ -7,9 +7,9 @@ Cash equipment is the main source of Fortune: every filled cash slot adds a fixe
 bottom, a two-handed weapon cover fills weapon and shield), so which item fills a slot is purely about looks. Pet
 upgrades also belong to the account and apply to whichever pet is out.
 
-The account lives in the same save file as the character slots (a new save format, migrated from the previous one) so it shares the
-atomic write, backup and corrupt-file handling, and the NX award at a death is written in the same save as the run
-archive. A separate account file was rejected because two files can disagree after a crash.
+The account lives in the same save file as the character slots (a new save format, migrated from the previous one),
+so it shares the atomic write, backup and corrupt-file handling, and the NX award at a death is written in the same
+save as the run archive. A separate account file was rejected because two files can disagree after a crash.
 
 ## Considered options
 
