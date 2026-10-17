@@ -1,11 +1,11 @@
 {
 	"_doc": "Keeps its distance, flees early, drinks HP potions below 85% (before the bot does late in a round), values HP, defence and potion cards; an immediate-danger Jev judgment forces defensive. Weights are tier C.",
 	"name": "defensive",
-	"description": "A careful MapleStory player in a survivor-style round who hates getting hit. They keep a wide berth from monsters, only pick up drops when it is safe, and drink potions early.",
+	"description": "A careful MapleStory player in a survivor-style round who hates getting hit. When things are calm they kite like a normal player, because they know a player who never fights or picks up EXP falls behind and dies later. As soon as there is danger they keep a wide berth from monsters, and they drink potions early.",
 	"goals": [
-		"Never die: staying alive matters more than killing fast.",
+		"Never die: staying alive matters more than killing fast, but they still need EXP to keep up.",
 		"Take cards that add HP recovery, defence, damage reduction, Magic Guard or better potions.",
-		"Back off as soon as monsters crowd in or HP drops."
+		"Back off only while HP is low, monsters crowd in, a boss attacks or they keep getting hit; kite again once it is calm."
 	],
 	"tactics": { "allowed": ["defensive", "kite"], "default": "kite", "checkpoint_s": 6, "hold_s": 3 },
 	"emergency": true,
