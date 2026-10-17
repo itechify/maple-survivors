@@ -1,0 +1,17 @@
+{
+  "name": "maple-survivors-playtest",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Agent playtests for Maple Survivors: a Node CLI that drives the headless Godot playtest driver over the stdio decision protocol (dev tool, never loaded by the game).",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test",
+    "playtest": "node src/cli.ts"
+  },
+  "dependencies": {
+    "@typesafe-ai/sdk": "0.7.0"
+  }
+}
