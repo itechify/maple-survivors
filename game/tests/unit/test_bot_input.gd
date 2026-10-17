@@ -141,3 +141,57 @@ func test_a_few_drops_above_do_not_start_a_climb() -> void:
 		if w.player.ladder >= 0:
 			break
 	assert_true(w.player.pos.y >= 190.0, "still on the ground")
+
+
+# --- equipment drops the bot cannot take (#112) ---
+
+func _fill_equip_tab(w: RunWorld) -> void:
+	while w.equipment.inventory.size() < w.inventory_slots():
+		w.equipment.inventory.append({"id": 1002001, "stats": {"incPDD": 1}, "slots": 7, "scrolls": 0})
+
+
+func _drop_equipment_and_exp(w: RunWorld) -> int:
+	var i := w.pickups.spawn_equipment(Vector2(440.0, 190.0), {"id": 1372005, "stats": {"incMAD": 20}, "slots": 7, "scrolls": 0})
+	w.pickups.spawn(Vector2(250.0, 190.0), 3, 4000019)
+	return i
+
+
+func test_a_bot_with_a_full_equip_tab_ignores_an_equipment_drop_and_collects_the_exp_instead() -> void:
+	var w := RF.quiet_world(400.0, 11)
+	_fill_equip_tab(w)
+	var drop := _drop_equipment_and_exp(w)
+	var memo := {}
+	for t in 60 * 6:
+		w.step(DT, BotInput.decide(w, memo))
+		w.drain_events()
+	assert_eq(w.progression.exp, 3, "walked past the nearer equipment to the EXP drop")
+	assert_eq(w.pickups.active[drop], 1, "the equipment is still on the ground")
+	assert_eq(w.equipment.inventory.size(), w.inventory_slots(), "nothing was added to a full tab")
+
+
+func test_a_bot_with_room_still_walks_to_the_nearest_equipment_drop() -> void:
+	var w := RF.quiet_world(400.0, 11)
+	var drop := _drop_equipment_and_exp(w)
+	var memo := {}
+	for t in 60 * 6:
+		w.step(DT, BotInput.decide(w, memo))
+		w.drain_events()
+	assert_eq(w.pickups.active[drop], 0, "picked up")
+	assert_eq(w.equips_collected, 1)
+	assert_eq(w.progression.exp, 3, "and then the EXP drop as before")
+
+
+func test_a_full_equip_tab_leaves_the_bot_idle_when_only_equipment_lies_around() -> void:
+	var w := RF.quiet_world(400.0, 11)
+	_fill_equip_tab(w)
+	var centre := w.bounds.get_center().x
+	var away := -1.0 if centre > w.player.pos.x else 1.0 # the drop lies on the far side from the map centre
+	w.pickups.spawn_equipment(Vector2(w.player.pos.x + away * 150.0, 190.0), {"id": 1372005, "stats": {"incMAD": 20},
+		"slots": 7, "scrolls": 0})
+	var memo := {}
+	var start := absf(centre - w.player.pos.x)
+	assert_true(start > 300.0, "the fixture map is wide enough to tell the two goals apart")
+	for t in 60 * 4:
+		w.step(DT, BotInput.decide(w, memo))
+		w.drain_events()
+	assert_true(absf(centre - w.player.pos.x) < start - 100.0, "it heads for the map centre, not to the drop it cannot take")

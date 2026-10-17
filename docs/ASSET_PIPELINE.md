@@ -93,8 +93,8 @@ The manifest says what to import. The importer expands convenience entries into 
 | `maps[]` (9-digit id) | `Map.wz/Map/Map<d>/<id>.img` (d = first digit of the zero-padded id) + every `Map.wz/Back/<bS>.img` (sub-paths `back/<no>` or `ani/<no>` used), `Map.wz/Tile/<tS>.img`, `Map.wz/Obj/<oS>.img` (sub-paths `<l0>/<l1>/<l2>` used), the BGM `Sound.wz/<Bgm..>.img/<name>`, `Map.wz/MapHelper.img/mark/<mapMark>` (not for `"None"`, v83's "no mark"), and every mob in `life` (as a `mobs[]` entry) |
 | `mapimgs[]` (full WZ path) | a map-structured img outside `Map.wz/Map` (the v83 login scene `UI.wz/MapLogin.img`: `back`, layers `0`-`7` with `obj`/`tile`, `info/bgm`): the whole img plus exactly the dependencies a `maps[]` entry gets (backs, tiles, objs, BGM, map mark, life mobs). A missing img is an error |
 | `mobs[]` | `Mob.wz/<7-digit>.img` + its `info/link` target(s) + `Sound.wz/Mob.img/<7-digit>` |
-| `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon |
-| `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash) |
+| `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon; the spec #33 equipment drop list (`survivor/equipment_drops.json`, #109) adds every dropped cap, coat, longcoat, pants, shoes, glove, wand and staff here, whole imgs (info, `iconRaw` for the ground icon, and the drawing frames) |
+| `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash, 9 Special: the meso coins) |
 
 The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
 items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
@@ -194,7 +194,7 @@ MP3 data is written byte-for-byte (`.mp3`). PCM entries are written as `.wav` wi
 the WAVEFORMATEX. Godot loads them at runtime with `AudioStreamMP3.load_from_buffer` / `AudioStreamWAV.load_from_buffer`.
 
 The Unique / Legendary reward-offer cue is `Sound.wz/Game.img/mCardGet`, the original v83 Monster Card sound
-selected by the implementation agent after the owner reserved `EnchantSuccess` for future scrolling.
+selected by the implementation agent after the owner reserved `EnchantSuccess` for scrolling (now played by #110).
 The existing whole-`Game.img` manifest entry already exports it as
 `Sound.wz/Game.img/mCardGet.mp3`; the cache reports 2664 ms (tier A). Its use for survivor reward offers is tier C.
 `RunScene` preloads the stream, and `LevelUpWindow.open` plays it once if the displayed cards include either high
@@ -208,7 +208,9 @@ and approved its fit for Unique / Legendary offers, completing listening accepta
 
 Free Market (#71) selects map 910000000. The map expansion includes its backgrounds, objects, tiles, portal art,
 FreeMarket mark and `Sound.wz/Bgm00.img/FloralLife`. NPCs are explicit manifest entries (maps expand life mobs,
-not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names.
+not NPCs): `Npc.wz/9030000.img`, `9030100.img`, `9250025.img`, `9000069.img`, plus their String.wz/Npc.img names. The four scroll
+NPCs of the shops (#111) are the same kind of entry: `Npc.wz/1032103.img` (El Moth), `2022002.img` (Barun),
+`1052104.img` (Tulcus) and `2041016.img` (Vega), with their `String.wz/Npc.img` paths.
 Spec #32 branch imports use private caches per the binding decisions; #71 uses
 `C:/Users/itech/Coding/maple-survivors-refs/research/spec32/cache-t71`. No decoded assets are committed.
 
@@ -239,6 +241,28 @@ PNG measured in an exported build).
   104040000 foothold count 181).
 - Godot tests read a tiny cache written by the test itself (no Nexon data), plus `require_cache()` integration tests
   against the real cache.
+
+## Equip and Item windows (#108)
+
+The whole `UI.wz/UIWindow.img` already holds the `Equip` and `Item` window art, `IconBase`, `KeyConfig/icon/0-1`
+and the `ToolTip/Equip` label art the windows and the item tooltip draw; `Basic.img` holds `YesNo`, `BtYes`,
+`BtNo` and the `ItemNo` stack digits. The manifest adds whole `String.wz/Consume.img` (potion and scroll names and
+descriptions; keys are unpadded item ids, `desc` carries literal `\n`) and the `character` entries 1002001 (Metal
+Gear, a CpH1H5 full-cover cap), 1002067 (Green Headband, CpH5), 1050018 (Blue Sauna Robe) and 1050049 (Dark Calas,
+Longcoats), 1050035 (Brown Starlight) and 1082002 (Work Gloves), so the Cap, Longcoat and Glove categories draw
+and the evidence character can wear a hat, an overall and gloves. Equipment names come from `String.wz/Eqp.img`
+(`Eqp/<Character.wz folder>/<id>`), use items from `Consume.img/<id>` (InventoryModel.string_path).
+
+## Scrolls (#110)
+
+The manifest adds whole `Item.wz/Consume/0204.img` (the scrolls: `info/success`, `info/cursed` for the dark ones, the
+`inc*` stats and the icons; 754 entries, only the ids in `game/data/survivor/scrolls.json` are used) and
+`Enchant` to the `Effect.wz/BasicEff.img` paths (`Enchant/Success` and `Enchant/Failure`, 21 and 16 frames at 50 ms).
+`Sound.wz/Game.img` (`EnchantSuccess`, `EnchantFailure`) and `String.wz/Consume.img` (scroll names and descriptions)
+were already whole. No scroll in the 0204 img carries `info/slotMax`; stacks use 100. `DataRepo.scroll_info` copies
+only the numbers a scroll needs (`success`, `cursed`, `slotMax`, `inc*`) into `setup.scroll_info` ({id: info}); a
+roster scroll absent from the cache is listed in `missing`. After pulling this change re-import
+(`scripts/import.sh`) so the Item.wz and Enchant entries appear.
 
 ## Second-job asset expansion (#53)
 

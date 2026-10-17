@@ -33,7 +33,8 @@ needs no server, account or internet connection.
 | Action | Keys |
 |---|---|
 | Move | Left / Right arrows (or A / D) |
-| Jump | Left Alt (or Space, C) |
+| Jump | Left Alt (or C) |
+| Talk to a scroll NPC (Free Market) | Space (or double-click it) |
 | Climb a ladder or rope | Up / Down next to it (or W / S) |
 | Use a same-map portal | Hold Up inside its entrance |
 | Drop through a platform | Down + Jump |

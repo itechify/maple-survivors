@@ -151,7 +151,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var above := 0
 		var pk := w.pickups
 		for i in pk.capacity():
-			if pk.active[i] == 0:
+			if pk.active[i] == 0 or not _can_take(w, i):
 				continue
 			var ddx := pk.x[i] - p.x
 			var ddy := pk.y[i] - p.y
@@ -221,6 +221,12 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return mi
 
 
+## Whether the bot can collect pickup `i` now: an equipment drop needs room in the Equip tab (a full one never takes it,
+## so chasing it would camp the bot on the drop); every other kind is always takable.
+static func _can_take(w: RunWorld, i: int) -> bool:
+	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
+
+
 static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
 	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
@@ -261,7 +267,7 @@ static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
 	var pk := w.pickups
 	var best := INF
 	for i in pk.capacity():
-		if pk.active[i] != 0:
+		if pk.active[i] != 0 and _can_take(w, i):
 			best = minf(best, _drop_distance(p, Vector2(pk.x[i], pk.y[i])))
 	if best == INF and not escaping:
 		return {}
@@ -280,7 +286,7 @@ static func _useful_portal(w: RunWorld, escaping: bool) -> Dictionary:
 				safety = danger
 				safer = plan
 		for i in pk.capacity():
-			if pk.active[i] == 0:
+			if pk.active[i] == 0 or not _can_take(w, i):
 				continue
 			var cost := absf(source.x - p.x) + _drop_distance(arrival, Vector2(pk.x[i], pk.y[i]))
 			if cost < best:

@@ -167,7 +167,8 @@ A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong aga
 ## Mesos and equipment
 
 **Mesos**:
-The run's money: dropped by monsters, spent and earned only in the Free Market shops, and lost when the run ends.
+The run's money: dropped by monsters, spent on scrolls in the Free Market shops (which also buy spare equipment and
+scrolls back), carried between rounds with the character, and lost when the run ends.
 _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
@@ -192,10 +193,19 @@ _Avoid_: Bag, stash
 An NPC's stock of scrolls in the Free Market, opened by talking to the NPC. Shops never sell equipment or potions.
 _Avoid_: Store, vendor
 
+**NPC Chat**:
+The key (Space by default, as in v83, rebindable in Key Config) that opens the shop of the Free Market NPC the
+character stands next to.
+_Avoid_: Interact key, talk key
+
 **Scroll**:
 A v83 item that, used on a piece of equipment, tries to add stats with its success rate (10%, 60%, 100% ...) and
 uses up one of that equipment's upgrade slots.
 _Avoid_: Enchant, upgrade (in player-visible text), rune
+
+**Dark scroll**:
+A scroll (70% or 30%) whose failure can also destroy the equipment it was used on, at the scroll's own curse rate (50%).
+Plain scrolls only ever spend the upgrade slot.
 
 **Upgrade slot**:
 One of a piece of equipment's limited chances to be scrolled; each scroll used on it spends one, pass or fail.

@@ -40,6 +40,23 @@ func show_exp(n: int) -> void:
 		push_message("+%d EXP" % n)
 
 
+## Shows the v83 meso pickup notice (tier B: client string pool entry 0x12F); nothing for n <= 0.
+func show_mesos(n: int) -> void:
+	if n > 0:
+		push_message("You have gained mesos (+%d)" % n)
+
+
+## Shows the v83 item pickup notice for equipment, "You have gained an item (Wooden Wand)" (tier B: v83 client string
+## pool, open client reimplementations); without a name just "You have gained an item".
+func show_item_gain(item_name: String) -> void:
+	push_message("You have gained an item (%s)" % item_name if item_name != "" else "You have gained an item")
+
+
+## Shows the v83 full-inventory notice when a drop cannot be picked up (tier B: v83 client string pool).
+func show_inventory_full() -> void:
+	push_message("You can't get anymore items.")
+
+
 ## Keeps a timed encounter notice outside the EXP queue; the same encounter replaces its previous notice.
 func push_notice(key: String, text: String, life: float = MSG_LIFE) -> void:
 	_notices = _notices.filter(func(n: Dictionary) -> bool: return n.key != key)

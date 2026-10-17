@@ -36,15 +36,15 @@ The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking
 existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
 and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
 tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
-The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
-Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK's face and hair) with the
+character's worn equipment (spec #33, #105). Hub movement never changes the saved character.
 
 ## 2. Controls
 
 | Action | Keys (MapleStory defaults first) |
 |---|---|
 | Move | Left / Right arrows (the movement setting switches to W / A / S / D; only one set moves) |
-| Jump | Left Alt (also Space, C) |
+| Jump | Left Alt (also C; Space is NPC Chat, as in v83) |
 | Climb ladder/rope | Up / Down near a ladder |
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
@@ -53,7 +53,11 @@ Beginner's nonzero beginner_weapon overrides its default. Hub movement never cha
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
-| Menu | the status bar's Menu button: Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
+| Equip window | E (also Menu -> Equip; in the Free Market too): double-click a worn item to take it off, drag it onto the Item window likewise |
+| Item window | I (also Menu -> Item; in the Free Market too): tabs Equip / Use / Set-up / Etc / Cash; double-click an item or drag it onto the Equip window to wear it; drag it off the windows to discard it (asks first) |
+| NPC Chat | Space (as in v83; rebindable in Key Config): in the Free Market, next to a scroll NPC, opens its shop; so does a double-click on the NPC |
+| HP / MP potion | Del (also Q) / End (E opens the Equip window, as in v83) |
+| Menu | the status bar's Menu button: Equip, Item, Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
@@ -65,18 +69,72 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
-Teleport, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+Teleport, Equip, Item, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
 key label (potion quickslots, Teleport) shows the current binding.
 
+Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
+second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
+holds Space (jump rebound to Space, say), that action keeps the key and **NPC Chat has no key until it is rebound** in
+Key Config (a key holds one action; Default gives Space back to NPC Chat). Double-clicking a shop NPC works either way.
+A file that never rebound anything simply gains the new defaults.
+
 In-run windows (Stat, the Menu popup, later Skill / Key Config / Options) are draggable by their title bar and
 stack (a click brings one to the front). The run is paused while any is open, as with the pause menu. Stat and Skill
 also open over a level-up, job or advancement choice; they draw above it, and the choice ignores input until they are
 closed. The Stat window is the v83 one (`UIWindow.img/Stat` with its detail panel), read-only: AP is spent
 automatically, so there are no +AP buttons, and stats the game does not model (guild, fame, hands) show "-".
+
+The Equip and Item windows (#108) are the v83 ones (`UIWindow.img/Equip`, `UIWindow.img/Item`) and open in a round
+(pausing it like the other in-run windows) and in the Free Market, which hosts the same window stack. The Equip
+window shows each worn item's icon in its v83 slot (CAP, CLOTHES for a top or an overall, PANTS, SHOES, GLOVES,
+WEAPON); a double-click takes an item off into the inventory, as does dragging it onto the Item window. The Item
+window has the v83 tabs: Equip holds the 24 slots of spare equipment (a double-click, or a drag onto the Equip
+window, wears an item, swapping out what was in its slot; a refused v83 requirement shows a message and changes
+nothing), Use holds the HP and MP potion stacks (read-only, the potions keep their quickslot keys) and the scroll
+stacks, Set-up / Etc / Cash are empty, and the meso line shows the character's mesos. Dragging equipment or a scroll
+stack off the windows asks v83's YesNo question and then destroys the item (it is not dropped on the ground, the
+magnet would take it straight back; worn items have to be taken off first, potions are never discarded). Hovering
+an item shows the v83 tooltip (name with "(+N)" after N successful scrolls, icon, REQ LEV / STR / DEX / INT / LUK
+with the unmet ones in red, the job row, CATEGORY, ATTACK SPEED, the stats, NUMBER OF UPGRADES AVAILABLE, the
+String.wz description). Every change goes through the character's RunWorld, so the derived stats, the drawn look
+(hat, top, bottom, overall, shoes, gloves, weapon, on character select too) and, in the hub, the save slot follow at
+once.
+
+Scrolling (#110): dragging a scroll stack from the Use tab onto a **worn** item in the Equip window reads it (any
+time the windows are open, so a round is held meanwhile; spare items in the inventory cannot be scrolled). The scroll
+must be for that kind of item and the item needs an upgrade slot, else a message shows and the scroll is kept. The
+scroll is rolled on the run's seeded scroll stream: success adds its stats and counts one more scroll, failure only
+spends the slot, and a failed **dark** scroll destroys the item at its `cursed` rate (50%). Either way one upgrade slot
+and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
+`Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
+destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
+scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
+next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
+
+Hand-testing tool (tool-only, not part of the game): `bash scripts/run.sh -- --hub [--character=<abs JSON>] [--mesos=N]`
+opens the Free Market straight away with the Lv38 F/P fixture plus a test kit (500,000 mesos, ten of each rate of the
+wand / hat / top / gloves scrolls, four spare equipment items; `HubTestKit`, tier C: ours), in a throwaway save that
+never touches the player's save.
+
+Scroll shops (#111): four NPCs stand on the Free Market floor, drawn from `Npc.wz` with their `String.wz` names: El Moth
+1032103 sells the 100% scrolls, Barun 2022002 the 60%, Tulcus 1052104 the 10% and Vega 2041016 the dark 70% and 30%
+(`game/data/survivor/shops.json`). Standing next to one (within 100 px) and pressing **NPC Chat** (Space, v83's default;
+rebindable in Key Config), or double-clicking it, opens its shop and holds the hub like any window; Esc or Exit closes
+it. The window is the v83 one (`UIWindow.img/Shop`): the NPC, its name and the Buy / Exit buttons above its stock
+(five rows, scrollable: icon, name, price and success rate), the character, the meso total and the Sell button above the
+inventory with the Item window's tabs. Every NPC sells its rate(s) of every scroll family whose equipment can drop for
+the character's job (the Beginner sees only hat, top, bottom and shoes scrolls, a Magician also overall, gloves, wand
+and staff), unlimited and the same at every tier. A scroll costs 35,000 mesos (armour) or 70,000 (wand, staff) at every
+rate. Buy asks "How many are you willing to buy?"; with too few mesos or no room in the Use tab a notice says so and
+nothing changes. Sell: any shop buys spare equipment at its `info/price` (after "Are you sure you want to sell it?") and
+scrolls at their `info/price` (1 mesos each, asking how many); worn equipment is never listed, so it cannot be sold until
+it is taken off. Every purchase and sale is saved into the character slot at once. The logic is the pure `Shop` module
+(stock, buy, sell over a plain character state) that RunWorld wraps (`shop_stock`, `buy_scroll`, `sell_item`,
+`sell_scrolls`) and the bot planner (#112) reuses.
 
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
@@ -389,6 +447,29 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
+
+`ISOLATE=s33t105 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache (spec #33 copy plus the `barehands` weapon sound), unforced branches, 1,800 s cap, no PATCH or
+tuning, on the ticket branch (base `db1c5cb`, before #106). The fixed `balance.player.equipment` outfit is gone: a
+fresh Beginner now wears the first MakeCharInfo outfit as worn equipment (1040002 / 1060002 / 1072001 / 1302000),
+which has exactly the old outfit's stats, and Magician advancement grants the same Wooden Wand the old weapon rule
+used. So every outcome, end time, Magician time and potion total equals the #79 combined smoke below; the only new
+simulation output is one `equipment_changed` event at the wand grant (the `test_character_baseline` stream hash
+changes by that event alone: filtering it out reproduces the old hash). All 12 runs finish with no crashes, script
+errors or world warnings. Raw records: ignored `_scratch/t105_smoke/`.
+
+| Stage / policy | Clear/dead #79 -> #105 | End seconds (seed order 1/2/2026) | MP collected/used | Magician s |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 780.4/791.1/907.5 (unchanged) | 158/158 (unchanged) | 266.1–274.7 |
+| Henesys random | 1/2 -> 1/2 | C/437.8/624.0 (unchanged) | 168/168 (unchanged) | 265.4–271.6 |
+| Tree bot | 0/3 -> 0/3 | 652.3/677.4/128.3 (unchanged) | 136/136 (unchanged) | 224.5–249.6 (2 runs) |
+| Tree random | 0/3 -> 0/3 | 617.5/165.0/88.4 (unchanged) | 80/77 (unchanged) | 217.8 (1 run) |
+
+Henesys reaches Magician and Mano in 3/3 per policy; Mano completes 3/3 (bot) and 2/3 (random). Tree is record-only.
+No stop-and-ask gate. Characters created with other clothes or weapons now get those items' own stats (every
+creation top/bottom/shoes is W.DEF 3/2/2 in v83, so only the Beginner weapon choice differs, as before).
 
 #### #32 merged with main after #79 (2026-10-16)
 
@@ -1839,6 +1920,163 @@ long platform above the ground (mobs walking to its near drop, one mid-fall at 1
 and 14:00; they are on their way in, not queueing. On the Hill the crowd presses the player along its own floor from
 5:00 (a row of snails on a small platform above, mobs dropping in at the screen edge).
 
+#### #106 automatic LUK for Magicians regression smoke (2026-10-16)
+
+No tuning: `ISOLATE=s33t106 MAPLE_SURVIVORS_CACHE=<spec33 cache-t106> bash scripts/balance.sh 1 2 2026`, both stages and
+`bot`/`random`, real cache, no patch. Baseline is the same smoke on db1c5cb (pre-change main, extracted to `_scratch`).
+All 12 runs completed with exit 0, no script errors, no world warnings. Henesys still reaches Magician (about 4:30 Lv10,
+266-275 s Magician seconds) and the first boss in every run; Tree remains record-only. No held-out seeds were used.
+
+| Stage / policy | Clear / dead | Death seconds, after (before) | Lv27-35 end level, after (before) | MP-short s, after (before) |
+|---|---|---|---|---|
+| Henesys bot | 0 / 3 | 14:46, 13:52, 15:58 (13:00, 13:11, 15:07) | 27, 34, 35 (25, 33, 33) | 142, 220, 246 (117, 260, 287) |
+| Henesys random | 1 / 2 | 7:46, 9:39 (7:17, 10:24) | 11, 24, 42 (11, 27, 44) | 56, 99, 202 (54, 71, 176) |
+| Tree bot | 0 / 3 | 10:42, 11:06, 2:08 (10:52, 11:17, 2:08) | 3, 22, 24 (3, 22, 25) | 92, 125, 196 (92, 114, 202) |
+| Tree random | 0 / 3 | 10:47, 2:45, 1:28 (10:17, 2:45, 1:28) | 3, 4, 25 (3, 4, 24) | 58, 100, 123 (58, 100, 123) |
+
+Magician seconds are identical in every row. Henesys bot fight times for the first boss (2220000) are unchanged except one seed at 19.4 s -> 19.6 s; the
+second boss (6130101) completed-fight range moved from 51-64 s to 30-65 s (n=2 completed each, one unfinished each), so
+its timing is recorded here as changed, not tuned. The expected effect is visible only in Magician
+stats: at Lv10 LUK is 12 (was 4) and INT 41 (was 49), and at Lv70 INT is 281 instead of 349. Those are the
+recorded trade-off, not a tuning result. Raw records stay in `_scratch/t106_smoke/` and `_scratch/t106_smoke_base/`.
+
+#### Spec #33 / #107 meso drops regression smoke (2026-10-17)
+
+No tuning: `ISOLATE=s33t107<a-d> bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache, no held-out seeds, on the ticket branch (base: the #105 + #106 integration branch). "Before" is the
+same code with `PATCH={"balance":{"mesos":{"chance":0,"boss_drops":0}}}`, which reproduces the pre-#107 event stream
+byte for byte (`test_character_baseline` hash `6ff18c3e...`), and its numbers equal the #106 smoke above. All 12 runs
+completed with exit 0, no script errors and no world warnings. Henesys still reaches Magician (4:30-4:45) and Mano in
+every bot run; Tree remains record-only.
+
+| Stage / policy | Clear / dead before -> after | End seconds seed 1/2/2026, before -> after | Mesos earned per round (seed 1/2/2026) |
+|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 887/833/959 -> 859/778/899 | 210,406 / 83,846 / 209,566 |
+| Henesys random | 1/2 -> 1/2 | C 1003/466/580 -> C 995/462/346 | 321,062 / 18,298 / 11,452 |
+| Tree bot | 0/3 -> 0/3 | 643/666/128 -> 622/157/128 | 208,404 / 3,108 / 1,680 |
+| Tree random | 0/3 -> 0/3 | 648/165/88 -> 747/158/88 | 289,758 / 2,520 / 1,218 |
+
+The runs diverge slightly from "before" because mesos change the drop-pop RNG draws and the sensible bot now walks to
+coins like any other drop (its drop-chasing code is unchanged and covers every pickup kind); two seeds die earlier
+(Henesys random 2026, 9:40 -> 5:46, before Mano; Tree bot seed 2, 11:06 -> 2:37), none die later by more than that
+chaos allows, and bosses killed per run match "before" except those two runs and Tree random seed 1 (one more). That is
+recorded as changed, not tuned.
+
+Meso calibration (set once, no loop): the multiplier `balance.mesos.mult` is 14. At multiplier 1 the only Henesys
+clear in the smoke (random policy, seed 1, 3,259 kills, all three bosses) earned 22.9k mesos, and the sensible bot
+earned about 15k by its 14:19 and 14:59 deaths, so 14 puts that clear at 321k, inside the owner's 300-350k target
+for a clear (the later equipment sales are not in this number). The multiplier is a data value; NX upgrades (#34) may
+raise it. Because the coin sprite follows the final amount, a x14 Snail drop (56-84) already shows the gold coin.
+Raw records: ignored `_scratch/t107_smoke/` and `_scratch/t107_base/`.
+
+#### Spec #33 / #109 equipment drops regression smoke (2026-10-17)
+
+No tuning: `ISOLATE=s33t109 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache, no held-out seeds, on the ticket branch (base: the #107 integration branch). "Before" is the #107
+smoke above. All 12 runs finished with no script errors and no world warnings. Henesys still reaches Magician
+(4:20-4:41) and Mano in every bot run, and its random policy clears one of three; Tree remains record-only.
+
+| Stage / policy | Clear / dead before -> after | End seconds seed 1/2/2026, before -> after | Equipment dropped per round (seed 1/2/2026) |
+|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 859/778/899 -> 834/784/917 | 5 / 5 / 7 |
+| Henesys random | 1/2 -> 1/2 | C 995/462/346 -> C 980/462/543 | 7 / 0 / 4 |
+| Tree bot | 0/3 -> 0/3 | 622/157/128 -> 622/156/128 | 2 / 0 / 0 |
+| Tree random | 0/3 -> 0/3 | 747/158/88 -> 729/158/88 | 5 / 0 / 0 |
+
+Every dropped item was picked up (`equips_collected` equals `equips_dropped` in all 12 records; the Equip tab never filled).
+The runs diverge slightly from "before" because equipment drops use the shared drop-pop RNG stream and the sensible bot
+walks to them like any other drop; the one Henesys random run that moved a lot (seed 2026) now dies at 9:03 instead of
+5:46, after Mano. That is recorded as changed, not tuned.
+
+Items per round: the chance (`equipment_drops.chance` 0.002 per ordinary kill) was sized once from an estimate, a full
+Henesys clear being about 3,300 kills: 6.6 ordinary drops plus the 3 boss drops is about 9.6 items. The only Henesys clear
+in the smoke (random seed 1, 3,069 kills, all three bosses) dropped 7 (3 boss + 4 ordinary), below the 8-12 target but
+inside the Poisson spread of about 6; the sensible bot's deaths at 13-15 minutes (1,300-1,900 kills, two bosses) dropped 5,
+5 and 7. The value is data (`game/data/survivor/equipment_drops.json`) and is not tuned further here; the dedicated
+balance pass owns it. The character baseline golden changed only by the new equipment pickup events: with `chance` and
+`boss_drops` set to 0 the #107 hash `08f7edf3...` is reproduced exactly. Raw records: ignored
+`research/spec33/t109/balance/` (outside the repo).
+
+#### Spec #33 / #112 bot shopping regression smoke (2026-10-17)
+
+No tuning: `ISOLATE=s33t112 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`
+plus `--tier=2 --policy=<bot|random>` chains, private real cache, no held-out seeds, on the ticket branch (base: the #111
+integration branch). "Before" is the #109 smoke above. All 14 runs finished with no script errors and no world warnings.
+What changed for the bots: they now wear the best item they own at each equipment pickup, level-up and job change
+(`BotShop.auto_equip`, weights in `balance.bot.equipment_weights`), ignore equipment drops while their Equip tab is full,
+and visit the shops between tiers of a chain. Henesys still reaches Magician (4:20-4:41) and Mano in every bot run; Tree
+remains record-only.
+
+| Stage / policy | Clear / dead before -> after | End m:ss seed 1/2/2026, before -> after | Items put on mid-round (seed 1/2/2026) |
+|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 13:54/13:04/15:17 -> 20:14/14:40/22:16 | 4 / 4 / 4 |
+| Henesys random | 1/2 -> 1/2 | C 16:20/7:42/9:03 -> C 16:28/7:42/10:59 | 7 / 0 / 3 |
+| Tree bot | 0/3 -> 0/3 | 10:22/2:36/2:08 -> 10:26/2:36/2:08 | 2 / 0 / 0 |
+| Tree random | 0/3 -> 0/3 | 12:09/2:38/1:28 -> 20:23/2:38/1:28 | 5 / 0 / 0 |
+
+Wearing what drops is the only gameplay change inside a round, and it moves the long runs a lot: the Henesys sensible
+bot now dies 2-7 minutes later in all three seeds (every run still dies, after the second or third boss; two reach the
+third), and the Tree random seed 1 run, which wore five items, survives to 20:23 instead of 12:09. Runs that never found
+equipment (Tree seeds 2 and 2026, Henesys random seed 2) are unchanged. This is recorded as changed, not tuned; the
+balance pass owns the effect (#77).
+
+Chains (`--tier=2`, seeds 1/2/2026, Henesys then Dark Cave): bot 0/3 tier-1 clears (deaths 20:14, 14:40, 22:16), so no
+shop visit; random 1/3 (seed 1 clears at 16:28, Lv 41). Seed 1's Free Market visit: 323,932 mesos earned, nothing to
+sell, 9 scrolls bought for 315,000 (8,932 left) and all 9 read (3 succeeded, 6 failed, 0 items destroyed); tier 2 starts at Lv 41
+and dies at 22:04 at Lv 62 after 1,397,158 more mesos and 2 more items put on. The record keys are `equips_worn`,
+`equipment_worn`, `scrolls_on_worn` per round and `shop` on the round that precedes a visit (see the `scripts/balance.sh`
+header); the summary adds "shop ... per visit" lines. Only one visit happened in the smoke, so the small-sample caveat
+of the tier-2 feed applies. `BotShop` has seeded unit tests for the plans, the visit bookkeeping (a careless visit with dark
+scrolls keeps its books across 12 seeds) and a two-tier chain (`test_bot_shop`, `test_balance_chain`). Full suite: 1041 tests,
+4 failures, all the known #103 key-config tests that read the developer's own `settings.cfg` (unrelated).
+Raw records: ignored `research/spec33/t112_balance/` and `t112_smoke.log` (outside the repo).
+
+#### Spec #33 / #113 combined regression smoke for the whole spec (2026-10-17)
+
+No tuning, no held-out seeds: `ISOLATE=s33t113smoke bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` plus `--tier=2 --policy=<bot|random>` chains, private real cache, on the #113 branch (base: the
+integration branch with #105-#112 merged). This covers the UI tickets that skipped their own smoke (#108 windows,
+#110 scrolls, #111 shops); "before" is the #112 smoke above. All 14 runs finished with no script errors and no world
+warnings. The results are **identical to #112 run for run** (same end times, same mesos and equipment counts): #108,
+#110, #111 and #113 change no sim rule a bot run exercises (the windows are held-run UI, scroll and shop rules run
+only when a bot or the player visits a shop), so a different number would have been a bug. Henesys bots still reach
+Magician (4:20-4:41, 6/6 runs); Tree remains record-only.
+
+| Stage / policy | Clear / dead | End m:ss seed 1/2/2026 (same as #112) | Mesos earned per round (seed 1/2/2026) | Equipment dropped (seed 1/2/2026) |
+|---|---|---|---|---|
+| Henesys bot | 0/3 | 20:14 / 14:40 / 22:16 | 211,036 / 101,766 / 206,066 | 5 / 5 / 7 |
+| Henesys random | 1/2 | C 16:28 / 7:42 / 10:59 | 323,932 / 18,298 / 72,898 | 9 / 0 / 4 |
+| Tree bot | 0/3 | 10:26 / 2:36 / 2:08 | 208,558 / 3,108 / 1,680 | 2 / 0 / 0 |
+| Tree random | 0/3 | 20:23 / 2:38 / 1:28 | 433,930 / 2,520 / 1,218 | 5 / 0 / 0 |
+
+Every dropped item was picked up except one (Henesys random seed 1 dropped 9 and picked up 8: one was still lying
+on the ground when the round ended). Items per round: the Henesys bot runs, which last 14-22 minutes and kill 1,300-2,100 monsters, dropped
+5-7 against the 8-12 target for a clear, and the one real clear (Henesys random seed 1, 3 bosses) dropped 9, inside
+it. Recorded, not tuned (#77 owns `equipment_drops.chance`). Mesos per round on Henesys: 100-210k for a bot dying at
+14-22 minutes, 324k for the clear (the owner's 300-350k target for a clear).
+
+Scrolls (only the chain's one Free Market visit, Henesys random seed 1): 323,932 mesos earned, nothing to sell, 9
+scrolls bought for 315,000 (8,932 left) and all 9 read: 3 succeeded, 6 failed, 0 items destroyed (the careless plan
+reads dark scrolls too, none destroyed this time). Tier 2 then started at Lv 41 and died at 22:04 at Lv 62 after
+1,397,158 more mesos, 5 items dropped and 2 more worn. The sensible bot never cleared tier 1, so no sensible shop visit
+happened in the smoke (`test_bot_shop` covers it with seeded tests). Chains: bot 0/3 tier-1 clears, random 1/3.
+
+Full suite on the branch: 1,042 tests, 4 failures: the known #103 key-config tests (`test_key_config`,
+`test_key_config_window` x2, `test_teleport`) that read the developer's own `settings.cfg` (their Teleport key
+shows "Space" there); nothing else, 0 SKIP with the real cache. Raw records: ignored `research/spec33/t113_balance/`
+and `t113_smoke.log` (outside the repo).
+
+#### Spec #33 / #113 whole-loop flow-driver run (2026-10-17)
+
+`--scenario=economy` (AGENTS.md; header of `flow_driver.gd`) drives the loop with injected input on the real cache and
+checks it at every step: the picked-up mesos and items, the Item window and tooltips, the hat worn by double-click,
+a real tier-1 Henesys clear by the bot's fixed-tick warp (the Lv38 F/P fixture, seed 1) into the Free Market with the
+worn hat, the spare item and the mesos in the saved boundary, the four scroll NPCs, Space at El Moth (buy a 100% hat
+INT scroll, sell the spare Dark Calas for 90,000) and at Tulcus (three 10% scrolls), the scrolls dragged onto the worn
+hat (success, then a failure), and Save & quit -> Continue restoring mesos, equipment, inventory and scrolls from the
+saved snapshot (550,461 mesos at the clear, 500,461 after shopping, all equal after Continue). The 25 screenshots were
+looked at and the run reported `missing` empty (not committed: `evidence/spec33/t113/economy2/`).
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2061,6 +2299,11 @@ quantities per kind.
 - **Attributes and AP** (tier C, survivor choices): start at STR 12, DEX 5, INT 4, LUK 4, with 5 AP per level.
   Beginners assign AP to STR. On advancement the AP earned above those base stats moves to the new job's primary
   stat (INT for Magician); subsequent AP goes there too. The job's nearest configured ancestor supplies the rule.
+  A job line may name a secondary stat (`balance.json/player.ap_secondary`, #106): earned AP fills it first, up to
+  its base value's target for the character's level, and the rest goes to the primary stat. The Magician's LUK target
+  is about level + 2 (tier C; v83 reqLUK 15 at Lv13 ... 70 at Lv68), so a Magician meets the Lv68 equipment LUK and
+  its INT is lower by exactly the points moved to LUK (Lv70: INT 281 instead of 349). The split is recomputed from
+  earned AP and the level, so existing snapshots need no format change.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
@@ -2069,9 +2312,54 @@ quantities per kind.
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
   the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
   Max MP grows outside a level-up (job grants). It never restores HP.
-- **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
-  active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
+- **Defense and avoid**: W.DEF and M.DEF sum the worn equipment's `incPDD` and `incMDD`, plus active defense
+  modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
+- **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
+  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
+  accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
+  modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
+  Equipping checks v83 `reqLevel`, `reqJob` (bit mask 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate; 0 all)
+  and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
+  weapon are the first worn equipment with plain WZ stats; a character without a snapshot wears the first creation
+  options (`Equipment.DEFAULT_OUTFIT`, tier A). Advancing to Magician grants and wears the Wooden Wand 1372005 and
+  moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C); with a full inventory the grant is skipped and nothing is destroyed. Without a weapon the basic
+  attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
+  impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
+- **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
+  / 100) % 100 == (item id / 10000) % 100` (tier A, the v83 id convention) and at least one upgrade slot. Roll 0-99
+  below `info/success` adds every `inc*` of the scroll to the instance (`scrolls` + 1); success or not, `slots` - 1;
+  a failed scroll with `info/cursed` (the dark ones: 50) rolls 0-99 below `cursed` and destroys the item. Rates, stats
+  and `cursed` are the WZ values unchanged. In the game: 100%, 60%, 10% and the dark 70% / 30% scrolls of the families
+  below; event 65% / 15%, 50%, the "strong" 100%, Balrog's, Chaos, Clean Slate, White and other classes' weapon
+  scrolls are out. Scroll stacks live in the character's `scrolls` map ({"<id>": count}); a stack holds at most
+  `info/slotMax` (100 when WZ names none, as for every 0204 scroll) and the Use tab has 24 slots, two of them the
+  potion stacks (tier A), so 22 scroll stacks. RunWorld adds `use_scroll(scroll_id, slot)` (the scroll is used up
+  whenever it was read, `scroll_used` carries the result), `grant_scrolls` and uses RNG stream 11; stats and drawn
+  look refresh through `equipment_changed` (action `scroll`).
+
+  | Slot | Families (each: 100%, 60%, 10%, dark 70%, dark 30%) |
+  |---|---|
+  | Hat | DEF, HP, INT, DEX, ACC (2040016 is the 10% ACC scroll: its WZ `success` is the string "10", cast by the loader) |
+  | Top | DEF, STR, HP, LUK, LUK (the newer series) |
+  | Bottom | DEF, Jump, HP, DEX, DEX (the newer series) |
+  | Overall | INT, DEX, DEF, LUK, STR |
+  | Shoes | DEX, Jump, Speed, ATT (no dark ATT) |
+  | Gloves | DEX, ATT, HP, Magic Att. |
+  | Wand, Staff | Magic Att. |
+
+- **Scroll shops (spec #33, #111)**: `Shop` (pure, static) works on a plain character state (`mesos`, `scrolls`,
+  `equipment`, `potions`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
+  `Shop.stock(npc, rules, scrolls.json, drop list, item info, job)`: the NPC's rates (shops.json) of every family whose
+  item category (`(item id / 10000) % 100`, the scroll's `(id / 100) % 100`) some drop-list item the job can wear
+  (`Equipment.job_allows`) belongs to, in file order, each priced by its slot. `buy` is all-or-nothing: `count` (below
+  1), `mesos`, `use_full` (a stack stops at slotMax, the tab holds 22 scroll stacks beside the potions; checked before
+  any mesos are taken). `sell_equipment` / `sell_scrolls` pay `info/price` (`unsellable` without one, `no_item` for a bad
+  index or too few scrolls); `sell_worn` is the refusal for a worn item (`worn`). RunWorld adds `shop_stock(npc_id)`,
+  `buy_scroll(npc_id, scroll_id, count)` (also `not_sold` for a scroll outside the stock), `sell_item(index)` and
+  `sell_scrolls(scroll_id, count)`, each success emitting `equipment_changed` (action `buy` / `sell`). The shop window
+  (`ShopWindow`, with `ShopQuantity` and `ShopNotice`) and the Free Market's NPC placement are described in section 2.
 
 ## 6. Combat
 
@@ -2086,6 +2374,10 @@ quantities per kind.
 - **Critical hits:** base 0% (Beginner/Magician cannot crit in v83); upgrades may add crit (×1.5) as survivor modifiers.
   Crits use the `NoCri` digits and the `NoCri1/effect` burst.
 - Mob defence: magic damage × (1 - MDD/(MDD+150)) (tier C, keeps early mobs readable).
+- **Player accuracy (#33 review):** worn equipment's `incACC` (and Bless) is stored in `player_state.acc` and shown in the
+  Stat window, but the player's attacks never roll a hit chance: the v83 player-versus-monster hit roll is not modelled,
+  and no hit model is invented for it (tier C). Accuracy therefore has no combat effect; only mob attacks roll a hit
+  against the player's avoid (6.2).
 
 ### 6.1.1 Basic weapon attacks
 
@@ -2423,7 +2715,7 @@ that is the cap). Unchanged canonical values are omitted from the preview. Dense
 keep the panel 128 px shorter than the view so the mascots and HUD stay clear (tier C layout).
 
 A window with a Unique or Legendary offer plays `Sound.wz/Game.img/mCardGet` once when it opens (owner-approved by
-ear on 2026-10-15; `EnchantSuccess` is reserved for future scrolling). Automated picks without a window are silent.
+ear on 2026-10-15; `EnchantSuccess` was reserved for scrolling and is now played by it, #110). Automated picks without a window are silent.
 The debug gallery shows the tiers with `--window=levelup_tiers|levelup_high|levelup_dense` (`--bonus` for the boss
 heading); screenshots stay in ignored `evidence/spec30/ui/`.
 
@@ -2513,6 +2805,35 @@ MP Eaters, Invincible and both Slows):
 | Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
 
+### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
+
+The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
+every constant, with its tier, is in section 11 under the tables named below):
+
+1. **Mesos** drop from kills (40% per kill from the mob's v83 meso range, x14 survivor multiplier) and 4 bundles from
+   each boss, with the v83 coin sprites; the magnet collects them like EXP. They are carried across rounds with the
+   character and lost with the run. ("Meso rule", section 11.)
+2. **Equipment** drops from kills (0.2% per ordinary kill, one guaranteed from each boss): a v83 hat, top, bottom,
+   overall, shoes, gloves, wand or staff that the character's current job can wear, near its level, with v83's random
+   stat rolls. It goes to the Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
+3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
+   open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
+4. In the **Free Market**, four NPCs sell scrolls only, one per success rate (100%, 60%, 10%, dark 70% / 30%), at 35,000
+   mesos (armour) or 70,000 (wand, staff); any shop buys spare equipment and scrolls back at their v83 sell price. NPC
+   Chat (Space) or a double-click opens a shop. ("Scroll NPCs", "Shop stock", "Sell rule" and the other #111 rows.)
+5. A **scroll** is dragged from the Use tab onto a worn item: it succeeds at its rate (adding its v83 stats and one to
+   the "(+N)" count) or fails; either way it spends one upgrade slot, and a failed dark scroll can destroy the item.
+   ("Scroll rules", "Scroll effect" and the other #110 rows.)
+6. Everything is saved with the character at each boundary, so Save & quit -> Continue restores mesos, worn equipment,
+   inventory and scrolls. Quitting a round and continuing replays it from its boundary, so what changed mid-round is
+   lost (ADR 0001, amended).
+7. Bots follow the same rules (`BotShop`): they wear the best item they own and visit the shops between tiers of a
+   `balance.sh --tier=N` chain. ("Bot shopping rule".)
+
+Verified end to end by `flow_driver --scenario=economy` (AGENTS.md) and by the combined regression smoke in 4.2
+"Spec #33 / #113". The numbers above are first-pass and are not tuned: equipment per round measured 5-7 against the
+8-12 target (4.2 #109, #113), and the dedicated balance pass (#77) owns them.
+
 
 ## 9. Jobs
 
@@ -2576,12 +2897,74 @@ speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interva
 starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
 the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
 
-`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
-presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
-when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Spec #33 (#105) replaces that rule: the creation outfit and weapon are worn equipment instances in
+CharacterSnapshot format 2, and Magician advancement grants the Wooden Wand (the previous weapon goes to the
+inventory). `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the worn equipment. Slots, rounds and #71's Free Market use this shared presentation helper.
 Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
 with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
-shape). The snapshot's `beginner_weapon` persists even after advancement.
+shape). Format-1 characters keep loading: their look equips plus the frozen #32 weapon rule (`beginner_weapon` for a
+Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when they migrate.
+
+| Equipment rule (spec #33) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
+| `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
+| Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
+| Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
+| Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full the grant is skipped (the character keeps its weapon, a `grant_blocked` event shows the full-inventory HUD notice) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
+| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
+
+| Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Coin sprites | Amount < 50 bronze 09000000, 50-99 gold 09000001, 100-999 bundle 09000002, 1000+ bag 09000003 (`MesoDrops.BRACKETS`) | B | Two third-party client reimplementations |
+| Coin art and frames | `Item.wz/Special/0900.img/<id>/iconRaw/0..3` (no `info` node, no `delay`); item type 9 = `Special` in the importer and `AssetLibrary` | A | v83 Item.wz |
+| Frame time | 100 ms per coin frame | C | Ours (WZ has no delay) |
+| Per-mob amount | `mobs.json` `mesos` [min, max): uniform integer in [min, max); every mob of the three rosters and their bosses except the four 9300xxx event mobs (King Slime 9300003, 9300062-9300064) | B | v83 server drop data (Cosmic `drop_data` rows with itemid 0), used as facts |
+| Fallback amount | Mobs with no v83 range roll around 4 + 1.5 x level, x0.8 to x1.2 (`balance.mesos.fallback`) | C | Ours, fitted to the early-roster ranges |
+| Drop chance | `balance.mesos.chance` 0.4 per kill (elites too) | B | v83 server reference: 40% at rate 1 |
+| Multiplier | `balance.mesos.mult`, one number scaling every amount, set once from an estimate (see 4.2 #107; 14) | C | Owner: about 300-350k mesos per sensible-bot Henesys clear; NX upgrades (#34) may raise it |
+| Boss drops | `balance.mesos.boss_drops` (4) bundles per scheduled boss death, each rolled from its range, no chance roll | C | Ours |
+| Lifetime | Mesos never expire during a round, never merge, never count toward the EXP-drop cap; magnet and collect radius like EXP drops | C | Owner #33 |
+| Pickup sound | `Sound.wz/Game.img/PickUpItem` (v83 Game.img has no separate meso sound; DropItem plays on the drop) | A | v83 Sound.wz |
+| Pickup notice | "You have gained mesos (+N)" in the system-message queue, one sum per frame | B | v83 client string pool 0x12F (open client reimplementations) |
+| Carry | `CharacterSnapshot.mesos` carries across rounds and is lost with the run; the HUD shows no meso total | C | Owner #33 |
+
+| Equipment drop rule (spec #33, #109) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Eligible list | `survivor/equipment_drops.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
+| Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
+| Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
+| Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
+| Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), sized once from an estimate: about 3,300 kills in a full Henesys round and about 8-12 items a round including the 3 boss drops. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
+| Boss drop | Each scheduled boss death drops exactly 1 item (`equipment_drops.boss_drops`), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Ours (ticket #109) |
+| Random stats | Every non-zero `inc*` stat of a drop varies by a whole number up to 10% of its base (rounded up) either side, capped at 5 for STR DEX INT LUK PAD MAD ACC EVA Speed Jump and at 10 for PDD MDD MHP MMP, uniform, never below 0; upgrade slots (`tuc`) never vary; other `inc*` keys keep their base (`Equipment.create_drop`) | B | The v83 server rule as the ticket #109 states it (implemented from that prose) |
+| RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
+| Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
+| Notices | "You have gained an item (Name)" on pickup (name from String.wz/Eqp.img) and "You can't get anymore items." when a full tab refuses a drop, in the system-message queue | B | v83 client string pool (open client reimplementations) |
+
+| Bot shopping rule (spec #33, #112; `BotShop`, bots only, never the player) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job branch `job_id / 100`, else `default`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; default (Beginner): W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
+| Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the v83 requirements and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
+| Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP, potion and meso drops are unchanged | C | Follow-up of #109 (lead) |
+| Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item that only fails the level requirement); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
+| Careless plan | Sells nothing; while a worn item has an upgrade slot and an affordable scroll of its type exists (any rate, dark ones included) it picks a random (item, scroll) pair, buys and reads it. Its stream: `hash("careless-shop-<run seed>-<tier index>")` | C | Owner brief (#112) |
+| Plan application | Only through `RunWorld.sell_item`, `buy_scroll`, `use_scroll`; a dark scroll that destroys an item ends the pass and the plan is redone from the live state (at most 8 passes). Scroll rolls use the next round's `scroll_rng` (stream 11) | C | Ours |
+| Where it runs | `scripts/balance.sh --tier=N` chains between tiers (the next round's world is built from the boundary snapshot and visits before it plays), mid-round equipping in every balance run and in RunScene's autoplay, and `FreeMarket.bot_shop` for a hub driver. With `--autoplay` on a menu-started character (`SceneFlow.autoplay`, set from the flag in `main.gd`) the Free Market runs the sensible visit once on entry (`FreeMarket.shop_visit`) and resumed rounds autoplay; `playtest.sh --run` is a tool one-off with no Free Market | C | Ours |
+
+| Review-fix rule (spec #33) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Discard / sell confirmation | The non-modal YesNo box remembers the exact instance it asked about and acts only when the same Equip-tab index still holds an equal instance (id, stats, slots, scrolls); a swapped-in copy of the same id is neither destroyed nor sold | C | Review of #108 / #111 |
+| Weapon grant with a full tab | If the previous weapon has no room in the Equip tab the Magician wand grant is skipped (the character keeps its weapon, `grant_blocked` shows "You can't get anymore items."); nothing is ever destroyed | C | Lead decision, review |
+| Numeric-string scroll info | `DataRepo.scroll_info` casts numeric strings (hat Accuracy 10% 2040016 stores `success` as `"10"`) | A (WZ data), C (cast) | v83 Item.wz/Consume/0204.img |
+| Hub scroll seed | The Free Market's scroll rolls are seeded by `FreeMarket.scroll_seed(snapshot)`: the saved run seed `round_seed` x 1000003 plus a hash of the character's equipment, scrolls and mesos, re-applied after every change; the same save always rolls the same, every scroll changes the next seed, quitting cannot reroll. `bot_shop(policy, seed)` rolls its scrolls from its own stream `hash("scrolls-shop-hub-<seed>")` | C | Lead decision, review |
+| Autoplay in the hub | With the `autoplay` option the Free Market runs `bot_shop("bot", round_seed)` once on entry | C | Ticket #112 text |
+| Player accuracy | Worn `incACC` (plus Bless) is stored in `player_state.acc` and shown in the Stat window only: the player's attacks never roll a hit chance in this game (no v83 player-hit roll is modelled), so accuracy has no combat effect | C | Lead decision, review of #105 |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
@@ -2764,6 +3147,7 @@ fields round to six decimal places for readable committed JSON; generation never
 | Camera smoothing | exponential, 6/s, 8 px dead zone, player at 58% height | C | ours |
 | Player start | 50 HP, 5 MP (v83 Beginner, owner decision), STR 12 / DEX 5 / INT 4 / LUK 4, Three Snails rank 1; Magician magic attack 23 (Wooden Wand 1372005 incMAD) | C (A for the wand) | ours |
 | Automatic AP and advancement reset | 5 AP per level, Beginner → STR, Magician → INT; only earned AP is redistributed on advancement | C | survivor rule, emulator-style reset |
+| Magician secondary AP (LUK) | earned AP fills LUK until base LUK = level + 2 (keyframes 1 → 3, 200 → 202), the rest to INT; Beginner none | C | v83 Character.wz reqLUK pattern (15 at Lv13 ... 70 at Lv68), ticket #106 |
 | INT MP growth | Magician adds floor(INT / 10) to base growth, before assigning the new level's AP | B | pre-Big-Bang formula compilations, refs/research/v83-mechanics |
 | Player avoidability | DEX × 0.25 + LUK × 0.5 + worn equipment incEVA | B (A for equipment) | Exoot 2009 formula compilation / v83 Character.wz |
 | Player body (touch box) / cast origin | (-14,-58)-(14,0) from the feet / 30 px above the feet; shots start 22 px further toward their target (the hand) | C | ours |
@@ -2865,11 +3249,32 @@ fields round to six decimal places for readable committed JSON; generation never
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
-| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill; fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
+| Equip window layout (#108) | `UIWindow.img/Equip/backgrnd` 175x304; 32 px slot cells hat (38, 35), top / overall (38, 134), bottom (38, 167), shoes (71, 200), gloves (5, 167), weapon (104, 134); BtUIClose at (10, 281); opens left of the view's centre, the Item window right of it | C (measured on the v83 art; the cells cross-checked B against JourneyClient's slot offsets), A (art) | ours; `UIWindow.img/Equip` |
+| Item window layout (#108) | `UIWindow.img/Item/backgrnd` 175x289; tab glyphs (`Tab/enabled` shown, `Tab/disabled` the rest) at x 10 / 42 / 74 / 108 / 139 in the 19 px strip at y 23; slots 4 x 6 from (8, 50), 36 px apart horizontally and 34 vertically; stack counts in `Basic.img/ItemNo` digits at the slot's (1, 21); mesos right-aligned in the field (25, 267, 113x14) beside the baked MESOS; `BtCoin` shown disabled (mesos are never dropped) | C (measured on the v83 art; tab offsets B from JourneyClient), A (art) | ours; `UIWindow.img/Item` |
+| Inventory mouse protocol (#108) | a double-click wears / takes off; a press that moves 4 px starts a drag drawn under the cursor; the release resolves against the window stack (another inventory window takes the drop, no window = discard after the YesNo box, anything else nothing); a drop anywhere on the Equip window wears the item in its own slot | C (ours; v83 drags onto the exact slot) | ours |
+| Item tooltip (#108) | drawn dark box 262 px wide (v83 UI.wz has no UIToolTip.img); `ToolTip/Equip/Can` / `Cannot` label and digit art for REQ LEV / STR / DEX / INT / LUK (three digits, 6 px cells) and the job words; `Property` labels 3 CATEGORY, 4 ATTACK SPEED, 6-11 and 13-14 the attack / defence / accuracy / avoid / speed / jump lines, 16 NUMBER OF UPGRADES AVAILABLE; `ItemCategory` 1 HAT, 5 TOP, 6 BOTTOM, 7 SHOES, 8 GLOVE, 21 LONGCOAT; `WeaponCategory` by item id / 10000 - 100; `Speed` 0-6 FASTEST..SLOWEST from attackSpeed 2, 3, 4-5, 6, 7, 8, 9; STR / DEX / INT / LUK / MaxHP / MaxMP as text; "(+N)" after the name for N successful scrolls | A (art, read), B (speed words, scroll count: RE clients), C (layout, mapping) | ours; `UIWindow.img/ToolTip` |
+| Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
+| Cap hair cover (#108) | a cap whose `info/vslot` contains H5 (CpH5 half-cover, CpH1H5 full-cover) hides the hair's `hairOverHead` layers; a headband (CpH1) hides nothing; without a cap the `*BelowCap` layers are not drawn | B | v83 client cap types (RE clients), re-implemented from prose |
+| Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
+| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
+| Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
+| Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
+| Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
+| Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |
+| Scroll NPCs (#111) | El Moth 1032103 (100%), Barun 2022002 (60%), Tulcus 1052104 (10%), Vega 2041016 (dark 70% / 30%), standing on the Free Market floor at x -380, -280, -180 and 40 (`shops.json`); all four have art in v83 `Npc.wz`, so none is replaced; names from `String.wz/Npc.img` | A (ids, art, names; they are v83's own scroll sellers), C (which NPC sells which rate, the positions) | Owner #33; `Npc.wz`, `String.wz/Npc.img` |
+| Scroll prices (#111) | 35,000 mesos for an armour scroll, 70,000 for a wand or staff scroll, at every rate (`shops.json` `prices`, `weapon_slots`) | B (100% scrolls: v83 NPC prices), C (applied to the 60%, 10% and dark rates) | Owner #33; v83 server shop data |
+| Shop stock (#111) | each NPC sells its rates of every scroll family whose equipment (a drop-list item) the character's job can wear; unlimited, fixed, the same at every tier; no filter tabs, no random stock | C | Owner #33 |
+| Sell rule (#111) | any shop buys spare equipment at its `info/price` and scrolls at their `info/price` (1 meso); worn equipment cannot be sold; potions are not bought (the Use tab lists scrolls only) | B (price = sell price), C (potions) | v83 sell rule (server reimplementations); ours |
+| Shop messages (#111) | "You do not have enough mesos." / "Please check if your inventory is full or not." / "You can't sell it anymore.", "How many are you willing to buy?" / "...sell?", "Are you sure you want to sell it?" | B (GMS v95 client string pool; the v83 wording is unverified) | open client reimplementations' string pool dump |
+| NPC Chat key (#111) | Space, a bindable `npc_chat` action shown in Key Config (icon `KeyConfig/icon/54` NPC CHAT). Space was jump's second key: jump keeps Left Alt and C, as in v83 (Alt jump, Space NPC chat). An existing settings.cfg whose rebound action holds Space keeps it: NPC Chat then has no key until rebound | B (v83's default NPC Chat key), C (the migration) | v83 default key layout; ours |
+| Shop talk reach (#111) | within 100 px horizontally and 90 px vertically of an NPC's feet (`shops.json` `talk_range`); a double-click on an NPC opens its shop from any distance | C | ours |
+| Shop window layout (#111) | `UIWindow.img/Shop/backgrnd` 463x339, two panels 230 px apart: five rows at y 127 + 40 x n (icon slot x 6, `select` 162x35 at x 43), the strip at y 91 (pink Buy label left, `TabSell` Equip / Use / Set-up / Etc / Cash glyphs right, 44 px each), NPC feet (54, 76), character feet (285, 76), Buy (126, 32), Exit (126, 56), Sell (356, 32), meso text right-aligned in the baked field (361, 63, 90x15), scrollbar `Basic.img/VScr5` at x 208; the `TabBuy` All / Must filter tabs are not drawn | C (measured on the v83 art; art and origins A) | ours |
+| Shop dialogs (#111) | quantity box = `Basic.img/YesNo` with a typed number (1 to 100, or the stack), refusal box = `Basic.img/Notice` with BtOK, sale confirmation = the YesNo box | C | ours |
 
 ## 12. Later phases
 

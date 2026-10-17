@@ -31,7 +31,9 @@ extends Node2D
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
-## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86), the Equip and Item windows
+## (equip_window E / item_window I; #108: they change the character through `world` and `_on_item_action` makes the
+## drawn look, the Stat window and each other follow) and the status bar's Menu
 ## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
@@ -81,7 +83,8 @@ const WINDOW_DELAY := 1.2
 ## (otherwise the animation's own length, ~1.3 s, is used).
 const JOB_WINDOW_DELAY := 1.3
 ## Input action -> the in-run window it toggles (project.godot defaults S and K; rebindable in Settings).
-const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill"}
+const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill", "equip_window": "equip",
+	"item_window": "item"}
 ## CanvasLayer of the in-run windows: above the modal windows (10), below the perf overlay (20).
 const UI_LAYER := 11
 ## In-run windows that also open while the run is paused (from the pause menu, #87).
@@ -152,6 +155,9 @@ var hud: Hud
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
+## The scroll result effect (Enchant Success / Failure) above the in-run windows (#110).
+var enchant: EnchantFx
+var wiring: InventoryWiring
 ## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
 var ui_layer: CanvasLayer
 var ui_windows: WindowStack
@@ -194,6 +200,11 @@ var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
+var _frame_mesos := 0
+var _meso_shot_ids := {}
+var _frame_items: Array[String] = []
+var _frame_inventory_full := false
+var _equip_shot_taken := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -278,18 +289,9 @@ func _ready() -> void:
 		_fail("unknown stage '%s'" % stage_key)
 		return
 	map_id = int(stage.get("map_id", 0))
-	var lib := library
-	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
-		func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {},
-		func(id: int) -> Dictionary: return lib.mob_root(id),
-		setup_missing)
-	for m in setup_missing:
-		push_warning("RunScene: missing in the asset cache: " + m)
+	var character := {}
 	if options.has("character"):
 		var character_errors := PackedStringArray()
-		var character: Dictionary
 		if options.character is Dictionary:
 			character = (options.character as Dictionary).duplicate(true)
 			var error := CharacterSnapshot.validation_error(character)
@@ -300,7 +302,14 @@ func _ready() -> void:
 		if not character_errors.is_empty():
 			_fail("; ".join(character_errors))
 			return
-		setup["character"] = character
+	var lib := library
+	# The character's held items join the equipment info the setup loads.
+	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
+		SceneFlow.equipment_info_loader(lib),
+		func(id: int) -> Dictionary: return lib.mob_root(id),
+		setup_missing, character)
+	for m in setup_missing:
+		push_warning("RunScene: missing in the asset cache: " + m)
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -313,7 +322,7 @@ func _ready() -> void:
 	_build_presentation()
 	_warm_ui()
 	_warm_stage()
-	_apply_job_look(int(world.player_state.job_id))
+	_apply_look()
 	handle_events(world.drain_events())
 	_start_title()
 	_play_bgm()
@@ -420,17 +429,20 @@ func toggle_menu() -> void:
 
 
 ## The Stat window's numbers (StatWindow): identity, pools and the v83 stats the sim has; rows it does not model
-## (guild, fame, hands) are left out and show "-". tier C: attack = the held weapon's incPAD, magic = INT + magic
-## attack (equipment incMAD and buffs), accuracy = buff accuracy only (the sim has no player accuracy rule).
+## (guild, fame, hands) are left out and show "-". tier C: attack = W.ATT summed over worn equipment, magic = INT +
+## magic attack (equipment incMAD and buffs), accuracy = equipment incACC + buff accuracy (the sim has no player
+## accuracy rule). `<stat>_bonus` is what worn equipment adds to STR/DEX/INT/LUK (shown as "total (base+bonus)").
 func stat_info() -> Dictionary:
 	var ps := world.player_state
 	var out := {"name": _player_name(), "job": world.jobs.name_of(int(ps.job_id)), "ap": 0,
-		"exp_next": int(ps.exp_next), "attack": int(float(world.weapon_info().get("incPAD", 0))),
+		"exp_next": int(ps.exp_next), "attack": roundi(world.weapon_attack()),
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
 		"jump": world.player.jump_stat}
 	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
+	for stat: String in ["str", "dex", "int", "luk"]:
+		out[stat + "_bonus"] = roundi(world.equipment_bonus("inc" + stat.to_upper()))
 	return out
 
 
@@ -462,7 +474,10 @@ func advance_frame(delta: float) -> void:
 			_sim_us += Time.get_ticks_usec() - t0
 			_sim_ticks += 1
 			_after_tick()
-			handle_events(world.drain_events())
+			var drained := world.drain_events()
+			handle_events(drained)
+			if _autoplay:
+				BotShop.equip_after(world, drained) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
 			if world.state != RunWorld.PLAYING:
@@ -485,6 +500,16 @@ func advance_frame(delta: float) -> void:
 		hud.show_exp(_frame_exp)
 		counters.exp_messages += 1
 	_frame_exp = 0
+	if _frame_mesos > 0 and hud != null:
+		hud.show_mesos(_frame_mesos)
+	_frame_mesos = 0
+	if hud != null:
+		for item_name: String in _frame_items:
+			hud.show_item_gain(item_name)
+		if _frame_inventory_full:
+			hud.show_inventory_full()
+	_frame_items.clear()
+	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
 		_present(delta)
@@ -631,6 +656,9 @@ func _build_ui_windows() -> void:
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
+		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
+	enchant = wiring.enchant
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
@@ -638,6 +666,27 @@ func _build_ui_windows() -> void:
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 	if settings != null:
 		watch_settings(settings)
+
+
+## An Equip / Item window's change makes the drawn look, the Stat window and the other inventory window follow (the
+## world's events are mapped at once, the run being held); the windows' messages go to the HUD (InventoryWiring).
+func _on_item_action(_action: String) -> void:
+	handle_events(world.drain_events())
+	_refresh_inventory_windows()
+
+
+## Redraws the open Equip / Item windows and refreshes the Stat window from the live world (an item moved, or a
+## pickup landed under them: the Item window reads its tabs and meso line from the world at draw time).
+func _refresh_inventory_windows() -> void:
+	if ui_windows == null:
+		return
+	for id: String in ["equip", "item"]:
+		var w := ui_windows.find_window(id) as InventoryWindow
+		if w != null:
+			w.refresh()
+	var sw := ui_windows.find_window("stat") as StatWindow
+	if sw != null:
+		sw.set_info(stat_info())
 
 
 ## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
@@ -690,7 +739,8 @@ func _sync_modal_input() -> void:
 ## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
-			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t"]:
+			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
+			EquipWindow.ART + "backgrnd", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
 	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
 	if npc > 0:
@@ -703,7 +753,7 @@ func _warm_ui() -> void:
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in world.balance.player.get("weapon_by_job", {}).values():
+	for wid: Variant in Equipment.held_ids(world.equipment) + world.balance.player.get("weapon_grants", {}).values():
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -891,7 +941,7 @@ func handle_events(events: Array) -> void:
 				if e.phase == "start":
 					_restart_action = true
 					_sound(String(e.sound))
-				else:
+				elif String(e.afterimage) != "": # a bare-handed punch has no afterimage
 					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
@@ -918,9 +968,24 @@ func handle_events(events: Array) -> void:
 				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
+				if String(e.kind) == "meso" and not _meso_shot_ids.has(int(e.item_id)):
+					# tier C: capture the first drop of each coin sprite while it lies on the ground.
+					_meso_shot_ids[int(e.item_id)] = true
+					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
+				elif String(e.kind) == "equip" and not _equip_shot_taken:
+					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
+					_equip_shot_taken = true
+					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
+			"pickup_blocked", "grant_blocked":
+				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
 			"pickup_collected":
+				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
+				if String(e.get("kind", "")) == "meso":
+					_frame_mesos += int(e.count)
+				elif String(e.get("kind", "")) == "equip":
+					_frame_items.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
 			"potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
@@ -934,6 +999,11 @@ func handle_events(events: Array) -> void:
 				_pending_window = {"kind": "job", "options": e.options}
 			"job_changed":
 				_on_job_changed(int(e.job_id))
+			"equipment_changed":
+				_apply_look()
+				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
+			"scroll_used":
+				_on_scroll_used(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -961,6 +1031,14 @@ func _on_boss_skill(e: Dictionary) -> void:
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+
+
+## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
+## and an evidence shot of the result for playtests.
+func _on_scroll_used(e: Dictionary) -> void:
+	var result := String(e.result)
+	wiring.scroll_used(result, avatar.get_global_transform_with_canvas().origin)
+	_event_shot("scroll_%s.png" % result, 0.35)
 
 
 func _on_cast(e: Dictionary) -> void:
@@ -1013,16 +1091,15 @@ func _on_job_changed(job_id: int) -> void:
 	# centred window hides the effect (autopick runs never wait).
 	var a := library.find_anim(FX_JOB_CHANGED) if library != null else null
 	_window_delay = maxf(_window_delay, a.total if a != null and a.total > 0.0 else JOB_WINDOW_DELAY)
-	_apply_job_look(job_id)
+	_apply_look()
 	_event_shot("job_%d.png" % job_id, 0.8)
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## Carries the snapshot's look and resolves the drawn weapon through the same rule as the simulation.
-func _apply_job_look(job_id: int) -> void:
-	avatar.set_look(DataRepo.character_look({"look": world.character_look,
-		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
-		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
+## Draws the carried look with the live worn equipment (the only source of what is drawn). Never reads
+## world.character_snapshot(), which refuses while a choice is pending (job advancement is drawn mid-choice).
+func _apply_look() -> void:
+	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
@@ -1034,7 +1111,7 @@ func _warp(to: float) -> void:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
-		world.drain_events()
+		BotShop.equip_after(world, world.drain_events())
 	_warped = world.time
 
 

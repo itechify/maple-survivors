@@ -1,6 +1,6 @@
 class_name PickupSystem
 extends RefCounted
-## EXP and potion drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
+## EXP, potion and meso drops as pooled struct-of-arrays (docs/ARCHITECTURE.md 4.4, docs/GAME_DESIGN.md section 5).
 ##
 ## A drop pops up (vy = -pop_speed, a small sideways drift from `rng`), falls with gravity up to fall_speed and lands
 ## on the first floor below it (FootholdMap.find_landing; a drop with nothing below stops where it is once it is below
@@ -10,7 +10,14 @@ extends RefCounted
 ## drop absorbs the EXP drop farthest from the player and replaces it at the new death position (`merged` reports
 ## absorption, while the new drop's pop and age restart). With `lifetime` > 0 an uncollected drop expires after fading
 ## out over its last `fade` seconds (alpha()) and is removed silently, its EXP lost (`expired`, `expired_exp`); a drop flying to
-## the player never expires. All motion and lifetime constants are tier C (ours).
+## the player never expires. Potions and mesos (spawn_meso, kind MESO) never expire, merge or count toward the EXP
+## cap; a collected meso drop adds its amount to `step_mesos` (this step) and `collected_mesos` (total).
+## Equipment (spawn_equipment, kind EQUIP) carries its instance in `equip_instance`, never expires, merges or counts
+## toward the EXP cap, and is collected only while the caller says the Equip tab has room (step's `equip_room`, -1 =
+## unlimited): a collected one is appended to `collected_equipment` (this step) and reported by a `pickup_collected`
+## event (kind "equip", count 1). With no room it is not magnetised (one already flying falls back to the
+## floor), lies where it is and appends one `pickup_blocked` event (reason "inventory_full") each time the player comes
+## within magnet range, until room appears. All motion and lifetime constants are tier C (ours).
 
 const AIR := 0
 const REST := 1
@@ -19,6 +26,10 @@ const MAGNET := 2
 const EXP := 0
 const HP_POTION := 1
 const MP_POTION := 2
+const MESO := 3
+const EQUIP := 4
+## The `kind` string of a `pickup_collected` event by pickup kind (both potion kinds are "potion").
+const KIND_NAMES := {EXP: "exp", HP_POTION: "potion", MP_POTION: "potion", MESO: "meso", EQUIP: "equip"}
 ## The player's body centre is this far above the feet. tier C: ours.
 const CENTER_UP := 25.0
 
@@ -44,6 +55,14 @@ var exp := PackedInt32Array()
 var item_id := PackedInt32Array()
 var kind := PackedByteArray()
 var potion_count := PackedInt32Array()
+## Meso amount of a MESO drop (0 for every other kind).
+var meso := PackedInt32Array()
+## Equipment instance of an EQUIP drop (null for every other kind); equipment is rare, so plain Variants.
+var equip_instance: Array = []
+## 1 once the "inventory full" notice was given for this drop and the player has not left magnet range since.
+var full_noted := PackedByteArray()
+## Equipment instances collected in the most recent step(), read by RunWorld to fill the inventory.
+var collected_equipment: Array = []
 ## Potion quantities collected in the most recent step(), read by RunWorld to update inventory.
 var collected_potions := {"hp": 0, "mp": 0}
 ## AIR / REST / MAGNET.
@@ -57,6 +76,9 @@ var rng: RandomNumberGenerator
 var merged := false
 ## Total EXP collected so far.
 var collected_exp := 0
+## Mesos collected in the most recent step() (read by RunWorld) and in total.
+var step_mesos := 0
+var collected_mesos := 0
 ## Drops expired so far and the EXP they held.
 var expired := 0
 var expired_exp := 0
@@ -118,6 +140,27 @@ func spawn_potion(pos: Vector2, count: int, p_item_id: int, potion_kind: String)
 	return _spawn(pos, 0, p_item_id, HP_POTION if potion_kind == "hp" else MP_POTION, count)
 
 
+## Drops `amount` mesos (the coin sprite follows the amount) independently of the EXP cap; -1 for amount <= 0.
+func spawn_meso(pos: Vector2, amount: int) -> int:
+	if amount <= 0:
+		return -1
+	merged = false
+	var i := _spawn(pos, 0, MesoDrops.sprite_item(amount), MESO, 0)
+	meso[i] = amount
+	return i
+
+
+## Drops an equipment instance (see Equipment; the item's own id picks the icon) independently of the EXP cap; -1
+## for an instance without a positive id.
+func spawn_equipment(pos: Vector2, instance: Dictionary) -> int:
+	if int(instance.get("id", 0)) <= 0:
+		return -1
+	merged = false
+	var i := _spawn(pos, 0, int(instance.id), EQUIP, 0)
+	equip_instance[i] = instance
+	return i
+
+
 func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -> int:
 	if _free.is_empty():
 		_grow(capacity() * 2)
@@ -133,6 +176,9 @@ func _spawn(pos: Vector2, p_exp: int, p_item_id: int, p_kind: int, count: int) -
 	item_id[i] = p_item_id
 	kind[i] = p_kind
 	potion_count[i] = count
+	meso[i] = 0
+	equip_instance[i] = null
+	full_noted[i] = 0
 	state[i] = AIR
 	age[i] = 0.0
 	_count += 1
@@ -147,6 +193,7 @@ func despawn(i: int) -> void:
 	if i < 0 or i >= capacity() or active[i] == 0:
 		return
 	active[i] = 0
+	equip_instance[i] = null
 	_count -= 1
 	if kind[i] == EXP:
 		_exp_count -= 1
@@ -165,9 +212,13 @@ func alpha(i: int) -> float:
 
 
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
-func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array) -> int:
+## `equip_room` is how many more equipment items the Equip tab holds (-1: no limit); it counts down as items are collected.
+func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array, equip_room: int = -1) -> int:
 	var got := 0
 	collected_potions = {"hp": 0, "mp": 0}
+	collected_equipment = []
+	step_mesos = 0
+	var room := equip_room
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
 	var acc := float(tuning.magnet_acc)
@@ -201,7 +252,22 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 				expired_exp += exp[i]
 				despawn(i)
 				continue
-		if st != MAGNET and d2 <= mr2:
+		var blocked := kind[i] == EQUIP and room == 0
+		if blocked:
+			if st == MAGNET:  # the last slot filled while it was flying: it drops back to the floor
+				st = AIR
+				state[i] = AIR
+				vx[i] = 0.0
+				vy[i] = 0.0
+			if d2 <= mr2 and full_noted[i] == 0:
+				full_noted[i] = 1
+				events.append({"type": "pickup_blocked", "pickup": i, "item_id": item_id[i],
+					"pos": Vector2(px, py), "reason": "inventory_full"})
+			elif d2 > mr2:
+				full_noted[i] = 0
+		else:
+			full_noted[i] = 0
+		if st != MAGNET and d2 <= mr2 and not blocked:
 			st = MAGNET
 			state[i] = MAGNET
 			vx[i] = float(tuning.magnet_speed)  # vx holds the magnet speed while attracted
@@ -239,16 +305,28 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 			x[i] = nx
 			y[i] = ny
 			d2 = (cx - nx) * (cx - nx) + (cy - ny) * (cy - ny)
-		if d2 <= cr2:
+		if d2 <= cr2 and not blocked:
 			got += exp[i]
 			var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
 			if potion_kind != "":
 				collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
-			events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
-				"pos": Vector2(x[i], y[i]), "kind": "exp" if kind[i] == EXP else "potion",
-				"potion_kind": potion_kind, "count": potion_count[i]})
+			var is_meso := kind[i] == MESO
+			if is_meso:
+				step_mesos += meso[i]
+			var is_equip := kind[i] == EQUIP
+			var kind_name: String = KIND_NAMES[kind[i]]
+			# A meso event carries its amount in `count`; the instance of equipment goes to `collected_equipment`.
+			var event := {"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
+				"pos": Vector2(x[i], y[i]), "kind": kind_name,
+				"potion_kind": potion_kind, "count": meso[i] if is_meso else (1 if is_equip else potion_count[i])}
+			if is_equip:
+				collected_equipment.append(equip_instance[i])
+				if room > 0:
+					room -= 1
+			events.append(event)
 			despawn(i)
 	collected_exp += got
+	collected_mesos += step_mesos
 	return got
 
 
@@ -256,11 +334,12 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, state, kind]:
+	for arr: Variant in [active, state, kind, full_noted]:
 		arr.resize(n)
+	equip_instance.resize(n)
 	for arr: Variant in [x, y, vx, vy, age]:
 		arr.resize(n)
-	for arr: Variant in [exp, item_id, potion_count]:
+	for arr: Variant in [exp, item_id, potion_count, meso]:
 		arr.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0

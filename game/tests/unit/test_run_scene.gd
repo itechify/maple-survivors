@@ -14,8 +14,8 @@ func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	if not require_cache():
 		return
 	var original := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
-	original.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
-	original.beginner_weapon = 1322005
+	original.look = {"skin": 3, "face": 21002, "hair": 31057}
+	original.equipment.worn = Equipment.worn_from_ids([1041011, 1061008, 1072038, 1322005], {})
 	scene = _make("henesys_hg1", 70, {"character": original})
 	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
 		"equips": [1041011, 1061008, 1072038, 1322005]})
@@ -201,8 +201,10 @@ func test_events_become_visuals() -> void:
 	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
 	scene.handle_events([{"type": "level_up", "level": 2}])
 	assert_eq(scene.fx.active_count(), fx0 + 2, "LevelUp effect")
-	scene.handle_events([{"type": "job_changed", "job_id": 200, "name": "Magician"}])
-	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the Wooden Wand")
+	scene.world.drain_events()
+	scene.world.change_job(200) # job_changed, then the Wooden Wand grant's equipment_changed
+	scene.handle_events(scene.world.drain_events())
+	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the granted Wooden Wand")
 	assert_true(scene.fx_back.active_count() >= 1, "JobChanged (z < 0) plays behind the character")
 	scene.handle_events([{"type": "pickup_collected", "pickup": 0, "item_id": 4000019, "exp": 5, "pos": p},
 		{"type": "pickup_collected", "pickup": 1, "item_id": 4000019, "exp": 7, "pos": p}])
@@ -746,7 +748,7 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
 	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
-	assert_eq(mp.key_label, "End / E")
+	assert_eq(mp.key_label, "End", "E opens the Equip window (#108)")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
 	scene.world.drink_potion("hp")
 	scene.advance_frame(0.0)
@@ -763,7 +765,7 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
-	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END], ["drink_mp", KEY_E]]:
+	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END]]:
 		var event := InputEventKey.new()
 		event.physical_keycode = pair[1]
 		event.pressed = true

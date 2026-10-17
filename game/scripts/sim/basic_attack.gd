@@ -5,6 +5,11 @@ extends RefCounted
 
 ## tier B: the five standard one-handed swing/stab actions (pre-Big-Bang client descriptions).
 const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
+## The bare-handed punch when no weapon is worn (v83 lets a character fight without one). tier A: the sound is
+## Sound.wz/Weapon.img/barehands. tier C: normal attack speed 6, the same five body actions, no afterimage.
+const BARE_HANDS := {"attackSpeed": 6, "sfx": "barehands"}
+## tier C: the punch's reach, feet-relative and facing left (shorter than the starter Sword's swing).
+const BARE_HANDS_BOX := Rect2(-55, -55, 50, 50)
 
 var cooldown := 0.0
 var _body: Dictionary
@@ -32,8 +37,8 @@ func step(dt: float, world: RunWorld) -> void:
 	if world.player.state not in [PlayerMotion.ST_STAND, PlayerMotion.ST_AIR]:
 		return
 	var weapon := world.weapon_id()
-	var info := world.weapon_info()
-	if weapon == 0 or info.is_empty() or float(info.get("incPAD", 0)) <= 0:
+	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
+	if info.is_empty():
 		return
 	var action: String = ACTIONS[world.basic_rng.randi_range(0, ACTIONS.size() - 1)]
 	var spec := _spec(info, action)
@@ -46,7 +51,7 @@ func step(dt: float, world: RunWorld) -> void:
 	_pending["str"] = int(world.player_state.str)
 	_pending["dex"] = int(world.player_state.dex)
 	_pending["level"] = int(world.player_state.level)
-	_pending["watk"] = float(info.incPAD)
+	_pending["watk"] = world.weapon_attack()
 	_pending["left"] = float(spec.hit_after)
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
 	world.start_action(action, float(spec.action_time), true)
@@ -63,9 +68,11 @@ func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
 
 
 func _spec(info: Dictionary, action: String) -> Dictionary:
+	var body: Dictionary = _body.get(action, {})
+	if is_same(info, BARE_HANDS):
+		return _bare_spec(body, action)
 	var name := WeaponInfo.afterimage_name(info)
 	var node: Dictionary = _images.get(name, {}).get(WeaponInfo.AFTERIMAGE_VARIANT, {}).get(action, {})
-	var body: Dictionary = _body.get(action, {})
 	if node.is_empty() or body.is_empty() or not node.has("lt") or not node.has("rb"):
 		return {}
 	var frame := 999
@@ -87,6 +94,27 @@ func _spec(info: Dictionary, action: String) -> Dictionary:
 	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total,
 		"interval": WeaponInfo.attack_interval(info), "afterimage": WeaponInfo.afterimage_frame_path(name, action, frame),
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
+
+
+## tier C: a punch lands when the body action's last frame starts; reach BARE_HANDS_BOX, no afterimage or spark.
+func _bare_spec(body: Dictionary, action: String) -> Dictionary:
+	var last := -1
+	for key: String in body:
+		if key.is_valid_int():
+			last = maxi(last, int(key))
+	if last < 0:
+		return {}
+	var before := 0.0
+	var total := 0.0
+	for key: String in body:
+		if key.is_valid_int():
+			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
+			total += delay
+			if int(key) < last:
+				before += delay
+	return {"box": BARE_HANDS_BOX, "hit_after": before, "action_time": total,
+		"interval": WeaponInfo.attack_interval(BARE_HANDS), "afterimage": "", "hit_visual": "",
+		"sound": WeaponInfo.sound_path(BARE_HANDS)}
 
 
 ## The swing's single target in the facing box: a scheduled boss first, then nearest, then slot (targets_before).

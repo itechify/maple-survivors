@@ -32,6 +32,69 @@ func test_chain_replays_records_and_carries_every_character_field_after_clear() 
 	assert_eq(a.rounds[1].start_character.job_id, 210)
 
 
+## Two quiet rounds whose carried character is a Lv 10 Magician with 200,000 mesos and a spare wand (synthetic item info).
+func _shopping_setups() -> Array:
+	var data := RF.quiet_data()
+	data.stages.stages.quiet.duration = 2.0
+	data.stages.stages.quiet.keyframes = [{"t": 0, "rate": 10, "max_alive": 20, "pool": {"100100": 1}}]
+	data.balance.run_time_cap = 3.0
+	var setups := []
+	for i in 2:
+		var setup := RF.setup("quiet", 0, data)
+		setup.equipment_info = {
+			1040002: {"incPDD": 3, "tuc": 7, "price": 50}, 1060002: {"incPDD": 2, "tuc": 7, "price": 40},
+			1072001: {"incPDD": 2, "tuc": 5, "price": 30}, 1302000: {"incPAD": 17, "tuc": 7, "price": 100},
+			1372005: {"reqJob": 2, "reqLevel": 8, "incPAD": 15, "incMAD": 23, "tuc": 7, "price": 1000},
+			1372008: {"reqJob": 2, "reqLevel": 8, "incMAD": 10, "tuc": 7, "price": 700}}
+		setup.scroll_info = {2043700: {"incMAD": 1, "success": 100, "price": 1},
+			2043701: {"incMAD": 2, "incINT": 1, "success": 60, "price": 1},
+			2040400: {"incPDD": 1, "success": 100, "price": 1}, 2040600: {"incPDD": 1, "success": 100, "price": 1},
+			2040700: {"incDEX": 1, "success": 100, "price": 1}}
+		setups.append(setup)
+	var character := RunWorld.new(setups[0]).character_snapshot()
+	character.level = 10
+	character.job_id = 200
+	character.mesos = 200000
+	character.equipment.worn.weapon = Equipment.create(1372005, setups[0].equipment_info[1372005])
+	character.equipment.inventory.append(Equipment.create(1372008, setups[0].equipment_info[1372008]))
+	setups[0].character = character
+	return setups
+
+
+func test_the_chain_visits_the_shops_between_tiers_and_records_it() -> void:
+	var a: Dictionary = BR.run_chain(_shopping_setups(), "bot", 2026)
+	var b: Dictionary = BR.run_chain(_shopping_setups(), "bot", 2026)
+	assert_eq(JSON.stringify(a), JSON.stringify(b), "same seed, same purchases and scroll results")
+	assert_eq(a.rounds.size(), 2)
+	var shop: Dictionary = a.rounds[0].shop
+	assert_eq(shop.sold, 1, "the worse wand is sold")
+	assert_eq(shop.mesos_before, 200000)
+	assert_eq(shop.bought, 3, "200,700: two 70,000 wand scrolls and one 35,000 armour scroll")
+	assert_eq(shop.used, 3)
+	assert_eq(shop.succeeded + shop.failed, 3)
+	assert_eq(shop.spent, 175000)
+	var carried: Dictionary = a.rounds[1].start_character
+	assert_eq(carried.mesos, shop.mesos_after)
+	assert_eq(carried.equipment.worn.weapon.slots, 5, "two upgrade slots of the wand were used")
+	assert_eq(carried.equipment.inventory, [], "the spare wand was sold")
+	assert_false(a.rounds[1].has("shop"), "no visit after the last tier")
+	assert_eq(a.rounds[1].equipment_worn.weapon, 1372005)
+	assert_true(a.rounds[0].has("equips_worn"))
+	var summary: Dictionary = BR.aggregate([a])
+	assert_eq(summary.tiers["1"].shop.spent.median, 175000.0)
+	assert_false(summary.tiers["2"].has("shop"))
+	assert_true(BR.describe(a).contains("shop: mesos"), "the readable record shows the visit")
+	assert_true(BR.describe_metrics(summary).contains("shop spent per visit"))
+
+
+func test_a_chain_without_a_clear_never_reaches_the_shop() -> void:
+	var setups := _shopping_setups()
+	setups[0].data.balance.run_time_cap = 0.05
+	var record: Dictionary = BR.run_chain(setups, "random", 1)
+	assert_eq(record.rounds.size(), 1)
+	assert_false(record.rounds[0].has("shop"))
+
+
 func test_timeout_does_not_feed_a_later_tier() -> void:
 	var data := RF.quiet_data()
 	data.balance.run_time_cap = 0.05

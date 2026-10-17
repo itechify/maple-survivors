@@ -14,9 +14,10 @@ extends UiWindow
 ## close without saving. Tab, Scroll Lock and the Windows / menu keys are no drop targets (v83 bakes its own functions
 ## on Tab and Scroll Lock into the art). Hovering an icon names its action.
 ##
-## Icons: tier A v83 KeyConfig icons for jump (53 JUMP), Stat (2 ABILITY, the v83 Stat window key) and Skill (3 SKILL);
-## the potions show Red / Blue Potion (Item.wz 2000000 / 2000003) and Teleport the F/P Teleport skill icon (tier C).
-## Without the cache the window keeps its layout and draws plain keys and lettered boxes.
+## Icons: tier A v83 KeyConfig icons for jump (53 JUMP), Equip (0 EQUIPMENT), Item (1 ITEMS), Stat (2 ABILITY, the
+## v83 Stat window key), Skill (3 SKILL) and NPC Chat (54 NPC CHAT); the potions show Red / Blue Potion (Item.wz 2000000 / 2000003) and
+## Teleport the F/P Teleport skill icon (tier C). Without the cache the window keeps its layout and draws plain keys
+## and lettered boxes.
 
 ## Emitted after OK saved the draft.
 signal saved()
@@ -26,9 +27,11 @@ const ART_SIZE := Vector2(629, 373)
 ## Action -> icon path (see the class doc) and tooltip name.
 const ICONS := {"jump": ART + "icon/53", "drink_hp": "Item.wz/Consume/0200.img/02000000/info/icon",
 	"drink_mp": "Item.wz/Consume/0200.img/02000003/info/icon", "teleport": "Skill.wz/210.img/skill/2101002/icon",
-	"stat_window": ART + "icon/2", "skill_window": ART + "icon/3"}
+	"equip_window": ART + "icon/0", "item_window": ART + "icon/1", "stat_window": ART + "icon/2",
+	"skill_window": ART + "icon/3", "npc_chat": ART + "icon/54"}
 const NAMES := {"jump": "Jump", "drink_hp": "HP Potion", "drink_mp": "MP Potion", "teleport": "Teleport",
-	"stat_window": "Stat", "skill_window": "Skill"}
+	"equip_window": "Equip", "item_window": "Item", "stat_window": "Stat", "skill_window": "Skill",
+	"npc_chat": "NPC Chat"}
 ## tier C (ours, measured on the v83 backgrnd): key rows as [top, bottom, codes, x edges]; key i spans
 ## [edges[i], edges[i + 1]); code 0 = a key that is no drop target. Left / right Alt, Ctrl and Shift share one physical
 ## keycode (Godot tells them apart by location only), so both keys of a pair show the same icon.
