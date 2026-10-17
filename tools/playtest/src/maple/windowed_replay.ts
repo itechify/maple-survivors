@@ -198,6 +198,7 @@ export async function runWindowedReplay(o: WindowedOptions): Promise<RunOutcome>
 	for (const f of ["replay.json", "fingerprint.json", "decisions.jsonl", "timeline.jsonl"]) rec.adopt(f);
 	const exitCode = exitCodeFor(errors, problems.length);
 	const run = (r.scenario.run ?? {}) as Record<string, unknown>;
+	const recordedRecord = (verdict && !verdict.error ? readJson(path.join(r.dir, "record.json")) : null) as Record<string, unknown> | null;
 	const saved = (verdict?.shots ?? []).filter((s) => s.saved).length;
 	const replayLine = !verdict || verdict.error ? "incomplete (the windowed replay wrote no verdict)"
 		: divergence ? `DIVERGED: ${divergence.message}` : `match (${applied.length} decisions, every fingerprint field identical)`;
@@ -212,7 +213,9 @@ export async function runWindowedReplay(o: WindowedOptions): Promise<RunOutcome>
 			["replay", replayLine], ["view", views], ["speed", `x${o.speed}${(o.skipTo ?? 0) > 0 ? `, skipped to ${o.skipTo} s` : ""}`],
 			["exit code", String(exitCode)]],
 		infraErrors: errors, problems, decisions: applied as DecisionRecord[], files: rec.files(), exitCode,
-		data: { end: fingerprint ? { record: fingerprint, fingerprint, brain_lost: false } : undefined, windowed: verdict },
+		// A matching replay played the recorded round: its record.json holds the metrics; otherwise only the fingerprint.
+		data: { end: fingerprint ? { record: (!divergence && recordedRecord) || fingerprint, fingerprint, brain_lost: false } : undefined,
+			windowed: verdict },
 		replay: replayCommand(r.dir, repo),
 	};
 	const report = renderReport(ctx);

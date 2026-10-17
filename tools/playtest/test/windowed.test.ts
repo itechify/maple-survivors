@@ -22,19 +22,19 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "playtest-win-"));
 const KNOWN = { personalities: personalityNames(), stages: ["henesys_hg1", "tree_that_grew_1", "dark_cave"], tiers: 2, cores: 16 };
 const readJson = (f: string) => JSON.parse(fs.readFileSync(f, "utf8"));
 
-async function cli(argv: string[], windowedMode = "match", livenessS?: number) {
+async function cli(argv: string[], windowedMode = "match", livenessS?: number, driverMode = "ok") {
 	const parsed = cliFlags().parse([...argv, ...(livenessS ? [`--liveness-s=${livenessS}`] : [])]);
 	assert.deepEqual(parsed.errors, []);
 	return runCli({ values: parsed.values, explicit: parsed.explicit, optionsFrom: runOptionsFrom, repo: REPO, known: KNOWN,
 		now: new Date(2026, 9, 16, 9, 0, 0), env: { TYPESAFE_API_KEY: "" },
-		overrides: { launch: { command: process.execPath, args: [FAKE, "--mode=ok"] }, readUserKey: () => null },
+		overrides: { launch: { command: process.execPath, args: [FAKE, `--mode=${driverMode}`] }, readUserKey: () => null },
 		windowedLaunch: { command: process.execPath, args: [FAKE_WINDOWED, `--mode=${windowedMode}`] } });
 }
 
 /** A recorded run directory (fake driver, fallback brain). */
-async function recording(): Promise<string> {
+async function recording(driverMode = "ok"): Promise<string> {
 	const dir = path.join(tmp(), "run");
-	const r = await cli(["--brain=fallback", `--out=${dir}`]);
+	const r = await cli(["--brain=fallback", `--out=${dir}`], "match", undefined, driverMode);
 	assert.equal(r.exitCode, EXIT.OK);
 	return dir;
 }
@@ -46,7 +46,7 @@ test("the scene gets the recording, the output directory, the speed and the scre
 });
 
 test("a matching windowed replay reports match and lists its screenshots; the recording's report points at it", async () => {
-	const orig = await recording();
+	const orig = await recording("dead");
 	const out = path.join(tmp(), "win");
 	const r = await cli([`--replay=${orig}`, "--windowed", "--shots-at=60,150", `--out=${out}`]);
 	assert.equal(r.exitCode, EXIT.OK, r.text);
@@ -63,6 +63,8 @@ test("a matching windowed replay reports match and lists its screenshots; the re
 	assert.match(md, /No deterministic problems found/);
 	assert.ok(readJson(path.join(out, "report.json")).screenshots.shots.length >= 4);
 	const recorded = fs.readFileSync(path.join(orig, "report.md"), "utf8");
+	const section = (text: string, name: string) => text.split(`## ${name}\n`)[1]?.split("\n## ")[0];
+	assert.equal(section(md, "Metrics"), section(recorded, "Metrics"), "a match reports the recorded round's metrics");
 	assert.match(recorded, /## Windowed replays/);
 	assert.match(recorded, /match, 4 screenshots/);
 });
