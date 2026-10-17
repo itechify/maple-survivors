@@ -22,6 +22,8 @@ var pet_renderer: PetRenderer
 var camera: CameraRig
 var pause_menu: PauseMenu
 var status: HudStatusBar
+## The status bar SHOP button (StatusBar.img/BtShop) that opens the Cash Shop (#118).
+var shop_button: WzButton
 var npcs: Array[Dictionary] = []
 var _accumulator := 0.0
 var _jump_latch := false
@@ -161,6 +163,14 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	status = HudStatusBar.new()
 	status.library = library
 	layer.add_child(status)
+	shop_button = WzButton.new(HudWidget.SB + "BtShop")
+	shop_button.name = "ShopButton"
+	shop_button.fallback_size = Vector2(54, 34)
+	shop_button.label = "" if shop_button.has_art() else "SHOP"
+	shop_button.pressed.connect(_open_shop)
+	layer.add_child(shop_button)
+	get_viewport().size_changed.connect(_place_shop_button)
+	_place_shop_button()
 	var hp := maxi(1, roundi(loadout.player_stat("max_hp", float(character.get("base_hp", 1)))))
 	var mp := maxi(0, roundi(loadout.player_stat("max_mp", float(character.get("base_mp", 0))
 		+ float(character.get("job_mp", 0))) * (1.0 + loadout.passive_total(Loadout.MAX_MP_PERCENT))))
@@ -195,6 +205,23 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 			_leaving = true
 			flow.save_and_quit())
 	layer.add_child(pause_menu)
+
+
+## tier C: BtShop sits left of where the run HUD puts BtMenu (744, 20), in the 800 px status bar.
+const SHOP_BUTTON_POS := Vector2(688, 20)
+
+
+func _place_shop_button() -> void:
+	if shop_button != null:
+		shop_button.position = HudWidget.bar_origin(get_viewport().get_visible_rect().size) + SHOP_BUTTON_POS
+
+
+## The status bar SHOP button: opens the Cash Shop as this character; Leave comes back here.
+func _open_shop() -> void:
+	if flow == null or _leaving or (pause_menu != null and pause_menu.is_open()):
+		return
+	_leaving = true
+	flow.goto_cash_shop("free_market")
 
 
 func _build_npcs() -> void:
