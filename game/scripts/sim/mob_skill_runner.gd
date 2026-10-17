@@ -42,6 +42,8 @@ var _seal_level := 0
 var _seal_visual := ""
 ## Per kind index: the ordinary casts it lists [{id, level, action, spec}] (ORDINARY_SUPPORTED only).
 var _kind_casts: Array[Array] = []
+## Per kind index: 1 when it has an ordinary cast (the hot loop's packed check).
+var _kind_casting := PackedByteArray()
 var _any_ordinary := false
 ## Per slot: seconds of eligible (fully visible, on-screen) time before the next ordinary cast; NAN = unset.
 var _skill_wait := PackedFloat64Array()
@@ -62,6 +64,7 @@ func bind_ordinary(world: RunWorld) -> void:
 	for entry: Dictionary in world.stage.get("bosses", []):
 		boss_ids[int(entry.get("mob_id", 0))] = true
 	_kind_casts.clear()
+	_kind_casting.clear()
 	for k in world.mob_kinds.size():
 		var kind: MobKind = world.mob_kinds[k]
 		var casts: Array = []
@@ -75,6 +78,7 @@ func bind_ordinary(world: RunWorld) -> void:
 					casts.append({"id": id, "level": level, "action": "skill%d" % int(entry.get("action", 1)),
 						"spec": spec})
 		_kind_casts.append(casts)
+		_kind_casting.append(0 if casts.is_empty() else 1)
 		_any_ordinary = _any_ordinary or not casts.is_empty()
 
 
@@ -111,11 +115,15 @@ func step_ordinary(world: RunWorld, dt: float) -> void:
 	var now := world.time
 	var view := world.view
 	var interval_mult := float(_seal_rules.interval_mult)
+	# Hot loop over every slot: packed arrays read through locals, cheapest rejections first.
+	var active := swarm.active
+	var kinds := swarm.kind
+	var boss := world.mob_boss
 	for slot in swarm.capacity():
-		if swarm.active[slot] == 0 or world.mob_boss[slot] >= 0:
+		if active[slot] == 0 or _kind_casting[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
-		var casts: Array = _kind_casts[swarm.kind[slot]]
-		if casts.is_empty() or not swarm.can_act(slot) or not view.has_point(swarm.pos(slot)):
+		var casts: Array = _kind_casts[kinds[slot]]
+		if not swarm.can_act(slot) or not view.has_point(swarm.pos(slot)):
 			continue
 		var wait := _skill_wait[slot]
 		if is_nan(wait):

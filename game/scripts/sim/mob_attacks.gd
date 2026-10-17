@@ -120,8 +120,12 @@ func step(world: RunWorld, dt: float) -> void:
 		return
 	var now := world.time
 	var view := world.view
+	# Hot loop over every slot: packed arrays read through locals, cheapest rejections first.
+	var active := swarm.active
+	var kinds := swarm.kind
+	var boss := world.mob_boss
 	for slot in swarm.capacity():
-		if swarm.active[slot] == 0 or _kind_attacks[swarm.kind[slot]] == 0 or world.mob_boss[slot] >= 0:
+		if active[slot] == 0 or _kind_attacks[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
 		if not swarm.can_act(slot) or not view.has_point(swarm.pos(slot)):
 			continue
