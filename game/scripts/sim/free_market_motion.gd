@@ -61,10 +61,7 @@ func step(dt: float, input: MoveInput) -> Array[Dictionary]:
 		var events: Array[Dictionary] = [{"type": "portal_used", "portal": used.portal, "target": used.target,
 			"pos": used.pos}]
 		if pet != null:
-			var from := pet.motion.pos
-			pet.place(player.pos, fhm)
-			pet.motion.facing = player.facing
-			events.append({"type": "pet_teleported", "from": from, "pos": pet.motion.pos})
+			pet.teleport_to(player, fhm, events)
 		return events
 	player.step(dt, input, fhm, ladders, bounds)
 	var out: Array[Dictionary] = []

@@ -44,6 +44,16 @@ func test_slot_fortune_data_covers_the_eleven_slots_and_sums_to_100() -> void:
 	assert_eq(CashCatalog.SLOTS, SLOTS)
 
 
+func test_ownership_reads_ids_that_came_through_json_as_floats() -> void:
+	var catalog := _catalog()
+	var owned: Array = [float(HAT), 5000000.0, 1812004.0, 1812005.0]
+	var resolved := catalog.resolve({"hat": HAT}, 5000000, owned)
+	assert_eq(resolved.worn, {"hat": HAT})
+	assert_eq(resolved.pet, 5000000)
+	assert_true(catalog.prerequisites_met(9990000, owned))
+	assert_eq(PetSystem.abilities_from(owned).wing_boots, true)
+
+
 func test_seed_items_use_the_real_commodity_prices_and_prerequisites() -> void:
 	var catalog := CashCatalog.from_data(DataRepo.load_all())
 	for pet: int in [5000000, 5000001, 5000002]:

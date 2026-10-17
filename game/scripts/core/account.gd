@@ -36,6 +36,14 @@ static func normalized(value: Dictionary) -> Dictionary:
 	return {"nx": int(value.nx), "owned": owned}
 
 
+## Whether `owned` (item ids, possibly floats straight from JSON) holds item `id`: the one ownership rule.
+static func owns(owned: Array, id: int) -> bool:
+	for have: Variant in owned:
+		if int(have) == id:
+			return true
+	return false
+
+
 static func _whole(value: Variant) -> bool:
 	return (value is int or value is float) and is_finite(float(value)) \
 		and float(value) >= 0.0 and float(value) == floorf(float(value))

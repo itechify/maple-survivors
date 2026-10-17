@@ -63,13 +63,13 @@ func ids() -> Array:
 func prerequisites_met(id: int, owned: Array) -> bool:
 	var entry := item(id)
 	for need: Variant in entry.get("requires", []):
-		if not _owns(owned, int(need)):
+		if not Account.owns(owned, int(need)):
 			return false
 	var any: Array = entry.get("requires_any", [])
 	if any.is_empty():
 		return true
 	for need: Variant in any:
-		if _owns(owned, int(need)):
+		if Account.owns(owned, int(need)):
 			return true
 	return false
 
@@ -146,7 +146,7 @@ func resolve(cash: Dictionary, pet: int, owned: Array) -> Dictionary:
 			warnings.append("cash slot '%s' does not exist: item %d ignored" % [slot, id])
 		elif not slots_for(id).has(slot):
 			warnings.append("cash item %d does not fit the %s slot: ignored" % [id, slot])
-		elif not _owns(owned, id):
+		elif not Account.owns(owned, id):
 			warnings.append("cash item %d is not owned by the account: ignored" % id)
 		else:
 			for filled: String in slots_for(id):
@@ -158,15 +158,8 @@ func resolve(cash: Dictionary, pet: int, owned: Array) -> Dictionary:
 	if pet > 0:
 		if kind_of(pet) != "pet":
 			warnings.append("item %d is not a pet: ignored" % pet)
-		elif not _owns(owned, pet):
+		elif not Account.owns(owned, pet):
 			warnings.append("pet %d is not owned by the account: ignored" % pet)
 		else:
 			out_pet = pet
 	return {"worn": worn, "fortune": fortune, "pet": out_pet, "warnings": warnings}
-
-
-static func _owns(owned: Array, id: int) -> bool:
-	for have: Variant in owned:
-		if int(have) == id:
-			return true
-	return false

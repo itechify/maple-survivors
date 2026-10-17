@@ -251,6 +251,7 @@ var alert := {"hp": 0.0, "mp": 0.0}
 var pet_system: PetSystem
 var _cash_carried := {}
 var _pet_carried := 0
+var _catalog: CashCatalog
 ## Carried appearance {skin, face, hair}; worn equipment is drawn over it (DataRepo.character_look).
 var character_look := {}
 ## Worn equipment and inventory (Equipment state); change it only through equip_item/unequip_item/discard_item.
@@ -705,11 +706,9 @@ func _step_pickups(dt: float) -> int:
 func _step_pet(dt: float) -> void:
 	pet_system.step(dt, player, fhm, bounds, pickups, events)
 	for kind: String in ["hp", "mp"]:
-		var max_value := _max_hp if kind == "hp" else _max_mp
-		if max_value <= 0:
-			continue
-		var fraction := (_hp if kind == "hp" else _mp) / float(max_value)
-		if pet_system.drink_ready(kind, fraction, float(alert[kind])) and _drink(kind, true):
+		var current := _hp if kind == "hp" else _mp
+		var maximum := _max_hp if kind == "hp" else _max_mp
+		if pet_system.should_drink(kind, current, maximum, float(alert[kind])) and _drink(kind, true):
 			pet_system.drank(kind)
 
 
@@ -1370,20 +1369,27 @@ func set_alert(levels: Dictionary) -> void:
 	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
 
 
+## The cash catalog of this round's data, built once.
+func _cash_catalog() -> CashCatalog:
+	if _catalog == null:
+		_catalog = CashCatalog.from_data(data)
+	return _catalog
+
+
 ## Resolves the account, the worn cash equipment and the pet of this round (spec #34); what the account does not
 ## own is ignored and reported in `warnings`.
 func _init_cash() -> void:
 	var account: Dictionary = setup.get("account", {})
 	account_owned = Array(account.get("owned", []))
 	set_alert(setup.get("alert", {}))
-	var resolved := CashCatalog.from_data(data).resolve(_cash_carried, _pet_carried, account_owned)
+	var resolved := _cash_catalog().resolve(_cash_carried, _pet_carried, account_owned)
 	worn_cash = resolved.worn
 	pet = resolved.pet
 	cash_fortune = resolved.fortune
 	for message: String in resolved.warnings:
 		warnings.append(message)
 	if pet > 0:
-		_init_pet(CashCatalog.from_data(data))
+		_init_pet(_cash_catalog())
 
 
 ## Wears the owned cash equipment `id` (the Equip window's Cash tab, spec #34 #122): it takes its slots and replaces what
@@ -1391,10 +1397,10 @@ func _init_cash() -> void:
 ## "not_cash" (not cash equipment) / "not_owned" (the account does not own it); nothing changes on a refusal. Wearing
 ## never uses the item up. Fortune follows at once, so the next card draw uses it.
 func wear_cash(id: int) -> String:
-	var catalog := CashCatalog.from_data(data)
+	var catalog := _cash_catalog()
 	if catalog.kind_of(id) != "equip" or catalog.slots_for(id).is_empty():
 		return "not_cash"
-	if not account_owned.has(id):
+	if not Account.owns(account_owned, id):
 		return "not_owned"
 	_cash_carried = catalog.wear(_cash_carried, id)
 	_cash_changed("wear_cash", "", id)
@@ -1403,7 +1409,7 @@ func wear_cash(id: int) -> String:
 
 ## Takes off the cash equipment worn in `slot` (every slot it covers); "" or "empty" when nothing is worn there.
 func take_off_cash(slot: String) -> String:
-	var catalog := CashCatalog.from_data(data)
+	var catalog := _cash_catalog()
 	var id := int(_cash_carried.get(slot, 0))
 	if id == 0:
 		return "empty"
@@ -1415,11 +1421,11 @@ func take_off_cash(slot: String) -> String:
 ## Brings the owned pet `species` out in place of any other, or none (0). "" or "not_pet" / "not_owned"; nothing
 ## changes on a refusal. The pet is simulated from the next tick, at the player's feet, with the owned upgrades.
 func set_pet(species: int) -> String:
-	var catalog := CashCatalog.from_data(data)
+	var catalog := _cash_catalog()
 	if species != 0:
 		if catalog.kind_of(species) != "pet":
 			return "not_pet"
-		if not account_owned.has(species):
+		if not Account.owns(account_owned, species):
 			return "not_owned"
 	_pet_carried = species
 	pet = species
@@ -1432,7 +1438,7 @@ func set_pet(species: int) -> String:
 
 ## Re-reads the worn cash equipment after a change (Fortune included) and announces it.
 func _cash_changed(action: String, slot: String, id: int) -> void:
-	var resolved := CashCatalog.from_data(data).resolve(_cash_carried, 0, account_owned)
+	var resolved := _cash_catalog().resolve(_cash_carried, 0, account_owned)
 	worn_cash = resolved.worn
 	cash_fortune = resolved.fortune
 	_equipment_changed(action, slot, id)

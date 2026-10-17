@@ -5,7 +5,7 @@
 		"hat": 10, "face": 8, "eye": 8, "earrings": 6, "top": 10, "bottom": 10,
 		"shoes": 9, "gloves": 9, "cape": 10, "weapon": 12, "shield": 8
 	},
-	"_pet": "Tier C (spec #34 / #119): the pet in the round simulation (PetSystem). pickup_radius: the base pet (Item Pouch and Meso Magnet included) collects every drop kind this close (px) to its centre, center_up above its feet; binocular_mult scales it with Binocular. follow_gap / follow_speed_mult: how it follows the player on the footholds with the player's own physics. teleport_distance, or lost_distance for lost_seconds: it teleports to the player. leash / fetch_dy: Wing Boots fetch resting drops within this far (sideways / vertically) of the player at fetch_speed_mult, walking to within fetch_gap, giving up after fetch_give_up s and pausing fetch_pause s. potion_delay: seconds between the pet's drinks of one kind (Auto HP/MP Potion Pouch, below the ALERT level). jump_*/down_*/stuck_seconds: when the follow controller presses jump.",
+	"_pet": "Tier C (spec #34 / #119): the pet in the round simulation (PetSystem). pickup_radius: the base pet (Item Pouch and Meso Magnet included) collects every drop kind this close (px) to its centre, center_up above its feet; binocular_mult scales it with Binocular. follow_gap / follow_speed_mult: how it follows the player on the footholds with the player's own physics. teleport_distance, or lost_distance for lost_seconds: it teleports to the player. leash / fetch_dy: Wing Boots fetch resting drops within this far (sideways / vertically) of the player at fetch_speed_mult, walking to within fetch_gap, giving up after fetch_give_up s and pausing fetch_pause s. potion_delay: seconds between the pet's drinks of one kind (Auto HP/MP Potion Pouch, below the ALERT level). jump_*/down_*/stuck_seconds: when the follow controller presses jump; it counts as stuck against a wall when it moved less than stuck_move_px in a tick. speed_stat_floor: the pet's speed stat is the player's, but never below this (the 100 % base). floor_tolerance: px within which a floor counts as the same floor as the player's (a pet is brought out beside the player only on one). This file is the only place the numbers live (PetSystem has no defaults).",
 	"pet": {
 		"pickup_radius": 60, "center_up": 15, "binocular_mult": 2.0,
 		"follow_gap": 40, "beside_offset": 30, "follow_speed_mult": 1.1,
@@ -13,7 +13,7 @@
 		"leash": 220, "fetch_dy": 80, "fetch_gap": 6, "fetch_speed_mult": 1.5, "fetch_give_up": 2.5, "fetch_pause": 2.0,
 		"potion_delay": 1.0,
 		"jump_min_rise": 20, "jump_max_rise": 70, "jump_reach_dx": 80, "down_min_drop": 20, "down_dx": 60,
-		"stuck_seconds": 0.3
+		"stuck_seconds": 0.3, "stuck_move_px": 0.2, "speed_stat_floor": 100, "floor_tolerance": 2.0
 	},
 	"items": [
 		{"id": 5000000, "kind": "pet", "price": 4900, "sn": 60000000},

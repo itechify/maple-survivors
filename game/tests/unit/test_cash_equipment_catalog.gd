@@ -93,12 +93,12 @@ func test_every_curated_item_draws_standing_and_walking_in_the_cache() -> void:
 	for item: Dictionary in _equip_items():
 		var id := int(item.id)
 		var cash := {}
-		for slot in catalog.slots_for(id):
+		for slot: String in catalog.slots_for(id):
 			cash[slot] = id
 		var avatar := AvatarRenderer.new()
 		# A Magician's wand: every curated cover has 37 art (the sword's type 30 is only in some).
 		avatar.set_look({"equips": [1040002, 1060002, 1072001, 1372005], "cash": cash})
-		for stance in ["stand1", "walk1"]:
+		for stance: String in ["stand1", "walk1"]:
 			var drawn := avatar.compose(stance, 0).filter(func(p: Dictionary) -> bool: return int(p.owner) == id)
 			assert_false(drawn.is_empty(), "%d draws in %s" % [id, stance])
 		assert_eq(avatar.missing, PackedStringArray(), "%d: nothing missing from the cache" % id)

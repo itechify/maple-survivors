@@ -49,7 +49,7 @@ static func listing(catalog: CashCatalog, owned: Array, tab_key: String, sub: St
 	var out: Array = []
 	var survivor_only: Array = []
 	for id: int in catalog.ids():
-		if owned.has(id):
+		if Account.owns(owned, id):
 			continue
 		var entry := catalog.item(id)
 		var filed := _filing(entry)
@@ -69,12 +69,12 @@ static func lock_reasons(catalog: CashCatalog, owned: Array, id: int, name_of: C
 	var out := PackedStringArray()
 	var entry := catalog.item(id)
 	for need: Variant in entry.get("requires", []):
-		if not owned.has(int(need)):
+		if not Account.owns(owned, int(need)):
 			out.append("Needs %s." % name_of.call(int(need)))
 	var any: Array = entry.get("requires_any", [])
 	var have_any := any.is_empty()
 	for need: Variant in any:
-		have_any = have_any or owned.has(int(need))
+		have_any = have_any or Account.owns(owned, int(need))
 	if not have_any:
 		var all_pets := true
 		for need: Variant in any:
@@ -94,7 +94,7 @@ static func refusal(account: Dictionary, catalog: CashCatalog, id: int) -> Strin
 	if catalog.item(id).is_empty():
 		return "unlisted"
 	var owned: Array = account.owned
-	if owned.has(id):
+	if Account.owns(owned, id):
 		return "owned"
 	if not catalog.prerequisites_met(id, owned):
 		return "locked"

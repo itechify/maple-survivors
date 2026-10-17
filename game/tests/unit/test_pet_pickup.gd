@@ -123,7 +123,7 @@ func test_vac_pulls_every_drop_on_the_map_to_the_pet() -> void:
 	var w := PF.world([PF.KITTY, PF.WING, PF.BINOCULAR, PF.VAC])
 	PF.put_player(w, 300.0, 0.0)
 	PF.put_pet(w, Vector2(300.0, 0.0))
-	for x in [20.0, 140.0, 600.0, 900.0, 1180.0]:
+	for x: float in [20.0, 140.0, 600.0, 900.0, 1180.0]:
 		_rest_drop(w, x, 1)
 	var potion := w.pickups.spawn_potion(Vector2(1000.0, -60.0), 1, 2000000, "mp")
 	w.pickups.state[potion] = PickupSystem.REST
@@ -231,7 +231,7 @@ func test_vac_pulls_far_mesos_to_the_pet() -> void:
 	PF.put_player(w, 300.0, 0.0)
 	PF.put_pet(w, Vector2(300.0, 0.0))
 	var start := w.mesos
-	for x in [20.0, 900.0, 1180.0]:
+	for x: float in [20.0, 900.0, 1180.0]:
 		_rest_meso(w, x, 11)
 	var got := PF.of_type(PF.run(w, 360), "pickup_collected")
 	assert_eq(got.size(), 3)
