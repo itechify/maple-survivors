@@ -21,6 +21,7 @@ import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { Brain, BrainAnswer } from "../core/session.ts";
 import type { DecideMessage, Option } from "../core/protocol.ts";
 import { JevUnavailable } from "../core/jev_client.ts";
+import { redactSecrets } from "../core/key.ts";
 import type { JevClient } from "../core/jev_client.ts";
 import { seededShuffle } from "../core/shuffle.ts";
 import { sensibleBrain } from "./fallback.ts";
@@ -240,7 +241,7 @@ export function createJevBrain(o: JevBrainOptions): Brain {
 			try {
 				reply = await o.client.ask(req.state, req.questions);
 			} catch (e) {
-				return fallBack(d, e instanceof JevUnavailable ? e.reason : `Jev failed: ${(e as Error).message}`);
+				return fallBack(d, e instanceof JevUnavailable ? e.reason : redactSecrets(`Jev failed: ${(e as Error).message}`, []));
 			}
 			const answers = reply.result.answers as Record<string, { choice?: string; confidence?: number;
 				probabilities?: Record<string, number>; score?: number; noul?: number }>;
