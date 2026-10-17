@@ -985,8 +985,8 @@ func handle_events(events: Array) -> void:
 					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
 					_equip_shot_taken = true
 					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
-			"pickup_blocked":
-				_frame_inventory_full = true
+			"pickup_blocked", "grant_blocked":
+				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)

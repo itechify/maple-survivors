@@ -2319,7 +2319,7 @@ quantities per kind.
   and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
   weapon are the first worn equipment with plain WZ stats; a character without a snapshot wears the first creation
   options (`Equipment.DEFAULT_OUTFIT`, tier A). Advancing to Magician grants and wears the Wooden Wand 1372005 and
-  moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C). Without a weapon the basic
+  moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C); with a full inventory the grant is skipped and nothing is destroyed. Without a weapon the basic
   attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
   impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
 - **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
@@ -2905,7 +2905,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
 | Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
-| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory, or is lost if it is full (`balance.player.weapon_grants`) | C | Owner #33 triage |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full the grant is skipped (the character keeps its weapon, a `grant_blocked` event shows the full-inventory HUD notice) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage |
 | Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |

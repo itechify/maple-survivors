@@ -205,19 +205,19 @@ static func discard(state: Dictionary, index: int) -> String:
 	return ""
 
 
-## Wears a granted instance without requirement checks; what it replaces moves to the inventory while there is room.
-## Returns the replaced instances that did not fit (tier C: they are lost; a grant never fails).
-static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> Array:
+## Wears a granted instance without requirement checks; what it replaces moves to the inventory. Returns "" or
+## "inventory_full" when the replaced items do not all fit: the grant is then skipped and the state is unchanged
+## (tier C: nothing is ever destroyed; the character keeps what it wears).
+static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> String:
 	var slot := slot_of(int(instance.id))
-	var lost := []
-	for moved_slot: String in _displaced(state.worn, slot):
-		if state.inventory.size() < capacity:
-			state.inventory.append(state.worn[moved_slot])
-		else:
-			lost.append(state.worn[moved_slot])
+	var displaced := _displaced(state.worn, slot)
+	if state.inventory.size() + displaced.size() > capacity:
+		return "inventory_full"
+	for moved_slot: String in displaced:
+		state.inventory.append(state.worn[moved_slot])
 		state.worn.erase(moved_slot)
 	state.worn[slot] = instance
-	return lost
+	return ""
 
 
 static func _displaced(worn: Dictionary, slot: String) -> Array:
