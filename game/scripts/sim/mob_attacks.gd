@@ -122,10 +122,19 @@ func step(world: RunWorld, dt: float) -> void:
 	var active := swarm.active
 	var kinds := swarm.kind
 	var boss := world.mob_boss
+	var alpha := swarm.alpha
+	var status := swarm.status_left
+	var xs := swarm.x
+	var ys := swarm.y
+	var view_pos := view.position
+	var view_end := view.end
 	for slot in swarm.capacity():
 		if active[slot] == 0 or _kind_attacks[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
-		if not swarm.can_act(slot) or not view.has_point(swarm.pos(slot)):
+		# MobSwarm.can_act and Rect2.has_point(swarm.pos(slot)), inlined: this loop runs for every attacker on screen.
+		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0:
+			continue
+		if xs[slot] < view_pos.x or ys[slot] < view_pos.y or xs[slot] >= view_end.x or ys[slot] >= view_end.y:
 			continue
 		var k := swarm.kind[slot]
 		var interval := _kind_interval[k]
