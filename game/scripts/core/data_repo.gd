@@ -20,6 +20,7 @@ const FILES := {
 	"jobs_survivor": "survivor/jobs.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
+	"cash_items": "survivor/cash_items.json",
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"

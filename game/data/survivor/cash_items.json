@@ -1,0 +1,20 @@
+{
+	"_doc": "The Cash Shop catalog and the Fortune each cash slot adds (spec #34, ADR 0003). items[]: id (the MapleStory item id), kind (equip | pet | pet_upgrade), price (NX), sn (Etc.wz/Commodity.img serial number, tier A; omitted for survivor-only items), requires (item ids that must all be owned), requires_any (at least one of these must be owned), two_handed (weapon covers only: fills the weapon and shield slots), name/desc (survivor-only items; real items take them from String.wz). Real prices are the OnSale Commodity.img listings (tier A). The base pet already includes Item Pouch (1812001) and Meso Magnet (1812000): they are not sold. Pet upgrades 1812002-1812005 and VAC need an owned pet. Cash equipment entries (kind equip) are added by the catalog ticket (#117). An overall fills top and bottom; a two-handed weapon cover fills weapon and shield. The slot comes from id / 10000: 100 hat, 101 face, 102 eye, 103 earrings, 104 top, 105 overall, 106 bottom, 107 shoes, 108 gloves, 109 shield, 110 cape, 170 weapon cover.",
+	"_slot_fortune": "Tier C: placeholder Fortune added by each filled cash slot, summing to 100 with all 11 slots filled. Computed live each round and never written into a character. The balance pass sets the numbers.",
+	"slot_fortune": {
+		"hat": 10, "face": 8, "eye": 8, "earrings": 6, "top": 10, "bottom": 10,
+		"shoes": 9, "gloves": 9, "cape": 10, "weapon": 12, "shield": 8
+	},
+	"items": [
+		{"id": 5000000, "kind": "pet", "price": 4900, "sn": 60000000},
+		{"id": 5000001, "kind": "pet", "price": 4900, "sn": 60000001},
+		{"id": 5000002, "kind": "pet", "price": 4900, "sn": 60000006},
+		{"id": 1812002, "kind": "pet_upgrade", "price": 1800, "sn": 60100036, "requires_any": [5000000, 5000001, 5000002]},
+		{"id": 1812003, "kind": "pet_upgrade", "price": 1800, "sn": 60100038, "requires_any": [5000000, 5000001, 5000002]},
+		{"id": 1812004, "kind": "pet_upgrade", "price": 1800, "sn": 60100041, "requires_any": [5000000, 5000001, 5000002]},
+		{"id": 1812005, "kind": "pet_upgrade", "price": 1800, "sn": 60100042, "requires_any": [5000000, 5000001, 5000002]},
+		{"id": 9990000, "kind": "pet_upgrade", "price": 20000, "_tier": "Tier C: survivor-only item with a placeholder price; id 9990000 is reserved for it.",
+			"requires": [1812004, 1812005], "requires_any": [5000000, 5000001, 5000002], "name": "VAC",
+			"desc": "Your pet pulls every drop on the map to itself. While a pet with VAC is out, the Magnet card is no longer offered."}
+	]
+}

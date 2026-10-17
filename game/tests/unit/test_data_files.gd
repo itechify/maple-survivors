@@ -16,11 +16,11 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "jobs_survivor", "jobs", "exp_table"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "jobs_survivor", "jobs", "exp_table", "cash_items"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 8, "every missing file reported")
+	assert_eq(bad.size(), 9, "every missing file reported")
 
 
 func test_skills_reference_canonical_ids() -> void:
