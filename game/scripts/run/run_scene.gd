@@ -681,10 +681,18 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 
 func _on_item_action(_action: String) -> void:
 	handle_events(world.drain_events())
+	_refresh_inventory_windows()
+
+
+## Redraws the open Equip / Item windows and refreshes the Stat window from the live world (an item moved, or a
+## pickup landed under them: the Item window reads its tabs and meso line from the world at draw time).
+func _refresh_inventory_windows() -> void:
+	if ui_windows == null:
+		return
 	for id: String in ["equip", "item"]:
-		var w := ui_windows.find_window(id)
+		var w := ui_windows.find_window(id) as InventoryWindow
 		if w != null:
-			w.queue_redraw()
+			w.refresh()
 	var sw := ui_windows.find_window("stat") as StatWindow
 	if sw != null:
 		sw.set_info(stat_info())
@@ -1002,6 +1010,7 @@ func handle_events(events: Array) -> void:
 				_on_job_changed(int(e.job_id))
 			"equipment_changed":
 				_apply_look()
+				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
 			"scroll_used":
 				_on_scroll_used(e)
 			"choice_pending":
