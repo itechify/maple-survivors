@@ -356,8 +356,14 @@ func _build_npcs() -> void:
 		sprite.position = pos.round()
 		sprite.add(anim, Vector2.ZERO, int(life.get("f", 0)) != 0)
 		map.actor_layer(layer).add_child(sprite)
-		_add_name_tag(sprite, library.string_name("Npc", id))
+		if npc_shows_name_tag(life):
+			_add_name_tag(sprite, library.string_name("Npc", id))
 		npcs.append({"id": id, "sprite": sprite})
+
+
+## Whether an NPC `life` entry gets a name tag: not when the map marks it hidden (v83 `hide` = 1, e.g. Maple TV).
+static func npc_shows_name_tag(life: Dictionary) -> bool:
+	return int(life.get("hide", 0)) == 0 # tier A: `hide` field of the map's life entry.
 
 
 ## Draws the scroll NPCs of shops.json standing on the floor foothold below y 0 at their x.

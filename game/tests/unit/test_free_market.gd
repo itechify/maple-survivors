@@ -114,3 +114,23 @@ func test_real_hub_draws_all_npcs_refills_pools_and_keeps_rooms_inert() -> void:
 	assert_eq(hub.motion.player.pos, feet, "the pause window holds movement")
 	assert_eq(hub.missing_paths(), PackedStringArray())
 	hub.free()
+
+
+func test_name_tag_skipped_for_npcs_the_map_hides() -> void:
+	assert_false(FreeMarket.npc_shows_name_tag({"type": "n", "id": "9250025", "hide": 1}), "hidden Maple TV has no tag")
+	assert_true(FreeMarket.npc_shows_name_tag({"type": "n", "id": "9030000", "hide": 0}))
+	assert_true(FreeMarket.npc_shows_name_tag({"type": "n", "id": "9030000"}), "no hide field means shown")
+
+
+func test_real_hub_hidden_maple_tv_has_no_name_tag() -> void:
+	if not require_cache():
+		return
+	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	var hub := FreeMarket.new()
+	hub.configure({"name": "Market111", "character": character}, null)
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
+	hub.set_process(false)
+	for npc: Dictionary in hub.npcs:
+		var sprite := npc.sprite as Node2D
+		assert_eq(sprite.get_child_count(), 0 if int(npc.id) == 9250025 else 1, "tag children of %d" % int(npc.id))
+	hub.free()
