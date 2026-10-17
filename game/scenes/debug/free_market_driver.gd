@@ -78,6 +78,7 @@ func _ready() -> void:
 		if not item in missing:
 			missing.append(item)
 	_check(missing.is_empty(), "missing assets")
+	var boundary: Dictionary = flow.save.slot(0)
 	# #115: a death in the next tier credits its NX with the archive and the results screen shows it.
 	flow.finish_run({"stage": "dark_cave", "map_id": 0, "map_name": "Dark Cave", "street_name": "Victoria Road",
 		"cleared": false, "time": 412.0, "duration": 900.0, "level": 41, "job_id": 210,
@@ -86,8 +87,8 @@ func _ready() -> void:
 	_check(flow.current_name == "results" and flow.save.account.nx == 380, "NX credited by clear and death")
 	await get_tree().create_timer(2.0).timeout
 	await _shot("08_results_death")
-	var report := {"failures": failures, "missing": Array(missing), "phase": flow.save.slot(0).phase,
-		"tier": flow.save.slot(0).tier, "character": character}
+	var report := {"failures": failures, "missing": Array(missing), "phase": boundary.phase,
+		"tier": boundary.tier, "nx": flow.save.account.nx, "character": character}
 	var file := FileAccess.open(shots.path_join("summary.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))
 	file.close()
