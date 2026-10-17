@@ -174,12 +174,8 @@ Tauromacis and Taurospear have. A boss attack is the same thing used by a schedu
 _Avoid_: monster skill (that is a mob skill)
 
 **Mob skill**:
-A canonical Skill.wz/MobSkill.img skill a monster casts, such as Slow, Seal or a summon.
-
-**Seal**:
-The character status from MobSkill 120 (Jr. Boogie): while it lasts, skill cooldowns recover more slowly. A survivor
-reinterpretation; in v83 Seal blocks every skill. The basic attack is unaffected.
-_Avoid_: silence, stun
+A canonical Skill.wz/MobSkill.img skill a monster casts, such as Slow or a summon. Only bosses cast mob skills
+that affect the character.
 
 ## Mesos and equipment
 
