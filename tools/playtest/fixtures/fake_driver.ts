@@ -10,6 +10,10 @@
 //   script_error    like ok, plus a SCRIPT ERROR on stderr
 //   stall           hello, one decide, then silent after the answer (liveness timeout mid-round)
 //   tactics hello, three tactic decides (calm map, drops near, critical HP), end with a fixed record.tactics
+//   chain   like ok, but the end record is a tier chain (rounds[] with two round records)
+// Like the real driver, an answer that is not an offered option applies the baseline (fallback_reason). The job
+// decide comes at tick 150 instead of 120 when the card answer was "a", and the fingerprint carries the applied
+// answers, so a replay with a changed answer diverges. record.isolate echoes the ISOLATE env variable.
 // Any other argument is echoed in hello.args so tests can check what the launcher passed.
 import readline from "node:readline";
 
@@ -80,13 +84,20 @@ else if (mode === "error") {
 		const line = await read();
 		const answer = line === "" ? null : JSON.parse(line);
 		received.push(answer);
+		const offered = answer !== null && d.options.some((o) => o.id === answer.answer);
+		const why = answer === null ? "brain lost" : offered ? null : `answer "${answer.answer}" is not an offered option`;
 		applied.push({ id: d.id, kind: d.kind, options: d.options.map((o) => o.id), baseline: d.baseline.sensible,
-			answer: answer?.answer ?? d.baseline.sensible, source: answer?.source ?? "baseline",
-			confidence: answer?.confidence ?? null, ...(answer ? {} : { fallback_reason: "brain lost" }) });
+			answer: why ? d.baseline.sensible : answer.answer, source: why ? "baseline" : answer.source,
+			confidence: why ? null : answer?.confidence ?? null, ...(why ? { fallback_reason: why } : {}) });
+		if (d.kind === "card" && !why && answer.answer === "a" && decides[1]) (decides[1] as Record<string, unknown>).tick = 150;
 	}
+	const answers = applied.map((a) => `${a.kind}:${a.answer}`);
+	const round = { state: "TIMEOUT", time: 180, level: 11, job: 200, kills: 42, cards_taken: ["0:b"] };
 	if (mode === "findings") send({ type: "finding", ...hp });
-	send({ type: "end", record: { state: "TIMEOUT", time: 180, level: 11, job: 200, kills: 42,
-		cards_taken: ["0:b"], received, ...(mode === "tactics" ? { tactics: TACTICS_RECORD } : {}) }, fingerprint: { ticks: 10800, state: "TIMEOUT" }, decisions: applied,
+	send({ type: "end", record: { ...round, received, isolate: process.env.ISOLATE ?? null,
+		...(mode === "tactics" ? { tactics: TACTICS_RECORD } : {}),
+		...(mode === "chain" ? { mode: "chain", rounds: [{ ...round, tier: 1, state: "CLEARED" }, { ...round, tier: 2, stage: "dark_cave" }] } : {}) },
+		fingerprint: { ticks: 10800, state: "TIMEOUT", answers: answers.join(",") }, decisions: applied,
 		brain_lost: false, findings: mode === "findings" ? [{ ...stuck, count: 4 }, hp] : [] });
 	process.exit(0);
 }

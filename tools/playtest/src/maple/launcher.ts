@@ -4,7 +4,7 @@
 // class_name scripts, and builds the driver command line.
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import type { InvariantChecks } from "./invariant_flags.ts";
 
 export const GODOT_VERSION = "4.7.2";
@@ -60,10 +60,28 @@ export function importProject(exe: string, project: string): void {
 	spawnSync(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", timeout: 600_000, windowsHide: true });
 }
 
+/** importProject without blocking the event loop (parallel matrix cells keep answering their drivers meanwhile). */
+export function importProjectAsync(exe: string, project: string): Promise<void> {
+	return new Promise((resolve) => {
+		const child = spawn(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", windowsHide: true });
+		const timer = setTimeout(() => child.kill(), 600_000);
+		const done = () => {
+			clearTimeout(timer);
+			resolve();
+		};
+		child.on("error", done);
+		child.on("close", done);
+	});
+}
+
 export type DriverOptions = {
 	stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin";
 	/** Run directory: the driver writes timeline.jsonl there. */
 	out?: string;
+	/** Absolute CharacterSnapshot path (#98): the round starts from it. */
+	character?: string;
+	/** Tier chain target (#98): >= 2 chains from tier 1 through this tier. */
+	tier?: number;
 } & InvariantChecks;
 
 /** Godot arguments that run the playtest driver on `project`. */
@@ -74,5 +92,7 @@ export function driverArgs(project: string, o: DriverOptions): string[] {
 	if (o.stuckPx !== undefined) args.push(`--stuck-px=${o.stuckPx}`);
 	if (o.stuckS !== undefined) args.push(`--stuck-s=${o.stuckS}`);
 	if (o.injectFinding) args.push(`--inject-finding=${o.injectFinding}`);
+	if (o.character) args.push(`--character=${o.character.replaceAll("\\", "/")}`);
+	if (o.tier !== undefined && o.tier >= 2) args.push(`--tier=${o.tier}`);
 	return args;
 }

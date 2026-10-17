@@ -4,8 +4,47 @@
 // recording, and `compareFingerprints` compares the end fingerprint with the recorded fingerprint.json. Every mismatch
 // is a divergence; the adapter reports them as `replay_divergence` problems (exit code 1). After the first divergence
 // the brain answers the baseline, so the driver still reaches `end` and the report can name every differing field.
+import fs from "node:fs";
+import path from "node:path";
 import type { DecideMessage } from "./protocol.ts";
 import type { Brain, BrainAnswer, DecisionRecord } from "./session.ts";
+
+/** A recorded run directory as a replay needs it: decisions.jsonl (in order), fingerprint.json (null if the run
+ * had no end) and scenario.json (what the run was: the scenario, the cell, every flag value and the driver's hello). */
+export type Recording = {
+	dir: string; decisions: DecisionRecord[]; fingerprint: Record<string, unknown> | null;
+	scenario: Record<string, unknown>; hello: Record<string, unknown> | null;
+};
+
+/** Reads run directory `dir` for a replay, or says why it cannot be replayed. */
+export function readRecording(dir: string): Recording | { error: string } {
+	const file = (n: string) => path.join(dir, n);
+	if (!fs.existsSync(file("scenario.json"))) {
+		return { error: `${dir} is not a replayable run directory: no scenario.json (runs recorded before #98 have none)` };
+	}
+	if (!fs.existsSync(file("decisions.jsonl"))) return { error: `${dir} is not a replayable run directory: no decisions.jsonl` };
+	try {
+		const scenario = JSON.parse(fs.readFileSync(file("scenario.json"), "utf8")) as Record<string, unknown>;
+		const decisions = fs.readFileSync(file("decisions.jsonl"), "utf8").split("\n").filter((l) => l.trim())
+			.map((l) => JSON.parse(l) as DecisionRecord);
+		const fingerprint = fs.existsSync(file("fingerprint.json"))
+			? (JSON.parse(fs.readFileSync(file("fingerprint.json"), "utf8")) as Record<string, unknown>) : null;
+		const hello = (scenario.hello as Record<string, unknown> | undefined) ?? null;
+		return { dir, decisions, fingerprint, scenario, hello };
+	} catch (e) {
+		return { error: `${dir}: cannot read the recording (${(e as Error).message})` };
+	}
+}
+
+/** Hello fields that differ between the recorded and the replayed driver (its echo of what it was asked to play:
+ * stage, seed, personality, and anything a later driver echoes, e.g. a motor seed). The brain mode is ignored. */
+export function compareHello(recorded: Record<string, unknown> | null, replayed: Record<string, unknown> | undefined): Divergence[] {
+	if (!recorded || !replayed) return [];
+	const skip = new Set(["v", "type", "brain"]);
+	const keys = [...new Set([...Object.keys(recorded), ...Object.keys(replayed)])].filter((k) => !skip.has(k));
+	return keys.filter((k) => JSON.stringify(recorded[k]) !== JSON.stringify(replayed[k]))
+		.map((k) => ({ field: `hello.${k}`, message: `hello.${k}: replay ${JSON.stringify(replayed[k]) ?? "missing"}, recorded ${JSON.stringify(recorded[k]) ?? "missing"}` }));
+}
 
 /** One replay mismatch: `decision` is the decision id it concerns (absent for run-level ones), `field` the
  * fingerprint field for fingerprint mismatches. */
