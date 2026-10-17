@@ -60,6 +60,36 @@ _Avoid_: High score
 A single round with a fresh or supplied character that belongs to no run and is never saved; only tools start one.
 _Avoid_: Quick play, practice run
 
+## Account and NX
+
+**Account**:
+Everything the player keeps across runs: NX, cash items, run history and best results.
+_Avoid_: Profile, meta save, meta progression
+
+**NX**:
+The account's currency, earned at the end of every round and spent in the Cash Shop.
+_Avoid_: Cash, gems, meta currency; not mesos (mesos belong to one run)
+
+**Cash item**:
+Anything bought with NX: owned once by the account, never expires, and every character can use it.
+_Avoid_: Meta upgrade
+
+**Cash Shop**:
+The v83-style screen where NX is spent on cash items.
+_Avoid_: Store, meta shop
+
+**Cash equipment**:
+Cash items a character wears in its own cash slots, apart from regular equipment; every filled slot adds Fortune.
+_Avoid_: NX gear, cosmetics
+
+**Pet**:
+A cash item companion that follows the character and picks up drops near it; a character has at most one out.
+_Avoid_: Familiar, companion
+
+**Pet upgrade**:
+A cash item that gives whichever pet is out an extra ability: auto HP or MP potion, Wing Boots, Binocular or VAC.
+_Avoid_: Pet equip (an upgrade belongs to the account, not to one pet or character), pet skill
+
 ## Jobs
 
 **Job**:
@@ -108,7 +138,8 @@ topped up with its other new skills.
 _Avoid_: guaranteed card, job reward
 
 **Fortune**:
-The character's survivor stat that makes rarer cards more likely; unrelated to the v83 LUK stat.
+The character's survivor stat that makes rarer cards more likely, mostly from cash equipment; unrelated to the v83
+LUK stat.
 _Avoid_: Luck, LUK
 
 **Rarity**:
