@@ -247,13 +247,13 @@ func test_every_roster_scroll_fits_the_item_slot_it_is_listed_under() -> void:
 
 # --- WZ info plumbing -------------------------------------------------------------------------------------------------
 
-func test_scroll_info_keeps_only_the_numbers_a_scroll_needs() -> void:
+func test_scroll_info_keeps_only_the_numbers_a_scroll_and_the_shop_need() -> void:
 	var img := {"02043700": {"info": {"icon": {"w": 30}, "price": 1, "incMAD": 1.0, "success": 100.0, "tradeBlock": 1}},
 		"02043705": {"info": {"success": 30.0, "cursed": 50.0, "incMAD": 5.0, "incINT": 3.0, "incMDD": 1.0, "slotMax": 50.0}}}
 	var missing := PackedStringArray()
 	var loader := func(_p: String) -> Dictionary: return img
 	var info := DataRepo.scroll_info([2043700, 2043705, 2043999], loader, missing)
-	assert_eq(info[2043700], {"incMAD": 1, "success": 100})
+	assert_eq(info[2043700], {"incMAD": 1, "price": 1, "success": 100}, "the shop sell price is kept (#111)")
 	assert_eq(info[2043705], {"incMAD": 5, "incINT": 3, "incMDD": 1, "success": 30, "cursed": 50, "slotMax": 50})
 	assert_false(info.has(2043999))
 	assert_eq(missing, PackedStringArray([DataRepo.SCROLL_IMG + "/02043999"]))
