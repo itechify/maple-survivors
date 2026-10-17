@@ -34,6 +34,8 @@ var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
 var start_button: WzButton
 var back_button: WzButton
+## Opens the Cash Shop as this character (#118); returns here on Leave.
+var shop_button: WzButton
 var character_label: Label
 ## Stage keys in file order and their info: key, map_id, name, street, mark, duration, objective and normal mobs.
 var stages: Array[Dictionary] = []
@@ -91,6 +93,13 @@ func _ready() -> void:
 	back_button.label = "Save & quit"
 	back_button.pressed.connect(_on_back)
 	_ui.add_child(back_button)
+	shop_button = WzButton.new(BT_BACK)
+	shop_button.set_plate(124, 4)
+	shop_button.name = "Shop"
+	shop_button.fallback_size = Vector2(124, 52)
+	shop_button.label = "Cash Shop"
+	shop_button.pressed.connect(_on_shop)
+	_ui.add_child(shop_button)
 	character_label = MapleText.new("Tier %d / %s / Lv. %d %s / %s NX" % [int(snapshot.get("tier", 0)) + 1,
 		snapshot.get("name", ""), int(snapshot.get("character", {}).get("level", 1)),
 		JobTree.from_data(DataRepo.load_all().jobs, {}).name_of(int(snapshot.get("character", {}).get("job_id", 0))),
@@ -160,6 +169,11 @@ func select(i: int) -> void:
 		scroll.queue_redraw()
 
 
+func _on_shop() -> void:
+	if flow != null:
+		flow.goto_cash_shop("stage_select")
+
+
 func _on_back() -> void:
 	if flow != null:
 		flow.save_and_quit()
@@ -215,6 +229,7 @@ func _layout() -> void:
 	var r := ParchmentScroll.PARCHMENT
 	start_button.position = Vector2(LIST_X + floorf((LIST_W - start_button.size.x) * 0.5), r.end.y - 50.0)
 	back_button.position = o + Vector2(18, 600 - 74)
+	shop_button.position = back_button.position + Vector2(back_button.size.x + 8.0, 0)
 	# tier C: #69 character/tier heading, above the existing parchment.
 	character_label.position = Vector2(floorf((view.x - character_label.get_minimum_size().x) * 0.5), 32)
 
