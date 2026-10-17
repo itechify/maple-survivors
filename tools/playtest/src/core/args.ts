@@ -30,10 +30,12 @@ export class FlagRegistry {
 		return this;
 	}
 
-	/** Parses argv into {name: value} (defaults filled in) plus one error message per bad argument. */
-	parse(argv: readonly string[]): { values: Record<string, FlagValue>; errors: string[] } {
+	/** Parses argv into {name: value} (defaults filled in) plus one error message per bad argument. `explicit` holds the
+	 * names given on the command line (so a scenario file's field is overridden only by a flag the user typed). */
+	parse(argv: readonly string[]): { values: Record<string, FlagValue>; errors: string[]; explicit: Set<string> } {
 		const values: Record<string, FlagValue> = {};
 		const errors: string[] = [];
+		const explicit = new Set<string>();
 		for (const spec of this.#specs.values()) values[spec.name] = spec.default;
 		for (const arg of argv) {
 			const m = /^--([a-z0-9-]+)(?:=(.*))?$/s.exec(arg);
@@ -43,6 +45,7 @@ export class FlagRegistry {
 				continue;
 			}
 			const raw = m[2];
+			explicit.add(spec.name);
 			if (spec.kind === "bool") {
 				if (raw === undefined || raw === "true" || raw === "1") values[spec.name] = true;
 				else if (raw === "false" || raw === "0") values[spec.name] = false;
@@ -68,7 +71,7 @@ export class FlagRegistry {
 			}
 			values[spec.name] = raw;
 		}
-		return { values, errors };
+		return { values, errors, explicit };
 	}
 
 	/** One line per flag for --help. */

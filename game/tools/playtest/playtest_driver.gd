@@ -8,7 +8,12 @@ extends SceneTree
 ##
 ##   godot --headless --path game --script res://tools/playtest/playtest_driver.gd -- --stage=henesys_hg1 --seed=2026
 ##       [--minutes=3] [--brain=stdio|builtin] [--personality=sensible] [--out=<abs dir>]
-##       [--stuck-px=24] [--stuck-s=20] [--inject-finding=<kind>]
+##       [--stuck-px=24] [--stuck-s=20] [--inject-finding=<kind>] [--character=<abs json>] [--tier=N]
+##
+## --character starts the round from a CharacterSnapshot (DataRepo.load_character, as balance_run.gd). --tier=N (>= 2)
+## plays a chain from tier 1 (--stage) through tier N (playtest_chain.gd over balance_run.gd run_chain; not with
+## --character); the record then has rounds[] and timeline rows carry "tier". Both are echoed in hello. The `end`
+## fingerprint (playtest_fingerprint.gd) adds the job and a hash of the per-second timeline, for exact replays (#98).
 ##
 ## --minutes caps the round's simulated time (TIMEOUT at the cap; 0 = the stage's own run_time_cap).
 ## Deterministic invariants (playtest_invariants.gd) watch every tick and decision; each new finding is streamed as a
@@ -31,6 +36,8 @@ const STDIO_LINK := preload("res://tools/playtest/stdio_brain_link.gd")
 const BR := preload("res://tools/balance_run.gd")
 const INVARIANTS := preload("res://tools/playtest/playtest_invariants.gd")
 const TIMELINE := preload("res://tools/playtest/playtest_timeline.gd")
+const FINGERPRINT := preload("res://tools/playtest/playtest_fingerprint.gd")
+const CHAIN := preload("res://tools/playtest/playtest_chain.gd")
 ## Simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
 const PROGRESS_EVERY := 60.0
 ## Run time (s) of the --inject-finding finding.
@@ -45,6 +52,8 @@ func _init() -> void:
 	var personality := "sensible"
 	var personality_file := ""
 	var out_dir := ""
+	var character_file := ""
+	var tier := 1
 	var checks := {"inject_at": INJECT_AT}
 	var bad := PackedStringArray()
 	for a in OS.get_cmdline_user_args():
@@ -68,6 +77,10 @@ func _init() -> void:
 			checks.stuck_s = float(a.substr(10))
 		elif a.begins_with("--inject-finding=") and a.substr(17) in INVARIANTS.KINDS:
 			checks.inject = a.substr(17)
+		elif a.begins_with("--character="):
+			character_file = a.substr(12)
+		elif a.begins_with("--tier=") and a.substr(7).is_valid_int():
+			tier = int(a.substr(7))
 		else:
 			bad.append(a)
 	if brain not in ["stdio", "builtin"]:
@@ -85,6 +98,7 @@ func _init() -> void:
 		params = parsed
 	var hello := PROTOCOL.hello(stage, seed_value, minutes, personality, link.mode)
 	hello["personality_params"] = params
+	hello.merge({"tier": tier, "character": character_file})
 	link.send(hello)
 	var data := DataRepo.load_all()
 	if not data.stages.stages.has(stage):
@@ -92,15 +106,36 @@ func _init() -> void:
 		return
 	if minutes > 0.0:
 		data.balance["run_time_cap"] = minutes * 60.0 # harness cap, as balance_run.gd --cap; no data file changes
-	var root := AssetCachePaths.resolve_cache_root()
-	var missing := PackedStringArray()
-	var setup := DataRepo.build_setup(data, stage, 0, Vector2(800, 600),
-		func(p: String) -> Dictionary: return BR._json(root, p),
-		func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing)
-	if not missing.is_empty() or setup.get("map_img", {}).is_empty():
-		_fail(link, "cache_missing", "the asset cache lacks %s for %s (root %s); run scripts/import.sh" % [
-			missing, stage, root])
+	var stages := _chain_stages(data, stage, tier, character_file)
+	if stages.is_empty():
+		_fail(link, "bad_args", "--tier=%d needs a tier-1 --stage and 2..%d tiers, and cannot be combined with --character" % [
+			tier, data.stages.get("tiers", []).size()])
 		return
+	var character := {}
+	if character_file != "":
+		var errors := PackedStringArray()
+		character = DataRepo.load_character(character_file, errors)
+		if not errors.is_empty():
+			_fail(link, "bad_args", "--character: " + "; ".join(errors))
+			return
+	var root := AssetCachePaths.resolve_cache_root()
+	var setups: Array = []
+	for stage_key: String in stages:
+		var missing := PackedStringArray()
+		var stage_setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
+			func(p: String) -> Dictionary: return BR._json(root, p),
+			func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing)
+		if not missing.is_empty() or stage_setup.get("map_img", {}).is_empty():
+			_fail(link, "cache_missing", "the asset cache lacks %s for %s (root %s); run scripts/import.sh" % [
+				missing, stage_key, root])
+			return
+		setups.append(stage_setup)
+	if stages.size() > 1:
+		_play_chain(link, setups, seed_value, stage, personality, checks, out_dir, params)
+		return
+	var setup: Dictionary = setups[0]
+	if character_file != "":
+		setup.character = character
 	setup.seed = seed_value
 	var world := RunWorld.new(setup)
 	var start_character := world.character_snapshot()
@@ -119,12 +154,9 @@ func _init() -> void:
 		if timeline_file != null:
 			timeline_file.store_line(line))
 	policy.observers.append(timeline.observe)
-	var progress := {"next": PROGRESS_EVERY}
-	policy.observers.append(func(w: RunWorld, _events: Array) -> void:
-		if w.time >= float(progress.next) - 1e-6:
-			progress.next = float(progress.next) + PROGRESS_EVERY
-			print("playtest_driver: %s Lv %d kills %d alive %d" % [BR._mmss(w.time + 1e-3), int(w.player_state.level), w.kills,
-				w.swarm.alive_count()]))
+	var fp := FINGERPRINT.new()
+	policy.observers.append(fp.observe)
+	policy.observers.append(_progress_observer())
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
 		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
@@ -134,8 +166,66 @@ func _init() -> void:
 			record["tier"] = tier_index + 1
 	if timeline_file != null:
 		timeline_file.close()
-	var fingerprint := policy.fingerprint(world, record)
+	var fingerprint := FINGERPRINT.of_round(policy, world, record, fp)
 	link.send(PROTOCOL.end(record, fingerprint, policy.decisions, link.lost, invariants.results()))
+	print(BR.describe(record))
+	quit(0)
+
+
+## The stages to play: [stage] for one round, or tier 1's `stage` then the first stage of each later tier through
+## `tier` (balance_run.gd's chain rule); [] when the chain is invalid (stage not in tier 1, tier out of range, or a
+## character fixture with a chain).
+static func _chain_stages(data: Dictionary, stage: String, tier: int, character_file: String) -> Array:
+	if tier <= 1:
+		return [stage]
+	var tiers: Array = data.stages.get("tiers", [])
+	if tier > tiers.size() or character_file != "" or stage not in tiers[0]:
+		return []
+	var stages: Array = [stage]
+	for tier_index in range(1, tier):
+		stages.append(String(tiers[tier_index][0]))
+	return stages
+
+
+## A per-tick observer printing a progress line every PROGRESS_EVERY simulated seconds (each round counts from 0).
+func _progress_observer() -> Callable:
+	var progress := {"next": PROGRESS_EVERY}
+	return func(w: RunWorld, _events: Array) -> void:
+		if w.time < float(progress.next) - PROGRESS_EVERY - 1e-6:
+			progress.next = PROGRESS_EVERY # a new round of a chain started
+		if w.time >= float(progress.next) - 1e-6:
+			progress.next = float(progress.next) + PROGRESS_EVERY
+			print("playtest_driver: %s Lv %d kills %d alive %d" % [BR._mmss(w.time + 1e-3), int(w.player_state.level), w.kills,
+				w.swarm.alive_count()])
+
+
+## Plays a tier chain (playtest_chain.gd) and sends its `end`: the chain record (rounds[] plus the last round's outcome
+## at the top level), the chain fingerprint, every round's decisions and findings. Timeline rows carry "tier".
+func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String, personality: String, checks: Dictionary,
+		out_dir: String, params: Dictionary = {}) -> void:
+	var timeline_file: FileAccess = null
+	if out_dir != "":
+		timeline_file = FileAccess.open(out_dir.path_join("timeline.jsonl"), FileAccess.WRITE)
+		if timeline_file == null:
+			_fail(link, "bad_args", "cannot write %s (%s)" % [out_dir.path_join("timeline.jsonl"),
+				error_string(FileAccess.get_open_error())])
+			return
+	var chain := CHAIN.new(link, checks, func(f: Dictionary) -> void: link.send(PROTOCOL.finding(f)),
+		func(line: String) -> void:
+			if timeline_file != null:
+				timeline_file.store_line(line))
+	chain.extra_observers.append(_progress_observer())
+	chain.policy_setup = func(p: Object) -> void: p.configure(params) # the personality applies in every round (#97)
+	var result := chain.play(setups, seed_value)
+	if timeline_file != null:
+		timeline_file.close()
+	var record: Dictionary = result.record
+	record.merge({"seed": seed_value, "stage": stage, "personality": personality, "missing": [],
+		"tier": setups.size()}, true)
+	for i in record.rounds.size():
+		record.rounds[i]["personality"] = personality
+		record.rounds[i]["motor"] = chain.policies[i].motor_summary()
+	link.send(PROTOCOL.end(record, result.fingerprint, result.decisions, link.lost, result.findings))
 	print(BR.describe(record))
 	quit(0)
 

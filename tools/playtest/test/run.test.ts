@@ -41,11 +41,11 @@ test("a clean run exits 0 and writes the run directory", async () => {
 	assert.equal(fs.readFileSync(path.join(out, "game.log"), "utf8").includes("fake_driver: a log line"), true);
 });
 
-test("the default run directory is evidence/agent-playtest/<stage>_s<seed>_<time>", async () => {
+test("the default run directory is evidence/agent-playtest/<scenario>_<stage>_<personality>_s<seed>_<time>", async () => {
 	const repo = tmp();
-	const r = await runPlaytest({ ...base, repo, env: {}, now: new Date(2026, 9, 16, 17, 5, 9),
+	const r = await runPlaytest({ ...base, scenario: "smoke", repo, env: {}, now: new Date(2026, 9, 16, 17, 5, 9),
 		launch: { command: process.execPath, args: [FAKE, "--mode=ok"] } });
-	assert.equal(r.dir, path.join(repo, "evidence", "agent-playtest", "henesys_hg1_s2026_20261016-170509"));
+	assert.equal(r.dir, path.join(repo, "evidence", "agent-playtest", "smoke_henesys_hg1_sensible_s2026_20261016-170509"));
 });
 
 test("no end message is an infrastructure error (exit 2) and the report says why", async () => {

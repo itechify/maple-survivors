@@ -1,0 +1,28 @@
+{
+	"title": "Agent playtest: henesys_hg1 seed 1",
+	"exit_code": 1,
+	"header": {
+		"scenario": "matrix",
+		"stage": "henesys_hg1",
+		"seed": "1",
+		"time cap": "10 min",
+		"personality": "sensible",
+		"brain used": "fallback:sensible",
+		"exit code": "1"
+	},
+	"outcome": { "state": "DEAD", "time": 421.5, "level": 14, "job": 200, "kills": 310, "cards_taken": 13, "brain_lost": false },
+	"problems": {
+		"infrastructure": [],
+		"deterministic": [
+			{ "kind": "stuck", "severity": "warning", "time": 85, "tick": 5100, "count": 2, "source": "invariant",
+				"message": "the player stayed inside 24 px for 20 s while pressing movement (100% of ticks), tactic collect",
+				"snapshot": { "x": 131.2, "y": -390.9, "fh": 59, "platform": 7, "level": 2, "tactic": "collect", "mobs": [] } },
+			{ "kind": "script_error", "severity": "error", "count": 1, "source": "game.log", "line": 40,
+				"message": "SCRIPT ERROR: Invalid access to property or key 'fh' on a base object of type 'Nil'.",
+				"location": "_step (res://scripts/sim/run_world.gd:612)" }
+		],
+		"rerun": "bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=1 --minutes=10 --personality=sensible --brain=fallback",
+		"replay": "bash scripts/agent_playtest.sh --replay=evidence/agent-playtest/matrix_x/matrix_henesys_hg1_sensible_s1"
+	},
+	"decisions": { "total": 60, "by_source": { "fallback:sensible": 13, "fallback:tactic-rules": 47 } }
+}

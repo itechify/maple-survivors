@@ -1,0 +1,9 @@
+{
+	"description": "The committed Lv38 F/P character fixture on Dark Cave (tier 2), sensible, seed 1, 15-minute cap.",
+	"stage": "dark_cave",
+	"seeds": [1],
+	"personalities": ["sensible"],
+	"minutes": 15,
+	"character": "game/tests/fixtures/characters/lv35_magician_2nd.json",
+	"brain": "auto"
+}

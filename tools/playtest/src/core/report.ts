@@ -25,6 +25,8 @@ export type ReportContext = {
 	data: Record<string, unknown>;
 	/** The command that re-runs this run live (shown with every problem). */
 	rerun?: string;
+	/** The command that replays this run exactly from its recorded answers (shown with every problem, #98). */
+	replay?: string;
 };
 
 /** Renders a finding's state snapshot as Markdown sub-bullets; a game adapter may replace it (setSnapshotFormatter). */
@@ -64,7 +66,7 @@ export function runClock(t: number): string {
 }
 
 /** Markdown for one problem (a numbered entry with sub-bullets). */
-function problemLines(p: Problem, i: number, rerun: string | undefined): string[] {
+function problemLines(p: Problem, i: number, rerun: string | undefined, replay?: string): string[] {
 	const when = [p.time !== undefined ? `at ${runClock(p.time)}` : "", p.tick !== undefined ? `tick ${p.tick}` : ""]
 		.filter(Boolean).join(", ");
 	const seen = (p.count ?? 1) > 1 ? `, seen ${p.count} times` : "";
@@ -73,6 +75,7 @@ function problemLines(p: Problem, i: number, rerun: string | undefined): string[
 	if (p.snapshot) lines.push(...snapshotFormatter(p.snapshot).map((l) => `   - ${l}`));
 	if (p.source && p.source !== "invariant") lines.push(`   - from: ${p.source}`);
 	if (rerun) lines.push(`   - re-run: \`${rerun}\``);
+	if (replay) lines.push(`   - replay: \`${replay}\``);
 	return lines;
 }
 
@@ -143,11 +146,21 @@ registerSection({
 		if (ctx.infraErrors.length) lines.push("Infrastructure errors (exit code 2):", "", ...ctx.infraErrors.map((e) => `- ${e}`), "");
 		if (ctx.problems.length) {
 			lines.push(`### Deterministic failures (${ctx.problems.length})`, "");
-			orderProblems(ctx.problems).forEach((p, i) => lines.push(...problemLines(p, i, ctx.rerun)));
+			orderProblems(ctx.problems).forEach((p, i) => lines.push(...problemLines(p, i, ctx.rerun, ctx.replay)));
 		} else lines.push("No deterministic problems found (invariants, game.log errors).");
 		return lines;
 	},
-	json: (ctx) => ({ infrastructure: ctx.infraErrors, deterministic: orderProblems(ctx.problems), rerun: ctx.rerun ?? null }),
+	json: (ctx) => ({ infrastructure: ctx.infraErrors, deterministic: orderProblems(ctx.problems), rerun: ctx.rerun ?? null,
+		replay: ctx.replay ?? null }),
+});
+
+registerSection({
+	id: "reproduce",
+	order: 85,
+	markdown: (ctx) => (ctx.rerun || ctx.replay ? ["## Reproduce", "",
+		...(ctx.rerun ? [`- live re-run: \`${ctx.rerun}\``] : []),
+		...(ctx.replay ? [`- replay: \`${ctx.replay}\` (the recorded answers, no Jev; compares the fingerprint)`] : [])] : []),
+	json: (ctx) => ({ rerun: ctx.rerun ?? null, replay: ctx.replay ?? null }),
 });
 
 registerSection({

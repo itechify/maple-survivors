@@ -1,0 +1,9 @@
+{
+	"description": "A tier-1 Henesys round chained into tier 2 through the real character carry (only a CLEARED round feeds the next), sensible, seed 1, 30-minute cap per round.",
+	"stage": "henesys_hg1",
+	"seeds": [1],
+	"personalities": ["sensible"],
+	"minutes": 30,
+	"tier": 2,
+	"brain": "auto"
+}
