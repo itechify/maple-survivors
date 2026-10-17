@@ -144,6 +144,8 @@ var mob_layers := PackedInt32Array()
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
+## The pet out (spec #34, #120); null without one. Drawn in the actor layer it stands in, behind the avatar.
+var pet_renderer: PetRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
 var numbers: DamageNumbers
@@ -179,6 +181,7 @@ var _kind_names := PackedStringArray()
 var _slot_layers := PackedInt32Array()
 var _base_layer := 0
 var _player_layer := -1
+var _pet_layer := -1
 var _top: Node2D
 var _tag_source: _TagSource
 ## Waiting window request {"kind": "job"/"cards", ...} and the presentation delay before it opens.
@@ -580,6 +583,10 @@ func _build_actors() -> void:
 	avatar.name = "Player"
 	avatar.library = library
 	player_group.add_child(avatar)
+	if world.pet_system != null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
 
 
 ## The top container, drawn after every actor layer's content: shots, monster balls, effects, numbers and name tags.
@@ -943,6 +950,9 @@ func handle_events(events: Array) -> void:
 			"pickup_collected":
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
+			"pet_teleported":
+				if pet_renderer != null:
+					pet_renderer.snap()
 			"potion_used", "pet_potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
@@ -1286,6 +1296,7 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_player(delta)
+	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var boss_actions := world.bosses.action_snapshot(world.swarm)
 	for i in mob_renderers.size():
@@ -1378,6 +1389,25 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+
+
+## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
+## hangs on a rope or is in the air), just behind the avatar when that is the avatar's layer.
+func _update_pet(delta: float) -> void:
+	if pet_renderer == null:
+		return
+	var pet := world.pet_system
+	var layer := _player_layer if pet.action == "hang" or _pet_layer < 0 else _pet_layer
+	if pet.action != "hang" and pet.motion.fh >= 0:
+		layer = world.fhm.layer[pet.motion.fh]
+	pet_renderer.show_state(world.pet_state(), delta)
+	var c := map.actor_layer(layer)
+	if layer != _pet_layer or pet_renderer.get_parent() != c:
+		_pet_layer = layer
+		if pet_renderer.get_parent() != null:
+			pet_renderer.get_parent().remove_child(pet_renderer)
+		c.add_child(pet_renderer)
+		c.move_child(pet_renderer, player_group.get_index() if player_group.get_parent() == c else 0)
 
 
 ## Moves the player, its behind-effects and the drops into actor layer `layer` (drawn with that foothold layer):

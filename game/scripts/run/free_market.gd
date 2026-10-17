@@ -17,6 +17,8 @@ var library: AssetLibrary
 var motion: FreeMarketMotion
 var map: MapRenderer
 var avatar: AvatarRenderer
+## The character's pet (spec #34, #120), null without an owned one; it follows with the round's PetSystem.
+var pet_renderer: PetRenderer
 var camera: CameraRig
 var pause_menu: PauseMenu
 var status: HudStatusBar
@@ -54,8 +56,15 @@ func _ready() -> void:
 	_build_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library
+	var owned: Array = flow.save_data().account.owned if flow != null else []
 	# Configure before entering the tree, so _ready never loads a different default outfit first.
-	avatar.set_look(character_look(character, data, flow.save_data().account.owned if flow != null else []))
+	avatar.set_look(character_look(character, data, owned))
+	var species := owned_pet(character, data, owned)
+	if species > 0:
+		motion.set_pet(species, data.get("cash_items", {}).get("pet", {}))
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
 	map.actor_layer(_player_layer()).add_child(avatar)
 	_add_name_tag(avatar, String(snapshot.get("name", "")))
 	camera = CameraRig.new()
@@ -97,6 +106,8 @@ func step_input(dt: float, input: MoveInput) -> void:
 			return
 		if event.type == "portal_used" and camera != null:
 			camera.snap_to(motion.player.pos)
+		if event.type == "pet_teleported" and pet_renderer != null:
+			pet_renderer.snap()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -130,6 +141,11 @@ func missing_paths() -> PackedStringArray:
 ## `owned` (account item ids) decides which worn cash equipment is drawn.
 static func character_look(character: Dictionary, data: Dictionary, owned: Array = []) -> Dictionary:
 	return DataRepo.character_look(character, data, DataRepo.worn_cash(character, data, owned))
+
+
+## The pet species the character brings that the account owns (0 = none).
+static func owned_pet(character: Dictionary, data: Dictionary, owned: Array) -> int:
+	return CashCatalog.from_data(data).resolve({}, int(character.get("pet", 0)), owned).pet
 
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:
@@ -222,6 +238,24 @@ func _player_layer() -> int:
 	return int(motion.fhm.layer[fh]) if fh >= 0 else 0
 
 
+## Draws the pet in the layer of the foothold it stands on (the player's while it hangs or flies), behind the avatar.
+func _present_pet(delta: float) -> void:
+	if pet_renderer == null:
+		return
+	var fh := motion.pet.motion.fh
+	var layer := int(motion.fhm.layer[fh]) if fh >= 0 and motion.pet.action != "hang" else _player_layer()
+	pet_renderer.show_state(motion.pet_state(), delta)
+	var parent := map.actor_layer(layer)
+	if pet_renderer.get_parent() != parent:
+		if pet_renderer.get_parent() != null:
+			pet_renderer.get_parent().remove_child(pet_renderer)
+		parent.add_child(pet_renderer)
+	if avatar.get_parent() == parent:
+		parent.move_child(pet_renderer, avatar.get_index())
+	else:
+		parent.move_child(pet_renderer, 0)
+
+
 func _present(delta: float) -> void:
 	var parent := map.actor_layer(_player_layer())
 	if avatar.get_parent() != parent:
@@ -230,5 +264,6 @@ func _present(delta: float) -> void:
 	avatar.set_facing(motion.player.facing)
 	avatar.play(motion.player.stance())
 	avatar.advance(delta)
+	_present_pet(delta)
 	for npc: Dictionary in npcs:
 		(npc.sprite as MapDrawList).advance(delta)
