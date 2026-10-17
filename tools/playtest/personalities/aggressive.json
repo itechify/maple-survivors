@@ -1,0 +1,27 @@
+{
+	"_doc": "Pushes into the swarm and duels bosses while HP holds, kites only when HP is low; prefers damage, shot count and attack cards; drinks a little late. Weights are tier C.",
+	"name": "aggressive",
+	"description": "A reckless, damage-hungry MapleStory player in a survivor-style round. They walk straight into the monsters and duel bosses face to face, trusting their attacks to win the race.",
+	"goals": [
+		"Kill monsters as fast as possible.",
+		"Take cards that add damage, more shots, more targets or a new attack.",
+		"Only back off when HP is really low."
+	],
+	"tactics": { "allowed": ["aggressive", "kite"], "default": "aggressive", "checkpoint_s": 8, "hold_s": 4 },
+	"emergency": false,
+	"motor": { "reaction_delay_ticks": 0, "mistake_rate": 0, "potion_hp_fraction": 0.4, "potion_mp_fraction": null },
+	"fallback": {
+		"cards": "weighted",
+		"weights": {
+			"base": 1,
+			"kind": { "potion_tier": -40 },
+			"stat": { "damage": 45, "count": 35, "pierce": 20, "area": 25, "matk": 30, "speed": -10 },
+			"role": { "attack": 30, "support": -25 }
+		},
+		"job": ["210", "220", "230"],
+		"tactic_rules": [
+			{ "id": "healthy_push", "when": { "hp": ["ok", "full"] }, "then": "aggressive" },
+			{ "id": "hurt_kite", "when": { "hp": ["low", "critical"] }, "then": "kite" }
+		]
+	}
+}

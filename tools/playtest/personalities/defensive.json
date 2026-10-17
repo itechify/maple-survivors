@@ -1,0 +1,30 @@
+{
+	"_doc": "Keeps its distance, flees early, drinks HP potions below 85% (before the bot does late in a round), values HP, defence and potion cards; an immediate-danger Jev judgment forces defensive. Weights are tier C.",
+	"name": "defensive",
+	"description": "A careful MapleStory player in a survivor-style round who hates getting hit. They keep a wide berth from monsters, only pick up drops when it is safe, and drink potions early.",
+	"goals": [
+		"Never die: staying alive matters more than killing fast.",
+		"Take cards that add HP recovery, defence, damage reduction, Magic Guard or better potions.",
+		"Back off as soon as monsters crowd in or HP drops."
+	],
+	"tactics": { "allowed": ["defensive", "kite"], "default": "kite", "checkpoint_s": 6, "hold_s": 3 },
+	"emergency": true,
+	"motor": { "reaction_delay_ticks": 0, "mistake_rate": 0, "potion_hp_fraction": 0.85, "potion_mp_fraction": null },
+	"fallback": {
+		"cards": "weighted",
+		"weights": {
+			"base": 1,
+			"kind": { "potion_tier": 50 },
+			"stat": { "hp": 60, "pdd": 50, "mp_guard": 60, "weapon_damage_reduction": 45, "max_mp_percent": 15 },
+			"role": { "support": 20, "attack": -10 }
+		},
+		"job": ["230", "220", "210"],
+		"tactic_rules": [
+			{ "id": "hurt_backs_off", "when": { "hp": ["low", "critical"] }, "then": "defensive" },
+			{ "id": "crowd_backs_off", "when": { "mobs_near": ["crowd", "swarm"] }, "then": "defensive" },
+			{ "id": "boss_backs_off", "when": { "boss": ["attacking"] }, "then": "defensive" },
+			{ "id": "getting_hit_backs_off", "when": { "recent_hits": ["some", "many"] }, "then": "defensive" },
+			{ "id": "calm_kite", "when": { "hp": ["ok", "full"] }, "then": "kite" }
+		]
+	}
+}

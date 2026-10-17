@@ -1,0 +1,24 @@
+{
+	"_doc": "Wanders the whole map: platforms, ropes and portals, toward the least-visited platform; kites when hurt or crowded; likes speed and magnet cards. Weights are tier C.",
+	"name": "exploratory",
+	"description": "A curious MapleStory player in a survivor-style round who wants to see the whole map. They climb every rope, jump to every platform and walk through every portal, fighting only when monsters get in the way.",
+	"goals": [
+		"Visit every platform, rope and portal on the map.",
+		"Take cards that make moving and picking things up easier, then attack cards.",
+		"Get away from crowds, then keep exploring."
+	],
+	"tactics": { "allowed": ["explore", "kite", "collect"], "default": "explore", "checkpoint_s": 10, "hold_s": 6 },
+	"emergency": false,
+	"motor": { "reaction_delay_ticks": 0, "mistake_rate": 0, "potion_hp_fraction": null, "potion_mp_fraction": null },
+	"fallback": {
+		"cards": "weighted",
+		"weights": { "base": 1, "stat": { "speed": 50, "magnet": 35 } },
+		"job": "sensible",
+		"tactic_rules": [
+			{ "id": "hurt_kite", "when": { "hp": ["low", "critical"] }, "then": "kite" },
+			{ "id": "crowd_kite", "when": { "mobs_near": ["crowd", "swarm"] }, "then": "kite" },
+			{ "id": "boss_kite", "when": { "boss": ["attacking"] }, "then": "kite" },
+			{ "id": "keep_exploring", "when": { "hp": ["ok", "full"] }, "then": "explore" }
+		]
+	}
+}
