@@ -3,7 +3,8 @@ extends RefCounted
 ## range box and attackAfter, synthetic frames) and a Jr. Boogie-shaped 3230300 (contact damage only; it still lists
 ## MobSkill 120 and 124 L1 with the v83 interval/time/box and prop 100, which ordinary mobs never cast).
 ## Canonical-shaped values are the ones checked against the real v83 cache during #76 triage; frames, HP and speed are
-## synthetic. Both mobs stand still (speed -100).
+## synthetic (Jr. Boogie's `bodyAttack: 1` is set for the contact-only test, not read from the cache). Both mobs stand
+## still (speed -100).
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const TAURO := 7130100

@@ -2235,7 +2235,7 @@ the old code (296 mean / 312 max alive, Lv58, same kills), so it isolates code o
 | Whole `RunWorld.step`, µs per tick (mean of 3000 ticks) | Run 1 | Run 2 | Run 3 | Run 4 |
 |---|---|---|---|---|
 | Old `6519b73` (296 alive) | 3139 | 3193 | 3812 | 2921 |
-| Old, repeat after the inlining below | 3457 | 3581 | 3619 | |
+| Old, second batch (interleaved with the inlined HEAD) | 3457 | 3581 | 3619 | |
 | HEAD, attacks off (same state as old) | 3623 | 4359 | 3599 | |
 | HEAD, before the inlining (290 alive, 142 Tauros) | 2470 | 2685 | 2383 | 3055 |
 | HEAD (290 alive, 142 Tauros; `MobAttacks.step` inlined) | 2596 | 2742 | 2945 | |
@@ -2249,8 +2249,10 @@ Reading: same-state HEAD costs the old code's step within noise (3.6-4.4 ms agai
 at once when no mob has an attack). With the attacks on, the world differs (HEAD ends with 142 Tauros alive against 103; the cheaper
 2.6-2.9 ms step is probably mobs held in their attack stance, not measured) and the attack loop itself costs **121-139 µs per tick, 4-5% of the step** at 142
 attackers on screen (it was 190-246 µs, about 8%, before `can_act`, `is_live` and `Rect2.has_point` were inlined; the loop
-output is unchanged, all 12 Dark Cave and chain-random records are byte-identical before and after). HEAD is not 10%
-slower at any measured point. Windowed (`--vsync=off`, `--warp=720 --minutes=15`, so 720-900 s drawn, a
+output is unchanged, all 12 Dark Cave and chain-random records are byte-identical before and after). The same-state
+HEAD readings (3599-4359) sit within the spread of the old code across batches (2921-3812) plus one slow reading, so
+the code overhead is not distinguishable from run-to-run noise; no measurement shows the attack feature costing more
+than the attack loop's own 4-5%. Windowed (`--vsync=off`, `--warp=720 --minutes=15`, so 720-900 s drawn, a
 scratch-worktree-only `world.god` switch), same seed and character:
 
 | Windowed, 12:00-15:00 (max alive 331 in all four) | `frame_work_us` avg / p95 | `sim_us_per_tick` | `frame_ms_200plus` p95 (frames) |
