@@ -444,9 +444,31 @@ Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` 
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
 rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
-survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
-takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
+survivor score overrides, then the existing attack, shot, damage, pierce and defence scores, each plus
+`bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
+card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #63 sensible bot values card tiers: regression smoke (2026-10-17)
+
+`ISOLATE=<tag> bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` plus
+`bash scripts/balance.sh 1 2 2026 --tier=2 --policy=bot`, shared real cache, unforced branches, default cap, no PATCH
+or tuning. "Before" ran on a detached copy of `ff71af2`; "after" adds `bot.gain_step_score` 6 (card score = base +
+6 x (magnitude - 1)). No balance data changed. All runs finish with no crashes, script errors or world warnings.
+`random` never calls `card_score`, and its rows are identical before and after (Henesys 1/2 with deaths at 7:42/10:59;
+Tree 0/3 with deaths at 20:23/2:38/1:28). Raw records are outside the repo.
+
+| Stage / policy | Clear/dead before -> after | End (seed order 1/2/2026) before -> after | Final Lv | Non-Normal cards picked / offered |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 1/2 | D 20:14 / D 14:40 / D 22:16 -> C 15:29 / D 23:44 / D 21:08 | 34/27/33 -> 43/41/35 | 24/92 (Epic 0/12, Legendary 0/2) -> 41/109 (Epic 8/17, Legendary 1/1) |
+| Tree bot | 0/3 -> 0/3 | D 10:26 / 2:36 / 2:08 -> D 11:18 / 2:36 / 2:08 | 24/4/3 -> 25/4/3 | 4/25 -> 5/25 |
+| Henesys random / Tree random | unchanged | unchanged | unchanged | not scored by the bot |
+
+Henesys bot: all 3 runs still reach Magician (265.9–281.3 s) and Mano (3/3 completed). The third boss (9400205) completes
+1/3 (before: 0/2 spawned, 1 never spawned). Tier-2 chain (bot): before, no tier-1 clear fed Dark Cave (0/3). After, seed 1
+feeds 1/3, and that Dark Cave round dies at 13:57 (Lv 43 -> 55, Zombie Mushmom killed, Snack Bar alive, Jr. Balrog not
+spawned). Every sensible-policy number before this entry comes from a bot that ignored card tiers. #77 tunes tier 2
+against this bot.
 
 #### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
 

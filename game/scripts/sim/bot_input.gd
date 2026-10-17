@@ -55,10 +55,11 @@ const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 2
 ## tier C: permanent potion tier improvement is preferred to a general defence card, below attack ranks.
 const SCORE_POTION_TIER := 52.0
 ## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
-## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a Normal
-## pierce card, 70) while staying under a Normal new attack skill (100) unless it is a Unique stacking card (+4 shots,
-## 87+18 = 105; a Unique +5 attack rank is 98); a +2 passive rank (54+6 = 60) never does. Gains only add, so this
-## never reorders Normal offers.
+## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a
+## Normal pierce card, 70). Of the cards that are not themselves new attack skills, only a Unique stacking card (+4 shots,
+## 87+18 = 105) passes a Normal new attack skill (100); a Unique +5 attack rank is 98 and a +2 passive rank 54+6 = 60. A
+## higher-tier new attack skill (106-124) passes a Normal one, as it should. Gains only add, so this never reorders
+## Normal offers.
 const SCORE_GAIN_STEP := 6.0
 
 
@@ -407,10 +408,11 @@ static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
-	if String(d.get("kind", "")) == "potion_tier":
+	var kind := String(d.get("kind", ""))
+	if kind == "potion_tier":
 		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
-	if String(d.get("kind", "")) == "filler":
-		return _base_score(w, d) # the Elixir fallback is always one step
+	if kind == "filler":
+		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one
 	var step := float(w.balance.get("bot", {}).get("gain_step_score", SCORE_GAIN_STEP))
 	return _base_score(w, d) + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
 
