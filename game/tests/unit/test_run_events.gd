@@ -10,7 +10,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
 
 
 
@@ -277,6 +277,15 @@ func test_every_event_matches_the_schema() -> void:
 	eater.hit_mob(victim, {"skill": "magic_claw", "level": 1, "magic": true, "damage_min": 1.0,
 		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 	for event: Dictionary in eater.drain_events():
+		_check(event, seen)
+	# An equipment drop beside the player with a full Equip tab: spawn, then the inventory-full notice.
+	var full := RF.quiet_world(400, 61)
+	while full.equipment.inventory.size() < full.inventory_slots():
+		full.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
+	full.spawn_equipment(full.player.pos + Vector2(20, 0), {"id": 1372005, "stats": {"incMAD": 23}, "slots": 7, "scrolls": 0})
+	for tick in 90:
+		full.step(DT, MoveInput.new())
+	for event: Dictionary in full.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

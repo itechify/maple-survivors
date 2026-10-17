@@ -17,6 +17,7 @@ const FILES := {
 	"stages": "survivor/stages.json",
 	"balance": "survivor/balance.json",
 	"mobs": "survivor/mobs.json",
+	"equipment_drops": "survivor/equipment_drops.json",
 	"jobs_survivor": "survivor/jobs.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
@@ -83,7 +84,8 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
 ## (Equipment.DEFAULT_OUTFIT), the job weapon grants (balance.player.weapon_grants), every MakeCharInfo top, bottom,
-## shoes and weapon option of both genders, and everything `character` (a CharacterSnapshot, format 1 or 2) holds.
+## shoes and weapon option of both genders, every equipment_drops item, and everything `character` (a CharacterSnapshot,
+## format 1 or 2) holds.
 static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {},
 		character: Dictionary = {}) -> PackedInt32Array:
 	var pb: Dictionary = data.get("balance", {}).get("player", {})
@@ -95,6 +97,9 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 		for field: String in ["top", "bottom", "shoes", "weapon"]:
 			for id: int in creation.options(gender, field):
 				_add_id(ids, id)
+	# Every item that can drop (survivor list), so a kill can pick by the real reqLevel/reqJob and roll the real stats.
+	for id: Variant in data.get("equipment_drops", {}).get("items", []):
+		_add_id(ids, int(id))
 	if not character.is_empty():
 		for id: Variant in CharacterSnapshot.held_item_ids(character, _jobs(data)):
 			_add_id(ids, int(id))

@@ -41,7 +41,7 @@ func test_boss_shower_conserves_configured_exp_and_only_drops_current_tier_bundl
 		if w.pickups.kind[i] == PickupSystem.EXP:
 			total += w.pickups.exp[i]
 			drops += 1
-		elif w.pickups.kind[i] != PickupSystem.MESO:
+		elif w.pickups.kind[i] != PickupSystem.MESO and w.pickups.kind[i] != PickupSystem.EQUIP:
 			bundles[int(w.pickups.item_id[i])] = int(w.pickups.potion_count[i])
 	assert_eq(total, 600, "canonical Mano EXP 120 × survivor reward multiplier 5, with no extra ordinary drop")
 	assert_eq(drops, 13, "the split preserves the total despite a remainder")
