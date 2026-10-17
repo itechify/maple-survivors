@@ -390,6 +390,15 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #91 / #92 run-policy prefactor: byte-identical records (2026-10-16)
+
+This spec's regression smoke (it changes no gameplay). `balance_run.gd` `run_one` / `run_chain` now take an injectable
+run policy (`game/tools/run_policy.gd`: `choose(world)`, `move(world)`) and an optional per-tick observer; the named
+`bot` / `random` / `first` / camper policies are instances of it. `BALANCE {json}` lines captured from the unmodified
+base `09b239f` (`ISOLATE=t92base`) and after the change (`ISOLATE=t92`) for seeds 1/2/2026 x `henesys_hg1` and
+`tree_that_grew_1` x `bot` / `random` / `first`, plus the `--tier=2` bot chain on seed 1: 19 records, `diff` empty
+(byte-identical). `scripts/balance.sh` flags and output unchanged. No data change, no tuning, no held-out seeds.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
