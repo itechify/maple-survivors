@@ -115,6 +115,11 @@ destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the 
 scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
 next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
 
+Hand-testing tool (tool-only, not part of the game): `bash scripts/run.sh -- --hub [--character=<abs JSON>] [--mesos=N]`
+opens the Free Market straight away with the Lv38 F/P fixture plus a test kit (500,000 mesos, ten of each rate of the
+wand / hat / top / gloves scrolls, four spare equipment items; `HubTestKit`, tier C: ours), in a throwaway save that
+never touches the player's save.
+
 Scroll shops (#111): four NPCs stand on the Free Market floor, drawn from `Npc.wz` with their `String.wz` names: El Moth
 1032103 sells the 100% scrolls, Barun 2022002 the 60%, Tulcus 1052104 the 10% and Vega 2041016 the dark 70% and 30%
 (`game/data/survivor/shops.json`). Standing next to one (within 100 px) and pressing **NPC Chat** (Space, v83's default;

@@ -25,6 +25,7 @@ extends Node
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
 ## damage_dealt, skills: [{key, name, icon, rank}], seed}; persistent endings add ending and tiers_cleared.
+## start_hub(request) is the tool-only `--hub` (HubTestKit): a throwaway save, a test kit and the real Free Market.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
 ## Emitted after a scene swap (title, character_select, history, free_market, stage_select, run, results, import, error).
@@ -180,6 +181,29 @@ func start_run(stage_key: String, p_seed: int = -1, options: Dictionary = {}) ->
 	active_slot = -1
 	autoplay = RunScene.option_flag(options, "autoplay")
 	_launch_round(stage_key, p_seed, options)
+
+
+## Tool-only `--hub` (HubTestKit): opens the Free Market with a test character. `request` is HubTestKit.parse_args'
+## {character, mesos}. The character (plus the test kit) goes into slot 0 of a throwaway save at `save_path`, recreated
+## now, in phase free_market, and is continued as in real play; user://save.json is never read or written.
+func start_hub(request: Dictionary, save_path: String = HubTestKit.SAVE_PATH) -> void:
+	var loaded := HubTestKit.load_character(String(request.get("character", HubTestKit.DEFAULT_CHARACTER)),
+		equipment_info_loader())
+	if not String(loaded.error).is_empty():
+		_swap_to(error_screen("--hub: " + String(loaded.error)), "error")
+		return
+	save = HubTestKit.fresh_save(save_path)
+	var character := HubTestKit.apply(loaded.character, int(request.get("mesos", HubTestKit.DEFAULT_MESOS)),
+		equipment_info_loader())
+	# A cleared first tier: out00 opens the second tier's map select, like the hub after a real clear.
+	var snapshot := {"name": HubTestKit.CHARACTER_NAME, "created": _date(), "character": character, "tier": 1,
+		"phase": "free_market", "rounds_played": 1, "tiers_cleared": 1, "stage": "henesys_hg1",
+		"round_seed": make_seed()}
+	var index := save.create_slot(snapshot)
+	if index < 0:
+		_swap_to(error_screen("--hub: the test character could not be saved to %s." % save_path), "error")
+		return
+	continue_character(index)
 
 
 ## Saves the selected stage and seed before launching a persistent round. Rejects stages outside this tier.
