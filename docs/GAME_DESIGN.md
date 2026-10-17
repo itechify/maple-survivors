@@ -2222,7 +2222,9 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
   its own scale to land in the 40-50% band; reward overrides support early builds (Mano 6 HP / 6 MP, Stumpy 3 HP / 6 MP) and
   limit later stock (second bosses 1 HP).
 - **`balance.bot.card_scores`** (tier C): the sensible bot learns and ranks Magic Guard before another attack (scores
-  110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform.
+  110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform. Since #63 the
+  override replaces only the base score: the sensible bot adds `bot.gain_step_score` per step an offered card grants beyond
+  its first, still with no job bonus.
 - **Retuned survivor EXP curve** `4 + 15L + 3.8L²` (tier C): V27 kept the Magician's exact 980 EXP cost (Mage near
   3:00) while the quadratic term carries the late game toward Lv 30 at 12:00-15:00 (section 5, 4.2).
 - **Boss defense buffs reach ordinary mobs** (tier A area and values, tier C arithmetic): MobSkill 112/113 are v83
@@ -3169,7 +3171,8 @@ fields round to six decimal places for readable committed JSON; generation never
 | Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
 | Bot sword duel | a lone ordinary mob within 160 px and 40 px of the feet while no attack skill is ready and affordable: stand facing it so the basic attack swings; flee from two or more | C | owner review of #29; BotInput, shared by every movement policy that uses it |
-| Bot Guard preference / offers | final scores learn 110, rank 109; no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
+| Bot Guard preference / offers | base-score overrides learn 110, rank 109 (the #63 gain term is added on top); no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
+| Bot card gain step (#63) | sensible bot card score = base + `gain_step_score` x (offered `magnitude` - 1); `gain_step_score` 6 (coded default `BotInput.SCORE_GAIN_STEP` 6 when absent); missing or <= 0 magnitude counts as 1; potion-tier and Elixir cards ignore the gain; no tier name or `max` is special-cased; first/random policies unaffected | C | owner #63 triage 2026-10-17; survivor balance.bot.gain_step_score |
 | Three Snails auto levels | skill level 2 at Lv 3, 3 at Lv 6 (`level_ranks`) | C | ours, after the v83 Beginner's SP |
 | Three Snails MP cost | 3 / 5 / 7 MP at skill levels 1 / 2 / 3, with the normal insufficient-MP wait and cue | A (costs), C (auto-cast wait/cue) | v83 Skill.wz/000.img/skill/0001000/level/N/mpCon; survivor casting rules |
 | Advancement draws / skill counts | no skill grants; extra new-job attack-first draw with rarity before the normal level draw; no skill slot caps | C | owner decisions #31 / #53; sections 8?9 |

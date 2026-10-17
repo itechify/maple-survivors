@@ -30,14 +30,14 @@ func test_pick_card_for_prefers_attack_skills() -> void:
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
 
-func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback() -> void:
+func test_optional_card_scores_replace_the_base_without_job_bonus_and_missing_cards_keep_their_fallback() -> void:
 	var w := RF.quiet_world()
 	w.balance.erase("bot")
 	w.change_job(200)
 	var cards := _cards(w, ["magic_guard_new", "energy_bolt_rank"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "without overrides the existing offense preference remains")
 	w.balance["bot"] = {"card_scores": {"magic_guard_new": 70.0}}
-	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "70 is the final score: no additional current-job bonus")
+	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "70 replaces the base score: no additional current-job bonus")
 	w.balance.bot.card_scores.magic_guard_new = 90.0
 	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_new", "survivor data can prioritize a useful defense card")
 	w.learn_skill("magic_guard")
@@ -48,6 +48,93 @@ func test_optional_card_scores_are_final_and_missing_cards_keep_their_fallback()
 	assert_eq(BotInput.pick_card_for(w, cards), "magic_guard_rank")
 	w.balance.bot.card_scores.erase("magic_guard_rank")
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_rank", "a missing individual card uses its original score")
+
+
+func _gain(c: Dictionary) -> int:
+	return int(c.get("magnitude", 1))
+
+
+func test_the_same_card_at_a_higher_tier_scores_strictly_more_by_the_gain_step() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.balance.erase("bot")
+	var step := BotInput.SCORE_GAIN_STEP
+	var normal_new := w.upgrades.choice_card("energy_bolt_new", w, "normal")
+	var epic_new := w.upgrades.choice_card("energy_bolt_new", w, "epic")
+	assert_true(_gain(epic_new) > _gain(normal_new), "an Epic new skill starts at a higher rank")
+	assert_eq(BotInput.card_score(w, normal_new), BotInput.SCORE_NEW_ATTACK, "Normal scores exactly the base")
+	assert_eq(BotInput.card_score(w, epic_new), BotInput.SCORE_NEW_ATTACK + step * float(_gain(epic_new) - 1))
+	w.upgrades.apply("energy_bolt_new", w)
+	for id: String in ["energy_bolt_rank", "energy_bolt_count"]:
+		var normal := w.upgrades.choice_card(id, w, "normal")
+		var rare := w.upgrades.choice_card(id, w, "rare")
+		assert_true(_gain(rare) > _gain(normal), id + ": a Rare offer grants more than a Normal one")
+		var base := BotInput.card_score(w, normal)
+		assert_eq(BotInput.card_score(w, rare), base + step * float(_gain(rare) - 1), id)
+		assert_true(BotInput.card_score(w, rare) > base, id + ": strictly more")
+	assert_eq(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_rank", w, "normal")),
+		BotInput.SCORE_RANK_ATTACK + BotInput.SCORE_JOB_BONUS, "a Normal rank card keeps its old score")
+	assert_eq(BotInput.card_score(w, w.upgrades.choice_card("energy_bolt_count", w, "normal")),
+		BotInput.SCORE_MOD.count + BotInput.SCORE_JOB_BONUS, "a Normal stacking card keeps its old score")
+
+
+func test_a_missing_or_non_positive_magnitude_counts_as_one_step() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.balance.erase("bot")
+	var base := BotInput.card_score(w, {"id": "energy_bolt_new"})
+	assert_eq(base, BotInput.SCORE_NEW_ATTACK)
+	assert_eq(BotInput.card_score(w, {"id": "energy_bolt_new", "magnitude": 0}), base)
+	assert_eq(BotInput.card_score(w, {"id": "energy_bolt_new", "magnitude": -3}), base)
+	assert_eq(BotInput.card_score(w, {"id": "energy_bolt_new", "magnitude": 4}), base + 3.0 * BotInput.SCORE_GAIN_STEP)
+	w.balance["bot"] = {"gain_step_score": 10.0}
+	assert_eq(BotInput.card_score(w, {"id": "energy_bolt_new", "magnitude": 4}), base + 30.0, "survivor data sets the step")
+
+
+func test_a_large_enough_gain_outranks_the_card_that_wins_at_normal_tier() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.balance.erase("bot")
+	w.upgrades.apply("energy_bolt_new", w)
+	var normal := [w.upgrades.choice_card("energy_bolt_count", w, "normal"),
+		w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
+	assert_eq(BotInput.pick_card_for(w, normal), "energy_bolt_count", "more shots wins at Normal tier")
+	var rare_rank := w.upgrades.choice_card("energy_bolt_rank", w, "rare")
+	var big_rank := w.upgrades.choice_card("energy_bolt_rank", w, "unique")
+	assert_true(_gain(big_rank) >= 4, "the Unique rank offer grants several ranks")
+	assert_eq(BotInput.pick_card_for(w, [normal[0], rare_rank]), "energy_bolt_count", "+2 ranks is not yet enough")
+	assert_eq(BotInput.pick_card_for(w, [normal[0], big_rank]), "energy_bolt_rank", "a Unique rank offer outweighs one more shot")
+	assert_eq(BotInput.pick_card_for(w, [big_rank, normal[0]]), "energy_bolt_rank", "regardless of the order")
+	# A Rare +2 passive rank must not beat a Normal new attack skill.
+	var rare_passive := {"id": "magic_guard_rank", "magnitude": 2}
+	w.balance["bot"] = {"card_scores": {}}
+	assert_true(BotInput.card_score(w, rare_passive) < BotInput.card_score(w, {"id": "energy_bolt_new"}))
+
+
+func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_bonus() -> void:
+	var w := RF.quiet_world()
+	w.change_job(200)
+	w.learn_skill("magic_guard")
+	w.balance["bot"] = {"card_scores": {"magic_guard_rank": 70.0, "magic_guard_new": 90.0}}
+	var step := BotInput.SCORE_GAIN_STEP
+	assert_eq(BotInput.card_score(w, {"id": "magic_guard_rank"}), 70.0, "no gain, no job bonus: the override itself")
+	assert_eq(BotInput.card_score(w, {"id": "magic_guard_rank", "magnitude": 3}), 70.0 + 2.0 * step)
+	assert_eq(BotInput.card_score(w, {"id": "magic_guard_new", "magnitude": 5}), 90.0 + 4.0 * step)
+	var cards := [w.upgrades.choice_card("magic_guard_rank", w, "rare"), w.upgrades.choice_card("energy_bolt_rank", w, "normal")]
+	assert_true(_gain(cards[0]) > 1)
+	assert_eq(BotInput.card_score(w, cards[0]), 70.0 + step * float(_gain(cards[0]) - 1))
+
+
+func test_potion_tier_and_elixir_scores_ignore_tier_and_magnitude() -> void:
+	var w := RF.quiet_world()
+	RF.change_job_bare(w, 200)
+	w.balance["potions"]["bot"] = {"tier_score": 112}
+	for m: int in [-1, 0, 1, 3, 9]:
+		assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": m}), 112.0, "potion tier, magnitude %d" % m)
+		assert_eq(BotInput.card_score(w, {"id": "elixir", "magnitude": m}), BotInput.SCORE_MOD_OTHER, "the Elixir fallback keeps its old score")
+		assert_eq(BotInput.card_score(w, {"id": "not_a_card", "magnitude": m}), 0.0, "an unknown card scores 0")
+	w.balance["potions"]["bot"].erase("tier_score")
+	assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": 4}), BotInput.SCORE_POTION_TIER)
 
 
 func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:

@@ -15,7 +15,9 @@ extends RefCounted
 ##
 ## Choices (auto_choose): a seeded random available branch (optional forced branch), and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
-## defence, then the rest; ties go to the earlier card. pick_card() is the plain "first card" policy.
+## defence, then the rest; ties go to the earlier card. Each step a card grants beyond the first adds SCORE_GAIN_STEP
+## (balance bot.gain_step_score), so a higher-tier offer outscores the same card at Normal tier. pick_card() is the
+## plain "first card" policy.
 
 ## The map edge counts as this much danger / (distance + 10) on its side.
 const EDGE_DANGER := 4.0
@@ -52,6 +54,12 @@ const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 2
 	"mp_regen": 16.0}
 ## tier C: permanent potion tier improvement is preferred to a general defence card, below attack ranks.
 const SCORE_POTION_TIER := 52.0
+## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
+## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a Normal
+## pierce card, 70) while staying under a Normal new attack skill (100) unless it is a Unique stacking card (+4 shots,
+## 87+18 = 105; a Unique +5 attack rank is 98); a +2 passive rank (54+6 = 60) never does. Gains only add, so this
+## never reorders Normal offers.
+const SCORE_GAIN_STEP := 6.0
 
 
 ## The input for the next tick of `w`.
@@ -375,7 +383,8 @@ static func pick_card(cards: Array) -> String:
 	return String(cards[0].get("id", ""))
 
 
-## The card a sensible player takes from `cards` in run `w` (the highest card_score; ties: the earlier card).
+## The card a sensible player takes from `cards` in run `w` (the highest card_score, which counts the ranks or steps the
+## offer grants; ties: the earlier card).
 static func pick_card_for(w: RunWorld, cards: Array) -> String:
 	var best := ""
 	var best_score := -INF
@@ -389,19 +398,31 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 	return best
 
 
-## How much a sensible player wants card `c`; optional survivor bot.card_scores override the final score, before fallback.
+## How much a sensible player wants card `c`: its base score (by kind / skill / stat, plus the current-job bonus;
+## a survivor bot.card_scores entry replaces the base and gets no job bonus) plus gain_step_score for every step beyond
+## the first that the offer grants (`c.magnitude`, the resolved ranks / steps / starting rank; missing or <= 0 counts as
+## 1). Potion-tier cards score their configured tier_score and the Elixir filler its base, regardless of magnitude; a
+## card the pool does not know scores 0.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
+	if String(d.get("kind", "")) == "potion_tier":
+		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
+	if String(d.get("kind", "")) == "filler":
+		return _base_score(w, d) # the Elixir fallback is always one step
+	var step := float(w.balance.get("bot", {}).get("gain_step_score", SCORE_GAIN_STEP))
+	return _base_score(w, d) + step * float(maxi(int(c.get("magnitude", 1)), 1) - 1)
+
+
+## The score of card definition `d` before the gain term (Normal tier, one step).
+static func _base_score(w: RunWorld, d: Dictionary) -> float:
 	var overrides: Dictionary = w.balance.get("bot", {}).get("card_scores", {})
 	if overrides.has(String(d.id)):
 		return float(overrides[String(d.id)])
 	var kind := String(d.get("kind", ""))
 	var effects: Array = d.get("effects", [])
 	var stat := String(effects[0].get("stat", "")) if not effects.is_empty() and effects[0] is Dictionary else ""
-	if kind == "potion_tier":
-		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
 	var key := String(d.get("skill", ""))
 	if key == "":
 		return float(SCORE_PLAYER.get(stat, SCORE_MOD_OTHER))
