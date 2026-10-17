@@ -129,7 +129,7 @@ export function verdictLines(ctx: ReportContext): string[] {
 	const detText = first ? `PROBLEMS: ${plural(det.length, "deterministic failure")} (${first.kind}${first.time !== undefined ? ` at ${runClock(first.time)}` : ""})`
 		: `${flagged.length ? "JEV-FLAGGED: " : "clean: "}no deterministic problems`;
 	const jev = !ctx.evaluations ? "" : ctx.evaluations.skipped ? "; Jev evaluations skipped"
-		: `; Jev: ${flagged.length} flagged, ${review.length} need review`;
+		: `; Jev: ${flagged.length} flagged, ${review.length} need${review.length === 1 ? "s" : ""} review`;
 	const strict = ctx.strictEval && flagged.length ? " (--strict-eval: Jev-flagged results count)" : "";
 	const verdict = `**Verdict:** ${detText}${jev}; exit code ${ctx.exitCode}${strict}.`;
 	const shots = (t: number, what: string) => ctx.windowed ? `\`${ctx.windowed(t)}\` (screenshots at ${what}; then read the entry below)`
@@ -228,7 +228,7 @@ registerSection({
 		}
 		if (!ops.length) {
 			lines.push("", ctx.evaluations.skipped ? `Jev-assisted evaluations were ${ctx.evaluations.line}.`
-				: `Jev flagged nothing (evaluations ${ctx.evaluations.line}; details in evaluations.json).`);
+				: `Jev flagged nothing and nothing needs review (every result: the Evaluations section; the facts sent: evaluations.json).`);
 		}
 		return lines;
 	},
