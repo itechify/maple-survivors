@@ -4,7 +4,8 @@ extends RefCounted
 ##
 ## A test file is res://tests/unit/test_<topic>.gd extending TestCase; every method named test_* runs once on a fresh
 ## instance. Assertions record failures and keep going so one run reports everything. Tests must be deterministic:
-## seed every RNG, never depend on autoload state, wall-clock time or the network.
+## seed every RNG, never depend on autoload state, wall-clock time or the network. The runner starts from the project's
+## default key bindings and default Settings (scratch config), so tests never see the developer's settings.cfg.
 ##
 ## Tests that need the imported v83 asset cache call `require_cache()` first and return early when it is absent; the
 ## runner reports them as SKIP (they pass, but prove nothing without the cache).

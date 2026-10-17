@@ -108,7 +108,9 @@ func _slots() -> void:
 			var avatar := AvatarRenderer.new()
 			avatar.position = feet
 			_surface.add_child(avatar)
-			avatar.set_look(DataRepo.character_look(slot.character, DataRepo.load_all()))
+			var data := DataRepo.load_all()
+			avatar.set_look(DataRepo.character_look(slot.character, data,
+				DataRepo.worn_cash(slot.character, data, flow.save_data().account.owned)))
 			avatars.append(avatar)
 			_avatar_by_slot[i] = avatar
 		var tag := Control.new()

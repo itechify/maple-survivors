@@ -3,7 +3,9 @@ extends RefCounted
 ## Local save file (user://save.json): best results, round counts, character slots and ended-run history. Nothing leaves
 ## machine (docs/ARCHITECTURE.md section 7).
 ##
-## File: {format: 2, best: {stage_key: record}, runs: {stage_key: int}, slots: [null | run snapshot], history: []}.
+## File: {format: 2, best: {stage_key: record}, runs: {stage_key: int}, slots: [null | run snapshot], history: [],
+## account?: {nx: int, owned: [int]}}. The optional `account` (spec #34; see Account) is NX plus owned cash item ids:
+## a save without it is an empty account, and the format number stays 2 so older files need no migration step.
 ## A best record is
 ## {time, duration, cleared, level, job_id, job_name, kills, damage_dealt, seed}. Missing files start empty;
 ## format 1 converts on load, keeping playable-stage bests/counts. Writes replace the file via a sibling temporary.
@@ -12,6 +14,8 @@ extends RefCounted
 ## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
 ## History: {name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}; ending is
 ## died/victory/deleted. Dates are nonempty caller-supplied strings; SaveData never reads the clock or picks seeds.
+## A round summary's `nx_awarded` is added to the account inside the same write as update_slot (clear boundary) or
+## end_run (death/victory); deletion never credits. set_account replaces the whole block (Cash Shop spending).
 ## Corrupt/unsupported files are copied to .bad[.N]; .bak recovers a missing primary after interrupted replacement.
 ##
 ## Best result rule (tier C, ours): a clear beats a death; then the longer survival; then the higher level, more kills,
@@ -35,11 +39,16 @@ var slots: Array:
 var history: Array:
 	get:
 		return _history.duplicate(true)
+## The account ({nx, owned}), a detached view; change it through set_account or a round summary's nx_awarded.
+var account: Dictionary:
+	get:
+		return _account.duplicate(true)
 ## Most recent persistence error; creation returns -1 on failure and other mutators return Error.
 var last_error: Error = OK
 var _preserve_error: Error = OK
 var _slots: Array = [null, null, null]
 var _history: Array = []
+var _account: Dictionary = Account.empty()
 
 
 func _init(p_path: String = PATH) -> void:
@@ -53,6 +62,7 @@ func load_file() -> void:
 	runs = {}
 	_slots = [null, null, null]
 	_history = []
+	_account = Account.empty()
 	last_error = OK
 	_preserve_error = OK
 	var source := path
@@ -97,6 +107,8 @@ func load_file() -> void:
 	else:
 		_slots = parsed.get("slots", [null, null, null])
 		_history = parsed.get("history", [])
+		if parsed.has("account"):
+			_account = Account.normalized(parsed.account)
 		if source != path:
 			last_error = save_file()
 
@@ -140,6 +152,17 @@ func update_slot(index: int, snapshot: Dictionary, round_summary: Dictionary = {
 	data.slots[index] = snapshot.duplicate(true)
 	if not round_summary.is_empty():
 		_record_into(data, round_summary)
+		_credit(data, round_summary)
+	return _commit(data)
+
+
+## Replaces the account (NX balance and owned cash items) in one write; ERR_INVALID_DATA for a malformed block.
+func set_account(value: Variant) -> Error:
+	if not Account.validation_error(value).is_empty():
+		last_error = ERR_INVALID_DATA
+		return last_error
+	var data := _state()
+	data.account = Account.normalized(value)
 	return _commit(data)
 
 
@@ -170,6 +193,8 @@ func end_run(index: int, ending: String, date: String, final_snapshot: Dictionar
 		"stage": snapshot.get("stage", ""), "date": date})
 	if not round_summary.is_empty():
 		_record_into(data, round_summary)
+		if ending != "deleted":
+			_credit(data, round_summary)
 	return _commit(data)
 
 
@@ -269,6 +294,8 @@ static func _valid_file(value: Variant) -> bool:
 		return true
 	if not value.get("slots") is Array or value.slots.size() != SLOT_COUNT or not value.get("history") is Array:
 		return false
+	if value.has("account") and not Account.validation_error(value.account).is_empty():
+		return false
 	var names := {}
 	for snapshot: Variant in value.slots:
 		if snapshot == null:
@@ -295,12 +322,18 @@ static func _valid_file(value: Variant) -> bool:
 
 func _state() -> Dictionary:
 	return {"format": FORMAT, "best": best.duplicate(true), "runs": runs.duplicate(true),
-		"slots": _slots.duplicate(true), "history": _history.duplicate(true)}
+		"slots": _slots.duplicate(true), "history": _history.duplicate(true), "account": _account.duplicate(true)}
+
+
+## Adds a finished round's NX to the account being written (a missing or negative nx_awarded adds nothing).
+static func _credit(data: Dictionary, round_summary: Dictionary) -> void:
+	data.account.nx = int(data.account.nx) + maxi(0, int(round_summary.get("nx_awarded", 0)))
 
 
 func _commit(data: Dictionary) -> Error:
 	last_error = _write(data)
 	if last_error == OK:
+		_account = data.account
 		best = data.best
 		runs = data.runs
 		_slots = data.slots

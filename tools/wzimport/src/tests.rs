@@ -874,3 +874,32 @@ fn node_helpers() {
     assert_eq!(n.at("a").unwrap().as_i64(), Some(12));
     assert_eq!(n.count(), 2);
 }
+
+/// Item.wz `Special` items (type 9, the meso coins 09000000-09000003) resolve to `Item.wz/Special/0900.img` and export
+/// their sub-tree (spec #33 / #107).
+#[test]
+fn special_items_resolve_and_export() {
+    let dir = TempDir::new("special_items");
+    let frame = |c: u8| canvas(2, 2, 1, solid4444(2, 2, (c, 0, 0, 15)), false, vec![]);
+    let coin = |frames: u8| {
+        sub(vec![p("info", sub(vec![p("iconRaw", sub((0..frames).map(|i| p(&i.to_string(), frame(i))).collect()))]))])
+    };
+    let img = write_img(&[p("09000000", coin(4)), p("09000001", coin(4)), p("09000009", coin(1))], false);
+    write_wz_root(dir.path(), &[("Item.wz", vec![WEntry::Dir("Special".into(), vec![WEntry::Img("0900.img".into(), img)])])]);
+    let wz = WzRoot::new(dir.path());
+    let m = Manifest::parse(r#"{"format":1,"items":[9000000,9000001]}"#).unwrap();
+    let plan = expand(&m, &wz);
+    assert_eq!(plan.errors, Vec::<String>::new());
+    let got: BTreeMap<&str, Option<Vec<String>>> = plan.imgs.iter().map(|(k, v)| (k.as_str(), v.output_paths())).collect();
+    assert_eq!(got["Item.wz/Special/0900.img"], Some(vec!["09000000".to_string(), "09000001".to_string()]));
+
+    let manifest = dir.path().join("manifest.json");
+    std::fs::write(&manifest, r#"{"format":1,"items":[9000000,9000001]}"#).unwrap();
+    let out = dir.path().join("out");
+    let r = run_import(&ImportOptions { wz: dir.path().to_path_buf(), manifest, out: out.clone(), force: false }).unwrap();
+    assert!(r.errors.is_empty(), "{:?}", r.errors);
+    let tree = read_json(&out.join("Item.wz/Special/0900.img.json"));
+    assert!(tree["09000000"]["info"]["iconRaw"]["3"]["$canvas"].is_array());
+    assert!(tree["09000001"]["info"]["iconRaw"]["0"]["$canvas"].is_array());
+    assert!(tree.get("09000009").is_none(), "only the requested items export");
+}

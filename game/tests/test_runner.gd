@@ -19,6 +19,7 @@ func _ready() -> void:
 
 func run(filters: PackedStringArray) -> int:
 	var files := _discover(filters)
+	_reset_global_settings()
 	var t0 := Time.get_ticks_msec()
 	var total := 0
 	var failed := 0
@@ -60,6 +61,15 @@ func run(filters: PackedStringArray) -> int:
 		Time.get_ticks_msec() - t0])
 	print("TESTS_PASSED" if failed == 0 else "TESTS_FAILED")
 	return 0 if failed == 0 else 1
+
+
+## The Settings autoload already applied the developer's user://settings.cfg (rebinds, volumes): restart it from a
+## scratch file, so tests see the defaults and never save over the real one (which AssetCachePaths still reads).
+func _reset_global_settings() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
+	var settings := get_node_or_null("/root/Settings") as GameSettings
+	if settings != null:
+		settings.reload_from(TestCase.test_dir("settings.cfg"))
 
 
 func _discover(filters: PackedStringArray) -> PackedStringArray:

@@ -36,6 +36,9 @@ extends SceneTree
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
+## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
+## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
 ## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
 ## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
 ## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
@@ -58,6 +61,9 @@ const DEFAULT_RUN_CAP := 1800.0
 const LATE_MP_START := 480.0
 ## tier C measurement: ordinary hits per kill are reported for the first this-many run minutes.
 const EARLY_MINUTES := 5
+## The numeric fields of a round record's `shop` (the Free Market visit at its end) that aggregate() summarises.
+const SHOP_FIELDS := ["sold", "sale_mesos", "spent", "bought", "used", "succeeded", "failed", "destroyed", "equipped",
+	"scrolls_left", "mesos_after"]
 const LEVEL_TARGET := 70 # tier C: spec #32 requested reach metric; no success/clear rule or tuning target.
 
 
@@ -115,6 +121,8 @@ func _init() -> void:
 	var branch := 0
 	var character_file := ""
 	var has_character := false
+	var account_file := ""
+	var has_account := false
 	var chain := false
 	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
@@ -128,6 +136,9 @@ func _init() -> void:
 		elif a.begins_with("--character="):
 			character_file = a.substr(12)
 			has_character = true
+		elif a.begins_with("--account="):
+			account_file = a.substr(10)
+			has_account = true
 		elif a.begins_with("--tier="):
 			chain = true
 			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
@@ -194,13 +205,21 @@ func _init() -> void:
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
 			return
+	var account := {}
+	if has_account:
+		var account_errors := PackedStringArray()
+		account = AccountFile.load_file(account_file, account_errors)
+		if not account_errors.is_empty():
+			print("balance_run: " + "; ".join(account_errors))
+			quit(1)
+			return
 	var root := AssetCachePaths.resolve_cache_root()
 	var setups: Array = []
 	for stage_key: String in stages:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return _json(root, p),
-			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing)
+			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing, character)
 		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
 			quit(1)
@@ -208,6 +227,8 @@ func _init() -> void:
 		if has_character:
 			setup.character = character
 		setups.append(setup)
+	if has_account:
+		apply_account(setups, account)
 	for s in seeds:
 		var r: Dictionary
 		if chain:
@@ -222,9 +243,21 @@ func _init() -> void:
 			for tier_index in tiers.size():
 				if stage in tiers[tier_index]:
 					r["tier"] = tier_index + 1
+		if has_account:
+			r["account"] = account_file.get_file() # spec #34: the record names the account file; absent without the flag.
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
+
+
+## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on
+## the first round's character only; later tiers carry the character from the clear, which keeps them.
+static func apply_account(setups: Array, account: Dictionary) -> void:
+	var later := account.duplicate()
+	later.erase("cash")
+	later.erase("pet")
+	for index in setups.size():
+		AccountFile.apply(setups[index], account if index == 0 else later)
 
 
 ## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
@@ -237,13 +270,11 @@ static func round_seed(run_seed: int, tier_index: int) -> int:
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
 		camp_after := 60.0, branch := 0) -> Dictionary:
 	var rounds: Array = []
-	var character := {}
+	var carried: RunWorld = null
 	for tier_index in setups.size():
 		var setup: Dictionary = setups[tier_index].duplicate()
 		setup.seed = round_seed(run_seed, tier_index)
-		if tier_index > 0:
-			setup.character = character
-		var world := RunWorld.new(setup)
+		var world := carried if carried != null else RunWorld.new(setup)
 		var start_character := world.character_snapshot()
 		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, branch)
 		record["start_character"] = start_character
@@ -251,7 +282,19 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 		rounds.append(record)
 		if record.state != "CLEARED":
 			break
-		character = record.character
+		carried = null
+		if tier_index + 1 < setups.size():
+			# The Free Market between the tiers (spec #33, #112): the next round's world, built from the boundary snapshot,
+			# visits the shops before it plays. Its scroll rolls follow that round's seed; the careless plan draws from
+			# its own stream.
+			var next_setup: Dictionary = setups[tier_index + 1].duplicate()
+			next_setup.seed = round_seed(run_seed, tier_index + 1)
+			next_setup.character = record.character
+			carried = RunWorld.new(next_setup)
+			var shop_rng := RandomNumberGenerator.new()
+			shop_rng.seed = hash("careless-shop-%d-%d" % [run_seed, tier_index])
+			record["shop"] = BotShop.visit(carried, policy, shop_rng)
+			carried.drain_events()
 	return {"mode": "chain", "seed": run_seed, "stage": setups[0].stage, "policy": policy,
 		"target_tier": setups.size(), "rounds": rounds}
 
@@ -326,6 +369,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var recycled0 := 0
 	var hp_low := 1.0
 	var hits := 0
+	var equips_worn := 0
 	var teleports := 0
 	var taken := 0
 	var max_alive := 0
@@ -361,7 +405,10 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			max_alive_t = w.time
 		if w.time > 60.0:
 			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
-		for e: Dictionary in w.drain_events():
+		var events := w.drain_events()
+		# Mid-round equipping (spec #33, #112): not a decision point, no RNG; changes stats before the next tick.
+		equips_worn += BotShop.equip_after(w, events)
+		for e: Dictionary in events:
 			kill_hits.observe(e, w, w.time)
 			match String(e.type):
 				"teleport":
@@ -442,7 +489,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var skills := {}
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
-	return {
+	var record := {
 		"lv70_reached": int(w.player_state.level) >= LEVEL_TARGET,
 		"character": w.character_snapshot() if w.state == RunWorld.CLEARED else {},
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
@@ -463,6 +510,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
 		"near_by_min": near_min, "drops_by_min": drops_min, "expired_exp": w.pickups.expired_exp,
 		"expired_drops": w.pickups.expired, "exp_collected": w.pickups.collected_exp,
+		"mesos_earned": w.pickups.collected_mesos, "mesos_total": w.mesos,
+		"equips_dropped": w.equips_dropped, "equips_collected": w.equips_collected,
+		"equips_worn": equips_worn, "equipment_worn": _worn_ids(w), "scrolls_on_worn": _scrolls_on_worn(w),
 		"potions_collected": w.potions.collected.duplicate(), "potions_used": w.potions.used.duplicate(),
 		"potions_start": potions_start, "potions_left": {"hp": int(w.potions.stock.hp.count), "mp": int(w.potions.stock.mp.count)},
 		"potion_uses": potion_uses,
@@ -471,8 +521,33 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
+		# #115: what the round would pay (tier C placeholders); tools record it and never credit it or write a save.
+		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if w.pet_system != null:
+		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
+		# are counted apart from the player's (potions_used stays the player's).
+		record["pet"] = {"species": w.pet_system.species, "abilities": w.pet_system.abilities.duplicate(),
+			"pickups": w.pet_system.pickups, "potions_used": w.potions.pet_used.duplicate(),
+			"alert": w.alert.duplicate()}
+	return record
+
+
+## The worn equipment at this moment, {slot: item id}.
+static func _worn_ids(w: RunWorld) -> Dictionary:
+	var out := {}
+	for slot: String in w.equipment.worn:
+		out[slot] = int(w.equipment.worn[slot].id)
+	return out
+
+
+## Successful scrolls read onto the worn items, in total.
+static func _scrolls_on_worn(w: RunWorld) -> int:
+	var n := 0
+	for instance: Dictionary in w.equipment.worn.values():
+		n += int(instance.scrolls)
+	return n
 
 
 ## Live mobs within NEAR_X px horizontally and NEAR_Y px vertically of the player's feet.
@@ -543,13 +618,27 @@ static func describe(r: Dictionary) -> String:
 		_mmss(float(r.job_t)), int(r.kills), int(r.max_alive), _mmss(float(r.max_alive_t)),
 		roundi(float(r.low_hp_after_1min) * 100.0)]
 	var lines := PackedStringArray([head, "  " + "  ".join(parts),
-		"  EXP collected %d, expired %d (%d drops)" % [int(r.exp_collected), int(r.expired_exp), int(r.expired_drops)]])
+		"  EXP collected %d, expired %d (%d drops); mesos earned %d; equipment %d dropped, %d picked up" % [int(r.exp_collected), int(r.expired_exp),
+			int(r.expired_drops), int(r.get("mesos_earned", 0)), int(r.get("equips_dropped", 0)), int(r.get("equips_collected", 0))]])
+	lines.append("  equipment worn %s (%d put on mid-round, %d scrolls succeeded on it)" % [
+		JSON.stringify(r.get("equipment_worn", {})), int(r.get("equips_worn", 0)), int(r.get("scrolls_on_worn", 0))])
+	if r.has("shop"):
+		var shop: Dictionary = r.shop
+		lines.append(("  shop: mesos %d -> %d (earned this round %d; sold %d for %d, spent %d); scrolls bought %d, used %d "
+			+ "(%d succeeded, %d failed, %d items destroyed), %d left; refused %s") % [
+			int(shop.mesos_before), int(shop.mesos_after), int(r.get("mesos_earned", 0)), int(shop.sold),
+			int(shop.sale_mesos), int(shop.spent), int(shop.bought), int(shop.used), int(shop.succeeded),
+			int(shop.failed), int(shop.destroyed), int(shop.scrolls_left), shop.refused])
 	for k: String in ["alive_by_min", "near_by_min", "eng_by_min", "stale_by_min", "drops_by_min", "level_by_min",
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
 		lines.append("  %-16s %s" % [k, r.get(k, [])])
+	lines.append("  NX awarded %d (bosses killed %d, levels gained %d)" % [int(r.get("nx_awarded", 0)),
+		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
 	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	if r.has("pet"):
+		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
 	lines.append("  card tiers offered %s; picked %s" % [r.get("card_tiers_offered", {}), r.get("card_tiers_picked", {})])
@@ -632,12 +721,20 @@ static func aggregate(records: Array) -> Dictionary:
 	result["late_mp_observed_runs"] = 0
 	result["late_mp_short_runs"] = 0
 	var magician_times: Array = []
+	var mesos_earned: Array = []
+	var equips_dropped: Array = []
+	var equips_collected: Array = []
+	var equips_worn: Array = []
+	var shop_samples := {}
+	for field: String in SHOP_FIELDS:
+		shop_samples[field] = []
 	var fractions: Array = []
 	var fight_samples := {}
 	var censored_samples := {}
 	var hit_samples := {}
 	var start_levels: Array = []
 	var end_levels: Array = []
+	var nx_samples: Array = []
 	result["lv70_reached"] = 0
 	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
@@ -645,6 +742,8 @@ static func aggregate(records: Array) -> Dictionary:
 			start_levels.append(int(record.start_character.level))
 		if record.has("level"):
 			end_levels.append(int(record.level))
+		if record.has("nx_awarded"):
+			nx_samples.append(int(record.nx_awarded))
 		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
 		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
 		if not result.branches.has(branch_key):
@@ -680,6 +779,16 @@ static func aggregate(records: Array) -> Dictionary:
 		if job_time >= 0.0:
 			magician_times.append(job_time)
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
+		if record.has("equips_dropped"):
+			equips_dropped.append(int(record.equips_dropped))
+			equips_collected.append(int(record.get("equips_collected", 0)))
+		if record.has("equips_worn"):
+			equips_worn.append(int(record.equips_worn))
+		if record.has("shop"):
+			for field: String in SHOP_FIELDS:
+				shop_samples[field].append(int(record.shop.get(field, 0)))
+		if record.has("mesos_earned"):
+			mesos_earned.append(int(record.mesos_earned))
 		for key: String in ["potions_collected", "potions_used"]:
 			for kind: String in ["hp", "mp"]:
 				result[key][kind] += int(record.get(key, {}).get(kind, 0))
@@ -728,9 +837,19 @@ static func aggregate(records: Array) -> Dictionary:
 	var mp_used := int(result.potions_used.mp)
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
 	result["magician_seconds"] = statistics(magician_times)
+	result["mesos_earned"] = statistics(mesos_earned)
+	result["equips_dropped"] = statistics(equips_dropped)
+	result["equips_collected"] = statistics(equips_collected)
+	if not equips_worn.is_empty():
+		result["equips_worn"] = statistics(equips_worn)
+	if not shop_samples.sold.is_empty():
+		result["shop"] = {"visits": shop_samples.sold.size()}
+		for field: String in SHOP_FIELDS:
+			result.shop[field] = statistics(shop_samples[field])
 	result["boss_hit_fraction"] = statistics(fractions)
 	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
+	result["nx_awarded"] = statistics(nx_samples)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
 		bucket.mean = float(bucket.hits) / int(bucket.kills) if int(bucket.kills) > 0 else null
 	return result
@@ -798,6 +917,18 @@ static func describe_metrics(summary: Dictionary) -> String:
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	if summary.has("nx_awarded"):
+		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
+	if summary.has("mesos_earned"):
+		lines.append("  mesos earned per round " + _range(summary.mesos_earned))
+	if summary.has("equips_dropped"):
+		lines.append("  equipment dropped per round " + _range(summary.equips_dropped) + ", picked up " + _range(summary.equips_collected))
+	if summary.has("equips_worn"):
+		lines.append("  equipment put on mid-round per round " + _range(summary.equips_worn))
+	if summary.has("shop"):
+		lines.append("  Free Market visits after this tier: %d" % int(summary.shop.visits))
+		for field: String in SHOP_FIELDS:
+			lines.append("    shop %s per visit %s" % [field, _range(summary.shop[field])])
 	lines.append("  card tiers (%d observed runs)" % int(summary.card_tier_runs))
 	for tier: String in UpgradePool.TIERS:
 		lines.append("  cards %s offered %d picked %d" % [tier.capitalize(), int(summary.card_tiers_offered[tier]),

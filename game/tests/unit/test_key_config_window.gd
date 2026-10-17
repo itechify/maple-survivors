@@ -89,7 +89,7 @@ func test_drag_a_tray_icon_onto_a_free_key_binds_it() -> void:
 	var w := _key_config()
 	drag(w, w.tray_rect("jump").get_center(), w.key_rect(KEY_F).get_center())
 	assert_eq(w.draft.action_on(KEY_F), "jump", "F jumps")
-	assert_true(KEY_SPACE in w.draft.keys_of("jump"), "the tray is a source: the old keys stay")
+	assert_true(KEY_C in w.draft.keys_of("jump"), "the tray is a source: the old keys stay")
 	assert_eq(settings.binding_keys("jump"), GameSettings.default_keys("jump"), "nothing saved before OK")
 	drag(w, w.tray_rect("teleport").get_center(), w.key_rect(KEY_Q).get_center())
 	assert_eq(w.draft.action_on(KEY_Q), "teleport", "dropping on a bound key replaces its action")
@@ -99,7 +99,7 @@ func test_drag_a_tray_icon_onto_a_free_key_binds_it() -> void:
 func test_drag_between_keys_moves_and_off_the_keyboard_unbinds() -> void:
 	var w := _key_config()
 	drag(w, w.key_rect(KEY_SPACE).get_center(), w.key_rect(KEY_F).get_center())
-	assert_eq(w.draft.action_on(KEY_F), "jump")
+	assert_eq(w.draft.action_on(KEY_F), "npc_chat")
 	assert_eq(w.draft.action_on(KEY_SPACE), "", "moved off Space")
 	drag(w, w.key_rect(KEY_F).get_center(), Vector2(w.size.x + 40.0, 100.0))
 	assert_eq(w.draft.action_on(KEY_F), "", "dragged off the window: unbound")
@@ -113,7 +113,7 @@ func test_a_fixed_key_refuses_a_drop() -> void:
 		drag(w, w.tray_rect("jump").get_center(), w.key_rect(code).get_center())
 		assert_eq(w.draft.action_on(code), "", "%s stays fixed" % OS.get_keycode_string(code))
 	drag(w, w.key_rect(KEY_SPACE).get_center(), w.key_rect(KEY_2).get_center())
-	assert_eq(w.draft.action_on(KEY_SPACE), "jump", "a refused move leaves the icon where it was")
+	assert_eq(w.draft.action_on(KEY_SPACE), "npc_chat", "a refused move leaves the icon where it was")
 	assert_true(w.is_fixed_key(KEY_UP), "Arrows: the arrows are movement")
 
 
@@ -122,7 +122,7 @@ func test_a_click_selects_and_clear_all_unbinds_every_action() -> void:
 	w._gui_input(press(w.key_rect(KEY_E).get_center()))
 	w._gui_input(press(w.key_rect(KEY_E).get_center(), false))
 	assert_eq(w.selected_key, KEY_E, "a click selects (outlines) a bound key")
-	assert_eq(w.draft.action_on(KEY_E), "drink_mp", "a click does not move it")
+	assert_eq(w.draft.action_on(KEY_E), "equip_window", "a click does not move it")
 	w._bt_delete.pressed.emit()
 	for a: String in KeyBindings.BINDABLE:
 		assert_eq(w.draft.keys_of(a), PackedInt32Array(), "BtDelete (v83 CLEAR ALL) unbinds %s" % a)

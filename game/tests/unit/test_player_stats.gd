@@ -31,11 +31,11 @@ func test_beginner_ap_and_magician_redistribution() -> void:
 	_level_to(w, 10)
 	assert_eq(w.player_state.job_id, 200)
 	assert_eq(w.player_state.str, 12, "only earned AP is reset")
-	assert_eq(w.player_state.int, 49, "nine levels of AP move to INT")
+	assert_eq(w.player_state.luk, 12, "nine levels of AP: 8 to reach the Lv10 LUK target 12 (AutoAp)")
+	assert_eq(w.player_state.int, 41, "the other 37 AP move to INT")
 	assert_eq(w.player_state.dex, 5)
-	assert_eq(w.player_state.luk, 4)
 	_level_to(w, 11)
-	assert_eq(w.player_state.int, 54)
+	assert_eq(w.player_state.int, 45, "50 earned AP: LUK 13 takes 9, the other 41 go to INT")
 	assert_eq(w.player_state.str, 12)
 
 
@@ -64,16 +64,18 @@ func test_magician_mp_growth_uses_int_before_new_ap() -> void:
 	data.upgrades.cards = [] # No max-MP cards change the known level-growth example; keep the Elixir fallback.
 	var w := RunWorld.new(RF.setup("quiet", 503, data))
 	_level_to(w, 10)
-	assert_eq(w.player_state.int, 49)
+	assert_eq(w.player_state.int, 41)
 	var mp_at_10 := int(w.player_state.max_mp)
 	_level_to(w, 11)
-	assert_eq(w.player_state.max_mp, mp_at_10 + 26, "22 base + floor(49 INT / 10)")
-	assert_eq(w.player_state.int, 54)
+	assert_eq(w.player_state.max_mp, mp_at_10 + 26, "22 base + floor(41 INT / 10)")
+	assert_eq(w.player_state.int, 45)
 	_level_to(w, 12)
-	assert_eq(w.player_state.max_mp, mp_at_10 + 53, "next level: 22 base + floor(54 INT / 10)")
+	assert_eq(w.player_state.max_mp, mp_at_10 + 52, "next level: 22 base + floor(45 INT / 10)")
+	assert_eq(w.player_state.int, 49)
 	var bolt := w.loadout.stats("energy_bolt")
-	assert_near(float(bolt.damage_max), 65.049333, 0.0001, "Energy Bolt L1 at 59 INT and 23 magic attack")
-	assert_near(float(bolt.damage_min), 17.762667, 0.0001, "canonical 15% mastery")
+	# Hand-computed from combat_math: INT 49 + 23 magic attack, spell attack 20 (mastery 15% for the minimum).
+	assert_near(float(bolt.damage_max), 56.356, 0.0001, "Energy Bolt L1 at 49 INT and 23 magic attack")
+	assert_near(float(bolt.damage_min), 14.836, 0.0001, "canonical 15% mastery")
 
 
 func test_max_mp_skill_recomputes_percentage_and_preserves_mp_ratio() -> void:

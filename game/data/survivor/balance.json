@@ -12,9 +12,11 @@
 		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
 		"ap_per_level": 5,
 		"ap_stat": {"0": "str", "200": "int"},
-		"_equipment": "Tier C: the worn starter outfit and weapon per job branch. Defense and avoid come unchanged from canonical equipment info in the asset cache.",
-		"equipment": [1040002, 1060002, 1072001],
-		"weapon_by_job": {"0": 1302000, "200": 1372005},
+		"_ap_secondary": "Tier C: per job line, an optional secondary stat that earned AP fills first, up to its base-value target at the character's level (keyframes [{level, target}], linear, floored, held outside their range). The rest goes to ap_stat. Lines without an entry (the Beginner) put all AP into ap_stat. The targets are not in WZ; 200 follows the v83 Magician equipment pattern (reqLUK 15 at Lv13, 30 at Lv28, 40 at Lv38, 70 at Lv68: about level + 2), so the character meets v83 LUK requirements. Second jobs inherit their first job's entry through the job lineage (the same lookup as ap_stat).",
+		"ap_secondary": {"200": {"stat": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]}},
+		"_equipment": "Worn equipment comes from the character (creation outfit, later drops); its stats are the canonical info in the asset cache. weapon_grants, tier C: advancing to that job wears this weapon and moves the previous one to the inventory (Magician 200 gets the Wooden Wand). inventory_slots, tier A: a new v83 character's Equip tab.",
+		"weapon_grants": {"200": 1372005},
+		"inventory_slots": 24,
 		"skills": ["three_snails"],
 		"_body": "Touch hitbox relative to the feet (x, y, w, h), roughly the v83 character's body + head.",
 		"body": [-14, -58, 28, 58],
@@ -35,6 +37,8 @@
 	"portals": {"reach_x": 25, "reach_above": 100, "reach_below": 25, "arrival_lift": 30, "cooldown": 0.384},
 	"magnet_radius": 90,
 	"collect_radius": 24,
+	"_mesos": "Meso drops (#107). Per-mob ranges are survivor data in mobs.json (\"mesos\": [min, max), tier B: v83 server drop data). chance: tier B reference (v83 servers drop a meso entry 40% of the time at rate 1); mult scales every amount, tier C (set once from an estimate: the only Henesys clear in the smoke (random policy, seed 1, 3259 kills, all three bosses) earned 22.9k mesos at mult 1, so 14 gives about 320k, the owner's 300-350k target for a clear (the sensible bot dies at 13-15 min with about 15k at mult 1; see docs/GAME_DESIGN.md 4.2 #107; NX upgrades, #34, may raise it later; it is not tuned further here). boss_drops: tier C, bundles a scheduled boss's death drops, each rolled from its range (bosses always drop, there is no chance roll). fallback: tier C, mobs without a v83 range roll around base + per_level x mob level, low/high x that centre (fitted to the v83 early-roster ranges: level 1 = 4-6, level 22 = 28-42, level 50 = 60-90).",
+	"mesos": {"chance": 0.4, "mult": 14.0, "boss_drops": 4, "fallback": {"base": 4.0, "per_level": 1.5, "low": 0.8, "high": 1.2}},
 	"_magic_defense": "magic damage x (1 - MDD / (MDD + k))",
 	"magic_defense_k": 150,
 	"_mob_speed_factor": "mob move speed px/s = (speed stat + 100) x this x stage speed (MobKind.SPEED_SCALE is the same 0.625; a different value here rescales every mob)",
@@ -48,7 +52,12 @@
 	"crit": {"chance": 0.0, "mult": 1.5},
 	"_pickup": "EXP drops: pop speed and sideways spread (px/s), magnet start speed (px/s) and acceleration (px/s^2), live drop cap (the farthest from the player is absorbed into a fresh drop at each new kill), lifetime (s an uncollected drop lies before it expires, its EXP lost; 0 = never) and fade (its last seconds, fading out). They fall with Physics.img gravity/fallSpeed.",
 	"pickup": {"pop_speed": 260, "spread": 40, "magnet_speed": 220, "magnet_acc": 1400, "max_active": 600, "lifetime": 0, "fade": 1.5},
-	"bot": {"card_scores":{"magic_guard_new":110,"magic_guard_rank":109},"_doc":"Tier C: sensible-policy final score overrides keyed by card ID; prioritize Guard before learning another attack. No job bonus is added. Missing entries preserve legacy scoring; random card choices remain uniform."},
+	"bot": {"card_scores":{"magic_guard_new":110,"magic_guard_rank":109},"gain_step_score":6,"_doc":"Tier C: sensible-policy card scoring. card_scores are base-score overrides keyed by card ID (they replace the BotInput base score, so no current-job bonus is added); they prioritize Guard before learning another attack. gain_step_score is added once per step an offered card grants beyond its first (score = base + gain_step_score * (magnitude - 1); a missing or non-positive magnitude counts as 1, tier names and max are never special-cased). 6 lets a Rare or Epic offer pass the cards just below it while, of cards that are not new attack skills, only a Unique stacking card passes a Normal new attack skill (worked numbers beside BotInput.SCORE_GAIN_STEP). Missing entries preserve legacy scoring (Normal cards score exactly the base); potion tier cards use potions.bot.tier_score and ignore the gain; random card choices remain uniform.",
+		"_equipment_weights": "Tier C (spec #33, #112): how much a bot values each inc* stat of an equipment instance (an item scores the sum of weight x value; stats not listed are worth 0). Keyed by job branch (job id / 100, '2' = Magician); 'default' covers every other branch, Beginners included. A Magician wants M.ATT, then INT (LUK a little), then defences (M.DEF over W.DEF), then pools and movement. The bot wears the best wearable item per slot at each equipment pickup and level-up (BotInput.auto_equip); BotShop also reads the weights to pick scrolls and to keep or sell spare equipment.",
+		"equipment_weights": {
+			"default": {"incPAD": 10, "incSTR": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
+			"2": {"incMAD": 10, "incINT": 6, "incLUK": 1, "incMDD": 2, "incPDD": 1.5, "incDEX": 0.2, "incPAD": 0.2, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.05, "incSpeed": 0.5, "incJump": 0.3}
+		}},
 	"_potions": "Tier C: starter stock, independent HP/MP drop chances per monster (higher for elites), and bot drink thresholds. Restore amounts come from each current item's canonical spec.",
 	"potions": {
 		"hp": {"item_id": 2000000, "start": 5},
@@ -68,5 +77,7 @@
 			"_potions": "Tier C: halve the MP bundle to 3 for the initial scarcity pass (#37); HP remains 3.",
 			"potions": {"hp": 3, "mp": 3}, "bonus_choices": 1}},
 	"_run_time_cap": "Tier C: balance/full-run harness timeout, allowing the finale to continue beyond 15:00.",
-	"run_time_cap": 1800
+	"run_time_cap": 1800,
+	"_nx_award": "Tier C placeholders (spec #34 / #115; the balance pass sets them): NX paid at the end of every round. A clear pays clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round; a death pays the same without the clear bonus. clear_bonus is indexed by the stage's 0-based tier (later tiers reuse the last entry). Deletion, Quit round and tool rounds are never credited.",
+	"nx_award": {"clear_bonus": [100, 250], "per_level": 5, "per_boss": 40}
 }

@@ -70,6 +70,7 @@ changing gameplay.
 ```bash
 bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset cache from your own v83 install
 bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
+bash scripts/run.sh -- --hub                          # tool-only: straight into the Free Market with a test character + kit
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
@@ -78,6 +79,12 @@ bash scripts/export.sh                                # Windows build -> game/ex
 bash scripts/export.sh --web                          # web build -> game/export/web/ (the site that is deployed)
 node web/dev/serve.mjs game/export/web                # serve it at http://127.0.0.1:8060/ (dev only, localhost)
 ```
+
+**Private caches.** `MAPLE_SURVIVORS_CACHE=<abs dir>` points the game, `import.sh` and every tool at another asset
+cache. A ticket that changes `game/data/asset_manifest.json` imports into its own folder
+(`MAPLE_SURVIVORS_CACHE=<dir> bash scripts/import.sh "<v83 folder>"`) and runs everything with the same variable, so
+parallel branches with different manifests never overwrite the shared `%APPDATA%` cache. Combine it with `ISOLATE=<name>`
+(`scripts/test.sh`, `run.sh`, `balance.sh`, `playtest.sh`), which gives each agent a private project mirror.
 
 ### Web build (`scripts/export.sh --web`)
 
@@ -123,6 +130,11 @@ no frames, so screenshots are not saved; the run still quits at `--quit-after` (
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
 
+`bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`) skips
+the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
+a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`
+recreated at every launch, standing on the floor between Barun and Tulcus; the real save, slots, bests and history are never touched. `--shot`/`--shot-at` work with it.
+
 The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
 movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
 `bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
@@ -132,8 +144,26 @@ input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tie
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
-`keys` (#87); see the script header. Use `ISOLATE=<name>` with
+`keys` (#87); see the script header. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
+`botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
+character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
+a drop worn), the bot's fixed-tick warp to a real clear into the Free Market (a few minutes), a walk past the four
+scroll NPCs, Space at El Moth (buy a scroll, sell a spare item), Space at Tulcus (10% scrolls), the scrolls dragged
+onto the worn hat (success, then failure), and Save & quit -> Continue, which must restore mesos, worn equipment,
+inventory and scrolls from the saved snapshot:
+`bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=economy --shots=<abs dir under evidence/>`.
+Space is the NPC Chat key and jump is Alt / C (v83 defaults): an existing `user://settings.cfg` that bound Space to
+another action keeps it and leaves NPC Chat unbound until rebound in Key Config, so the shop scenarios put NPC Chat on
+its default in the InputMap before pressing Space. Use `ISOLATE=<name>` with
 `scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
+NX and the Cash Shop (spec #34): `--scenario=cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop:
+prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round 1 through the Equip window -> warp clear ->
+"+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
+items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
+account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
+`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar) and `hair_cap_probe.tscn` (cap vs hair layers)
+are the avatar contact-sheet tools.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
 Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
@@ -142,9 +172,14 @@ the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays t
 
 ### Balance (`scripts/balance.sh`)
 
-`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-1
-`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`); omitted means a fresh Beginner.
+`--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-2
+`CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`; format 1 files still load and migrate); omitted means a fresh Beginner.
 The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+`--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
+the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/scripts/core/account_file.gd`); without it
+the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
+The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
+and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
 The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 

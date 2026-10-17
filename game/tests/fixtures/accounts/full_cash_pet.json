@@ -1,0 +1,7 @@
+{
+	"_doc": "A tool account for a dressed round with a pet (spec #34, #126): Brown Kitty with every pet upgrade (as full_pet.json) and a cash item in every one of the 11 cash slots (the first cash_gallery set: hat 1002279, face 1012000, eye 1022000, earrings 1032029, top 1042000, bottom 1062003, shoes 1072010, gloves 1082040, cape 1102005, weapon cover 1702012, shield 1092031). Use it as --account=<absolute path> on playtest.sh or --run for screenshots of worn cash equipment and the pet. Test fixture only; the numbers are not tuning.",
+	"owned": [5000000, 1812002, 1812003, 1812004, 1812005, 9990000, 1002279, 1012000, 1022000, 1032029, 1042000, 1062003, 1072010, 1082040, 1102005, 1702012, 1092031],
+	"cash": {"hat": 1002279, "face": 1012000, "eye": 1022000, "earrings": 1032029, "top": 1042000, "bottom": 1062003, "shoes": 1072010, "gloves": 1082040, "cape": 1102005, "weapon": 1702012, "shield": 1092031},
+	"pet": 5000000,
+	"alert": {"hp": 0.5, "mp": 0.3}
+}

@@ -13,7 +13,12 @@ extends Node
 ## Stat window on Arrows). Applying a set also takes its keys off every other action (saved as bindings), so with WASD
 ## nothing else sits on W/A/S/D; switching back does not rebind them (the Key Config window's Default button does).
 ## The Key Config window (KeyBindings draft) saves through set_bindings; the Options window calls set_volume,
-## set_max_fps and set_movement_keys. default_keys() reads the project defaults (never the live, rebound InputMap).
+## set_max_fps, set_movement_keys and set_alert. default_keys() reads the project defaults (never the live, rebound
+## InputMap).
+##
+## [alert] hp, mp (fractions 0..1 of max HP / MP; 0 = do not alert): the pet's potion pouches drink at these levels
+## (spec #34, #121). Defaults 30% / 20% (tier C). Only the persistent rounds read them (the flow hands them to the
+## round, which follows changes); tool rounds never do.
 ##
 ## View (docs/ARCHITECTURE.md 4.5): by default the project's own stretch applies - 800x600 grown to the window's
 ## aspect ("expand", e.g. 1066x600 on 16:9), whole-pixel integer scale, black bars around the rest (1920x1080: 1x with
@@ -43,6 +48,12 @@ const DEFAULT_MOVEMENT := "arrows"
 ## Default volumes (linear 0..1).
 const DEFAULT_BGM := 0.8
 const DEFAULT_SFX := 0.9
+## tier C (ours): the HP / MP ALERT defaults (fractions of max; the pet drinks below them; 0 = do not alert). Low
+## enough to be safe, on so a new pouch works at once.
+const DEFAULT_ALERT_HP := 0.3
+const DEFAULT_ALERT_MP := 0.2
+## The ALERT levels step in 5% on the Options sliders (tier C).
+const ALERT_STEP := 0.05
 
 var wz_root := ""
 var cache_dir := ""
@@ -56,6 +67,9 @@ var fill_window := false
 var max_fps := 0
 ## Movement key set: a MOVEMENT_SETS key ("arrows" or "wasd").
 var movement_keys := DEFAULT_MOVEMENT
+## HP / MP ALERT: the pet's potion level as a fraction of max (0 = do not alert); see the class doc.
+var alert_hp := DEFAULT_ALERT_HP
+var alert_mp := DEFAULT_ALERT_MP
 ## Rebound actions: action name -> PackedInt32Array of physical keycodes (absent = the project's input map).
 var bindings: Dictionary = {}
 
@@ -69,6 +83,27 @@ var _default_events: Dictionary = {}
 func _init(p_path: String = PATH) -> void:
 	_path = p_path
 	load_settings()
+
+
+## Starts over, in place, from `p_path` (defaults when it is missing) and the project's input map; emits `changed`.
+func reload_from(p_path: String) -> void:
+	wz_root = ""
+	cache_dir = ""
+	master_volume = 1.0
+	bgm_volume = DEFAULT_BGM
+	sfx_volume = DEFAULT_SFX
+	window_scale = 0
+	fill_window = false
+	max_fps = 0
+	movement_keys = DEFAULT_MOVEMENT
+	bindings = {}
+	_default_events = {}
+	_path = p_path
+	InputMap.load_from_project_settings()
+	load_settings()
+	apply_bindings()
+	apply_movement()
+	changed.emit()
 
 
 func _ready() -> void:
@@ -151,6 +186,8 @@ func load_settings() -> void:
 	max_fps = int(cfg.get_value("display", "max_fps", max_fps))
 	var scheme := String(cfg.get_value("controls", "movement", movement_keys))
 	movement_keys = scheme if MOVEMENT_SETS.has(scheme) else DEFAULT_MOVEMENT
+	alert_hp = clampf(float(cfg.get_value("alert", "hp", alert_hp)), 0.0, 1.0)
+	alert_mp = clampf(float(cfg.get_value("alert", "mp", alert_mp)), 0.0, 1.0)
 	bindings = {}
 	if cfg.has_section("input"):
 		for action in cfg.get_section_keys("input"):
@@ -160,6 +197,30 @@ func load_settings() -> void:
 				for k: Variant in v:
 					keys.append(int(k))
 				bindings[action] = keys
+	_yield_defaults()
+
+
+## A key held by a rebound action leaves every action that was never rebound (a key holds one action), so a settings
+## file saved before NPC Chat took Space (#111) and whose jump still holds Space does not also talk to NPCs: the
+## stripped default is stored as a binding, like apply_movement does.
+func _yield_defaults() -> void:
+	var held := PackedInt32Array()
+	for keys: PackedInt32Array in bindings.values():
+		held.append_array(keys)
+	if held.is_empty():
+		return
+	var moves: Dictionary = MOVEMENT_SETS.get(movement_keys, MOVEMENT_SETS[DEFAULT_MOVEMENT])
+	for action: StringName in InputMap.get_actions():
+		var a := String(action)
+		if moves.has(a) or a.begins_with("ui_") or bindings.has(a):
+			continue
+		var defaults := default_keys(a)
+		var kept := PackedInt32Array()
+		for k in defaults:
+			if not (k in held):
+				kept.append(k)
+		if kept.size() != defaults.size():
+			bindings[a] = kept
 
 
 ## Writes only the keys that differ from the defaults, merged into the existing file (other sections are kept).
@@ -175,6 +236,8 @@ func save_settings() -> Error:
 	_put(cfg, "display", "fill_window", fill_window, false)
 	_put(cfg, "display", "max_fps", max_fps, 0)
 	_put(cfg, "controls", "movement", movement_keys, DEFAULT_MOVEMENT)
+	_put(cfg, "alert", "hp", alert_hp, DEFAULT_ALERT_HP)
+	_put(cfg, "alert", "mp", alert_mp, DEFAULT_ALERT_MP)
 	if cfg.has_section("input"):
 		cfg.erase_section("input")
 	for action: String in bindings:
@@ -218,6 +281,25 @@ func set_fill_window(on: bool) -> void:
 	save_settings()
 	fit_viewport()
 	changed.emit()
+
+
+## Sets an ALERT level ("hp" or "mp", a fraction 0..1, 0 = do not alert), saves and emits changed. Other kinds are ignored.
+func set_alert(which: String, v: float) -> void:
+	v = clampf(v, 0.0, 1.0)
+	match which:
+		"hp":
+			alert_hp = v
+		"mp":
+			alert_mp = v
+		_:
+			return
+	save_settings()
+	changed.emit()
+
+
+## {hp, mp}: the current ALERT levels (fractions of max; 0 = do not alert).
+func alert_levels() -> Dictionary:
+	return {"hp": alert_hp, "mp": alert_mp}
 
 
 ## Sets the frame-rate cap (0 = refresh rate, -1 = uncapped, N), applies it and saves.

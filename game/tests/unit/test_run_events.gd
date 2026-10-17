@@ -4,13 +4,14 @@ extends TestCase
 ## are identical.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
+const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
 
 
 
@@ -277,6 +278,39 @@ func test_every_event_matches_the_schema() -> void:
 	eater.hit_mob(victim, {"skill": "magic_claw", "level": 1, "magic": true, "damage_min": 1.0,
 		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 	for event: Dictionary in eater.drain_events():
+		_check(event, seen)
+	# An equipment drop beside the player with a full Equip tab: spawn, then the inventory-full notice.
+	var full := RF.quiet_world(400, 61)
+	while full.equipment.inventory.size() < full.inventory_slots():
+		full.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
+	full.spawn_equipment(full.player.pos + Vector2(20, 0), {"id": 1372005, "stats": {"incMAD": 23}, "slots": 7, "scrolls": 0})
+	for tick in 90:
+		full.step(DT, MoveInput.new())
+	for event: Dictionary in full.drain_events():
+		_check(event, seen)
+	# A scroll read on the worn top reports its result (#110).
+	var scroller := RF.quiet_world()
+	scroller.setup.scroll_info = {2040400: {"incPDD": 1, "success": 100}}
+	scroller.equipment.worn.top.slots = 1
+	scroller.grant_scrolls(2040400, 1)
+	assert_eq(scroller.use_scroll(2040400, "top"), "")
+	for event: Dictionary in scroller.drain_events():
+		_check(event, seen)
+	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
+	var blocked := RF.quiet_world()
+	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
+	while blocked.equipment.inventory.size() < blocked.inventory_slots():
+		blocked.equipment.inventory.append({"id": 1002001, "stats": {}, "slots": 7, "scrolls": 0})
+	blocked.change_job(200)
+	for event: Dictionary in blocked.drain_events():
+		_check(event, seen)
+	# Spec #34 pet events: the pet's own drink and its teleport to a player who left it behind.
+	var pet_world := PF.world([PF.KITTY, PF.AUTO_HP], {"hp": 0.5, "mp": 0.0})
+	pet_world.potions.stock.hp.count = 3
+	pet_world._hp = 1.0
+	PF.put_pet(pet_world, Vector2(30.0, 0.0))
+	PF.put_player(pet_world, 1100.0, 0.0)
+	for event: Dictionary in PF.run(pet_world, 3):
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

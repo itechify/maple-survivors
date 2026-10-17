@@ -61,6 +61,8 @@ var elements := {}
 var element_codes := {}
 ## Survivor EXP pickup item id (0 = none set).
 var exp_item := 0
+## Survivor meso drop range [min, max) (tier B: v83 server drop data); empty = MesoDrops' level fallback.
+var mesos: Array = []
 
 
 ## Builds a kind from a mob img root (cache JSON, `info/link` already followed by the loader).
@@ -101,6 +103,7 @@ static func from_wz(mob_img: Dictionary, p_id: int, overrides: Dictionary = {}) 
 	k.die_time = stance_time(mob_img.get("die1"), DEFAULT_DIE_TIME)
 	k.hit_time = float(overrides.get("hit_time", DEFAULT_HIT_TIME))
 	k.exp_item = int(overrides.get("exp_item", 0))
+	k.mesos = overrides.get("mesos", [])
 	return k
 
 

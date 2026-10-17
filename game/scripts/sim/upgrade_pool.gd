@@ -89,6 +89,9 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var max_rank := int(c.get("max_rank", 1))
 	if max_rank > 0 and rank(id, state) >= max_rank:
 		return false
+	# Spec #34: a pet with VAC pulls every drop, so the Magnet card (any card raising the magnet stat) is never offered.
+	if state.pet_has("vac") and _raises_stat(c, "magnet"):
+		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
 	var jobs: Array = req.get("jobs", [])
 	if not jobs.is_empty():
@@ -189,6 +192,14 @@ func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: in
 		power = power or is_power(card(id))
 	state.power_dry = 0 if power else state.power_dry + 1
 	return out
+
+
+## Whether card `c` has an effect on player stat `stat`.
+static func _raises_stat(c: Dictionary, stat: String) -> bool:
+	for effect: Variant in c.get("effects", []):
+		if effect is Dictionary and String(effect.get("stat", "")) == stat:
+			return true
+	return false
 
 
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).

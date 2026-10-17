@@ -13,12 +13,12 @@ func test_carried_beginner_uses_each_creation_weapon_and_advancement_replaces_it
 			[1322005, 29, 7, "fixture_club", "fixture_club", 0.87], [1312004, 31, 8, "fixture_axe", "fixture_axe", 0.90]]:
 		var source := BF.world(70)
 		var character := source.character_snapshot()
-		character.beginner_weapon = spec[0]
 		var setup := source.setup.duplicate(true)
-		setup.character = character
 		setup.afterimage_imgs[spec[3]] = setup.afterimage_imgs.swordOL.duplicate(true)
 		setup.equipment_info[spec[0]] = {"incPAD": spec[1], "attackSpeed": spec[2],
 			"afterImage": spec[3], "sfx": spec[4]}
+		character.equipment.worn.weapon = Equipment.create(spec[0], setup.equipment_info[spec[0]])
+		setup.character = character
 		var world := RunWorld.new(setup)
 		RF.place_player(world, 400)
 		world.player.facing = 1
@@ -34,11 +34,55 @@ func test_carried_beginner_uses_each_creation_weapon_and_advancement_replaces_it
 			assert_near(float(starts[0].interval), float(spec[5]), 1e-9)
 			assert_true(String(starts[0].afterimage).contains(String(spec[3])))
 		world.change_job(200)
-		assert_eq(world.weapon_id(), 1372005, "Magician always swaps to its job weapon")
-		assert_eq(world.character_snapshot().beginner_weapon, spec[0], "selection survives advancement")
+		assert_eq(world.weapon_id(), 1372005, "Magician advancement wears the granted Wooden Wand")
+		assert_eq(world.character_snapshot().equipment.inventory.map(func(i: Dictionary) -> int: return i.id),
+			[spec[0]], "the creation weapon moves to the inventory")
 		source = null
 
 
+func test_without_a_weapon_the_basic_attack_is_a_bare_handed_punch_that_still_hits() -> void:
+	var world := BF.world()
+	assert_eq(world.unequip_item("weapon"), "")
+	assert_eq(world.weapon_id(), 0)
+	assert_eq(world.weapon_attack(), 0.0)
+	var mob := _target(world)
+	world.swarm.hp[mob] = 1000
+	world.swarm.max_hp[mob] = 1000
+	var starts := []
+	var hits := []
+	for tick in 120:
+		world.step(DT, MoveInput.new())
+		for event: Dictionary in world.drain_events():
+			if event.type == "basic_attack" and event.phase == "start":
+				starts.append(event)
+			elif event.type == "mob_hit":
+				hits.append(event)
+	assert_true(starts.size() >= 1, "a bare-handed character still swings")
+	assert_true(hits.size() >= 1, "and the punch hits")
+	if starts.is_empty() or hits.is_empty():
+		return
+	assert_eq(starts[0].weapon_id, 0)
+	assert_eq(starts[0].afterimage, "", "no weapon, no afterimage")
+	assert_eq(starts[0].sound, "Sound.wz/Weapon.img/barehands/Attack")
+	assert_near(float(starts[0].interval), WeaponInfo.attack_interval(BasicAttack.BARE_HANDS), 1e-9)
+	assert_eq(hits[0].skill, "basic_attack")
+	assert_eq(int(hits[0].damage), 1, "no W.ATT: the swing formula's minimum")
+
+
+func test_magic_still_works_without_a_weapon() -> void:
+	var world := BF.world()
+	world.change_job(200)
+	assert_eq(world.unequip_item("weapon"), "")
+	world.learn_skill("energy_bolt")
+	world.loadout.set_rank("energy_bolt", 1)
+	_target(world)
+	var casts := 0
+	for tick in 120:
+		world.step(DT, MoveInput.new())
+		for event: Dictionary in world.drain_events():
+			if event.type == "mob_hit" and event.skill == "energy_bolt":
+				casts += 1
+	assert_true(casts >= 1, "Energy Bolt hits bare-handed")
 
 
 func _target(world: RunWorld, x: float = 450.0) -> int:
@@ -139,7 +183,6 @@ func test_walking_climbing_skills_and_out_of_reach_mobs_block_new_swings() -> vo
 func test_airborne_swing_has_an_attack_stance_without_changing_jump_motion() -> void:
 	var world := BF.world()
 	var control := BF.world()
-	control.balance.player.weapon_by_job = {"0": 0}
 	_target(world)
 	var jump := MoveInput.new()
 	jump.jump_pressed = true

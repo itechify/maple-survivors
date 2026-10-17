@@ -40,7 +40,7 @@ func update_from(pickups: Object, dt: float) -> void:
 		if active[i] == 0:
 			_pool.hide(i)
 			continue
-		var f := icon(ids[i])
+		var f := icon(ids[i]) if not MesoDrops.is_sprite(ids[i]) else meso_icon(ids[i], time, i)
 		if f == null:
 			_pool.hide(i)
 			continue
@@ -64,8 +64,28 @@ static func anchor_offset(f: SpriteFrame) -> Vector2:
 func icon(item_id: int) -> SpriteFrame:
 	if not _icons.has(item_id):
 		var lib := _lib()
-		_icons[item_id] = lib.frame(AssetLibrary.item_icon_path(item_id)) if lib != null else null
+		# Equipment (ids 1xxxxxxx) draws its Character.wz info/iconRaw, other items their Item.wz icon.
+		var path := AvatarRenderer.part_img_path(item_id) + "/info/iconRaw" if equipment_id(item_id) \
+			else AssetLibrary.item_icon_path(item_id)
+		_icons[item_id] = lib.frame(path) if lib != null else null
 	return _icons[item_id]
+
+
+## Whether `item_id` is equipment (Character.wz) rather than an Item.wz item.
+@warning_ignore("integer_division")
+static func equipment_id(item_id: int) -> bool:
+	return item_id / 1000000 == 1
+
+
+## The animated frame of a meso coin sprite at time `t` (4 iconRaw frames at MesoDrops.FRAME_TIME, phase-shifted per
+## slot; null when missing).
+func meso_icon(item_id: int, t: float, i: int) -> SpriteFrame:
+	var n := (int(floorf(t / MesoDrops.FRAME_TIME)) + i) % MesoDrops.FRAMES
+	var key := item_id * 8 + n
+	if not _icons.has(key):
+		var lib := _lib()
+		_icons[key] = lib.frame(AssetLibrary.meso_frame_path(item_id, n)) if lib != null else null
+	return _icons[key]
 
 
 ## Number of slots drawn.
