@@ -46,7 +46,7 @@ extends Node
 ##           the slot is moved to the Free Market and Continue opens the hub: E and I there, the hat taken off and
 ##           put back, Save & quit shows the dressed character on character select. Shots: equip_window,
 ##           item_windows, item_tooltip, item_tooltip_unmet, equip_refused, equip_worn, character_dressed,
-##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, character_select_dressed.
+##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, hub_dressed, character_select_dressed.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -1002,6 +1002,8 @@ func _scenario_inventory() -> void:
 	await _key(KEY_ESCAPE)
 	await _sleep(0.3)
 	_check(not hub.windows_open(), "Esc closed the hub's windows")
+	await _hold(KEY_RIGHT, 0.5)
+	await _shot("hub_dressed")
 	_collect_missing(hub)
 	flow.save_and_quit()
 	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "character select"):
