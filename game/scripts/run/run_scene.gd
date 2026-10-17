@@ -475,7 +475,10 @@ func advance_frame(delta: float) -> void:
 			_sim_us += Time.get_ticks_usec() - t0
 			_sim_ticks += 1
 			_after_tick()
-			handle_events(world.drain_events())
+			var drained := world.drain_events()
+			handle_events(drained)
+			if _autoplay and BotShop.equip_trigger(drained):
+				BotShop.auto_equip(world) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
 			if world.state != RunWorld.PLAYING:
@@ -1109,7 +1112,8 @@ func _warp(to: float) -> void:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
-		world.drain_events()
+		if BotShop.equip_trigger(world.drain_events()):
+			BotShop.auto_equip(world)
 	_warped = world.time
 
 

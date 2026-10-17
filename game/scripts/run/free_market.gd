@@ -330,6 +330,19 @@ func _on_item_action(_action: String) -> void:
 		messages.push_notice("inventory", "Could not save the character.")
 
 
+## Bot hook (spec #33, #112; autoplay and driver scenes): the character visits the scroll shops as a bot would (BotShop.visit
+## with balance card policy `policy`: "bot" sensible, "random" careless), changing `inventory` through the same RunWorld
+## calls as the windows and saving it like them. `seed_value` seeds the careless plan. Returns the visit record.
+func bot_shop(policy := "bot", seed_value := 0) -> Dictionary:
+	if inventory == null:
+		return {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("careless-shop-hub-%d" % seed_value)
+	var record := BotShop.visit(inventory, policy, rng)
+	_on_item_action("bot_shop")
+	return record
+
+
 ## A scroll was read: the Enchant effect over the character and its sound (as in a round).
 func _on_scroll_used(result: String) -> void:
 	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
