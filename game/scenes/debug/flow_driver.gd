@@ -73,6 +73,7 @@ extends Node
 ## tier C: diagnostic names, seeds 1 (full) and 4 (rounds), 1800s combat cap, 600-tick yields, 100s progress logs,
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
+const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 const MAIN := "res://scenes/main.tscn"
 ## Keys the steering sends (project.godot defaults: arrows, Space jump, Q / End potions; E is the Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_SPACE,
@@ -709,7 +710,7 @@ func _scenario_cash_shop() -> void:
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	await _sleep(0.5)
 	_check(shop.snapshot.name == "Shop118" and shop.nx() == 5000, "the shop opened as the current character with its NX")
 	await _shot("shop_01_equip_hat")
@@ -799,7 +800,7 @@ func _scenario_cash_equip() -> void:
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	await _sleep(0.5)
 	var hat: int = shop.page_ids()[0]
 	await _click(shop.buy_buttons[0])
@@ -925,7 +926,7 @@ func _scenario_account() -> void:
 	await _click(flow.current.get("shop_button") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "cash_shop", 5.0, "Cash Shop from map select"):
 		return
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	await _sleep(0.5)
 	var hat: int = shop.page_ids()[0]
 	await _click(shop.buy_buttons[0])

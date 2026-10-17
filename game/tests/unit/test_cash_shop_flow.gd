@@ -4,6 +4,7 @@ extends TestCase
 ## screen's confirm dialog and the saved account; there is no shop without a living character.
 
 const UI_FLOW := preload("res://tests/unit/test_ui_flow.gd")
+const CashShopScene := preload("res://scenes/ui/cash_shop.gd")
 
 var save_path := TestCase.test_dir("cash_shop_flow/save.json")
 var _nodes: Array[Node] = []
@@ -101,7 +102,7 @@ func test_buying_through_the_dialog_deducts_adds_saves_and_hides_the_item() -> v
 	var flow := _flow(10000)
 	flow.create_character("Buyer118")
 	flow.goto_cash_shop("stage_select")
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	shop.select_tab("equip")
 	shop.select_sub("Hat")
 	assert_true(shop.page_ids().has(1002279))
@@ -124,7 +125,7 @@ func test_an_unaffordable_item_shows_the_not_enough_nx_notice_and_changes_nothin
 	var flow := _flow(100)
 	flow.create_character("Poor118")
 	flow.goto_cash_shop("stage_select")
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	shop.select_sub("Hat")
 	shop.request_buy(1002279)
 	assert_eq(shop.pending_id, 0, "no confirm dialog for a purchase that cannot happen")
@@ -139,7 +140,7 @@ func test_a_locked_pet_upgrade_cannot_be_requested_and_says_why() -> void:
 	var flow := _flow(99999)
 	flow.create_character("Locked118")
 	flow.goto_cash_shop("stage_select")
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	shop.select_tab("pet")
 	shop.select_sub("Pet Equip.")
 	assert_eq(shop.lock_text(1812002), "Needs a pet.")
@@ -155,7 +156,7 @@ func test_trying_on_an_item_previews_it_without_wearing_or_owning_it() -> void:
 	var flow := _flow(0)
 	flow.create_character("Preview118")
 	flow.goto_cash_shop("stage_select")
-	var shop = flow.current
+	var shop: CashShopScene = flow.current
 	shop.select_sub("Hat")
 	shop.preview(1002279)
 	assert_eq(shop.preview_cash, {"hat": 1002279})
@@ -168,3 +169,20 @@ func test_trying_on_an_item_previews_it_without_wearing_or_owning_it() -> void:
 	assert_eq(shop.preview_cash, {})
 	shop.preview(5000000)
 	assert_eq(shop.preview_cash, {}, "a pet is not worn")
+
+
+func test_the_preview_avatar_starts_in_the_characters_worn_cash() -> void:
+	var flow := _flow(0)
+	flow.create_character("Worn118")
+	flow.save.set_account({"nx": 0, "owned": [1002279]})
+	var snapshot := flow.save.slot(0)
+	snapshot.character["cash"] = {"hat": 1002279}
+	flow.save.update_slot(0, snapshot)
+	flow.goto_cash_shop("stage_select")
+	var shop: CashShopScene = flow.current
+	assert_eq(shop.preview_cash, {"hat": 1002279})
+	assert_eq(shop.avatar.look.get("cash", {}), {"hat": 1002279}, "the avatar wears it when the shop opens")
+	shop.strip_preview()
+	assert_eq(shop.avatar.look.get("cash", {}), {})
+	shop.reset_preview()
+	assert_eq(shop.avatar.look.get("cash", {}), {"hat": 1002279}, "and RETURN TO DEFAULT puts it back")

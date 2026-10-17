@@ -135,6 +135,53 @@ func test_vac_pulls_every_drop_on_the_map_to_the_pet() -> void:
 	assert_true(by_pet.size() >= 4, "far ones flew to the pet: %d" % by_pet.size())
 
 
+func test_dismissing_a_vac_pet_releases_the_drops_flying_to_it() -> void:
+	var w := PF.world([PF.KITTY, PF.WING, PF.BINOCULAR, PF.VAC])
+	PF.put_player(w, 300.0, 0.0)
+	PF.put_pet(w, Vector2(300.0, 0.0))
+	var slot := _rest_drop(w, 1180.0)
+	PF.run(w, 30)
+	assert_eq(w.pickups.to_pet[slot], 1, "flying to the pet")
+	var flying_x := w.pickups.x[slot]
+	assert_eq(w.set_pet(0), "")
+	var events := PF.run(w, 240)
+	assert_eq(w.pickups.active[slot], 1, "nobody collected it: no pet is out")
+	assert_eq(PF.of_type(events, "pickup_collected").size(), 0)
+	assert_eq(w.pickups.to_pet[slot], 0, "it is an ordinary drop again")
+	assert_eq(w.pickups.state[slot], PickupSystem.REST, "lying where it was released, not steered toward the origin")
+	assert_between(w.pickups.x[slot], flying_x, 1200.0, "x=%.1f" % w.pickups.x[slot])
+	assert_eq(w.pickups.pet_collected, 0)
+
+
+func test_a_drop_released_from_the_pet_is_collected_by_the_player_like_any_other() -> void:
+	var w := PF.world([PF.KITTY, PF.WING, PF.BINOCULAR, PF.VAC])
+	PF.put_player(w, 300.0, 0.0)
+	PF.put_pet(w, Vector2(300.0, 0.0))
+	var slot := _rest_drop(w, 1180.0, 5)
+	PF.run(w, 30)
+	assert_eq(w.set_pet(0), "")
+	PF.run(w, 240)
+	PF.put_player(w, w.pickups.x[slot] - 20.0, 0.0)
+	var got := PF.of_type(PF.run(w, 60), "pickup_collected")
+	assert_eq(got.size(), 1)
+	assert_eq(got[0].collector, "player")
+	assert_eq(int(w.player_state.exp), 5)
+
+
+func test_the_pickup_system_stops_steering_to_a_pet_that_is_no_longer_vacuuming() -> void:
+	var drops := PickupSystem.new(4, {"spread": 0.0})
+	var slot := drops.spawn(Vector2(500.0, 0.0), 1, 1)
+	drops.state[slot] = PickupSystem.REST
+	var events: Array = []
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, Vector2(0.0, -15.0), 60.0, true)
+	assert_eq(drops.to_pet[slot], 1)
+	drops.step(1.0 / 60.0, Vector2(0.0, 0.0), 90.0, null, events, Vector2.ZERO, 0.0, false)
+	assert_eq(drops.to_pet[slot], 0, "no VAC: back to an ordinary drop")
+	assert_true(drops.state[slot] != PickupSystem.MAGNET)
+	assert_true(drops.x[slot] > 400.0, "still far out, not pulled toward the origin: %.1f" % drops.x[slot])
+	assert_eq(events.size(), 0)
+
+
 func test_without_vac_far_drops_stay_put() -> void:
 	var w := PF.world([PF.KITTY, PF.BINOCULAR])
 	PF.put_player(w, 300.0, 0.0)
