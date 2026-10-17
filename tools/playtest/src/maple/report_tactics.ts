@@ -10,7 +10,7 @@ const LOG_LINES = 20;
 type Switch = { tick?: number; time?: number; from?: string; to?: string; trigger?: string; source?: string };
 type TacticsRecord = {
 	seconds?: Record<string, number>; shares?: Record<string, number>; switches?: number; decisions?: number;
-	triggers?: Record<string, number>; log?: Switch[];
+	triggers?: Record<string, number>; platforms_visited?: number; log?: Switch[];
 };
 
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
@@ -35,7 +35,7 @@ registerSection({
 		const seconds = t.seconds ?? {};
 		const shares = t.shares ?? {};
 		const lines = ["## Tactics", "",
-			`Tactic decisions: ${t.decisions ?? 0}, switches: ${t.switches ?? 0}. Decided by: ${
+			`Tactic decisions: ${t.decisions ?? 0}, switches: ${t.switches ?? 0}, platforms stood on: ${t.platforms_visited ?? "?"}. Decided by: ${
 				Object.entries(bySource(ctx)).map(([s, n]) => `${s} ${n}`).join(", ") || "-"}.`, "",
 			"| tactic | seconds | share |", "|---|---|---|",
 			...Object.keys(seconds).map((k) => `| ${k} | ${seconds[k].toFixed(1)} | ${((shares[k] ?? 0) * 100).toFixed(1)}% |`)];

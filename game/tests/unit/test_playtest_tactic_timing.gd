@@ -99,6 +99,7 @@ func test_the_answer_sets_the_tactic_and_is_recorded() -> void:
 	assert_eq(t.log[0].trigger, "start")
 	assert_near(float(t.seconds.hold), 1.0, 1e-6, "one second held")
 	assert_near(float(t.shares.hold), 1.0, 1e-6)
+	assert_eq(int(t.platforms_visited), 1, "the player stood on one platform")
 
 
 func test_invalid_tactic_answer_keeps_the_baseline() -> void:

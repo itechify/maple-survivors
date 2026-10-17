@@ -141,7 +141,7 @@ func set_tactic(w: RunWorld, to: String, trigger: String) -> void:
 
 
 ## Tactic telemetry for the round record: seconds and time shares per tactic, the number of switches and decisions,
-## decisions per trigger, and the switch log.
+## decisions per trigger, the number of platforms stood on, and the switch log.
 func tactic_summary() -> Dictionary:
 	var total := 0
 	for t: String in _tactic_ticks:
@@ -154,7 +154,8 @@ func tactic_summary() -> Dictionary:
 			shares[t] = snappedf(float(_tactic_ticks[t]) / maxf(1.0, total), 0.0001)
 	var asked := decisions.filter(func(d: Dictionary) -> bool: return d.kind == "tactic").size()
 	return {"seconds": seconds, "shares": shares, "switches": tactic_log.size(), "decisions": asked,
-		"triggers": _tactic_triggers.duplicate(), "log": tactic_log.duplicate(true)}
+		"triggers": _tactic_triggers.duplicate(), "platforms_visited": controller.visits.size(),
+		"log": tactic_log.duplicate(true)}
 
 
 ## Asks the tactic decision for trigger `why` and resets the checkpoint and the mob-bucket reference.
