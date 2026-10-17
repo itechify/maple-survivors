@@ -43,8 +43,7 @@ func _init(map_img: Dictionary = {}, physics: Dictionary = {}, balance: Dictiona
 ## no upgrades: it only follows.
 func set_pet(species: int, tuning: Dictionary) -> void:
 	pet = PetSystem.new(species, {}, tuning, _constants)
-	pet.place(player.pos, fhm)
-	pet.motion.facing = player.facing
+	pet.place_beside(player, fhm)
 
 
 ## What the pet looks like now ({} without one); same shape as RunWorld.pet_state().

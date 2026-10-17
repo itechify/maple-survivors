@@ -1449,8 +1449,7 @@ func _init_pet(catalog: CashCatalog) -> void:
 		else:
 			abilities[ability] = bool(owned[ability])
 	pet_system = PetSystem.new(pet, abilities, data.get("cash_items", {}).get("pet", {}), physics)
-	pet_system.place(player.pos, fhm)
-	pet_system.motion.facing = player.facing
+	pet_system.place_beside(player, fhm)
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).

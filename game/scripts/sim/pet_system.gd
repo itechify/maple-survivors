@@ -32,6 +32,7 @@ const TUNING_DEFAULTS := {
 	"center_up": 15.0,  # tier C: the pet's centre is this far above its feet
 	"binocular_mult": 2.0,  # tier C: Binocular roughly doubles the pickup radius
 	"follow_gap": 40.0,  # tier C: stands still this close (px) to the player
+	"beside_offset": 30.0,  # tier C: a pet brought out stands this far (px) behind the player, not on top of it
 	"follow_speed_mult": 1.1,  # tier C: walks a little faster than the player so it catches up
 	"teleport_distance": 600.0,  # tier C: farther than this from the player -> teleports at once
 	"lost_distance": 280.0,  # tier C: farther than this for lost_seconds -> teleports
@@ -107,6 +108,22 @@ func place(p: Vector2, fhm: FootholdMap) -> void:
 	_hanging = false
 	_moved = 1.0
 	action = "stand"
+
+
+## Brings the pet out next to the player: `beside_offset` px behind the way the player faces (else in front) on the same
+## flat floor, so it is not hidden behind or over the avatar; with no such floor it stands on the player. It faces the
+## player's way. Used when it is first brought out (teleports and tests use place()).
+func place_beside(player: PlayerMotion, fhm: FootholdMap) -> void:
+	var offset := float(tuning.beside_offset)
+	for side: int in [-1, 1]:
+		var x := player.pos.x + float(side * player.facing) * offset
+		var f := fhm.find_below(x, player.pos.y - 2.0) if fhm != null else FootholdMap.NONE
+		if f >= 0 and absf(fhm.y_at(f, x) - player.pos.y) <= 2.0:
+			place(Vector2(x, player.pos.y), fhm)
+			motion.facing = player.facing
+			return
+	place(player.pos, fhm)
+	motion.facing = player.facing
 
 
 ## The pet's pickup centre.

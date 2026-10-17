@@ -227,8 +227,28 @@ var setup := {
 	"view_size": Vector2(800, 600),   # the live logical view, get_viewport().get_visible_rect().size (800x600 on 4:3,
 	                                  # 1066x600 on 16:9, more with fill_window; see 4.5); RunWorld keeps a
 	                                  # player-centred view rect of this size for spawn logic
+	"character": Dictionary,          # optional CharacterSnapshot (see 4.5); its `cash` ({slot: id}) and `pet` (species)
+	                                  # are what the character wants to wear / bring out
+	"account": {"owned": [1002469, 5000000]},  # optional (spec #34): the account's owned cash item ids, absent = an
+	                                  # empty account; `nx` is never part of the setup, only the save credits it
+	"alert": {"hp": 0.3, "mp": 0.2},  # optional: HP / MP ALERT fractions the pet's auto potions follow, absent = 0
 }
 ```
+
+The account reaches the sim only as plain data: `setup.account.owned` filters `character.cash` and `character.pet` to what
+the account owns (`CashCatalog.resolve`), and the result is `RunWorld.worn_cash`, `RunWorld.pet` and, with a pet out,
+a `PetSystem`. Fortune from cash slots is computed live (`RunWorld.cash_fortune`, added to `player_state.fortune`) and never
+written back to the character. Where `account` and `alert` come from: a persistent round (`SceneFlow._resume_round`)
+passes `SaveData.account` and the settings' ALERT levels; a tool round (`RunScene` `options.account`, from
+`--account=<json>` through `AccountFile.load_file`/`apply`) uses the file's `owned`/`cash`/`pet`/`alert` and ignores
+its `nx`. Without either, the setup has no `account`, nothing is worn and no pet exists, which keeps every record
+byte-identical to a round without the feature.
+
+The money side lives outside the sim. A finished round's summary carries `nx_awarded` (`NxAward`, from `bosses_killed` and
+`levels_gained` and `balance.nx_award`); `SceneFlow` credits it to `SaveData.account` in the same atomic write as the
+clear's round-boundary snapshot or the death/victory run archive, and only for persistent rounds. The Cash Shop
+(`scenes/ui/cash_shop.gd`, rules in `scripts/core/cash_shop.gd`) and the Equip window's Cash tab and Pet page edit
+`account.owned` (buy) and the slot's `character.cash` / `character.pet` (wear, bring out) and save at once.
 
 Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd` loads the JSON files (outside sim).
 

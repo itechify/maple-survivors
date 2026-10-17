@@ -43,6 +43,14 @@ func test_free_market_brings_only_the_owned_pet_the_character_has_out() -> void:
 	assert_eq(FreeMarket.owned_pet({"pet": 1812002}, data, [1812002]), 0, "an upgrade is not a pet")
 
 
+func test_free_market_pet_comes_out_beside_the_player_not_on_top_of_it() -> void:
+	# #126: on the player it was drawn over (or hidden behind) the avatar in the Free Market and in rounds.
+	var hub := _hub_with_pet()
+	var state := hub.pet_state()
+	assert_near(absf(state.pos.x - hub.player.pos.x), 30.0, 0.5, "30 px to one side: %s vs %s" % [state.pos, hub.player.pos])
+	assert_eq(state.pos.y, hub.player.pos.y, "on the same floor")
+
+
 func test_free_market_without_a_pet_has_no_pet_state() -> void:
 	var hub := FreeMarketMotion.new(FM.hub_map())
 	assert_eq(hub.pet_state(), {})

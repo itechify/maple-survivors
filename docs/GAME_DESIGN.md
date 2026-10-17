@@ -1973,6 +1973,52 @@ for a clear (the later equipment sales are not in this number). The multiplier i
 raise it. Because the coin sprite follows the final amount, a x14 Snail drop (56-84) already shows the gold coin.
 Raw records: ignored `_scratch/t107_smoke/` and `_scratch/t107_base/`.
 
+#### #34 / #126 NX and Cash Shop QA: regression smoke and a full-account record (2026-10-17)
+
+No tuning, no held-out seeds: `ISOLATE=... bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` (private real cache), 12 runs per row set, on the #34 integration branch (all of #115-#122, with
+B2's #105-#108 merged in). "Base" is the same smoke on `1d453b1`, the B2 integration tip without any #34 code, from a
+`git archive`. **Empty account:** all 12 records are identical to the base's (every key compared; only `nx_awarded`,
+`bosses_killed` and `levels_gained` exist only on the new side), and every end time equals the latest earlier smoke
+(#107 above), so B3 adds nothing to a round without a pet or worn cash equipment; the #105-#108 gameplay difference to the
+older NX / pet smokes is therefore B2's (mesos and the drop-chasing bot, #106 LUK), not B3's. No crash, script error,
+world warning or missing asset in any of the 24 runs.
+
+**Full account** (`--account=game/tests/fixtures/accounts/full_pet.json`: Brown Kitty, Auto HP/MP, Wing Boots, Binocular, VAC,
+ALERT 50 % / 30 %; record only). Seeds 1 / 2 / 2026, the same bot, `pickups` = drops the pet collected:
+
+| Stage / policy | Empty account (end time; Henesys random seed 1 clears) | Full pet account (end time, level) | Pet pickups | NX per run (empty / full pet) |
+|---|---|---|---|---|
+| Henesys bot | 14:19 / 12:57 / 14:59 | 17:55 / 20:19 / 16:15 (Lv 37 / 41 / 33) | 3235 / 4065 / 2292 | 245, 160, 245 / 260, 280, 240 |
+| Henesys random | **clear 16:35** / 7:42 / 5:45 | 17:47 / 6:37 / 10:45 (Lv 38 / 12 / 17) | 3440 / 345 / 635 | 420, 65, 50 / 265, 55, 120 |
+| Tree bot | 10:21 / 2:36 / 2:08 | 11:01 / 12:25 / 10:13 (Lv 24 / 23 / 23) | 3043 / 2883 / 2572 | 155, 15, 10 / 155, 150, 150 |
+| Tree random | 12:27 / 2:38 / 1:28 | 15:24 / 5:05 / 4:54 (Lv 30 / 10 / 4) | 4634 / 486 / 81 | 220, 15, 10 / 225, 45, 15 |
+
+Henesys still reaches Magician (257-283 s) and the first boss in every run, with and without the account; Tree stays
+record-only. With the pet 10 of 12 runs live longer than without; the exceptions are Henesys random seed 2 (6:37 against
+7:42) and seed 1, which no longer clears (it dies at 17:47 after two bosses; it did not clear on the integration tip
+`25826a6` with this account either: 0/3 clears, deaths between 10:03 and 19:35, so that change is B2's, not this ticket's
+pet placement fix). Chaotic, recorded, not tuned. The pet
+drinks little (0-10 MP, 0-1 HP drinks a run) because the bot drinks first, as in the #119 record. Raw records: ignored
+`_scratch/s126/{base,new,acct,int}/`.
+
+**Flow-driver `account` scenario** (injected input only, 29 shots in ignored `evidence/spec34/126/account_flow/`): 11,000 NX
+-> hat 4,000 + pet 4,900 bought at map select -> round 1 Equip window wears the hat and brings the pet out -> warp clear
+(+430 NX, notice "You have gained 430 NX.", 2,530 NX saved) -> pet upgrade (Auto HP, 1,800) bought in the Free Market ->
+Save & quit, Continue (still dressed, pet out) -> tier-2 map select shows 730 NX -> death (+30 NX, results row) -> slot freed,
+account holds 760 NX and all three items -> a new character's shop lists everything as owned and its round's Equip window
+wears the hat and brings the pet with Auto HP out. Round 1 is invulnerable (tier C): with the hat and pet the bot no longer
+clears Henesys on seeds 1 / 2 / 2026 / 7 either (it has 0/3 clears there anyway), so a natural clear is not available
+for the scenario; `--natural-clear=1` plays it as is.
+
+**Real-game playtest** (`scripts/playtest.sh --account=game/tests/fixtures/accounts/full_cash_pet.json --speed=1 --minutes=2
+--seed=2026`, ignored `evidence/spec34/126/playtest/`): a Beginner wearing a cash item in all 11 slots with Brown Kitty out and
+every upgrade; no missing assets, 60 FPS, and the screenshots show the worn hat, outfit and accessories and the pet trailing
+the character. Eye checks of the Cash Shop (equip and pet tabs, owned items in the Cash Inventory), the Equip window's
+Cash tab and Pet page, the "+N NX" notice, the results row and the pet beside the character are the `account_flow/` shots.
+**Two QA fixes** came out of this ticket: the CpH5 headband hair rule (section 11, "Cap hair cover") and the pet
+standing on top of the character (section 11, "Pet in the round").
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2667,6 +2713,43 @@ MP Eaters, Invincible and both Slows):
 | Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
 
+### 8.3 NX, the Cash Shop, cash equipment and the pet (spec #34)
+
+Terms: `GLOSSARY.md` "Account and NX"; decision record: ADR 0003. Every number below is tier C unless section 11 says
+otherwise; the dedicated balance pass sets them.
+
+**NX and the account.** A run keeps nothing but records, so every round pays **NX** into the **account**, the part of
+the save file that outlives characters (`account: {nx, owned}`; no account block = 0 NX and nothing owned). A clear pays
+`clear_bonus[tier] + 5 x levels gained + 40 x bosses killed` in that round (clear bonus 100 / 250 by tier), a death the
+same without the bonus; deletion, Quit round and tool rounds pay nothing. The NX is written in the same atomic save as
+the clear's Free Market boundary or the death's run archive, so it is spendable at once. It shows as the "NX earned" row
+of the results screen, as a six-second "You have gained N NX." notice on arriving in the Free Market, and as the balance
+at the end of the map-select heading.
+
+**Cash Shop.** The SHOP button (map select, every tier, and the Free Market status bar) opens the v83 `CashShop.img`
+screen as the current character, so a brand-new character can shop before its first round. Only the EQUIP. and PET tabs
+exist; prices are the real Commodity prices. An item is bought once per account (it leaves the list, nothing is sold
+back), never expires and works for every character at the same time. Pet upgrades need a pet; VAC (survivor-only) needs
+Wing Boots, Binocular and a pet.
+
+**Cash equipment and Fortune.** Eleven cash slots (hat, face, eye, earrings, top, bottom, shoes, gloves, cape, weapon,
+shield) are worn from the **Cash tab** of the Equip window (E, in rounds and in the Free Market) by double-click; the
+item is drawn instead of the regular equip of its slot. Each filled slot adds a fixed **Fortune** (10 / 8 / 8 / 6 / 10 /
+10 / 9 / 9 / 10 / 12 / 8, sum 100; an overall fills top and bottom, a two-handed weapon cover weapon and shield). Which
+item fills a slot only changes the look. Fortune is computed live from what is worn and owned, never written into the
+character (no compounding), and changes card rarity only (section 8.1). Cash items have no other stats.
+
+**Pet.** The Pet page of the Equip window (PET EQUIP.) brings one owned pet out (Brown Kitty, Brown Puppy or Pink Bunny).
+It follows the character on the same platforms, teleports when left behind, and picks up every drop kind near it (Item
+Pouch and Meso Magnet are built in); it has no hunger, lifetime or commands. Upgrades belong to the account and apply to
+whichever pet is out: Auto HP / MP Potion Pouch drink from the character's stock below the HP / MP ALERT levels set in
+Options (defaults 30 % / 20 %), Wing Boots fetch resting drops, Binocular doubles the pickup radius, and VAC pulls every
+drop on the map to the pet while the Magnet card is no longer offered.
+
+**Tools.** Tool rounds (balance, playtests, `--run`) start with an empty account; `--account=<json>` supplies owned items,
+worn cash equipment, a pet and ALERT levels (`game/tests/fixtures/accounts/full_pet.json` is the full set) and the round
+record gains `nx_awarded`, which is never credited. With an empty account every record is byte-identical to a build
+without this feature (regression smoke, section 4.2).
 
 ## 9. Jobs
 
@@ -2992,7 +3075,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Cash replaces regular equipment | a worn cash item draws instead of the regular equip of its slot, and also of any regular equip whose whole `info/vslot` it holds (a MaPn vest replaces the pants, an overall both) | C | v83 shows the cash item in place of the regular one; the vslot-subset rule is ours |
 | vslot hiding | a layer is hidden when one other drawn item's `info/vslot` codes cover every code of the layer's `Base.wz/smap.img` entry (hat CpH1H5 hides hairOverHead, a full-head hat the head, hair and accessories); face accessories follow the face expression; hats, eye accessories and earrings use their `default` frame for stances they lack | C | codes are tier A (smap.img, `info/vslot`); the all-codes-of-one-item reading is ours (any-code or pooled readings hide the sleeves, pants and shoes wrongly) |
 | VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); while a pet with VAC is out the Magnet card (any card raising the `magnet` stat) is never offered, in normal, boss and advancement draws | C | spec #34, ADR 0003; our design |
-| Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
+| Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). A pet brought out (round start, the Pet page, the Free Market) stands `beside_offset` 30 px behind the way the player faces, else in front, on the same flat floor, else on the player (#126: on the player it was hidden behind or over the avatar while the player stood still; a teleport still lands on the player and the pet walks off) State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
 | Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, potions; mesos with B2) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
 | Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
 | Pet drawing (#120) | `PetRenderer` draws `RunWorld.pet_state()` (and the Free Market's `FreeMarketMotion.pet_state()`, the same `PetSystem` follower with no drops) from `Item.wz/Pet/<species>.img` (`stand0 stand1 move jump hang fly` and `info/icon`, `info/iconRaw` in the manifest; no `Pet.wz` in v83) at the real frame delays and origins; the art faces left so facing right mirrors; no name tag or chat balloon. Action to animation: stand -> `stand0`, move -> `move`, jump -> `jump`, hang -> `hang` (tier A: the WZ names); a pet running to a drop in the air (Wing Boots, `fetching` and `jump`) uses `fly`, and a hanging pet is drawn 22 px beside the climber instead of exactly behind (C: ours, the sim keeps it on the player's position). Drawn in the actor layer of the foothold it stands on, just behind the avatar when that is the avatar's layer. `stand1` is imported but not used | A (animations) / C (mapping, offset) | v83 `Item.wz/Pet`; ours |
@@ -3082,7 +3165,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Inventory mouse protocol (#108) | a double-click wears / takes off; a press that moves 4 px starts a drag drawn under the cursor; the release resolves against the window stack (another inventory window takes the drop, no window = discard after the YesNo box, anything else nothing); a drop anywhere on the Equip window wears the item in its own slot | C (ours; v83 drags onto the exact slot) | ours |
 | Item tooltip (#108) | drawn dark box 262 px wide (v83 UI.wz has no UIToolTip.img); `ToolTip/Equip/Can` / `Cannot` label and digit art for REQ LEV / STR / DEX / INT / LUK (three digits, 6 px cells) and the job words; `Property` labels 3 CATEGORY, 4 ATTACK SPEED, 6-11 and 13-14 the attack / defence / accuracy / avoid / speed / jump lines, 16 NUMBER OF UPGRADES AVAILABLE; `ItemCategory` 1 HAT, 5 TOP, 6 BOTTOM, 7 SHOES, 8 GLOVE, 21 LONGCOAT; `WeaponCategory` by item id / 10000 - 100; `Speed` 0-6 FASTEST..SLOWEST from attackSpeed 2, 3, 4-5, 6, 7, 8, 9; STR / DEX / INT / LUK / MaxHP / MaxMP as text; "(+N)" after the name for N successful scrolls | A (art, read), B (speed words, scroll count: RE clients), C (layout, mapping) | ours; `UIWindow.img/ToolTip` |
 | Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
-| Cap hair cover (#108) | a cap whose `info/vslot` contains H5 (CpH5 half-cover, CpH1H5 full-cover) hides the hair's `hairOverHead` layers; a headband (CpH1) hides nothing; without a cap the `*BelowCap` layers are not drawn. Both this rule and the smap vslot hiding above apply (the drawn cap decides, a worn cash hat instead of the regular one); they differ only for CpH5 (this rule hides hairOverHead, the smap rule alone would not) and a hypothetical CpH1 (the reverse) | B | v83 client cap types (RE clients), re-implemented from prose |
+| Cap hair cover (#108, corrected in #126) | `hairOverHead` is `Base.wz/smap.img` code H1, so it is hidden exactly by a cap whose `info/vslot` holds H1 (CpH1H5 half-cover, the full-head covers); a CpH5 headband (68 real caps) leaves it drawn over the band (the bangs fall over the headband: `zmap` puts `hairOverHead` in front of `cap`). Without a cap the `*BelowCap` hair layers are not drawn. #108 had it the other way round (CpH5 hid hairOverHead); `AvatarRenderer.hair_layers_skipped` and the smap hiding above now agree. Evidence: `hair_cap_probe.tscn` sheets on hairs 30000 / 30002 / 30020 with the CpH5 caps 1002067 and 1002317 and the CpH1H5 cap 1002001 (the old rule strips the bangs and leaves the headband on a bare forehead); the ladder stances show no difference (the hair covers the cap from behind) | A (smap codes, cap vslot, zmap order) / B (agreement) | `Base.wz/smap.img` + `zmap.img`, `Character.wz/Cap/*/info/vslot`; the v83 clients in the prior-art clones map CpH1H5 to half-cover (overhead hair not drawn) and CpH5 to headband (overhead hair drawn over the cap), re-implemented from prose |
 
 ## 12. Later phases
 
