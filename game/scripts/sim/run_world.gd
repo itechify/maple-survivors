@@ -1052,6 +1052,16 @@ func discard_item(index: int) -> String:
 	return reason
 
 
+## Destroys the whole stack of scroll `item_id` (the Item window's discard; #110 fills the stacks); "" or "no_item".
+func discard_scrolls(item_id: int) -> String:
+	var key := str(item_id)
+	if not scrolls.has(key):
+		return "no_item"
+	scrolls.erase(key)
+	emit("equipment_changed", {"action": "discard", "slot": "", "item_id": item_id})
+	return ""
+
+
 ## The Equip tab's capacity (balance.player.inventory_slots).
 func inventory_slots() -> int:
 	return int(balance.get("player", {}).get("inventory_slots", DEFAULT_INVENTORY_SLOTS))

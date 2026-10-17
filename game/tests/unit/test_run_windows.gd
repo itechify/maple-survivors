@@ -262,6 +262,86 @@ func test_stat_window_shows_the_sims_v83_stats() -> void:
 	assert_true(sw.show_detail, "the detail panel is open")
 
 
+# --- Equip / Item (#108) -------------------------------------------------------------------------------------------
+
+func test_equip_and_item_hotkeys_open_their_windows_hold_the_run_and_stack_with_the_others() -> void:
+	if not require_cache():
+		return
+	scene = _make(13, {"autoplay": true, "autopick": true})
+	var w := scene.world
+	_frames(30)
+	var t := w.time
+	assert_true(scene.handle_hotkey(_key(KEY_E)), "E is the Equip hotkey")
+	var ew := scene.ui_windows.top() as EquipWindow
+	assert_true(ew != null, "the Equip window opened")
+	_frames(10)
+	assert_eq(w.time, t, "no sim ticks while it is open")
+	assert_true(scene.handle_hotkey(_key(KEY_I)), "I is the Item hotkey")
+	var iw := scene.ui_windows.top() as ItemWindow
+	assert_true(iw != null, "the Item window opened")
+	scene.handle_hotkey(_key(KEY_S))
+	assert_eq(scene.ui_windows.ids(), PackedStringArray(["equip", "item", "stat"]), "the three stack")
+	if ew == null or iw == null:
+		return
+	assert_eq(ew.worn_id("weapon"), 1302000, "the Equip window shows the creation sword")
+	assert_eq(ew.worn_id("top"), 1040002)
+	assert_eq(iw.meso_text(), InventoryModel.meso_text(w.mesos), "the meso line shows the character's mesos")
+	assert_true(ew.position.x + ew.size.x <= iw.position.x, "they open side by side, not on top of each other")
+	assert_eq(ew.item_name(1302000), "Sword", "String.wz/Eqp names")
+	assert_eq(ew.item_name(2000000), "Red Potion", "String.wz/Consume names")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_eq(scene.ui_windows.ids(), PackedStringArray(["equip", "item"]), "Esc closes the front window")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(scene.ui_windows.has_windows(), "Esc closed them all")
+	assert_false(scene.paused, "without pausing")
+	_frames(5)
+	assert_true(w.time > t, "running again")
+	scene.handle_hotkey(_key(KEY_I))
+	scene.handle_hotkey(_key(KEY_I))
+	assert_false(scene.ui_windows.has_windows(), "I toggles the Item window closed")
+
+
+func test_taking_the_sword_off_in_the_equip_window_redraws_the_character_bare_handed() -> void:
+	if not require_cache():
+		return
+	scene = _make(13, {"autoplay": true, "autopick": true})
+	_frames(10)
+	scene.handle_hotkey(_key(KEY_E))
+	var ew := scene.ui_windows.top() as EquipWindow
+	assert_true(ew != null)
+	if ew == null:
+		return
+	assert_true(1302000 in scene.avatar.look.equips, "drawn with the sword")
+	assert_eq(ew.take_off("weapon"), "")
+	assert_false(1302000 in scene.avatar.look.equips, "the look followed the change at once")
+	assert_eq(scene.world.weapon_id(), 0)
+	var notices := []
+	ew.notice.connect(func(t: String) -> void: notices.append(t))
+	scene.handle_hotkey(_key(KEY_I))
+	var iw := scene.ui_windows.top() as ItemWindow
+	assert_eq(iw.cell(0).get("id"), 1302000, "the Item window lists the sword")
+	assert_eq(iw.wear(0), "", "wearing it again from the Item window")
+	assert_true(1302000 in scene.avatar.look.equips)
+
+
+func test_equip_and_item_open_over_a_level_up_choice() -> void:
+	if not require_cache():
+		return
+	scene = _make(11, {})
+	var lw := _open_level_up()
+	assert_true(lw != null, "the level-up window opened")
+	if lw == null:
+		return
+	lw.input_delay = 0.0
+	assert_true(lw.passes_hotkey(_key(KEY_E)), "the choice lets the Equip hotkey through")
+	assert_true(lw.passes_hotkey(_key(KEY_I)), "and the Item hotkey")
+	assert_true(scene.handle_hotkey(_key(KEY_E)))
+	assert_true(scene.ui_windows.top() is EquipWindow and lw.input_blocked, "Equip opened over the choice")
+	scene.handle_hotkey(_key(KEY_ESCAPE))
+	assert_eq(scene.window, lw, "back to the choice")
+
+
 # --- Key Config / Options (#87) ------------------------------------------------------------------------------------
 
 func test_pause_menu_opens_key_config_and_options_over_the_paused_run() -> void:
@@ -321,7 +401,7 @@ func _bare_scene() -> Array:
 	root.add_child(s.windows_layer)
 	var stack := WindowStack.new()
 	root.add_child(stack)
-	for id: String in ["stat", "options"]:
+	for id: String in ["stat", "options", "equip", "item"]:
 		stack.register(id, func() -> UiWindow:
 			var w := UiWindow.new()
 			w.window_id = id
@@ -347,6 +427,14 @@ func test_no_sim_ticks_while_an_in_run_window_is_open_without_the_cache() -> voi
 	for i in 30:
 		s.advance_frame(DT)
 	assert_eq(s.world.time, t, "no sim ticks while a window is open")
+	assert_true(s.handle_hotkey(_key(KEY_E)), "E opens the Equip window (#108)")
+	assert_true(s.handle_hotkey(_key(KEY_I)), "I opens the Item window")
+	assert_eq(s.ui_windows.ids(), PackedStringArray(["stat", "equip", "item"]), "the three stack")
+	for i in 3:
+		s.handle_hotkey(_key(KEY_ESCAPE))
+	assert_false(s.ui_windows.has_windows(), "Esc closed them one by one")
+	assert_false(s.paused)
+	s.handle_hotkey(_key(KEY_S))
 	assert_true(s.handle_hotkey(_key(KEY_ESCAPE)))
 	assert_true(s.handle_hotkey(_key(KEY_ESCAPE)), "Esc with nothing open pauses")
 	assert_true(s.toggle_window("options"), "Options opens over the pause menu")

@@ -72,6 +72,16 @@ func test_part_paths() -> void:
 	assert_eq(AvatarRenderer.part_img_path(1002140), "Character.wz/Cap/01002140.img")
 
 
+func test_a_cap_hides_the_hair_layers_its_vslot_covers() -> void:
+	assert_eq(AvatarRenderer.hair_layers_skipped(false, ""), PackedStringArray(["BelowCap"]),
+		"no cap: the *BelowCap layers are not drawn")
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH1"), PackedStringArray(), "a headband hides nothing")
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH5"), PackedStringArray(["OverHead"]),
+		"a half-cover cap hides hairOverHead")
+	assert_eq(AvatarRenderer.hair_layers_skipped(true, "CpH1H5"), PackedStringArray(["OverHead"]),
+		"so does a full-cover cap")
+
+
 func test_default_look_is_game_design_section_1() -> void:
 	# MakeCharInfo male default: face 20000, hair 30030, 1040002, 1060002, 1072001, and no weapon.
 	assert_eq(AvatarRenderer.DEFAULT_LOOK, {"skin": 0, "face": 20000, "hair": 30030,

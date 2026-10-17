@@ -1,6 +1,6 @@
 class_name GameMenuPopup
 extends UiWindow
-## The list the status bar's Menu button opens: Stat, Skill, Key Config, Options. v83 has no art for this list in the
+## The list the status bar's Menu button opens: Equip, Item, Stat, Skill, Key Config, Options. v83 has no art for this list in the
 ## cache, so it is drawn in the v83 context-menu style (UI.wz/UIWindow.img/ContextMenu: the `t` title plate, a `c`
 ## row per entry, the `s` bottom edge) with each entry on a ContextMenu button plate (BtInfo's normal / mouseOver /
 ## disabled art widened past its dot, its baked words left out) and our own label. Without the cache it keeps its
@@ -15,7 +15,8 @@ extends UiWindow
 signal entry_chosen(id: String)
 
 ## Entry ids (WindowStack ids) and labels, top to bottom.
-const ENTRIES := [["stat", "Stat"], ["skill", "Skill"], ["key_config", "Key Config"], ["options", "Options"]]
+const ENTRIES := [["equip", "Equip"], ["item", "Item"], ["stat", "Stat"], ["skill", "Skill"],
+	["key_config", "Key Config"], ["options", "Options"]]
 const ART := "UI.wz/UIWindow.img/ContextMenu/"
 const PLATE := "UI.wz/UIWindow.img/ContextMenu/BtInfo/"
 ## Context-menu piece sizes (v83 ContextMenu t 100x23, c 97x15, s 97x7; BtInfo 85x14).
