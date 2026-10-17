@@ -100,7 +100,8 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 	const unevaluated = notEvaluated(cells).map((c) => c.name);
 	const exit = worstExit(cells.map(cellExit));
 	const infra = rows.filter((r) => r.infrastructure.length);
-	const verdict = matrixVerdict({ exit, infra: infra.length, groups, patterns, flagged, review, cells: cells.length });
+	const verdict = matrixVerdict({ exit, infra: infra.length, groups, patterns, flagged, review, cells: cells.length,
+		evaluated: cells.length - unevaluated.length });
 	const md: string[] = [`# Agent playtest matrix: ${scenario}`, "", ...verdict.flatMap((l) => [l, ""]),
 		`- **cells:** ${cells.length}`, `- **outcomes:** ${Object.entries(outcomes).map(([k, n]) => `${k} ${n}`).join(", ")}`,
 		`- **exit code:** ${exit} (the worst over the cells; patterns and Jev opinions never change it)`, "",
@@ -137,7 +138,10 @@ export function matrixSummary(scenario: string, dirs: readonly string[],
 	md.push(...opinionLines(flagged, "No cell's evaluations flagged anything."));
 	md.push("", "### Needs human review (grouped by kind across cells)", "");
 	md.push(...opinionLines(review, "Nothing needs review."));
-	if (unevaluated.length) md.push("", `Jev evaluations: not evaluated in ${cellsWord(unevaluated.length)} (skipped, or recorded before #99): ${unevaluated.join(", ")}.`);
+	if (unevaluated.length) {
+		md.push("", unevaluated.length === cells.length ? `Jev evaluations: not evaluated in any of the ${cells.length} cells (skipped, or recorded before #99).`
+			: `Jev evaluations: not evaluated in ${cellsWord(unevaluated.length)} (skipped, or recorded before #99): ${unevaluated.join(", ")}.`);
+	}
 	md.push("", "## Metric spreads", "", "| metric | n | min | median | max |", "|---|---|---|---|---|",
 		...Object.entries(metrics).map(([k, s]) => ("min" in s ? `| ${k} | ${s.n} | ${s.min} | ${s.median} | ${s.max} |` : `| ${k} | 0 | - | - | - |`)),
 		"", "## Decisions by source", "", "| source | decisions |", "|---|---|",
@@ -171,7 +175,7 @@ function opinionLines(groups: OpinionGroup[], none: string): string[] {
 
 /** The matrix verdict and next command. */
 function matrixVerdict(v: { exit: number; infra: number; groups: ProblemGroup[]; patterns: DeathCluster[]; flagged: OpinionGroup[];
-	review: OpinionGroup[]; cells: number }): string[] {
+	review: OpinionGroup[]; cells: number; evaluated: number }): string[] {
 	const parts: string[] = [];
 	if (v.infra) parts.push(`INFRASTRUCTURE ERRORS in ${cellsWord(v.infra)}`);
 	const detCells = new Set(v.groups.flatMap((g) => g.cells)).size;
@@ -182,8 +186,9 @@ function matrixVerdict(v: { exit: number; infra: number; groups: ProblemGroup[];
 		parts.push(`${v.patterns.length} pattern${v.patterns.length === 1 ? "" : "s"} (death cluster ${mmss(p.from)} to ${mmss(p.to)}, ${p.cells.length}/${p.cells_total} cells)`);
 	}
 	const flaggedCells = new Set(v.flagged.flatMap((g) => g.cells)).size;
-	parts.push(`Jev: ${v.flagged.length} flagged kind${v.flagged.length === 1 ? "" : "s"}${v.flagged.length ? ` in ${cellsWord(flaggedCells)}` : ""}, ` +
-		`${v.review.length} need${v.review.length === 1 ? "s" : ""} review`);
+	parts.push(v.evaluated === 0 ? "Jev: no cell was evaluated"
+		: `Jev: ${v.flagged.length} flagged kind${v.flagged.length === 1 ? "" : "s"}${v.flagged.length ? ` in ${cellsWord(flaggedCells)}` : ""}, ` +
+		`${v.review.length} need${v.review.length === 1 ? "s" : ""} review${v.evaluated < v.cells ? ` (${v.evaluated}/${v.cells} cells evaluated)` : ""}`);
 	const g = v.groups.find((x) => x.first.replay && x.first.time !== undefined);
 	const p = v.patterns[0];
 	const f = v.flagged.find((x) => x.first.replay && x.first.time !== undefined);

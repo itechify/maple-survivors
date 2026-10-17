@@ -153,8 +153,9 @@ export function deathFacts(input: RunData): DeathFacts | null {
 		const rs = rows.filter((r) => num(r.time) > a && num(r.time) <= b + 1e-6);
 		const hs = hits.filter((h) => h.time > a && h.time <= b + 1e-6);
 		const minHp = rs.length ? Math.min(...rs.map((r) => num(r.hp) / Math.max(1, num(r.max_hp)))) : null;
+		const lowest = minHp === null ? "not sampled" : poolLevel(minHp, 1);
 		chunks.push({ when: `${k * DEATH_CHUNK_S} to ${(k - 1) * DEATH_CHUNK_S} seconds before death`,
-			"lowest HP": minHp === null ? "not sampled" : poolLevel(minHp, 1),
+			"lowest HP": k === 1 ? `${lowest === "not sampled" ? "" : `${lowest}, then `}zero at the death` : lowest,
 			"monsters near": rs.length ? mobsWords(Math.max(...rs.map((r) => num(r.near)))) : "not sampled",
 			"boss on the map": rs.some((r) => num(r.bosses) > 0) || bossAliveAt(d.record, b) ? "yes" : "no",
 			tactic: String(rs.at(-1)?.tactic ?? "unknown"),

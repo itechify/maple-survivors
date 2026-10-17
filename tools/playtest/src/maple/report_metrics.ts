@@ -6,6 +6,33 @@ import type { ReportContext } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 import type { Evaluations } from "./evaluations.ts";
 
+/** Every evaluation result in a few lines, flagged or not (Problems lists only what passed a threshold). */
+export function evaluationSummary(e: Evaluations): string[] {
+	const by = (k: string) => e.results.filter((r) => r.kind === k);
+	const cls = (c: string) => (c === "none" ? "" : ` [${c}]`);
+	const lines: string[] = [];
+	const f = by("death_fairness")[0];
+	const v = by("death_avoidable")[0];
+	if (f || v) {
+		lines.push(`- death: ${f ? `unfairness ${f.value} of 3 (confidence ${f.confidence})${cls(f.class)}` : ""}${f && v ? "; " : ""}` +
+			`${v ? `avoidable by a careful player p ${v.value}${cls(v.class)}` : ""}; ${f?.detail ?? v?.detail ?? ""}`);
+	}
+	const m = by("minute_pacing");
+	if (m.length) lines.push(`- minute pacing (dullness 0 busy .. 3 nothing happening): ${m.map((r) => `${r.label?.split(" (")[0].replace("minute ", "")}: ${r.value}${cls(r.class)}`).join(", ")}`);
+	for (const r of by("movement")) lines.push(`- movement (stuck or awkward): p ${r.value}${cls(r.class)}`);
+	const c = by("card_offer");
+	if (c.length) {
+		const low = c.reduce((a, b) => (b.value < a.value ? b : a));
+		lines.push(`- card offers (meaningfulness 0 empty .. 3 strong, ${c.length} offers): lowest ${low.value} (confidence ${low.confidence})` +
+			`${low.time !== undefined ? ` at ${mmss(low.time)}` : ""}; ${c.filter((r) => r.class !== "none").length} weak or empty`);
+	}
+	if (e.skipped_minutes.length) lines.push(`- not judged: ${e.skipped_minutes.join("; ")}`);
+	if (e.errors.length) lines.push(`- failed: ${e.errors.join("; ")}`);
+	lines.push("", `Thresholds (tools/playtest/src/maple/evaluations.ts RULES): flagged needs confidence >= ${e.thresholds.flag_confidence}. ` +
+		"The exact facts sent are in evaluations.json `states`.");
+	return lines;
+}
+
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 /** balance_run.gd MILESTONES: 8, 10, 20 and 30 always shown, 40 and 50 when reached. */
@@ -78,8 +105,11 @@ registerSection({
 
 registerSection({
 	id: "evaluations",
-	order: 62,
-	markdown: () => [],
+	order: 65,
+	markdown: (ctx) => {
+		const e = ctx.data.evaluations as Evaluations | undefined;
+		return e && e.status !== "skipped" ? ["## Evaluations", "", ...evaluationSummary(e)] : [];
+	},
 	json: (ctx) => {
 		const e = ctx.data.evaluations as Evaluations | undefined;
 		if (!e) return null;

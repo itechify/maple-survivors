@@ -100,6 +100,9 @@ test("a clean CLEARED run: a clean verdict, metrics with milestones and boss fig
 	assert.match(md, /Cards taken \(2\): three_snails_count, magic_claw_new/);
 	assert.match(md, /No deterministic problems found/);
 	assert.match(md, /Jev flagged nothing/);
+	assert.match(md, /## Evaluations\n\n- minute pacing \(dullness 0 busy \.\. 3 nothing happening\): 1: 0\.4, 2: 0\.4, 3: 0\.4/,
+		"every result is listed, flagged or not");
+	assert.match(md, /- movement \(stuck or awkward\): p 0\.3/);
 });
 
 test("a fallback run with no key: the evaluations are skipped and the report says why", async () => {
