@@ -828,8 +828,10 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   Fullscreen plate; both call `GameSettings.toggle_fullscreen()` straight from the click (browsers only allow fullscreen
   inside an input handler) and read the state back from `window_get_mode()`, so leaving with Esc cannot desync them.
 - **Keys:** Godot's web input calls `preventDefault()` on every key event of the focused canvas (the shell focuses it,
-  `html/focus_canvas_on_start`), so Left Alt (Firefox/Chrome menu), Space, arrows, Tab and F5/F11/F12 do not trigger
-  browser actions while the game has focus (Chrome and Firefox: every key above arrived with `defaultPrevented`, Alt
-  jumps). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
+  `html/focus_canvas_on_start`), so Left Alt (Firefox/Chrome menu), Space, arrows, Tab and F5/F11/F12 should not
+  trigger browser actions while the game has focus. Checked under Playwright's synthetic key events in Chrome and
+  Firefox: every key above reached the page with `defaultPrevented` set and Alt jumps. Synthetic events do not run the
+  browser's own accelerators (reload, fullscreen, developer tools), so the real-keyboard behaviour of F5/F11/F12 and of
+  the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
   bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
   Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).
