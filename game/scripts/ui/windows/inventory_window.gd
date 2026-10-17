@@ -36,6 +36,8 @@ const COUNT := "UI.wz/Basic.img/ItemNo/"
 
 ## The live character.
 var world: RunWorld
+## How many times the owner asked for a redraw from the live world (a test observes it).
+var refresh_count := 0
 
 var _tip: ItemTooltip
 var _mouse := Vector2.ZERO
@@ -132,6 +134,14 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 func use_tooltip(id: int) -> Dictionary:
 	return {"name": item_name(id), "desc": InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id))),
 		"icon": InventoryModel.icon_path(id)}
+
+
+## Redraws the window from the live world: the owner calls it when the world changed under an open window (a pickup).
+func refresh() -> void:
+	refresh_count += 1
+	_hover = {}
+	_place_tip()
+	queue_redraw()
 
 
 ## Reports the outcome of a RunWorld change: "" emits item_action(action) and redraws, a reason emits its message.
