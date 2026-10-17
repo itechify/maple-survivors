@@ -20,7 +20,7 @@ func test_load_all_has_every_file() -> void:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 9, "every missing file reported")
+	assert_eq(bad.size(), 10, "every missing file reported")
 
 
 func test_skills_reference_canonical_ids() -> void:
