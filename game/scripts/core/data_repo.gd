@@ -81,35 +81,56 @@ static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Diction
 	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
 
 
-## The starter outfit and every job weapon the run can wear (balance.player `equipment`, then `weapon_by_job` in job
-## order), plus MakeCharInfo's Beginner weapons, without duplicates: the canonical info a setup loads.
-static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {}) -> PackedInt32Array:
+## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
+## (Equipment.DEFAULT_OUTFIT), the job weapon grants (balance.player.weapon_grants), every MakeCharInfo top, bottom,
+## shoes and weapon option of both genders, and everything `character` (a CharacterSnapshot, format 1 or 2) holds.
+static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {},
+		character: Dictionary = {}) -> PackedInt32Array:
 	var pb: Dictionary = data.get("balance", {}).get("player", {})
 	var ids := PackedInt32Array()
-	for id: Variant in pb.get("equipment", []) + pb.get("weapon_by_job", {}).values():
-		if int(id) > 0 and not (int(id) in ids):
-			ids.append(int(id))
+	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
+		_add_id(ids, int(id))
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
-		for id: int in creation.options(gender, "weapon"):
-			_add_id(ids, id)
+		for field: String in ["top", "bottom", "shoes", "weapon"]:
+			for id: int in creation.options(gender, field):
+				_add_id(ids, id)
+	if not character.is_empty():
+		for id: Variant in CharacterSnapshot.held_item_ids(character, _jobs(data)):
+			_add_id(ids, int(id))
 	return ids
 
 
-## Shared player drawing for rounds, Free Market and slots. Empty look means AvatarRenderer.DEFAULT_LOOK.
-## The character's outfit is carried verbatim; every old weapon is replaced by the simulation's weapon rule.
+## The canonical Character.wz `info` node of each item id ({id: info}); ids whose img is absent are listed in
+## `missing`. `img_loader.call(path) -> Dictionary` returns an img root ({} when absent), as for build_setup.
+static func equipment_info(ids: PackedInt32Array, img_loader: Callable,
+		missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := {}
+	for id in ids:
+		var equip_path := AvatarRenderer.part_img_path(id)
+		var equip: Variant = img_loader.call(equip_path)
+		if equip is Dictionary and equip.get("info") is Dictionary:
+			out[id] = equip.info
+		else:
+			missing.append(equip_path)
+	return out
+
+
+## Shared player drawing for rounds, Free Market and slots. Empty look means AvatarRenderer.DEFAULT_LOOK's face/hair.
+## `equips` is the worn equipment only (format 2), or for a format-1 / format-less dictionary what migration would
+## wear (CharacterSnapshot.held_item_ids: its outfit plus the old weapon rule). Never mutates the snapshot.
 static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
 	var look := AvatarRenderer.DEFAULT_LOOK.duplicate(true)
 	look.merge(character.get("look", {}), true)
-	var equips: Array = look.equips.filter(func(id: Variant) -> bool:
-		return WeaponInfo.type_of(int(id)) not in range(130, 171))
-	var weapon := CharacterSnapshot.weapon_id(int(character.get("job_id", 0)),
-		int(character.get("beginner_weapon", 0)), data.get("balance", {}).get("player", {}).get("weapon_by_job", {}),
-		JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})))
-	if weapon > 0:
-		equips.append(weapon)
-	look.equips = equips
+	if character.get("equipment") is Dictionary:
+		look.equips = Equipment.worn_ids(character.equipment.get("worn", {}))
+	else:
+		look.equips = CharacterSnapshot.held_item_ids(character, _jobs(data))
 	return look
+
+
+static func _jobs(data: Dictionary) -> JobTree:
+	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
 ## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
@@ -145,9 +166,11 @@ static func skill_books(data: Dictionary) -> PackedStringArray:
 
 ## A complete RunWorld setup for `stage_key`: `img_loader.call(path) -> Dictionary` returns an img root from the
 ## asset cache ({} when absent), `mob_loader.call(id) -> Dictionary` a mob img root with info/link followed.
-## Absent imgs are left out (RunWorld drops mobs without an img from the pools); `missing` lists them.
+## Absent imgs are left out (RunWorld drops mobs without an img from the pools); `missing` lists them. A non-empty
+## `character` (CharacterSnapshot) becomes setup.character, and the info of every item it holds is loaded.
 static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_size: Vector2, img_loader: Callable,
-		mob_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+		mob_loader: Callable, missing: PackedStringArray = PackedStringArray(),
+		character: Dictionary = {}) -> Dictionary:
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
 	var map_path := map_img_path(int(stage.get("map_id", 0)))
 	var map_img: Variant = img_loader.call(map_path)
@@ -182,21 +205,14 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 			skill_imgs[book] = s
 		else:
 			missing.append(skill_img_path(book))
-	var equipment_info := {}
 	var creation_img: Dictionary = img_loader.call(CharacterCreation.IMG)
-	for id in starter_equipment_ids(data, creation_img):
-		var equip_path := AvatarRenderer.part_img_path(id)
-		var equip: Variant = img_loader.call(equip_path)
-		if equip is Dictionary and equip.get("info") is Dictionary:
-			equipment_info[id] = equip.info
-		else:
-			missing.append(equip_path)
+	var infos := equipment_info(starter_equipment_ids(data, creation_img, character), img_loader, missing)
 	var body: Dictionary = img_loader.call("Character.wz/00002000.img")
 	if body.is_empty():
 		missing.append("Character.wz/00002000.img")
-	# The afterimages the worn weapons name in their canonical info (Sword swordOL, Wand mace).
+	# The afterimages the wearable weapons name in their canonical info (Sword swordOL, Wand mace).
 	var afterimages := {}
-	for info: Dictionary in equipment_info.values():
+	for info: Dictionary in infos.values():
 		var name := WeaponInfo.afterimage_name(info)
 		if name == "" or afterimages.has(name):
 			continue
@@ -213,12 +229,12 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 			item_info[id] = potion_img[key]
 		else:
 			missing.append(POTION_IMG + "/" + key)
-	return {
+	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,
 		"mob_imgs": mob_imgs,
 		"skill_imgs": skill_imgs,
-		"equipment_info": equipment_info,
+		"equipment_info": infos,
 		"body_img": body,
 		"afterimage_imgs": afterimages,
 		"mob_skill_img": mob_skill,
@@ -228,3 +244,6 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"seed": p_seed,
 		"view_size": view_size,
 	}
+	if not character.is_empty():
+		setup["character"] = character
+	return setup

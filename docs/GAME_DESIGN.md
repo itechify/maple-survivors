@@ -36,8 +36,8 @@ The Free Market uses v83 Entrance 910000000 and Bgm00/FloralLife. Normal walking
 existing same-map portal links work; no combat, spawning, drops or round timer run there. Room entrances in01-in22
 and Fredrick, Scrooge, Maple TV and Inkwell are drawn but inert. Up at scripted out00 opens and autosaves the next
 tier's map select. Esc offers Resume / Save & quit; Continue restores the hub boundary with full HP/MP.
-The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK), with the current job weapon;
-Beginner's nonzero beginner_weapon overrides its default. Hub movement never changes the saved character.
+The hub draws only CharacterSnapshot.look (empty means AvatarRenderer.DEFAULT_LOOK's face and hair) with the
+character's worn equipment (spec #33, #105). Hub movement never changes the saved character.
 
 ## 2. Controls
 
@@ -389,6 +389,29 @@ policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tier
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores; `random` is a careless player who
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
+
+`ISOLATE=s33t105 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+private real cache (spec #33 copy plus the `barehands` weapon sound), unforced branches, 1,800 s cap, no PATCH or
+tuning, on the ticket branch (base `db1c5cb`, before #106). The fixed `balance.player.equipment` outfit is gone: a
+fresh Beginner now wears the first MakeCharInfo outfit as worn equipment (1040002 / 1060002 / 1072001 / 1302000),
+which has exactly the old outfit's stats, and Magician advancement grants the same Wooden Wand the old weapon rule
+used. So every outcome, end time, Magician time and potion total equals the #79 combined smoke below; the only new
+simulation output is one `equipment_changed` event at the wand grant (the `test_character_baseline` stream hash
+changes by that event alone: filtering it out reproduces the old hash). All 12 runs finish with no crashes, script
+errors or world warnings. Raw records: ignored `_scratch/t105_smoke/`.
+
+| Stage / policy | Clear/dead #79 -> #105 | End seconds (seed order 1/2/2026) | MP collected/used | Magician s |
+|---|---|---|---|---|
+| Henesys bot | 0/3 -> 0/3 | 780.4/791.1/907.5 (unchanged) | 158/158 (unchanged) | 266.1–274.7 |
+| Henesys random | 1/2 -> 1/2 | C/437.8/624.0 (unchanged) | 168/168 (unchanged) | 265.4–271.6 |
+| Tree bot | 0/3 -> 0/3 | 652.3/677.4/128.3 (unchanged) | 136/136 (unchanged) | 224.5–249.6 (2 runs) |
+| Tree random | 0/3 -> 0/3 | 617.5/165.0/88.4 (unchanged) | 80/77 (unchanged) | 217.8 (1 run) |
+
+Henesys reaches Magician and Mano in 3/3 per policy; Mano completes 3/3 (bot) and 2/3 (random). Tree is record-only.
+No stop-and-ask gate. Characters created with other clothes or weapons now get those items' own stats (every
+creation top/bottom/shoes is W.DEF 3/2/2 in v83, so only the Beginner weapon choice differs, as before).
 
 #### #32 merged with main after #79 (2026-10-16)
 
@@ -2094,9 +2117,21 @@ quantities per kind.
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
   the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
   Max MP grows outside a level-up (job grants). It never restores HP.
-- **Defense and avoid**: W.DEF and M.DEF sum the worn starter equipment's canonical `incPDD` and `incMDD`, plus
-  active defense modifiers. The starter outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
+- **Defense and avoid**: W.DEF and M.DEF sum the worn equipment's `incPDD` and `incMDD`, plus active defense
+  modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
+- **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
+  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
+  accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
+  modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
+  Equipping checks v83 `reqLevel`, `reqJob` (bit mask 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate; 0 all)
+  and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
+  weapon are the first worn equipment with plain WZ stats; a character without a snapshot wears the first creation
+  options (`Equipment.DEFAULT_OUTFIT`, tier A). Advancing to Magician grants and wears the Wooden Wand 1372005 and
+  moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C). Without a weapon the basic
+  attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
+  impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
 
 ## 6. Combat
 
@@ -2601,12 +2636,27 @@ speed 5; Hand Axe 1312004 WATK 17 / speed 5 (tier A). Existing canonical interva
 starter-equipment stat rule is unchanged. The selected weapon's actual WATK, speed, type, sound and afterimage feed
 the basic attack until advancement replaces it with the job weapon (tier C: owner #32 rule).
 
-`CharacterSnapshot.weapon_id(job_id, beginner_weapon, weapon_by_job, jobs)` resolves that rule for the sim and
-presentation; `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
-when empty, and the resolved weapon. Slots, rounds and #71's Free Market use this shared presentation helper.
+Spec #33 (#105) replaces that rule: the creation outfit and weapon are worn equipment instances in
+CharacterSnapshot format 2, and Magician advancement grants the Wooden Wand (the previous weapon goes to the
+inventory). `DataRepo.character_look(character, data)` supplies AvatarRenderer with the carried look, its default
+when empty, and the worn equipment. Slots, rounds and #71's Free Market use this shared presentation helper.
 Only `CharacterSnapshot.look` is authoritative. New run wrappers omit their duplicate `look`; old format-2 wrappers
 with that field still load and the duplicate is ignored (lead #70/#71 decision, superseding the earlier wrapper
-shape). The snapshot's `beginner_weapon` persists even after advancement.
+shape). Format-1 characters keep loading: their look equips plus the frozen #32 weapon rule (`beginner_weapon` for a
+Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when they migrate.
+
+| Equipment rule (spec #33) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
+| `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
+| Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
+| Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
+| Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory, or is lost if it is full (`balance.player.weapon_grants`) | C | Owner #33 triage |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
+| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three

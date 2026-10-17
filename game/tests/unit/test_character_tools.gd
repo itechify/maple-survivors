@@ -17,6 +17,12 @@ func test_fixture_is_complete_second_job_magician_character() -> void:
 	assert_eq(character._doc.policy, "bot")
 	assert_eq(character._doc.outcome, "CLEARED")
 	assert_eq(String(character._doc.revision).length(), 40)
+	# Migrated to format 2 by #105 (character_fixture.gd --migrate), not regenerated.
+	assert_eq(int(character.format), CharacterSnapshot.FORMAT)
+	assert_eq(int(character._doc.migration.from_format), 1)
+	assert_eq(Equipment.worn_ids(character.equipment.worn), [1040002, 1060002, 1072001, 1372005],
+		"the old outfit and the Magician's Wooden Wand are worn")
+	assert_eq(int(character.mesos), 0)
 
 
 func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:

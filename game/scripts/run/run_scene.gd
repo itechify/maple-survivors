@@ -278,18 +278,9 @@ func _ready() -> void:
 		_fail("unknown stage '%s'" % stage_key)
 		return
 	map_id = int(stage.get("map_id", 0))
-	var lib := library
-	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
-		func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {},
-		func(id: int) -> Dictionary: return lib.mob_root(id),
-		setup_missing)
-	for m in setup_missing:
-		push_warning("RunScene: missing in the asset cache: " + m)
+	var character := {}
 	if options.has("character"):
 		var character_errors := PackedStringArray()
-		var character: Dictionary
 		if options.character is Dictionary:
 			character = (options.character as Dictionary).duplicate(true)
 			var error := CharacterSnapshot.validation_error(character)
@@ -300,7 +291,16 @@ func _ready() -> void:
 		if not character_errors.is_empty():
 			_fail("; ".join(character_errors))
 			return
-		setup["character"] = character
+	var lib := library
+	# The character's held items join the equipment info the setup loads.
+	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
+		func(p: String) -> Dictionary:
+			var w := lib.img(p)
+			return w.root if w != null else {},
+		func(id: int) -> Dictionary: return lib.mob_root(id),
+		setup_missing, character)
+	for m in setup_missing:
+		push_warning("RunScene: missing in the asset cache: " + m)
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -313,7 +313,7 @@ func _ready() -> void:
 	_build_presentation()
 	_warm_ui()
 	_warm_stage()
-	_apply_job_look(int(world.player_state.job_id))
+	_apply_look()
 	handle_events(world.drain_events())
 	_start_title()
 	_play_bgm()
@@ -420,17 +420,20 @@ func toggle_menu() -> void:
 
 
 ## The Stat window's numbers (StatWindow): identity, pools and the v83 stats the sim has; rows it does not model
-## (guild, fame, hands) are left out and show "-". tier C: attack = the held weapon's incPAD, magic = INT + magic
-## attack (equipment incMAD and buffs), accuracy = buff accuracy only (the sim has no player accuracy rule).
+## (guild, fame, hands) are left out and show "-". tier C: attack = W.ATT summed over worn equipment, magic = INT +
+## magic attack (equipment incMAD and buffs), accuracy = equipment incACC + buff accuracy (the sim has no player
+## accuracy rule). `<stat>_bonus` is what worn equipment adds to STR/DEX/INT/LUK (shown as "total (base+bonus)").
 func stat_info() -> Dictionary:
 	var ps := world.player_state
 	var out := {"name": _player_name(), "job": world.jobs.name_of(int(ps.job_id)), "ap": 0,
-		"exp_next": int(ps.exp_next), "attack": int(float(world.weapon_info().get("incPAD", 0))),
+		"exp_next": int(ps.exp_next), "attack": roundi(world.weapon_attack()),
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
 		"jump": world.player.jump_stat}
 	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
+	for stat: String in ["str", "dex", "int", "luk"]:
+		out[stat + "_bonus"] = roundi(world.equipment_bonus("inc" + stat.to_upper()))
 	return out
 
 
@@ -703,7 +706,7 @@ func _warm_ui() -> void:
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in world.balance.player.get("weapon_by_job", {}).values():
+	for wid: Variant in Equipment.held_ids(world.equipment) + world.balance.player.get("weapon_grants", {}).values():
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -891,7 +894,7 @@ func handle_events(events: Array) -> void:
 				if e.phase == "start":
 					_restart_action = true
 					_sound(String(e.sound))
-				else:
+				elif String(e.afterimage) != "": # a bare-handed punch has no afterimage
 					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
@@ -934,6 +937,8 @@ func handle_events(events: Array) -> void:
 				_pending_window = {"kind": "job", "options": e.options}
 			"job_changed":
 				_on_job_changed(int(e.job_id))
+			"equipment_changed":
+				_apply_look()
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -1013,16 +1018,15 @@ func _on_job_changed(job_id: int) -> void:
 	# centred window hides the effect (autopick runs never wait).
 	var a := library.find_anim(FX_JOB_CHANGED) if library != null else null
 	_window_delay = maxf(_window_delay, a.total if a != null and a.total > 0.0 else JOB_WINDOW_DELAY)
-	_apply_job_look(job_id)
+	_apply_look()
 	_event_shot("job_%d.png" % job_id, 0.8)
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## Carries the snapshot's look and resolves the drawn weapon through the same rule as the simulation.
-func _apply_job_look(job_id: int) -> void:
-	avatar.set_look(DataRepo.character_look({"look": world.character_look,
-		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
-		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
+## Draws the carried look with the live worn equipment (the only source of what is drawn). Never reads
+## world.character_snapshot(), which refuses while a choice is pending (job advancement is drawn mid-choice).
+func _apply_look() -> void:
+	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the

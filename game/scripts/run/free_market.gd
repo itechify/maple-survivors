@@ -43,7 +43,11 @@ func _ready() -> void:
 	motion = FreeMarketMotion.new(map.map_root, physics.root if physics != null else {}, data.balance)
 	var character: Dictionary = snapshot.get("character", {})
 	var loadout := _boundary_loadout(character, data)
-	motion.player.speed_stat = roundi(loadout.player_stat("speed", 100.0))
+	# Worn equipment's speed/jump count here too, under the same v83 caps as in a round.
+	var worn: Dictionary = character.get("equipment", {}).get("worn", {})
+	motion.player.speed_stat = mini(Equipment.SPEED_CAP,
+		roundi(loadout.player_stat("speed", 100.0) + Equipment.total(worn, "incSpeed")))
+	motion.player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(Equipment.total(worn, "incJump")))
 	_build_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library

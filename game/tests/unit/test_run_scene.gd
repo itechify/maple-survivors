@@ -14,8 +14,8 @@ func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	if not require_cache():
 		return
 	var original := RunWorld.new({"data": DataRepo.load_all()}).character_snapshot()
-	original.look = {"skin": 3, "face": 21002, "hair": 31057, "equips": [1041011, 1061008, 1072038]}
-	original.beginner_weapon = 1322005
+	original.look = {"skin": 3, "face": 21002, "hair": 31057}
+	original.equipment.worn = Equipment.worn_from_ids([1041011, 1061008, 1072038, 1322005], {})
 	scene = _make("henesys_hg1", 70, {"character": original})
 	assert_eq(scene.avatar.look, {"skin": 3, "face": 21002, "hair": 31057,
 		"equips": [1041011, 1061008, 1072038, 1322005]})
@@ -201,8 +201,10 @@ func test_events_become_visuals() -> void:
 	assert_eq(scene.avatar.current_expression(), "hit", "hit face")
 	scene.handle_events([{"type": "level_up", "level": 2}])
 	assert_eq(scene.fx.active_count(), fx0 + 2, "LevelUp effect")
-	scene.handle_events([{"type": "job_changed", "job_id": 200, "name": "Magician"}])
-	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the Wooden Wand")
+	scene.world.drain_events()
+	scene.world.change_job(200) # job_changed, then the Wooden Wand grant's equipment_changed
+	scene.handle_events(scene.world.drain_events())
+	assert_true(1372005 in scene.avatar.look.equips, "the Magician holds the granted Wooden Wand")
 	assert_true(scene.fx_back.active_count() >= 1, "JobChanged (z < 0) plays behind the character")
 	scene.handle_events([{"type": "pickup_collected", "pickup": 0, "item_id": 4000019, "exp": 5, "pos": p},
 		{"type": "pickup_collected", "pickup": 1, "item_id": 4000019, "exp": 7, "pos": p}])

@@ -200,7 +200,7 @@ func _init() -> void:
 		var missing := PackedStringArray()
 		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return _json(root, p),
-			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing)
+			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing, character)
 		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
 			quit(1)
