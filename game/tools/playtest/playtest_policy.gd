@@ -8,6 +8,9 @@ extends "res://tools/run_policy.gd"
 ##   decide(point, w) asks the brain about one decision and applies the answer (usable outside `choose`, e.g. at
 ##                    tactic checkpoints)
 ##   observers        Callables (w: RunWorld, events: Array) fanned out by `observe`, the run loop's per-tick observer
+##   decision_observers  Callables (w: RunWorld, kind: String, phase: String) called by `decide` with phase "open"
+##                    before the options are read and "applied" after the answer took effect (read-only watchers such
+##                    as playtest_invariants.gd: chained windows resolve between two per-tick observations)
 ##   link             the brain: brain_link.gd (builtin baseline) or stdio_brain_link.gd (the Node CLI)
 ## An answer that is not one of the offered option ids, or a missing answer (lost brain), applies the baseline and
 ## records why, so the round always goes on.
@@ -26,6 +29,8 @@ var link: BRAIN_LINK
 var decision_points: Array = []
 ## Per-tick observers: Callables (w, events).
 var observers: Array = []
+## Decision observers: Callables (w, kind, phase) with phase "open" / "applied" (see the header).
+var decision_observers: Array = []
 ## One entry per decision: {id, kind, tick, time, options (ids), baseline, answer, source, confidence
 ## [, fallback_reason]}.
 var decisions: Array = []
@@ -56,6 +61,8 @@ func choose(w: RunWorld) -> void:
 
 ## Asks the brain about decision `point` in `w`, applies the answer (or the baseline) and returns the applied option id.
 func decide(point: POINT, w: RunWorld) -> String:
+	for o: Callable in decision_observers:
+		o.call(w, point.kind, "open")
 	var options: Array = point.options(w)
 	var baseline: Dictionary = point.baseline(w, self)
 	var tick := roundi(w.time / DT)
@@ -74,6 +81,8 @@ func decide(point: POINT, w: RunWorld) -> String:
 		entry.confidence = null
 	decisions.append(entry)
 	point.apply(w, self, String(entry.answer))
+	for o: Callable in decision_observers:
+		o.call(w, point.kind, "applied")
 	return String(entry.answer)
 
 

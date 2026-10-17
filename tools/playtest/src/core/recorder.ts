@@ -39,6 +39,11 @@ export class RunRecorder {
 		this.#files.add(name);
 	}
 
+	/** Lists `name` among the run's files if something else (the game-side driver) wrote it. */
+	adopt(name: string): void {
+		if (fs.existsSync(path.join(this.dir, name))) this.#files.add(name);
+	}
+
 	/** The files written so far, sorted. */
 	files(): string[] {
 		return [...this.#files].sort();

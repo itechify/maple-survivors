@@ -1,0 +1,18 @@
+agent_playtest: Godot C:/fake/godot.exe, project C:/fake/game
+Godot Engine v4.7.2.stable.official.0000000 - https://godotengine.org
+@@PT {"v":1,"type":"hello","game":"maple-survivors","stage":"henesys_hg1","seed":2026}
+playtest_driver: 1:00 Lv 3 kills 20 alive 14
+[stderr] SCRIPT ERROR: Invalid access to property or key 'fh' on a base object of type 'Nil'.
+[stderr]           at: _step (res://scripts/sim/run_world.gd:612)
+playtest_driver: 2:00 Lv 5 kills 41 alive 18
+[stderr] SCRIPT ERROR: Invalid access to property or key 'fh' on a base object of type 'Nil'.
+[stderr]           at: _step (res://scripts/sim/run_world.gd:612)
+[stderr] ERROR: Condition "p_index >= size" is true. Returning: false
+[stderr]    at: get (core/templates/cowdata.h:205)
+[stderr] WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+[stderr]      at: cleanup (core/object/object.cpp:2378)
+[stderr] ERROR: 2 resources still in use at exit (run with --verbose for details).
+[stderr]    at: clear (core/io/resource.cpp:604)
+ERROR: 12 ObjectDB instances leaked at exit
+Leaked instance: GDScriptNativeClass:-9223372002495036977
+USER ERROR: a push_error from game code

@@ -1,7 +1,21 @@
 // Maple Survivors report sections (adapter), registered into the core report registry on import. Later tickets add
 // their sections (metrics, invariants, evaluations) in their own modules and import them here.
-import { registerSection } from "../core/report.ts";
+import { registerSection, setSnapshotFormatter, genericSnapshot } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
+
+/** A Maple invariant snapshot (game/tools/playtest/playtest_invariants.gd `snapshot`) as Problems sub-bullets. */
+export function mapleSnapshot(s: Record<string, unknown>): string[] {
+	if (typeof s.x !== "number" || typeof s.y !== "number") return genericSnapshot(s);
+	const mobs = Array.isArray(s.mobs) ? (s.mobs as Array<Record<string, unknown>>) : [];
+	return [
+		`${s.state ?? "?"}, Lv ${s.level ?? "?"}, job ${s.job ?? "?"}, HP ${s.hp ?? "?"}/${s.max_hp ?? "?"}, ` +
+			`MP ${s.mp ?? "?"}/${s.max_mp ?? "?"}, tactic ${s.tactic ?? "?"}`,
+		`position (${s.x}, ${s.y}), foothold ${s.fh ?? "?"}, platform ${s.platform ?? "?"}`,
+		`nearest mobs: ${mobs.length ? mobs.map((m) => `${m.mob}${m.boss ? " (boss)" : ""} at ${m.d} px (${m.x}, ${m.y})`).join("; ") : "none"}`,
+	];
+}
+
+setSnapshotFormatter(mapleSnapshot);
 
 const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 

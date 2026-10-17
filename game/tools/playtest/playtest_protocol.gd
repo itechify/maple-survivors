@@ -11,8 +11,10 @@ extends RefCounted
 ##   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{sensible: id}}
 ##           id 1, 2, 3... per run; kind "card" or "job" (later "tactic"); option ids are Strings (job ids as text,
 ##           plus "not_now"); baseline answers come from real game code (BotInput.pick_card_for / pick_job).
-##   finding {v, type:"finding", ...}                                       reserved for invariant failures (#96)
-##   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost}  once, after the round
+##   finding {v, type:"finding", kind, severity, tick, time, message, snapshot:{...}, count}   an invariant failure
+##           (playtest_invariants.gd), sent when it first happens; count 1 then (repeats only raise the end count)
+##   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost, findings:[...]}  once,
+##           after the round; findings are the de-duplicated findings with their final counts
 ##           decisions as applied: [{id, kind, tick, time, options, baseline, answer, source, confidence,
 ##           fallback_reason?}] (source "baseline" when an answer was invalid or the brain was lost)
 ##   error   {v, type:"error", reason, message}       infrastructure failure, then exit code 2 ("cache_missing", ...)
@@ -47,11 +49,19 @@ static func decide(id: int, kind: String, tick: int, time: float, situation: Dic
 		"situation": situation, "options": options, "baseline": baseline}
 
 
-## The end message: the round record, its fingerprint, the decisions as applied (playtest_policy.gd `decisions`) and
-## whether the brain was lost.
-static func end(record: Dictionary, fingerprint: Dictionary, decisions: Array, brain_lost: bool) -> Dictionary:
+## The end message: the round record, its fingerprint, the decisions as applied (playtest_policy.gd `decisions`),
+## whether the brain was lost and the de-duplicated findings (playtest_invariants.gd `results`).
+static func end(record: Dictionary, fingerprint: Dictionary, decisions: Array, brain_lost: bool,
+		findings: Array = []) -> Dictionary:
 	return {"type": "end", "record": record, "fingerprint": fingerprint, "decisions": decisions,
-		"brain_lost": brain_lost}
+		"brain_lost": brain_lost, "findings": findings}
+
+
+## A finding message for invariant failure `f` ({kind, severity, tick, time, message, snapshot, count}).
+static func finding(f: Dictionary) -> Dictionary:
+	var out := {"type": "finding"}
+	out.merge(f)
+	return out
 
 
 ## An infrastructure error message (the driver then exits with code 2).

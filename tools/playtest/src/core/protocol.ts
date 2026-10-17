@@ -10,8 +10,10 @@
 //   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{<policy>: id}}
 //           id: 1, 2, 3... per run; kind: a decision kind of the game adapter ("card", "job"; later "tactic");
 //           option ids are strings; baseline answers come from real game code (Maple: "sensible").
-//   finding {v, type:"finding", ...}                                       reserved for invariant failures (#96)
-//   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost}  once, after the round
+//   finding {v, type:"finding", kind, severity, tick, time, message, snapshot:{...}, count}   an invariant failure,
+//           sent when it first happens; count 1 then (repeats only raise the end count)
+//   end     {v, type:"end", record:{...}, fingerprint:{...}, decisions:[...], brain_lost, findings:[...]}  once,
+//           after the round; findings are the de-duplicated findings with their final counts
 //           decisions as applied: [{id, kind, tick, time, options, baseline, answer, source, confidence,
 //           fallback_reason?}] (source "baseline" when an answer was invalid or the brain was lost)
 //   error   {v, type:"error", reason, message}             infrastructure failure (e.g. reason "cache_missing")
@@ -32,7 +34,10 @@ export type DecideMessage = {
 	v: number; type: "decide"; id: number; kind: string; tick?: number; time?: number;
 	situation?: Record<string, unknown>; options: Option[]; baseline: Record<string, string>; [key: string]: unknown;
 };
-export type FindingMessage = { v: number; type: "finding"; [key: string]: unknown };
+export type FindingMessage = {
+	v: number; type: "finding"; kind?: string; severity?: string; tick?: number; time?: number; message?: string;
+	snapshot?: Record<string, unknown>; count?: number; [key: string]: unknown;
+};
 /** One decision as the driver applied it (the `end` message's decisions). */
 export type AppliedDecision = {
 	id: number; kind: string; tick?: number; time?: number; options?: string[]; baseline?: string; answer: string;
@@ -40,7 +45,7 @@ export type AppliedDecision = {
 };
 export type EndMessage = {
 	v: number; type: "end"; record: Record<string, unknown>; fingerprint?: Record<string, unknown>;
-	decisions?: AppliedDecision[]; brain_lost?: boolean; [key: string]: unknown;
+	decisions?: AppliedDecision[]; brain_lost?: boolean; findings?: Array<Record<string, unknown>>; [key: string]: unknown;
 };
 export type ErrorMessage = { v: number; type: "error"; reason: string; message?: string; [key: string]: unknown };
 export type DriverMessage = HelloMessage | DecideMessage | FindingMessage | EndMessage | ErrorMessage;

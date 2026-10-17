@@ -7,9 +7,15 @@ extends SceneTree
 ## Tool code only, never loaded by production scenes.
 ##
 ##   godot --headless --path game --script res://tools/playtest/playtest_driver.gd -- --stage=henesys_hg1 --seed=2026
-##       [--minutes=3] [--brain=stdio|builtin] [--personality=sensible]
+##       [--minutes=3] [--brain=stdio|builtin] [--personality=sensible] [--out=<abs dir>]
+##       [--stuck-px=24] [--stuck-s=20] [--inject-finding=<kind>]
 ##
 ## --minutes caps the round's simulated time (TIMEOUT at the cap; 0 = the stage's own run_time_cap).
+## Deterministic invariants (playtest_invariants.gd) watch every tick and decision; each new finding is streamed as a
+## protocol `finding` line and the de-duplicated list rides in `end`. --out writes timeline.jsonl (one row per run
+## second, playtest_timeline.gd) into that directory. --stuck-px / --stuck-s set the stuck detector's box and window.
+## --inject-finding (test only) reports one finding of that kind at INJECT_AT run seconds, to show the reporting path
+## end to end. Missing assets at setup stay an infrastructure error (`error` cache_missing), as in #93.
 ## Exit code 0 after `end`; 2 after an `error` message (bad arguments, asset cache missing).
 
 const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
@@ -17,8 +23,12 @@ const POLICY := preload("res://tools/playtest/playtest_policy.gd")
 const BRAIN_LINK := preload("res://tools/playtest/brain_link.gd")
 const STDIO_LINK := preload("res://tools/playtest/stdio_brain_link.gd")
 const BR := preload("res://tools/balance_run.gd")
+const INVARIANTS := preload("res://tools/playtest/playtest_invariants.gd")
+const TIMELINE := preload("res://tools/playtest/playtest_timeline.gd")
 ## Simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
 const PROGRESS_EVERY := 60.0
+## Run time (s) of the --inject-finding finding.
+const INJECT_AT := 10.0
 
 
 func _init() -> void:
@@ -27,6 +37,8 @@ func _init() -> void:
 	var minutes := 0.0
 	var brain := "stdio"
 	var personality := "sensible"
+	var out_dir := ""
+	var checks := {"inject_at": INJECT_AT}
 	var bad := PackedStringArray()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
@@ -39,6 +51,14 @@ func _init() -> void:
 			brain = a.substr(8)
 		elif a.begins_with("--personality="):
 			personality = a.substr(14)
+		elif a.begins_with("--out="):
+			out_dir = a.substr(6)
+		elif a.begins_with("--stuck-px=") and a.substr(11).is_valid_float():
+			checks.stuck_px = float(a.substr(11))
+		elif a.begins_with("--stuck-s=") and a.substr(10).is_valid_float():
+			checks.stuck_s = float(a.substr(10))
+		elif a.begins_with("--inject-finding=") and a.substr(17) in INVARIANTS.KINDS:
+			checks.inject = a.substr(17)
 		else:
 			bad.append(a)
 	if brain not in ["stdio", "builtin"]:
@@ -67,6 +87,19 @@ func _init() -> void:
 	var world := RunWorld.new(setup)
 	var start_character := world.character_snapshot()
 	var policy := POLICY.new(link, seed_value)
+	var invariants := INVARIANTS.new(policy, checks, func(f: Dictionary) -> void: link.send(PROTOCOL.finding(f)))
+	invariants.attach(policy)
+	var timeline_file: FileAccess = null
+	if out_dir != "":
+		timeline_file = FileAccess.open(out_dir.path_join("timeline.jsonl"), FileAccess.WRITE)
+		if timeline_file == null:
+			_fail(link, "bad_args", "cannot write %s (%s)" % [out_dir.path_join("timeline.jsonl"),
+				error_string(FileAccess.get_open_error())])
+			return
+	var timeline := TIMELINE.new(policy, func(line: String) -> void:
+		if timeline_file != null:
+			timeline_file.store_line(line))
+	policy.observers.append(timeline.observe)
 	var progress := {"next": PROGRESS_EVERY}
 	policy.observers.append(func(w: RunWorld, _events: Array) -> void:
 		if w.time >= float(progress.next) - 1e-6:
@@ -79,8 +112,10 @@ func _init() -> void:
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
 			record["tier"] = tier_index + 1
+	if timeline_file != null:
+		timeline_file.close()
 	var fingerprint := policy.fingerprint(world, record)
-	link.send(PROTOCOL.end(record, fingerprint, policy.decisions, link.lost))
+	link.send(PROTOCOL.end(record, fingerprint, policy.decisions, link.lost, invariants.results()))
 	print(BR.describe(record))
 	quit(0)
 
