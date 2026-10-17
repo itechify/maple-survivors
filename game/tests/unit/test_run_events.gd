@@ -287,6 +287,14 @@ func test_every_event_matches_the_schema() -> void:
 		full.step(DT, MoveInput.new())
 	for event: Dictionary in full.drain_events():
 		_check(event, seen)
+	# A scroll read on the worn top reports its result (#110).
+	var scroller := RF.quiet_world()
+	scroller.setup.scroll_info = {2040400: {"incPDD": 1, "success": 100}}
+	scroller.equipment.worn.top.slots = 1
+	scroller.grant_scrolls(2040400, 1)
+	assert_eq(scroller.use_scroll(2040400, "top"), "")
+	for event: Dictionary in scroller.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

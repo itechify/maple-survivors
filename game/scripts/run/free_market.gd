@@ -28,6 +28,8 @@ var messages: HudMessages
 ## The Equip / Item windows' stack (above the pause menu) and the character they work on.
 var ui_windows: WindowStack
 var inventory: RunWorld
+## The scroll result effect above the windows (#110).
+var enchant: EnchantFx
 var npcs: Array[Dictionary] = []
 var _data: Dictionary = {}
 var _accumulator := 0.0
@@ -225,13 +227,22 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 		character), func(p: String) -> Dictionary:
 			var w := lib.img(p)
 			return w.root if w != null else {})
-	inventory = RunWorld.new({"data": data, "equipment_info": infos, "character": character})
+	var scroll_infos := DataRepo.scroll_info(DataRepo.scroll_item_ids(data, character), func(p: String) -> Dictionary:
+		var w := lib.img(p)
+		return w.root if w != null else {})
+	# The hub is no seeded run: a fresh seed per visit keeps the scroll rolls unpredictable (a fixed one would repeat
+	# the same first roll every visit); every result is saved at once, so reloading cannot redo it.
+	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
+		"character": character, "seed": randi()})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER
 	add_child(layer)
 	ui_windows = WindowStack.new()
 	layer.add_child(ui_windows)
+	enchant = EnchantFx.new()
+	enchant.renderer.library = library
+	add_child(enchant)
 	ui_windows.register("equip", func() -> UiWindow: return _inventory_window(EquipWindow.new(inventory)))
 	ui_windows.register("item", func() -> UiWindow: return _inventory_window(ItemWindow.new(inventory)))
 	ui_windows.changed.connect(func() -> void:
@@ -250,7 +261,9 @@ func _inventory_window(w: InventoryWindow) -> UiWindow:
 ## After an Equip / Item window changed the character: the snapshot and its save slot, the drawn look, the hub's
 ## speed / jump and the other window follow at once.
 func _on_item_action(_action: String) -> void:
-	inventory.drain_events()
+	for event: Dictionary in inventory.drain_events():
+		if event.type == "scroll_used":
+			_on_scroll_used(String(event.result))
 	snapshot.character = inventory.character_snapshot()
 	avatar.set_look(character_look(snapshot.character, _data))
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
@@ -260,6 +273,14 @@ func _on_item_action(_action: String) -> void:
 			w.queue_redraw()
 	if flow != null and flow.active_slot >= 0 and flow.save_data().update_slot(flow.active_slot, snapshot) != OK:
 		messages.push_notice("inventory", "Could not save the character.")
+
+
+## A scroll was read: the Enchant effect over the character and its sound (as in a round).
+func _on_scroll_used(result: String) -> void:
+	enchant.play(result, avatar.get_global_transform_with_canvas().origin)
+	var sfx := get_node_or_null("/root/Sfx") as AudioService
+	if sfx != null:
+		sfx.play(EnchantFx.sound_path(result))
 
 
 func _build_npcs() -> void:

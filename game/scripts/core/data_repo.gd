@@ -19,12 +19,14 @@ const FILES := {
 	"mobs": "survivor/mobs.json",
 	"equipment_drops": "survivor/equipment_drops.json",
 	"jobs_survivor": "survivor/jobs.json",
+	"scrolls": "survivor/scrolls.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
 const POTION_IMG := "Item.wz/Consume/0200.img"
+const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
@@ -159,6 +161,39 @@ static func _add_id(ids: PackedInt32Array, id: int) -> void:
 		ids.append(id)
 
 
+## Every scroll whose canonical info a setup loads, ascending: the roster (scrolls.json) and every stack `character`
+## (a CharacterSnapshot) holds.
+static func scroll_item_ids(data: Dictionary, character: Dictionary = {}) -> PackedInt32Array:
+	var ids := PackedInt32Array()
+	for id: int in Scrolls.ids(data.get("scrolls", {})):
+		_add_id(ids, id)
+	for key: Variant in character.get("scrolls", {}):
+		_add_id(ids, int(key))
+	ids.sort()
+	return ids
+
+
+## The canonical `info` of each scroll id ({id: {success, cursed, slotMax, inc*}}, numbers only, as ints) from
+## Item.wz/Consume/0204.img; ids whose node is absent are listed in `missing`. `img_loader` as for build_setup.
+static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := {}
+	var img: Variant = img_loader.call(SCROLL_IMG)
+	for id: Variant in ids:
+		var key := "%08d" % int(id)
+		var info: Variant = img[key].get("info") if img is Dictionary and img.get(key) is Dictionary else null
+		if not info is Dictionary:
+			missing.append(SCROLL_IMG + "/" + key)
+			continue
+		var kept := {}
+		for field: Variant in info:
+			var name := String(field)
+			var value: Variant = info[field]
+			if (name.begins_with("inc") or name in ["success", "cursed", "slotMax"]) and (value is int or value is float):
+				kept[name] = int(value)
+		out[int(id)] = kept
+	return out
+
+
 ## Every Skill.wz book named in skills.json ("000", "200", ...).
 static func skill_books(data: Dictionary) -> PackedStringArray:
 	var books := PackedStringArray()
@@ -244,6 +279,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"afterimage_imgs": afterimages,
 		"mob_skill_img": mob_skill,
 		"item_info": item_info,
+		"scroll_info": scroll_info(scroll_item_ids(data, character), img_loader, missing),
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,

@@ -97,6 +97,17 @@ func receive_drop(payload: Dictionary) -> bool:
 	return apply("equip", world.equip_item(int(payload.index))) == ""
 
 
+## A scroll dragged from the Item window's Use tab onto a worn item is read on it (RunWorld.use_scroll); the cell under
+## `local` must hold an item. Other drops are `receive_drop`.
+func receive_drop_at(payload: Dictionary, local: Vector2) -> bool:
+	if String(payload.get("kind", "")) != "scroll":
+		return receive_drop(payload)
+	var slot := slot_at(local)
+	if slot == "" or worn_id(slot) == 0:
+		return false
+	return apply("scroll", world.use_scroll(int(payload.id), slot)) == ""
+
+
 func tooltip_for(payload: Dictionary) -> Dictionary:
 	var slot := String(payload.get("slot", ""))
 	if String(payload.get("kind", "")) != "worn" or world == null or not world.equipment.worn.has(slot):

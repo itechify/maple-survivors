@@ -16,7 +16,7 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "jobs", "exp_table"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "jobs", "exp_table"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
@@ -252,6 +252,11 @@ func test_build_setup_and_paths() -> void:
 			for id in range(2000000, 2000007):
 				items["%08d" % id] = {"spec": {"hp": 50.0}}
 			return items
+		if p == DataRepo.SCROLL_IMG:
+			var scrolls := {}
+			for id: int in Scrolls.ids(data.scrolls):
+				scrolls["%08d" % id] = {"info": {"success": 60.0, "incMAD": 2.0}}
+			return scrolls
 		return {"info": {}} if p.begins_with("Character.wz/") else {"stub": p}
 	var mob_loader := func(id: int) -> Dictionary: return {} if id == 1110100 else {"info": {"id": id}}
 	var missing := PackedStringArray()
@@ -264,6 +269,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
+	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
+	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
 	assert_eq(s.stage, "henesys_hg1")
 	assert_eq(s.seed, 5)
 	assert_eq(s.view_size, Vector2(800, 600))

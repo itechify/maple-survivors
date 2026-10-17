@@ -97,6 +97,17 @@ String.wz description). Every change goes through the character's RunWorld, so t
 (hat, top, bottom, overall, shoes, gloves, weapon, on character select too) and, in the hub, the save slot follow at
 once.
 
+Scrolling (#110): dragging a scroll stack from the Use tab onto a **worn** item in the Equip window reads it (any
+time the windows are open, so a round is held meanwhile; spare items in the inventory cannot be scrolled). The scroll
+must be for that kind of item and the item needs an upgrade slot, else a message shows and the scroll is kept. The
+scroll is rolled on the run's seeded scroll stream: success adds its stats and counts one more scroll, failure only
+spends the slot, and a failed **dark** scroll destroys the item at its `cursed` rate (50%). Either way one upgrade slot
+and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
+`Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
+destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
+scrolls exist is `game/data/survivor/scrolls.json` (below); until the shops (#111) there is no way to get them but the
+test hook `RunWorld.grant_scrolls`, and they are never dropped.
+
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
 every skill of that job a card can offer, by skill id: icon, name and level / max, unlearned skills greyed at 0 / max.
@@ -2208,6 +2219,27 @@ quantities per kind.
   moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C). Without a weapon the basic
   attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
   impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
+- **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
+  / 100) % 100 == (item id / 10000) % 100` (tier A, the v83 id convention) and at least one upgrade slot. Roll 0-99
+  below `info/success` adds every `inc*` of the scroll to the instance (`scrolls` + 1); success or not, `slots` - 1;
+  a failed scroll with `info/cursed` (the dark ones: 50) rolls 0-99 below `cursed` and destroys the item. Rates, stats
+  and `cursed` are the WZ values unchanged. In the game: 100%, 60%, 10% and the dark 70% / 30% scrolls of the families
+  below; event 65% / 15%, 50%, the "strong" 100%, Balrog's, Chaos, Clean Slate, White and other classes' weapon
+  scrolls are out. Scroll stacks live in the character's `scrolls` map ({"<id>": count}); a stack holds at most
+  `info/slotMax` (100 when WZ names none, as for every 0204 scroll) and the Use tab has 24 slots, two of them the
+  potion stacks (tier A), so 22 scroll stacks. RunWorld adds `use_scroll(scroll_id, slot)` (the scroll is used up
+  whenever it was read, `scroll_used` carries the result), `grant_scrolls` and uses RNG stream 11; stats and drawn
+  look refresh through `equipment_changed` (action `scroll`).
+
+  | Slot | Families (each: 100%, 60%, 10%, dark 70%, dark 30%) |
+  |---|---|
+  | Hat | DEF, HP, INT, DEX, ACC (no 10% ACC: 2040016 has no `success` in WZ) |
+  | Top | DEF, STR, HP, LUK, LUK (the newer series) |
+  | Bottom | DEF, Jump, HP, DEX, DEX (the newer series) |
+  | Overall | INT, DEX, DEF, LUK, STR |
+  | Shoes | DEX, Jump, Speed, ATT (no dark ATT) |
+  | Gloves | DEX, ATT, HP, Magic Att. |
+  | Wand, Staff | Magic Att. |
 
 ## 6. Combat
 
@@ -2559,7 +2591,7 @@ that is the cap). Unchanged canonical values are omitted from the preview. Dense
 keep the panel 128 px shorter than the view so the mascots and HUD stay clear (tier C layout).
 
 A window with a Unique or Legendary offer plays `Sound.wz/Game.img/mCardGet` once when it opens (owner-approved by
-ear on 2026-10-15; `EnchantSuccess` is reserved for future scrolling). Automated picks without a window are silent.
+ear on 2026-10-15; `EnchantSuccess` was reserved for scrolling and is now played by it, #110). Automated picks without a window are silent.
 The debug gallery shows the tiers with `--window=levelup_tiers|levelup_high|levelup_dense` (`--bonus` for the boss
 heading); screenshots stay in ignored `evidence/spec30/ui/`.
 
@@ -3056,6 +3088,12 @@ fields round to six decimal places for readable committed JSON; generation never
 | Item tooltip (#108) | drawn dark box 262 px wide (v83 UI.wz has no UIToolTip.img); `ToolTip/Equip/Can` / `Cannot` label and digit art for REQ LEV / STR / DEX / INT / LUK (three digits, 6 px cells) and the job words; `Property` labels 3 CATEGORY, 4 ATTACK SPEED, 6-11 and 13-14 the attack / defence / accuracy / avoid / speed / jump lines, 16 NUMBER OF UPGRADES AVAILABLE; `ItemCategory` 1 HAT, 5 TOP, 6 BOTTOM, 7 SHOES, 8 GLOVE, 21 LONGCOAT; `WeaponCategory` by item id / 10000 - 100; `Speed` 0-6 FASTEST..SLOWEST from attackSpeed 2, 3, 4-5, 6, 7, 8, 9; STR / DEX / INT / LUK / MaxHP / MaxMP as text; "(+N)" after the name for N successful scrolls | A (art, read), B (speed words, scroll count: RE clients), C (layout, mapping) | ours; `UIWindow.img/ToolTip` |
 | Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
 | Cap hair cover (#108) | a cap whose `info/vslot` contains H5 (CpH5 half-cover, CpH1H5 full-cover) hides the hair's `hairOverHead` layers; a headband (CpH1) hides nothing; without a cap the `*BelowCap` layers are not drawn | B | v83 client cap types (RE clients), re-implemented from prose |
+| Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
+| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, no `success` in WZ) is left out; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
+| Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
+| Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
+| Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
+| Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |
 
 ## 12. Later phases
 

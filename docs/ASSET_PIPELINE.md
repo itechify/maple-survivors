@@ -194,7 +194,7 @@ MP3 data is written byte-for-byte (`.mp3`). PCM entries are written as `.wav` wi
 the WAVEFORMATEX. Godot loads them at runtime with `AudioStreamMP3.load_from_buffer` / `AudioStreamWAV.load_from_buffer`.
 
 The Unique / Legendary reward-offer cue is `Sound.wz/Game.img/mCardGet`, the original v83 Monster Card sound
-selected by the implementation agent after the owner reserved `EnchantSuccess` for future scrolling.
+selected by the implementation agent after the owner reserved `EnchantSuccess` for scrolling (now played by #110).
 The existing whole-`Game.img` manifest entry already exports it as
 `Sound.wz/Game.img/mCardGet.mp3`; the cache reports 2664 ms (tier A). Its use for survivor reward offers is tier C.
 `RunScene` preloads the stream, and `LevelUpWindow.open` plays it once if the displayed cards include either high
@@ -250,6 +250,17 @@ Gear, a CpH1H5 full-cover cap), 1002067 (Green Headband, CpH5), 1050018 (Blue Sa
 Longcoats), 1050035 (Brown Starlight) and 1082002 (Work Gloves), so the Cap, Longcoat and Glove categories draw
 and the evidence character can wear a hat, an overall and gloves. Equipment names come from `String.wz/Eqp.img`
 (`Eqp/<Character.wz folder>/<id>`), use items from `Consume.img/<id>` (InventoryModel.string_path).
+
+## Scrolls (#110)
+
+The manifest adds whole `Item.wz/Consume/0204.img` (the scrolls: `info/success`, `info/cursed` for the dark ones, the
+`inc*` stats and the icons; 754 entries, only the ids in `game/data/survivor/scrolls.json` are used) and
+`Enchant` to the `Effect.wz/BasicEff.img` paths (`Enchant/Success` and `Enchant/Failure`, 21 and 16 frames at 50 ms).
+`Sound.wz/Game.img` (`EnchantSuccess`, `EnchantFailure`) and `String.wz/Consume.img` (scroll names and descriptions)
+were already whole. No scroll in the 0204 img carries `info/slotMax`; stacks use 100. `DataRepo.scroll_info` copies
+only the numbers a scroll needs (`success`, `cursed`, `slotMax`, `inc*`) into `setup.scroll_info` ({id: info}); a
+roster scroll absent from the cache is listed in `missing`. After pulling this change re-import
+(`scripts/import.sh`) so the Item.wz and Enchant entries appear.
 
 ## Second-job asset expansion (#53)
 

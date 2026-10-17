@@ -13,15 +13,17 @@ extends UiWindow
 ## plain item description of one slot: {"kind": "worn", "slot"} / {"kind": "inventory", "index"} / {"kind": "potion" |
 ## "scroll"} plus "id" and, for stacks, "count".
 
-## Emitted after the world changed the character ("equip", "unequip", "discard"); the host refreshes the drawn look
-## and its other windows.
+## Emitted after the world changed the character ("equip", "unequip", "discard", "scroll"); the host refreshes the
+## drawn look and its other windows.
 signal item_action(action: String)
 ## Emitted with a player-visible message (a refused requirement, a full inventory).
 signal notice(text: String)
 
 ## tier C (ours; the v83 client's wording is unverified): the messages for a refused change.
 const MESSAGES := {"requirement": "You do not meet the requirements to equip this item.",
-	"inventory_full": "Your inventory is full. Make room before taking an item off."}
+	"inventory_full": "Your inventory is full. Make room before taking an item off.",
+	"scroll_type": "This scroll cannot be used on that item.",
+	"scroll_slots": "That item has no upgrade slots left."}
 ## tier C (ours): a press that moves this far starts a drag; a shorter press is a click.
 const DRAG_START := 4.0
 ## The v83 inventory slot (icons are 27-32 px, centred in it).
@@ -60,6 +62,11 @@ func activate(_payload: Dictionary) -> void:
 ## A drop of another window's `payload` on this window; true when it was taken.
 func receive_drop(_payload: Dictionary) -> bool:
 	return false
+
+
+## The same drop with the local point it landed on (a scroll needs the item under it); by default `receive_drop`.
+func receive_drop_at(payload: Dictionary, _local: Vector2) -> bool:
+	return receive_drop(payload)
 
 
 ## A drop of this window's `payload` outside every window.
@@ -112,13 +119,13 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 	var id := int(instance.get("id", 0))
 	var tip := InventoryModel.tooltip(instance, info_of(id), character_totals(), item_name(id))
 	tip["icon"] = InventoryModel.icon_path(id)
-	tip["desc"] = UiArt.text(InventoryModel.desc_path(id)).replace("\\n", "\n")
+	tip["desc"] = InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id)))
 	return tip
 
 
 ## The tooltip data of a Use item (potion, scroll): name, description, icon.
 func use_tooltip(id: int) -> Dictionary:
-	return {"name": item_name(id), "desc": UiArt.text(InventoryModel.desc_path(id)).replace("\\n", "\n"),
+	return {"name": item_name(id), "desc": InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id))),
 		"icon": InventoryModel.icon_path(id)}
 
 
@@ -142,6 +149,8 @@ static func message_for(reason: String) -> String:
 		return String(MESSAGES.requirement)
 	if reason == "inventory_full":
 		return String(MESSAGES.inventory_full)
+	if MESSAGES.has(reason):
+		return String(MESSAGES[reason])
 	return ""
 
 
@@ -201,11 +210,13 @@ func _place_tip() -> void:
 func _drop(local: Vector2) -> void:
 	var payload := _drag
 	_drag = {}
-	var target := _target_at(get_global_position() + local)
+	var global_point := get_global_position() + local
+	var target := _target_at(global_point)
 	if target == null:
 		drop_outside(payload)
 	elif target != self and target is InventoryWindow:
-		(target as InventoryWindow).receive_drop(payload)
+		var window := target as InventoryWindow
+		window.receive_drop_at(payload, global_point - window.get_global_position())
 	_place_tip()
 
 

@@ -36,12 +36,18 @@ extends RefCounted
 ## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
 ## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
 ## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
+##   use_scroll(scroll_id, slot)  - scroll the item worn in an equip slot (Scrolls rules, #110): "" when the scroll was
+##                                  used up (the result is the `scroll_used` event: success, failure or destroyed),
+##                                  else no_item (none held) or a Scrolls refusal (scroll_type, scroll_slots, empty,
+##                                  not_worn, scroll_unknown) and the scroll is kept
+##   grant_scrolls(scroll_id, count) - add scrolls to the Use tab stacks (test hook until shops); returns how many fit
+##   discard_scrolls(scroll_id)   - destroy a whole scroll stack
 ## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
-## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls.
+## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -95,6 +101,7 @@ const EVENT_FIELDS := {
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"equipment_changed": ["action", "slot", "item_id"],
 	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
+	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 
 }
 
@@ -134,6 +141,7 @@ var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
 var meso_rng: RandomNumberGenerator
 var equip_rng: RandomNumberGenerator
+var scroll_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
@@ -295,6 +303,7 @@ func _init_rng_streams() -> void:
 	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
+	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -1073,6 +1082,38 @@ func discard_scrolls(item_id: int) -> String:
 		return "no_item"
 	scrolls.erase(key)
 	emit("equipment_changed", {"action": "discard", "slot": "", "item_id": item_id})
+	return ""
+
+
+## The canonical info of scroll `scroll_id` (setup.scroll_info; {} when absent).
+func scroll_info(scroll_id: int) -> Dictionary:
+	var infos: Dictionary = setup.get("scroll_info", {})
+	return infos.get(scroll_id, infos.get(str(scroll_id), {}))
+
+
+## Adds up to `count` scrolls to the Use tab (a stack stops at its info/slotMax, 100 without one; the two potion
+## stacks take two of the Use tab's slots); returns how many were added. Test and tool hook until shops exist.
+func grant_scrolls(scroll_id: int, count: int) -> int:
+	var potion_stacks := 0
+	for stock: Dictionary in potions.stock.values():
+		if int(stock.item_id) > 0:
+			potion_stacks += 1
+	return Scrolls.add(scrolls, scroll_id, count, int(scroll_info(scroll_id).get("slotMax", 0)),
+		Scrolls.USE_SLOTS - potion_stacks)
+
+
+## Reads scroll `scroll_id` onto the item worn in `slot` (Scrolls.use with the scroll stream): "" once it was used up
+## (success, failure or destruction, reported by `scroll_used`), or the refusal with the scroll kept. See the header.
+func use_scroll(scroll_id: int, slot: String) -> String:
+	if int(scrolls.get(str(scroll_id), 0)) <= 0:
+		return "no_item"
+	var item_id := int(equipment.worn[slot].id) if equipment.worn.has(slot) else 0
+	var result := Scrolls.use(equipment.worn, slot, scroll_id, scroll_info(scroll_id), scroll_rng)
+	if not result in Scrolls.OUTCOMES:
+		return result
+	Scrolls.take(scrolls, scroll_id)
+	_equipment_changed("scroll", slot, item_id)
+	emit("scroll_used", {"result": result, "scroll_id": scroll_id, "slot": slot, "item_id": item_id})
 	return ""
 
 
