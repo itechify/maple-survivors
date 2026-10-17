@@ -60,6 +60,41 @@ _Avoid_: High score
 A single round with a fresh or supplied character that belongs to no run and is never saved; only tools start one.
 _Avoid_: Quick play, practice run
 
+## Account and NX
+
+**Account**:
+Everything the player keeps across runs: NX, cash items, run history and best results.
+_Avoid_: Profile, meta save, meta progression
+
+**NX**:
+The account's currency, earned at the end of every round and spent in the Cash Shop.
+_Avoid_: Cash, gems, meta currency; not mesos (mesos belong to one run)
+
+**Cash item**:
+Anything bought with NX: owned once by the account, never expires, and every character can use it.
+_Avoid_: Meta upgrade
+
+**Cash Shop**:
+The v83-style screen where NX is spent on cash items.
+_Avoid_: Store, meta shop (a shop is a Free Market NPC's scroll stock)
+
+**Cash equipment**:
+Cash items a character wears in its cash slots, drawn over its equipment; every filled cash slot adds Fortune.
+_Avoid_: NX gear, cosmetics, outfit; not equipment (equipment drops from monsters and has stats)
+
+**Cash slot**:
+One place cash equipment is worn: hat, face accessory, eye accessory, earrings, top, bottom, shoes, gloves, cape,
+weapon cover or shield. Cash slots are separate from equip slots; an overall fills the top and bottom cash slots.
+_Avoid_: Slot (on its own), equip slot
+
+**Pet**:
+A cash item companion that follows the character and picks up drops near it; a character has at most one out.
+_Avoid_: Familiar, companion
+
+**Pet upgrade**:
+A cash item that gives whichever pet is out an extra ability: auto HP or MP potion, Wing Boots, Binocular or VAC.
+_Avoid_: Pet equip (an upgrade belongs to the account, not to one pet or character), pet skill
+
 ## Jobs
 
 **Job**:
@@ -108,7 +143,8 @@ topped up with its other new skills.
 _Avoid_: guaranteed card, job reward
 
 **Fortune**:
-The character's survivor stat that makes rarer cards more likely; unrelated to the v83 LUK stat.
+The character's survivor stat that makes rarer cards more likely, mostly from cash equipment; unrelated to the v83
+LUK stat.
 _Avoid_: Luck, LUK
 
 **Rarity**:
@@ -128,6 +164,43 @@ lightning, poison or holy.
 **Undead**:
 A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong against it.
 
+## Mesos and equipment
+
+**Mesos**:
+The run's money: dropped by monsters, spent and earned only in the Free Market shops, and lost when the run ends.
+_Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
+
+**Equipment**:
+The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
+comes only from monster drops, never from shops.
+_Avoid_: Gear (in player-visible text), armour, loot
+
+**Equip slot**:
+One place equipment is worn: hat, top, bottom, overall, shoes, gloves or weapon. An overall fills the top and
+bottom slots together.
+_Avoid_: Equipment slot, gear slot
+
+**Worn equipment**:
+The equipment currently in a character's equip slots; only worn equipment adds stats.
+_Avoid_: Loadout (that is the character's skills and cards), outfit
+
+**Inventory**:
+The equipment and scrolls a character owns but is not wearing; it is carried between rounds with the character.
+_Avoid_: Bag, stash
+
+**Shop**:
+An NPC's stock of scrolls in the Free Market, opened by talking to the NPC. Shops never sell equipment or potions.
+_Avoid_: Store, vendor
+
+**Scroll**:
+A v83 item that, used on a piece of equipment, tries to add stats with its success rate (10%, 60%, 100% ...) and
+uses up one of that equipment's upgrade slots.
+_Avoid_: Enchant, upgrade (in player-visible text), rune
+
+**Upgrade slot**:
+One of a piece of equipment's limited chances to be scrolled; each scroll used on it spends one, pass or fail.
+_Avoid_: Slot (on its own; that means an equip slot), tuc
+
 ## Interface
 
 **Choice window**:
@@ -136,7 +209,8 @@ choices, and the pause menu.
 _Avoid_: dialog, popup
 
 **In-run window**:
-A draggable MapleStory window the player opens during a run (Stat, Skill, Key Config, Options) or the Menu list.
+A draggable MapleStory window the player opens during a run (Stat, Skill, Equip, Item, Key Config, Options) or the
+Menu list.
 In-run windows stack, the run is paused while any is open, and Esc closes the front one first.
 _Avoid_: panel, overlay
 
