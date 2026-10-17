@@ -85,8 +85,11 @@ const EVENT_FIELDS := {
 	"portal_used": ["portal", "target", "pos"],
 	"player_died": ["pos"],
 	"pickup_spawned": ["pickup", "item_id", "pos", "kind", "potion_kind", "count"],
-	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count"],
+	"pickup_collected": ["pickup", "item_id", "exp", "pos", "kind", "potion_kind", "count", "collector"],
 	"potion_used": ["kind", "item_id", "restored", "count"],
+	# Spec #34 pet events (only with a pet out): its own drinks (never counted as the player's) and its teleports.
+	"pet_potion_used": ["kind", "item_id", "restored", "count"],
+	"pet_teleported": ["from", "pos"],
 	"potion_tier_up": ["kind", "from_item_id", "item_id", "count"],
 	"level_up": ["level"],
 	"job_advance_pending": ["options"],
@@ -200,6 +203,8 @@ var mob_projectiles := MobProjectileSystem.new()
 var events: Array = []
 var time := 0.0
 var kills := 0
+## Character level when the round began (a carried character keeps its level); see levels_gained().
+var start_level := 1
 ## Total damage the player dealt: shots, instant skill hits and nonlethal poison (read-only).
 var damage_dealt: int:
 	get:
@@ -251,6 +256,21 @@ var _base_stats := DEFAULT_STATS.duplicate()
 var _attributes := {}
 var _earned_ap := 0
 var _base_fortune := 0.0
+## Spec #34 cash items. `setup.account` ({owned: [item ids]}, absent = an empty account) decides which of the
+## character's worn cash equipment and pet count; `setup.alert` ({hp, mp}: fractions of max, 0 = do not alert).
+## worn_cash: {slot: id} of the cash slots actually filled by owned items; pet: the owned pet species out (0 = none);
+## cash_fortune: the Fortune those slots add, computed live and added to player_state.fortune, never stored in the
+## character; account_owned: the owned item ids; alert: {hp, mp}.
+var account_owned: Array = []
+var worn_cash := {}
+var pet := 0
+var cash_fortune := 0.0
+var alert := {"hp": 0.0, "mp": 0.0}
+## The pet simulation (PetSystem), null when no owned pet is out. See pet_state() and pet_has().
+var pet_system: PetSystem
+var _cash_carried := {}
+var _pet_carried := 0
+var _catalog: CashCatalog
 ## Carried appearance {skin, face, hair}; worn equipment is drawn over it (DataRepo.character_look).
 var character_look := {}
 ## Worn equipment and inventory (Equipment state); change it only through equip_item/unequip_item/discard_item.
@@ -292,6 +312,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_directors()
 	_init_player_motion()
 	_init_player()
+	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
 	update_view()
 	_write_player_state(0.0)
@@ -402,16 +423,44 @@ func character_snapshot() -> Dictionary:
 	for key: String in loadout.order:
 		skills[key] = {"rank": loadout.rank(key),
 			"mods": CharacterSnapshot.encode_mods(loadout.skill_mods.get(key, {}))}
-	return {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
+	var snapshot := {"format": CharacterSnapshot.FORMAT, "level": progression.level, "exp": progression.exp,
 		"job_id": progression.job_id, "attributes": _attributes.duplicate(),
 		"base_attributes": _base_stats.duplicate(), "earned_ap": _earned_ap,
 		"base_hp": _base_hp, "base_mp": _base_mp, "job_mp": _job_mp,
 		"skills": skills, "skill_order": loadout.order.duplicate(),
 		"player_mods": CharacterSnapshot.encode_mods(loadout.player_mods),
 		"card_ranks": loadout.card_ranks.duplicate(), "potions": potions.snapshot(),
-		"fortune": float(player_state.fortune), "base_fortune": _base_fortune,
+		"fortune": _own_fortune(), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
 		"scrolls": scrolls.duplicate(), "mesos": mesos}
+	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
+	if not _cash_carried.is_empty():
+		snapshot["cash"] = _cash_carried.duplicate()
+	if _pet_carried > 0:
+		snapshot["pet"] = _pet_carried
+	return snapshot
+
+
+## The character's own Fortune (base plus card modifiers), without the live cash-slot part.
+func _own_fortune() -> float:
+	return maxf(0.0, loadout.player_stat("fortune", _base_fortune))
+
+
+## Levels the character gained in this round (queued level-ups included).
+func levels_gained() -> int:
+	return maxi(0, progression.level - start_level)
+
+
+## Scheduled bosses killed so far in this round.
+func bosses_killed() -> int:
+	return bosses.dead_count()
+
+
+## NX this round pays now (spec #34, NxAward): the tier's clear bonus only when CLEARED, plus levels and bosses.
+## Tools record it as `nx_awarded`; only Flow credits it, at the round boundary or the run archive.
+func nx_awarded() -> int:
+	return NxAward.compute(balance.get("nx_award", {}), NxAward.tier_of(data.get("stages", {}), stage_key),
+		state == CLEARED, levels_gained(), bosses_killed())
 
 
 ## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
@@ -424,9 +473,14 @@ func can_clear() -> bool:
 
 ## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
 func drink_potion(kind: String) -> bool:
+	return _drink(kind, false)
+
+
+## The shared drink: `by_pet` counts it in the pet's totals and reports `pet_potion_used` instead of `potion_used`.
+func _drink(kind: String, by_pet: bool) -> bool:
 	if state != PLAYING or _dead:
 		return false
-	var sip := potions.consume(kind)
+	var sip := potions.consume(kind, by_pet)
 	if sip.is_empty():
 		return false
 	var before := int(player_state[kind])
@@ -435,7 +489,7 @@ func drink_potion(kind: String) -> bool:
 	else:
 		_mp = minf(_max_mp, _mp + int(sip.amount))
 	_write_player_state(0.0)
-	emit("potion_used", {"kind": kind, "item_id": int(sip.item_id),
+	emit("pet_potion_used" if by_pet else "potion_used", {"kind": kind, "item_id": int(sip.item_id),
 		"restored": int(player_state[kind]) - before, "count": int(sip.count)})
 	return true
 
@@ -503,6 +557,8 @@ func step(dt: float, input: MoveInput) -> void:
 	_step_player(dt, input)
 	_step_monsters(dt)
 	_step_player_attacks(dt)
+	if pet_system != null:
+		_step_pet(dt)
 	var got := _step_pickups(dt)
 	_touch()
 	if got > 0 and not _dead:
@@ -657,8 +713,14 @@ func _step_player_attacks(dt: float) -> void:
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
 func _step_pickups(dt: float) -> int:
-	var got := pickups.step(dt, player.pos, magnet_r, fhm, events,
-		maxi(0, inventory_slots() - equipment.inventory.size()))
+	var equip_room := maxi(0, inventory_slots() - equipment.inventory.size())
+	var got := 0
+	if pet_system == null:
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room)
+	else:
+		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room, pet_system.center(),
+			pet_system.pickup_radius(), pet_system.abilities.vac)
+		pet_system.pickups += pickups.pet_collected
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
@@ -667,6 +729,27 @@ func _step_pickups(dt: float) -> int:
 		equips_collected += 1
 		_equipment_changed("pickup", "", int(instance.id))
 	return got
+
+
+## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
+func _step_pet(dt: float) -> void:
+	pet_system.step(dt, player, fhm, bounds, pickups, events, maxi(0, inventory_slots() - equipment.inventory.size()))
+	for kind: String in ["hp", "mp"]:
+		var current := _hp if kind == "hp" else _mp
+		var maximum := _max_hp if kind == "hp" else _max_mp
+		if pet_system.should_drink(kind, current, maximum, float(alert[kind])) and _drink(kind, true):
+			pet_system.drank(kind)
+
+
+## What the pet looks like right now ({} without a pet): species, pos (feet), facing (-1/1), action (stand, move, jump,
+## hang), fetching, abilities. Position jumps are announced by `pet_teleported` events.
+func pet_state() -> Dictionary:
+	return pet_system.view() if pet_system != null else {}
+
+
+## Whether a pet with `ability` (auto_hp, auto_mp, wing_boots, binocular, vac) is out.
+func pet_has(ability: String) -> bool:
+	return pet_system != null and bool(pet_system.abilities.get(ability, false))
 
 
 ## After a living tick: boss bonus choices first, then the clear, then queued level-ups.
@@ -1355,6 +1438,7 @@ func _init_player() -> void:
 		_restore_character(setup.character)
 	else:
 		equipment.worn = Equipment.worn_from_ids(Equipment.DEFAULT_OUTFIT, setup.get("equipment_info", {}))
+	_init_cash()
 	refresh_player_stats()
 	_hp = _max_hp
 	_mp = _max_mp
@@ -1386,6 +1470,103 @@ func _restore_character(source: Dictionary) -> void:
 	equipment = Equipment.normalized(character.equipment)
 	scrolls = CharacterSnapshot.integers(character.scrolls)
 	mesos = int(character.mesos)
+	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
+	_pet_carried = int(character.get("pet", 0))
+
+
+## Sets the ALERT levels from {hp, mp} (fractions of max, clamped; 0 = do not alert). The pet reads them every tick, so
+## a change takes effect at once (a live round follows the Options window, spec #34 #121).
+func set_alert(levels: Dictionary) -> void:
+	alert = {"hp": clampf(float(levels.get("hp", 0.0)), 0.0, 1.0), "mp": clampf(float(levels.get("mp", 0.0)), 0.0, 1.0)}
+
+
+## The cash catalog of this round's data, built once.
+func _cash_catalog() -> CashCatalog:
+	if _catalog == null:
+		_catalog = CashCatalog.from_data(data)
+	return _catalog
+
+
+## Resolves the account, the worn cash equipment and the pet of this round (spec #34); what the account does not
+## own is ignored and reported in `warnings`.
+func _init_cash() -> void:
+	var account: Dictionary = setup.get("account", {})
+	account_owned = Array(account.get("owned", []))
+	set_alert(setup.get("alert", {}))
+	var resolved := _cash_catalog().resolve(_cash_carried, _pet_carried, account_owned)
+	worn_cash = resolved.worn
+	pet = resolved.pet
+	cash_fortune = resolved.fortune
+	for message: String in resolved.warnings:
+		warnings.append(message)
+	if pet > 0:
+		_init_pet(_cash_catalog())
+
+
+## Wears the owned cash equipment `id` (the Equip window's Cash tab, spec #34 #122): it takes its slots and replaces what
+## covered them (CashCatalog.wear: an overall clears top and bottom, a two-handed cover weapon and shield). "" or
+## "not_cash" (not cash equipment) / "not_owned" (the account does not own it); nothing changes on a refusal. Wearing
+## never uses the item up. Fortune follows at once, so the next card draw uses it.
+func wear_cash(id: int) -> String:
+	var catalog := _cash_catalog()
+	if catalog.kind_of(id) != "equip" or catalog.slots_for(id).is_empty():
+		return "not_cash"
+	if not Account.owns(account_owned, id):
+		return "not_owned"
+	_cash_carried = catalog.wear(_cash_carried, id)
+	_cash_changed("wear_cash", "", id)
+	return ""
+
+
+## Takes off the cash equipment worn in `slot` (every slot it covers); "" or "empty" when nothing is worn there.
+func take_off_cash(slot: String) -> String:
+	var catalog := _cash_catalog()
+	var id := int(_cash_carried.get(slot, 0))
+	if id == 0:
+		return "empty"
+	_cash_carried = catalog.take_off(_cash_carried, slot)
+	_cash_changed("take_off_cash", slot, id)
+	return ""
+
+
+## Brings the owned pet `species` out in place of any other, or none (0). "" or "not_pet" / "not_owned"; nothing
+## changes on a refusal. The pet is simulated from the next tick, at the player's feet, with the owned upgrades.
+func set_pet(species: int) -> String:
+	var catalog := _cash_catalog()
+	if species != 0:
+		if catalog.kind_of(species) != "pet":
+			return "not_pet"
+		if not Account.owns(account_owned, species):
+			return "not_owned"
+	_pet_carried = species
+	pet = species
+	pet_system = null
+	if species > 0:
+		_init_pet(catalog)
+	emit("equipment_changed", {"action": "pet", "slot": "", "item_id": species})
+	return ""
+
+
+## Re-reads the worn cash equipment after a change (Fortune included) and announces it.
+func _cash_changed(action: String, slot: String, id: int) -> void:
+	var resolved := _cash_catalog().resolve(_cash_carried, 0, account_owned)
+	worn_cash = resolved.worn
+	cash_fortune = resolved.fortune
+	_equipment_changed(action, slot, id)
+
+
+## The pet simulation of this round: abilities from the owned upgrades whose prerequisites the account meets.
+func _init_pet(catalog: CashCatalog) -> void:
+	var abilities := {}
+	var owned := PetSystem.abilities_from(account_owned)
+	for ability: String in owned:
+		var id := int(PetSystem.ABILITY_ITEMS[ability])
+		if bool(owned[ability]) and not catalog.prerequisites_met(id, account_owned):
+			warnings.append("pet upgrade %d is owned but its prerequisites are not: ignored" % id)
+		else:
+			abilities[ability] = bool(owned[ability])
+	pet_system = PetSystem.new(pet, abilities, data.get("cash_items", {}).get("pet", {}), physics)
+	pet_system.place_beside(player, fhm)
 
 
 ## Recentres the view rect on the player, clamped to the bounds (step() does this every tick).
@@ -1748,7 +1929,7 @@ func _write_player_state(dt: float) -> void:
 	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
 	# Equipment incACC plus canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
 	player_state["acc"] = player_acc + buffs.effect_total("acc")
-	player_state["fortune"] = maxf(0.0, loadout.player_stat("fortune", _base_fortune))
+	player_state["fortune"] = _own_fortune() + cash_fortune
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t

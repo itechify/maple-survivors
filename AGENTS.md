@@ -71,6 +71,12 @@ bash scripts/export.sh                                # Windows build -> game/ex
                                                       # notices beside it)
 ```
 
+**Private caches.** `MAPLE_SURVIVORS_CACHE=<abs dir>` points the game, `import.sh` and every tool at another asset
+cache. A ticket that changes `game/data/asset_manifest.json` imports into its own folder
+(`MAPLE_SURVIVORS_CACHE=<dir> bash scripts/import.sh "<v83 folder>"`) and runs everything with the same variable, so
+parallel branches with different manifests never overwrite the shared `%APPDATA%` cache. Combine it with `ISOLATE=<name>`
+(`scripts/test.sh`, `run.sh`, `balance.sh`, `playtest.sh`), which gives each agent a private project mirror.
+
 ### Playtests (`scripts/playtest.sh`)
 
 Launches the real game windowed (`run.sh` -> `main.tscn` -> Flow) straight into a run played by the autoplay bot
@@ -126,6 +132,13 @@ Space is the NPC Chat key and jump is Alt / C (v83 defaults): an existing `user:
 another action keeps it and leaves NPC Chat unbound until rebound in Key Config, so the shop scenarios put NPC Chat on
 its default in the InputMap before pressing Space. Use `ISOLATE=<name>` with
 `scripts/run.sh res://scenes/debug/flow_driver.tscn -- ...` to prepare and run a private project mirror.
+NX and the Cash Shop (spec #34): `--scenario=cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop:
+prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round 1 through the Equip window -> warp clear ->
+"+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
+items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
+account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
+`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar) and `hair_cap_probe.tscn` (cap vs hair layers)
+are the avatar contact-sheet tools.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
 Up at out00 opens the next tier's map select. Save & quit is available at both boundaries. Quit round warns that
@@ -137,6 +150,11 @@ the run and free its slot. `--run=<stage> [--character=<absolute JSON>]` stays t
 `--character="C:/absolute path/character.json"` starts a tool-only one-off round from a format-2
 `CharacterSnapshot` (schema in `game/scripts/sim/character_snapshot.gd`; format 1 files still load and migrate); omitted means a fresh Beginner.
 The same flag works with `--run=<stage>` and `scripts/playtest.sh`. It never writes character saves.
+`--account=<absolute JSON>` (balance.sh, playtest.sh, `--run`, tier chains) gives the round an account: owned cash items,
+the character's worn cash equipment and pet, and the HP/MP ALERT levels (`game/scripts/core/account_file.gd`); without it
+the round has an empty account and records are byte-identical to before. The record and output names carry the file name.
+The committed fixtures are `game/tests/fixtures/accounts/full_pet.json` (pet and every upgrade; the smoke's "full account")
+and `full_cash_pet.json` (the same plus a cash item in all 11 slots; for dressed playtest screenshots).
 The committed `game/tests/fixtures/characters/lv35_magician_2nd.json` is a real headless Henesys bot character;
 its `_doc` records seed, branch, policy and generation revision. `game/tools/character_fixture.gd` reproduces it.
 

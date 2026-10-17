@@ -28,7 +28,8 @@ func _ready() -> void:
 	flow.create_character("Market71")
 	var character: Dictionary = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
 	flow.finish_run({"stage": "henesys_hg1", "cleared": true, "time": 960.0, "level": 35,
-		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1}, character)
+		"job_id": 210, "job_name": "Wizard (Fire, Poison)", "kills": 3000, "damage_dealt": 100000, "seed": 1,
+		"bosses_killed": 3, "levels_gained": 12, "nx_awarded": 310}, character)
 	var hub := flow.current as FreeMarket
 	if hub == null or hub.motion == null:
 		get_tree().quit(1)
@@ -77,8 +78,17 @@ func _ready() -> void:
 		if not item in missing:
 			missing.append(item)
 	_check(missing.is_empty(), "missing assets")
-	var report := {"failures": failures, "missing": Array(missing), "phase": flow.save.slot(0).phase,
-		"tier": flow.save.slot(0).tier, "character": character}
+	var boundary: Dictionary = flow.save.slot(0)
+	# #115: a death in the next tier credits its NX with the archive and the results screen shows it.
+	flow.finish_run({"stage": "dark_cave", "map_id": 0, "map_name": "Dark Cave", "street_name": "Victoria Road",
+		"cleared": false, "time": 412.0, "duration": 900.0, "level": 41, "job_id": 210,
+		"job_name": "Wizard (Fire, Poison)", "kills": 1500, "damage_dealt": 80000, "seed": 2,
+		"bosses_killed": 1, "levels_gained": 6, "nx_awarded": 70}, character)
+	_check(flow.current_name == "results" and flow.save.account.nx == 380, "NX credited by clear and death")
+	await get_tree().create_timer(2.0).timeout
+	await _shot("08_results_death")
+	var report := {"failures": failures, "missing": Array(missing), "phase": boundary.phase,
+		"tier": boundary.tier, "nx": flow.save.account.nx, "character": character}
 	var file := FileAccess.open(shots.path_join("summary.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify(report, "\t"))
 	file.close()

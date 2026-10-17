@@ -6,6 +6,11 @@
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
+#   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
+#   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
+#   # cash/pet = what the run's character wears/has out (replacing a --character's), alert = HP/MP ALERT fractions. Works with
+#   # --tier chains. No flag = an empty account and byte-identical records. The record gets "account": <file name> and the
+#   # output files <stage>_<policy>_acct-<name>_<seed>.json, so runs with different accounts never overwrite each other.
 #   bash scripts/balance.sh 1 2 2026 --tier=2               # tier-1 clears feed tier 2, one chain per seed
 #   bash scripts/balance.sh 1 --tier=2 --stage=tree_that_grew_1  # select tier 1 (default Henesys)
 #   # --tier=N reads stages.json tiers, selecting the first stage of each later tier through N.
@@ -23,6 +28,9 @@
 #                                                          # variant without editing game/data; see balance_run.gd)
 #   BALANCE_OUT=<dir>                                      # where the per-seed logs/records go (default _scratch/balance)
 #   JOBS=<n>                                               # at most n Godot processes at once (default 12)
+#
+# Every record carries nx_awarded (plus bosses_killed, levels_gained): the NX the round would pay (balance.json nx_award,
+# tier C). Tools never credit it and never write a save; the table's NX column and the summary report it per run.
 #
 # Feature tickets run only a smoke (1 2 2026, both stages and policies) and never tune (AGENTS.md "Balance").
 # Seeds: tune on 1..60 and 2026 only. Ranges 101..130, 201..212, 301..330, 401..430, 501..530 and 601..630 are spent
@@ -59,6 +67,7 @@ EXTRA_IDLE=""
 EXTRA_CAP=""
 EXTRA_CAMP=""
 EXTRA_CHARACTER=""
+EXTRA_ACCOUNT=""
 EXTRA_TIER=""
 SEEDS=()
 for a in "$@"; do
@@ -72,6 +81,7 @@ for a in "$@"; do
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
     --character=*) EXTRA_CHARACTER="$a" ;;
+    --account=*) EXTRA_ACCOUNT="$a" ;;
     --tier=*) EXTRA_TIER="$a" ;;
     *..*) for ((s = ${a%%..*}; s <= ${a##*..}; s++)); do SEEDS+=("$s"); done ;;
     *) SEEDS+=("$a") ;;
@@ -83,6 +93,11 @@ RUN_KEY="${STAGE}_${POLICY}"
 if [[ -n "$EXTRA_TIER" ]]; then
   [[ "${EXTRA_TIER#--tier=}" =~ ^[0-9]+$ ]] || { echo "--tier must be an integer >= 2" >&2; exit 2; }
   RUN_KEY="${STAGE}_chain_tier${EXTRA_TIER#--tier=}_${POLICY}"
+fi
+if [[ -n "$EXTRA_ACCOUNT" ]]; then
+  # The account file's name is part of the output names, so runs with different accounts do not overwrite each other.
+  ACCOUNT_NAME="$(basename "${EXTRA_ACCOUNT#--account=}")"
+  RUN_KEY="${RUN_KEY}_acct-$(printf '%s' "${ACCOUNT_NAME%.json}" | tr -c 'A-Za-z0-9._-' '_')"
 fi
 
 if [[ -n "${ISOLATE:-}" ]]; then
@@ -106,6 +121,7 @@ EXTRA=()
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")
 [[ -n "$EXTRA_CAMP" ]] && EXTRA+=("$EXTRA_CAMP")
 [[ -n "$EXTRA_CHARACTER" ]] && EXTRA+=("$EXTRA_CHARACTER")
+[[ -n "$EXTRA_ACCOUNT" ]] && EXTRA+=("$EXTRA_ACCOUNT")
 [[ -n "$EXTRA_TIER" ]] && EXTRA+=("$EXTRA_TIER")
 MAXJ="${JOBS:-12}"
 PIDS=()
@@ -125,9 +141,9 @@ done
 # Tabulate with awk on the JSON fields that matter (no Python/Node needed).
 echo "stage $STAGE, policy $POLICY${PATCH:+, patch $PATCH}"
 if [[ -z "$EXTRA_TIER" ]]; then
-printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %s\n' seed Lv8 Lv10 Lv20 \
+printf '%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-14s %-9s %-11s %-11s %s\n' seed Lv8 Lv10 Lv20 \
   Lv30 "lv@4/8/12" "alive4/8/12" "near4/8/12" "hit<6" "hit8+" "drop8" kills level end "eng6/9/12" "stale6/9/12" \
-  "recyc/reloc"
+  "recyc/reloc" NX
 for s in "${SEEDS[@]}"; do
   f="$OUT/${RUN_KEY}_${s}.json"
   [[ -s "$f" ]] || continue
@@ -164,11 +180,11 @@ for s in "${SEEDS[@]}"; do
       sp = field("spawned") + 0; rc = field("recycled") + 0; rl = field("relocated") + 0
       h = 0; for (i = 9; i <= k; i++) h += H[i]
       e = 0; for (i = 1; i <= 6 && i <= k; i++) e += H[i]
-      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %s\n", seed, reach(8),
+      printf "%-5s %-5s %-5s %-5s %-5s %-9s %-11s %-10s %-6s %-6s %-6s %-6s %-5s %-8s %-5s %-9s %-11s %-11s %s\n", seed, reach(8),
         reach(10), reach(20), reach(30), L[4] "/" L[8] "/" L[12], A[4] "/" A[8] "/" A[12],
         r0(N[4]) "/" r0(N[8]) "/" r0(N[12]), e, h, v(D[8]), field("kills"), field("level"), field("state"),
         mmss(field("time")), pc(G[6]) "/" pc(G[9]) "/" pc(G[12]), pc(S[6]) "/" pc(S[9]) "/" pc(S[12]),
-        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-")
+        (sp > 0 ? pc(rc / sp) "/" pc(rl / sp) : "-/-"), v(field("nx_awarded"))
     }' "$f"
 done | tee "$OUT/.table"
 # Summary: runs, clears, deaths (times), and min / median / max of the milestone times and the final level.
@@ -193,6 +209,7 @@ awk '
     split($16, g, "/"); split($17, q, "/"); split($18, rr, "/")
     for (k = 1; k <= 3; k++) { if (g[k] != "-") eg[k, ++neg[k]] = g[k] + 0; if (q[k] != "-") sg[k, ++nsg[k]] = q[k] + 0 }
     if (rr[1] != "-") { rcy[++nrc] = rr[1] + 0; rlc[nrc] = rr[2] + 0 }
+    if ($19 != "-") nxv[++nnx] = $19 + 0
   }
   function med(v, n,   i, j, t) {
     if (n == 0) return "-"
@@ -217,6 +234,7 @@ awk '
       col(sg, 3, nsg[3])
     for (i = 1; i <= nrc; i++) { r1[i] = rcy[i]; r2[i] = rlc[i] }
     printf "  recycled %% of spawns %s; relocated per spawn %% %s\n", med(r1, nrc), med(r2, nrc)
+    printf "  NX awarded per run (recorded, never credited) %s\n", med(nxv, nnx)
   }' "$OUT/.table"
 else
   # A chain envelope has no single outcome/time. Keep each round visible, then summarize separately by tier.

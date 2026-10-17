@@ -427,3 +427,25 @@ func test_forced_branch_is_recorded_and_summary_groups_outcomes() -> void:
 	assert_eq(summary.get("branches", {}).get("230", {}).get("TIMEOUT", 0), 2)
 	assert_eq(summary.get("branches", {}).get("unobserved", {}).get("DEAD", 0), 1)
 	assert_true(BR.describe_metrics(summary).contains("SUMMARY branch 230"))
+
+
+func test_records_carry_the_nx_a_round_would_pay_and_the_summary_reports_it() -> void:
+	var data := RF.quiet_data()
+	data.balance.run_time_cap = DT
+	data.balance["nx_award"] = {"clear_bonus": [100], "per_level": 5, "per_boss": 40}
+	var w := RunWorld.new(RF.setup("quiet", 71, data))
+	RF.place_player(w, 400)
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.progression.queue.clear()
+	var r := BR.run_one(w, "bot", 71)
+	assert_eq(r.get("levels_gained"), 1)
+	assert_eq(r.get("bosses_killed"), 0)
+	assert_eq(r.get("nx_awarded"), 5, "unfinished round: no clear bonus, one level")
+	var legacy := r.duplicate(true)
+	legacy.erase("nx_awarded")
+	var summary := BR.aggregate([r, r, legacy])
+	assert_eq(summary.nx_awarded.count, 2, "legacy records do not invent NX")
+	assert_eq(summary.nx_awarded.median, 5)
+	assert_true(BR.describe_metrics(summary).contains("NX awarded per run"))
+	r["seed"] = 71
+	assert_true(BR.describe(r).contains("NX awarded 5 (bosses killed 0, levels gained 1)"))

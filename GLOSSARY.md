@@ -164,6 +164,23 @@ lightning, poison or holy.
 **Undead**:
 A monster flagged undead in Mob.wz: Heal damages it and Holy Arrow is strong against it.
 
+**Contact damage**:
+The damage a monster deals by touching the character, separate from its attacks.
+_Avoid_: touch attack, body attack (in player-visible text)
+
+**Mob attack**:
+An ordinary monster's canonical Mob.wz attack (`attack1`, `attack2`, ...): a windup, then a hit in its range, as
+Tauromacis and Taurospear have. A boss attack is the same thing used by a scheduled boss.
+_Avoid_: monster skill (that is a mob skill)
+
+**Mob skill**:
+A canonical Skill.wz/MobSkill.img skill a monster casts, such as Slow, Seal or a summon.
+
+**Seal**:
+The character status from MobSkill 120 (Jr. Boogie): while it lasts, skill cooldowns recover more slowly. A survivor
+reinterpretation; in v83 Seal blocks every skill. The basic attack is unaffected.
+_Avoid_: silence, stun
+
 ## Mesos and equipment
 
 **Mesos**:

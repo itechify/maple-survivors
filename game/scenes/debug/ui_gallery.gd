@@ -15,6 +15,7 @@ extends Node2D
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
+##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
 ##                   run (autoplay, windows answered after 1 s) -> results (from the round's own summary) -> character select; a
@@ -218,6 +219,12 @@ func _show_window(which: String) -> void:
 				w.confirm_seconds = 999.0
 				w.select(0)
 			window = w
+		"options":
+			# Settings from a scratch file (never the developer's settings.cfg); not in the tree, so no autoload effects.
+			var settings := GameSettings.new("user://_test_cache/gallery_options.cfg")
+			var w := OptionsWindow.new(settings)
+			layer.add_child(w)
+			w.position = Vector2(60, 40)
 		"pause":
 			var w := PauseMenu.new()
 			layer.add_child(w)

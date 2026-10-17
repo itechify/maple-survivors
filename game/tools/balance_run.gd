@@ -36,6 +36,9 @@ extends SceneTree
 ## "stages", "skills", ...; see deep_merge), to try tuning variants without editing game/data.
 ## One "BALANCE {json}" line per run (scripts/balance.sh tabulates them) plus a readable summary.
 ## --character=<abs JSON path>: start this one-off round from a CharacterSnapshot; never writes a save.
+## --account=<abs JSON path>: give the round an account (AccountFile: owned cash items, worn cash equipment, pet, ALERT
+## levels; applied to the first round's character and carried through --tier chains). The record gets "account": <file
+## name>. Without the flag the round has an empty account and the record is byte-identical to before; NX is never credited.
 ## --tier=N (N >= 2): chain from tier 1 through N using stages.json tiers; --stage selects tier 1 (default first).
 ## Later tiers take their first listed stage; --character and camper policies cannot be combined with --tier.
 ## Tier-1 round seed equals the run seed; later seeds are hash("balance-round-<run seed>-<zero-based tier>").
@@ -118,6 +121,8 @@ func _init() -> void:
 	var branch := 0
 	var character_file := ""
 	var has_character := false
+	var account_file := ""
+	var has_account := false
 	var chain := false
 	var target_tier := 1
 	for a in OS.get_cmdline_user_args():
@@ -131,6 +136,9 @@ func _init() -> void:
 		elif a.begins_with("--character="):
 			character_file = a.substr(12)
 			has_character = true
+		elif a.begins_with("--account="):
+			account_file = a.substr(10)
+			has_account = true
 		elif a.begins_with("--tier="):
 			chain = true
 			target_tier = int(a.substr(7)) if a.substr(7).is_valid_int() else -1
@@ -197,6 +205,14 @@ func _init() -> void:
 			print("balance_run: " + "; ".join(errors))
 			quit(1)
 			return
+	var account := {}
+	if has_account:
+		var account_errors := PackedStringArray()
+		account = AccountFile.load_file(account_file, account_errors)
+		if not account_errors.is_empty():
+			print("balance_run: " + "; ".join(account_errors))
+			quit(1)
+			return
 	var root := AssetCachePaths.resolve_cache_root()
 	var setups: Array = []
 	for stage_key: String in stages:
@@ -211,6 +227,8 @@ func _init() -> void:
 		if has_character:
 			setup.character = character
 		setups.append(setup)
+	if has_account:
+		apply_account(setups, account)
 	for s in seeds:
 		var r: Dictionary
 		if chain:
@@ -225,9 +243,21 @@ func _init() -> void:
 			for tier_index in tiers.size():
 				if stage in tiers[tier_index]:
 					r["tier"] = tier_index + 1
+		if has_account:
+			r["account"] = account_file.get_file() # spec #34: the record names the account file; absent without the flag.
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
+
+
+## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on
+## the first round's character only; later tiers carry the character from the clear, which keeps them.
+static func apply_account(setups: Array, account: Dictionary) -> void:
+	var later := account.duplicate()
+	later.erase("cash")
+	later.erase("pet")
+	for index in setups.size():
+		AccountFile.apply(setups[index], account if index == 0 else later)
 
 
 ## Stable round stream by run seed and zero-based tier; tier 1 preserves existing regression seeds.
@@ -459,7 +489,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var skills := {}
 	for key: String in w.loadout.order:
 		skills[key] = w.loadout.rank(key)
-	return {
+	var record := {
 		"lv70_reached": int(w.player_state.level) >= LEVEL_TARGET,
 		"character": w.character_snapshot() if w.state == RunWorld.CLEARED else {},
 		"state": "TIMEOUT" if w.state == RunWorld.PLAYING else w.state_name(),
@@ -491,8 +521,17 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"relocated_by_min": relocated_min, "eng_by_min": eng_min, "stale_by_min": stale_min,
 		"max_alive": max_alive, "max_alive_t": snappedf(max_alive_t, 1.0), "low_hp_after_1min": snappedf(low_hp, 0.01),
 		"skills": skills, "cards": w.loadout.card_ranks.duplicate(), "cards_taken": cards_taken,
+		# #115: what the round would pay (tier C placeholders); tools record it and never credit it or write a save.
+		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if w.pet_system != null:
+		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
+		# are counted apart from the player's (potions_used stays the player's).
+		record["pet"] = {"species": w.pet_system.species, "abilities": w.pet_system.abilities.duplicate(),
+			"pickups": w.pet_system.pickups, "potions_used": w.potions.pet_used.duplicate(),
+			"alert": w.alert.duplicate()}
+	return record
 
 
 ## The worn equipment at this moment, {slot: item id}.
@@ -594,8 +633,12 @@ static func describe(r: Dictionary) -> String:
 			"hits_by_min", "low_hp_by_min",
 			"exp_by_min", "kills_by_min", "recycled_by_min", "relocated_by_min"]:
 		lines.append("  %-16s %s" % [k, r.get(k, [])])
+	lines.append("  NX awarded %d (bosses killed %d, levels gained %d)" % [int(r.get("nx_awarded", 0)),
+		int(r.get("bosses_killed", 0)), int(r.get("levels_gained", 0))])
 	lines.append("  boss fights %s" % [r.get("boss_fights",[])])
 	lines.append("  potions collected %s; used %s; MP-short %.3f s; boss-hit fractions %s" % [r.get("potions_collected",{}),r.get("potions_used",{}),float(r.get("mp_short_seconds",0.0)),r.get("boss_hit_fraction",{})])
+	if r.has("pet"):
+		lines.append("  pet %s" % [r.pet])
 	lines.append("  camper %s" % [r.get("camper",{})])
 	lines.append("  cards %s" % [r.get("cards_taken", [])])
 	lines.append("  card tiers offered %s; picked %s" % [r.get("card_tiers_offered", {}), r.get("card_tiers_picked", {})])
@@ -691,6 +734,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var hit_samples := {}
 	var start_levels: Array = []
 	var end_levels: Array = []
+	var nx_samples: Array = []
 	result["lv70_reached"] = 0
 	result["tier"] = int(records[0].get("tier", 0)) if not records.is_empty() else 0
 	for record: Dictionary in records:
@@ -698,6 +742,8 @@ static func aggregate(records: Array) -> Dictionary:
 			start_levels.append(int(record.start_character.level))
 		if record.has("level"):
 			end_levels.append(int(record.level))
+		if record.has("nx_awarded"):
+			nx_samples.append(int(record.nx_awarded))
 		result.lv70_reached += 1 if bool(record.get("lv70_reached", int(record.get("level", 0)) >= LEVEL_TARGET)) else 0
 		var branch_key := str(int(record.get("branch", 0))) if record.has("branch") else "unobserved"
 		if not result.branches.has(branch_key):
@@ -803,6 +849,7 @@ static func aggregate(records: Array) -> Dictionary:
 	result["boss_hit_fraction"] = statistics(fractions)
 	result["start_level"] = statistics(start_levels)
 	result["end_level"] = statistics(end_levels)
+	result["nx_awarded"] = statistics(nx_samples)
 	for bucket: Dictionary in result.ordinary_kill_hits_by_min:
 		bucket.mean = float(bucket.hits) / int(bucket.kills) if int(bucket.kills) > 0 else null
 	return result
@@ -870,6 +917,8 @@ static func describe_metrics(summary: Dictionary) -> String:
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
 	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	if summary.has("nx_awarded"):
+		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	if summary.has("mesos_earned"):
 		lines.append("  mesos earned per round " + _range(summary.mesos_earned))
 	if summary.has("equips_dropped"):

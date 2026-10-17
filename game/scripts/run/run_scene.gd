@@ -147,6 +147,8 @@ var mob_layers := PackedInt32Array()
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
+## The pet out (spec #34, #120); null without one. Drawn in the actor layer it stands in, behind the avatar.
+var pet_renderer: PetRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
 var numbers: DamageNumbers
@@ -185,6 +187,7 @@ var _kind_names := PackedStringArray()
 var _slot_layers := PackedInt32Array()
 var _base_layer := 0
 var _player_layer := -1
+var _pet_layer := -1
 var _top: Node2D
 var _tag_source: _TagSource
 ## Waiting window request {"kind": "job"/"cards", ...} and the presentation delay before it opens.
@@ -254,6 +257,21 @@ var _perf_on := false
 var _perf_refresh := 0.0
 var _perf_lines := PackedStringArray()
 var _perf_canvas: Node2D
+## File name of the tool account file (--account) this run applied; "" without one.
+var _account_name := ""
+
+
+## options.account (spec #34): an absolute JSON path (--account, tool rounds) or an already normalised account
+## Dictionary (Flow). Returns {account: normalised Dictionary or {} when none, errors, name: the file name for a path,
+## else ""}. A missing or malformed file is an error, never an empty account.
+static func account_from_options(p_options: Dictionary) -> Dictionary:
+	var errors := PackedStringArray()
+	if not p_options.has("account"):
+		return {"account": {}, "errors": errors, "name": ""}
+	if p_options.account is Dictionary:
+		return {"account": p_options.account, "errors": errors, "name": ""}
+	var path := String(p_options.account)
+	return {"account": AccountFile.load_file(path, errors), "errors": errors, "name": path.get_file()}
 
 
 ## Sets the stage, seed (-1 = random) and options; call before adding the scene to the tree.
@@ -310,6 +328,18 @@ func _ready() -> void:
 		setup_missing, character)
 	for m in setup_missing:
 		push_warning("RunScene: missing in the asset cache: " + m)
+	var tool_account := account_from_options(options)
+	if not tool_account.errors.is_empty():
+		_fail("; ".join(tool_account.errors))
+		return
+	if not tool_account.account.is_empty():
+		AccountFile.apply(setup, tool_account.account)
+		_account_name = String(tool_account.name)
+	# A persistent round's ALERT levels come from the player's settings (SceneFlow hands them over and the Options
+	# window follows them, see _on_settings_changed); a tool round has no such option and keeps its account's levels.
+	var live_alert: Variant = options.get("settings_alert")
+	if live_alert is Dictionary:
+		setup["alert"] = (live_alert as Dictionary).duplicate()
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -583,6 +613,10 @@ func _build_actors() -> void:
 	avatar.name = "Player"
 	avatar.library = library
 	player_group.add_child(avatar)
+	if world.pet_system != null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
 
 
 ## The top container, drawn after every actor layer's content: shots, monster balls, effects, numbers and name tags.
@@ -672,6 +706,7 @@ func _build_ui_windows() -> void:
 ## world's events are mapped at once, the run being held); the windows' messages go to the HUD (InventoryWiring).
 func _on_item_action(_action: String) -> void:
 	handle_events(world.drain_events())
+	_sync_pet()
 	_refresh_inventory_windows()
 
 
@@ -689,6 +724,22 @@ func _refresh_inventory_windows() -> void:
 		sw.set_info(stat_info())
 
 
+## Draws the pet the world has out now: brought out from the Equip window's Pet page it appears at once beside the
+## player, a different one replaces it, and none removes it (#122).
+func _sync_pet() -> void:
+	if world.pet_system == null:
+		if pet_renderer != null:
+			pet_renderer.queue_free()
+			pet_renderer = null
+			_pet_layer = -1
+		return
+	if pet_renderer == null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
+	_update_pet(0.0)
+
+
 ## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
 ## movement-set switch in Options), and the HUD redraws with them at once, even while the run is held.
 func watch_settings(s: GameSettings) -> void:
@@ -699,6 +750,9 @@ func watch_settings(s: GameSettings) -> void:
 
 
 func _on_settings_changed() -> void:
+	# A persistent round follows the ALERT levels live (tool rounds never read the settings).
+	if world != null and settings != null and options.get("settings_alert") is Dictionary:
+		world.set_alert(settings.alert_levels())
 	_teleport_label = _first_key_label("teleport")
 	if hud == null or world == null:
 		return
@@ -740,7 +794,7 @@ func _sync_modal_input() -> void:
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
-			EquipWindow.ART + "backgrnd", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
+			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
 	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
 	if npc > 0:
@@ -986,7 +1040,10 @@ func handle_events(events: Array) -> void:
 					_frame_mesos += int(e.count)
 				elif String(e.get("kind", "")) == "equip":
 					_frame_items.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
-			"potion_used":
+			"pet_teleported":
+				if pet_renderer != null:
+					pet_renderer.snap()
+			"potion_used", "pet_potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
 			"level_up":
@@ -1096,10 +1153,12 @@ func _on_job_changed(job_id: int) -> void:
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## Draws the carried look with the live worn equipment (the only source of what is drawn). Never reads
-## world.character_snapshot(), which refuses while a choice is pending (job advancement is drawn mid-choice).
+## Draws the carried look with the live worn equipment (the only source of what is drawn) and the round's owned cash
+## equipment over it. Never reads world.character_snapshot(), which refuses while a choice is pending (job
+## advancement is drawn mid-choice).
 func _apply_look() -> void:
-	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data))
+	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data,
+		world.worn_cash))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
@@ -1341,6 +1400,7 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_player(delta)
+	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
 	var boss_actions := world.bosses.action_snapshot(world.swarm)
 	for i in mob_renderers.size():
@@ -1433,6 +1493,25 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+
+
+## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
+## hangs on a rope or is in the air), just behind the avatar when that is the avatar's layer.
+func _update_pet(delta: float) -> void:
+	if pet_renderer == null:
+		return
+	var pet := world.pet_system
+	var layer := _player_layer if pet.action == "hang" or _pet_layer < 0 else _pet_layer
+	if pet.action != "hang" and pet.motion.fh >= 0:
+		layer = world.fhm.layer[pet.motion.fh]
+	pet_renderer.show_state(world.pet_state(), delta)
+	var c := map.actor_layer(layer)
+	if layer != _pet_layer or pet_renderer.get_parent() != c:
+		_pet_layer = layer
+		if pet_renderer.get_parent() != null:
+			pet_renderer.get_parent().remove_child(pet_renderer)
+		c.add_child(pet_renderer)
+		c.move_child(pet_renderer, player_group.get_index() if player_group.get_parent() == c else 0)
 
 
 ## Moves the player, its behind-effects and the drops into actor layer `layer` (drawn with that foothold layer):
@@ -1582,6 +1661,8 @@ func build_summary() -> Dictionary:
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
+		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
+		"nx_awarded": world.nx_awarded(),
 	}
 
 
@@ -1648,7 +1729,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 	s.sort()
 	var pr := _present_us.duplicate()
 	pr.sort()
-	return {
+	var out := {
 		"summary": summary, "frames": s.size(), "frame_ms": {"p50": _pct(s, 0.5), "p95": _pct(s, 0.95),
 			"p99": _pct(s, 0.99), "max": s[s.size() - 1] if not s.is_empty() else 0.0, "avg": _avg(s)},
 		"frame_work_us": {"p50": _pct(pr, 0.5), "p95": _pct(pr, 0.95), "avg": _avg(pr)},
@@ -1659,6 +1740,12 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}
+	if _account_name != "":
+		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
+	if world.pet_system != null:
+		out["pet"] = {"species": world.pet_system.species, "pickups": world.pet_system.pickups,
+			"potions_used": world.potions.pet_used.duplicate()} # #119: pet drinks and pickups, apart from the player's
+	return out
 
 
 ## Frame-time percentiles per run minute with the mean / max alive mobs of those frames.

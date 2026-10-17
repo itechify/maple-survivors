@@ -24,7 +24,13 @@ extends Node
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
 ## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
-## damage_dealt, skills: [{key, name, icon, rank}], seed}; persistent endings add ending and tiers_cleared.
+## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent endings
+## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
+## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,
+## Quit round and deletion never credit it.
+## Cash Shop (#118 seam for #122/#126): goto_cash_shop(origin) opens the v83 shop as the active character from the
+## boundary screen it names ("stage_select" or "free_market"; no-op without a living character) and leave_cash_shop()
+## returns to that origin. The saved boundary phase is untouched while shopping. Purchases are CashShop.buy on save_data().
 ## start_hub(request) is the tool-only `--hub` (HubTestKit): a throwaway save, a test kit and the real Free Market.
 ## Tests may inject save/host and set deferred_swaps=false. The autoload does nothing until explicitly called.
 
@@ -38,6 +44,7 @@ const RESULTS := "res://scenes/ui/results_screen.tscn"
 const IMPORT := "res://scenes/ui/import_screen.tscn"
 const RUN := "res://scenes/run/run_scene.tscn"
 const FREE_MARKET := "res://scenes/run/free_market.tscn"
+const CASH_SHOP := "res://scenes/ui/cash_shop.tscn"
 ## Run option names for the command-line flags (others pass through with "-" -> "_").
 const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after"}
 const BOOL_OPTIONS := ["autoplay", "autopick"]
@@ -54,6 +61,9 @@ var current_name := ""
 var deferred_swaps := true
 ## Local saves; created on first persistent/menu use (tests may assign their own).
 var save: SaveData
+## The Settings that persistent rounds take their HP / MP ALERT levels from and follow live (spec #34, #121); null =
+## the Settings autoload when this node is in the tree (tests may assign their own).
+var settings: GameSettings
 ## Living character slot, or -1 for tools and ended runs.
 var active_slot := -1
 ## User-facing validation or persistence error from the last character action.
@@ -164,6 +174,27 @@ func goto_stage_select() -> void:
 	_swap_to(screen, "stage_select")
 
 
+## Opens the Cash Shop for the active character; `origin` ("stage_select" or "free_market") is where Leave returns.
+func goto_cash_shop(origin: String) -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty() or origin not in ["stage_select", "free_market"]:
+		return
+	var screen := _instance(CASH_SHOP)
+	screen.configure(snapshot, self, origin)
+	_swap_to(screen, "cash_shop")
+
+
+## Leaves the Cash Shop for the screen it was opened from (map select unless it was opened from the Free Market).
+func leave_cash_shop(origin: String) -> void:
+	var snapshot := save_data().slot(active_slot)
+	if snapshot.is_empty():
+		goto_character_select()
+	elif origin == "free_market" and snapshot.phase == "free_market":
+		_open_free_market(snapshot)
+	else:
+		goto_stage_select()
+
+
 ## Ordered stage keys per tier, from survivor data; works for any number of tiers.
 static func tiers() -> Array:
 	return DataRepo.load_all().get("stages", {}).get("tiers", [])
@@ -262,13 +293,26 @@ func save_and_quit() -> void:
 
 
 func _resume_round(snapshot: Dictionary) -> void:
-	var options := {"character": snapshot.character, "name": snapshot.name}
+	var live := _live_settings()
+	# The account's owned cash items decide which of the character's worn cash equipment and pet count (spec #34).
+	var options := {"character": snapshot.character, "name": snapshot.name, "account": save_data().account}
+	if live != null:
+		options["settings_alert"] = live.alert_levels()
 	if autoplay:
 		options["autoplay"] = true
-	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options)
+	_launch_round(String(snapshot.stage), int(snapshot.round_seed), options, live)
 
 
-func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
+## The Settings a persistent round follows: `settings`, else the Settings autoload (null outside the tree).
+func _live_settings() -> GameSettings:
+	if settings != null:
+		return settings
+	if not is_inside_tree():
+		return null
+	return get_node_or_null("/root/Settings") as GameSettings
+
+
+func _launch_round(stage_key: String, p_seed: int, options: Dictionary, live: GameSettings = null) -> void:
 	last_stage = stage_key
 	if p_seed < 0:
 		p_seed = make_seed()
@@ -282,6 +326,8 @@ func _launch_round(stage_key: String, p_seed: int, options: Dictionary) -> void:
 		return
 	if run.has_method("configure"):
 		run.configure(stage_key, p_seed, options)
+	if live != null and run is RunScene:
+		(run as RunScene).settings = live
 	_swap_to(run, "run")
 
 
@@ -327,21 +373,22 @@ func finish_run(summary: Dictionary, character: Dictionary = {}) -> void:
 	_swap_to(results, "results")
 
 
-## Saves the carried non-final boundary before entering the Free Market.
+## Saves the carried non-final boundary (and the round's NX, in the same write) before entering the Free Market.
 func _after_round_cleared(snapshot: Dictionary) -> void:
 	snapshot.phase = "free_market"
 	if save_data().update_slot(active_slot, snapshot, last_summary) != OK:
 		_swap_to(error_screen("Could not save the cleared round."), "error")
 		return
-	_open_free_market(snapshot)
+	var nx := int(last_summary.get("nx_awarded", 0))
+	_open_free_market(snapshot, "You have gained %d NX." % nx if nx > 0 else "")
 
 
-func _open_free_market(snapshot: Dictionary) -> void:
+func _open_free_market(snapshot: Dictionary, notice: String = "") -> void:
 	var screen := _instance(FREE_MARKET)
 	var options := {"autoplay": autoplay}
 	if hub_tool:
 		options["spawn_x"] = HubTestKit.spawn_x(DataRepo.load_all().get("shops", {}))
-	screen.configure(snapshot, self, options)
+	screen.configure(snapshot, self, options, notice)
 	_swap_to(screen, "free_market")
 
 
