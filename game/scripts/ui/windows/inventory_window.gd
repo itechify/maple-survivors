@@ -119,13 +119,13 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 	var id := int(instance.get("id", 0))
 	var tip := InventoryModel.tooltip(instance, info_of(id), character_totals(), item_name(id))
 	tip["icon"] = InventoryModel.icon_path(id)
-	tip["desc"] = UiArt.text(InventoryModel.desc_path(id)).replace("\\n", "\n")
+	tip["desc"] = InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id)))
 	return tip
 
 
 ## The tooltip data of a Use item (potion, scroll): name, description, icon.
 func use_tooltip(id: int) -> Dictionary:
-	return {"name": item_name(id), "desc": UiArt.text(InventoryModel.desc_path(id)).replace("\\n", "\n"),
+	return {"name": item_name(id), "desc": InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id))),
 		"icon": InventoryModel.icon_path(id)}
 
 

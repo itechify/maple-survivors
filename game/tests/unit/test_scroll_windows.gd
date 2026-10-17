@@ -68,6 +68,14 @@ func _drag_scroll(made: Array, id: int, slot: String) -> void:
 	IW.drag_to(iw, iw.slot_rect(index).get_center(), ew.position + ew.slot_rect(slot).get_center())
 
 
+func test_descriptions_get_their_line_breaks_and_the_dark_scroll_break_is_repaired() -> void:
+	assert_eq(InventoryModel.clean_desc("Improves magic on wand.\\nSuccess rate:100%, magic attack+1"),
+		"Improves magic on wand.\nSuccess rate:100%, magic attack+1")
+	assert_eq(InventoryModel.clean_desc("Success rate:30%, magic def.+1nIf failed, the item will be destroyed at a 50% rate."),
+		"Success rate:30%, magic def.+1\nIf failed, the item will be destroyed at a 50% rate.")
+	assert_eq(InventoryModel.clean_desc("Nothing to change"), "Nothing to change")
+
+
 func test_dragging_a_scroll_onto_a_worn_item_reads_it() -> void:
 	var world := _world({"2040400": 2})
 	var made := _windows(world)

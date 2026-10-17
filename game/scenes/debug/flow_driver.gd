@@ -47,6 +47,14 @@ extends Node
 ##           put back, Save & quit shows the dressed character on character select. Shots: equip_window,
 ##           item_windows, item_tooltip, item_tooltip_unmet, equip_refused, equip_worn, character_dressed,
 ##           drop_confirm, item_use_tab, hub_windows, hub_hat_off, hub_dressed, character_select_dressed.
+##   scrolls scrolls on worn equipment (#110): the Lv38 F/P fixture holds three 100% wand scrolls, six 10% and thirty
+##           dark 30% wand scrolls and two 100% hat scrolls, wears Metal Gear -> run; E and I, the Use tab; a 100%
+##           scroll is dragged from the Use tab onto the Wooden Wand (Enchant Success plays, the stats and counts
+##           follow, the tooltip shows the new upgrade slots), then 10% scrolls until one fails (Enchant Failure, only
+##           the slot is spent), then dark scrolls until the wand is destroyed (the character is bare-handed); the slot
+##           moves to the Free Market and Continue opens the
+##           hub: a hat scroll is dragged onto Metal Gear there (effect, saved slot). Shots: scroll_use_tab,
+##           scroll_success, scroll_tooltip, scroll_failure, scroll_destroyed, scroll_bare_handed, hub_scroll_success.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -107,6 +115,8 @@ func _ready() -> void:
 			_scenario_keys()
 		"inventory":
 			_scenario_inventory()
+		"scrolls":
+			_scenario_scrolls()
 		"full":
 			_scenario_full()
 		_:
@@ -1012,6 +1022,145 @@ func _scenario_inventory() -> void:
 	await _shot("character_select_dressed")
 	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
 	print("flow_driver: inventory scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## Scrolling (#110) in a round and in the Free Market: real drags from the Use tab onto the worn item.
+func _scenario_scrolls() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Scroll110"):
+		return
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
+		_fail("the Lv38 F/P fixture did not load")
+		return
+	var lib := AssetLibrary.get_default()
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = fixture
+	character.erase("_doc")
+	var hat_img := lib.img(AvatarRenderer.part_img_path(1002001))
+	character.equipment.worn["hat"] = Equipment.create(1002001, hat_img.root.get("info", {}) if hat_img != null else {})
+	character.scrolls = {"2043700": 3, "2043702": 6, "2043705": 30, "2040000": 2}
+	slot.character = character
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the fixture character was saved into the slot")
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	await _key(KEY_E)
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null, 3.0, "Item window (I)"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	var io := iw.get_global_rect().position
+	var eo := ew.get_global_rect().position
+	await _click_at(io + iw.tab_rect(1).get_center())
+	await _sleep(0.3)
+	_check(iw.tab == 1, "the Use tab is shown")
+	var ids := iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	_check(2043700 in ids and 2043705 in ids and 2040000 in ids, "the Use tab holds the scroll stacks (%s)" % [ids])
+	_hover(io + iw.slot_rect(ids.find(2043705)).get_center())
+	await _sleep(0.4)
+	await _shot("scroll_use_tab")
+	var world := run.world
+	var m_before := int(world.equipment.worn.weapon.stats.get("incMAD", 0))
+	var slots_before := int(world.equipment.worn.weapon.slots)
+	var t0 := world.time
+	await _drag(io + iw.slot_rect(ids.find(2043700)).get_center(), eo + ew.slot_rect("weapon").get_center())
+	_check(int(world.scrolls.get("2043700", 0)) == 2, "the 100% scroll was used up")
+	_check(int(world.equipment.worn.weapon.stats.get("incMAD", 0)) == m_before + 1, "M.ATT +1 from the 100% scroll")
+	_check(int(world.equipment.worn.weapon.slots) == slots_before - 1 and int(world.equipment.worn.weapon.scrolls) == 1,
+		"one upgrade slot spent, one scroll counted")
+	_check(run.enchant.renderer.active_count() == 1, "the Enchant effect plays over the character")
+	await _shot("scroll_success")
+	_hover(eo + ew.slot_rect("weapon").get_center())
+	await _sleep(0.5)
+	var tip := ew.tooltip()
+	_check(int(tip.get("slots", -1)) == slots_before - 1 and int(tip.get("scrolls", -1)) == 1,
+		"the tooltip shows the new upgrade slots and scroll count")
+	await _shot("scroll_tooltip")
+	_check(world.time == t0, "the sim held the whole time")
+	# Plain 10% scrolls until one fails (the slot is spent, the wand stays), then dark 30% scrolls until the wand is
+	# destroyed.
+	var failed_shot := false
+	for attempt in 6:
+		var scrolls_before := int(world.equipment.worn.weapon.scrolls)
+		var slots_left := int(world.equipment.worn.weapon.slots)
+		var plain := iw.cells().map(func(c: Dictionary) -> int: return int(c.id)).find(2043702)
+		await _drag(io + iw.slot_rect(plain).get_center(), eo + ew.slot_rect("weapon").get_center())
+		var plain_failed: bool = int(world.equipment.worn.weapon.scrolls) == scrolls_before
+		print("flow_driver: 10%% scroll %d: %s" % [attempt + 1, "failure" if plain_failed else "success"])
+		if plain_failed:
+			_check(world.equipment.worn.has("weapon") and int(world.equipment.worn.weapon.slots) == slots_left - 1,
+				"a failed plain scroll spends only the slot")
+			failed_shot = true
+			await _shot("scroll_failure")
+			break
+		await _sleep(1.2)
+	_check(failed_shot, "a 10 percent scroll failed within six tries")
+	for attempt in 6:
+		if not world.equipment.worn.has("weapon") or int(world.equipment.worn.weapon.slots) <= 0:
+			break
+		var dark := iw.cells().map(func(c: Dictionary) -> int: return int(c.id)).find(2043705)
+		await _drag(io + iw.slot_rect(dark).get_center(), eo + ew.slot_rect("weapon").get_center())
+		var destroyed: bool = not world.equipment.worn.has("weapon")
+		print("flow_driver: dark scroll %d: %s" % [attempt + 1, "destroyed" if destroyed else "survived"])
+		if destroyed:
+			await _shot("scroll_destroyed")
+			break
+		await _sleep(1.2)
+	_check(not world.equipment.worn.has("weapon"), "the wand was destroyed by a failed dark scroll")
+	_check(world.weapon_id() == 0 and world.weapon_attack() == 0.0, "the character is bare-handed")
+	await _sleep(1.5)
+	await _shot("scroll_bare_handed")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	var kills_before := world.kills
+	await _sleep(6.0)
+	_check(world.time > t0, "the run goes on after the windows closed")
+	print("flow_driver: kills %d -> %d while bare-handed" % [kills_before, world.kills])
+	_collect_missing(run)
+	# The Free Market: a 100% hat scroll onto Metal Gear.
+	var carried := world.character_snapshot()
+	slot = flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
+	flow.continue_character(flow.active_slot)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.4)
+	var hew := hub.ui_windows.find_window("equip") as EquipWindow
+	var hiw := hub.ui_windows.find_window("item") as ItemWindow
+	if hew == null or hiw == null:
+		_fail("the hub's windows did not open")
+		return
+	await _click_at(hiw.get_global_rect().position + hiw.tab_rect(1).get_center())
+	await _sleep(0.3)
+	var hub_ids := hiw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	var hat_slot_before := int(flow.save.slot(flow.active_slot).character.equipment.worn.hat.slots)
+	await _drag(hiw.get_global_rect().position + hiw.slot_rect(hub_ids.find(2040000)).get_center(),
+		hew.get_global_rect().position + hew.slot_rect("hat").get_center())
+	_check(hub.enchant.renderer.active_count() == 1, "the hub plays the Enchant effect")
+	var saved: Dictionary = flow.save.slot(flow.active_slot).character
+	_check(int(saved.scrolls.get("2040000", 0)) == 1 and int(saved.equipment.worn.hat.slots) == hat_slot_before - 1
+		and int(saved.equipment.worn.hat.scrolls) == 1, "the hub saved the scrolled hat and the used scroll")
+	await _shot("hub_scroll_success")
+	_collect_missing(hub)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	print("flow_driver: scrolls scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 

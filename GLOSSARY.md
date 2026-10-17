@@ -197,6 +197,10 @@ A v83 item that, used on a piece of equipment, tries to add stats with its succe
 uses up one of that equipment's upgrade slots.
 _Avoid_: Enchant, upgrade (in player-visible text), rune
 
+**Dark scroll**:
+A scroll (70% or 30%) whose failure can also destroy the equipment it was used on, at the scroll's own curse rate (50%).
+Plain scrolls only ever spend the upgrade slot.
+
 **Upgrade slot**:
 One of a piece of equipment's limited chances to be scrolled; each scroll used on it spends one, pass or fail.
 _Avoid_: Slot (on its own; that means an equip slot), tuc

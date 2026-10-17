@@ -251,6 +251,17 @@ Longcoats), 1050035 (Brown Starlight) and 1082002 (Work Gloves), so the Cap, Lon
 and the evidence character can wear a hat, an overall and gloves. Equipment names come from `String.wz/Eqp.img`
 (`Eqp/<Character.wz folder>/<id>`), use items from `Consume.img/<id>` (InventoryModel.string_path).
 
+## Scrolls (#110)
+
+The manifest adds whole `Item.wz/Consume/0204.img` (the scrolls: `info/success`, `info/cursed` for the dark ones, the
+`inc*` stats and the icons; 754 entries, only the ids in `game/data/survivor/scrolls.json` are used) and
+`Enchant` to the `Effect.wz/BasicEff.img` paths (`Enchant/Success` and `Enchant/Failure`, 21 and 16 frames at 50 ms).
+`Sound.wz/Game.img` (`EnchantSuccess`, `EnchantFailure`) and `String.wz/Consume.img` (scroll names and descriptions)
+were already whole. No scroll in the 0204 img carries `info/slotMax`; stacks use 100. `DataRepo.scroll_info` copies
+only the numbers a scroll needs (`success`, `cursed`, `slotMax`, `inc*`) into `setup.scroll_info` ({id: info}); a
+roster scroll absent from the cache is listed in `missing`. After pulling this change re-import
+(`scripts/import.sh`) so the Item.wz and Enchant entries appear.
+
 ## Second-job asset expansion (#53)
 
 The manifest exports whole `Skill.wz/210.img`, `220.img` and `230.img`, including canonical tables, icons and effects
