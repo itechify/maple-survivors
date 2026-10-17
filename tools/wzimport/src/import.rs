@@ -2,13 +2,17 @@
 
 use crate::cache::{self, CacheIndex, ImgEntry, SourceStamp, Stats, CACHE_FORMAT};
 use crate::error::{Result, WzError};
-use crate::export::{export_img, write_file, ExportOutcome};
+use crate::export::{export_img_to, ExportOutcome};
 use crate::manifest::{expand, Manifest};
+use crate::sink::{self, FileSink, Sink};
+use crate::source::{HostBound, NamedSources};
 use crate::wzroot::{WzPath, WzRoot};
 use crate::IMPORTER_VERSION;
+#[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Instant, SystemTime};
 
 /// Inputs of an import run.
@@ -43,43 +47,123 @@ pub fn run_import(opts: &ImportOptions) -> Result<ImportReport> {
     let t0 = Instant::now();
     let text = std::fs::read_to_string(&opts.manifest).map_err(|e| WzError::io(&opts.manifest, e))?;
     let manifest = Manifest::parse(&text).map_err(WzError::Other)?;
-    if !opts.wz.is_dir() {
-        return Err(WzError::Other(format!("{}: not a folder", opts.wz.display())));
+    let wz = if opts.wz.is_dir() {
+        WzRoot::new(&opts.wz)
+    } else if opts.wz.is_file() {
+        let file = std::fs::File::open(&opts.wz).map_err(|e| WzError::io(&opts.wz, e))?;
+        WzRoot::from_sources(crate::zip::zip_sources(std::sync::Arc::new(file))?)
+    } else {
+        return Err(WzError::Other(format!("{}: not a folder or zip", opts.wz.display())));
+    };
+    let sink = FileSink::new(&opts.out);
+    let prev = if opts.force || !opts.wz.is_dir() {
+        None
+    } else {
+        cache::load(&opts.out)
+    };
+    let context = Context {
+        prev,
+        out: Some(&opts.out),
+        label: opts.wz.to_string_lossy().replace('\\', "/"),
+        created: cache::iso8601(SystemTime::now()),
+        timer: Some(t0),
+    };
+    execute(&wz, &manifest, &sink, &|_: &str, _, _| Ok(()), context)
+}
+
+/// Progress at the img boundary; done/total count completed img jobs, including failures/skips.
+pub trait Progress: HostBound {
+    fn update(&self, file: &str, done: usize, total: usize) -> Result<()>;
+}
+impl<F: Fn(&str, usize, usize) -> Result<()> + HostBound> Progress for F {
+    fn update(&self, file: &str, done: usize, total: usize) -> Result<()> {
+        self(file, done, total)
     }
-    std::fs::create_dir_all(&opts.out).map_err(|e| WzError::io(&opts.out, e))?;
-    let wz = WzRoot::new(&opts.wz);
-    let plan = expand(&manifest, &wz);
+}
+
+/// Import a named source through host boundaries. Reproducible index metadata (empty label/date, zero
+/// seconds, mtime zero) needs no host clock. Imports are fresh; the host owns replacement/cleanup.
+pub fn import_sources(
+    sources: NamedSources,
+    manifest_json: &str,
+    sink: &dyn Sink,
+    progress: &dyn Progress,
+) -> Result<ImportReport> {
+    let manifest = Manifest::parse(manifest_json).map_err(WzError::Other)?;
+    execute(
+        &WzRoot::from_sources(sources),
+        &manifest,
+        sink,
+        progress,
+        Context {
+            prev: None,
+            out: None,
+            label: String::new(),
+            created: String::new(),
+            timer: None,
+        },
+    )
+}
+
+struct Context<'a> {
+    prev: Option<CacheIndex>,
+    out: Option<&'a Path>,
+    label: String,
+    created: String,
+    timer: Option<Instant>,
+}
+
+fn execute(
+    wz: &WzRoot,
+    manifest: &Manifest,
+    sink: &dyn Sink,
+    progress: &dyn Progress,
+    context: Context<'_>,
+) -> Result<ImportReport> {
+    wz.require_archives(manifest)?;
+    let plan = expand(manifest, wz);
+    wz.check_missing()?;
     let mut warnings = plan.warnings.clone();
     let mut errors = plan.errors.clone();
-
-    let prev = if opts.force { None } else { cache::load(&opts.out) };
-    let prev = prev.filter(|p| p.format == CACHE_FORMAT && p.importer == IMPORTER_VERSION);
-
-    let mut sources: BTreeMap<String, SourceStamp> = BTreeMap::new();
+    sink.create_dir("")?;
+    let prev = context
+        .prev
+        .filter(|p| p.format == CACHE_FORMAT && p.importer == IMPORTER_VERSION);
+    let mut sources = BTreeMap::new();
     for img in plan.imgs.keys() {
         if let Some(p) = WzPath::parse(img) {
-            if !sources.contains_key(&p.archive) {
-                if let Some(s) = cache::stamp(&wz.archive_path(&p.archive)) {
-                    sources.insert(p.archive.clone(), s);
-                }
+            if let Some(stamp) = wz.source_stamp(&p.archive) {
+                sources.insert(p.archive, stamp);
             }
         }
     }
-
     let jobs: Vec<(&String, &crate::manifest::ImgRequest)> = plan.imgs.iter().collect();
-    let results: Vec<(String, JobResult)> = jobs
-        .par_iter()
+    let done = AtomicUsize::new(0);
+    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
+    let iter = jobs.par_iter();
+    #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
+    let iter = jobs.iter();
+    let results: Vec<(String, JobResult)> = iter
         .map(|(img, req)| {
             let archive = WzPath::parse(img).map(|p| p.archive).unwrap_or_default();
             let paths = req.output_paths();
-            if let Some(entry) = prev.as_ref().and_then(|p| up_to_date(p, img, &archive, &paths, &sources, &opts.out)) {
+            if let Some(entry) = context.out.and_then(|out| {
+                prev.as_ref()
+                    .and_then(|p| up_to_date(p, img, &archive, &paths, &sources, out))
+            }) {
                 return (img.to_string(), JobResult::Skipped(entry));
             }
-            match export_img(&wz, img, req, &opts.out) {
+            match export_img_to(wz, img, req, sink) {
                 Ok(o) => (img.to_string(), JobResult::Written(Box::new(o))),
                 Err(e) => (img.to_string(), JobResult::Failed(format!("{img}: {e}"))),
             }
         })
+        .map(
+            |(img, result)| match progress.update(&img, done.fetch_add(1, Ordering::Relaxed) + 1, jobs.len()) {
+                Ok(()) => (img, result),
+                Err(e) => (img, JobResult::Failed(format!("progress: {e}"))),
+            },
+        )
         .collect();
 
     let mut imgs = BTreeMap::new();
@@ -128,18 +212,20 @@ pub fn run_import(opts: &ImportOptions) -> Result<ImportReport> {
         stats.sounds += e.sounds as u64;
         stats.bytes += e.bytes;
     }
-    stats.seconds = (t0.elapsed().as_secs_f64() * 100.0).round() / 100.0;
+    stats.seconds = context
+        .timer
+        .map_or(0.0, |t| (t.elapsed().as_secs_f64() * 100.0).round() / 100.0);
     let index = CacheIndex {
         format: CACHE_FORMAT,
         importer: IMPORTER_VERSION.to_string(),
-        wz_root: opts.wz.to_string_lossy().replace('\\', "/"),
-        created: cache::iso8601(SystemTime::now()),
+        wz_root: context.label,
+        created: context.created,
         sources,
         imgs,
         stats,
     };
     let text = serde_json::to_string_pretty(&index).map_err(|e| WzError::Other(e.to_string()))?;
-    write_file(&opts.out, "cache.json", text.as_bytes())?;
+    sink::write(sink, "cache.json", text.as_bytes())?;
     Ok(ImportReport {
         index,
         written,
