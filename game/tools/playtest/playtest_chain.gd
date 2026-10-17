@@ -24,6 +24,8 @@ var checks: Dictionary
 var sink: Callable
 ## Receives each timeline row (a JSON line with "tier"); invalid: no timeline.
 var write_timeline: Callable
+## Receives each landed player hit (a JSON line with "tier", #99); invalid: no hits file.
+var write_hits := Callable()
 ## Extra per-tick observers added to every round's policy (e.g. the driver's progress lines).
 var extra_observers: Array = []
 ## Called with each round's new policy before the round starts (hook: e.g. personality params, #97); may be invalid.
@@ -98,7 +100,10 @@ func _round_policy(tier_index: int, round_seed: int) -> POLICY:
 	var tier := tier_index + 1
 	var tl := TIMELINE.new(p, func(line: String) -> void:
 		if write_timeline.is_valid():
-			write_timeline.call("{\"tier\":%d,%s" % [tier, line.substr(1)]))
+			write_timeline.call("{\"tier\":%d,%s" % [tier, line.substr(1)]),
+		func(line: String) -> void:
+			if write_hits.is_valid():
+				write_hits.call("{\"tier\":%d,%s" % [tier, line.substr(1)]))
 	timelines.append(tl) # a Callable does not keep its RefCounted object alive
 	p.observers.append(tl.observe)
 	p.observers.append(fingerprint.observe)

@@ -18,7 +18,7 @@ extends SceneTree
 ## --minutes caps the round's simulated time (TIMEOUT at the cap; 0 = the stage's own run_time_cap).
 ## Deterministic invariants (playtest_invariants.gd) watch every tick and decision; each new finding is streamed as a
 ## protocol `finding` line and the de-duplicated list rides in `end`. --out writes timeline.jsonl (one row per run
-## second, playtest_timeline.gd) into that directory. --stuck-px / --stuck-s set the stuck detector's box and window.
+## second, playtest_timeline.gd) and hits.jsonl (one line per landed player hit, #99) into that directory. --stuck-px / --stuck-s set the stuck detector's box and window.
 ## --inject-finding (test only) reports one finding of that kind at INJECT_AT run seconds, to show the reporting path
 ## end to end. Missing assets at setup stay an infrastructure error (`error` cache_missing), as in #93.
 ## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
@@ -150,9 +150,13 @@ func _init() -> void:
 			_fail(link, "bad_args", "cannot write %s (%s)" % [out_dir.path_join("timeline.jsonl"),
 				error_string(FileAccess.get_open_error())])
 			return
+	var hits_file := _open_hits(out_dir)
 	var timeline := TIMELINE.new(policy, func(line: String) -> void:
 		if timeline_file != null:
-			timeline_file.store_line(line))
+			timeline_file.store_line(line),
+		func(line: String) -> void:
+			if hits_file != null:
+				hits_file.store_line(line))
 	policy.observers.append(timeline.observe)
 	var fp := FINGERPRINT.new()
 	policy.observers.append(fp.observe)
@@ -166,6 +170,8 @@ func _init() -> void:
 			record["tier"] = tier_index + 1
 	if timeline_file != null:
 		timeline_file.close()
+	if hits_file != null:
+		hits_file.close()
 	var fingerprint := FINGERPRINT.of_round(policy, world, record, fp)
 	link.send(PROTOCOL.end(record, fingerprint, policy.decisions, link.lost, invariants.results()))
 	print(BR.describe(record))
@@ -214,11 +220,17 @@ func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String
 		func(line: String) -> void:
 			if timeline_file != null:
 				timeline_file.store_line(line))
+	var hits_file := _open_hits(out_dir)
+	chain.write_hits = func(line: String) -> void:
+		if hits_file != null:
+			hits_file.store_line(line)
 	chain.extra_observers.append(_progress_observer())
 	chain.policy_setup = func(p: Object) -> void: p.configure(params) # the personality applies in every round (#97)
 	var result := chain.play(setups, seed_value)
 	if timeline_file != null:
 		timeline_file.close()
+	if hits_file != null:
+		hits_file.close()
 	var record: Dictionary = result.record
 	record.merge({"seed": seed_value, "stage": stage, "personality": personality, "missing": [],
 		"tier": setups.size()}, true)
@@ -228,6 +240,11 @@ func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String
 	link.send(PROTOCOL.end(record, result.fingerprint, result.decisions, link.lost, result.findings))
 	print(BR.describe(record))
 	quit(0)
+
+
+## hits.jsonl in `out_dir` opened for writing (#99: one line per landed player hit), or null without --out.
+static func _open_hits(out_dir: String) -> FileAccess:
+	return FileAccess.open(out_dir.path_join("hits.jsonl"), FileAccess.WRITE) if out_dir != "" else null
 
 
 ## Reports an infrastructure error (protocol `error` message plus a log line) and exits with code 2.
