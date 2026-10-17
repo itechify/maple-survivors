@@ -17,6 +17,8 @@ export type Opinion = {
 	kind: string; class: "flagged" | "review"; title: string; message: string;
 	/** The model's numbers, as one line ("unfairness 2.6 of 3 (confidence 0.8); ..."). */
 	evidence: string; time?: number; tick?: number;
+	/** The game state around `time`, as one line (an adapter fills it, e.g. from its timeline). */
+	snapshot?: string;
 };
 
 export type ReportContext = {
@@ -44,6 +46,8 @@ export type ReportContext = {
 	evaluations?: { line: string; skipped: boolean };
 	/** --strict-eval: Jev-flagged opinions count toward exit code 1. */
 	strictEval?: boolean;
+	/** The round's outcome in a few words ("DEAD at 5:04, Lv 11"), leading the verdict. */
+	outcome?: string;
 };
 
 /** Renders a finding's state snapshot as Markdown sub-bullets; a game adapter may replace it (setSnapshotFormatter). */
@@ -109,7 +113,7 @@ const CLASS_TEXT = { flagged: "Jev-flagged", review: "needs review" } as const;
 function opinionLines(o: Opinion, i: number, ctx: Pick<ReportContext, "rerun" | "replay" | "windowed">): string[] {
 	const when = whenText(o.time, o.tick);
 	return [`${i + 1}. **${o.title}** (${CLASS_TEXT[o.class]})${when ? ` ${when}` : ""}: ${o.message}`,
-		`   - Jev: ${o.evidence}`, ...commandLines(ctx, o.time)];
+		`   - Jev: ${o.evidence}`, ...(o.snapshot ? [`   - state: ${o.snapshot}`] : []), ...commandLines(ctx, o.time)];
 }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -131,7 +135,7 @@ export function verdictLines(ctx: ReportContext): string[] {
 	const jev = !ctx.evaluations ? "" : ctx.evaluations.skipped ? "; Jev evaluations skipped"
 		: `; Jev: ${flagged.length} flagged, ${review.length} need${review.length === 1 ? "s" : ""} review`;
 	const strict = ctx.strictEval && flagged.length ? " (--strict-eval: Jev-flagged results count)" : "";
-	const verdict = `**Verdict:** ${detText}${jev}; exit code ${ctx.exitCode}${strict}.`;
+	const verdict = `**Verdict:** ${ctx.outcome ? `${ctx.outcome}; ` : ""}${detText}${jev}; exit code ${ctx.exitCode}${strict}.`;
 	const shots = (t: number, what: string) => ctx.windowed ? `\`${ctx.windowed(t)}\` (screenshots at ${what}; then read the entry below)`
 		: ctx.replay ? `\`${ctx.replay}\`` : "";
 	let next: string;

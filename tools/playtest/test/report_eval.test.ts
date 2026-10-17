@@ -55,6 +55,9 @@ test("a DEAD run with a finding: verdict first, then deterministic failures, the
 	const entry = md.split("\n").slice(flagged).join("\n");
 	assert.match(entry, /\*\*death felt unfair\*\* \(Jev-flagged\) at 1:04\.5, tick 3870/);
 	assert.match(entry, /unfairness 2\.6 of 3 \(confidence 0\.8\); avoidable by a careful player: p 0\.15/);
+	assert.match(entry, /- state: PLAYING, Lv 4, HP 20\/100, MP 30\/50, platform 16, tactic aggressive, position \(464, 215\), mobs near 3, bosses 1 \(timeline at 1:04\)/,
+		"each entry carries the game state at its time");
+	assert.match(md.split("\n")[verdict], /^\*\*Verdict:\*\* DEAD at 1:04\.5, Lv 4; PROBLEMS/);
 	assert.match(entry, /windowed replay: `bash scripts\/agent_playtest\.sh --replay=\S+ --windowed --shots-at=64\.5`/);
 	assert.match(md, /- \*\*evaluations:\*\* done: /);
 	const ev = JSON.parse(read(out, "evaluations.json"));
@@ -90,7 +93,8 @@ test("a clean CLEARED run: a clean verdict, metrics with milestones and boss fig
 	const r = await runPlaytest({ ...base, out, env: { TYPESAFE_API_KEY: "k" }, launch: launch("cleared"), jevFetch: jev().fetch });
 	assert.equal(r.exitCode, EXIT.OK);
 	const md = read(out, "report.md");
-	assert.match(md, /\*\*Verdict:\*\* clean: no deterministic problems; Jev: 0 flagged, 0 need review; exit code 0/);
+	assert.match(md, /\*\*Verdict:\*\* CLEARED at 2:30, Lv 16; clean: no deterministic problems; Jev: 0 flagged, 0 need review; exit code 0/,
+		"the outcome leads the verdict");
 	assert.match(md, /\*\*Next:\*\* nothing to fix/);
 	assert.match(md, /## Metrics/);
 	assert.match(md, /Milestones: Lv 8 1:15, Lv 10 1:35, Lv 20 -, Lv 30 -; 1st job \(Magician, 200\) 1:35/);

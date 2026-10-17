@@ -30,7 +30,10 @@ import { createFallbackBrain } from "./personality_fallback.ts";
 import "./report_personality.ts";
 import { runEvaluations, opinionsOf, evaluationsLine } from "./evaluations.ts";
 import type { Evaluations } from "./evaluations.ts";
-import { readRunData } from "./eval_facts.ts";
+import { readRunData, readJsonl } from "./eval_facts.ts";
+import { outcomeOf } from "./report_sections.ts";
+import { runClock } from "../core/report.ts";
+import type { Opinion } from "../core/report.ts";
 import "./report_metrics.ts";
 
 /** The personality's driver params, written into the run directory and passed with --personality-file (#97). */
@@ -178,7 +181,8 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	rec.adopt("hits.jsonl");
 	const evaluation = await evaluate(o, env, dir, session, decisions, problems);
 	rec.json("evaluations.json", evaluation);
-	const opinions = opinionsOf(evaluation);
+	const opinions = withSnapshots(opinionsOf(evaluation), readJsonl(path.join(dir, "timeline.jsonl")));
+	const ended = outcomeOf(session?.end);
 	const flagged = opinions.filter((x) => x.class === "flagged").length;
 	const exitCode = exitCodeFor(errors, problems.length + (o.strictEval ? flagged : 0));
 	const brainLines = o.replay ? pick.header?.(divergence, session) ?? []
@@ -199,6 +203,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 		rerun: rerunCommand(o, repo), replay: replayCommand(o.replay?.dir ?? dir, repo),
 		windowed: (t) => windowedReplayCommand(o.replay?.dir ?? dir, t, repo),
 		opinions, evaluations: { line: evaluationsLine(evaluation), skipped: evaluation.status === "skipped" }, strictEval: o.strictEval,
+		outcome: ended && ended.time !== null ? `${ended.state} at ${runClock(ended.time)}, Lv ${ended.level ?? "?"}` : undefined,
 	};
 	const report = renderReport(ctx);
 	rec.text("report.md", report.markdown);
@@ -232,6 +237,20 @@ export function replayCommand(dir: string, repo: string = REPO): string {
  * (--windowed --shots-at); it is printed as the documented next step, not validated here. */
 export function windowedReplayCommand(dir: string, t: number, repo: string = REPO): string {
 	return `${replayCommand(dir, repo)} --windowed --shots-at=${Math.round(t * 10) / 10}`;
+}
+
+/** `opinions` with the game state at their run time: the last timeline row at or before it (a chain: of its last
+ * tier, the round the evaluations judged). */
+export function withSnapshots(opinions: Opinion[], rows: Array<Record<string, unknown>>): Opinion[] {
+	const tier = Math.max(1, ...rows.map((r) => (typeof r.tier === "number" ? r.tier : 1)));
+	const round = rows.filter((r) => (typeof r.tier === "number" ? r.tier : 1) === tier);
+	return opinions.map((op) => {
+		if (op.time === undefined) return op;
+		const r = [...round].reverse().find((x) => typeof x.time === "number" && x.time <= op.time! + 1e-6) ?? round[0];
+		if (!r) return op;
+		return { ...op, snapshot: `${r.state}, Lv ${r.level}, HP ${r.hp}/${r.max_hp}, MP ${r.mp}/${r.max_mp}, platform ${r.platform}, ` +
+			`tactic ${r.tactic}, position (${r.x}, ${r.y}), mobs near ${r.near}, bosses ${r.bosses} (timeline at ${runClock(Number(r.time))})` };
+	});
 }
 
 /** tier C: Jev requests the evaluations of one run may make (death, pacing, movement need three). */
