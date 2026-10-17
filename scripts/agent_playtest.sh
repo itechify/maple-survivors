@@ -5,11 +5,13 @@
 #
 #   bash scripts/agent_playtest.sh --stage=henesys_hg1 --seed=2026 --minutes=3
 #   bash scripts/agent_playtest.sh --brain=builtin            # the driver answers itself (no pipe)
+#   bash scripts/agent_playtest.sh --inject-finding=stuck     # test only: one fake finding at 0:10 (exit code 1)
 #   bash scripts/agent_playtest.sh --help                     # every flag
 #   ISOLATE=<name> bash scripts/agent_playtest.sh ...         # private project mirror (_scratch/godot_runs/<name>/game)
 #
-# Installs tools/playtest dependencies on first use (npm ci). Exit code: 0 clean, 1 problems found, 2 infrastructure
-# error (Godot missing, cache missing, no end message).
+# Installs tools/playtest dependencies on first use (npm ci). Exit code: 0 clean, 1 deterministic problems found
+# (invariant findings in findings.jsonl, SCRIPT ERROR / ERROR: lines in game.log), 2 infrastructure error (Godot
+# missing, cache missing, no end message, no output for --liveness-s seconds). timeline.jsonl: one row per run second.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 TOOL="$REPO/tools/playtest"
