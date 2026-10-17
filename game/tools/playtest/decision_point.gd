@@ -26,6 +26,11 @@ func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": ""}
 
 
+## Keys this decision adds to the decide's situation (playtest_situation.gd `of`), e.g. the tactic state; {} by default.
+func extra_situation(_w: RunWorld) -> Dictionary:
+	return {}
+
+
 ## Applies option `answer` (one of `options`) in `w` through `policy` (run_policy.gd take_card / take_job).
 func apply(_w: RunWorld, _policy: RUN_POLICY, _answer: String) -> void:
 	pass

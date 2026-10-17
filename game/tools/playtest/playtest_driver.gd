@@ -10,6 +10,8 @@ extends SceneTree
 ##       [--minutes=3] [--brain=stdio|builtin] [--personality=sensible]
 ##
 ## --minutes caps the round's simulated time (TIMEOUT at the cap; 0 = the stage's own run_time_cap).
+## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
+## `tactics` (playtest_policy.gd tactic_summary: seconds, shares, switches, decisions, triggers, log).
 ## Exit code 0 after `end`; 2 after an `error` message (bad arguments, asset cache missing).
 
 const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
@@ -75,7 +77,7 @@ func _init() -> void:
 				w.swarm.alive_count()]))
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
-		"start_character": start_character, "missing": []})
+		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
 			record["tier"] = tier_index + 1
