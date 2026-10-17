@@ -9,6 +9,7 @@ const DT := 1.0 / 60.0
 func test_capped_drops_move_farthest_exp_to_the_new_kill_and_are_collected() -> void:
 	var w := RF.quiet_world(120, 15)
 	w.pickups.tuning.max_active = 2
+	w.balance.mesos.chance = 0.0  # this test counts EXP drops; mesos are covered by test_mesos
 	w.pickups.spawn(Vector2(100, 200), 10, 4000019)
 	w.pickups.spawn(Vector2(1000, 200), 20, 4000019)
 	var mob := RF.put_mob(w, 100100, 110, 200)

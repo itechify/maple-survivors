@@ -37,6 +37,8 @@
 	"portals": {"reach_x": 25, "reach_above": 100, "reach_below": 25, "arrival_lift": 30, "cooldown": 0.384},
 	"magnet_radius": 90,
 	"collect_radius": 24,
+	"_mesos": "Meso drops (#107). Per-mob ranges are survivor data in mobs.json (\"mesos\": [min, max), tier B: v83 server drop data). chance: tier B reference (v83 servers drop a meso entry 40% of the time at rate 1); mult scales every amount, tier C (set once from an estimate: at mult 1 the sensible bot earned 15.0k / 6.0k / 15.0k mesos by its 14:19 / 12:57 / 14:59 deaths on Henesys seeds 1 / 2 / 2026, and the third boss (Blue Mushmom, 4 bundles of 1704-8530, mean about 20k) would add about 20k to a clear, so about 35k per clear at mult 1; 9 gives about 315k, the owner's 300-350k target; see docs/GAME_DESIGN.md 4.2 #107; NX upgrades, #34, may raise it later; it is not tuned further here). boss_drops: tier C, bundles a scheduled boss's death drops, each rolled from its range (bosses always drop, there is no chance roll). fallback: tier C, mobs without a v83 range roll around base + per_level x mob level, low/high x that centre (fitted to the v83 early-roster ranges: level 1 = 4-6, level 22 = 28-42, level 50 = 60-90).",
+	"mesos": {"chance": 0.4, "mult": 9.0, "boss_drops": 4, "fallback": {"base": 4.0, "per_level": 1.5, "low": 0.8, "high": 1.2}},
 	"_magic_defense": "magic damage x (1 - MDD / (MDD + k))",
 	"magic_defense_k": 150,
 	"_mob_speed_factor": "mob move speed px/s = (speed stat + 100) x this x stage speed (MobKind.SPEED_SCALE is the same 0.625; a different value here rescales every mob)",

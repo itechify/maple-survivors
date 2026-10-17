@@ -2658,6 +2658,21 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
 
+| Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Coin sprites | Amount < 50 bronze 09000000, 50-99 gold 09000001, 100-999 bundle 09000002, 1000+ bag 09000003 (`MesoDrops.BRACKETS`) | B | Two third-party client reimplementations |
+| Coin art and frames | `Item.wz/Special/0900.img/<id>/iconRaw/0..3` (no `info` node, no `delay`); item type 9 = `Special` in the importer and `AssetLibrary` | A | v83 Item.wz |
+| Frame time | 100 ms per coin frame | C | Ours (WZ has no delay) |
+| Per-mob amount | `mobs.json` `mesos` [min, max): uniform integer in [min, max); every mob of the three rosters and their bosses except the four 9300xxx event mobs (King Slime 9300003, 9300062-9300064) | B | v83 server drop data (Cosmic `drop_data` rows with itemid 0), used as facts |
+| Fallback amount | Mobs with no v83 range roll around 4 + 1.5 x level, x0.8 to x1.2 (`balance.mesos.fallback`) | C | Ours, fitted to the early-roster ranges |
+| Drop chance | `balance.mesos.chance` 0.4 per kill (elites too) | B | v83 server reference: 40% at rate 1 |
+| Multiplier | `balance.mesos.mult`, one number scaling every amount, set once from an estimate (see 4.2 #107) | C | Owner: about 300-350k mesos per sensible-bot Henesys clear; NX upgrades (#34) may raise it |
+| Boss drops | `balance.mesos.boss_drops` (4) bundles per scheduled boss death, each rolled from its range, no chance roll | C | Ours |
+| Lifetime | Mesos never expire during a round, never merge, never count toward the EXP-drop cap; magnet and collect radius like EXP drops | C | Owner #33 |
+| Pickup sound | `Sound.wz/Game.img/PickUpItem` (v83 Game.img has no separate meso sound; DropItem plays on the drop) | A | v83 Sound.wz |
+| Pickup notice | "You have gained mesos (+N)" in the system-message queue, one sum per frame | B | v83 client string pool 0x12F (open client reimplementations) |
+| Carry | `CharacterSnapshot.mesos` carries across rounds and is lost with the run; the HUD shows no meso total | C | Owner #33 |
+
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
 clickable slots, one selected-character details scroll, and the signboard's single Start/Create/Delete set.

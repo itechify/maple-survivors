@@ -80,6 +80,10 @@ func push_notice(key: String, text: String, life: float = MSG_LIFE) -> void:
 func show_exp(n: int) -> void:
 	system_messages.show_exp(n)
 
+## Shows the collected-mesos notice.
+func show_mesos(n: int) -> void:
+	system_messages.show_mesos(n)
+
 ## Returns currently visible message lines.
 func messages() -> Array[Dictionary]:
 	return system_messages.messages()

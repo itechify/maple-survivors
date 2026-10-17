@@ -40,6 +40,12 @@ func show_exp(n: int) -> void:
 		push_message("+%d EXP" % n)
 
 
+## Shows the v83 meso pickup notice (tier B: client string pool entry 0x12F); nothing for n <= 0.
+func show_mesos(n: int) -> void:
+	if n > 0:
+		push_message("You have gained mesos (+%d)" % n)
+
+
 ## Keeps a timed encounter notice outside the EXP queue; the same encounter replaces its previous notice.
 func push_notice(key: String, text: String, life: float = MSG_LIFE) -> void:
 	_notices = _notices.filter(func(n: Dictionary) -> bool: return n.key != key)

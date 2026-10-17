@@ -167,7 +167,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, accessors `pos(i)`, `is_live(i)`, `is_settled(i)` (live and fully faded in), `mob_kind(i)`, `live_in_rect(area)` (ascending slots), `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray())`, per-shot pierce and already-hit list; optional live defense/immunity arrays are indexed by target slot at impact |
-| `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
+| `PickupSystem` | EXP, potion and meso drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `spawn_meso(pos, amount)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
 | `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `clone()` (an independent copy for previews) |
@@ -280,8 +280,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso), `potion_kind`, `count` (potion bundle or meso amount) |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
@@ -550,6 +550,18 @@ What the tables above leave open; the class doc comments have the rest.
   Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
   Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
   `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
+  **Mesos (#107):** kind `MESO` = 3 (`EQUIP` = 4 is reserved for #109) with `meso[i]` = the amount; `spawn_meso(pos, amount)`
+  picks the coin sprite item from the amount (`MesoDrops.sprite_item`: <50 bronze 09000000, 50-99 gold 09000001, 100-999
+  bundle 09000002, 1000+ bag 09000003). Like potions they never expire, merge or count toward `max_active`. A collected
+  one adds its amount to `step_mesos` (this step; RunWorld adds it to `mesos`) and `collected_mesos` (the round's total),
+  and its `pickup_collected` / `pickup_spawned` events carry `kind` `"meso"` with the amount in `count`.
+- **Mesos:** `MesoDrops` (pure statics) holds the brackets, `amount_range(level, listed, fallback)` and `roll(rng, span,
+  mult)` (uniform in [min, max), times the multiplier). A kill rolls `balance.mesos.chance` on its own RNG stream (9,
+  `meso_rng`), then the amount from `mobs.json` `mesos` (or the level fallback) x `balance.mesos.mult`;
+  a scheduled boss's death drops `balance.mesos.boss_drops` bundles with no chance roll. `RunWorld.spawn_meso(pos, amount)`
+  is the public seam; `RunWorld.mesos` is the carried total (snapshot format 2). PickupRenderer animates the coins
+  (`AssetLibrary.meso_frame_path`: `Item.wz/Special/0900.img/<id>/iconRaw/0..3`, 100 ms a frame); RunScene sums the frame's
+  collected mesos into one "You have gained mesos (+N)" message. The balance record carries `mesos_earned` per round.
 - **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
   `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
   `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
