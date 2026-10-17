@@ -31,7 +31,7 @@ extends Node
 ##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
 ##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
-##           Key Config over the pause menu, the jump icon is dragged from Space onto F, OK; Esc resumes; Space no
+##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
 ##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
 ##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
 ##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
@@ -67,8 +67,9 @@ extends Node
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, Space jump, Q / End potions; E is the Equip window).
-const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_SPACE,
+## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
+## the Equip window).
+const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
 	"drink_hp": KEY_Q, "drink_mp": KEY_END}
 
 var args := {}
@@ -377,7 +378,7 @@ func _scenario_full() -> void:
 	await _shot("run_start")
 	# A few seconds of plain keyboard play before the steering takes over.
 	await _hold(KEY_RIGHT, 1.2)
-	await _key(KEY_SPACE)
+	await _key(KEY_C)
 	await _sleep(0.25)
 	await _shot("run_keyboard_jump")
 	await _hold(KEY_LEFT, 0.8)
@@ -801,25 +802,25 @@ func _scenario_keys() -> void:
 		return
 	await _shot("key_config")
 	var origin := kc.get_global_rect().position
-	await _drag(origin + kc.key_rect(KEY_SPACE).get_center(), origin + kc.key_rect(KEY_F).get_center())
+	await _drag(origin + kc.key_rect(KEY_C).get_center(), origin + kc.key_rect(KEY_F).get_center())
 	await _sleep(0.2)
-	_check(kc.draft.action_on(KEY_F) == "jump" and kc.draft.action_on(KEY_SPACE) == "",
-		"the jump icon moved from Space to F (F: '%s', Space: '%s')" % [kc.draft.action_on(KEY_F),
-		kc.draft.action_on(KEY_SPACE)])
+	_check(kc.draft.action_on(KEY_F) == "jump" and kc.draft.action_on(KEY_C) == "",
+		"the jump icon moved from C to F (F: '%s', C: '%s')" % [kc.draft.action_on(KEY_F),
+		kc.draft.action_on(KEY_C)])
 	_hover(origin + kc.key_rect(KEY_F).get_center())
 	await _sleep(0.3)
 	await _shot("key_config_rebound")
 	await _click(kc._bt_ok)
 	await _sleep(0.4)
 	_check(not run.ui_windows.has_windows(), "OK closed Key Config")
-	_check(KEY_F in settings.binding_keys("jump") and not KEY_SPACE in settings.binding_keys("jump"),
+	_check(KEY_F in settings.binding_keys("jump") and not KEY_C in settings.binding_keys("jump"),
 		"OK applied: jump on %s" % [settings.binding_keys("jump")])
 	await _key(KEY_ESCAPE)
 	await _sleep(0.5)
 	_check(not run.paused, "Esc resumed")
-	# Space no longer jumps, F does.
-	var space_jumped: bool = await _jumps(run, KEY_SPACE)
-	_check(not space_jumped, "Space no longer jumps")
+	# C no longer jumps, F does.
+	var c_jumped: bool = await _jumps(run, KEY_C)
+	_check(not c_jumped, "C no longer jumps")
 	var f_jumped: bool = await _jumps(run, KEY_F)
 	_check(f_jumped, "F jumps")
 	# Menu -> Options, WASD.

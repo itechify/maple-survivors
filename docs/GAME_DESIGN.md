@@ -44,7 +44,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Action | Keys (MapleStory defaults first) |
 |---|---|
 | Move | Left / Right arrows (the movement setting switches to W / A / S / D; only one set moves) |
-| Jump | Left Alt (also Space, C) |
+| Jump | Left Alt (also C; Space is NPC Chat, as in v83) |
 | Climb ladder/rope | Up / Down near a ladder |
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
@@ -55,6 +55,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
 | Equip window | E (also Menu -> Equip; in the Free Market too): double-click a worn item to take it off, drag it onto the Item window likewise |
 | Item window | I (also Menu -> Item; in the Free Market too): tabs Equip / Use / Set-up / Etc / Cash; double-click an item or drag it onto the Equip window to wear it; drag it off the windows to discard it (asks first) |
+| NPC Chat | Space (as in v83; rebindable in Key Config): in the Free Market, next to a scroll NPC, opens its shop; so does a double-click on the NPC |
 | HP / MP potion | Del (also Q) / End (E opens the Equip window, as in v83) |
 | Menu | the status bar's Menu button: Equip, Item, Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |

@@ -119,7 +119,8 @@ func test_project_input_map_has_the_game_design_controls() -> void:
 			"choice_3"]:
 		assert_true(InputMap.has_action(a), a)
 	# The project defaults, not the live InputMap (the Settings autoload applied the developer's own settings.cfg).
-	assert_eq(GameSettings.default_keys("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C]), "jump: Left Alt, Space, C")
+	assert_eq(GameSettings.default_keys("jump"), PackedInt32Array([KEY_ALT, KEY_C]), "jump: Left Alt, C (Space is NPC Chat, v83)")
+	assert_eq(GameSettings.default_keys("npc_chat"), PackedInt32Array([KEY_SPACE]), "NPC Chat: Space")
 	assert_eq(GameSettings.default_keys("move_left"), PackedInt32Array([KEY_LEFT]), "movement: the arrows (WASD is a setting)")
 	assert_eq(GameSettings.default_keys("pause"), PackedInt32Array([KEY_ESCAPE]))
 	assert_eq(GameSettings.default_keys("drink_hp"), PackedInt32Array([KEY_DELETE, KEY_Q]))
