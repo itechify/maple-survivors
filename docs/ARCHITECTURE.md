@@ -711,3 +711,74 @@ so projectile damage resolves the defense present at impact; basic and instant h
 `player_speed_stat()` composes upgrade speed with the timed slow. `player_state.slow` is `{skill_id: int,
 remaining: float, multiplier: float, visual: String}` while active, otherwise `{}`. The presentation repeats slow
 art in a pooled slot until the sim state expires; window pauses cannot consume its duration.
+
+## 10. Web build
+
+The web build (spec #130, ADR 0004) is the "Web" preset of `game/export_presets.cfg`: single-threaded
+(`variant/thread_support=false`, template `web_nothreads_*`), GL Compatibility, no GDExtension, no PWA, and the same
+`include_filter`/`exclude_filter` as desktop (`tests/unit/test_export_presets.gd` holds this). Its shell is
+`web/index.html` through `html/custom_html_shell="res://../web/index.html"`: FileAccess turns `res://` into the
+project folder, so the shell stays beside `game/` without staging, and an ISOLATE mirror gets a copy of `web/` beside
+its `game/`.
+
+- **Templates:** the official 4.7.2 `web_nothreads_debug.zip` and `web_nothreads_release.zip` from
+  `https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz`:
+  `unzip -j <tpz> templates/web_nothreads_debug.zip templates/web_nothreads_release.zip -d
+  "$APPDATA/Godot/export_templates/4.7.2.stable"`.
+- **Export (dev, until `scripts/export.sh --web`):** `ISOLATE=<name> bash web/dev/export_web.sh [--debug]` writes
+  `game/export/web/index.{html,js,wasm,pck}` (wasm 39.5 MB, pck 0.9 MB). `node web/dev/serve.mjs <export dir>` serves
+  it on 127.0.0.1:8060 with `application/wasm`, plus `web/dev/` at `/dev/`.
+- **Dev cache injection (never exported):** `http://127.0.0.1:8060/dev/inject.html` copies a desktop-built cache
+  folder straight into the IndexedDB database behind `user://` (`web/dev/idbfs.js` documents the record format).
+- **`user://` on web:** `OS.get_user_data_dir()` is `/userfs/MapleSurvivors` (Godot's web OS returns
+  `/userfs/<custom_user_dir_name>`), so the cache is `/userfs/MapleSurvivors/asset_cache/v83`; the game prints that as
+  its cache root. `/userfs` is Emscripten IDBFS: IndexedDB database `/userfs`, store `FILE_DATA`, keys are absolute
+  paths. The whole tree is read into memory when the engine starts. The engine writes it back after any frame in which
+  a file under `/userfs` was closed for writing or removed, and always once more on quit, before `onExit`.
+- **Quitting on web:** in Godot 4.7.2, if an `AudioStreamPlayer` still holds a sample playback at shutdown,
+  `Main::cleanup` throws (`SampleNode._pause` reads the AudioContext that was already closed) and `onExit` never runs.
+  The final IndexedDB sync has already happened by then. Stopping every `AudioStreamPlayer` and pausing the tree
+  before `get_tree().quit()` gives a clean exit (verified in a scratch build).
+- **Arguments:** command-line user args reach `OS.get_cmdline_user_args()` through the engine config `args` after
+  `--`; `web/index.html` maps `?arg=<value>` query parameters to them. The web templates are built without path
+  overrides: a scene path on the command line (e.g. `res://scenes/debug/flow_driver.tscn`) aborts the engine.
+
+### 10.1 Spike measurements (#131, 2026-10-17)
+
+Setup: dev PC (Ryzen 7 7800X3D, RTX 4070 SUPER, display at 60 Hz in this session); installed Chrome 155.0.8059.40,
+headed and driven by Playwright with a 1600x1200 viewport; release export of the #131 branch. The runs match the
+desktop playtests: `--run=henesys_hg1 --seed=2026 --autoplay --autopick --speed=1 --warp=<s> --perf`. The simulation
+is bit-identical to desktop: kills, levels, alive counts and the death time agree at every checkpoint.
+"Uncapped" means Chrome with `--disable-gpu-vsync --disable-frame-rate-limit` plus the game's `--vsync=off`. Web frame
+times come in 0.1 ms steps, the browser's timer resolution without cross-origin isolation.
+
+| Window (run time) | Mobs (minute means / max) | Web frame ms p50 / p95 / p99 / max | Desktop exe frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|
+| uncapped 10:00-13:00 | 201-269 / 290 | 3.3 / 6.2 / 7.9 / 33.3 | 1.86 / 3.46 / 4.93 / 18.3 | 1659 / 1207 |
+| uncapped 13:00-15:07 (death) | 292-341 / 341 | 3.7 / 8.7 / 10.9 / 83.7 | 2.01 / 5.33 / 6.91 / 17.0 | 3929 / 2849 |
+| capped 60 Hz 13:00-15:00 | 292-339 / 340 | 16.7 / 16.8 / 16.8 / 21.5 (work p95 6.8 ms) | not run | 3732 / not run |
+
+1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run played all 7,200 ticks of its 120 s in
+   7,081 recorded frames (frames right after a screenshot are not recorded, and fewer than 2% ran a catch-up tick),
+   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
+   reached: Henesys caps at 330 alive from 15:00 (`stages.json`), and in this seed the bot dies at 15:07 on both
+   platforms.
+2. **Sim:** 1.38x desktop: 3.9 ms/tick at about 340 mobs, 1.7 ms at 200-290.
+3. **Peak wasm heap:** 178 MiB in a `--run` session with 200-341 mobs; it stops growing during the warp. The title
+   screen alone takes the heap to 339 MiB, and the heap never shrinks, so a full title-to-round session peaks at 339
+   MiB or more. Measuring the full flow needs menu input on web, which is left to the QA ticket. Chrome's
+   `usedJSHeapSize` peaks at 330-340 MiB in rounds (it swings between about 235 and 330 MiB, which is GC churn with no
+   visible frame cost) and 604 MiB on the title. Whether that figure counts the typed arrays holding the in-memory
+   IDBFS copy of the 157 MiB cache was not checked.
+4. **Max texture size:** WebGL2 `MAX_TEXTURE_SIZE` is 16384 (ANGLE D3D11). The largest cache page is 2493x340
+   (`Map.wz/Back/grassySoil.img.0.png`), followed by 2048 px pages, so nothing comes close.
+5. **Rendering against desktop:** compared by eye on the same frames (`evidence/spec130/t131/`). Maps, mobs, skills,
+   the CanvasGroup invincibility blink, HUD, title and overlay match desktop. Text drawn with the `SystemFont` (Arial)
+   falls back to Godot's built-in font, visible on "Re-import WZ data", names and the overlay. This is expected; a
+   bundled font is the web profile ticket's job. Audio plays through Web Audio samples (AudioContext `running`), and
+   Godot resumes it on the first key or click. Under Playwright the context starts without a gesture, so the click
+   requirement could not be reproduced. Every run reported `missing: []`. Quitting hits the shutdown error above.
+
+**Verdict: pass.** In Chrome the game holds the desktop bar (60 FPS at 330-400 mobs on the dev PC) at the 330-341 mobs
+it reaches, with no engine or presentation change. On web the sim costs about 1.4x desktop and frame time about
+1.6-1.8x.
