@@ -28,6 +28,19 @@ test("a matching replay answers every decision from the recording and reports no
 	assert.deepEqual(brain.finish(RECORDING), []);
 });
 
+test("situation_shown is carried into the replay's records but never compared; recordings without it replay too", async () => {
+	const shown = { buckets: { hp: "low" } };
+	const withSituation = RECORDING.map((r) => ({ ...r, situation_shown: shown }));
+	const a = createReplayBrain(withSituation);
+	const first = await a.decide(decide(1, "tactic", ["kite", "explore"]));
+	assert.deepEqual(first.extra?.situation_shown, shown);
+	for (const r of withSituation.slice(1)) await a.decide(decide(r.id, r.kind, r.options));
+	assert.deepEqual(a.finish(RECORDING), [], "applied records without situation_shown still match");
+	const old = createReplayBrain(RECORDING); // an older recording: no situation_shown anywhere
+	for (const r of RECORDING) await old.decide(decide(r.id, r.kind, r.options));
+	assert.deepEqual(old.finish(withSituation), []);
+});
+
 test("a decision of another kind is a divergence naming that decision", async () => {
 	const brain = createReplayBrain(RECORDING);
 	await brain.decide(decide(1, "tactic", ["kite", "explore"]));

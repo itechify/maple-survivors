@@ -26,6 +26,7 @@ import { createJevBrain } from "./jev_brain.ts";
 import { brainHeader } from "./jev_report.ts";
 import type { BrainFacts } from "./jev_report.ts";
 import { loadPersonality, driverParams } from "./personality.ts";
+import { fallbackSituation } from "./situation.ts";
 import type { Personality } from "./personality.ts";
 import { createFallbackBrain } from "./personality_fallback.ts";
 import "./report_personality.ts";
@@ -133,7 +134,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	if (recordedParams) rec.json(PERSONALITY_FILE, recordedParams);
 	else if (personality) rec.json(PERSONALITY_FILE, driverParams(personality));
 	const hasParams = recordedParams !== null || personality !== undefined;
-	const pick = o.replay ? replayPick(o.replay) : warped(chooseBrain(o, env, personality), o.warp ?? 0);
+	const pick = o.replay ? replayPick(o.replay) : withSituationShown(warped(chooseBrain(o, env, personality), o.warp ?? 0));
 	const driverOptions = { stage: o.stage, seed: o.seed, minutes: o.minutes, personality: o.personality,
 		brain: driverBrain, out: dir, character: o.character, tier: o.tier, personalityFile, ...checks } as const;
 	if (!hasParams) {
@@ -350,6 +351,18 @@ function replayPick(r: Recording): BrainPick {
 			["fallback", "none"], ["Jev", "not used (replay)"],
 			["replay", !session?.end ? "incomplete (the driver sent no end)" : divergence ? `DIVERGED: ${divergence.message}`
 				: `match (${r.decisions.length} decisions, the driver's hello and every fingerprint field identical)`]] };
+}
+
+/** `pick` whose every answer records `situation_shown` (story 20): the Jev brain sets its exact request state; any
+ * other answer (fallback, warp, a Jev failure) gets the buckets and tactic state it was decided from. A replay keeps
+ * the recording's own (core/replay.ts carries it). */
+function withSituationShown(pick: BrainPick): BrainPick {
+	if (pick.error) return pick;
+	const inner = pick.brain;
+	return { ...pick, brain: { name: inner.name, async decide(d) {
+		const a = await inner.decide(d);
+		return a.extra?.situation_shown !== undefined ? a : { ...a, extra: { situation_shown: fallbackSituation(d.situation), ...a.extra } };
+	} } };
 }
 
 /** `pick` with the first `warp` run seconds answered by the decide's sensible baseline (source "warp"). */

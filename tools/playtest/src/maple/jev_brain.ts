@@ -27,7 +27,7 @@ import { sensibleBrain } from "./fallback.ts";
 import { DEFAULT_MIN_CONFIDENCE, personalityText } from "./personality.ts";
 import type { Personality } from "./personality.ts";
 import { createFallbackBrain } from "./personality_fallback.ts";
-import { bucketsOf } from "./situation.ts";
+import { bucketsOf, fallbackSituation } from "./situation.ts";
 import type { TacticState } from "./situation.ts";
 
 /** The player description Jev decides for, until personalities (#97) replace it. */
@@ -222,7 +222,10 @@ export function createJevBrain(o: JevBrainOptions): Brain {
 	const p = o.personality;
 	const player = o.playerText ?? (p ? personalityText(p) : SENSIBLE_PLAYER);
 	const fallback = o.fallback ?? (p ? createFallbackBrain(p, o.seed) : sensibleBrain);
-	const fallBack = async (d: DecideMessage, reason: string): Promise<BrainAnswer> => ({ ...(await fallback.decide(d)), reason });
+	const fallBack = async (d: DecideMessage, reason: string): Promise<BrainAnswer> => {
+		const a = await fallback.decide(d);
+		return { ...a, reason, extra: { situation_shown: fallbackSituation(d.situation), ...a.extra } };
+	};
 	const minConfidence = p?.tactics.min_confidence ?? DEFAULT_MIN_CONFIDENCE;
 	return {
 		name: "jev",
@@ -248,7 +251,7 @@ export function createJevBrain(o: JevBrainOptions): Brain {
 			}
 			const probabilities = Object.fromEntries(Object.entries(main.probabilities ?? {}).map(([l, p]) => [req.labelToId(l), p]));
 			const confidence = typeof main.confidence === "number" ? main.confidence : null;
-			const extra: Record<string, unknown> = { probabilities, presented_order: req.presented,
+			const extra: Record<string, unknown> = { situation_shown: req.state, probabilities, presented_order: req.presented,
 				screen_order: d.options.map((op) => op.id), model: reply.result.model, usage: reply.result.usage,
 				jev_latency_ms: Math.round(reply.latencyMs) };
 			const m = answers.meaningful;

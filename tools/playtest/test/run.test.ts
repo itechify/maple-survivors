@@ -200,6 +200,23 @@ test("--brain=auto with a key decides through Jev; the header names the model, r
 	assert.ok(!allFiles(out).includes(SECRET), "the key is nowhere in the run directory");
 });
 
+test("decisions.jsonl records the situation shown: the exact Jev state, or the buckets and tactic the fallback used", async () => {
+	const jevOut = path.join(tmp(), "run");
+	const t = jevFetch();
+	await runPlaytest({ ...base, brain: "jev", out: jevOut, env: { TYPESAFE_API_KEY: SECRET }, launch: fakeLaunch, jevFetch: t.fetch });
+	const jevDecisions = readDecisions(jevOut);
+	assert.deepEqual(jevDecisions.map((d) => d.situation_shown), t.sent.map((b) => (b as { state: unknown }).state),
+		"the state of each request, as sent");
+	const fbOut = path.join(tmp(), "run");
+	await runPlaytest({ ...base, out: fbOut, env: {}, launch: { command: process.execPath, args: [FAKE, "--mode=tactics"] } });
+	const fb = readDecisions(fbOut);
+	assert.equal(fb.length, 3);
+	assert.deepEqual(fb[2].situation_shown.buckets.hp, "critical", "the buckets the rule read");
+	assert.deepEqual(fb[2].situation_shown.tactic, { current: "collect", trigger: "hp_critical", held_s: 0 });
+	const lines = fs.readFileSync(path.join(fbOut, "decisions.jsonl"), "utf8").trim().split("\n");
+	assert.ok(lines.every((l) => l.length < 2000), "a fallback line stays small (no raw situation dump)");
+});
+
 test("--brain=auto with the key hidden runs on the fallback and the header says why", async () => {
 	const out = path.join(tmp(), "run");
 	const r = await runPlaytest({ ...base, brain: "auto", out, env: { TYPESAFE_API_KEY: "" }, launch: fakeLaunch,

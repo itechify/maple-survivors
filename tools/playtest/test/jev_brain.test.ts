@@ -119,6 +119,14 @@ test("a card decision asks one request: a Choice over the card ids in a seeded o
 	assert.equal((a.extra?.probabilities as Record<string, number>)[a.answer], 0.7);
 	assert.equal((a.extra?.meaningfulness as { score: number }).score, 2.1);
 	assert.equal(a.extra?.model, "jev-1.13.0");
+	assert.deepEqual(a.extra?.situation_shown, body.state, "decisions.jsonl keeps the exact state sent");
+});
+
+test("a decision Jev could not answer records the situation and buckets the fallback used", async () => {
+	const f = fakeFetch(() => json(500, { error: "x" }));
+	const a = await createJevBrain({ client: client(f.fetch), seed: 2026 }).decide(CARD);
+	assert.notEqual(a.source, "jev");
+	assert.deepEqual(a.extra?.situation_shown, { buckets: { hp: "critical", mp: "full", mobs_near: "few" } });
 });
 
 test("the same seed and decision give the same request; another decision id reorders", async () => {

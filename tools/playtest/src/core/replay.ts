@@ -50,8 +50,9 @@ export function compareHello(recorded: Record<string, unknown> | null, replayed:
  * fingerprint field for fingerprint mismatches. */
 export type Divergence = { message: string; decision?: number; field?: string };
 
-/** Recorded fields copied into the replay's decision records (the presented order Jev saw, the on-screen order). */
-const CARRIED = ["presented_order", "screen_order"];
+/** Recorded fields copied into the replay's decision records (the presented order Jev saw, the on-screen order, the
+ * situation shown). Shown for reference only: a replay never compares them, so recordings without them replay too. */
+const CARRIED = ["presented_order", "screen_order", "situation_shown"];
 
 export type ReplayBrain = Brain & {
 	/** Divergences seen so far while answering. */

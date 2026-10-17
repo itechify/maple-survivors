@@ -62,6 +62,15 @@ export function mobsBucket(n: number): MobsBucket {
 	return n >= SITUATION_THRESHOLDS.MOBS_FEW ? "few" : "none";
 }
 
+/** What a deterministic answer read, for decisions.jsonl `situation_shown` (story 20): the decide's buckets and, on
+ * a tactic decide, the current tactic, the trigger and how long it was held. Small on purpose (no raw facts, no
+ * options: those are recorded beside it). A Jev answer records its exact request state instead. */
+export function fallbackSituation(situation: Record<string, unknown> | undefined): Record<string, unknown> {
+	const t = (situation as Situation | undefined)?.tactic;
+	return { ...(bucketsOf(situation) ? { buckets: bucketsOf(situation) } : {}),
+		...(t ? { tactic: { current: t.current, trigger: t.trigger, held_s: t.held_s } } : {}) };
+}
+
 /** The situation's buckets, or null when the decide carries none. */
 export function bucketsOf(situation: Record<string, unknown> | undefined): Buckets | null {
 	const b = (situation as Situation | undefined)?.buckets;
