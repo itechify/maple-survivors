@@ -14,6 +14,7 @@ import { renderReport } from "../core/report.ts";
 import type { Problem, ReportContext } from "../core/report.ts";
 import { exitCodeFor } from "../core/exit_codes.ts";
 import { scanLog } from "../core/log_scan.ts";
+import { withoutKey } from "../core/key.ts";
 import { createReplayBrain, compareFingerprints, orderDivergences } from "../core/replay.ts";
 import type { Recording, Divergence } from "../core/replay.ts";
 import type { DecisionRecord } from "../core/session.ts";
@@ -66,7 +67,7 @@ type Exit = { code: number | null; timedOut: boolean; spawnError?: string };
 function runLogged(command: string, args: string[], cwd: string, env: NodeJS.ProcessEnv, livenessMs: number,
 	onLine: (line: string) => void): Promise<Exit> {
 	return new Promise((resolve) => {
-		const child = spawn(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: false });
+		const child = spawn(command, args, { cwd, env: withoutKey(env), stdio: ["ignore", "pipe", "pipe"], windowsHide: false });
 		let timedOut = false;
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		const arm = () => {
@@ -152,7 +153,7 @@ export async function runWindowedReplay(o: WindowedOptions): Promise<RunOutcome>
 		else {
 			const project = prepareProject(repo, env);
 			rec.log(`agent_playtest: windowed replay, Godot ${godot.exe}, project ${project}`);
-			await importProjectAsync(godot.exe, project);
+			await importProjectAsync(godot.exe, project, env);
 			launch = { command: godot.exe, args: ["--path", project, WINDOWED_SCENE, "--", ...sceneArgs] };
 		}
 	}
@@ -160,9 +161,7 @@ export async function runWindowedReplay(o: WindowedOptions): Promise<RunOutcome>
 	let exit: Exit | undefined;
 	if (launch) {
 		rec.log(`agent_playtest: ${launch.command} ${launch.args.join(" ")}`);
-		const childEnv = { ...env };
-		delete childEnv.TYPESAFE_API_KEY; // the game never needs the key
-		exit = await runLogged(launch.command, launch.args, repo, childEnv, o.livenessS * 1000, (line) => {
+		exit = await runLogged(launch.command, launch.args, repo, env, o.livenessS * 1000, (line) => {
 			logLines.push(line);
 			rec.log(line);
 		});

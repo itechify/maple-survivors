@@ -6,7 +6,7 @@ extends RefCounted
 ## driver streams them as protocol `finding` lines). Never changes the world. Tool code only.
 
 const DT := 1.0 / 60.0
-## Snapshot: the nearest mobs listed.
+## tier C: the nearest mobs a finding's snapshot lists.
 const SNAPSHOT_MOBS := 5
 ## tier C: two findings of one kind and key closer than this (px) and DEDUP_S (run seconds) apart are one finding.
 const DEDUP_PX := 96.0
@@ -35,10 +35,13 @@ var stuck_s := STUCK_S
 ## Test-only: a finding of this kind is reported once at run time `inject_at` (driver --inject-finding).
 var inject := ""
 var inject_at := 0.0
+## Asset lookups that failed while the round was built (DataRepo.build_setup's list): reported on the first tick.
+var missing_at_start := PackedStringArray()
 
 
-## `p_policy` is read for its tactic and name (never called); `options` overrides thresholds ({stuck_px, stuck_s})
-## and may inject one finding ({inject: kind, inject_at: run seconds}); `p_sink` gets each new finding.
+## `p_policy` is read for its tactic and name (never called); `options` overrides thresholds ({stuck_px, stuck_s}),
+## may inject one finding ({inject: kind, inject_at: run seconds}) and lists the setup's missing assets ({missing:
+## [path]}, one missing_asset finding each on the first tick); `p_sink` gets each new finding.
 func _init(p_policy: Object = null, options := {}, p_sink := Callable()) -> void:
 	policy = p_policy
 	sink = p_sink
@@ -46,6 +49,7 @@ func _init(p_policy: Object = null, options := {}, p_sink := Callable()) -> void
 	stuck_s = float(options.get("stuck_s", STUCK_S))
 	inject = String(options.get("inject", ""))
 	inject_at = float(options.get("inject_at", 0.0))
+	missing_at_start = PackedStringArray(options.get("missing", PackedStringArray()))
 
 
 ## Registers the checks on playtest policy `p` (its per-tick observers and decision observers).
@@ -57,6 +61,9 @@ func attach(p: Object) -> void:
 
 ## The per-tick check (run loop observer): call after every step of `w` with the step's drained `events`.
 func observe(w: RunWorld, _events: Array) -> void:
+	if not missing_at_start.is_empty():
+		check_missing(w, missing_at_start)
+		missing_at_start = PackedStringArray()
 	var ps := w.player_state
 	var hp := int(ps.get("hp", 0))
 	var max_hp := int(ps.get("max_hp", 0))

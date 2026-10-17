@@ -3,12 +3,15 @@
 // (TypeSafe Jev 1.13 jaggedness: no arithmetic, no raw numbers, no large state). Every value in a `state` built here
 // is a string. A tier chain is judged on its last round only (rows and hits of the highest tier).
 // All thresholds below are ours (tier C): they decide which words Jev reads, not what counts as a problem (that is
-// evaluations.ts).
+// evaluations.ts). HP and mob words use the game-side bucket thresholds (maple/situation.ts mirrors
+// playtest_situation.gd), so Jev reads the same "critical" / "crowd" here as on every decide.
 import fs from "node:fs";
 import path from "node:path";
 import type { DecisionRecord } from "../core/session.ts";
 import type { Problem } from "../core/report.ts";
-import { poolLevel } from "./jev_brain.ts";
+import { poolBucket, mobsBucket } from "./situation.ts";
+import { runClock } from "../core/report.ts";
+import { num } from "../core/num.ts";
 
 export type Row = Record<string, unknown>;
 export type Hit = { time: number; tick: number; damage: number; max_hp: number; fraction: number; source: string; boss: boolean;
@@ -22,8 +25,6 @@ export const DEATH_CHUNK_S = 5;
 /** tier C: a partial last minute shorter than this is not judged for pacing (too short to be dull). */
 export const MIN_MINUTE_S = 15;
 
-const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
-const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
 /** Reads a JSON Lines file (missing: []). */
 export function readJsonl<T = Row>(file: string): T[] {
@@ -73,12 +74,11 @@ export function countWords(n: number): string {
 	return "many";
 }
 
-/** Mobs near the player as words (playtest_situation.gd MOBS_FEW / CROWD / SWARM). */
+const MOBS_WORDS = { none: "none", few: "a few", crowd: "a crowd", swarm: "a swarm" } as const;
+
+/** Mobs near the player as words: the game-side mobs bucket (playtest_situation.gd MOBS_FEW / CROWD / SWARM). */
 export function mobsWords(n: number): string {
-	if (n <= 0) return "none";
-	if (n < 4) return "a few";
-	if (n < 12) return "a crowd";
-	return "a swarm";
+	return MOBS_WORDS[mobsBucket(n)];
 }
 
 /** One hit's whole damage as a share of max HP, in words (tier C). */
@@ -153,7 +153,7 @@ export function deathFacts(input: RunData): DeathFacts | null {
 		const rs = rows.filter((r) => num(r.time) > a && num(r.time) <= b + 1e-6);
 		const hs = hits.filter((h) => h.time > a && h.time <= b + 1e-6);
 		const minHp = rs.length ? Math.min(...rs.map((r) => num(r.hp) / Math.max(1, num(r.max_hp)))) : null;
-		const lowest = minHp === null ? "not sampled" : poolLevel(minHp, 1);
+		const lowest = minHp === null ? "not sampled" : poolBucket(minHp, 1);
 		chunks.push({ when: `${k * DEATH_CHUNK_S} to ${(k - 1) * DEATH_CHUNK_S} seconds before death`,
 			"lowest HP": k === 1 ? `${lowest === "not sampled" ? "" : `${lowest}, then `}zero at the death` : lowest,
 			"monsters near": rs.length ? mobsWords(Math.max(...rs.map((r) => num(r.near)))) : "not sampled",
@@ -170,7 +170,7 @@ export function deathFacts(input: RunData): DeathFacts | null {
 	const boss = bossAliveAt(d.record, t);
 	const bossText = boss ? `a boss was on the map; it arrived ${arrivalWords(t - num(boss.spawn_time))} before the death`
 		: "no boss on the map";
-	const high = [...d.timeline].reverse().find((r) => num(r.time) <= t && num(r.hp) / Math.max(1, num(r.max_hp)) >= 0.6);
+	const high = [...d.timeline].reverse().find((r) => num(r.time) <= t && ["ok", "full"].includes(poolBucket(num(r.hp), Math.max(1, num(r.max_hp)))));
 	const potionsLeft = num((d.record.potions_left as Record<string, unknown> | undefined)?.hp);
 	const drunk = (Array.isArray(d.record.potion_uses) ? d.record.potion_uses as Array<Record<string, unknown>> : [])
 		.filter((u) => u.kind === "hp" && num(u.time) > from).length;
@@ -178,7 +178,7 @@ export function deathFacts(input: RunData): DeathFacts | null {
 	const state = {
 		"what happened": `The character died ${boss ? "during a boss fight" : "with no boss on the map"}.`,
 		boss: bossText,
-		"time from high HP to death": high ? durationWords(t - num(high.time)) : "HP was never high in the round",
+		"time from HP ok or full to death": high ? durationWords(t - num(high.time)) : "HP was never ok or full in the round",
 		"last 30 seconds, oldest first": chunks,
 		"hits taken in the last 30 seconds": hitLines.length ? hitLines : ["none recorded"],
 		"killing blow": killing,
@@ -226,7 +226,7 @@ export function minuteFacts(input: RunData): MinuteFacts {
 		const a = m * 60;
 		const b = Math.min(end, a + 60);
 		const partial = b < a + 60 - 1e-6;
-		const label = `minute ${m + 1} (${clock(a)} to ${clock(b)}${partial ? ", the round ended" : ""})`;
+		const label = `minute ${m + 1} (${runClock(a)} to ${runClock(b)}${partial ? ", the round ended" : ""})`;
 		if (partial && b - a < MIN_MINUTE_S) {
 			skipped.push(`${label}: shorter than ${MIN_MINUTE_S} s`);
 			continue;

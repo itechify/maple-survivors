@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { parseLine, serializeAnswer } from "./protocol.ts";
 import type { DecideMessage, EndMessage, ErrorMessage, FindingMessage, HelloMessage } from "./protocol.ts";
+import { redactSecrets, withoutKey } from "./key.ts";
 
 /** What a brain returns for one decision. `reason` explains a fallback (e.g. why Jev was not used); `extra` holds
  * brain-specific facts recorded in decisions.jsonl only (probabilities, presented order, model, ...), never sent to
@@ -64,7 +65,7 @@ export function runSession(opts: SessionOptions): Promise<SessionResult> {
 			clearTimeout(timer);
 			resolve(result);
 		};
-		const child = spawn(opts.command, opts.args, { cwd: opts.cwd, env: opts.env ?? process.env,
+		const child = spawn(opts.command, opts.args, { cwd: opts.cwd, env: withoutKey(opts.env ?? process.env),
 			stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
 		let timer: ReturnType<typeof setTimeout> | undefined;
 		let thinking = false;
@@ -92,7 +93,7 @@ export function runSession(opts: SessionOptions): Promise<SessionResult> {
 				reply = await opts.brain.decide(decide);
 			} catch (e) {
 				const baseline = decide.baseline.sensible ?? decide.options[0]?.id ?? "";
-				reply = { answer: baseline, source: "baseline", confidence: null, reason: `brain ${opts.brain.name} failed: ${(e as Error).message}` };
+				reply = { answer: baseline, source: "baseline", confidence: null, reason: redactSecrets(`brain ${opts.brain.name} failed: ${(e as Error).message}`, []) };
 			}
 			const latency = performance.now() - t0;
 			if (child.stdin.writable) child.stdin.write(serializeAnswer({ id: decide.id, answer: reply.answer, source: reply.source,

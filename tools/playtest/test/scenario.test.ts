@@ -94,6 +94,17 @@ test("explicit CLI flags override scenario fields; defaults do not", () => {
 	assert.deepEqual(over.errors, []);
 });
 
+test("evaluations default on for the auto and jev brains and off for fallback and builtin; explicit values win", () => {
+	const cell = (argv: string[], s: Record<string, unknown> = {}) =>
+		resolveScenario("m", { ...GOOD, ...s }, parse(argv), KNOWN, REPO).cells[0].evaluations;
+	assert.deepEqual(["auto", "jev", "fallback", "builtin"].map((b) => cell([`--brain=${b}`])), [true, true, false, false]);
+	assert.deepEqual(["auto", "jev", "fallback", "builtin"].map((b) => cell([], { brain: b })), [true, true, false, false],
+		"a scenario's brain field decides the default too");
+	assert.equal(cell(["--brain=fallback", "--evaluations=true"]), true, "--evaluations=true turns them on");
+	assert.equal(cell(["--brain=builtin"], { evaluations: true }), true, "a scenario's explicit evaluations field turns them on");
+	assert.equal(cell(["--brain=jev", "--evaluations=false"]), false);
+});
+
 test("CLI values are validated like scenario values (held-out seed, unknown personality)", () => {
 	const r = resolveScenario("m", GOOD, parse(["--seed=101", "--personality=nobody"]), KNOWN, REPO);
 	assert.match(r.errors.join(), /seed 101 is not a training seed/);

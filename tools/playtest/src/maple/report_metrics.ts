@@ -1,10 +1,11 @@
 // The report's metrics, cards and evaluations sections (adapter, #99): balance_run.gd's describe() fields from the
 // round record (a tier chain: its last round), short enough to scan: milestones, a per-minute table (level, hits,
 // kills, alive), potions, boss fights and MP shortfall; the cards taken; and the evaluations' results in report.json.
-import { registerSection } from "../core/report.ts";
+import { registerSection, runClock } from "../core/report.ts";
 import type { ReportContext } from "../core/report.ts";
 import type { EndMessage } from "../core/protocol.ts";
 import type { Evaluations } from "./evaluations.ts";
+import { num } from "../core/num.ts";
 
 /** Every evaluation result in a few lines, flagged or not (Problems lists only what passed a threshold). */
 export function evaluationSummary(e: Evaluations): string[] {
@@ -24,7 +25,7 @@ export function evaluationSummary(e: Evaluations): string[] {
 	if (c.length) {
 		const low = c.reduce((a, b) => (b.value < a.value ? b : a));
 		lines.push(`- card offers (meaningfulness 0 empty .. 3 strong, ${c.length} offers): lowest ${low.value} (confidence ${low.confidence})` +
-			`${low.time !== undefined ? ` at ${mmss(low.time)}` : ""}; ${c.filter((r) => r.class !== "none").length} weak or empty`);
+			`${low.time !== undefined ? ` at ${runClock(low.time)}` : ""}; ${c.filter((r) => r.class !== "none").length} weak or empty`);
 	}
 	if (e.skipped_minutes.length) lines.push(`- not judged: ${e.skipped_minutes.join("; ")}`);
 	if (e.errors.length) lines.push(`- failed: ${e.errors.join("; ")}`);
@@ -33,8 +34,6 @@ export function evaluationSummary(e: Evaluations): string[] {
 	return lines;
 }
 
-const mmss = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 /** balance_run.gd MILESTONES: 8, 10, 20 and 30 always shown, 40 and 50 when reached. */
 const ALWAYS = [8, 10, 20, 30];
 const IF_REACHED = [40, 50];
@@ -51,20 +50,20 @@ type Fight = { mob_id?: number; spawn_time?: number; death_time?: number; status
 type Pots = Record<string, number> | undefined;
 
 function fightText(f: Fight): string {
-	const spawn = num(f.spawn_time) ?? -1;
+	const spawn = num(f.spawn_time, -1);
 	if (spawn < 0) return `${f.mob_id} ${f.status === "skipped" ? "skipped (no mob image)" : "not spawned"}`;
-	const death = num(f.death_time) ?? -1;
-	return death >= 0 ? `${f.mob_id} ${mmss(spawn)} -> dead at ${mmss(death)} (${Math.round(death - spawn)} s)`
-		: `${f.mob_id} ${mmss(spawn)} -> alive at the end (${Math.round(num(f.elapsed) ?? 0)} s)`;
+	const death = num(f.death_time, -1);
+	return death >= 0 ? `${f.mob_id} ${runClock(spawn)} -> dead at ${runClock(death)} (${Math.round(death - spawn)} s)`
+		: `${f.mob_id} ${runClock(spawn)} -> alive at the end (${Math.round(num(f.elapsed))} s)`;
 }
 
 /** The metrics lines of record `r`. */
 export function metricsLines(r: Record<string, unknown>): string[] {
 	const reach = (r.reach ?? {}) as Record<string, number>;
 	const ms = [...ALWAYS, ...IF_REACHED.filter((lv) => reach[String(lv)] !== undefined)]
-		.map((lv) => `Lv ${lv} ${reach[String(lv)] !== undefined ? mmss(reach[String(lv)]) : "-"}`);
-	const jobT = num(r.job_t) ?? -1;
-	const lines = [`Milestones: ${ms.join(", ")}; 1st job (Magician, 200) ${jobT >= 0 ? mmss(jobT) : "-"}.`, ""];
+		.map((lv) => `Lv ${lv} ${reach[String(lv)] !== undefined ? runClock(reach[String(lv)]) : "-"}`);
+	const jobT = num(r.job_t, -1);
+	const lines = [`Milestones: ${ms.join(", ")}; 1st job (Magician, 200) ${jobT >= 0 ? runClock(jobT) : "-"}.`, ""];
 	const rows: Array<[string, unknown]> = [["level", r.level_by_min], ["hits", r.hits_by_min], ["kills (total)", r.kills_by_min],
 		["alive (mean)", r.alive_by_min]];
 	const width = Math.max(0, ...rows.map(([, v]) => (Array.isArray(v) ? v.length : 0)));
@@ -80,7 +79,7 @@ export function metricsLines(r: Record<string, unknown>): string[] {
 	lines.push(`Potions: ${pot("hp")}; ${pot("mp")}.`);
 	const fights = Array.isArray(r.boss_fights) ? (r.boss_fights as Fight[]) : [];
 	lines.push(`Boss fights: ${fights.length ? fights.map(fightText).join("; ") : "none scheduled"}.`);
-	lines.push(`MP short: ${num(r.mp_short_seconds) ?? 0} s with a ready skill unaffordable. Full record: record.json.`);
+	lines.push(`MP short: ${num(r.mp_short_seconds)} s with a ready skill unaffordable. Full record: record.json.`);
 	return lines;
 }
 

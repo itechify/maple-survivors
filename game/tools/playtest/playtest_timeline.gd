@@ -9,7 +9,7 @@ extends RefCounted
 const BR := preload("res://tools/balance_run.gd")
 const SITUATION := preload("res://tools/playtest/playtest_situation.gd")
 const DT := 1.0 / 60.0
-## Run seconds between rows.
+## tier C: run seconds between rows.
 const EVERY_S := 1.0
 
 ## The run policy whose tactic is read (any Object or null; no tactic reads as "kite").

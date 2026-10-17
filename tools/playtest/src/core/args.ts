@@ -12,12 +12,15 @@ export type FlagSpec = {
 	choices?: readonly string[];
 };
 
+/** tier C: seconds without driver output before the run is killed as an infrastructure error (--liveness-s). */
+export const DEFAULT_LIVENESS_S = 60;
+
 /** The game-agnostic flags every playtest CLI has. */
 export function defineCoreFlags(flags: FlagRegistry): FlagRegistry {
 	return flags
 		.define({ name: "help", kind: "bool", default: false, help: "print this help" })
 		.define({ name: "out", kind: "string", help: "run directory (default evidence/agent-playtest/<scenario>_<stage>_<personality>_s<seed>_<time>)" })
-		.define({ name: "liveness-s", kind: "number", default: 60, help: "kill the game after this many seconds without output (infrastructure error)" });
+		.define({ name: "liveness-s", kind: "number", default: DEFAULT_LIVENESS_S, help: "kill the game after this many seconds without output (infrastructure error)" });
 }
 
 export class FlagRegistry {

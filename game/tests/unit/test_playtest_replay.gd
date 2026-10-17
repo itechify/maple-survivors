@@ -57,6 +57,17 @@ func _chain_setups() -> Array:
 	return setups
 
 
+func test_a_chain_reports_each_rounds_missing_assets_in_that_round() -> void:
+	var chain := CHAIN.new(BRAIN_LINK.new())
+	chain.missing_by_round = [PackedStringArray(), PackedStringArray(["Mob.wz/9300003.img"])]
+	var result := chain.play(_chain_setups(), 2026)
+	assert_eq(chain.invariants[0].findings.size(), 0, "tier 1 had everything")
+	var kinds: Array = result.findings.map(func(f: Dictionary) -> String: return String(f.kind))
+	assert_eq(kinds, ["missing_asset"], "tier 2's missing image is one finding")
+	assert_eq(result.record.rounds[1].missing, ["Mob.wz/9300003.img"])
+	assert_eq(result.record.rounds[0].missing, [])
+
+
 func test_a_chain_continues_decision_ids_across_rounds_and_keeps_round_records() -> void:
 	var rows: Array = []
 	var chain := CHAIN.new(BRAIN_LINK.new(), {}, Callable(), func(line: String) -> void: rows.append(line))

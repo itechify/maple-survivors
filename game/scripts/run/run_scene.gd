@@ -21,7 +21,8 @@ extends Node2D
 ## it replaces BotInput for autoplay, autopick and warp; the agent playtest's windowed replay, spec #91 / #100) and
 ## stop_tick (no sim tick runs once the world reaches that tick, -1 = never; the `stop_tick` property may be changed
 ## at any time) and view_size (a Vector2: the logical view the run uses instead of the viewport's, so the spawn
-## director sees the headless driver's 800x600 whatever the window). With a policy, every tick's drained events go to `observe` exactly in balance_run.gd run_one's
+## director sees the headless driver's 800x600 whatever the window) and shot_every_level_up (true: a levelup_N.png
+## event shot at every level-up instead of levels <= 2 and every 10th; the windowed replay's screenshots). With a policy, every tick's drained events go to `observe` exactly in balance_run.gd run_one's
 ## batches (the construction events ride with the first tick's, events emitted while choosing with the next tick's),
 ## so a policy plays the same round here as in the headless run loop. Without one, nothing changes.
 ##
@@ -231,6 +232,8 @@ var _saved_time_scale := 1.0
 # Automation and perf.
 var _shots_dir := ""
 var _shot_every := 0.0
+## options.shot_every_level_up (tool-only): a level-up shot at every level, not only levels <= 2 and every 10th.
+var _shot_every_level_up := false
 var _next_shot := 0.0
 var _quit_after := 0.0
 var _shot_queue := PackedStringArray()
@@ -274,6 +277,7 @@ func _ready() -> void:
 	_speed = maxi(1, int(options.get("speed", 1)))
 	_shots_dir = String(options.get("shots_dir", "")).replace("\\", "/")
 	_shot_every = float(options.get("shot_every", 0.0))
+	_shot_every_level_up = option_flag(options, "shot_every_level_up")
 	_next_shot = _shot_every
 	_quit_after = float(options.get("quit_after", 0.0))
 	_perf_on = _autoplay and option_flag(options, "perf")
@@ -838,7 +842,7 @@ func _fail(msg: String) -> void:
 ## tick after the key went down).
 func _read_input(first_tick: bool) -> MoveInput:
 	if _autoplay:
-		return policy.move(world) if policy != null else BotInput.decide(world, _bot_memo)
+		return _policy_move()
 	var mi := MoveInput.new()
 	mi.left = Input.is_action_pressed("move_left")
 	mi.right = Input.is_action_pressed("move_right")
@@ -870,6 +874,20 @@ func _drain_events() -> Array:
 			_policy_carry = []
 		policy.observe(world, batch)
 	return events
+
+
+## The automated player's MoveInput for the next tick: options.policy's `move`, else BotInput.decide.
+func _policy_move() -> MoveInput:
+	return policy.move(world) if policy != null else BotInput.decide(world, _bot_memo)
+
+
+## The automated player answers the world's open windows: options.policy's `choose`, else BotInput.auto_choose (the
+## seeded branch, BotInput.pick_card_for).
+func _policy_choose() -> void:
+	if policy != null:
+		policy.choose(world)
+	else:
+		BotInput.auto_choose(world, false, int(options.get("branch", 0)))
 
 
 ## True while the world has reached stop_tick (no sim tick runs).
@@ -971,7 +989,7 @@ func handle_events(events: Array) -> void:
 				fx.play(FX_LEVEL_UP, Vector2.ZERO, false, avatar)
 				_sound(SND_LEVEL_UP)
 				_window_delay = WINDOW_DELAY
-				if int(e.level) <= 2 or int(e.level) % 10 == 0:
+				if _shot_every_level_up or int(e.level) <= 2 or int(e.level) % 10 == 0:
 					_event_shot("levelup_%d.png" % int(e.level), 0.4)
 			"job_advance_pending":
 				_pending_window = {"kind": "job", "options": e.options}
@@ -1073,15 +1091,12 @@ func _apply_job_look(job_id: int) -> void:
 ## the events (run_one's order: choose, step, observe), and stop_tick holds the warp too.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		if policy != null:
-			if _held_at_stop():
-				break
-			policy.choose(world)
-		else:
-			BotInput.auto_choose(world, false, int(options.get("branch", 0)))
+		if policy != null and _held_at_stop():
+			break
+		_policy_choose()
 		if world.state != RunWorld.PLAYING:
 			break
-		world.step(DT, policy.move(world) if policy != null else BotInput.decide(world, _bot_memo))
+		world.step(DT, _policy_move())
 		_after_tick()
 		_drain_events()
 	_warped = world.time

@@ -20,7 +20,9 @@ extends SceneTree
 ## protocol `finding` line and the de-duplicated list rides in `end`. --out writes timeline.jsonl (one row per run
 ## second, playtest_timeline.gd) and hits.jsonl (one line per landed player hit, #99) into that directory. --stuck-px / --stuck-s set the stuck detector's box and window.
 ## --inject-finding (test only) reports one finding of that kind at INJECT_AT run seconds, to show the reporting path
-## end to end. Missing assets at setup stay an infrastructure error (`error` cache_missing), as in #93.
+## end to end. Missing assets at setup: when the round can still be built (the map is there), each missing entry is a
+## deterministic `missing_asset` finding on the first tick and the record lists them under `missing`; a round that
+## cannot start at all (no cache root, no map) stays an infrastructure error (`error` cache_missing, exit 2).
 ## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
 ## `tactics` (playtest_policy.gd tactic_summary: seconds, shares, switches, decisions, triggers, log).
 ## --personality-file=<abs json> (#97) holds the personality's driver params ({name, tactics, motor}; the CLI writes
@@ -38,9 +40,9 @@ const INVARIANTS := preload("res://tools/playtest/playtest_invariants.gd")
 const TIMELINE := preload("res://tools/playtest/playtest_timeline.gd")
 const FINGERPRINT := preload("res://tools/playtest/playtest_fingerprint.gd")
 const CHAIN := preload("res://tools/playtest/playtest_chain.gd")
-## Simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
+## tier C: simulated seconds between progress log lines (the CLI's liveness timer counts any stdout line).
 const PROGRESS_EVERY := 60.0
-## Run time (s) of the --inject-finding finding.
+## tier C: run time (s) of the --inject-finding finding.
 const INJECT_AT := 10.0
 
 
@@ -120,18 +122,21 @@ func _init() -> void:
 			return
 	var root := AssetCachePaths.resolve_cache_root()
 	var setups: Array = []
+	var missing_by_round: Array = []
 	for stage_key: String in stages:
 		var missing := PackedStringArray()
 		var stage_setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return BR._json(root, p),
 			func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing)
-		if not missing.is_empty() or stage_setup.get("map_img", {}).is_empty():
-			_fail(link, "cache_missing", "the asset cache lacks %s for %s (root %s); run scripts/import.sh" % [
-				missing, stage_key, root])
+		var problem := setup_error(stage_setup, missing)
+		if problem != "": # no cache at the root, or no map in it: the round cannot start
+			_fail(link, "cache_missing", "the asset cache lacks %s for %s (root %s): %s; run scripts/import.sh" % [
+				missing, stage_key, root, problem])
 			return
 		setups.append(stage_setup)
+		missing_by_round.append(missing)
 	if stages.size() > 1:
-		_play_chain(link, setups, seed_value, stage, personality, checks, out_dir, params)
+		_play_chain(link, setups, seed_value, stage, personality, checks, out_dir, params, missing_by_round)
 		return
 	var setup: Dictionary = setups[0]
 	if character_file != "":
@@ -141,6 +146,7 @@ func _init() -> void:
 	var start_character := world.character_snapshot()
 	var policy := POLICY.new(link, seed_value)
 	policy.configure(params)
+	checks["missing"] = missing_by_round[0]
 	var invariants := INVARIANTS.new(policy, checks, func(f: Dictionary) -> void: link.send(PROTOCOL.finding(f)))
 	invariants.attach(policy)
 	var timeline_file: FileAccess = null
@@ -163,7 +169,7 @@ func _init() -> void:
 	policy.observers.append(_progress_observer())
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
-		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
+		"start_character": start_character, "missing": Array(missing_by_round[0]), "tactics": policy.tactic_summary()})
 	record["motor"] = policy.motor_summary()
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
@@ -176,6 +182,16 @@ func _init() -> void:
 	link.send(PROTOCOL.end(record, fingerprint, policy.decisions, link.lost, invariants.results()))
 	print(BR.describe(record))
 	quit(0)
+
+
+## Why a built round setup cannot be played at all ("" when it can): no map image. Other entries of `missing`
+## (DataRepo.build_setup's failed lookups: a mob, a skill image, a potion icon) leave a playable round; the driver
+## reports them as missing_asset findings instead.
+static func setup_error(stage_setup: Dictionary, missing: PackedStringArray) -> String:
+	if stage_setup.get("map_img", {}).is_empty():
+		var maps := Array(missing).filter(func(m: String) -> bool: return m.begins_with("Map.wz/"))
+		return "no map image%s" % (" (%s)" % ", ".join(maps) if not maps.is_empty() else "")
+	return ""
 
 
 ## The stages to play: [stage] for one round, or tier 1's `stage` then the first stage of each later tier through
@@ -208,7 +224,7 @@ func _progress_observer() -> Callable:
 ## Plays a tier chain (playtest_chain.gd) and sends its `end`: the chain record (rounds[] plus the last round's outcome
 ## at the top level), the chain fingerprint, every round's decisions and findings. Timeline rows carry "tier".
 func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String, personality: String, checks: Dictionary,
-		out_dir: String, params: Dictionary = {}) -> void:
+		out_dir: String, params: Dictionary = {}, missing_by_round: Array = []) -> void:
 	var timeline_file: FileAccess = null
 	if out_dir != "":
 		timeline_file = FileAccess.open(out_dir.path_join("timeline.jsonl"), FileAccess.WRITE)
@@ -226,13 +242,19 @@ func _play_chain(link: BRAIN_LINK, setups: Array, seed_value: int, stage: String
 			hits_file.store_line(line)
 	chain.extra_observers.append(_progress_observer())
 	chain.policy_setup = func(p: Object) -> void: p.configure(params) # the personality applies in every round (#97)
+	chain.missing_by_round = missing_by_round
 	var result := chain.play(setups, seed_value)
 	if timeline_file != null:
 		timeline_file.close()
 	if hits_file != null:
 		hits_file.close()
 	var record: Dictionary = result.record
-	record.merge({"seed": seed_value, "stage": stage, "personality": personality, "missing": [],
+	var missing: Array = []
+	for m: PackedStringArray in missing_by_round:
+		for entry: String in m:
+			if entry not in missing:
+				missing.append(entry)
+	record.merge({"seed": seed_value, "stage": stage, "personality": personality, "missing": missing,
 		"tier": setups.size()}, true)
 	for i in record.rounds.size():
 		record.rounds[i]["personality"] = personality

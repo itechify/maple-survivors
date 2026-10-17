@@ -68,7 +68,8 @@ bash scripts/import.sh "C:/path/to/MapleStory v83"   # once: builds the asset ca
 bash scripts/run.sh                                   # title -> characters -> map select -> round -> hub/results
 bash scripts/test.sh                                  # unit tests
 bash scripts/playtest.sh                              # scripted run with screenshots + frame-time stats -> evidence/
-bash scripts/agent_playtest.sh                        # agent playtest: AI-driven round + actionable report -> evidence/
+bash scripts/agent_playtest.sh                        # agent playtest: a playtest personality plays a round, its brain
+                                                      # decides; report of the problems found -> evidence/
 bash scripts/balance.sh                               # headless pacing report over several seeds
 bash scripts/export.sh                                # Windows build -> game/export/ (+ wzimport.exe and the licence
                                                       # notices beside it)

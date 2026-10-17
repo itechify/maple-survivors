@@ -4,8 +4,9 @@
 // class_name scripts, and builds the driver command line.
 import fs from "node:fs";
 import path from "node:path";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import type { InvariantChecks } from "./invariant_flags.ts";
+import { withoutKey } from "../core/key.ts";
 
 export const GODOT_VERSION = "4.7.2";
 export const DRIVER = "res://tools/playtest/playtest_driver.gd";
@@ -54,16 +55,13 @@ export function mirrorProject(src: string, dest: string): void {
 	prune(dest);
 }
 
-/** The headless import pass (registers new class_name scripts before the driver loads them). Failures are ignored,
- * as in scripts/test.sh: a real problem shows up when the driver runs. */
-export function importProject(exe: string, project: string): void {
-	spawnSync(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", timeout: 600_000, windowsHide: true });
-}
-
-/** importProject without blocking the event loop (parallel matrix cells keep answering their drivers meanwhile). */
-export function importProjectAsync(exe: string, project: string): Promise<void> {
+/** The headless import pass (registers new class_name scripts before the driver loads them), without blocking the
+ * event loop (parallel matrix cells keep answering their drivers meanwhile). Failures are ignored, as in
+ * scripts/test.sh: a real problem shows up when the driver runs. Godot gets `env` without the TypeSafe key. */
+export function importProjectAsync(exe: string, project: string, env: NodeJS.ProcessEnv = process.env): Promise<void> {
 	return new Promise((resolve) => {
-		const child = spawn(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", windowsHide: true });
+		const child = spawn(exe, ["--headless", "--path", project, "--import"], { env: withoutKey(env), stdio: "ignore",
+			windowsHide: true });
 		const timer = setTimeout(() => child.kill(), 600_000);
 		const done = () => {
 			clearTimeout(timer);

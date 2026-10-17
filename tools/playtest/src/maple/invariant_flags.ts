@@ -1,6 +1,7 @@
 // CLI flags of the deterministic invariants (adapter, ticket #96): stuck detector thresholds and the test-only
 // injected finding. Passed through to the driver (game/tools/playtest/playtest_driver.gd).
 import type { FlagRegistry } from "../core/args.ts";
+import { num } from "../core/num.ts";
 
 /** The finding kinds the driver's invariants report (game/tools/playtest/playtest_invariants.gd KINDS). */
 export const FINDING_KINDS = ["hp_out_of_range", "mp_out_of_range", "position_not_finite", "out_of_bounds",
@@ -18,7 +19,7 @@ export function defineInvariantFlags(flags: FlagRegistry): FlagRegistry {
 
 /** The invariant settings among parsed flag values (undefined = the driver's default). */
 export function invariantChecks(values: Record<string, unknown>): InvariantChecks {
-	const num = (k: string) => (typeof values[k] === "number" ? (values[k] as number) : undefined);
-	return { stuckPx: num("stuck-px"), stuckS: num("stuck-s"),
+	const n = (k: string) => num(values[k], null) ?? undefined;
+	return { stuckPx: n("stuck-px"), stuckS: n("stuck-s"),
 		injectFinding: typeof values["inject-finding"] === "string" ? (values["inject-finding"] as string) : undefined };
 }

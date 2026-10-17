@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runCli } from "../src/maple/scenario_run.ts";
+import { runCli, cellRunOptions, cellValues } from "../src/maple/scenario_run.ts";
+import { loadScenario, resolveScenario, DEFAULT_SCENARIO } from "../src/maple/scenario.ts";
+import { rerunCommand } from "../src/maple/run.ts";
 import { runOptionsFrom, cliFlags } from "../src/cli.ts";
 import { EXIT } from "../src/core/exit_codes.ts";
 import { driverArgs } from "../src/maple/launcher.ts";
@@ -45,7 +47,7 @@ test("a run records scenario.json: the scenario, the cell, every flag value, the
 	const md = fs.readFileSync(path.join(out, "report.md"), "utf8");
 	assert.match(md, /\*\*scenario:\*\* smoke/);
 	assert.match(md, /## Reproduce/);
-	assert.match(md, /live re-run: `bash scripts\/agent_playtest\.sh --stage=henesys_hg1 --seed=2026 --minutes=3 --personality=sensible --brain=fallback --stuck-s=9`/);
+	assert.match(md, /live re-run: `bash scripts\/agent_playtest\.sh --scenario=smoke --stage=henesys_hg1 --seed=2026 --minutes=3 --personality=sensible --brain=fallback --model=jev-latest --jev-max-requests=400 --evaluations=false --tier=1 --warp=0 --stuck-s=9`/);
 	assert.match(md, /replay: `bash scripts\/agent_playtest\.sh --replay=.*run`/);
 });
 
@@ -65,6 +67,57 @@ test("problem entries carry the replay command next to the live re-run", async (
 	const md = fs.readFileSync(path.join(out, "report.md"), "utf8");
 	assert.match(md, /\*\*stuck\*\*[^\n]*\n(?:   - [^\n]*\n)*   - replay: `bash scripts\/agent_playtest\.sh --replay=[^`]*run`/);
 	assert.match(readJson(path.join(out, "report.json")).problems.replay, /--replay=/);
+});
+
+/** Splits a printed shell command into argv (double quotes group; backslash escapes inside them). */
+function shellWords(cmd: string): string[] {
+	const out: string[] = [];
+	for (const m of cmd.matchAll(/"((?:[^"\\]|\\.)*)"|(\S+)/g)) {
+		const prev = out.length && m.index! > 0 && cmd[m.index! - 1] !== " " ? out.pop()! : "";
+		out.push(prev + (m[1] !== undefined ? m[1].replace(/\\(.)/g, "$1") : m[2]));
+	}
+	return out;
+}
+
+/** The run options the CLI resolves for `argv` (scenario, explicit flags, cell), as cli -> runCli does. */
+function resolvedOptions(argv: string[], cwd: string) {
+	const { values, explicit, errors } = cliFlags().parse(argv);
+	assert.deepEqual(errors, [], argv.join(" "));
+	const name = explicit.has("scenario") ? String(values.scenario) : DEFAULT_SCENARIO;
+	const loaded = loadScenario(name);
+	assert.ok("scenario" in loaded);
+	const r = resolveScenario(name, loaded.scenario, { values, explicit }, KNOWN, REPO, cwd);
+	assert.deepEqual(r.errors, []);
+	assert.equal(r.cells.length, 1, "a re-run plays exactly the one run");
+	const o = cellRunOptions(r.cells[0], cellValues(r.cells[0], values), runOptionsFrom, null);
+	return { scenario: o.scenario, stage: o.stage, seed: o.seed, minutes: o.minutes, personality: o.personality, brain: o.brain,
+		model: o.model, jevMaxRequests: o.jevMaxRequests, evaluations: o.evaluations, strictEval: o.strictEval,
+		character: o.character, tier: o.tier, warp: o.warp, checks: o.checks, livenessS: o.livenessS, full: o };
+}
+
+test("the printed live re-run command parses back into the same run options (every flag that changes decisions or output)", () => {
+	const spaced = path.join(tmp(), "my chars");
+	fs.mkdirSync(spaced);
+	const fixture = path.join(spaced, "lv38 f&p.json");
+	fs.copyFileSync(path.join(REPO, "game", "tests", "fixtures", "characters", "lv35_magician_2nd.json"), fixture);
+	const cases = [
+		["--scenario=matrix", "--seed=2", "--personality=aggressive", "--brain=fallback", "--model=jev-preview",
+			"--jev-max-requests=12", "--evaluations=true", "--strict-eval", "--warp=30", "--minutes=5", "--stuck-px=30",
+			"--stuck-s=9", "--stage=tree_that_grew_1", "--liveness-s=90", "--inject-finding=stuck"],
+		["--scenario=tier_chain", "--brain=jev"],
+		["--scenario=fixture_dark_cave", "--brain=builtin"],
+		[`--character=${fixture}`, "--stage=dark_cave", "--personality=defensive", "--evaluations=false"],
+		[],
+	];
+	for (const argv of cases) {
+		const before = resolvedOptions(argv, REPO);
+		const cmd = rerunCommand(before.full, REPO);
+		assert.match(cmd, /^bash scripts\/agent_playtest\.sh /);
+		const after = resolvedOptions(shellWords(cmd).slice(2), REPO);
+		const { full: _a, ...a } = before;
+		const { full: _b, ...b } = after;
+		assert.deepEqual(b, a, cmd);
+	}
 });
 
 async function recorded(argv: string[] = []) {

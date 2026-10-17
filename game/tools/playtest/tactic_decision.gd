@@ -31,10 +31,12 @@ func _init() -> void:
 	kind = "tactic"
 
 
+## The allowed tactics in offer order, each with its DESCRIPTIONS text.
 func options(_w: RunWorld) -> Array:
 	return allowed.map(func(t: String) -> Dictionary: return {"id": t, "name": t, "desc": String(DESCRIPTIONS.get(t, ""))})
 
 
+## The sensible player always kites (the first allowed tactic when kite is not allowed).
 func baseline(_w: RunWorld, _policy: RUN_POLICY) -> Dictionary:
 	return {"sensible": "kite" if "kite" in allowed else String(allowed[0])}
 
@@ -47,5 +49,6 @@ func situation(w: RunWorld) -> Dictionary:
 	return s
 
 
+## Switches the playtest policy to tactic `answer` (playtest_policy.gd set_tactic), recording this decision's trigger.
 func apply(w: RunWorld, policy: RUN_POLICY, answer: String) -> void:
 	policy.call("set_tactic", w, answer, trigger)

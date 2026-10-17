@@ -53,7 +53,7 @@ function tacticDecide(allowed: string[], current: string, buckets: Record<string
 
 test("a tactic decision asks one request: a Choice over the allowed tactics in a seeded order plus a danger Noul", async () => {
 	const j = jev("kite", 0.8, 0.2);
-	const brain = createJevBrain({ client: j.client, seed: 2026, profile: P("aggressive") });
+	const brain = createJevBrain({ client: j.client, seed: 2026, personality: P("aggressive") });
 	const d = tacticDecide(["aggressive", "kite"], "kite");
 	const a = await brain.decide(d);
 	assert.equal(j.sent.length, 1);
@@ -86,7 +86,7 @@ test("a tactic decision asks one request: a Choice over the allowed tactics in a
 
 test("options the personality does not allow are never offered to Jev", async () => {
 	const j = jev("kite", 0.8, 0.1);
-	await createJevBrain({ client: j.client, seed: 1, profile: P("exploratory") })
+	await createJevBrain({ client: j.client, seed: 1, personality: P("exploratory") })
 		.decide(tacticDecide(["kite", "aggressive", "defensive", "explore", "collect", "hold"], "explore"));
 	const choice = Object.values<any>(j.sent[0].body.questions).find((q) => q.type === "choice");
 	assert.deepEqual(Object.keys(choice.criteria).sort(), ["collect", "explore", "kite"]);
@@ -94,26 +94,26 @@ test("options the personality does not allow are never offered to Jev", async ()
 
 test("a tactic answer below the confidence threshold keeps the current tactic", async () => {
 	const j = jev("aggressive", 0.3, 0.1);
-	const a = await createJevBrain({ client: j.client, seed: 1, profile: P("aggressive") }).decide(tacticDecide(["aggressive", "kite"], "kite"));
+	const a = await createJevBrain({ client: j.client, seed: 1, personality: P("aggressive") }).decide(tacticDecide(["aggressive", "kite"], "kite"));
 	assert.equal(a.answer, "kite");
 	assert.equal(a.source, "jev");
 	assert.equal(a.extra?.jev_choice, "aggressive");
 	assert.match(String(a.extra?.gate), /low confidence 0\.3 < 0\.35.*kept kite/);
-	const sure = await createJevBrain({ client: jev("aggressive", 0.36, 0.1).client, seed: 1, profile: P("aggressive") })
+	const sure = await createJevBrain({ client: jev("aggressive", 0.36, 0.1).client, seed: 1, personality: P("aggressive") })
 		.decide(tacticDecide(["aggressive", "kite"], "kite"));
 	assert.equal(sure.answer, "aggressive", "at or above the threshold the top choice is applied");
 });
 
 test("high danger forces defensive only for personalities with emergency", async () => {
-	const a = await createJevBrain({ client: jev("kite", 0.9, 0.75).client, seed: 1, profile: P("defensive") })
+	const a = await createJevBrain({ client: jev("kite", 0.9, 0.75).client, seed: 1, personality: P("defensive") })
 		.decide(tacticDecide(["defensive", "kite"], "kite"));
 	assert.equal(a.answer, "defensive");
 	assert.equal(a.extra?.jev_choice, "kite");
 	assert.match(String(a.extra?.gate), /danger 0\.75 > 0\.7.*defensive/);
-	const calm = await createJevBrain({ client: jev("kite", 0.9, 0.65).client, seed: 1, profile: P("defensive") })
+	const calm = await createJevBrain({ client: jev("kite", 0.9, 0.65).client, seed: 1, personality: P("defensive") })
 		.decide(tacticDecide(["defensive", "kite"], "kite"));
 	assert.equal(calm.answer, "kite", "danger at or below 0.7 does not force");
-	const reckless = await createJevBrain({ client: jev("aggressive", 0.9, 0.95).client, seed: 1, profile: P("aggressive") })
+	const reckless = await createJevBrain({ client: jev("aggressive", 0.9, 0.95).client, seed: 1, personality: P("aggressive") })
 		.decide(tacticDecide(["aggressive", "kite"], "kite"));
 	assert.equal(reckless.answer, "aggressive", "no emergency flag: danger is recorded, not acted on");
 	assert.equal(reckless.extra?.danger, 0.95);
@@ -122,7 +122,7 @@ test("high danger forces defensive only for personalities with emergency", async
 test("a failed tactic request uses the personality's fallback rule table", async () => {
 	const fetch = async () => json(500, { error: "boom" });
 	const a = await createJevBrain({ client: new JevClient({ apiKey: "k", fetch, retry: { maxRetries: 0 } }), seed: 1,
-		profile: P("defensive") }).decide(tacticDecide(["defensive", "kite"], "kite"));
+		personality: P("defensive") }).decide(tacticDecide(["defensive", "kite"], "kite"));
 	assert.equal(a.answer, "defensive", "defensive's hurt_backs_off rule");
 	assert.equal(a.source, "fallback:tactic-rules");
 	assert.match(String(a.reason), /500/);
@@ -133,11 +133,11 @@ test("card requests carry the personality text, and failures use the personality
 		options: [{ id: "a", name: "Recovery", kind: "skill_rank", stat: "hp", role: "support", sensible_score: 42 },
 			{ id: "b", name: "Bolt Power", kind: "skill_mod", stat: "damage", role: "attack", sensible_score: 76 }] };
 	const j = jev("a", 0.7, 0);
-	await createJevBrain({ client: j.client, seed: 1, profile: P("completionist") }).decide(card);
+	await createJevBrain({ client: j.client, seed: 1, personality: P("completionist") }).decide(card);
 	assert.match(j.sent[0].body.state.player, /thorough/i);
 	const fetch = async () => json(500, {});
 	const a = await createJevBrain({ client: new JevClient({ apiKey: "k", fetch, retry: { maxRetries: 0 } }), seed: 1,
-		profile: P("aggressive") }).decide(card);
+		personality: P("aggressive") }).decide(card);
 	assert.equal(a.answer, "b");
 	assert.equal(a.source, "fallback:aggressive");
 });

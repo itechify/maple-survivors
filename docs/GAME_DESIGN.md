@@ -2895,9 +2895,8 @@ the agent player sees and does, and what the report calls a problem. All are tie
 
 | Constant | Value | Tier | Where / source |
 |---|---|---|---|
-| Situation HP/MP buckets (tactic triggers and rules) | critical < 25%, low < 50%, full >= 95% of the pool | C | `playtest_situation.gd` `POOL_*` |
-| Jev HP/MP words (card and job decides, evaluation facts) | critical < 15%, low < 35%, medium < 60%, high, full >= 99.9% | C | `jev_brain.ts` `poolLevel`; a second table, see the note below |
-| "Mobs near" box and counts | 300 px either side, 150 px above/below the feet (the balance metrics' box); few >= 1, crowd >= 4, swarm >= 12 | C | `playtest_situation.gd` `NEAR_*`, `MOBS_*` |
+| Situation HP/MP buckets (every decide: tactic triggers and rules, the fallbacks, every Jev question; the evaluation facts) | critical < 25%, low < 50%, full >= 95% of the pool | C | `playtest_situation.gd` `POOL_*`; the evaluation facts bucket timeline rows with the mirror in `situation.ts` `SITUATION_THRESHOLDS` (a test keeps them equal) |
+| "Mobs near" box and counts | 300 px either side, 150 px above/below the feet (the balance metrics' box); few >= 1, crowd >= 4, swarm >= 12 (also the evaluation facts' mob words) | C | `playtest_situation.gd` `NEAR_*`, `MOBS_*`; `situation.ts` mirror |
 | Potions, drops | stock "plenty" at >= 5; drops "many" at >= 6; "drops near" within 400 px, "drops above" within BotInput's 1200 px climb window and 0.7 of the magnet radius above the feet | C | `playtest_situation.gd` |
 | Recent hits, boss attacking | "recent" = last 5 s, "many" >= 3; boss "attacking" for 3 s after it hits or attacks, or while within 200 px | C | `playtest_situation.gd` |
 | Run phase words | "opening minutes" before 2:00, then by bosses alive / defeated / scheduled | C | `jev_brain.ts` `runPhase` |
@@ -2910,11 +2909,11 @@ the agent player sees and does, and what the report calls a problem. All are tie
 | Evaluation flags | Jev-flagged at confidence >= 0.6 (a Noul's confidence is \|2p-1\|), else "needs review"; death unfairness >= 2 of 3; avoidable p <= 0.4; minute dullness >= 2 of 3; card offer meaningfulness <= 1 of 3; movement p(stuck or awkward) >= 0.6 | C | `evaluations.ts` `FLAG_CONFIDENCE`, `RULES` |
 | Evaluation facts | death window 30 s in 5 s chunks; a partial last minute under 15 s is not judged; count, damage share, duration, boss arrival, kill and drop words | C | `eval_facts.ts` |
 | Death clusters (matrix) | the densest 90 s window holding the deaths of >= 40% of the cells; the last hit within 2 s of death is the killing blow | C | `eval_flags.ts`, `death_clusters.ts` `LAST_HIT_S` |
-| Request caps, liveness | Jev brain 400 requests per run; evaluations 10; no driver output for 60 s is an infrastructure error | C | `core/jev_client.ts` `DEFAULT_MAX_REQUESTS`, `run.ts` `EVAL_MAX_REQUESTS`, `core/args.ts` `--liveness-s` |
+| Playtest bookkeeping | 3 recent tactic switches shown to Jev; phase thirds of 15:00 when a stage has no duration; 5 nearest mobs in a finding snapshot; a timeline row per run second; driver progress every 60 s, windowed progress every 30 s; the injected test finding at 0:10; windowed shot / end / settle waits 5 / 20 / 1.5 real seconds; 20 switch-log lines and 30 console report lines | C | `playtest_policy.gd` `RECENT_SWITCHES`, `jev_brain.ts` `RECENT_SWITCHES`, `playtest_situation.gd` `DEFAULT_DURATION`, `playtest_invariants.gd` `SNAPSHOT_MOBS`, `playtest_timeline.gd` `EVERY_S`, `playtest_driver.gd` `PROGRESS_EVERY` / `INJECT_AT`, `agent_replay.gd`, `report_tactics.ts` `LOG_LINES`, `scenario_run.ts` `HEAD_LINES` |
+| Request caps, liveness | one cap of 400 Jev requests per run shared by the brain and the evaluations (`--jev-max-requests`); no driver output for 60 s is an infrastructure error | C | `core/jev_client.ts` `DEFAULT_MAX_REQUESTS`, `core/args.ts` `DEFAULT_LIVENESS_S` |
 
-Two HP/MP bucket tables exist on purpose for now: the game-side buckets drive tactic triggers and the fallback rules,
-and the Node words are what Jev reads on card and job decides and in the evaluation facts. Unifying them would change
-what Jev sees and every recorded situation, so it is left for a follow-up.
+There is one HP/MP and one mob bucket table: the game-side buckets that every decide carries. Card, job and tactic
+questions, the fallback rules and the evaluation facts all read them (the evaluation facts through the tested mirror).
 
 ## 12. Later phases
 

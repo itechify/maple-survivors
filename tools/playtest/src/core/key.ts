@@ -34,6 +34,24 @@ export function resolveApiKey(o: KeyOptions): KeyResolution {
 	return user ? { key: user, from: "user" } : { key: null, reason: "key absent in process and user env" };
 }
 
+/** `env` without the TypeSafe key: the environment of every child process the CLI starts (Godot never needs it). */
+export function withoutKey(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const out = { ...env };
+	delete out[KEY_ENV];
+	return out;
+}
+
+/** Anything shaped like an HTTP bearer token ("Bearer <token>"): the token part. */
+const BEARER = /(Bearer\s+)[^\s"',;)]+/gi;
+
+/** `text` with every non-empty entry of `secrets` and every bearer token replaced by "[redacted]", so an error text
+ * can be recorded (decisions.jsonl, reports) even when an SDK echoed the key into it. */
+export function redactSecrets(text: string, secrets: readonly string[]): string {
+	let out = text;
+	for (const s of secrets) if (s) out = out.split(s).join("[redacted]");
+	return out.replace(BEARER, (_m, head: string) => `${head}[redacted]`);
+}
+
 /** The Windows user-scope TYPESAFE_API_KEY through powershell.exe ("" when unset). Throws if powershell fails. */
 export function readUserKeyWindows(): string {
 	const r = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",

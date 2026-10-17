@@ -9,6 +9,7 @@ import type { DecisionRecord, SessionResult } from "../core/session.ts";
 import { renderReport } from "../core/report.ts";
 import type { Problem, ReportContext } from "../core/report.ts";
 import { exitCodeFor } from "../core/exit_codes.ts";
+import { DEFAULT_LIVENESS_S } from "../core/args.ts";
 import { resolveGodot, prepareProject, importProjectAsync, driverArgs } from "./launcher.ts";
 import { createReplayBrain, compareFingerprints, compareHello, orderDivergences } from "../core/replay.ts";
 import type { Recording, ReplayBrain } from "../core/replay.ts";
@@ -19,12 +20,14 @@ import type { InvariantChecks } from "./invariant_flags.ts";
 import "./report_sections.ts";
 import type { Brain } from "../core/session.ts";
 import type { Fetch, RetryPolicy } from "@typesafe-ai/sdk";
-import { resolveApiKey, KEY_ENV } from "../core/key.ts";
+import { resolveApiKey, withoutKey } from "../core/key.ts";
 import { JevClient } from "../core/jev_client.ts";
+import type { JevStats } from "../core/jev_client.ts";
 import { createJevBrain } from "./jev_brain.ts";
 import { brainHeader } from "./jev_report.ts";
 import type { BrainFacts } from "./jev_report.ts";
 import { loadPersonality, driverParams } from "./personality.ts";
+import { fallbackSituation } from "./situation.ts";
 import type { Personality } from "./personality.ts";
 import { createFallbackBrain } from "./personality_fallback.ts";
 import "./report_personality.ts";
@@ -77,7 +80,8 @@ export type RunOptions = {
 	tier?: number;
 	/** Run seconds answered by the sensible baseline (source "warp") before the brain decides (#98). */
 	warp?: number;
-	/** Jev-assisted evaluations on (#99; scenario field, default true through the CLI). Absent (a direct call): off. */
+	/** Jev-assisted evaluations on (#99; the flag or scenario field; through the CLI default on for the auto and jev brains,
+	 * off for fallback and builtin). Absent (a direct call): off. */
 	evaluations?: boolean;
 	/** Recorded in scenario.json besides the run options: the scenario (name, file), the cell and every flag value. */
 	record?: { scenario?: unknown; cell?: unknown; flags?: Record<string, unknown> };
@@ -131,7 +135,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	if (recordedParams) rec.json(PERSONALITY_FILE, recordedParams);
 	else if (personality) rec.json(PERSONALITY_FILE, driverParams(personality));
 	const hasParams = recordedParams !== null || personality !== undefined;
-	const pick = o.replay ? replayPick(o.replay) : warped(chooseBrain(o, env, personality), o.warp ?? 0);
+	const pick = o.replay ? replayPick(o.replay) : withSituationShown(warped(chooseBrain(o, env, personality), o.warp ?? 0));
 	const driverOptions = { stage: o.stage, seed: o.seed, minutes: o.minutes, personality: o.personality,
 		brain: driverBrain, out: dir, character: o.character, tier: o.tier, personalityFile, ...checks } as const;
 	if (!hasParams) {
@@ -148,7 +152,7 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 		else {
 			const project = prepareProject(repo, env);
 			rec.log(`agent_playtest: Godot ${godot.exe}, project ${project}`);
-			await importProjectAsync(godot.exe, project);
+			await importProjectAsync(godot.exe, project, env);
 			launch = { command: godot.exe, args: driverArgs(project, driverOptions) };
 		}
 	}
@@ -179,14 +183,16 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 	for (const p of problems) rec.jsonl("findings.jsonl", p);
 	rec.adopt("timeline.jsonl");
 	rec.adopt("hits.jsonl");
-	const evaluation = await evaluate(o, env, dir, session, decisions, problems);
+	const { evaluation, client: evalClient } = await evaluate(o, env, dir, session, decisions, problems, pick.client);
+	const jev = pick.client ?? evalClient; // the run's one Jev client, if any
 	rec.json("evaluations.json", evaluation);
+	const totals = jevTotals(jev?.stats(), evaluation);
 	const opinions = withSnapshots(opinionsOf(evaluation), readJsonl(path.join(dir, "timeline.jsonl")));
 	const ended = outcomeOf(session?.end);
 	const flagged = opinions.filter((x) => x.class === "flagged").length;
 	const exitCode = exitCodeFor(errors, problems.length + (o.strictEval ? flagged : 0));
 	const brainLines = o.replay ? pick.header?.(divergence, session) ?? []
-		: brainHeader({ ...pick.facts, decisions, stats: pick.client?.stats(), brainLost: session?.end?.brain_lost === true });
+		: brainHeader({ ...pick.facts, decisions, stats: pick.client ? totals.brain : undefined, brainLost: session?.end?.brain_lost === true });
 	const ctx: ReportContext = {
 		title: `Agent playtest: ${o.stage} seed ${o.seed}`,
 		header: [["scenario", o.scenario ?? "adhoc"], ["stage", o.stage], ["seed", String(o.seed)],
@@ -196,10 +202,11 @@ export async function runPlaytest(o: RunOptions): Promise<RunOutcome> {
 			...((o.tier ?? 1) >= 2 ? [["tier chain", `tier 1 through ${o.tier} (a round feeds the next only when CLEARED)`] as [string, string]] : []),
 			...((o.warp ?? 0) > 0 && !o.replay ? [["warp", `the first ${o.warp} s took the sensible baseline (source warp: BotInput's choices, tactic kite); the brain decided after`] as [string, string]] : []),
 			...brainLines,
+			...(totals.line ? [["Jev total", totals.line] as [string, string]] : []),
 			["evaluations", evaluationsLine(evaluation)],
 			["exit code", `${exitCode}${o.strictEval ? " (--strict-eval: Jev-flagged results count)" : ""}`]],
 		infraErrors: errors, problems, decisions, files: rec.files(), exitCode,
-		data: { hello: session?.hello, end: session?.end, jev: pick.client?.stats(), personality, evaluations: evaluation },
+		data: { hello: session?.hello, end: session?.end, jev: jev?.stats(), personality, evaluations: evaluation },
 		rerun: rerunCommand(o, repo), replay: replayCommand(o.replay?.dir ?? dir, repo),
 		windowed: (t) => windowedReplayCommand(o.replay?.dir ?? dir, t, repo),
 		opinions, evaluations: { line: evaluationsLine(evaluation), skipped: evaluation.status === "skipped" }, strictEval: o.strictEval,
@@ -253,36 +260,64 @@ export function withSnapshots(opinions: Opinion[], rows: Array<Record<string, un
 	});
 }
 
-/** tier C: Jev requests the evaluations of one run may make (death, pacing, movement need three). */
-export const EVAL_MAX_REQUESTS = 10;
-
 /** The Jev-assisted evaluations of this run (#99): skipped without an end record, on a replay (never calls Jev), when
- * turned off, or when no TypeSafe key resolves (whatever the brain); otherwise their own JevClient (own cap and
- * stats, so a brain at its request cap still gets evaluated). */
+ * turned off (by default for the fallback and builtin brains), or when no TypeSafe key resolves; otherwise asked
+ * through the run's one JevClient (`shared`: the Jev brain's, so the brain and the evaluations share one request cap
+ * and one token total; a new one with the same cap when the brain was not Jev). Returns the client used, if any. */
 async function evaluate(o: RunOptions, env: NodeJS.ProcessEnv, dir: string, session: SessionResult | undefined,
-	decisions: DecisionRecord[], problems: Problem[]): Promise<Evaluations> {
-	const skip = (reason: string) => runEvaluations({ client: null, skip: reason, data: { record: {}, timeline: [], hits: [], decisions, problems } });
+	decisions: DecisionRecord[], problems: Problem[], shared: JevClient | undefined): Promise<{ evaluation: Evaluations; client?: JevClient }> {
+	const skip = async (reason: string) => ({ evaluation: await runEvaluations({ client: null, skip: reason,
+		data: { record: {}, timeline: [], hits: [], decisions, problems } }) });
 	if (!session?.end) return skip("no round record: the driver sent no end");
 	if (o.replay) return skip("replay: the recording's evaluations.json has the verdicts");
-	if (o.evaluations !== true) return skip("turned off by --evaluations=false or the scenario");
-	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
-	if (key.key === null) return skip(`no TypeSafe key: ${key.reason}`);
+	if (o.evaluations !== true) return skip(o.brain === "fallback" || o.brain === "builtin"
+		? `turned off: --brain=${o.brain} stays offline by default (--evaluations=true turns them on)`
+		: "turned off by --evaluations=false or the scenario");
+	let client = shared;
+	if (!client) {
+		const key = resolveApiKey({ env, readUserKey: o.readUserKey });
+		if (key.key === null) return skip(`no TypeSafe key: ${key.reason}`);
+		client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch, retry: o.jevRetry });
+	}
 	const data = readRunData(dir, decisions, problems);
 	if (!data) return skip("no readable record.json");
-	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: EVAL_MAX_REQUESTS, fetch: o.jevFetch, retry: o.jevRetry });
-	return runEvaluations({ client, data });
+	return { evaluation: await runEvaluations({ client, data }), client };
 }
 
-/** The command that plays this run again live (same stage, seed, cap, personality, brain, character, tier, warp and
- * invariant flags). */
+/** The run's Jev requests and tokens split into the brain's and the evaluations' (the evaluations count their own). */
+export function jevTotals(total: JevStats | undefined, e: Evaluations): { brain?: JevStats; line?: string } {
+	if (!total) return {};
+	const brain = { ...total, requests: total.requests - e.requests, input_tokens: total.input_tokens - e.input_tokens,
+		output_tokens: total.output_tokens - e.output_tokens };
+	const tokens = (s: { input_tokens: number; output_tokens: number }) => s.input_tokens + s.output_tokens;
+	return { brain, line: `${total.requests} requests (cap ${total.max_requests} per run, shared by the brain and the evaluations; ` +
+		`brain ${brain.requests}, evaluations ${e.requests}), ${tokens(total)} tokens (${total.input_tokens} input + ` +
+		`${total.output_tokens} output; brain ${tokens(brain)}, evaluations ${tokens(e)})` };
+}
+
+/** The command that plays this run again live (#98): every flag that changes decisions or output, so it parses back
+ * into the same run options (test/scenario_run.test.ts): the scenario, stage, seed, cap, personality, brain, model,
+ * request cap, evaluations and --strict-eval, character, tier, warp, the invariant flags and a non-default liveness.
+ * Fields a scenario could supply are always explicit (tier, warp), so its file never fills them in differently. */
 export function rerunCommand(o: RunOptions, repo: string = REPO): string {
 	const c = o.checks ?? {};
-	return ["bash scripts/agent_playtest.sh", `--stage=${o.stage}`, `--seed=${o.seed}`, `--minutes=${o.minutes}`,
-		`--personality=${o.personality}`, `--brain=${o.brain}`,
+	return ["bash scripts/agent_playtest.sh",
+		...(o.scenario && o.scenario !== "adhoc" ? [`--scenario=${o.scenario}`] : []),
+		`--stage=${o.stage}`, `--seed=${o.seed}`, `--minutes=${o.minutes}`, `--personality=${o.personality}`, `--brain=${o.brain}`,
+		...(o.model !== undefined ? [`--model=${o.model}`] : []),
+		...(o.jevMaxRequests !== undefined ? [`--jev-max-requests=${o.jevMaxRequests}`] : []),
+		`--evaluations=${o.evaluations === true}`, ...(o.strictEval ? ["--strict-eval"] : []),
 		...(o.character ? [`--character=${displayPath(repo, o.character)}`] : []),
-		...((o.tier ?? 1) >= 2 ? [`--tier=${o.tier}`] : []), ...((o.warp ?? 0) > 0 ? [`--warp=${o.warp}`] : []),
+		`--tier=${o.tier ?? 1}`, `--warp=${o.warp ?? 0}`,
 		...(c.stuckPx !== undefined ? [`--stuck-px=${c.stuckPx}`] : []), ...(c.stuckS !== undefined ? [`--stuck-s=${c.stuckS}`] : []),
-		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : [])].join(" ");
+		...(c.injectFinding ? [`--inject-finding=${c.injectFinding}`] : []),
+		...(o.livenessS !== DEFAULT_LIVENESS_S ? [`--liveness-s=${o.livenessS}`] : [])].map(shellQuote).join(" ");
+}
+
+/** `word` as one bash word: as is when safe, else double-quoted with ", \\, $ and ` escaped. */
+export function shellQuote(word: string): string {
+	return /^[A-Za-z0-9_@%+=:,./-]*$/.test(word) || word === "bash scripts/agent_playtest.sh" ? word
+		: `"${word.replace(/(["\\$`])/g, "\\$1")}"`;
 }
 
 /** scenario.json: everything a replay needs to play this run again (#98): the scenario and its file, the cell, every
@@ -334,6 +369,18 @@ function replayPick(r: Recording): BrainPick {
 				: `match (${r.decisions.length} decisions, the driver's hello and every fingerprint field identical)`]] };
 }
 
+/** `pick` whose every answer records `situation_shown` (story 20): the Jev brain sets its exact request state; any
+ * other answer (fallback, warp, a Jev failure) gets the buckets and tactic state it was decided from. A replay keeps
+ * the recording's own (core/replay.ts carries it). */
+function withSituationShown(pick: BrainPick): BrainPick {
+	if (pick.error) return pick;
+	const inner = pick.brain;
+	return { ...pick, brain: { name: inner.name, async decide(d) {
+		const a = await inner.decide(d);
+		return a.extra?.situation_shown !== undefined ? a : { ...a, extra: { situation_shown: fallbackSituation(d.situation), ...a.extra } };
+	} } };
+}
+
 /** `pick` with the first `warp` run seconds answered by the decide's sensible baseline (source "warp"). */
 function warped(pick: BrainPick, warp: number): BrainPick {
 	if (!(warp > 0) || pick.error) return pick;
@@ -349,9 +396,9 @@ function warped(pick: BrainPick, warp: number): BrainPick {
 
 /** The CLI's brain for --brain: Jev when a key resolves (auto / jev), else the deterministic fallback; --brain=jev
  * without a key is a setup error (exit 2, the game is not started). The key goes only into the TypeSafe client. */
-function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, profile: Personality | undefined): BrainPick {
-	const fallback = profile ? createFallbackBrain(profile, o.seed) : sensibleBrain;
-	const fallbackFacts = { personality: profile?.name, cardPolicy: profile?.fallback.cards };
+function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, personality: Personality | undefined): BrainPick {
+	const fallback = personality ? createFallbackBrain(personality, o.seed) : sensibleBrain;
+	const fallbackFacts = { personality: personality?.name, cardPolicy: personality?.fallback.cards };
 	if (o.brain === "builtin") return { brain: fallback, facts: { requested: o.brain, mode: "builtin" } };
 	if (o.brain !== "auto" && o.brain !== "jev") return { brain: fallback, facts: { requested: o.brain, mode: "fallback", ...fallbackFacts } };
 	const key = resolveApiKey({ env, readUserKey: o.readUserKey });
@@ -363,15 +410,8 @@ function chooseBrain(o: RunOptions, env: NodeJS.ProcessEnv, profile: Personality
 	}
 	const client = new JevClient({ apiKey: key.key, model: o.model, maxRequests: o.jevMaxRequests, fetch: o.jevFetch,
 		retry: o.jevRetry });
-	return { brain: createJevBrain({ client, seed: o.seed, profile, fallback }), client,
+	return { brain: createJevBrain({ client, seed: o.seed, personality, fallback }), client,
 		facts: { requested: o.brain, mode: "jev", keyFrom: key.from } };
-}
-
-/** `env` without the TypeSafe key: the game process never needs it. */
-function withoutKey(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-	const out = { ...env };
-	delete out[KEY_ENV];
-	return out;
 }
 
 /** The CLI's decision records completed with the driver's view (`end.decisions`): an answer the driver replaced with

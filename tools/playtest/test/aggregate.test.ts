@@ -42,7 +42,7 @@ test("the summary has an outcomes table, the de-duplicated problems, metric spre
 	assert.equal(s.json.problems.length, 3);
 	const md = s.markdown;
 	assert.match(md, /^# Agent playtest matrix: matrix/m);
-	assert.match(md, /\| matrix_henesys_hg1_sensible_s1 \| sensible \| 1 \| 1 \| DEAD 7:01 \| Lv 14 \| 200 \| 310 \| 0\/60 \| 2 \|/);
+	assert.match(md, /\| matrix_henesys_hg1_sensible_s1 \| sensible \| 1 \| 1 \| DEAD 7:01\.5 \| Lv 14 \| 200 \| 310 \| 0\/60 \| 2 \|/);
 	assert.match(md, /\| matrix_henesys_hg1_sensible_s2026 \| sensible \| 2026 \| 2 \| no end \|/);
 	assert.match(md, /\*\*stuck\*\* at henesys_hg1 platform 7: 2 cells, 3 times/);
 	assert.match(md, /liveness timeout/, "infrastructure errors are listed per cell");

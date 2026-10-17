@@ -37,7 +37,7 @@ test("a DEAD run asks death fairness: one request, a fair-to-unfair Score plus a
 	assert.match(avoidable.instructions, /careful player/);
 	const s = death.state as Record<string, any>;
 	assert.equal(s["last 30 seconds, oldest first"].length, 6, "30 s in six 5 s chunks");
-	assert.equal(s["last 30 seconds, oldest first"][5]["lowest HP"], "low, then zero at the death");
+	assert.equal(s["last 30 seconds, oldest first"][5]["lowest HP"], "critical, then zero at the death", "20 of 100 HP: the game's critical (< 25%)");
 	assert.equal(s["last 30 seconds, oldest first"][0]["lowest HP"], "full");
 	assert.match(JSON.stringify(s["hits taken in the last 30 seconds"]), /the boss, contact/);
 	assert.match(s["killing blow"], /the boss, contact.*large/);

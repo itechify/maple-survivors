@@ -11,5 +11,5 @@ export function defineScenarioFlags(flags: FlagRegistry): FlagRegistry {
 		.define({ name: "tier", kind: "int", help: "play a tier chain from tier 1 through this tier (stages.json tiers; --stage is tier 1's stage)" })
 		.define({ name: "warp", kind: "number", help: "run seconds played by the sensible baseline (BotInput's choices, kite) before the brain decides" })
 		.define({ name: "jobs", kind: "int", help: "parallel Godot processes for a multi-run scenario (default min(4, cores/2))" })
-		.define({ name: "evaluations", kind: "bool", help: "run the Jev-assisted evaluations after the round (default true; skipped without a key and on a replay; --evaluations=false turns them off)" });
+		.define({ name: "evaluations", kind: "bool", help: "run the Jev-assisted evaluations after the round (default on with --brain=auto or jev, off with fallback or builtin; skipped without a key and on a replay)" });
 }
