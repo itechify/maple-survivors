@@ -16,7 +16,6 @@ extends InventoryWindow
 ## cache the window keeps its layout and draws plain tabs and slots.
 
 const ART := "UI.wz/UIWindow.img/Item/"
-const COUNT := "UI.wz/Basic.img/ItemNo/"
 ## v83 Item backgrnd size.
 const WINDOW_SIZE := Vector2(175, 289)
 ## The tabs in v83 order (Tab/<state>/0..4 glyphs).
@@ -225,16 +224,3 @@ func _draw_tabs() -> void:
 		else:
 			MapleText.draw(self, Vector2(float(TAB_X[i]), r.position.y + 3.0), String(TAB_NAMES[i]),
 				MapleText.BLACK if on else MapleText.GREY, 9, on)
-
-
-## A stack count in Basic.img/ItemNo digits (plain text without the cache).
-func _draw_count(at: Vector2, count: int) -> void:
-	var s := str(count)
-	var x := at.x
-	for ch in s:
-		var d := UiArt.frame(COUNT + ch)
-		if d == null:
-			MapleText.draw(self, at, s, MapleText.WHITE, 9, true, 1)
-			return
-		UiArt.blit(self, d, Vector2(x, at.y))
-		x += d.region.size.x

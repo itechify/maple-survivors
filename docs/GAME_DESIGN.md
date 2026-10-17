@@ -44,7 +44,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Action | Keys (MapleStory defaults first) |
 |---|---|
 | Move | Left / Right arrows (the movement setting switches to W / A / S / D; only one set moves) |
-| Jump | Left Alt (also Space, C) |
+| Jump | Left Alt (also C; Space is NPC Chat, as in v83) |
 | Climb ladder/rope | Up / Down near a ladder |
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
@@ -55,6 +55,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
 | Equip window | E (also Menu -> Equip; in the Free Market too): double-click a worn item to take it off, drag it onto the Item window likewise |
 | Item window | I (also Menu -> Item; in the Free Market too): tabs Equip / Use / Set-up / Etc / Cash; double-click an item or drag it onto the Equip window to wear it; drag it off the windows to discard it (asks first) |
+| NPC Chat | Space (as in v83; rebindable in Key Config): in the Free Market, next to a scroll NPC, opens its shop; so does a double-click on the NPC |
 | HP / MP potion | Del (also Q) / End (E opens the Equip window, as in v83) |
 | Menu | the status bar's Menu button: Equip, Item, Stat, Skill, Key Config, Options (entries without a window yet are disabled) |
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
@@ -105,8 +106,24 @@ spends the slot, and a failed **dark** scroll destroys the item at its `cursed` 
 and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
 `Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
 destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
-scrolls exist is `game/data/survivor/scrolls.json` (below); until the shops (#111) there is no way to get them but the
-test hook `RunWorld.grant_scrolls`, and they are never dropped.
+scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
+next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
+
+Scroll shops (#111): four NPCs stand on the Free Market floor, drawn from `Npc.wz` with their `String.wz` names: El Moth
+1032103 sells the 100% scrolls, Barun 2022002 the 60%, Tulcus 1052104 the 10% and Vega 2041016 the dark 70% and 30%
+(`game/data/survivor/shops.json`). Standing next to one (within 100 px) and pressing **NPC Chat** (Space, v83's default;
+rebindable in Key Config), or double-clicking it, opens its shop and holds the hub like any window; Esc or Exit closes
+it. The window is the v83 one (`UIWindow.img/Shop`): the NPC, its name and the Buy / Exit buttons above its stock
+(five rows, scrollable: icon, name, price and success rate), the character, the meso total and the Sell button above the
+inventory with the Item window's tabs. Every NPC sells its rate(s) of every scroll family whose equipment can drop for
+the character's job (the Beginner sees only hat, top, bottom and shoes scrolls, a Magician also overall, gloves, wand
+and staff), unlimited and the same at every tier. A scroll costs 35,000 mesos (armour) or 70,000 (wand, staff) at every
+rate. Buy asks "How many are you willing to buy?"; with too few mesos or no room in the Use tab a notice says so and
+nothing changes. Sell: any shop buys spare equipment at its `info/price` (after "Are you sure you want to sell it?") and
+scrolls at their `info/price` (1 mesos each, asking how many); worn equipment is never listed, so it cannot be sold until
+it is taken off. Every purchase and sale is saved into the character slot at once. The logic is the pure `Shop` module
+(stock, buy, sell over a plain character state) that RunWorld wraps (`shop_stock`, `buy_scroll`, `sell_item`,
+`sell_scrolls`) and the bot planner (#112) reuses.
 
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
@@ -2241,6 +2258,18 @@ quantities per kind.
   | Gloves | DEX, ATT, HP, Magic Att. |
   | Wand, Staff | Magic Att. |
 
+- **Scroll shops (spec #33, #111)**: `Shop` (pure, static) works on a plain character state (`mesos`, `scrolls`,
+  `equipment`, `potions`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
+  `Shop.stock(npc, rules, scrolls.json, drop list, item info, job)`: the NPC's rates (shops.json) of every family whose
+  item category (`(item id / 10000) % 100`, the scroll's `(id / 100) % 100`) some drop-list item the job can wear
+  (`Equipment.job_allows`) belongs to, in file order, each priced by its slot. `buy` is all-or-nothing: `count` (below
+  1), `mesos`, `use_full` (a stack stops at slotMax, the tab holds 22 scroll stacks beside the potions; checked before
+  any mesos are taken). `sell_equipment` / `sell_scrolls` pay `info/price` (`unsellable` without one, `no_item` for a bad
+  index or too few scrolls); `sell_worn` is the refusal for a worn item (`worn`). RunWorld adds `shop_stock(npc_id)`,
+  `buy_scroll(npc_id, scroll_id, count)` (also `not_sold` for a scroll outside the stock), `sell_item(index)` and
+  `sell_scrolls(scroll_id, count)`, each success emitting `equipment_changed` (action `buy` / `sell`). The shop window
+  (`ShopWindow`, with `ShopQuantity` and `ShopNotice`) and the Free Market's NPC placement are described in section 2.
+
 ## 6. Combat
 
 ### 6.1 Player damage
@@ -3094,6 +3123,15 @@ fields round to six decimal places for readable committed JSON; generation never
 | Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
 | Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |
+| Scroll NPCs (#111) | El Moth 1032103 (100%), Barun 2022002 (60%), Tulcus 1052104 (10%), Vega 2041016 (dark 70% / 30%), standing on the Free Market floor at x -380, -280, -180 and 40 (`shops.json`); all four have art in v83 `Npc.wz`, so none is replaced; names from `String.wz/Npc.img` | A (ids, art, names; they are v83's own scroll sellers), C (which NPC sells which rate, the positions) | Owner #33; `Npc.wz`, `String.wz/Npc.img` |
+| Scroll prices (#111) | 35,000 mesos for an armour scroll, 70,000 for a wand or staff scroll, at every rate (`shops.json` `prices`, `weapon_slots`) | B (100% scrolls: v83 NPC prices), C (applied to the 60%, 10% and dark rates) | Owner #33; v83 server shop data |
+| Shop stock (#111) | each NPC sells its rates of every scroll family whose equipment (a drop-list item) the character's job can wear; unlimited, fixed, the same at every tier; no filter tabs, no random stock | C | Owner #33 |
+| Sell rule (#111) | any shop buys spare equipment at its `info/price` and scrolls at their `info/price` (1 meso); worn equipment cannot be sold; potions are not bought (the Use tab lists scrolls only) | B (price = sell price), C (potions) | v83 sell rule (server reimplementations); ours |
+| Shop messages (#111) | "You do not have enough mesos." / "Please check if your inventory is full or not." / "You can't sell it anymore.", "How many are you willing to buy?" / "...sell?", "Are you sure you want to sell it?" | B (GMS v95 client string pool; the v83 wording is unverified) | open client reimplementations' string pool dump |
+| NPC Chat key (#111) | Space, a bindable `npc_chat` action shown in Key Config (icon `KeyConfig/icon/54` NPC CHAT). Space was jump's second key: jump keeps Left Alt and C, as in v83 (Alt jump, Space NPC chat). An existing settings.cfg whose rebound action holds Space keeps it: NPC Chat then has no key until rebound | B (v83's default NPC Chat key), C (the migration) | v83 default key layout; ours |
+| Shop talk reach (#111) | within 100 px horizontally and 90 px vertically of an NPC's feet (`shops.json` `talk_range`); a double-click on an NPC opens its shop from any distance | C | ours |
+| Shop window layout (#111) | `UIWindow.img/Shop/backgrnd` 463x339, two panels 230 px apart: five rows at y 127 + 40 x n (icon slot x 6, `select` 162x35 at x 43), the strip at y 91 (pink Buy label left, `TabSell` Equip / Use / Set-up / Etc / Cash glyphs right, 44 px each), NPC feet (54, 76), character feet (285, 76), Buy (126, 32), Exit (126, 56), Sell (356, 32), meso text right-aligned in the baked field (361, 63, 90x15), scrollbar `Basic.img/VScr5` at x 208; the `TabBuy` All / Must filter tabs are not drawn | C (measured on the v83 art; art and origins A) | ours |
+| Shop dialogs (#111) | quantity box = `Basic.img/YesNo` with a typed number (1 to 100, or the stack), refusal box = `Basic.img/Notice` with BtOK, sale confirmation = the YesNo box | C | ours |
 
 ## 12. Later phases
 

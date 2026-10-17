@@ -8,6 +8,11 @@ extends Node2D
 ## built from the saved snapshot (the one owner of equipment rules); every change is written back into the snapshot
 ## and the character's save slot at once, and the drawn look and the hub's speed / jump follow. Movement holds while a
 ## window is open; Esc closes the front window before it opens the pause menu (handle_hotkey).
+##
+## Scroll shops (#111): the four scroll NPCs of shops.json (survivor data) stand on the floor (`shop_npcs`, drawn from
+## Npc.wz with their String.wz names). The NPC Chat action (Space, v83's default) next to one, or a double-click on one,
+## opens its ShopWindow (open_shop) in the same stack; the shop trades through `inventory` like the other windows and
+## every purchase or sale is saved at once.
 
 const DT := 1.0 / 60.0 # tier C: same fixed tick as RunScene.
 const MAX_TICKS := 4 # tier C: same catch-up cap as RunScene.
@@ -31,6 +36,8 @@ var inventory: RunWorld
 ## The scroll result effect above the windows (#110).
 var enchant: EnchantFx
 var npcs: Array[Dictionary] = []
+## The scroll NPCs (shops.json): {"id", "pos" (feet), "rect" (the drawn sprite's box), "sprite"}.
+var shop_npcs: Array[Dictionary] = []
 var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
@@ -62,6 +69,7 @@ func _ready() -> void:
 	var loadout := _boundary_loadout(character, data)
 	_apply_movement_stats(character, loadout)
 	_build_npcs()
+	_build_shop_npcs()
 	avatar = AvatarRenderer.new()
 	avatar.library = library
 	# Configure before entering the tree, so _ready never loads a different default outfit first.
@@ -121,6 +129,12 @@ func step_input(dt: float, input: MoveInput) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("jump") and not windows_open():
 		_jump_latch = true
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.pressed and mb.double_click and mb.button_index == MOUSE_BUTTON_LEFT:
+		var npc := shop_npc_at(make_canvas_position_local(mb.position))
+		if not npc.is_empty() and open_shop(int(npc.id)):
+			get_viewport().set_input_as_handled()
+			return
 	if handle_hotkey(event):
 		get_viewport().set_input_as_handled()
 
@@ -138,6 +152,10 @@ func handle_hotkey(event: InputEvent) -> bool:
 			return true
 		return false
 	if not pause_menu.is_open() and ui_windows != null:
+		if InputMap.has_action("npc_chat") and event.is_action_pressed("npc_chat", false, true):
+			var npc := nearest_shop_npc()
+			if not npc.is_empty() and open_shop(int(npc.id)):
+				return true
 		for action: String in WINDOW_HOTKEYS:
 			if InputMap.has_action(action) and event.is_action_pressed(action, false, true):
 				ui_windows.toggle(String(WINDOW_HOTKEYS[action]))
@@ -146,7 +164,43 @@ func handle_hotkey(event: InputEvent) -> bool:
 	return top != null and top.handle_key(event)
 
 
-## True while an Equip / Item window is open (movement holds).
+## The scroll NPC the character stands next to (within shops.json talk_range), the nearest one; {} when none.
+func nearest_shop_npc() -> Dictionary:
+	if motion == null:
+		return {}
+	var reach: Dictionary = _data.get("shops", {}).get("talk_range", {})
+	var best := {}
+	var best_dx := INF
+	for npc: Dictionary in shop_npcs:
+		var d: Vector2 = (npc.pos as Vector2) - motion.player.pos
+		if absf(d.x) <= float(reach.get("x", 100)) and absf(d.y) <= float(reach.get("y", 90)) and absf(d.x) < best_dx:
+			best = npc
+			best_dx = absf(d.x)
+	return best
+
+
+## The scroll NPC whose drawn sprite covers world point `p` ({} when none).
+func shop_npc_at(p: Vector2) -> Dictionary:
+	for npc: Dictionary in shop_npcs:
+		if (npc.rect as Rect2).has_point(p):
+			return npc
+	return {}
+
+
+## Opens scroll NPC `npc_id`'s shop window (the hub holds like for any window); false while the pause menu or a shop
+## is open, or without a window stack or character. Talking to an NPC through a double-click works from any distance
+## (tier C).
+func open_shop(npc_id: int) -> bool:
+	if ui_windows == null or inventory == null or pause_menu == null or pause_menu.is_open() \
+			or ui_windows.find_window("shop") != null:
+		return false
+	var shop := ShopWindow.new(inventory, npc_id)
+	shop.player_name = String(snapshot.get("name", ""))
+	ui_windows.open(_inventory_window(shop))
+	return true
+
+
+## True while an Equip / Item / shop window is open (movement holds).
 func windows_open() -> bool:
 	return ui_windows != null and ui_windows.has_windows()
 
@@ -196,7 +250,8 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "mp": mp, "max_hp": hp, "max_mp": mp},
 		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
-	var help := MapleText.new("Free Market  /  Up at the exit: next map  /  Esc: Save & quit", MapleText.SIZE, MapleText.WHITE, true)
+	var help := MapleText.new("Free Market  /  Up at the exit: next map  /  Space: talk to a scroll NPC  /  Esc: Save & quit",
+		MapleText.SIZE, MapleText.WHITE, true)
 	help.position = Vector2(12, 12) # tier C: hub instruction inset in logical pixels.
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = NameTags.BOX_COLOR
@@ -267,7 +322,7 @@ func _on_item_action(_action: String) -> void:
 	snapshot.character = inventory.character_snapshot()
 	avatar.set_look(character_look(snapshot.character, _data))
 	_apply_movement_stats(snapshot.character, _boundary_loadout(snapshot.character, _data))
-	for id: String in ["equip", "item"]:
+	for id: String in ["equip", "item", "shop"]:
 		var w := ui_windows.find_window(id)
 		if w != null:
 			w.queue_redraw()
@@ -305,6 +360,29 @@ func _build_npcs() -> void:
 		npcs.append({"id": id, "sprite": sprite})
 
 
+## Draws the scroll NPCs of shops.json standing on the floor foothold below y 0 at their x.
+func _build_shop_npcs() -> void:
+	for entry: Dictionary in _data.get("shops", {}).get("npcs", []):
+		var id := int(entry.id)
+		var x := float(entry.x)
+		var floor := motion.fhm.find_below(x, 0.0)
+		if floor < 0:
+			continue
+		var anim := library.anim("Npc.wz/%07d.img/stand" % id)
+		if anim.is_empty():
+			continue
+		var pos := Vector2(x, motion.fhm.y_at(floor, x)).round()
+		var sprite := MapDrawList.new()
+		sprite.animated = true
+		sprite.position = pos
+		sprite.add(anim, Vector2.ZERO, true) # tier C: faces right, toward the arrival point.
+		map.actor_layer(int(motion.fhm.layer[floor])).add_child(sprite)
+		_add_name_tag(sprite, library.string_name("Npc", id))
+		var frame: SpriteFrame = anim.frames[0]
+		shop_npcs.append({"id": id, "pos": pos, "sprite": sprite,
+			"rect": Rect2(pos - frame.origin, frame.region.size)})
+
+
 func _add_name_tag(parent: Node2D, text: String) -> void:
 	var tag := Node2D.new()
 	var font := Hud.make_font()
@@ -332,5 +410,5 @@ func _present(delta: float) -> void:
 	avatar.set_facing(motion.player.facing)
 	avatar.play(motion.player.stance())
 	avatar.advance(delta)
-	for npc: Dictionary in npcs:
+	for npc: Dictionary in npcs + shop_npcs:
 		(npc.sprite as MapDrawList).advance(delta)

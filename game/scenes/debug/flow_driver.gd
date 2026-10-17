@@ -31,7 +31,7 @@ extends Node
 ##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
 ##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
-##           Key Config over the pause menu, the jump icon is dragged from Space onto F, OK; Esc resumes; Space no
+##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
 ##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
 ##           Options -> Arrows, Key Config -> Default -> OK. user://settings.cfg (the player's real one) is backed up
 ##           first and restored before the driver quits, also on failure. Shots: key_config, key_config_rebound,
@@ -55,6 +55,13 @@ extends Node
 ##           moves to the Free Market and Continue opens the
 ##           hub: a hat scroll is dragged onto Metal Gear there (effect, saved slot). Shots: scroll_use_tab,
 ##           scroll_success, scroll_tooltip, scroll_failure, scroll_destroyed, scroll_bare_handed, hub_scroll_success.
+##   shops   the Free Market scroll shops (#111): the Lv38 F/P fixture with 250,000 mesos, a few scrolls and spare
+##           equipment is put in the hub; the four scroll NPCs are shown; Space next to El Moth opens his shop; a wand
+##           scroll is selected and bought (quantity box, mesos charged), a refused purchase shows the notice; the
+##           Use tab sells a scroll stack, the Equip tab a spare item (YesNo box); Esc closes; a double-click on Barun
+##           opens his shop (60% stock); NPC Chat is rebound in Key Config's draft. All input is injected. Shots:
+##           shop_npcs, shop_open, shop_selected, shop_quantity, shop_bought, shop_refused, shop_sell_use, shop_sell_confirm,
+##           shop_sold, shop_barun, shop_vega.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ## Other flags: --shots=<abs dir> (required), --time-scale=<k> (default 3: the run plays k times faster, windows and
@@ -67,8 +74,9 @@ extends Node
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, Space jump, Q / End potions; E is the Equip window).
-const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_SPACE,
+## Keys the steering sends (project.godot defaults: arrows, C jump (Alt too; Space is NPC Chat), Q / End potions; E is
+## the Equip window).
+const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_C,
 	"drink_hp": KEY_Q, "drink_mp": KEY_END}
 
 var args := {}
@@ -117,6 +125,8 @@ func _ready() -> void:
 			_scenario_inventory()
 		"scrolls":
 			_scenario_scrolls()
+		"shops":
+			_scenario_shops()
 		"full":
 			_scenario_full()
 		_:
@@ -377,7 +387,7 @@ func _scenario_full() -> void:
 	await _shot("run_start")
 	# A few seconds of plain keyboard play before the steering takes over.
 	await _hold(KEY_RIGHT, 1.2)
-	await _key(KEY_SPACE)
+	await _key(KEY_C)
 	await _sleep(0.25)
 	await _shot("run_keyboard_jump")
 	await _hold(KEY_LEFT, 0.8)
@@ -801,25 +811,25 @@ func _scenario_keys() -> void:
 		return
 	await _shot("key_config")
 	var origin := kc.get_global_rect().position
-	await _drag(origin + kc.key_rect(KEY_SPACE).get_center(), origin + kc.key_rect(KEY_F).get_center())
+	await _drag(origin + kc.key_rect(KEY_C).get_center(), origin + kc.key_rect(KEY_F).get_center())
 	await _sleep(0.2)
-	_check(kc.draft.action_on(KEY_F) == "jump" and kc.draft.action_on(KEY_SPACE) == "",
-		"the jump icon moved from Space to F (F: '%s', Space: '%s')" % [kc.draft.action_on(KEY_F),
-		kc.draft.action_on(KEY_SPACE)])
+	_check(kc.draft.action_on(KEY_F) == "jump" and kc.draft.action_on(KEY_C) == "",
+		"the jump icon moved from C to F (F: '%s', C: '%s')" % [kc.draft.action_on(KEY_F),
+		kc.draft.action_on(KEY_C)])
 	_hover(origin + kc.key_rect(KEY_F).get_center())
 	await _sleep(0.3)
 	await _shot("key_config_rebound")
 	await _click(kc._bt_ok)
 	await _sleep(0.4)
 	_check(not run.ui_windows.has_windows(), "OK closed Key Config")
-	_check(KEY_F in settings.binding_keys("jump") and not KEY_SPACE in settings.binding_keys("jump"),
+	_check(KEY_F in settings.binding_keys("jump") and not KEY_C in settings.binding_keys("jump"),
 		"OK applied: jump on %s" % [settings.binding_keys("jump")])
 	await _key(KEY_ESCAPE)
 	await _sleep(0.5)
 	_check(not run.paused, "Esc resumed")
-	# Space no longer jumps, F does.
-	var space_jumped: bool = await _jumps(run, KEY_SPACE)
-	_check(not space_jumped, "Space no longer jumps")
+	# C no longer jumps, F does.
+	var c_jumped: bool = await _jumps(run, KEY_C)
+	_check(not c_jumped, "C no longer jumps")
 	var f_jumped: bool = await _jumps(run, KEY_F)
 	_check(f_jumped, "F jumps")
 	# Menu -> Options, WASD.
@@ -1161,6 +1171,161 @@ func _scenario_scrolls() -> void:
 	_collect_missing(hub)
 	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
 	print("flow_driver: scrolls scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## The scroll shops (#111) in the Free Market: real key presses, clicks and a double-click.
+func _scenario_shops() -> void:
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Shop111"):
+		return
+	var fixture: Variant = DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json")
+	if not fixture is Dictionary or CharacterSnapshot.validation_error(fixture) != "":
+		_fail("the Lv38 F/P fixture did not load")
+		return
+	var lib := AssetLibrary.get_default()
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = fixture
+	character.erase("_doc")
+	character.mesos = 250000
+	character.scrolls = {"2043700": 4, "2043705": 6, "2040000": 2}
+	for id: int in [1002001, 1382001, 1082002, 1040004]:
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		character.equipment.inventory.append(Equipment.create(id, img.root.get("info", {}) if img != null else {}))
+	slot.character = character
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the character was saved at the hub")
+	flow.continue_character(flow.active_slot)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	# The player's own settings.cfg may have given Space to another action (then NPC Chat has no key): the driver puts
+	# NPC Chat on its project default in the InputMap only, so the evidence run does not depend on the developer's keys.
+	InputMap.action_erase_events("npc_chat")
+	for code in GameSettings.default_keys("npc_chat"):
+		var ev := InputEventKey.new()
+		ev.physical_keycode = code as Key
+		InputMap.action_add_event("npc_chat", ev)
+	_check(hub.shop_npcs.map(func(n: Dictionary) -> int: return int(n.id)) == [1032103, 2022002, 1052104, 2041016],
+		"the four scroll NPCs stand in the Free Market")
+	hub.motion.player.place(Vector2(-210, 34), hub.motion.fhm)
+	hub.camera.snap_to(hub.motion.player.pos)
+	await _sleep(0.8)
+	await _shot("shop_npcs")
+	# Space next to El Moth opens his shop.
+	hub.motion.player.place(Vector2(-350, 34), hub.motion.fhm)
+	hub.camera.snap_to(hub.motion.player.pos)
+	await _sleep(0.5)
+	await _key(KEY_SPACE)
+	await _sleep(0.6)
+	var shop := hub.ui_windows.find_window("shop") as ShopWindow
+	if shop == null:
+		_fail("Space next to El Moth did not open his shop")
+		return
+	_check(shop.npc_id == 1032103 and hub.windows_open(), "El Moth's shop is open and the hub holds")
+	_check(shop.stock.all(func(e: Dictionary) -> bool: return e.rate == "100"), "El Moth sells only 100% scrolls")
+	await _shot("shop_open")
+	var origin := shop.get_global_rect().position
+	var wand := shop.stock.map(func(e: Dictionary) -> int: return int(e.id)).find(2043700)
+	_check(wand >= 0, "the wand Magic Att. 100% scroll is in the stock of a Wizard")
+	shop.scroll_panel(0, 99)
+	await _sleep(0.3)
+	var visible_first := shop.buy_offset
+	var row := wand - visible_first
+	await _click_at(origin + shop.row_rect(0, clampi(row, 0, ShopWindow.ROWS - 1)).get_center())
+	await _sleep(0.3)
+	_check(shop.buy_selected == wand, "a click selects the wand scroll row (selected %d, want %d)" % [shop.buy_selected, wand])
+	_hover(origin + shop.row_rect(0, clampi(row, 0, ShopWindow.ROWS - 1)).get_center() + Vector2(60, 0))
+	await _sleep(0.5)
+	await _shot("shop_selected")
+	var mesos_before := hub.inventory.mesos
+	await _click(shop._bt_buy)
+	await _sleep(0.4)
+	var quantity := hub.ui_windows.find_window("shop_quantity") as ShopQuantity
+	if quantity == null:
+		_fail("Buy did not ask how many")
+		return
+	await _key(KEY_2)
+	await _sleep(0.3)
+	await _shot("shop_quantity")
+	await _key(KEY_ENTER)
+	await _sleep(0.5)
+	_check(hub.inventory.mesos == mesos_before - 140000 and int(hub.inventory.scrolls.get("2043700", 0)) == 6,
+		"two wand scrolls cost 140,000 (mesos %d)" % hub.inventory.mesos)
+	_check(int(flow.save.slot(flow.active_slot).character.mesos) == hub.inventory.mesos, "the purchase was saved at once")
+	_hover(origin + Vector2(10, 330))
+	await _sleep(0.3)
+	await _shot("shop_bought")
+	# Not enough mesos: 110,000 left, two more wand scrolls need 140,000.
+	await _click(shop._bt_buy)
+	await _sleep(0.3)
+	await _key(KEY_2)
+	await _key(KEY_ENTER)
+	await _sleep(0.5)
+	_check(hub.ui_windows.find_window("shop_notice") != null and shop.last_notice == "You do not have enough mesos.",
+		"a purchase without the mesos shows the notice")
+	_check(hub.inventory.mesos == mesos_before - 140000, "and changes nothing")
+	await _shot("shop_refused")
+	await _key(KEY_ENTER)
+	await _sleep(0.3)
+	# Selling: the Use tab's scroll stack, then a spare item.
+	await _click_at(origin + shop.tab_rect(1).get_center())
+	await _sleep(0.3)
+	await _click_at(origin + shop.row_rect(1, 0).get_center())
+	await _sleep(0.3)
+	await _shot("shop_sell_use")
+	var sold_cells := shop.sell_cells()
+	_check(sold_cells.size() == 3 and shop.sell_selected == 0, "the Use tab lists the three scroll stacks, one selected")
+	await _click(shop._bt_sell)
+	await _sleep(0.4)
+	await _key(KEY_ENTER)
+	await _sleep(0.4)
+	await _click_at(origin + shop.tab_rect(0).get_center())
+	await _sleep(0.3)
+	await _click_at(origin + shop.row_rect(1, 1).get_center())
+	await _sleep(0.3)
+	var price := shop.row_price(shop.selected_sale())
+	var before_sale := hub.inventory.mesos
+	await _click(shop._bt_sell)
+	await _sleep(0.4)
+	_check(hub.ui_windows.find_window("drop_confirm") != null, "selling equipment asks first")
+	await _shot("shop_sell_confirm")
+	await _key(KEY_ENTER)
+	await _sleep(0.5)
+	_check(hub.inventory.mesos == before_sale + price and price > 0, "the spare item sold for its price %d" % price)
+	await _shot("shop_sold")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.4)
+	_check(hub.ui_windows.find_window("shop") == null and not hub.windows_open(), "Esc closed the shop")
+	# A double-click on Barun opens the 60% shop; Vega sells the dark scrolls.
+	var barun: Dictionary = hub.shop_npcs[1]
+	var barun_screen: Vector2 = hub.get_canvas_transform() * ((barun.rect as Rect2).get_center())
+	await _double_click_at(barun_screen)
+	await _sleep(0.6)
+	var second := hub.ui_windows.find_window("shop") as ShopWindow
+	_check(second != null and second.npc_id == 2022002, "a double-click on Barun opens his shop")
+	if second != null:
+		await _shot("shop_barun")
+		await _key(KEY_ESCAPE)
+		await _sleep(0.3)
+	hub.motion.player.place(Vector2(30, 34), hub.motion.fhm)
+	hub.camera.snap_to(hub.motion.player.pos)
+	await _sleep(0.4)
+	await _key(KEY_SPACE)
+	await _sleep(0.6)
+	var third := hub.ui_windows.find_window("shop") as ShopWindow
+	_check(third != null and third.npc_id == 2041016, "Space next to Vega opens his shop")
+	if third != null:
+		await _shot("shop_vega")
+		await _key(KEY_ESCAPE)
+	_collect_missing(hub)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	print("flow_driver: shops scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 

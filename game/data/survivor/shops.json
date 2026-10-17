@@ -1,0 +1,12 @@
+{
+	"_doc": "The Free Market's four scroll NPCs (spec #33, #111). npcs: the v83 NPC id (Npc.wz, String.wz/Npc.img), which rates it sells (scrolls.json rate keys: '100', '60', '10', 'dark70', 'dark30') and the x it stands at on the Free Market floor (910000000); the y is the floor foothold below x. The NPCs are v83's own scroll sellers: El Moth 1032103 (Ellinia), Barun 2022002 (Orbis), Tulcus 1052104 (Kerning City), Vega 2041016 (Ludibrium); each has art in v83 Npc.wz. Which NPC sells which rate is the owner's rule (#33 triage, tier C). prices: mesos per scroll by item slot, the same at every rate. tier B for the 100% scrolls (v83's NPC prices: 35,000 for armour scrolls, 70,000 for wand and staff scrolls), applied to the 60%, 10% and dark rates as our own rule (tier C). weapon_slots: the scrolls.json slots priced as weapons. Stock is fixed, unlimited and the same for every tier (tier C; Shop.stock): each rate of every scroll family whose equipment can drop for the character's job. Selling is not data: every shop buys equipment and scrolls at their WZ info/price (tier B). talk_range: how near the character stands to an NPC to talk to it with the NPC Chat key, px horizontally and vertically (tier C: ours).",
+	"prices": {"armour": 35000, "weapon": 70000},
+	"weapon_slots": ["wand", "staff"],
+	"talk_range": {"x": 100, "y": 90},
+	"npcs": [
+		{"id": 1032103, "rates": ["100"], "x": -380},
+		{"id": 2022002, "rates": ["60"], "x": -280},
+		{"id": 1052104, "rates": ["10"], "x": -180},
+		{"id": 2041016, "rates": ["dark70", "dark30"], "x": 40}
+	]
+}

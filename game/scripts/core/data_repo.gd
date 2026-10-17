@@ -20,6 +20,7 @@ const FILES := {
 	"equipment_drops": "survivor/equipment_drops.json",
 	"jobs_survivor": "survivor/jobs.json",
 	"scrolls": "survivor/scrolls.json",
+	"shops": "survivor/shops.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
 }
@@ -188,7 +189,7 @@ static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringA
 		for field: Variant in info:
 			var name := String(field)
 			var value: Variant = info[field]
-			if (name.begins_with("inc") or name in ["success", "cursed", "slotMax"]) and (value is int or value is float):
+			if (name.begins_with("inc") or name in ["success", "cursed", "slotMax", "price"]) and (value is int or value is float):
 				kept[name] = int(value)
 		out[int(id)] = kept
 	return out

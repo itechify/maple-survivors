@@ -88,7 +88,11 @@ for both RunWorld and the Free Market.
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
 draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
-life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
+life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71). The four scroll
+NPCs (#111, `survivor/shops.json`) stand on the floor beside them and are the only NPCs that can be talked to: NPC Chat
+(Space) next to one, or a double-click, opens its `ShopWindow` in the hub's window stack (`FreeMarket.open_shop`),
+trading through the map-less RunWorld (`shop_stock`, `buy_scroll`, `sell_item`, `sell_scrolls` over the pure `Shop`
+module) and saving the slot at once.
 `--run` calls `start_run`, an independent one-off with no save writes.
 
 The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,

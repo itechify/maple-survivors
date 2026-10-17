@@ -42,6 +42,11 @@ extends RefCounted
 ##                                  not_worn, scroll_unknown) and the scroll is kept
 ##   grant_scrolls(scroll_id, count) - add scrolls to the Use tab stacks (test hook until shops); returns how many fit
 ##   discard_scrolls(scroll_id)   - destroy a whole scroll stack
+## Scroll shops (#111, Shop): shop_stock(npc_id) lists what a Free Market NPC sells this character's job; buy_scroll(npc_id,
+## scroll_id, count), sell_item(inventory_index) and sell_scrolls(scroll_id, count) trade mesos for scrolls and spare
+## equipment and return "" or a Shop reason (count, mesos, use_full, no_item, unsellable, not_sold), changing nothing then;
+## each success emits equipment_changed (action "buy" / "sell"). Worn equipment is never sold (sell_item takes inventory
+## indices; Shop.sell_worn is the refusal).
 ## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
@@ -1094,12 +1099,48 @@ func scroll_info(scroll_id: int) -> Dictionary:
 ## Adds up to `count` scrolls to the Use tab (a stack stops at its info/slotMax, 100 without one; the two potion
 ## stacks take two of the Use tab's slots); returns how many were added. Test and tool hook until shops exist.
 func grant_scrolls(scroll_id: int, count: int) -> int:
-	var potion_stacks := 0
-	for stock: Dictionary in potions.stock.values():
-		if int(stock.item_id) > 0:
-			potion_stacks += 1
 	return Scrolls.add(scrolls, scroll_id, count, int(scroll_info(scroll_id).get("slotMax", 0)),
-		Scrolls.USE_SLOTS - potion_stacks)
+		Shop.use_stack_limit(potions.stock))
+
+
+## What Free Market NPC `npc_id` (shops.json) sells this character's job: Shop.stock entries, [] for an unknown NPC.
+func shop_stock(npc_id: int) -> Array:
+	for npc: Dictionary in data.get("shops", {}).get("npcs", []):
+		if int(npc.id) == npc_id:
+			return Shop.stock(npc, data.shops, data.get("scrolls", {}), data.get("equipment_drops", {}).get("items", []),
+				setup.get("equipment_info", {}), progression.job_id)
+	return []
+
+
+## Buys `count` scrolls `scroll_id` from NPC `npc_id` (Shop.buy; "not_sold" when its stock lacks the scroll).
+func buy_scroll(npc_id: int, scroll_id: int, count: int) -> String:
+	for entry: Dictionary in shop_stock(npc_id):
+		if int(entry.id) == scroll_id:
+			var state := _shop_state()
+			var reason := Shop.buy(state, scroll_id, count, int(entry.price), int(scroll_info(scroll_id).get("slotMax", 0)))
+			if reason == "":
+				_shop_done("buy", scroll_id, state)
+			return reason
+	return "not_sold"
+
+
+## Sells the spare equipment at inventory `index` at its info/price (Shop.sell_equipment).
+func sell_item(index: int) -> String:
+	var id := int(equipment.inventory[index].id) if index >= 0 and index < equipment.inventory.size() else 0
+	var state := _shop_state()
+	var reason := Shop.sell_equipment(state, index, Equipment.info_of(setup.get("equipment_info", {}), id))
+	if reason == "":
+		_shop_done("sell", id, state)
+	return reason
+
+
+## Sells `count` scrolls `scroll_id` at their info/price (Shop.sell_scrolls).
+func sell_scrolls(scroll_id: int, count: int) -> String:
+	var state := _shop_state()
+	var reason := Shop.sell_scrolls(state, scroll_id, count, scroll_info(scroll_id))
+	if reason == "":
+		_shop_done("sell", scroll_id, state)
+	return reason
 
 
 ## Reads scroll `scroll_id` onto the item worn in `slot` (Scrolls.use with the scroll stream): "" once it was used up
@@ -1120,6 +1161,16 @@ func use_scroll(scroll_id: int, slot: String) -> String:
 ## The Equip tab's capacity (balance.player.inventory_slots).
 func inventory_slots() -> int:
 	return int(balance.get("player", {}).get("inventory_slots", DEFAULT_INVENTORY_SLOTS))
+
+
+## The character state Shop works on: mesos by value, the Use stacks and Equip tab by reference.
+func _shop_state() -> Dictionary:
+	return {"mesos": mesos, "scrolls": scrolls, "equipment": equipment, "potions": potions.stock}
+
+
+func _shop_done(action: String, item_id: int, state: Dictionary) -> void:
+	mesos = int(state.mesos)
+	emit("equipment_changed", {"action": action, "slot": "", "item_id": item_id})
 
 
 func _equipment_changed(action: String, slot: String, id: int) -> void:
