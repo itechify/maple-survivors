@@ -390,6 +390,27 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 takes a random card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #34 / #115 NX award regression smoke (2026-10-16)
+
+`ISOLATE=s34-115 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, real
+cache, unforced branches, no PATCH or tuning, on the #115 branch against the integration base (`db1c5cb`) run from a
+frozen copy. All 12 records are byte-identical once the three new keys (`nx_awarded`, `bosses_killed`,
+`levels_gained`) are removed, so the feature changes no simulation: Henesys bot 0/3 clears (deaths 13:00 / 13:11 /
+15:07), Henesys random 1/3 (seed 1 clears), Tree 0/3 in both policies, as in the #80 / #32 smokes above. No crash,
+script error or world warning; the player's `user://save.json` was untouched (tools never open SaveData). The
+placeholder award (`nx_award` in `balance.json`: clear bonus 100 / 250, 5 per level, 40 per boss) gives, per run in seed
+order 1/2/2026 (bosses killed, levels gained in parentheses):
+
+| Stage / policy | NX awarded per run |
+|---|---|
+| Henesys bot | 240 (2, 32) / 160 (1, 24) / 240 (2, 32) |
+| Henesys random | 435 clear (3, 43) / 50 (0, 10) / 170 (1, 26) |
+| Tree bot | 160 (1, 24) / 145 (1, 21) / 10 (0, 2) |
+| Tree random | 155 (1, 23) / 15 (0, 3) / 10 (0, 2) |
+
+The table and `SUMMARY` of `balance.sh` gain an NX column and an "NX awarded per run (recorded, never credited)"
+min-median-max line; `SYSTEMS` repeats it from the aggregate. Raw records: ignored `_scratch/{base,new}/`.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
@@ -2870,6 +2891,9 @@ fields round to six decimal places for readable committed JSON; generation never
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
+| NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
+| NX crediting and account block (#115) | the award is added to `account.nx` inside the same atomic write as the clear's round-boundary snapshot (so it is spendable in the Free Market at once) or the death/victory run archive; an optional top-level save key `account: {nx, owned}` (absent = 0 NX, nothing owned), `SaveData.FORMAT` stays 2; tool rounds record `nx_awarded` / `bosses_killed` / `levels_gained` and never write a save | C | ours; seams.md (no format bump) |
+| NX display (#115) | results screen row "NX earned: +N NX" (persistent endings only); Free Market arrival notice "You have gained N NX." for 6 s under the instruction line; map select heading ends with the account balance | C | ours |
 
 ## 12. Later phases
 
