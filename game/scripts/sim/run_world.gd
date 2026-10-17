@@ -33,12 +33,15 @@ extends RefCounted
 ##   equip_item(inventory_index)  - wear an inventory item (v83 requirements against total stats)
 ##   unequip_item(slot)           - move a worn item to the inventory
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
+## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
+## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
+## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
 ## change_job(200) grants and wears balance.player.weapon_grants' weapon (the Wooden Wand). weapon_id() is the worn
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
-## 9 meso drop chance and amount rolls.
+## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -91,6 +94,7 @@ const EVENT_FIELDS := {
 	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"equipment_changed": ["action", "slot", "item_id"],
+	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
 
 }
 
@@ -129,6 +133,7 @@ var card_rng: RandomNumberGenerator
 var drop_rng: RandomNumberGenerator
 var potion_rng: RandomNumberGenerator
 var meso_rng: RandomNumberGenerator
+var equip_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
@@ -239,6 +244,9 @@ var equipment := Equipment.empty_state()
 ## Scroll stacks: {"<scroll item id>": count}.
 var scrolls := {}
 var mesos := 0
+## Equipment drops spawned and picked up this round (balance records, #109).
+var equips_dropped := 0
+var equips_collected := 0
 var _equipment_speed := 0.0
 var _equipment_jump := 0.0
 var _dead := false
@@ -286,6 +294,7 @@ func _init_rng_streams() -> void:
 	reward_rng = _stream(6)
 	job_rng = _stream(8) # tier C: independent bot branch stream, #53.
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
+	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -633,10 +642,15 @@ func _step_player_attacks(dt: float) -> void:
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
 func _step_pickups(dt: float) -> int:
-	var got := pickups.step(dt, player.pos, magnet_r, fhm, events)
+	var got := pickups.step(dt, player.pos, magnet_r, fhm, events,
+		maxi(0, inventory_slots() - equipment.inventory.size()))
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
+	for instance: Dictionary in pickups.collected_equipment:
+		equipment.inventory.append(instance)
+		equips_collected += 1
+		_equipment_changed("pickup", "", int(instance.id))
 	return got
 
 
@@ -1341,6 +1355,9 @@ func _on_kill(m: int) -> void:
 	var meso_chance := float(meso_cfg.get("chance", 0.0))
 	if meso_chance > 0.0 and meso_rng.randf() < meso_chance:
 		spawn_meso(pos, _roll_mesos(mk))
+	var equip_chance := float(data.get("equipment_drops", {}).get("chance", 0.0))
+	if equip_chance > 0.0 and equip_rng.randf() < equip_chance:
+		_drop_equipment(pos, false)
 
 
 ## Rolls one meso amount for a mob kind: its listed v83 range (or the level fallback) times balance.mesos.mult.
@@ -1348,6 +1365,29 @@ func _roll_mesos(mk: MobKind) -> int:
 	var cfg: Dictionary = balance.get("mesos", {})
 	var span := MesoDrops.amount_range(mk.level, mk.mesos, cfg.get("fallback", {}))
 	return MesoDrops.roll(meso_rng, span, float(cfg.get("mult", 1.0)))
+
+
+## One equipment drop for the character's current job and level (EquipmentDrops; `boss` takes the top of the level
+## window) with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
+func _drop_equipment(pos: Vector2, boss: bool) -> void:
+	var cfg: Dictionary = data.get("equipment_drops", {})
+	var infos: Dictionary = setup.get("equipment_info", {})
+	var items: Array = cfg.get("items", [])
+	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng) if boss \
+		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng)
+	if id > 0:
+		spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng))
+
+
+## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the
+## Equip tab has room, otherwise it lies there (pickup_blocked) until a slot is free. Returns the pickup slot.
+func spawn_equipment(pos: Vector2, instance: Dictionary) -> int:
+	var slot := pickups.spawn_equipment(pos, instance)
+	if slot >= 0:
+		equips_dropped += 1
+		emit("pickup_spawned", {"pickup": slot, "item_id": int(instance.id), "pos": pos,
+			"kind": "equip", "potion_kind": "", "count": 1})
+	return slot
 
 
 ## Drops `amount` mesos on the ground at pos (the sprite follows the amount); the magnet collects them like EXP.
@@ -1369,6 +1409,9 @@ func _on_boss_kill(m: int, mk: MobKind, pos: Vector2, elite: bool) -> void:
 	_spawn_revives(m, pos)
 	_drop_boss_rewards(pos, e, mk.exp_item, rewards)
 	_drop_boss_mesos(pos, mk, float(rewards.get("spread", 0.0)))
+	var spread := float(rewards.get("spread", 0.0))
+	for i in int(data.get("equipment_drops", {}).get("boss_drops", 0)):
+		_drop_equipment(pos + Vector2(equip_rng.randf_range(-spread, spread) if spread > 0.0 else 0.0, 0), true)
 
 
 ## balance.mesos.boss_drops bundles, each rolled from the boss's range and scattered over `spread` px (no chance roll).

@@ -17,6 +17,7 @@ const FILES := {
 	"stages": "survivor/stages.json",
 	"balance": "survivor/balance.json",
 	"mobs": "survivor/mobs.json",
+	"equipment_drops": "survivor/equipment_drops.json",
 	"jobs_survivor": "survivor/jobs.json",
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
