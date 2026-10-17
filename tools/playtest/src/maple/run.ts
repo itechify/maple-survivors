@@ -78,7 +78,8 @@ export type RunOptions = {
 	tier?: number;
 	/** Run seconds answered by the sensible baseline (source "warp") before the brain decides (#98). */
 	warp?: number;
-	/** Jev-assisted evaluations on (#99; scenario field, default true through the CLI). Absent (a direct call): off. */
+	/** Jev-assisted evaluations on (#99; the flag or scenario field; through the CLI default on for the auto and jev brains,
+	 * off for fallback and builtin). Absent (a direct call): off. */
 	evaluations?: boolean;
 	/** Recorded in scenario.json besides the run options: the scenario (name, file), the cell and every flag value. */
 	record?: { scenario?: unknown; cell?: unknown; flags?: Record<string, unknown> };

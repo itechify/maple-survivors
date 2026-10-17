@@ -9,7 +9,8 @@
 //   character      CharacterSnapshot JSON path, relative to the repo (one round; not with tier >= 2)
 //   tier           chain from tier 1 through this tier (default 1: one round)
 //   brain          auto | jev | fallback | builtin (default auto)
-//   evaluations    run the Jev-assisted evaluations (default true; #99)
+//   evaluations    run the Jev-assisted evaluations (#99; default true with brain auto or jev, false with fallback or
+//                  builtin, so those stay deterministic and offline)
 //   invariants     {stuck_px, stuck_s}: stuck detector thresholds (driver defaults when absent)
 //   jobs           parallel Godot processes (default min(4, cores/2))
 // The cells are personalities x seeds. A flag given on the command line overrides the matching field:
@@ -43,6 +44,13 @@ export type Known = { personalities: string[]; stages: string[]; tiers: number; 
 
 const FIELDS = new Set(["description", "stage", "seeds", "personalities", "minutes", "warp", "character", "tier", "brain",
 	"evaluations", "invariants", "jobs"]);
+
+/** Whether the evaluations run when neither the flag nor the scenario says: on for the brains that may use Jev (auto,
+ * jev), off for fallback and builtin, so those runs stay deterministic and offline ("without Jev, evaluations are
+ * skipped"; --evaluations=true turns them on). */
+export function evaluationsByDefault(brain: string): boolean {
+	return brain === "auto" || brain === "jev";
+}
 
 /** True for a training seed (1..60 and 2026); every other seed is held out or unassigned and never used here. */
 export function isTrainingSeed(n: number): boolean {
@@ -148,12 +156,13 @@ export function resolveScenario(name: string, s: Scenario, parsed: { values: Rec
 	if (given("tier") && (tier < 1 || tier > known.tiers)) errors.push(`tier must be an integer 1..${known.tiers}`);
 	if (character !== undefined && tier >= 2 && (given("tier") || given("character"))) errors.push("character and tier >= 2 cannot be combined");
 	const inv = s.invariants ?? {};
+	const brain = given("brain") ? String(values.brain) : s.brain ?? "auto";
 	const base = {
 		scenario: name, stage,
 		minutes: given("minutes") ? Number(values.minutes) : s.minutes,
 		warp: given("warp") ? Number(values.warp) : s.warp ?? 0,
-		tier, brain: given("brain") ? String(values.brain) : s.brain ?? "auto",
-		evaluations: given("evaluations") ? values.evaluations === true : s.evaluations ?? true,
+		tier, brain,
+		evaluations: given("evaluations") ? values.evaluations === true : s.evaluations ?? evaluationsByDefault(brain),
 		stuckPx: given("stuck-px") ? Number(values["stuck-px"]) : inv.stuck_px,
 		stuckS: given("stuck-s") ? Number(values["stuck-s"]) : inv.stuck_s,
 		...(character !== undefined ? { character } : {}),
