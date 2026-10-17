@@ -147,9 +147,10 @@ func test_menu_popup_lists_the_four_entries_and_disables_missing_windows() -> vo
 	var menu := GameMenuPopup.new()
 	menu.stack = s
 	s.open(menu)
-	assert_eq(menu.entry_ids(), PackedStringArray(["stat", "skill", "key_config", "options"]))
+	assert_eq(menu.entry_ids(), PackedStringArray(["equip", "item", "stat", "skill", "key_config", "options"]))
 	assert_true(menu.is_enabled("stat"))
 	assert_false(menu.is_enabled("skill"), "the Skill window does not exist yet")
+	assert_false(menu.is_enabled("equip"), "nor the Equip window")
 	assert_false(menu.choose("options"), "a disabled entry does nothing")
 	assert_true("menu" in s.ids(), "still open")
 	var r: Rect2 = menu.entry_rect("stat")

@@ -48,9 +48,9 @@ extends Node
 ## 30s/8px exit-walk guard and UI waits/timeouts are automation choices, never survivor tuning.
 
 const MAIN := "res://scenes/main.tscn"
-## Keys the steering sends (project.godot defaults: arrows, Space jump and Q/E potions).
+## Keys the steering sends (project.godot defaults: arrows, Space jump, Q / End potions; E is the Equip window).
 const KEYS := {"left": KEY_LEFT, "right": KEY_RIGHT, "up": KEY_UP, "down": KEY_DOWN, "jump": KEY_SPACE,
-	"drink_hp": KEY_Q, "drink_mp": KEY_E}
+	"drink_hp": KEY_Q, "drink_mp": KEY_END}
 
 var args := {}
 var shots_dir := ""

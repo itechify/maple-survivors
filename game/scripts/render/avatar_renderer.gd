@@ -12,7 +12,9 @@ extends Node2D
 ## Stance frames and delays come from the body image; head/hair/equips use the same stance and frame index. A part
 ## without the stance is skipped (equips), or falls back to `front`/`back` (head) and `default`/`backDefault` (hair).
 ## Frames with `face = 0` (ladder, rope) hide the face. The face plays `default` with an occasional `blink`
-## (tier C: every 2-5 s). Without a cap the hair's *BelowCap layers are not drawn (they replace hair under a cap).
+## (tier C: every 2-5 s). Without a cap the hair's *BelowCap layers are not drawn (they replace hair under a cap);
+## a cap whose `info/vslot` covers the top of the head (H5: CpH5 half-cover, CpH1H5 full-cover; tier B, RE of the v83
+## client's cap types) hides hairOverHead, a headband (CpH1) hides nothing (hair_layers_skipped).
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -48,6 +50,7 @@ var _face: WzImg
 var _hair: WzImg
 var _equips: Array[WzImg] = []
 var _has_cap := false
+var _cap_vslot := ""
 var _zorder: Dictionary = {}
 var _delays: PackedFloat32Array = []
 var _expression := "default"
@@ -80,12 +83,15 @@ func set_look(d: Dictionary) -> void:
 	_hair = _load(part_img_path(int(look.get("hair", 30030))))
 	_equips.clear()
 	_has_cap = false
+	_cap_vslot = ""
 	for id: Variant in look.get("equips", []):
 		var w := _load(part_img_path(int(id)))
 		if w != null:
 			_equips.append(w)
 			if int(id) / 10000 == 100:
 				_has_cap = true
+				var info: Variant = w.root.get("info")
+				_cap_vslot = String(info.get("vslot", "")) if info is Dictionary else ""
 	_zorder = zmap_order(lib)
 	play(stance, true, looping)
 
@@ -266,13 +272,24 @@ func compose(s: String, index: int, expression: String = "default", expr_t: floa
 		var hair_frame: Variant = _frame_node(_hair.root.get(st), fi)
 		if hair_frame == null:
 			hair_frame = _hair.root.get("backDefault" if back else "default")
-		_collect(parts, hair_frame, _hair, not _has_cap)
+		_collect(parts, hair_frame, _hair, hair_layers_skipped(_has_cap, _cap_vslot))
 	for w in _equips:
 		_collect(parts, _frame_node(w.root.get(st), fi), w)
 	var placed := layout_parts(parts)
 	for i in parts.size():
 		parts[i].pos = placed[i]
 	return sort_by_z(parts, _zorder)
+
+
+## Substrings of the hair layer names that are not drawn: "BelowCap" without a cap (those layers replace hair under
+## one); "OverHead" under a cap whose vslot covers the top of the head (H5); nothing under a headband (tier B: the v83
+## client's cap types, re-implemented from prose).
+static func hair_layers_skipped(has_cap: bool, vslot: String) -> PackedStringArray:
+	if not has_cap:
+		return PackedStringArray(["BelowCap"])
+	if vslot.contains("H5"):
+		return PackedStringArray(["OverHead"])
+	return PackedStringArray()
 
 
 ## Anchor math: positions (where each part's origin goes) for parts [{"map": {name: Vector2}}]; part 0 is the body
@@ -396,14 +413,18 @@ static func _place(part: Dictionary, p: Vector2, anchors: Dictionary) -> void:
 			anchors[k] = p + (m[k] as Vector2)
 
 
-func _collect(parts: Array, frame_node: Variant, w: WzImg, skip_below_cap: bool = false) -> void:
+func _collect(parts: Array, frame_node: Variant, w: WzImg, skipped: PackedStringArray = PackedStringArray()) -> void:
 	if not (frame_node is Dictionary) or w == null:
 		return
 	for k: Variant in (frame_node as Dictionary).keys():
 		var c: Variant = frame_node[k]
 		if not WzImg.is_canvas(c):
 			continue
-		if skip_below_cap and String(k).contains("BelowCap"):
+		var hidden := false
+		for s in skipped:
+			if String(k).contains(s):
+				hidden = true
+		if hidden:
 			continue
 		var f := SpriteAnim.make_frame(c, w)
 		var m: Dictionary = {}

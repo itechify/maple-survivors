@@ -765,7 +765,7 @@ func test_potion_keyboard_press_consumes_once_even_with_multiple_ticks_per_frame
 	if not InputMap.has_action("drink_hp") or not InputMap.has_action("drink_mp") or not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
-	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END], ["drink_mp", KEY_E]]:
+	for pair: Array in [["drink_hp", KEY_DELETE], ["drink_hp", KEY_Q], ["drink_mp", KEY_END]]:
 		var event := InputEventKey.new()
 		event.physical_keycode = pair[1]
 		event.pressed = true
