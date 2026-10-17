@@ -208,11 +208,11 @@ test("the client sums tokens and remembers the versioned model ids", async () =>
 
 test("a decision kind without a Jev question uses the fallback without a request", async () => {
 	const f = fakeFetch(answering((l) => l[0]));
-	const a = await createJevBrain({ client: client(f.fetch), seed: 2026 }).decide({ ...CARD, kind: "tactic",
+	const a = await createJevBrain({ client: client(f.fetch), seed: 2026 }).decide({ ...CARD, kind: "shop",
 		options: [{ id: "kite" }, { id: "hold" }], baseline: { sensible: "kite" } });
 	assert.equal(f.sent.length, 0);
 	assert.equal(a.answer, "kite");
-	assert.match(String(a.reason), /tactic/);
+	assert.match(String(a.reason), /shop/);
 });
 
 test("situation buckets: HP/MP named levels, run phase from time and boss progress, boss present", () => {

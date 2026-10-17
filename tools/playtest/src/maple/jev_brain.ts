@@ -11,13 +11,24 @@
 // whatever its confidence, and the confidence and probabilities are recorded. Any failure (no Jev question for the
 // kind, auth, network, 4xx/5xx after the SDK's retries, the request cap) answers that decision with the deterministic
 // fallback and records why.
-import { choice, score } from "@typesafe-ai/sdk";
+// Tactic decisions (#97): a Choice over the offered tactics the personality allows (in-game descriptions, seeded
+// order) plus a Noul "immediate danger of dying"; the state is the personality text, named buckets, the current tactic,
+// how long it has been held, why the decision is asked and the last switches. Policy in code (`tacticGate`): a
+// personality with `emergency` goes defensive when danger > 0.7; else confidence < 0.35 (or the personality's
+// min_confidence) keeps the current tactic; Jev's choice, the danger and the gate are recorded. With a `profile`, every
+// request leads with the personality's text and failures use the personality's fallback brain.
+import { choice, noul, score } from "@typesafe-ai/sdk";
 import type { Brain, BrainAnswer } from "../core/session.ts";
 import type { DecideMessage, Option } from "../core/protocol.ts";
 import { JevUnavailable } from "../core/jev_client.ts";
 import type { JevClient } from "../core/jev_client.ts";
 import { seededShuffle } from "../core/shuffle.ts";
 import { sensibleBrain } from "./fallback.ts";
+import { DEFAULT_MIN_CONFIDENCE, personalityText } from "./personality.ts";
+import type { Personality } from "./personality.ts";
+import { createFallbackBrain } from "./personality_fallback.ts";
+import { bucketsOf } from "./situation.ts";
+import type { TacticState } from "./situation.ts";
 
 /** The player description Jev decides for, until personalities (#97) replace it. */
 export const SENSIBLE_PLAYER = "A sensible, experienced MapleStory player in a survivor-style round: skills attack " +
@@ -29,9 +40,13 @@ export type JevBrainOptions = {
 	client: JevClient;
 	/** The run seed: with the decision id it seeds the presented option order. */
 	seed: number;
-	/** The personality text that leads the state. Default SENSIBLE_PLAYER. */
+	/** The personality text that leads the state. Default the profile's text, else SENSIBLE_PLAYER. */
 	personality?: string;
-	/** Answers when Jev cannot. Default the sensible fallback (the driver's BotInput baseline). */
+	/** The playtest personality (#97): its text leads every request, its allowed tactics, `emergency` and
+	 * `min_confidence` drive the tactic question, and its fallback brain answers failures. */
+	profile?: Personality;
+	/** Answers when Jev cannot. Default the profile's fallback brain, else the sensible fallback (the driver's
+	 * BotInput baseline). */
 	fallback?: Brain;
 };
 
@@ -147,17 +162,86 @@ export function jobRequest(d: DecideMessage, seed: number, personality: string) 
 	return { state, questions, presented: presented.map((o) => o.id), labelToId: (l: string) => byLabel.get(l) ?? l };
 }
 
-/** The Jev brain: card and job decisions through Jev, anything else (and every failure) through `fallback`. */
+/** tier C: a danger Noul above this forces defensive for personalities with `emergency` (ticket #97). */
+export const DANGER_FORCES_DEFENSIVE = 0.7;
+/** Recent tactic switches shown to Jev (newest last). */
+const RECENT_SWITCHES = 3;
+
+/** Why a tactic decision was asked, as words (playtest_policy.gd TRIGGER_PRIORITY keys). */
+const TRIGGER_TEXT: Record<string, string> = {
+	start: "round start", checkpoint: "regular check", hp_low: "HP just fell to low", hp_critical: "HP just fell to critical",
+	boss: "a boss just appeared", crowd: "monsters crowded in", card: "just took a card",
+};
+const triggerText = (t: unknown) => TRIGGER_TEXT[String(t)] ?? String(t ?? "?");
+
+/** tier C: how long the current tactic has been held, as words. */
+export function heldText(seconds: number): string {
+	if (seconds < 5) return "under 5 seconds";
+	if (seconds <= 20) return "5 to 20 seconds";
+	return "over 20 seconds";
+}
+
+/** The tactic decide's buckets as named words (playtest_situation.gd buckets; no numbers to compare). */
+function tacticSituation(d: DecideMessage): Record<string, string> {
+	const b = bucketsOf(d.situation) ?? ({} as Record<string, unknown>);
+	const w = (k: string) => String(b[k] ?? "unknown");
+	return { HP: w("hp"), MP: w("mp"), "monsters near": w("mobs_near"),
+		boss: b.boss === "attacking" ? "attacking the player" : w("boss"), "HP potions": w("potions_hp"),
+		"MP potions": w("potions_mp"), "drops nearby": w("drops_near"), "drops on platforms above": w("drops_above"),
+		"hits taken in the last few seconds": w("recent_hits"), "run phase": b.phase === "boss" ? "boss fight" : w("phase") };
+}
+
+/** The tactic request: a Choice over the offered tactics the personality allows (in-game descriptions, seeded order)
+ * and a Noul "immediate danger of dying"; the state is the personality text, the bucketed situation, the current
+ * tactic, how long it has been held, why the decision is asked now and the last few switches. */
+export function tacticRequest(d: DecideMessage, seed: number, personality: string, allowed?: readonly string[]) {
+	const offered = d.options.filter((op) => !allowed || allowed.includes(op.id));
+	const presented = seededShuffle(offered, seed, d.id);
+	const t = (d.situation?.tactic ?? {}) as Partial<TacticState> & { recent?: Array<Record<string, unknown>> };
+	const recent = (Array.isArray(t.recent) ? t.recent : []).slice(-RECENT_SWITCHES)
+		.map((r) => `${r.from} -> ${r.to} (${triggerText(r.trigger)})`);
+	const state = { player: personality, situation: tacticSituation(d), "current tactic": String(t.current ?? "kite"),
+		"current tactic held for": heldText(typeof t.held_s === "number" ? t.held_s : 0), "why this decision now": triggerText(t.trigger),
+		"recent tactic switches": recent.length ? recent : ["none yet"] };
+	const questions = {
+		tactic: choice("Which tactic would this player use for the next few seconds?",
+			Object.fromEntries(presented.map((op) => [op.id, String(op.desc ?? op.name ?? op.id)]))),
+		danger: noul("Is the player in immediate danger of dying in the next few seconds?"),
+	};
+	return { state, questions, presented: presented.map((op) => op.id), labelToId: (l: string) => l };
+}
+
+/** The code policy over a Jev tactic answer: with `emergency`, danger above DANGER_FORCES_DEFENSIVE forces defensive
+ * (when offered); otherwise a confidence below `minConfidence` keeps the current tactic (when offered); otherwise
+ * Jev's top choice. `gate` records which rule acted ("none" when Jev's choice stands). */
+export function tacticGate(d: DecideMessage, choice: string, confidence: number | null, danger: number | null,
+	offered: readonly string[], emergency: boolean, minConfidence: number): { answer: string; gate: string } {
+	if (emergency && danger !== null && danger > DANGER_FORCES_DEFENSIVE && offered.includes("defensive")) {
+		return { answer: "defensive", gate: `danger ${danger} > ${DANGER_FORCES_DEFENSIVE}: forced defensive` };
+	}
+	const current = String((d.situation?.tactic as Partial<TacticState> | undefined)?.current ?? "");
+	if (confidence !== null && confidence < minConfidence && offered.includes(current)) {
+		return { answer: current, gate: `low confidence ${confidence} < ${minConfidence}: kept ${current}` };
+	}
+	return { answer: choice, gate: "none" };
+}
+
+/** The Jev brain: card, job and tactic decisions through Jev, anything else (and every failure) through `fallback`. */
 export function createJevBrain(o: JevBrainOptions): Brain {
-	const personality = o.personality ?? SENSIBLE_PLAYER;
-	const fallback = o.fallback ?? sensibleBrain;
+	const profile = o.profile;
+	const personality = o.personality ?? (profile ? personalityText(profile) : SENSIBLE_PLAYER);
+	const fallback = o.fallback ?? (profile ? createFallbackBrain(profile, o.seed) : sensibleBrain);
 	const fallBack = async (d: DecideMessage, reason: string): Promise<BrainAnswer> => ({ ...(await fallback.decide(d)), reason });
+	const minConfidence = profile?.tactics.min_confidence ?? DEFAULT_MIN_CONFIDENCE;
 	return {
 		name: "jev",
 		async decide(d) {
-			const build = d.kind === "card" ? cardRequest : d.kind === "job" ? jobRequest : null;
+			const build = d.kind === "card" ? cardRequest : d.kind === "job" ? jobRequest
+				: d.kind === "tactic" ? (dd: DecideMessage, seed: number, text: string) => tacticRequest(dd, seed, text, profile?.tactics.allowed)
+				: null;
 			if (!build) return fallBack(d, `no Jev question for decision kind ${d.kind}`);
 			const req = build(d, o.seed, personality);
+			if (req.presented.length === 0) return fallBack(d, "no offered option is allowed for this personality");
 			let reply;
 			try {
 				reply = await o.client.ask(req.state, req.questions);
@@ -165,20 +249,27 @@ export function createJevBrain(o: JevBrainOptions): Brain {
 				return fallBack(d, e instanceof JevUnavailable ? e.reason : `Jev failed: ${(e as Error).message}`);
 			}
 			const answers = reply.result.answers as Record<string, { choice?: string; confidence?: number;
-				probabilities?: Record<string, number>; score?: number }>;
+				probabilities?: Record<string, number>; score?: number; noul?: number }>;
 			const main = answers[d.kind];
 			const answer = main?.choice === undefined ? undefined : req.labelToId(main.choice);
-			if (answer === undefined || !d.options.some((op) => op.id === answer)) {
+			if (answer === undefined || !req.presented.includes(answer)) {
 				return fallBack(d, `Jev answered ${JSON.stringify(main?.choice)}, not an offered option`);
 			}
 			const probabilities = Object.fromEntries(Object.entries(main.probabilities ?? {}).map(([l, p]) => [req.labelToId(l), p]));
+			const confidence = typeof main.confidence === "number" ? main.confidence : null;
 			const extra: Record<string, unknown> = { probabilities, presented_order: req.presented,
 				screen_order: d.options.map((op) => op.id), model: reply.result.model, usage: reply.result.usage,
 				jev_latency_ms: Math.round(reply.latencyMs) };
 			const m = answers.meaningful;
 			if (m) extra.meaningfulness = { score: m.score, confidence: m.confidence, probabilities: m.probabilities,
 				levels: MEANINGFUL_LEVELS.length };
-			return { answer, source: "jev", confidence: typeof main.confidence === "number" ? main.confidence : null, extra };
+			if (d.kind === "tactic") {
+				const danger = typeof answers.danger?.noul === "number" ? answers.danger.noul : null;
+				const g = tacticGate(d, answer, confidence, danger, req.presented, profile?.emergency === true, minConfidence);
+				Object.assign(extra, { jev_choice: answer, danger, gate: g.gate });
+				return { answer: g.answer, source: "jev", confidence, extra };
+			}
+			return { answer, source: "jev", confidence, extra };
 		},
 	};
 }
