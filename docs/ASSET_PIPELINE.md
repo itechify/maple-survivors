@@ -166,7 +166,7 @@ With host scratch, the decoder instead makes one complete sequential pass per us
 Rust/wasm still never allocates an archive-sized buffer. The host pays for the uncompressed entries: temporary files
 use storage, while an in-memory implementation would retain those bytes in JS memory. Scratch files live until the
 entry readers are dropped, so allow space for the sum of used entries, alongside the destination cache. Scratch is
-optional because storage quotas/OPFS availability differ; #133 supplies it with OPFS when available.
+optional because storage quotas/OPFS availability differ; the web shell (#133) does not use it (see 2.4).
 
 WZ directory records are read at their own positions, including sparse layouts in edited archives. Each local
 metadata read window starts at 4 KiB and is capped at 16 MiB; oversized metadata records fail explicitly instead of
@@ -217,6 +217,45 @@ Follow-up validation: 60 Rust tests passed (including all 17 real-data tests wit
 all 13 source-boundary tests also passed without default features, and all seven wasm callback checks passed.
 The isolated full Godot suite ran 822 tests: 816 passed, six failed, zero skipped. The six failures are the existing
 #103 key-config/key-window/run-scene/Teleport binding family documented in the spec's integration baseline.
+### 2.4 Web import sources (#133)
+
+The web shell (`web/import_worker.js`, docs/ARCHITECTURE.md 10.2) feeds `importWz` from three kinds of source. The
+worker is created per import and terminated afterwards; the importer's memory goes with it.
+
+| Source | `importWz` sources | Reader |
+|---|---|---|
+| Folder (`showDirectoryPicker` or `<input webkitdirectory>`) | `{archives}`: the archives the manifest needs, matched case-insensitively in the chosen folder (or one folder level below it) | `File` slices through `FileReaderSync`, one call per importer read |
+| Zip (file picker or drop) | `{zip}` | the same `File` reader; stored and deflated entries both work |
+| URL: folder base (`<base>/Mob.wz`) or a `.zip` | `{archives}` or `{zip}` | host supports `Range`: synchronous `XMLHttpRequest` with `Range` behind a block cache (1 MiB aligned blocks, 16-block LRU, adjacent missing blocks fetched in one request); host does not: the whole file is streamed into a `Blob` first (browsers may keep it on disk) and read like a folder file |
+
+The archives an import needs are derived from the manifest (`requiredArchives` in `web/lib.js`): the archive of every
+named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, music), `Mob.wz` and `Sound.wz` for mobs,
+`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
+import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
+records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
+until the write phase, and an interrupted write leaves no `cache.json`. The shell does not pass `sources.scratch`:
+the lead's decision after the #132b numbers above was that 13.8 s against 18 s does not justify about 1.78 GiB of
+temporary OPFS storage, so deflated zips use the offset-ordered bounded replay.
+
+A re-import for missing imgs is a complete import of the manifest; the importer has no incremental mode in portable
+mode, and a partial manifest would write partial copies of imgs shared between entries (`MapHelper.img`, `Mob.img`).
+The shell's manifest check (`assessCache`) is exact for the imgs the manifest names and for the files every listed img
+needs, not for dependencies the importer derives by reading WZ data.
+
+Browser measurements (Chrome 155, dev PC, local files and a localhost host, the full manifest: 157 imgs, 485 files,
+about 150 MB read, 95 MB stored in IndexedDB; whole-import time as the worker reports it, including the write):
+
+| Source | Time | Notes |
+|---|---:|---|
+| Folder (`<input webkitdirectory>`) | 6.7 s | 2,841 reads, 6.2 s importing + 0.5 s writing |
+| Stored zip (1.8 GB) | 7.1 s | |
+| Deflated zip (1.6 GB, #132b offset-ordered reads) | 44.5 s | 56,695 reads, 3.7 GB read from the blob |
+| URL folder, ranged | 6.9 s | 337 requests, 348 MB transferred (block-cache read amplification about 2.3x) |
+| URL `.zip`, ranged (stored) | 7.1 s | 379 requests, 402 MB |
+| URL folder, no Range support | 10.2 s | 1.9 GB downloaded whole (about 4.2 s of it before importing) |
+| Folder through a stored `FileSystemDirectoryHandle` (OPFS stand-in) | 11.7 s | |
+
+The localhost host has no network latency or bandwidth limit, so the URL rows only show request counts and bytes.
 
 ## 3. WZ format facts (v83, verified)
 
