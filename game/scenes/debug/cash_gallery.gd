@@ -2,7 +2,7 @@ extends Node2D
 ## Debug contact sheets of the cash equipment on the avatar (spec #34 #117), for evidence screenshots.
 ##
 ##   bash scripts/godot.sh --path game res://scenes/debug/cash_gallery.tscn -- --shots=C:/abs/dir [--mode=items|sets]
-##        [--ids=1002279,1012000] [--quit-after-shots]
+##        [--ids=1002279,1012000]
 ##
 ## --mode=items (default): one PNG per curated item (or per --ids entry), named <slot>_<id>.png. Four columns: standing
 ##   facing left and right, walking facing left and right, with the item worn over the starter outfit. Weapon covers get
