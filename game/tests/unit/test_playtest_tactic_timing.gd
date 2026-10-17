@@ -194,3 +194,30 @@ func test_every_kite_answer_plays_exactly_the_bot_run() -> void:
 	assert_true(brain.tactics().size() >= 5, "tactic decisions were asked through the round")
 	assert_eq(JSON.stringify(b), JSON.stringify(a), "all-kite tactics play the bot run byte for byte")
 	assert_near(float(policy.tactic_summary().shares.kite), 1.0, 1e-6)
+
+
+## A real round of `stage` from the asset cache (as playtest_driver.gd builds it), capped at `cap` seconds.
+func _real_world(stage: String, seed_value: int, cap: float) -> RunWorld:
+	var data := DataRepo.load_all()
+	data.balance["run_time_cap"] = cap
+	var root := AssetCachePaths.resolve_cache_root()
+	var missing := PackedStringArray()
+	var setup := DataRepo.build_setup(data, stage, 0, Vector2(800, 600),
+		func(p: String) -> Dictionary: return BR._json(root, p),
+		func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing)
+	assert_true(missing.is_empty(), "the cache has %s" % stage)
+	setup.seed = seed_value
+	return RunWorld.new(setup)
+
+
+func test_every_kite_answer_plays_exactly_the_bot_run_on_the_real_map() -> void:
+	# Needs the real asset cache; a SKIP proves nothing about the identity.
+	if not require_cache():
+		return
+	var a: Dictionary = BR.run_one(_real_world("henesys_hg1", 2026, 150.0), "bot", 2026)
+	var brain := _brain("kite")
+	var policy := POLICY.new(brain)
+	var b: Dictionary = BR.run_one(_real_world("henesys_hg1", 2026, 150.0), policy, 2026)
+	assert_true(int(a.kills) > 0 and a.cards_taken.size() > 0, "the real round had kills and card windows")
+	assert_true(brain.tactics().size() >= 18, "a tactic decision at least every 8 s")
+	assert_eq(JSON.stringify(b), JSON.stringify(a), "all-kite tactics play the real bot round byte for byte")
