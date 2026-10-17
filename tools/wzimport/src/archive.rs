@@ -9,6 +9,8 @@ use crate::property::{parse_img, Img};
 use crate::reader::Reader;
 use std::fs::File;
 use std::io;
+use std::sync::Arc;
+use crate::source::ReadAt;
 use std::path::{Path, PathBuf};
 
 /// One opened `.wz` archive.
@@ -16,7 +18,7 @@ pub struct WzArchive {
     /// File name, e.g. `Mob.wz`.
     pub name: String,
     pub path: PathBuf,
-    file: File,
+    file: Arc<dyn ReadAt>,
     pub file_len: u64,
     pub data_start: u32,
     pub copyright: String,
@@ -65,23 +67,8 @@ impl Dir {
 }
 
 /// Read exactly `buf.len()` bytes at `offset` without moving a shared cursor (thread-safe).
-pub fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> io::Result<()> {
-    while !buf.is_empty() {
-        #[cfg(windows)]
-        let r = std::os::windows::fs::FileExt::seek_read(file, buf, offset);
-        #[cfg(unix)]
-        let r = std::os::unix::fs::FileExt::read_at(file, buf, offset);
-        match r {
-            Ok(0) => return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "unexpected end of file")),
-            Ok(n) => {
-                buf = &mut buf[n..];
-                offset += n as u64;
-            }
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-            Err(e) => return Err(e),
-        }
-    }
-    Ok(())
+pub fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<()> {
+    file.read_exact_at(offset, buf)
 }
 
 /// Versions tried when the stored encrypted version does not match v83: every version whose hash gives the
@@ -98,10 +85,16 @@ impl WzArchive {
     pub fn open_with_version(path: impl AsRef<Path>, version: Option<u32>) -> Result<Self> {
         let path = path.as_ref();
         let file = File::open(path).map_err(|e| WzError::io(path, e))?;
-        let file_len = file.metadata().map_err(|e| WzError::io(path, e))?.len();
+        Self::from_reader(path.to_string_lossy().as_ref(), Arc::new(file), version)
+    }
+
+    /// Open an injected reader; optional version is forced, otherwise detected as for native files.
+    pub fn from_reader(name: &str, file: Arc<dyn ReadAt>, version: Option<u32>) -> Result<Self> {
+        let path = Path::new(name);
+        let file_len = file.len();
         let head_len = file_len.min(4096) as usize;
         let mut head = vec![0u8; head_len];
-        read_exact_at(&file, &mut head, 0).map_err(|e| WzError::io(path, e))?;
+        file.read_exact_at(0, &mut head).map_err(|e| WzError::io(path, e))?;
         let mut r = Reader::new(&head, 0);
         let magic = r.bytes(4)?;
         if magic != b"PKG1" {
@@ -130,9 +123,9 @@ impl WzArchive {
         let mut last_err = None;
         for v in candidates {
             let hash = version_hash(v);
-            match parse_tree(&file, file_len, data_start, hash) {
+            match parse_tree(file.as_ref(), file_len, data_start, hash) {
                 Ok(root) => {
-                    if let Err(e) = validate(&file, &root) {
+                    if let Err(e) = validate(file.as_ref(), &root) {
                         last_err = Some(e);
                         continue;
                     }
@@ -194,7 +187,7 @@ impl WzArchive {
             return Err(WzError::Other(format!("{}: {} is not an img", self.name, entry.name)));
         }
         let mut buf = vec![0u8; entry.size as usize];
-        read_exact_at(&self.file, &mut buf, entry.offset as u64).map_err(|e| WzError::io(&self.path, e))?;
+        self.file.read_exact_at(entry.offset as u64, &mut buf).map_err(|e| WzError::io(&self.path, e))?;
         Ok(buf)
     }
 
@@ -227,11 +220,11 @@ impl WzArchive {
 
 /// Parse the directory tree. The tree lives near the file start; read a window and widen it if a read
 /// runs past the window.
-fn parse_tree(file: &File, file_len: u64, data_start: u32, hash: u32) -> Result<Dir> {
+fn parse_tree(file: &dyn ReadAt, file_len: u64, data_start: u32, hash: u32) -> Result<Dir> {
     let mut window = file_len.min(1 << 20);
     loop {
         let mut buf = vec![0u8; window as usize];
-        read_exact_at(file, &mut buf, 0).map_err(|e| WzError::Other(e.to_string()))?;
+        file.read_exact_at(0, &mut buf).map_err(|e| WzError::Other(e.to_string()))?;
         let ctx = DirCtx { buf: &buf, file_len, data_start, hash };
         match ctx.parse_dir(data_start as usize + 2, 0) {
             Err(WzError::Eof { .. }) if window < file_len => window = file_len.min(window * 4),
@@ -318,7 +311,7 @@ impl DirCtx<'_> {
 }
 
 /// Spot-check that imgs start with the `0x73 "Property"` header byte (catches a wrong version hash).
-fn validate(file: &File, root: &Dir) -> Result<()> {
+fn validate(file: &dyn ReadAt, root: &Dir) -> Result<()> {
     let mut checked = 0;
     let mut stack = vec![root];
     while let Some(d) = stack.pop() {
@@ -327,7 +320,7 @@ fn validate(file: &File, root: &Dir) -> Result<()> {
                 EntryKind::Dir(sub) => stack.push(sub),
                 EntryKind::Img if e.size > 0 && checked < 32 => {
                     let mut b = [0u8; 1];
-                    read_exact_at(file, &mut b, e.offset as u64).map_err(|e| WzError::Other(e.to_string()))?;
+                    file.read_exact_at(e.offset as u64, &mut b).map_err(|e| WzError::Other(e.to_string()))?;
                     if b[0] != 0x73 {
                         return Err(WzError::format(e.offset as u64, format!("img {} has no 0x73 header", e.name)));
                     }

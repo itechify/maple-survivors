@@ -21,6 +21,7 @@ pub mod manifest;
 pub mod property;
 pub mod reader;
 pub mod sound;
+pub mod source;
 pub mod uol;
 pub mod wzroot;
 
@@ -28,6 +29,8 @@ pub mod wzroot;
 pub mod testutil;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod source_tests;
 
 pub use error::{Result, WzError};
 
