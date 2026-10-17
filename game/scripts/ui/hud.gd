@@ -84,6 +84,14 @@ func show_exp(n: int) -> void:
 func show_mesos(n: int) -> void:
 	system_messages.show_mesos(n)
 
+## Shows the equipment pickup notice.
+func show_item_gain(item_name: String) -> void:
+	system_messages.show_item_gain(item_name)
+
+## Shows the "inventory full" notice (an equipment drop that cannot be picked up).
+func show_inventory_full() -> void:
+	system_messages.show_inventory_full()
+
 ## Returns currently visible message lines.
 func messages() -> Array[Dictionary]:
 	return system_messages.messages()

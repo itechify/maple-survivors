@@ -213,6 +213,36 @@ func test_the_shipped_list_is_ids_only_and_every_item_is_a_wearable_slot() -> vo
 	assert_true(float(ed.chance) > 0.0 and float(ed.chance) < 0.02, "a small chance")
 
 
+## Needs the real asset cache (SKIPs without it, which proves nothing).
+func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.get_default()
+	var ed: Dictionary = DataRepo.load_all().equipment_drops
+	var infos := {}
+	for raw: Variant in ed.items:
+		var id := int(raw)
+		var img: WzImg = lib.img(AvatarRenderer.part_img_path(id))
+		if img == null or not img.root.get("info") is Dictionary:
+			fail("no cache img for %d" % id)
+			continue
+		var info: Dictionary = img.root.info
+		infos[id] = info
+		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 70, "%d reqLevel 0..70" % id)
+		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 2 != 0, "%d is all-job or Magician" % id)
+		assert_eq(int(info.get("cash", 0)), 0, "%d is not a cash item" % id)
+		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
+	var rng := _rng(8)
+	for level in range(10, 71):
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 200, level, ed).size() > 0, "a Magician of level %d can get drops" % level)
+		var boss := EquipmentDrops.pick_boss(ed.items, infos, 200, level, ed, rng)
+		assert_true(boss > 0, "a boss drop exists at level %d" % level)
+		assert_true(int(infos[boss].reqLevel) >= level - 10, "and it is not far below: %d at %d" % [boss, level])
+	for level in range(1, 10):
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 0, level, ed).size() > 0, "a Beginner of level %d can get drops" % level)
+	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
+
+
 # --- PickupSystem EQUIP kind ---
 
 func _floor() -> FootholdMap:
@@ -329,6 +359,18 @@ func test_the_room_counts_down_within_a_step_and_a_flying_drop_falls_back_when_i
 	assert_eq(got, 1, "one slot, one item")
 	assert_eq(pk.active_count(), 1, "the second item is still on the ground")
 	assert_true(_count(ev, "pickup_blocked") >= 1, "and the player was told")
+
+
+# --- HUD notices ---
+
+func test_the_hud_shows_the_item_and_inventory_full_notices() -> void:
+	var hud := Hud.new()
+	hud.show_item_gain("Wooden Wand")
+	hud.show_item_gain("")
+	hud.show_inventory_full()
+	var texts := hud.messages().map(func(m: Dictionary) -> String: return m.text)
+	assert_eq(texts, ["You have gained an item (Wooden Wand)", "You have gained an item", "You can't get anymore items."])
+	hud.free()
 
 
 # --- RunWorld: kills and bosses drop equipment, the magnet collects it into the Equip tab ---

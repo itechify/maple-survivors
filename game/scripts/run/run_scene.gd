@@ -196,6 +196,9 @@ var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
 var _meso_shot_ids := {}
+var _frame_items: Array[String] = []
+var _frame_inventory_full := false
+var _equip_shot_taken := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -493,6 +496,13 @@ func advance_frame(delta: float) -> void:
 	if _frame_mesos > 0 and hud != null:
 		hud.show_mesos(_frame_mesos)
 	_frame_mesos = 0
+	if hud != null:
+		for item_name: String in _frame_items:
+			hud.show_item_gain(item_name)
+		if _frame_inventory_full:
+			hud.show_inventory_full()
+	_frame_items.clear()
+	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
 		_present(delta)
@@ -930,12 +940,20 @@ func handle_events(events: Array) -> void:
 					# tier C: capture the first drop of each coin sprite while it lies on the ground.
 					_meso_shot_ids[int(e.item_id)] = true
 					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
+				elif String(e.kind) == "equip" and not _equip_shot_taken:
+					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
+					_equip_shot_taken = true
+					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
+			"pickup_blocked":
+				_frame_inventory_full = true
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
 				if String(e.get("kind", "")) == "meso":
 					_frame_mesos += int(e.count)
+				elif String(e.get("kind", "")) == "equip":
+					_frame_items.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
 			"potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))

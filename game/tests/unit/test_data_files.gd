@@ -16,11 +16,11 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "jobs_survivor", "jobs", "exp_table"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "jobs", "exp_table"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 8, "every missing file reported")
+	assert_eq(bad.size(), 9, "every missing file reported")
 
 
 func test_skills_reference_canonical_ids() -> void:
@@ -227,8 +227,14 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	assert_eq(int(b.player.inventory_slots), RunWorld.DEFAULT_INVENTORY_SLOTS, "RunWorld.DEFAULT_INVENTORY_SLOTS")
 	assert_eq(AvatarRenderer.DEFAULT_LOOK.equips, Equipment.DEFAULT_OUTFIT.slice(0, 3),
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
-	assert_eq(DataRepo.starter_equipment_ids(data), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
+	var no_drops := data.duplicate()
+	no_drops.erase("equipment_drops")
+	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
 		"without MakeCharInfo the setup loads the default outfit and the granted wand")
+	var with_drops := DataRepo.starter_equipment_ids(data)
+	for id: Variant in data.equipment_drops.items:
+		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
+	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4, "listed items are added once (the creation coat, pants, shoes and the Wooden Wand are also listed)")
 
 
 func test_build_setup_and_paths() -> void:
