@@ -23,8 +23,29 @@ func options(w: RunWorld) -> Array:
 		for f: String in FIELDS:
 			if c.has(f):
 				o[f] = c[f]
+		o.merge(tags(w, c))
 		out.append(o)
 	return out
+
+
+## What the personality fallbacks (#97, personality_fallback.ts) weigh: `sensible_score` (BotInput.card_score), `stat`
+## (the card's first effect stat, else its skill's buff stat, e.g. "count", "damage", "magnet", "hp", "mp_guard"; ""
+## for none) and `role` ("attack" / "support" for skill cards, classified the way BotInput.card_score does; else
+## "none").
+static func tags(w: RunWorld, c: Dictionary) -> Dictionary:
+	var d := w.upgrades.card(String(c.get("id", "")))
+	var effects: Array = d.get("effects", [])
+	var stat := String(effects[0].get("stat", "")) if not effects.is_empty() and effects[0] is Dictionary else ""
+	if stat == "" or stat == "rank":
+		stat = String(c.get("skill_effect_stat", ""))
+	var role := "none"
+	var key := String(d.get("skill", ""))
+	if key != "" and w.book.has(key):
+		var sd := w.book.def(key)
+		var rule := String(sd.get("cast", {}).get("rule", ""))
+		var attack := rule != "manual" and rule != "crowd" and (String(sd.get("kind", "")) in ["projectile", "instant"] or rule == "box")
+		role = "attack" if attack else "support"
+	return {"sensible_score": BotInput.card_score(w, c), "stat": stat, "role": role}
 
 
 ## The base situation plus the Jev brain's facts (owned skills, boss counts).

@@ -14,6 +14,9 @@ extends "res://tools/run_policy.gd"
 ##   link             the brain: brain_link.gd (builtin baseline) or stdio_brain_link.gd (the Node CLI)
 ##   tactic           the current tactic (read it, e.g. the stuck detector ignores "hold"); set through set_tactic
 ##   tactic_params    checkpoint_s, hold_s, allowed (personalities override them before the round)
+##   configure(p)     a personality's driver params (#97): tactic_params, the default tactic, the motor layer; one
+##                    allowed tactic means no tactic decision is ever asked
+##   motor            motor_noise.gd: reaction delay, mistake bursts, potion thresholds on top of the controller
 ##   situation        playtest_situation.gd memory (recent hits, boss attacks) fed every tick
 ## An answer that is not one of the offered option ids, or a missing answer (lost brain), applies the baseline and
 ## records why, so the round always goes on.
@@ -26,7 +29,10 @@ const JOB := preload("res://tools/playtest/job_decision.gd")
 const POINT := preload("res://tools/playtest/decision_point.gd")
 const TACTIC := preload("res://tools/playtest/tactic_decision.gd")
 const CONTROLLER := preload("res://tools/playtest/tactic_controller.gd")
+const MOTOR := preload("res://tools/playtest/motor_noise.gd")
 const DT := 1.0 / 60.0
+## Tactic switches shown on a tactic decide (situation.tactic.recent, oldest first).
+const RECENT_SWITCHES := 3
 
 ## The brain answering decisions.
 var link: BRAIN_LINK
@@ -52,6 +58,10 @@ var tactic_params: Dictionary = TACTIC_DEFAULTS.duplicate(true)
 var situation: SITUATION
 ## Carries out the current tactic.
 var controller: CONTROLLER
+## The personality's motor layer on top of the controller (motor_noise.gd; quiet by default).
+var motor: MOTOR
+## The run seed (seeds the motor layer's own stream).
+var _seed := 0
 ## The tactic decision point.
 var tactic_point: TACTIC
 ## Tactic switches: [{tick, time, from, to, trigger, source}].
@@ -75,6 +85,8 @@ func _init(p_link: BRAIN_LINK = null, seed_value := 0, p_branch := 0) -> void:
 	decision_points = [CARD.new(), JOB.new()]
 	situation = SITUATION.new()
 	controller = CONTROLLER.new()
+	_seed = seed_value
+	motor = MOTOR.new(seed_value)
 	tactic_point = TACTIC.new()
 	observers.append(_observe_tactics)
 	for p: POINT in decision_points + [tactic_point]:
@@ -123,10 +135,31 @@ func decide(point: POINT, w: RunWorld) -> String:
 ## out the current tactic (kite: BotInput.decide with `memo`, exactly the inherited movement).
 func move(w: RunWorld) -> MoveInput:
 	var why := _tactic_trigger(w)
-	if why != "":
+	if why != "" and Array(tactic_params.get("allowed", CONTROLLER.TACTICS)).size() > 1:
 		_ask_tactic(w, why)
 	_tactic_ticks[tactic] = int(_tactic_ticks.get(tactic, 0)) + 1
-	return controller.input(w, tactic, memo)
+	return motor.apply(w, controller.input(w, tactic, memo))
+
+
+## Applies a personality's driver params (#97; tools/playtest/src/maple/personality.ts driverParams) before the round:
+## {tactics: {allowed, default, checkpoint_s, hold_s}, motor: {reaction_delay_ticks, mistake_rate, potion_hp_fraction,
+## potion_mp_fraction}}. The round starts on the default tactic; with a single allowed tactic no tactic decision is
+## ever asked (there is nothing to decide). Missing keys keep TACTIC_DEFAULTS and a quiet motor layer.
+func configure(params: Dictionary) -> void:
+	var t: Dictionary = params.get("tactics", {})
+	for k: String in ["checkpoint_s", "hold_s"]:
+		if t.has(k):
+			tactic_params[k] = float(t[k])
+	if t.has("allowed"):
+		tactic_params["allowed"] = Array(t.allowed).map(func(x: Variant) -> String: return String(x))
+	var allowed: Array = tactic_params.allowed
+	tactic = String(t.get("default", "kite" if "kite" in allowed else allowed[0]))
+	motor = MOTOR.new(_seed, params.get("motor", {}))
+
+
+## Motor telemetry for the round record (motor_noise.gd summary).
+func motor_summary() -> Dictionary:
+	return motor.summary()
 
 
 ## Switches to tactic `to` (an allowed tactic) because of `trigger`; logs the switch with the deciding source.
@@ -166,6 +199,8 @@ func _ask_tactic(w: RunWorld, why: String) -> void:
 	tactic_point.current = tactic
 	tactic_point.held_s = (tick - maxi(0, _last_switch_tick)) * DT
 	tactic_point.switches = tactic_log.size()
+	tactic_point.recent = tactic_log.slice(maxi(0, tactic_log.size() - RECENT_SWITCHES)).map(
+		func(e: Dictionary) -> Dictionary: return {"time": e.time, "from": e.from, "to": e.to, "trigger": e.trigger})
 	_tactic_triggers[why] = int(_tactic_triggers.get(why, 0)) + 1
 	_last_decision_tick = tick
 	_pending = ""
