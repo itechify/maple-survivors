@@ -55,7 +55,7 @@ func _ready() -> void:
 	avatar = AvatarRenderer.new()
 	avatar.library = library
 	# Configure before entering the tree, so _ready never loads a different default outfit first.
-	avatar.set_look(character_look(character, data))
+	avatar.set_look(character_look(character, data, flow.save_data().account.owned if flow != null else []))
 	map.actor_layer(_player_layer()).add_child(avatar)
 	_add_name_tag(avatar, String(snapshot.get("name", "")))
 	camera = CameraRig.new()
@@ -127,8 +127,9 @@ func missing_paths() -> PackedStringArray:
 
 
 ## Uses the shared character look and current job weapon without mutating the snapshot.
-static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
-	return DataRepo.character_look(character, data)
+## `owned` (account item ids) decides which worn cash equipment is drawn.
+static func character_look(character: Dictionary, data: Dictionary, owned: Array = []) -> Dictionary:
+	return DataRepo.character_look(character, data, DataRepo.worn_cash(character, data, owned))
 
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:

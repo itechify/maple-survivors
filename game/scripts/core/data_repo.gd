@@ -99,7 +99,9 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 
 ## Shared player drawing for rounds, Free Market and slots. Empty look means AvatarRenderer.DEFAULT_LOOK.
 ## The character's outfit is carried verbatim; every old weapon is replaced by the simulation's weapon rule.
-static func character_look(character: Dictionary, data: Dictionary) -> Dictionary:
+## `worn_cash` ({slot: id}, see worn_cash()) is the cash equipment drawn over the outfit; the look has a `cash` key
+## only when it is not empty.
+static func character_look(character: Dictionary, data: Dictionary, worn_cash: Dictionary = {}) -> Dictionary:
 	var look := AvatarRenderer.DEFAULT_LOOK.duplicate(true)
 	look.merge(character.get("look", {}), true)
 	var equips: Array = look.equips.filter(func(id: Variant) -> bool:
@@ -110,7 +112,16 @@ static func character_look(character: Dictionary, data: Dictionary) -> Dictionar
 	if weapon > 0:
 		equips.append(weapon)
 	look.equips = equips
+	if not worn_cash.is_empty():
+		look["cash"] = worn_cash.duplicate()
 	return look
+
+
+## The cash equipment of `character` ({slot: id} from its snapshot `cash`) that the account owns (`owned`: item ids),
+## the one rule for what any screen draws: the same filter the round applies (CashCatalog.resolve).
+static func worn_cash(character: Dictionary, data: Dictionary, owned: Array) -> Dictionary:
+	var cash: Dictionary = CharacterSnapshot.integers(character.get("cash", {}))
+	return CashCatalog.from_data(data).resolve(cash, 0, owned).worn
 
 
 ## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
