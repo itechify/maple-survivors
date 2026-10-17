@@ -8,6 +8,7 @@ extends RefCounted
 ##     stdin EOF ("") means "brain lost": the driver finishes the round on its builtin baseline.
 ## Every message carries "v": 1 and "type". Shapes:
 ##   hello   {v, type:"hello", game, stage, seed, minutes, personality, brain}             once, before the round
+##           (the driver adds tier and character, #98; a replay compares every hello field but brain)
 ##   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{sensible: id}}
 ##           id 1, 2, 3... per run; kind "card", "job" or "tactic"; option ids are Strings (job ids as text,
 ##           plus "not_now"; tactic ids from tactic_controller.gd TACTICS); baseline answers come from real game code

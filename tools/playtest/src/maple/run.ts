@@ -236,7 +236,7 @@ function replayPick(r: Recording): BrainPick {
 	const recordedBrain = String((r.scenario.run as { brain?: string } | undefined)?.brain ?? "?");
 	return { brain, replay: brain, facts: { requested: "replay", mode: "fallback" },
 		header: (divergence, session) => [["brain requested", "replay"],
-			["brain used", `replay of ${r.dir} (the ${r.decisions.length} recorded answers in decisions.jsonl; recorded brain ${recordedBrain}; no Jev, no key)`],
+			["brain used", `replay of ${displayPath(REPO, r.dir)} (the ${r.decisions.length} recorded answers in decisions.jsonl; recorded brain ${recordedBrain}; no Jev, no key)`],
 			["fallback", "none"], ["Jev", "not used (replay)"],
 			["replay", !session?.end ? "incomplete (the driver sent no end)" : divergence ? `DIVERGED: ${divergence.message}`
 				: `match (${r.decisions.length} decisions, the driver's hello and every fingerprint field identical)`]] };

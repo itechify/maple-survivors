@@ -7,6 +7,7 @@
 //     arrives; stdin EOF means "brain lost" and the driver finishes on its builtin baseline.
 // Every message carries "v": 1 and "type". Shapes:
 //   hello   {v, type:"hello", game, stage, seed, minutes, personality, brain}             once, before the round
+//           (the Maple driver adds tier and character, #98; a replay compares every hello field but brain)
 //   decide  {v, type:"decide", id, kind, tick, time, situation:{...}, options:[{id, ...}], baseline:{<policy>: id}}
 //           id: 1, 2, 3... per run; kind: a decision kind of the game adapter (Maple: "card", "job", "tactic");
 //           option ids are strings; baseline answers come from real game code (Maple: "sensible").
