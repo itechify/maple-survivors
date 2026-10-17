@@ -7,7 +7,7 @@ Vampire-Survivors-style loop: survive a classic map against ever-growing swarms 
 fire automatically, pick upgrades as you level, and advance jobs at the classic milestones.
 
 The game renders **your own** original v83 data. No MapleStory files are included in this repository, and the game
-needs no server, account or internet connection.
+needs no server, account or internet connection. (The web build is the same offline game; see "Play in the browser".)
 
 ## Quick start
 
@@ -27,6 +27,19 @@ needs no server, account or internet connection.
    select. Your best result per stage is kept in `%APPDATA%/MapleSurvivors/save.json`.
 4. Optional: `bash scripts/export.sh` builds a stand-alone Windows game in `game/export/` (`MapleSurvivors.exe` with
    `wzimport.exe` beside it; needs the Godot 4.7.2 export templates).
+
+## Play in the browser
+
+The same game runs as a web build: **https://itechify.github.io/maple-survivors/** (a desktop browser; Chrome or
+Firefox). The page ships no MapleStory data. On first visit it shows an import screen: choose your own v83 folder or a
+`.zip` of it, or type the address of a folder or `.zip` you have access to. The importer runs inside the page and keeps
+the result in that browser's storage; your files are not uploaded. Saves live in the browser too, and the title screen
+has Export save / Import save for backups.
+
+`bash scripts/export.sh --web` builds the site into `game/export/web/` and `node web/dev/serve.mjs game/export/web` serves
+it locally (see [`AGENTS.md`](AGENTS.md)). The site is deployed from `main` by `.github/workflows/pages.yml`. For the
+repository owner, the one-time setup is Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**; the
+deploy job fails until that is set.
 
 ## Controls
 
@@ -61,7 +74,7 @@ candidate, explicitly report `101..130` on both stages with `--policy=bot` and `
 
 | Doc | Contents |
 |---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Approach comparison and decision, runtime architecture, module contracts |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Approach comparison and decision, runtime architecture, module contracts, the web build and its deploy |
 | [`docs/RESEARCH.md`](docs/RESEARCH.md) | Evidence: source repos, v83 client protection, WZ contents, engine probe ([full reports](docs/research/)) |
 | [`docs/ASSET_PIPELINE.md`](docs/ASSET_PIPELINE.md) | WZ format facts, importer, manifest, cache format |
 | [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) | The run, movement, monsters, combat, skills, upgrades, jobs, constants and provenance |

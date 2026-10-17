@@ -94,6 +94,15 @@ for native builds. The wasm implementation is sequential even if the feature is 
 build command disables it. Rust includes no browser readers, requests or networking dependencies. The adapter
 only invokes host callbacks, using [wasm-bindgen](https://wasm-bindgen.github.io/wasm-bindgen/).
 
+In the web export the build is part of `bash scripts/export.sh --web` (docs/ARCHITECTURE.md section 10.3): it runs
+`scripts/build_wasm.sh` into `WASM_DIR` (default `_scratch/wasm/`) and copies `wzimport.js` and `wzimport_bg.wasm` next
+to `index.html`, where `import_worker.js` loads them. The CI workflow (`.github/workflows/pages.yml`) installs the
+wasm target and the `wasm-bindgen-cli` version read from `Cargo.lock`, so the glue always matches the locked crate. The
+wasm-only crates (`wasm-bindgen`, `js-sys` and their build macros) are in `WZIMPORT_LICENSES.txt` beside the site, which
+`export.sh --web` refuses to finish without. No WZ data and no decoded cache is ever part of the export:
+`scripts/check_web_artifact.sh` fails the build on a `.wz`, `.img`, `*.img.json`, atlas `*.N.png`, `.mp3`/`.wav` or any
+file starting with the WZ signature.
+
 The ES module exports default async `init` and synchronous **`importWz`** (the JS name avoids the `import` keyword):
 
 ```js
@@ -220,7 +229,9 @@ The isolated full Godot suite ran 822 tests: 816 passed, six failed, zero skippe
 ### 2.4 Web import sources (#133)
 
 The web shell (`web/import_worker.js`, docs/ARCHITECTURE.md 10.2) feeds `importWz` from three kinds of source. The
-worker is created per import and terminated afterwards; the importer's memory goes with it.
+worker is created per import and terminated afterwards; the importer's memory goes with it. The source is always one
+the player picks or types (one source per import); the repo, the site and these docs name no host and no default
+address, and the page requests nothing from any address the player has not entered.
 
 | Source | `importWz` sources | Reader |
 |---|---|---|

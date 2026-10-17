@@ -287,3 +287,17 @@ code {
 	font: bold 22px Tahoma, "Segoe UI", Arial, sans-serif;
 	pointer-events: none;
 }
+
+/* Licence links under the button strip (the files ship beside index.html: scripts/export.sh --web) */
+.legal {
+	margin: 0 2px 2px;
+	padding: 5px 18px 7px;
+	background: #ddd;
+	border-top: 1px solid #ccc;
+	color: #456;
+	font-size: 11px;
+}
+
+.legal a {
+	color: #115599;
+}

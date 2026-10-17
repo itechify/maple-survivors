@@ -4,8 +4,9 @@
 	Maple Survivors web shell (spec #130, ADR 0004). The Web export preset in game/export_presets.cfg uses this file as
 	its custom HTML shell (html/custom_html_shell = "res://../web/index.html"); Godot fills in the $GODOT_* placeholders
 	at export. Beside it ship shell.css, shell.js, lib.js, idbfs.js, import_worker.js, the wasm importer (wzimport.js and
-	wzimport_bg.wasm, built by scripts/build_wasm.sh) and asset_manifest.json: Godot only processes this file, the others
-	are copied next to it by the export step (web/dev/export_web.sh for now, docs/ARCHITECTURE.md "Web build").
+	wzimport_bg.wasm, built by scripts/build_wasm.sh), asset_manifest.json and the licence files linked at the bottom of
+	the plate: Godot only processes this file, `bash scripts/export.sh --web` copies or writes the others next to it
+	(docs/ARCHITECTURE.md "Web build").
 
 	What the shell does: when the asset cache in the browser's storage is missing or incomplete it shows the import
 	screen (folder, zip or web address, run by a worker); otherwise it starts the game. When the game quits it reads
@@ -177,6 +178,13 @@ body {
 					<button type="button" class="btn" id="btn-again" data-screens="exited">Play again</button>
 					<button type="button" class="btn" id="btn-retry" data-screens="error">Back</button>
 				</footer>
+				<p class="legal">
+					Licences:
+					<a href="GODOT_LICENSES.txt" target="_blank" rel="noopener">Godot Engine</a> |
+					<a href="WZIMPORT_LICENSES.txt" target="_blank" rel="noopener">importer crates</a> |
+					<a href="ARIMO_OFL.txt" target="_blank" rel="noopener">Arimo font</a> |
+					<a href="THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener">third-party notices</a>
+				</p>
 			</section>
 			<p id="drop-hint" class="drop-hint" hidden>Drop the .zip to import it</p>
 		</main>

@@ -1,0 +1,131 @@
+# Web build (spec #130, ADR 0004): tests, `bash scripts/export.sh --web`, and the GitHub Pages deploy.
+#
+# - pull_request: build + test + export + artifact check, no deploy. This is what proves the workflow on a branch
+#   (workflow_dispatch only exists for workflows on the default branch).
+# - push to main and workflow_dispatch: the same, then deploy the site (the `deploy` job).
+#
+# The site holds the game, the web shell and the wasm importer. It contains no MapleStory data: the player brings
+# their own v83 files to the import screen. scripts/check_web_artifact.sh fails the build if a .wz, .img, atlas PNG,
+# .mp3 or any file with the WZ signature is in the artifact.
+#
+# One-time setup by the repository owner: Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+# Until then the `deploy` job fails; the `build` job does not need Pages.
+name: Web build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time (never cancelled half way); pull requests get their own group.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('web-pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: "4.7.2"
+  CARGO_TERM_COLOR: never
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+
+      # Godot editor (scripts/godot.sh downloads the pinned Linux build on a cache miss) and the web export
+      # templates (scripts/godot_templates.sh: official archive, SHA-512 checked, only the two web templates kept).
+      - name: Cache Godot editor and web templates
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.local/share/MapleSurvivors/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-linux-web-v1
+      - name: Install Godot ${{ env.GODOT_VERSION }} and its web templates
+        run: |
+          bash scripts/godot.sh --version
+          bash scripts/godot_templates.sh install-web
+          ls -l "$(bash scripts/godot_templates.sh dir)"
+
+      # Rust with the wasm target; wasm-bindgen-cli must match the locked wasm-bindgen crate (scripts/build_wasm.sh).
+      - name: Install Rust and the wasm target
+        run: |
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+          rustup target add wasm32-unknown-unknown
+          cargo --version
+      - name: Locate the locked wasm-bindgen version
+        id: wb
+        run: |
+          VERSION="$(awk '/^name = "wasm-bindgen"$/ { found=1; next } found && /^version = / { gsub(/"/, "", $3); print $3; exit }' tools/wzimport/Cargo.lock)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Cache cargo downloads and wasm-bindgen-cli
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin/wasm-bindgen
+            ~/.cargo/bin/wasm-bindgen-test-runner
+            ~/.cargo/bin/wasm2es6js
+          key: cargo-${{ runner.os }}-wb${{ steps.wb.outputs.version }}-${{ hashFiles('tools/wzimport/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-wb${{ steps.wb.outputs.version }}-
+      - name: Install wasm-bindgen-cli ${{ steps.wb.outputs.version }}
+        run: |
+          WANT="${{ steps.wb.outputs.version }}"
+          if [ "$(wasm-bindgen --version 2>/dev/null || true)" != "wasm-bindgen $WANT" ]; then
+            cargo install wasm-bindgen-cli --version "$WANT" --locked
+          fi
+          wasm-bindgen --version
+      # export.sh --web collects every crate licence with `cargo metadata --offline`, which needs the sources of all
+      # targets (including the Windows-only and wasm-only crates) downloaded.
+      - name: Fetch all crate sources
+        working-directory: tools/wzimport
+        run: cargo fetch --locked
+
+      # Tests. Tests that need the imported asset cache call require_cache() and SKIP here (CI has no WZ data and
+      # never will); a SKIP proves nothing, so the log below counts them. The importer's real-data tests need
+      # MAPLE_WZ_ROOT and are skipped too. Everything else (simulation, UI, export presets, the offline guard
+      # test_offline.gd, the importer's no_network_deps / no_network_src) runs.
+      - name: Importer tests (cargo test)
+        working-directory: tools/wzimport
+        run: cargo test --locked
+      - name: Web shell tests (node)
+        run: node --test web/dev/test/*.test.mjs
+      - name: Game tests (headless Godot)
+        run: |
+          set -o pipefail
+          bash scripts/test.sh 2>&1 | tee "$RUNNER_TEMP/godot-tests.log"
+          echo "SKIP lines (tests that need the real asset cache): $(grep -c 'SKIP' "$RUNNER_TEMP/godot-tests.log" || true)"
+
+      # The site itself.
+      - name: Export the web build
+        run: bash scripts/export.sh --web
+      - name: Check the artifact holds no WZ data
+        run: bash scripts/check_web_artifact.sh game/export/web
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: game/export/web
+
+  deploy:
+    # Not on pull requests: only main (push) and manual runs publish.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
