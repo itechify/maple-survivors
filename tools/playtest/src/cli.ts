@@ -9,6 +9,7 @@
 import { FlagRegistry, defineCoreFlags } from "./core/args.ts";
 import { EXIT } from "./core/exit_codes.ts";
 import { defineMapleFlags } from "./maple/flags.ts";
+import { defineInvariantFlags, invariantChecks } from "./maple/invariant_flags.ts";
 import { defineJevFlags } from "./maple/jev_flags.ts";
 import { runPlaytest } from "./maple/run.ts";
 
@@ -17,7 +18,7 @@ const USAGE = "usage: bash scripts/agent_playtest.sh [flags]";
 const HEAD_LINES = 30;
 
 async function main(argv: string[]): Promise<number> {
-	const flags = defineJevFlags(defineMapleFlags(defineCoreFlags(new FlagRegistry())));
+	const flags = defineInvariantFlags(defineJevFlags(defineMapleFlags(defineCoreFlags(new FlagRegistry()))));
 	const { values, errors } = flags.parse(argv);
 	if (values.help) {
 		console.log(`${USAGE}\n\n${flags.help()}`);
@@ -32,6 +33,7 @@ async function main(argv: string[]): Promise<number> {
 		personality: String(values.personality), brain: String(values.brain), livenessS: Number(values["liveness-s"]),
 		out: values.out === undefined ? undefined : String(values.out),
 		model: String(values.model), jevMaxRequests: Number(values["jev-max-requests"]),
+		checks: invariantChecks(values),
 	});
 	console.log(run.markdown.split("\n").slice(0, HEAD_LINES).join("\n"));
 	console.log(`\nrun directory: ${run.dir}\nexit code: ${run.exitCode}`);

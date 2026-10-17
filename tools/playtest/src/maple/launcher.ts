@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import type { InvariantChecks } from "./invariant_flags.ts";
 
 export const GODOT_VERSION = "4.7.2";
 export const DRIVER = "res://tools/playtest/playtest_driver.gd";
@@ -59,13 +60,22 @@ export function importProject(exe: string, project: string): void {
 	spawnSync(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", timeout: 600_000, windowsHide: true });
 }
 
-export type DriverOptions = { stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin";
+export type DriverOptions = {
+	stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin";
+	/** Run directory: the driver writes timeline.jsonl there. */
+	out?: string;
 	/** The personality's driver params (personality.json in the run directory, #97). */
-	personalityFile?: string };
+	personalityFile?: string;
+} & InvariantChecks;
 
 /** Godot arguments that run the playtest driver on `project`. */
 export function driverArgs(project: string, o: DriverOptions): string[] {
-	return ["--headless", "--path", project, "--script", DRIVER, "--", `--stage=${o.stage}`, `--seed=${o.seed}`,
-		`--minutes=${o.minutes}`, `--brain=${o.brain}`, `--personality=${o.personality}`,
-		...(o.personalityFile ? [`--personality-file=${o.personalityFile}`] : [])];
+	const args = ["--headless", "--path", project, "--script", DRIVER, "--", `--stage=${o.stage}`, `--seed=${o.seed}`,
+		`--minutes=${o.minutes}`, `--brain=${o.brain}`, `--personality=${o.personality}`];
+	if (o.out) args.push(`--out=${o.out.replaceAll("\\", "/")}`);
+	if (o.stuckPx !== undefined) args.push(`--stuck-px=${o.stuckPx}`);
+	if (o.stuckS !== undefined) args.push(`--stuck-s=${o.stuckS}`);
+	if (o.injectFinding) args.push(`--inject-finding=${o.injectFinding}`);
+	if (o.personalityFile) args.push(`--personality-file=${o.personalityFile.replaceAll("\\", "/")}`);
+	return args;
 }
