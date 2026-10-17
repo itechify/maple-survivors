@@ -80,6 +80,7 @@ impl WzRoot {
     }
 
     /// Keep forward-only readers out of concurrent random-seek jobs.
+    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
     pub(crate) fn prefers_sequential(&self) -> bool {
         self.sources
             .as_ref()

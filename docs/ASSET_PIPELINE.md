@@ -195,8 +195,9 @@ manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal com
 all 484 asset files with the previous native output, and reports zero warnings. Native measurements use the same
 portable API with `--no-default-features` to match wasm's sequential execution. The benchmark sink validates output
 instead of persisting another asset cache; times include those comparisons and, for scratch, temporary file I/O.
-These are one-run warm-filesystem measurements, run serially without concurrent builds/tests, not browser/OPFS or
-network timings. The earlier baseline was re-run after compilation finished to avoid that contention.
+These are one-run warm-filesystem measurements. Importer benchmarks ran serially with this ticket's build/test
+work paused; background processes from other worktrees were not controlled. They are not isolated-machine,
+browser/OPFS or network timings. The earlier baseline was re-run after compilation finished to avoid that contention.
 
 | Full-manifest strategy | Node wasm seconds | Native seconds | Decoder resets | Bytes inflated |
 |---|---:|---:|---:|---:|
