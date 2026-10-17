@@ -411,6 +411,28 @@ order 1/2/2026 (bosses killed, levels gained in parentheses):
 The table and `SUMMARY` of `balance.sh` gain an NX column and an "NX awarded per run (recorded, never credited)"
 min-median-max line; `SYSTEMS` repeats it from the aggregate. Raw records: ignored `_scratch/{base,new}/`.
 
+#### #34 / #119 pet in the round: regression smoke and a full-account record (2026-10-16)
+
+`ISOLATE=... bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random|first>`, real
+cache, no PATCH or tuning, empty account, against a `git archive` of the integration base (`662733c`). All 18
+`BALANCE` records (2 stages x 3 policies x seeds 1/2/2026) are byte-identical (`cmp`), so a round without a pet changes
+nothing: Henesys bot 0/3 clears, random 1/3, Tree 0/3 as before; no crash, script error or world warning. The pet adds
+no key to a record unless one is out (`pet`: species, abilities, `pickups`, `potions_used` of the pet, `alert`).
+
+One-off with the full account (`--account=game/tests/fixtures/accounts/full_pet.json`: Brown Kitty, Auto HP/MP, Wing
+Boots, Binocular, VAC, ALERT 50 % / 30 %; bot unchanged), seeds 1/2/2026, no warnings. The pet takes the drops and
+refills MP for the bot; the player's own `potions_used` stay separate from the pet's:
+
+| Stage / policy | Outcomes (end time) | Level | Pet pickups (seeds 1/2/2026) | Pet drinks HP / MP (1/2/2026) |
+|---|---|---|---|---|
+| Henesys bot | 0/3 clears; died 18:05 / 19:37 / 15:29 (empty account: 13:00 / 13:11 / 15:07) | 38 / 41 / 35 | 2479 / 2963 / 2003 | 0 / 3, 0 / 4, 0 / 1 |
+| Henesys random | 1/3 (seed 1 clears 16:34; empty account clears 16:07); others died 7:07 / 9:04 | 46 / 11 / 18 | 2728 / 208 / 529 | 1 / 3, 0 / 4, 0 / 1 |
+| Tree bot | 0/3; died 11:24 / 13:49 / 10:45 (empty: 10:52 / 11:17 / 2:08) | 26 / 25 / 24 | 2434 / 2435 / 1930 | 0 / 6, 3 / 7, 0 / 1 |
+
+Observations only, no tuning: the pet seldom drinks HP (0-3 drinks a run) because the bot already drinks at its own
+threshold, which is above the 50 % ALERT; VAC makes the pet collect most EXP (the `drop8` column falls to 1-2 drops on
+the map). Raw records: ignored `_scratch/out_{base,new,acct}/`.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
@@ -2825,7 +2847,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Cash slot Fortune | 11 cash slots (hat, face, eye, earrings, top, bottom, shoes, gloves, cape, weapon, shield); each filled slot adds hat 10, face 8, eye 8, earrings 6, top 10, bottom 10, shoes 9, gloves 9, cape 10, weapon 12, shield 8 (sum 100); overall = top + bottom, two-handed cover = weapon + shield; computed live, never stored in the character | C | spec #34 / #116, ADR 0003; placeholders in `cash_items.json` `slot_fortune`, set by the balance pass |
 | Cash slot from item id | id / 10000: 100 hat, 101 face, 102 eye, 103 earrings, 104 top, 105 overall, 106 bottom, 107 shoes, 108 gloves, 109 shield, 110 cape, 170 weapon cover | A | v83 item id categories (spec #34 research) |
 | Pet and pet upgrade prices | Brown Kitty 5000000, Brown Puppy 5000001, Pink Bunny 5000002: 4,900 NX; Auto HP Pouch 1812002, Auto MP Pouch 1812003, Wing Boots 1812004, Binocular 1812005: 1,800 NX | A | Etc.wz/Commodity.img OnSale listings (`cash_items.json`, with the SN) |
-| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet; behaviour comes with the pet ticket (#119) | C | spec #34, ADR 0003; our design |
+| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); while a pet with VAC is out the Magnet card (any card raising the `magnet` stat) is never offered, in normal, boss and advancement draws | C | spec #34, ADR 0003; our design |
+| Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
+| Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, potions; mesos with B2) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
+| Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
 | Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
 | Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |

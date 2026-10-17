@@ -1,0 +1,6 @@
+{
+	"_doc": "A tool account for pet rounds (spec #34, #119): Brown Kitty out with every pet upgrade (Auto HP, Auto MP, Wing Boots, Binocular and VAC) and the HP/MP ALERT at 50% / 30%. Use it as --account=<absolute path> on balance.sh, playtest.sh or --run. Test fixture only; the numbers are not tuning.",
+	"owned": [5000000, 1812002, 1812003, 1812004, 1812005, 9990000],
+	"pet": 5000000,
+	"alert": {"hp": 0.5, "mp": 0.3}
+}
