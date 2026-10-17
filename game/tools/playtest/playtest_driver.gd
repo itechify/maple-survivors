@@ -12,6 +12,10 @@ extends SceneTree
 ## --minutes caps the round's simulated time (TIMEOUT at the cap; 0 = the stage's own run_time_cap).
 ## Movement follows the policy's tactic (tactic decisions over the same protocol, #95); the round record gains
 ## `tactics` (playtest_policy.gd tactic_summary: seconds, shares, switches, decisions, triggers, log).
+## --personality-file=<abs json> (#97) holds the personality's driver params ({name, tactics, motor}; the CLI writes
+## personality.json into the run directory): PlaytestPolicy.configure applies them, hello echoes them as
+## `personality_params`, and the record gains `motor` (motor_noise.gd summary). Without it: kite-capable defaults
+## (all tactics, quiet motor).
 ## Exit code 0 after `end`; 2 after an `error` message (bad arguments, asset cache missing).
 
 const PROTOCOL := preload("res://tools/playtest/playtest_protocol.gd")
@@ -29,6 +33,7 @@ func _init() -> void:
 	var minutes := 0.0
 	var brain := "stdio"
 	var personality := "sensible"
+	var personality_file := ""
 	var bad := PackedStringArray()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
@@ -41,6 +46,8 @@ func _init() -> void:
 			brain = a.substr(8)
 		elif a.begins_with("--personality="):
 			personality = a.substr(14)
+		elif a.begins_with("--personality-file="):
+			personality_file = a.substr(19)
 		else:
 			bad.append(a)
 	if brain not in ["stdio", "builtin"]:
@@ -49,7 +56,16 @@ func _init() -> void:
 	if not bad.is_empty():
 		_fail(link, "bad_args", "unknown or malformed arguments: %s" % ", ".join(bad))
 		return
-	link.send(PROTOCOL.hello(stage, seed_value, minutes, personality, link.mode))
+	var params := {}
+	if personality_file != "":
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(personality_file))
+		if not parsed is Dictionary:
+			_fail(link, "bad_args", "--personality-file=%s is not a JSON object" % personality_file)
+			return
+		params = parsed
+	var hello := PROTOCOL.hello(stage, seed_value, minutes, personality, link.mode)
+	hello["personality_params"] = params
+	link.send(hello)
 	var data := DataRepo.load_all()
 	if not data.stages.stages.has(stage):
 		_fail(link, "bad_args", "unknown stage %s" % stage)
@@ -69,6 +85,7 @@ func _init() -> void:
 	var world := RunWorld.new(setup)
 	var start_character := world.character_snapshot()
 	var policy := POLICY.new(link, seed_value)
+	policy.configure(params)
 	var progress := {"next": PROGRESS_EVERY}
 	policy.observers.append(func(w: RunWorld, _events: Array) -> void:
 		if w.time >= float(progress.next) - 1e-6:
@@ -78,6 +95,7 @@ func _init() -> void:
 	var record := BR.run_one(world, policy, seed_value, -1.0, 60.0, 0, policy.observe)
 	record.merge({"seed": seed_value, "stage": stage, "policy": "playtest", "personality": personality,
 		"start_character": start_character, "missing": [], "tactics": policy.tactic_summary()})
+	record["motor"] = policy.motor_summary()
 	for tier_index in data.stages.get("tiers", []).size():
 		if stage in data.stages.tiers[tier_index]:
 			record["tier"] = tier_index + 1

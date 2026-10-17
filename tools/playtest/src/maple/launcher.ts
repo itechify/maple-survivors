@@ -59,10 +59,13 @@ export function importProject(exe: string, project: string): void {
 	spawnSync(exe, ["--headless", "--path", project, "--import"], { stdio: "ignore", timeout: 600_000, windowsHide: true });
 }
 
-export type DriverOptions = { stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin" };
+export type DriverOptions = { stage: string; seed: number; minutes: number; personality: string; brain: "stdio" | "builtin";
+	/** The personality's driver params (personality.json in the run directory, #97). */
+	personalityFile?: string };
 
 /** Godot arguments that run the playtest driver on `project`. */
 export function driverArgs(project: string, o: DriverOptions): string[] {
 	return ["--headless", "--path", project, "--script", DRIVER, "--", `--stage=${o.stage}`, `--seed=${o.seed}`,
-		`--minutes=${o.minutes}`, `--brain=${o.brain}`, `--personality=${o.personality}`];
+		`--minutes=${o.minutes}`, `--brain=${o.brain}`, `--personality=${o.personality}`,
+		...(o.personalityFile ? [`--personality-file=${o.personalityFile}`] : [])];
 }
