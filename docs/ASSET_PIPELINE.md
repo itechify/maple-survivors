@@ -59,6 +59,11 @@ The public Rust boundaries are `ReadAt` (`len() -> u64`, `read_exact_at(offset, 
 the existing atomic filesystem writer. `WzArchive::from_reader(name, reader, version)` reads an injected archive;
 `zip::zip_sources(reader)` produces named readers. `import::import_sources(sources, manifest_json, sink, progress)`
 imports them; progress implements `Progress::update(current_img, done, total) -> Result<()>` (closures work).
+`zip::zip_sources_with_options(reader, ZipOptions)` additionally accepts optional `scratch: Option<Arc<dyn Scratch>>`
+and shared `stats: Arc<Mutex<ZipStats>>` counters. `Scratch::create(name, length)` returns
+`io::Result<Box<dyn ScratchHandle>>`; the handle extends `ReadAt` with `write(offset, bytes)` and `close(&mut self)`,
+both returning `io::Result<()>`. A native caller can supply temporary files through these traits; the CLI keeps
+the bounded replay default. Handles close when the last entry-reader reference is dropped, including on failure.
 Missing archives, including dependencies found while expanding maps/mobs, fail with names such as
 `Effect.wz, Sound.wz not found in this source`. Errors while opening archives retain their underlying reader error.
 Native reader/sink/progress implementations must be `Send + Sync`; wasm callbacks stay in one worker.
@@ -97,6 +102,12 @@ await init(); // resolves wzimport_bg.wasm beside the JS module
 // Reader = { length: number, readAt(offset: number, length: number): Uint8Array }
 const sources = { archives: { 'Mob.wz': mobReader, 'Sound.wz': soundReader /* ... */ } };
 // Alternatively, exactly one ZIP reader: const sources = { zip: zipReader };
+// Optional for ZIPs (all callbacks synchronous; #133 supplies OPFS handles in its worker):
+// sources.scratch = { create(name, length) {
+//   return { write(offset, bytes) { /* exact positional write */ },
+//            readAt(offset, length) { /* return exactly length bytes as Uint8Array */ },
+//            close() { /* release this temporary handle */ } };
+// } };
 const report = JSON.parse(importWz(sources, manifestJson, {
   createDir(relativePath) { /* create a directory record, including '' for the cache root */ },
   writeFile(relativePath, bytes) { /* enqueue an owned Uint8Array into the host's destination */ }
@@ -112,6 +123,20 @@ the API throws a readable string, including context. Callback promises are unsup
 are rejected). Progress fires after each img job, `done = 1..total`; there are no progress events for a zero-job
 manifest or while expanding its dependencies. The returned JSON string contains `index`, `written`, `warnings`,
 `unresolved_uols`, `uols_resolved`, and `uols_external`. Per-img failures throw a joined error string.
+The additive `zip_stats` report field contains `decoder_resets` and `bytes_inflated` (uncompressed bytes produced,
+including bytes discarded during forward skips/replay); both are zero for non-ZIP input or stored entries.
+
+When `sources.scratch` is supplied for a ZIP, `create(name, length)` runs once on the first read of each used
+DEFLATED entry. `name` is its archive basename (e.g. `Mob.wz`); `length` is its declared uncompressed length.
+The importer inflates the whole entry sequentially into `write(offset, bytes)` calls of at most 64 KiB, then serves
+all positional reads from the handle's `readAt` (also at most 64 KiB per callback). Write buffers are JS-owned and
+safe to retain. The handle needs no `length` property. Unused and stored entries never create scratch handles.
+`create`, `write`, `readAt`, and `close` bind `this` to their owning object. Promise results are unsupported;
+create/write/read failures fail the import without silently falling back to replay. A failed inflation is not retried.
+Every successfully created, valid handle receives one `close()` attempt before `importWz` returns or throws;
+close errors during destructor cleanup cannot propagate. The host must delete temporary files in its own `finally`
+block as well (including files from a failed `create` or `close`). Without scratch, the bounded replay path remains
+available. This is the section-7 contract for #133; it requires no signature changes.
 
 `createDir` receives each cumulative parent (duplicates are allowed); `writeFile` receives a validated, slash-separated
 relative cache path and a JS-owned copy of bytes, safe to retain after returning. No absolute cache root or browser
@@ -125,11 +150,23 @@ bound to their sink object. Report progress from the worker with `postMessage`, 
 The ZIP reader scans the central directory using small records (the end search is at most 65,557 bytes), then
 exposes stored entries as offset views. A deflated entry keeps a forward raw-DEFLATE decoder with a 64 KiB
 compressed input buffer and the decoder's fixed-size history. Reads ahead discard through a 64 KiB scratch buffer;
-a backward read resets the decoder and replays from the entry start. No inflated entry, full compressed archive,
-spill file or archive-sized wasm allocation is retained. Each active entry has constant decoder/buffer overhead
+a backward read resets the decoder and replays from the entry start. Without host scratch, no inflated entry,
+full compressed archive, spill file or archive-sized wasm allocation is retained. Each active entry has constant decoder/buffer overhead
 (roughly a few hundred KiB), whether its WZ is 480 MiB or 640 MiB. This favours bounded memory and portability over
 CPU time: repeated backward reads can repeatedly decompress most of a large entry. Stored ZIPs/folder readers are
 faster for random access. ZIP metadata is used for positional access; this is not a full-entry CRC verification pass.
+
+Map dependency reads, currently available mob/link dependency reads, and export jobs are ordered by archive and
+img offset where their order is free. Export reports retain their original name order; output bytes are unchanged.
+Native replay readers advertise `ReadAt::prefers_sequential()` so rayon cannot undo the forward traversal with
+concurrent seeks. Native folder/stored/scratch readers retain parallel exports. Dependency discovery, WZ metadata
+and external UOL targets can still require backwards reads; sorting alone cannot eliminate replay.
+
+With host scratch, the decoder instead makes one complete sequential pass per used deflated entry, then is dropped.
+Rust/wasm still never allocates an archive-sized buffer. The host pays for the uncompressed entries: temporary files
+use storage, while an in-memory implementation would retain those bytes in JS memory. Scratch files live until the
+entry readers are dropped, so allow space for the sum of used entries, alongside the destination cache. Scratch is
+optional because storage quotas/OPFS availability differ; the web shell (#133) does not use it (see 2.4).
 
 WZ directory records are read at their own positions, including sparse layouts in edited archives. Each local
 metadata read window starts at 4 KiB and is capped at 16 MiB; oversized metadata records fail explicitly instead of
@@ -147,6 +184,39 @@ excluding only `created` and `stats.seconds`; synthetic portable folder/stored-Z
 including `cache.json`. The external harness and private outputs stay outside the repo; these are Node worker-API
 checks, not browser/storage/UI QA (owned by #133/#136).
 
+The synthetic wasm callback checks can be run after building the glue:
+`node tools/wzimport/tests/wasm_scratch.mjs <build-output-dir>`. They cover bound callbacks, failed writes,
+Promise rejection, short reads, malformed handles, and cleanup; Rust synthetic tests additionally compare complete
+caches, check physical img traversal, lazy once-per-entry scratch usage, sequential writes and closure on failures.
+
+Follow-up #132b timing (2026-10-17, Ryzen 7 7800X3D, Windows, Node 24.21.0, release builds): the full current
+manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal compression (`-tzip -mm=Deflate -mx=5`),
+1,907,592,640 bytes uncompressed / 1,694,345,144 bytes zipped. Each run imports all 157 imgs, synchronously compares
+all 484 asset files with the previous native output, and reports zero warnings. Native measurements use the same
+portable API with `--no-default-features` to match wasm's sequential execution. The benchmark sink validates output
+instead of persisting another asset cache; times include those comparisons and, for scratch, temporary file I/O.
+These are one-run warm-filesystem measurements. Importer benchmarks ran serially with this ticket's build/test
+work paused; background processes from other worktrees were not controlled. They are not isolated-machine,
+browser/OPFS or network timings. The earlier baseline was re-run after compilation finished to avoid that contention.
+
+| Full-manifest strategy | Node wasm seconds | Native seconds | Decoder resets | Bytes inflated |
+|---|---:|---:|---:|---:|
+| Before offset ordering, bounded replay | 68.87 | 41.11 | 241 | 20,462,604,993 |
+| Offset ordering only, bounded replay | 18.07 | 9.46 | 164 | 4,095,533,688 |
+| Offset ordering + Node temp-file scratch | 13.81 | not measured | 0 | 1,907,592,640 |
+
+Wasm linear-memory peaks were 268,042,240 / 267,059,200 / 266,338,304 bytes respectively; host read calls never
+exceeded 65,536 bytes. The scratch run created and closed exactly 12 handles and wrote 1,907,592,640 temporary bytes
+(about 1.78 GiB). Its asset files and portable `cache.json` matched both replay variants byte for byte. Sorting alone
+cuts inflated work by 80%; scratch eliminates the remaining replay at the cost of fully inflating and retaining
+each used archive in host storage, even if the manifest needs only a few of its imgs. A JS in-memory scratch would
+pay that 1.78 GiB in host RAM instead. This is why scratch stays optional and the no-scratch path remains bounded.
+The private ZIP, Node/native harnesses and JSON measurements are outside the repo under
+`maple-survivors-refs/research/spec130/t132/round2/`; no proprietary input or decoded output is committed.
+Follow-up validation: 60 Rust tests passed (including all 17 real-data tests with `MAPLE_WZ_ROOT` set), with no skips;
+all 13 source-boundary tests also passed without default features, and all seven wasm callback checks passed.
+The isolated full Godot suite ran 822 tests: 816 passed, six failed, zero skipped. The six failures are the existing
+#103 key-config/key-window/run-scene/Teleport binding family documented in the spec's integration baseline.
 ### 2.4 Web import sources (#133)
 
 The web shell (`web/import_worker.js`, docs/ARCHITECTURE.md 10.2) feeds `importWz` from three kinds of source. The
@@ -163,13 +233,29 @@ named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, musi
 `Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
 import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
 records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
-until the write phase, and an interrupted write leaves no `cache.json`. No `sources.scratch` is passed: the importer reads
-deflated entries in offset order (decisions.md 7).
+until the write phase, and an interrupted write leaves no `cache.json`. The shell does not pass `sources.scratch`:
+the lead's decision after the #132b numbers above was that 13.8 s against 18 s does not justify about 1.78 GiB of
+temporary OPFS storage, so deflated zips use the offset-ordered bounded replay.
 
 A re-import for missing imgs is a complete import of the manifest; the importer has no incremental mode in portable
 mode, and a partial manifest would write partial copies of imgs shared between entries (`MapHelper.img`, `Mob.img`).
 The shell's manifest check (`assessCache`) is exact for the imgs the manifest names and for the files every listed img
 needs, not for dependencies the importer derives by reading WZ data.
+
+Browser measurements (Chrome 155, dev PC, local files and a localhost host, the full manifest: 157 imgs, 485 files,
+about 150 MB read, 95 MB stored in IndexedDB; whole-import time as the worker reports it, including the write):
+
+| Source | Time | Notes |
+|---|---:|---|
+| Folder (`<input webkitdirectory>`) | 6.7 s | 2,841 reads, 6.2 s importing + 0.5 s writing |
+| Stored zip (1.8 GB) | 7.1 s | |
+| Deflated zip (1.6 GB, #132b offset-ordered reads) | 44.5 s | 56,695 reads, 3.7 GB read from the blob |
+| URL folder, ranged | 6.9 s | 337 requests, 348 MB transferred (block-cache read amplification about 2.3x) |
+| URL `.zip`, ranged (stored) | 7.1 s | 379 requests, 402 MB |
+| URL folder, no Range support | 10.2 s | 1.9 GB downloaded whole (about 4.2 s of it before importing) |
+| Folder through a stored `FileSystemDirectoryHandle` (OPFS stand-in) | 11.7 s | |
+
+The localhost host has no network latency or bandwidth limit, so the URL rows only show request counts and bytes.
 
 ## 3. WZ format facts (v83, verified)
 
