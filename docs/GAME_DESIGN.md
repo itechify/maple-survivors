@@ -399,6 +399,14 @@ base `09b239f` (`ISOLATE=t92base`) and after the change (`ISOLATE=t92`) for seed
 `tree_that_grew_1` x `bot` / `random` / `first`, plus the `--tier=2` bot chain on seed 1: 19 records, `diff` empty
 (byte-identical). `scripts/balance.sh` flags and output unchanged. No data change, no tuning, no held-out seeds.
 
+#### Spec #91 / #101 agent playtest matrix QA, observation only (2026-10-16)
+
+`bash scripts/agent_playtest.sh --scenario=matrix` (live Jev, Henesys, 10-minute cap, seeds 1/2/2026): no
+deterministic problem in any cell. Sensible TIMEOUT 10:00 Lv 32 / DEAD 9:03 Lv 25 / TIMEOUT 10:00 Lv 30. The five
+other personalities all die: 12 of their 15 deaths fall in 4:17-5:13, around Mano's 5:00 arrival (aggressive 5:04-5:05
+in every seed). The same cluster appeared in #98's and #99's matrices. It is recorded for the balance pass in #127; no
+tuning, no data change, no held-out seeds.
+
 #### #32 merged with main after #79 (2026-10-16)
 
 Regression smoke on the merge (`ISOLATE=sm79`, seeds 1/2/2026, both stages, bot/random, no PATCH or tuning): every
