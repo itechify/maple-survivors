@@ -20,19 +20,25 @@ pub mod json;
 pub mod manifest;
 pub mod property;
 pub mod reader;
+pub mod sink;
 pub mod sound;
 pub mod source;
 pub mod uol;
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
 pub mod wzroot;
+pub mod zip;
 
 #[cfg(test)]
-pub mod testutil;
+mod source_tests;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
-mod source_tests;
+pub mod testutil;
 
 pub use error::{Result, WzError};
+pub use sink::{FileSink, Sink};
+pub use source::{NamedSources, ReadAt};
 
 /// Importer version recorded in cache.json; bump it when the output format or decoding changes.
 pub const IMPORTER_VERSION: &str = env!("CARGO_PKG_VERSION");
