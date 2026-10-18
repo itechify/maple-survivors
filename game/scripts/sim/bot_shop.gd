@@ -58,19 +58,16 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
 ## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
-## it put on. No RNG. tier C (owner change after spec #151): the weapons an advancement hands over in survivor jobs.json
-## `grants.items` (the Warrior's Spear and Steel Pipe) are for the player to try by hand; the bot never wears them and
-## keeps the sword the advancement granted.
+## it put on. No RNG.
 static func auto_equip(w: RunWorld) -> int:
 	var weights := weights_for(w.balance, w.progression.job_id, w.jobs)
-	var handed_over := _handed_over_items(w)
 	var worn_count := 0
 	for _pass in EQUIP_GUARD:
 		var candidates: Array = []
 		for index in w.equipment.inventory.size():
 			var instance: Dictionary = w.equipment.inventory[index]
 			var slot := Equipment.slot_of(int(instance.id))
-			if slot == "" or int(instance.id) in handed_over:
+			if slot == "":
 				continue
 			var gain := item_score(instance, weights) - _displaced_score(w.equipment.worn, int(instance.id), weights)
 			if gain > 1e-9:
@@ -85,16 +82,6 @@ static func auto_equip(w: RunWorld) -> int:
 		if not improved:
 			break
 	return worn_count
-
-
-## The item ids `grants.items` hands over at the advancements on the lineage of the current job.
-static func _handed_over_items(w: RunWorld) -> PackedInt32Array:
-	var out := PackedInt32Array()
-	for j in w.jobs.lineage(w.progression.job_id):
-		var items: Variant = w.jobs.job(j).get("grants", {}).get("items", [])
-		for id: Variant in items if items is Array else []:
-			out.append(int(id))
-	return out
 
 
 ## Score of what wearing item `id` takes off (Equipment.displaced_slots: a top or bottom displaces an overall, an overall

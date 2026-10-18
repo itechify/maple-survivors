@@ -669,7 +669,7 @@ What the tables above leave open; the class doc comments have the rest.
   (snapshot key, written only when set) and `_grant_job_weapon` wears the weapon the path, the Magician's
   `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names; the previous weapon goes to the Equip
   tab or, when full, to the ground at the player's feet. `_grant_job_items` then hands over the job's `jobs.json`
-  `grants.items` (the Warrior's Spear and Steel Pipe) the same way; `BotShop.auto_equip` never wears them. Drops follow the held family
+  `grants.items` (the Warrior's Spear and Steel Pipe) the same way; `BotShop.auto_equip` treats them like any other Equip item. Drops follow the held family
   (`EquipmentDrops.family_allows`, `equipment_drops.shared_families`; stream 10).
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with

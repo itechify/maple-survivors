@@ -3226,9 +3226,9 @@ no stat need) and **Steel Pipe 1322006** (Lv 10 one-handed blunt, reqJob 0, PAD 
 shop weapons of the spear and blunt families at reqLevel 10 that a Warrior can wear from the first level; the Iron Hammer
 1322032, the other Lv 10 blunt, wants STR 35, and the Lv 10 spears 1432029 and 1432050 are quest or untradable rewards.
 Items that find no free slot (the old weapon has the first claim on it) lie at the player's feet as normal equipment
-pickups, so advancing never fails (`RunWorld._grant_job_items`). The bot keeps the granted sword: `BotShop.auto_equip`
-never wears an item a job handed over in `grants.items` (the Spear's PAD 32 would otherwise outscore the sword), so the
-player is the one who tries the spear or the mace. The Magician advancement is unchanged.
+pickups, so advancing never fails (`RunWorld._grant_job_items`). The bot makes no deliberate swap, but its
+score-based planner (`BotShop.auto_equip`, #112) treats the handed-over items like any other Equip item: it wears the
+Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the tab) and ignores the Steel Pipe (29). The Magician advancement is unchanged.
 
 | Skill | Kind | Behaviour | Tiers |
 |---|---|---|---|
@@ -4036,7 +4036,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
 | Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
 | Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
-| Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot never wears the handed-over items | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule, the bot rule) | v83-facts 4; owner request 2026-10-18 |
+| Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot's planner wears the Spear | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule) | v83-facts 4; owner request 2026-10-18 |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
 | Weapon-reach and range-around casts (#163) | `weapon_reach`: nearest mob inside `BasicAttack.envelope` (the union of the held weapon's afterimage boxes, far edge = `reach`); `range_around`: body centres within the level's canonical `range` of the body, `mobCount` cap | A (afterimage boxes, `range`, `mobCount`); C (the rules, auto-cast) | Skill.wz 100.img; ours |
 | Skill stance `"action": "weapon"` (#163) | the held weapon's first basic-attack action (`WeaponInfo.skill_action`), so a spear stabs and a polearm swings | C | the Warrior nodes have no `action` |
