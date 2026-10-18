@@ -1788,14 +1788,16 @@ func _roll_mesos(mk: MobKind) -> int:
 	return MesoDrops.roll(meso_rng, span, float(cfg.get("mult", 1.0)))
 
 
-## One equipment drop for the character's current job and level (EquipmentDrops; `boss` takes the top of the level
-## window) with v83 random stats, from the equipment stream; nothing when no listed item has info and fits.
+## One equipment drop for the character's current job, level and held weapon family (EquipmentDrops; `boss` takes the
+## top of the level window) with v83 random stats, from the equipment stream; nothing when no listed item has info and
+## fits. A weapon only drops from the family held now; bare hands get none (#159).
 func _drop_equipment(pos: Vector2, boss: bool) -> void:
 	var cfg: Dictionary = data.get("equipment_drops", {})
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var items: Array = cfg.get("items", [])
-	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng) if boss \
-		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng)
+	var family := held_weapon_family()
+	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng, family) if boss \
+		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng, family)
 	if id > 0:
 		spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng))
 
