@@ -237,6 +237,9 @@ func _show_window(which: String) -> void:
 			# with the claw's tooltip listing the ammo (the real world and events, the real String.wz names).
 			var world := _ammo_world()
 			world._gain_exp(world.progression.exp_to_next())
+			hud.update(world.player_state, {"time": 0.0, "kills": 0, "name": "Assassin", "job_name": "Assassin",
+				"exp_next": world.progression.exp_to_next(), "skills": []})
+			avatar.set_look({"equips": [1040002, 1060002, 1072001, world.weapon_id()]})
 			for e: Dictionary in world.drain_events():
 				if e.type == "ammo_upgraded":
 					var found: Variant = UiArt.lib().find(InventoryModel.name_path(int(e.item_id)))
@@ -273,12 +276,12 @@ func _ammo_world() -> RunWorld:
 	var loader := func(path: String) -> Dictionary:
 		var found := lib.img(path)
 		return found.root if found != null else {}
-	var ids := PackedInt32Array([1472000])
+	var ids := PackedInt32Array([1472008])
 	ids.append_array(Equipment.DEFAULT_OUTFIT)
 	var setup := {"data": data, "seed": 3, "equipment_info": DataRepo.equipment_info(ids, loader),
 		"ammo_info": DataRepo.ammo_info(data.ammo, loader)}
 	var world := RunWorld.new(setup)
-	world.equipment.worn["weapon"] = Equipment.create(1472000, setup.equipment_info[1472000])
+	world.change_job(410)
 	world.progression.level = 54
 	world.progression.job_id = 410
 	world.refresh_player_stats(false)

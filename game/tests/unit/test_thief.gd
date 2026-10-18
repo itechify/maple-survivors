@@ -107,14 +107,14 @@ func test_seeded_bot_has_luk_eighty_and_dex_twenty_five_by_thirty_on_both_paths(
 		var w := _world()
 		w.god = true
 		for level in range(2, 31):
-			_level(w, level, path)
-		assert_eq(w.progression.job_id, 400)
+			_level(w, level, path, 410 if path == "claw" else 420)
+		assert_eq(w.progression.job_id, 410 if path == "claw" else 420)
 		assert_eq(w.weapon_path, path)
 		assert_true(int(w.player_state.luk) >= 80, "LUK first, no stat reset")
 		assert_true(int(w.player_state.dex) >= 25, "v83 first-job DEX minimum")
 		var hp: int = w.player_state.max_hp
 		var mp: int = w.player_state.max_mp
-		_level(w, 31, path)
+		_level(w, 31, path, 410 if path == "claw" else 420)
 		assert_eq(w.player_state.max_hp - hp, 22)
 		assert_eq(w.player_state.max_mp - mp, 15)
 		var weights := BotShop.weights_for(w.balance, 400, w.jobs)

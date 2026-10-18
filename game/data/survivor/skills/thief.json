@@ -35,6 +35,110 @@
 			"hit": "Skill.wz/400.img/skill/4001344/hit/0", "effect": "Skill.wz/400.img/skill/4001344/effect",
 			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
 			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
+		},
+		"claw_mastery": {
+			"skill_id": 4100000, "book": "410", "job": 410, "kind": "passive", "slot": "passive",
+			"name": "Claw Mastery", "desc": "Increases claw mastery and accuracy.",
+			"icon": "Skill.wz/410.img/skill/4100000/icon", "damage": "none", "weapon_families": ["claw"],
+			"_tier": "Tier A: canonical levels and passive values. Tier C: weapon-family requirement, from the v83 skill description. Endless stars ignore recharge capacity.",
+			"text": {"desc":"Increases claw mastery and accuracy while holding a claw.","h":"Claw mastery +{mastery_pct}%, Accuracy +{x}"},
+			"passive": {"stat":"mastery","field":"mastery","effects":[{"stat":"acc","field":"x"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "", "rotate": false,
+			"sounds": {"use":"","hit":""}
+		},
+		"critical_throw": {
+			"skill_id": 4100001, "book": "410", "job": 410, "kind": "passive", "slot": "passive",
+			"name": "Critical Throw", "desc": "Increases the critical chance and damage of claw attacks.",
+			"icon": "Skill.wz/410.img/skill/4100001/icon", "damage": "none", "weapon_families": ["claw"],
+			"_tier": "Tier A: canonical levels and passive values. Tier C: weapon-family requirement, from the v83 skill description. Endless stars ignore recharge capacity.",
+			"passive": {"stat":"crit_chance","field":"prop","effects":[{"stat":"crit_damage","field":"damage"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "", "rotate": false,
+			"sounds": {"use":"","hit":""}
+		},
+		"dagger_mastery": {
+			"skill_id": 4200000, "book": "420", "job": 420, "kind": "passive", "slot": "passive",
+			"name": "Dagger Mastery", "desc": "Increases dagger mastery and accuracy.",
+			"icon": "Skill.wz/420.img/skill/4200000/icon", "damage": "none", "weapon_families": ["dagger"],
+			"_tier": "Tier A: canonical levels and passive values. Tier C: weapon-family requirement, from the v83 skill description. Endless stars ignore recharge capacity.",
+			"passive": {"stat":"mastery","field":"mastery","effects":[{"stat":"acc","field":"x"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "", "rotate": false,
+			"sounds": {"use":"","hit":""}
+		},
+		"claw_booster": {
+			"skill_id": 4101003, "book": "410", "job": 410, "kind": "buff", "slot": "passive",
+			"name": "Claw Booster", "desc": "Temporarily increases the attack speed of claws.",
+			"icon": "Skill.wz/410.img/skill/4101003/icon", "damage": "none", "weapon_families": ["claw"],
+			"_tier": "Tier A: x=-2 scaled by -1 means two steps faster; canonical time, hpCon, mpCon, alert2, art and sound. Tier C: weapon-family requirement from the v83 description; self auto-cast while inactive, 0.8s hold.",
+			"buff": {"duration_field":"time","effects":[{"stat":"attack_speed","field":"x","scale":-1}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"hit": "", "effect": "Skill.wz/410.img/skill/4101003/effect", "rotate": false,
+			"sounds": {"use":"Sound.wz/Skill.img/4101003/Use","hit":""}
+		},
+		"haste_assassin": {
+			"skill_id": 4101004, "book": "410", "job": 410, "kind": "buff", "slot": "passive",
+			"name": "Haste", "desc": "Temporarily increases your movement speed and jump height.",
+			"icon": "Skill.wz/410.img/skill/4101004/icon", "damage": "none",
+			"_tier": "Tier A: canonical speed, jump, time, mpCon, alert2, art and sound. Tier C: self-only auto-cast while inactive with any weapon, 0.8s hold; existing movement caps apply.",
+			"text": {"desc":"Temporarily increases your movement speed and jump height.","h":"MP -{mp_cost}; Speed +{buff_speed}, Jump +{buff_jump} for {time} sec."},
+			"buff": {"duration_field":"time","effects":[{"stat":"speed","field":"speed"},{"stat":"jump","field":"jump"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"hit": "", "effect": "Skill.wz/410.img/skill/4101004/effect", "rotate": false,
+			"sounds": {"use":"Sound.wz/Skill.img/4101004/Use","hit":""}
+		},
+		"dagger_booster": {
+			"skill_id": 4201002, "book": "420", "job": 420, "kind": "buff", "slot": "passive",
+			"name": "Dagger Booster", "desc": "Temporarily increases the attack speed of daggers.",
+			"icon": "Skill.wz/420.img/skill/4201002/icon", "damage": "none", "weapon_families": ["dagger"],
+			"_tier": "Tier A: x=-2 scaled by -1 means two steps faster; canonical time, hpCon, mpCon, alert2, art and sound. Tier C: weapon-family requirement from the v83 description; self auto-cast while inactive, 0.8s hold.",
+			"buff": {"duration_field":"time","effects":[{"stat":"attack_speed","field":"x","scale":-1}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"hit": "", "effect": "Skill.wz/420.img/skill/4201002/effect", "rotate": false,
+			"sounds": {"use":"Sound.wz/Skill.img/4201002/Use","hit":""}
+		},
+		"haste_bandit": {
+			"skill_id": 4201003, "book": "420", "job": 420, "kind": "buff", "slot": "passive",
+			"name": "Haste", "desc": "Temporarily increases your movement speed and jump height.",
+			"icon": "Skill.wz/420.img/skill/4201003/icon", "damage": "none",
+			"_tier": "Tier A: canonical speed, jump, time, mpCon, alert2, art and sound. Tier C: self-only auto-cast while inactive with any weapon, 0.8s hold; existing movement caps apply.",
+			"text": {"desc":"Temporarily increases your movement speed and jump height.","h":"MP -{mp_cost}; Speed +{buff_speed}, Jump +{buff_jump} for {time} sec."},
+			"buff": {"duration_field":"time","effects":[{"stat":"speed","field":"speed"},{"stat":"jump","field":"jump"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "alert2", "action_time": 0.8, "ball": "",
+			"hit": "", "effect": "Skill.wz/420.img/skill/4201003/effect", "rotate": false,
+			"sounds": {"use":"Sound.wz/Skill.img/4201003/Use","hit":""}
+		},
+		"endure_assassin": {
+			"skill_id": 4100002, "book": "410", "job": 410, "kind": "passive", "slot": "passive",
+			"name": "Endure", "desc": "Recovers additional HP and MP anywhere, on its own recovery clock.",
+			"icon": "Skill.wz/410.img/skill/4100002/icon", "damage": "none",
+			"_tier": "Tier A: canonical hp, mp and time at all 20 levels. Owner #167: recovery anywhere with any weapon. Tier C: first pulse one interval after learning; rank changes retain elapsed time, round boundaries reset it.",
+			"text": {"desc":"Recovers additional HP and MP anywhere, on its own recovery clock.","h":"Recover +{hp} HP and +{mp} MP every {time} sec."},
+			"periodic_recovery": {"interval_field":"time","hp_field":"hp","mp_field":"mp"},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "", "rotate": false,
+			"sounds": {"use":"","hit":""}
+		},
+		"endure_bandit": {
+			"skill_id": 4200001, "book": "420", "job": 420, "kind": "passive", "slot": "passive",
+			"name": "Endure", "desc": "Recovers additional HP and MP anywhere, on its own recovery clock.",
+			"icon": "Skill.wz/420.img/skill/4200001/icon", "damage": "none",
+			"_tier": "Tier A: canonical hp, mp and time at all 20 levels. Owner #167: recovery anywhere with any weapon. Tier C: first pulse one interval after learning; rank changes retain elapsed time, round boundaries reset it.",
+			"text": {"desc":"Recovers additional HP and MP anywhere, on its own recovery clock.","h":"Recover +{hp} HP and +{mp} MP every {time} sec."},
+			"periodic_recovery": {"interval_field":"time","hp_field":"hp","mp_field":"mp"},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "", "rotate": false,
+			"sounds": {"use":"","hit":""}
 		}
 	}
 }
