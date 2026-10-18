@@ -463,6 +463,24 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #152 job-generic prefactor regression smoke (2026-10-17)
+
+`ISOLATE=final bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, plus
+`--job=210` and `--branch=210` (Henesys bot), no PATCH or tuning. #152 first regroups `upgrades.json` cards by job line
+(common, beginner, magician: the per-line merge order; owner choice) in a data-only commit, `11664d2`. The roll walks
+the pool in array order, so that commit alone changes which cards a seed draws. The same smoke on `main` (`bb6eee9`)
+equals the web audio smoke below; on `11664d2` it gives:
+
+| | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| seeds 1 / 2 / 2026 | C 16:16 / T 30:00 / D 18:07 | D 13:09 / 6:40 / 11:18 | D 16:32 / 12:52 / 2:08 | D 8:52 / 3:10 / 2:15 |
+
+(Henesys bot seed 2 kills two bosses and is still fighting the third at the 30:00 cap; Magician 265.0–290.1 s.) Every
+later #152 commit (per-line data files, manifest fragments, job-generic plumbing, `--job`) gives per-seed records
+byte-identical to `11664d2` apart from the new `job_times` key, `job_t` equals `job_times["200"]` in every record, and
+`--job=210` equals `--branch=210`. No crashes, script errors or world warnings. Full suite 1379 tests, 0 failed,
+0 skipped; `cargo test` and the web dev tests pass.
+
 #### Web audio fix regression smoke (2026-10-17)
 
 `ISOLATE=webaudio_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
