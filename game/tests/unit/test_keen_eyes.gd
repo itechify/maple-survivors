@@ -120,6 +120,11 @@ func test_cards_are_claw_only_first_job_without_carry_and_cap_at_eight() -> void
 		w.loadout.set_rank("keen_eyes", 1)
 		for branch in [410, 420]:
 			w.change_job(branch)
+			# A branch may grant its own weapon (#212); explicitly hold the tested family in both branches.
+			var weapon := 1472061 if path == "claw" else 1332063
+			if w.weapon_id() != weapon:
+				var inventory: Array = w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
+				assert_eq(w.equip_item(inventory.find(weapon)), "")
 			assert_false("keen_eyes_new" in w.upgrades.eligible(w))
 			assert_false("keen_eyes_rank" in w.upgrades.eligible(w))
 			assert_near(w.basic.reach(w), 275 if path == "claw" else base_reach)
