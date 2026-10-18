@@ -846,6 +846,17 @@ its `game/`.
   before `get_tree().quit()` gives a clean exit (verified in a scratch build). This sequence is binding for every web
   quit (`WebHandoff.quit`); the shell also treats the post-quit `currentTime` TypeError as an exit (section 10.2), and
   the importer's zip reader uses no temporary storage (docs/ASSET_PIPELINE.md 2.3).
+- **Audio buses come from `game/default_bus_layout.tres`, never from `AudioServer.add_bus` (2026-10-17):** web
+  audio plays as Web Audio "samples", and the engine mirrors every bus into a JS bus graph. In Godot 4.7.2 appending a
+  bus at runtime breaks that mirror: `AudioServer.add_bus` passes position -1 to the web driver, and the JS
+  `Bus.addAt(-1)` / `Bus.move` (`splice(toIndex - 1)`) put the new bus in the wrong slot, so later index-based calls hit
+  the wrong buses. `AudioService` used to add BGM and SFX at startup; that left the JS order SFX, BGM, Master, sends
+  forming a cycle Master -> SFX -> BGM -> Master and nothing connected to the AudioContext destination, so the web
+  build was silent while every sample still started (measured RMS 0 at the destination in Chrome; desktop mixes in
+  C++ and was fine). A layout resource goes through `set_bus_layout`, which only appends buses in order. The
+  `AudioService._ensure_buses` fallback is still there for a missing layout, counted in `buses_added_at_runtime`
+  (`test_assets_audio_settings.gd` requires 0). Measured after the fix: RMS 0.07-0.11 mean on the title and in a
+  Henesys round, and a context suspended at boot starts when the player first clicks or presses a key.
 - **Arguments:** command-line user args reach `OS.get_cmdline_user_args()` through the engine config `args` after
   `--`; `web/index.html` maps `?arg=<value>` query parameters to them. The web templates are built without path
   overrides: a scene path on the command line (e.g. `res://scenes/debug/flow_driver.tscn`) aborts the engine.
@@ -882,7 +893,8 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 5. **Rendering against desktop:** compared by eye on the same frames (`evidence/spec130/t131/`). Maps, mobs, skills,
    the CanvasGroup invincibility blink, HUD, title and overlay match desktop. Text drawn with the `SystemFont` (Arial)
    falls back to Godot's built-in font, visible on "Re-import WZ data", names and the overlay. This is expected; a
-   bundled font is the web profile ticket's job. Audio plays through Web Audio samples (AudioContext `running`), and
+   bundled font is the web profile ticket's job. Audio plays through Web Audio samples (AudioContext `running`; the
+   output was not measured then and was silent until the bus fix above), and
    Godot resumes it on the first key or click. Under Playwright the context starts without a gesture, so the click
    requirement could not be reproduced. Every run reported `missing: []`. Quitting hits the shutdown error above.
 

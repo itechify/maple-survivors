@@ -16,6 +16,21 @@ func test_pick_voice_prefers_idle_then_oldest() -> void:
 	assert_eq(AudioService.MAX_VOICES, 16)
 
 
+func test_bgm_and_sfx_buses_come_from_the_default_bus_layout() -> void:
+	# Web: AudioServer.add_bus at runtime scrambles the Web Audio bus mirror (Godot 4.7.2 Bus.addAt(-1)), so the
+	# buses must exist from the project's bus layout before AudioService assigns its players (ARCHITECTURE.md 10).
+	var path := String(ProjectSettings.get_setting("audio/buses/default_bus_layout"))
+	assert_eq(path, "res://default_bus_layout.tres")
+	assert_true(ResourceLoader.exists(path), "bus layout resource exists")
+	var layout := load(path) as AudioBusLayout
+	assert_true(layout != null, "loads as an AudioBusLayout")
+	for bus_name in [AudioService.BGM_BUS, AudioService.SFX_BUS]:
+		var idx := AudioServer.get_bus_index(bus_name)
+		assert_true(idx >= 1, "%s bus exists" % bus_name)
+		assert_eq(String(AudioServer.get_bus_send(idx)), "Master", "%s sends to Master" % bus_name)
+	assert_eq(AudioService.buses_added_at_runtime, 0, "AudioService found the buses, it did not add them")
+
+
 func test_settings_defaults_and_no_write_on_load() -> void:
 	var s := GameSettings.new(cfg_path)
 	assert_false(FileAccess.file_exists(cfg_path), "loading never creates the file")
