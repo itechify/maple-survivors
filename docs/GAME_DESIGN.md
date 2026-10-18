@@ -2648,7 +2648,7 @@ quantities per kind.
 - **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
   gloves, weapon, shield; an overall fills top and bottom; the shield, spec #151 #158, is described below). Every worn `inc*` stat counts: main stats add to the base (the
   Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
-  accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
+  accuracy `incACC` (shown, and it raises the critical chance, 6.1; no player attack ever misses), max HP/MP `incMHP`/`incMMP` (flat, after card
   modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
   Equipping checks v83 `reqLevel`, `reqJob` (bit mask 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate; 0 all)
   and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
@@ -2997,7 +2997,7 @@ existing shots finish separately from carry-over projectile kills.
 | Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
 | Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
-| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
+| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy joins the player's ACC and raises the critical chance (6.1) | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
@@ -3059,7 +3059,8 @@ Second-job support (#58): `buff.effects` accepts multiple canonical stat/field p
 Invincible use their canonical `alert2`, effect and Use sound. Their self-only auto-cast, expiry, affordable recast
 and climbing gate follow Guard/Armor. Bless's active avoid feeds each miss roll; active PDD/MDD feed hit defence.
 Invincible scales the already-resolved whole weapon hit, rounds to nearest and keeps minimum 1 before Guard.
-No player-accuracy formula is introduced: Bless `acc` is exposed in buff effects/player state, with no combat effect.
+Bless's `acc` joins the player's ACC (`player_state.acc`), which raises the critical chance (6.1, #153; before #153 it
+had no combat effect).
 
 Slow uses the shared box query with a status-eligible, unslowed filter before charging MP. Canonical or scheduled
 bosses cannot count toward the crowd. It applies through `MobSwarm.apply_status`, deals no hit damage and does not
@@ -3072,7 +3073,7 @@ Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3
 All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
 damaging attack cards. No behaviour cards are added.
 
-### Weapon-gated skills (#156)
+### 7.5 Weapon-gated skills (#156)
 
 A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
 crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
@@ -3136,6 +3137,37 @@ encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without
 per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
 `effects` data shape.
 
+### 7.7 Attack speed and Boosters (#160)
+
+**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
+fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
+in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
+keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
+time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
+
+**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
+at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
+- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
+  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
+  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
+- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
+  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
+  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
+  cooldown modifier applies first. Buffs are timed by their duration and keep it.
+- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
+  and what changing that would move.
+
+**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
+number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
+and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
+affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
+gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
+the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
+counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
+`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
+weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
+the real ones come with the class specs.
+
 ### 7.8 Warrior first job (100, #163)
 
 Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
@@ -3183,37 +3215,6 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163`; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
-
-### 7.7 Attack speed and Boosters (#160)
-
-**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
-fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
-in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
-keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
-time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
-
-**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
-at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
-- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
-  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
-  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
-- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
-  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
-  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
-  cooldown modifier applies first. Buffs are timed by their duration and keep it.
-- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
-  and what changing that would move.
-
-**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
-number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
-and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
-affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
-gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
-the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
-counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
-`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
-weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
-the real ones come with the class specs.
 
 ## 8. Upgrades
 
@@ -3410,7 +3411,7 @@ MP Eaters, Invincible and both Slows):
 | Improved MP Recovery (2000000) | h | the WZ line has no number; states the floor(character level × skill level / 10) MP every 10 s |
 | Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
-| Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
+| Bless (2301004) | desc | "party members", "cannot be combined": self-only; its accuracy raises the critical chance (6.1) |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
@@ -3425,7 +3426,8 @@ every constant, with its tier, is in section 11 under the tables named below):
    overall, shoes, gloves, shield or weapon that the character's current job can wear, near its level, with v83's random
    stat rolls. A weapon drops only from the family of the weapon held when the drop rolls (a sword holder gets one- and
    two-handed swords, an axe holder axes, ...; bare hands get no weapon; a Magician holding a wand or a staff gets both),
-   so a Warrior's drops are swords, axes, blunt weapons, spears, polearms and Warrior shields (#159). It goes to the
+   so a Warrior's weapon drops are of the one family it holds (sword, axe, blunt weapon, spear or polearm) and its armour
+   drops include Warrior shields (#159). It goes to the
    Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
 3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
    open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
@@ -3563,7 +3565,7 @@ specs (basic weapons at the branch's level), so a row without one grants nothing
 | Brawler 510 | knuckle |
 | Gunslinger 520 | gun |
 
-**Bot and tools.** `BotInput.pick_choice` returns `{job_id, path}` (`pick_job` keeps returning the id). With no path
+**Bot and tools.** `BotInput.pick_choice` returns `{job_id, path}`. With no path
 named, the bot draws one of a first job's paths from the job stream (8); a forced second job takes the path whose weapon
 family the branch can use. `--job=<id>[:<path>]` (`--job=400:claw`; `balance.sh`, `playtest.sh`, `--run`) names the path;
 a path the line does not have fails at startup.
@@ -4015,7 +4017,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
 | Fire/Poison cards (#55) | Fire Arrow +1 shot ×3, +1 pierce ×2, cooldown ×0.88 ×3; Poison Breath +1 pierce ×3, cooldown ×0.88 ×3; weights learn/rank/mod 4/3/2; exact job 210, all power; existing bot scores learn 100, rank 62, count 75, pierce 58, cooldown 54 plus 12 job bonus on rank/mod | C | issue #55 / owner #31; first-job modifier steps and score defaults; no rarity overrides or tuning |
 | Second-job support values and casts | Meditation mad/time/mpCon; Bless pdd/mdd/acc/eva/time/mpCon; Invincible x/time/mpCon; Slow signed x/time/mobCount/lt/rb; alert2, effect, Use sounds, 20 levels each | A | original v83 Skill.wz/210.img, 220.img, 230.img; cache checked at levels 1/20 |
-| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence (accuracy stored only); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
+| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence and ACC (crit chance, #153); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
 | Slow crowd / consecutive uses | at least 3 eligible unslowed mobs, 1 s cooldown; 2 consecutive successful Slow casts per logical mob, reset by a successful cast excluding it; preserve across relocation, reset on fresh spawn | A text, C interpretation/trigger/cooldown | original String.wz/Skill.img Slow description; #58; survivor cast data and section 7 |
 | Support cards / bot | learn/rank only, weights 3/2; learn 50, rank 42 + job bonus 12 (including Slow); below attacks | C | #58 survivor cards; existing support score defaults |
 | Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |

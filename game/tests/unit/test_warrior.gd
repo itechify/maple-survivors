@@ -594,3 +594,34 @@ func test_slash_blast_text_names_its_hp_and_mp_cost_range_and_targets() -> void:
 	w.learn_skill("power_strike")
 	assert_eq(text.level_line("power_strike", 20, w.loadout.stats("power_strike", 20)),
 		"MP -12; damage 260%, up to 1 monster")
+
+
+# --- Save & quit -> Continue (QA #164) --------------------------------------------------------------------------
+
+func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_save_and_continue() -> void:
+	var shield := {"reqLevel": 5, "incPDD": 5, "tuc": 7}
+	var setup := RF.with_basic_attack(RF.setup("quiet", 41, RF.quiet_data()))
+	setup.equipment_info[1092003] = shield
+	var base := RunWorld.new(setup).character_snapshot()
+	base.level = 10
+	base.equipment.inventory.append(Equipment.create(1092003, shield))
+	setup.character = base
+	var w := RunWorld.new(setup)
+	w.change_job(100)
+	assert_true(w.learn_skill("power_strike"))
+	assert_eq(w.equip_item(0), "", "the shield is worn beside the sword")
+	var pdd_before: int = w.player_state.pdd
+	var saved := w.character_snapshot()
+	assert_eq(CharacterSnapshot.validation_error(saved), "")
+	var parsed: Dictionary = JSON.parse_string(JSON.stringify(saved))
+	assert_eq(CharacterSnapshot.validation_error(parsed), "")
+	setup.character = parsed
+	var again := RunWorld.new(setup)
+	assert_eq(again.progression.job_id, 100, "Continue keeps the Warrior")
+	assert_eq(again.weapon_id(), 1302000, "and the creation weapon")
+	assert_eq(again.held_weapon_family(), "sword")
+	assert_eq(int(again.equipment.worn.shield.id), 1092003, "and the shield")
+	assert_eq(again.player_state.pdd, pdd_before, "the shield still counts")
+	assert_eq(again.loadout.rank("power_strike"), 1, "the Warrior's skills come back")
+	assert_true(again.book.usable_with("power_strike", again.held_weapon_family()))
+	assert_eq(again.character_snapshot(), saved, "a second save changes nothing")

@@ -87,6 +87,15 @@ extends Node
 ##           economy_shop_open, economy_shop_buying, economy_shop_sell_selected, economy_shop_selling,
 ##           economy_shop_sold, economy_shop_tulcus, economy_scroll_success, economy_scrolled_tooltip, economy_scroll_failure, economy_character_scrolled,
 ##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
+##   warrior the Warrior first job end to end (spec #151 QA #164): title -> new character holding a spare Wooden Shield
+##           (debug setup, a kit item in the slot) -> round; EXP drops take it to Lv10 through the real level-up cards
+##           and the real job window, where Warrior is picked (the creation sword stays: no weapon grant); the bot's
+##           steering plays a few seconds, E and I wear the shield by double-click (Equip window, weapon + shield
+##           drawn); the slot moves to the Free Market (the carried snapshot is saved at the boundary, a debug
+##           shortcut for the multi-minute warp) and Continue opens the hub; Esc -> Save & quit -> character select
+##           -> Continue again: job, weapon, shield, skills and mesos equal the snapshot before quitting. Shots:
+##           warrior_job_window, warrior_job_confirm, warrior_advanced, warrior_playing, warrior_shield_worn,
+##           warrior_hub, warrior_save_and_quit, warrior_character_select, warrior_continue_restored; summary.json.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
@@ -164,6 +173,8 @@ func _ready() -> void:
 			_scenario_skill_weapon()
 		"skill_warrior":
 			_scenario_skill_warrior()
+		"warrior":
+			_scenario_warrior()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1325,6 +1336,176 @@ func _scenario_skill_warrior() -> void:
 	_check(w.buffs.has("iron_body"), "Iron Body was cast once the window closed")
 	await _shot("skill_warrior_iron_body")
 	print("flow_driver: skill_warrior scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## The Warrior end to end (spec #151 QA #164): Lv10 through the real job window, play, wear a shield, Save & quit and
+## Continue. The only debug setup is the spare shield in the slot and the hub boundary (no multi-minute warp).
+func _scenario_warrior() -> void:
+	const SHIELD := 1092003 # Character.wz Shield, reqJob 0, Lv 5: wearable by a Lv10 Warrior with no STR need
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Warrior164"):
+		return
+	var slot := flow.save.slot(flow.active_slot)
+	var character: Dictionary = slot.character
+	var info: Dictionary = AssetLibrary.get_default().img(AvatarRenderer.part_img_path(SHIELD)).root.get("info", {})
+	character.equipment.inventory.append(Equipment.create(SHIELD, info))
+	slot.character = character
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the spare shield was put in the new character's slot")
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(2.0)
+	var w := run.world
+	var weapon0 := w.weapon_id()
+	_check(weapon0 != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % weapon0)
+	# Lv10: EXP drops, the real level-up cards, then the real job window.
+	var spawned_level := 0
+	var spawned_at := -100.0
+	var job_window_seen := false
+	var advanced_shot := false
+	for guard in 600:
+		if w.state == RunWorld.DEAD:
+			_fail("the character died on the way to Lv10")
+			return
+		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.6)
+			var jw := run.window as JobAdvanceWindow
+			var idx := -1
+			for i in jw.entries.size():
+				if jw.entries[i].kind == "job" and int(jw.entries[i].job_id) == 100 and jw.entries[i].available:
+					idx = i
+			_check(idx >= 0, "the job window offers the Warrior (entries %s)" % [jw.entries.map(
+				func(e: Dictionary) -> String: return "%s%s" % [e.text, "" if e.available else " (" + String(e.reason) + ")"])])
+			if idx < 0:
+				return
+			job_window_seen = true
+			await _shot("warrior_job_window")
+			await _key((KEY_1 + idx) as Key)
+			await _sleep(0.4)
+			await _shot("warrior_job_confirm")
+			await _key(KEY_ENTER)
+			await _sleep(0.9)
+		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.5)
+			if is_instance_valid(run.window) and run.window is LevelUpWindow:
+				var lw := run.window as LevelUpWindow
+				var pick := _card_index(run, lw.cards)
+				if job_window_seen and not advanced_shot:
+					advanced_shot = true
+					await _shot("warrior_advanced")
+				await _key((KEY_1 + pick) as Key)
+				await _sleep(0.4)
+		elif job_window_seen and run.window == null and w.state == RunWorld.PLAYING:
+			break
+		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < 10 \
+				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
+			spawned_level = w.progression.level
+			spawned_at = w.time
+			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+		await _sleep(0.3)
+	_check(job_window_seen and w.progression.job_id == 100, "the real job window made the character a Warrior (job %d)" % w.progression.job_id)
+	_check(w.progression.level == 10, "at Lv 10 (%d)" % w.progression.level)
+	_check(w.weapon_id() == weapon0, "the creation weapon stays: no weapon grant (%d)" % w.weapon_id())
+	_check(w.loadout.rank("power_strike") + w.loadout.rank("slash_blast") > 0, "the advancement draw gave a Warrior attack")
+	# A few seconds of real play with the bot's steering.
+	var kills0 := w.kills
+	_steer = true
+	await _until(func() -> bool: return w.kills > kills0, 25.0, "the Warrior kills something")
+	await _sleep(2.0)
+	_steer = false
+	_release_all()
+	await _shot("warrior_playing")
+	var kills := w.kills - kills0
+	_check(kills > 0, "the Warrior killed %d in this stretch" % kills)
+	# Wear the shield: E and I, a double-click in the Item window's Equip tab.
+	await _key(KEY_E)
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
+			and run.ui_windows.find_window("equip") != null, 3.0, "Equip and Item windows"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	await _sleep(0.5)
+	var cell := -1
+	for i in iw.cells().size():
+		if int(iw.cells()[i].id) == SHIELD:
+			cell = i
+	_check(cell >= 0 and ew.worn_id("shield") == 0, "the spare shield waits in the Equip tab (cell %d)" % cell)
+	if cell < 0:
+		return
+	await _double_click_at(iw.get_global_rect().position + iw.slot_rect(cell).get_center())
+	await _sleep(0.4)
+	_check(ew.worn_id("shield") == SHIELD, "the shield is worn by double-click (%d)" % ew.worn_id("shield"))
+	_check(ew.worn_id("weapon") == weapon0, "beside the sword")
+	_hover(ew.get_global_rect().position + ew.slot_rect("shield").get_center())
+	await _sleep(0.4)
+	await _shot("warrior_shield_worn")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed both windows")
+	_collect_missing(run)
+	# The round boundary (debug shortcut for the warp-clear): the carried snapshot is saved at the Free Market.
+	var carried := run.world.character_snapshot()
+	slot = flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Warrior was saved at the Free Market boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	_check(int(expected.job_id) == 100 and int(expected.equipment.worn.shield.id) == SHIELD \
+		and int(expected.equipment.worn.weapon.id) == weapon0, "the hub holds the Warrior, shield and weapon")
+	await _shot("warrior_hub")
+	_collect_missing(hub)
+	# Save & quit from the hub's pause menu, then Continue.
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	await _shot("warrior_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("warrior_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for key: String in ["job_id", "level", "equipment", "skills", "mesos"]:
+		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for key: String in ["job_id", "level", "equipment", "skills", "mesos"]:
+		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
+	_check(again.inventory.held_weapon_family() == WeaponInfo.family(weapon0), "and the held weapon family")
+	await _key(KEY_E)
+	await _sleep(0.5)
+	var aew := again.ui_windows.find_window("equip") as EquipWindow
+	_check(aew != null and aew.worn_id("shield") == SHIELD and aew.worn_id("weapon") == weapon0,
+		"the Equip window shows the restored shield and weapon")
+	await _shot("warrior_continue_restored")
+	_collect_missing(again)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	var report := {"scenario": "warrior", "job_id": int(restored.job_id), "level": int(restored.level), "weapon": weapon0,
+		"shield": SHIELD, "kills": kills, "missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	file.close()
+	print("flow_driver: warrior scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
