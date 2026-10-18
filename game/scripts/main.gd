@@ -49,4 +49,4 @@ func _shot_and_quit(path: String, seconds: float) -> void:
 	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	var err := img.save_png(path) if img != null else ERR_CANT_CREATE
 	print("main: --shot %s (screen %s) err=%d" % [path, flow.current_name if flow != null else "?", err])
-	get_tree().quit(0 if err == OK else 1)
+	WebHandoff.exit_app(get_tree(), 0 if err == OK else 1)

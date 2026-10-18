@@ -1,0 +1,303 @@
+/* Web shell screens (spec #130): the import screen and its siblings, drawn in the colours of the game's own import
+   screen (game/scenes/ui/import_screen.gd): white rim, blue plate, light body, grey button strip, orange buttons. */
+
+[hidden] {
+	display: none !important;
+}
+
+#shell {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #0c1420;
+	font-family: Tahoma, "Segoe UI", Arial, sans-serif;
+	font-size: 12px;
+	color: #000;
+	overflow: auto;
+}
+
+.plate {
+	box-sizing: border-box;
+	width: 620px;
+	max-width: calc(100vw - 16px);
+	margin: 8px auto;
+	background: #eee;
+	border: 1px solid #fff;
+	outline: 1px solid #557799;
+	outline-offset: -2px;
+	box-shadow: 0 0 0 1px #557799 inset;
+}
+
+.plate-top {
+	background: #4488bb;
+	border-bottom: 1px solid #115599;
+	margin: 2px 2px 0;
+	padding: 10px 18px 8px;
+	height: 44px;
+}
+
+.plate-top h1 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: bold;
+	color: #ffdd44;
+	text-shadow: 1px 1px 0 #115599;
+}
+
+.plate-top p {
+	margin: 4px 0 0;
+	color: #fff;
+	text-shadow: 1px 1px 0 #115599;
+}
+
+.plate-body {
+	margin: 0 2px;
+	padding: 12px 18px 14px;
+	min-height: 250px;
+	line-height: 1.4;
+}
+
+.plate-body p {
+	margin: 0 0 8px;
+}
+
+.plate-bottom {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 2px 2px;
+	padding: 9px 18px;
+	background: #ddd;
+}
+
+.spacer {
+	flex: 1;
+}
+
+.storage {
+	color: #335;
+	font-size: 11px;
+}
+
+.storage.good::before {
+	content: "\25CF  ";
+	color: #2a8a2a;
+}
+
+.storage.warn::before {
+	content: "\25CF  ";
+	color: #c07018;
+}
+
+.screen[hidden] {
+	display: none;
+}
+
+.intro {
+	color: #123;
+}
+
+.notice {
+	padding: 6px 8px;
+	background: #fff3c4;
+	border: 1px solid #c9a227;
+	color: #4a3b00;
+}
+
+.notice.bad {
+	background: #ffe3de;
+	border-color: #c4553f;
+	color: #5a1408;
+}
+
+code {
+	font-family: Consolas, "Courier New", monospace;
+	font-size: 11px;
+	background: #dde6ee;
+	padding: 0 3px;
+}
+
+.fine {
+	color: #456;
+	font-size: 11px;
+}
+
+/* Source tabs */
+.tabs {
+	display: flex;
+	gap: 2px;
+	margin-top: 10px;
+	border-bottom: 1px solid #115599;
+}
+
+.tabs button {
+	font: inherit;
+	font-weight: bold;
+	padding: 5px 14px;
+	border: 1px solid #5f7e9c;
+	border-bottom: 0;
+	background: #b9cadb;
+	color: #123;
+	cursor: pointer;
+}
+
+.tabs button[aria-selected="true"] {
+	background: #4488bb;
+	color: #fff;
+	text-shadow: 1px 1px 0 #115599;
+}
+
+.pane {
+	background: #fff;
+	border: 1px solid #5f7e9c;
+	border-top: 0;
+	padding: 10px 12px 4px;
+}
+
+.row {
+	display: flex;
+	gap: 6px;
+}
+
+.field {
+	flex: 1;
+	font: inherit;
+	padding: 4px;
+	border: 1px solid #115599;
+	background: #fff;
+	color: #000;
+}
+
+/* Buttons: the game's orange */
+.btn {
+	font: inherit;
+	font-weight: bold;
+	color: #fff;
+	background: #ee8833;
+	border: 1px solid #783c14;
+	border-radius: 3px;
+	padding: 4px 14px;
+	min-height: 24px;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+	background: #ffaa44;
+}
+
+.btn:active:not(:disabled) {
+	background: #cc6622;
+}
+
+.btn:disabled {
+	background: #969696;
+	color: #dcdcdc;
+	cursor: default;
+}
+
+.btn.quiet {
+	background: #7a8fa3;
+	border-color: #3b4c5c;
+}
+
+.btn.quiet:hover:not(:disabled) {
+	background: #8da3b8;
+}
+
+.btn:focus-visible,
+.tabs button:focus-visible,
+.field:focus-visible {
+	outline: 2px solid #ffdd44;
+	outline-offset: 1px;
+}
+
+/* Status line and log */
+.status {
+	min-height: 16px;
+	margin: 8px 0 4px;
+	color: #123;
+	font-weight: bold;
+}
+
+.status.good {
+	color: #1c7a1c;
+}
+
+.status.bad {
+	color: #b3260f;
+}
+
+.log {
+	box-sizing: border-box;
+	margin: 0;
+	height: 92px;
+	overflow: auto;
+	padding: 4px 6px;
+	background: #102030;
+	border: 1px solid #115599;
+	color: #dce6f0;
+	font-family: Consolas, "Courier New", monospace;
+	font-size: 11px;
+	line-height: 1.35;
+	white-space: pre-wrap;
+}
+
+.run-title {
+	font-size: 14px;
+	font-weight: bold;
+	color: #115599;
+}
+
+#run-bar {
+	display: block;
+	width: 100%;
+	height: 16px;
+	margin-bottom: 6px;
+	accent-color: #ee8833;
+}
+
+.toast {
+	position: fixed;
+	z-index: 20;
+	left: 50%;
+	bottom: 18px;
+	transform: translateX(-50%);
+	padding: 7px 14px;
+	background: #4488bb;
+	border: 1px solid #fff;
+	color: #fff;
+	font: 12px Tahoma, "Segoe UI", Arial, sans-serif;
+	text-shadow: 1px 1px 0 #115599;
+}
+
+.drop-hint {
+	position: fixed;
+	inset: 0;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(12, 20, 32, 0.85);
+	border: 3px dashed #ffdd44;
+	color: #ffdd44;
+	font: bold 22px Tahoma, "Segoe UI", Arial, sans-serif;
+	pointer-events: none;
+}
+
+/* Licence links under the button strip (the files ship beside index.html: scripts/export.sh --web) */
+.legal {
+	margin: 0 2px 2px;
+	padding: 5px 18px 7px;
+	background: #ddd;
+	border-top: 1px solid #ccc;
+	color: #456;
+	font-size: 11px;
+}
+
+.legal a {
+	color: #115599;
+}

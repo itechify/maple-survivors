@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+	DEV ONLY (spec #130 spike #131), never part of an export: copies an existing asset cache (built on desktop by
+	scripts/import.sh, e.g. %APPDATA%/MapleSurvivors/asset_cache/v83) into the page's user:// so the web build can be
+	played before the in-page importer exists. It writes straight into the IndexedDB database behind Godot's /userfs
+	(dev/idbfs.js), so the copy survives reloads. Serve it from the same origin as the export:
+	`node web/dev/serve.mjs <export dir>`, then open http://127.0.0.1:8060/dev/inject.html.
+-->
+	<head>
+		<meta charset="utf-8">
+		<title>Maple Survivors: dev cache injection</title>
+		<style>
+body { font-family: Arial, sans-serif; background: #111; color: #ddd; margin: 2rem; max-width: 50rem; }
+button, input { font-size: 1rem; margin: 0.25rem 0; }
+#log { white-space: pre-wrap; background: #000; padding: 0.5rem; min-height: 6rem; }
+		</style>
+		<script src="idbfs.js"></script>
+	</head>
+	<body>
+		<h1>Dev cache injection</h1>
+		<p>Pick the cache's <code>v83</code> folder (the one holding <code>Mob.wz</code>, <code>Map.wz</code> and so on).
+			Its files are written to <code>user://asset_cache/v83</code>
+			(<code>/userfs/MapleSurvivors/asset_cache/v83</code>), replacing what was there. Close any tab running the
+			game first.</p>
+		<p><input id="folder" type="file" webkitdirectory></p>
+		<p><button id="clear">Delete the injected cache</button> <a href="../index.html">Start the game</a></p>
+		<div id="log"></div>
+		<script>
+const CACHE = '/userfs/MapleSurvivors/asset_cache/v83';
+const logEl = document.getElementById('log');
+function log(msg) {
+	logEl.textContent += msg + '\n';
+	console.log('[inject] ' + msg);
+}
+window.injectDone = null; // read by browser automation: {files, bytes, ms} or {error}
+
+document.getElementById('folder').addEventListener('change', async function (ev) {
+	const picked = Array.from(ev.target.files);
+	if (!picked.length) {
+		return;
+	}
+	const t0 = performance.now();
+	try {
+		// webkitRelativePath is "<picked folder>/Mob.wz/0100100.img.json"; drop the picked folder's own name.
+		const files = [];
+		let bytes = 0;
+		for (const f of picked) {
+			const rel = f.webkitRelativePath.split('/').slice(1).join('/');
+			files.push({ path: CACHE + '/' + rel, file: f });
+			bytes += f.size;
+		}
+		log(`${files.length} files, ${(bytes / 1048576).toFixed(1)} MiB; replacing ${CACHE}`);
+		await IdbFs.deletePrefix(CACHE);
+		const BATCH = 50;
+		for (let i = 0; i < files.length; i += BATCH) {
+			const batch = await Promise.all(files.slice(i, i + BATCH).map(async function (f) {
+				return { path: f.path, data: new Uint8Array(await f.file.arrayBuffer()) };
+			}));
+			await IdbFs.writeFiles(batch);
+			if ((i / BATCH) % 5 === 0) {
+				log(`${Math.min(i + BATCH, files.length)} / ${files.length}`);
+			}
+		}
+		const ms = Math.round(performance.now() - t0);
+		log(`done in ${ms} ms`);
+		window.injectDone = { files: files.length, bytes: bytes, ms: ms };
+	} catch (err) {
+		log('failed: ' + err);
+		window.injectDone = { error: String(err) };
+	}
+});
+
+document.getElementById('clear').addEventListener('click', async function () {
+	await IdbFs.deletePrefix(CACHE);
+	log('deleted ' + CACHE);
+});
+		</script>
+	</body>
+</html>

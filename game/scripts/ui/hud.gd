@@ -14,8 +14,8 @@ const MSG_MAX := HudWidget.MSG_MAX
 var library: AssetLibrary
 var player_state: Dictionary = {}
 var run_info: Dictionary = {}
-var font: SystemFont
-var bold_font: SystemFont
+var font: Font
+var bold_font: Font
 var status := HudStatusBar.new()
 var counters := HudCounters.new()
 var skills := HudSkills.new()
@@ -117,7 +117,7 @@ func _layout_slots() -> void:
 	boss_bar.size = Vector2(HudBossBar.BAR_WIDTH, HudBossBar.ROW_HEIGHT)
 
 ## Creates the common HUD and window system font.
-static func make_font(weight: int = 400) -> SystemFont:
+static func make_font(weight: int = 400) -> Font:
 	return HudWidget.make_font(weight)
 
 

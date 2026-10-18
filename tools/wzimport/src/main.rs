@@ -17,7 +17,7 @@ struct Cli {
 enum Cmd {
     /// Build or update the asset cache from a manifest.
     Import {
-        /// Folder holding the .wz files (default: $MAPLE_WZ_ROOT).
+        /// Folder holding the .wz files, or a ZIP of them (default: $MAPLE_WZ_ROOT).
         #[arg(long, env = "MAPLE_WZ_ROOT")]
         wz: PathBuf,
         /// Manifest JSON (game/data/asset_manifest.json).
