@@ -405,7 +405,8 @@ export function storageStatus(snapshot) {
  * The persistence state machine, with the storage API injected (`navigator.storage`; may be missing or throw).
  * `request()` reads `persisted()` without prompting, reports that state through `onChange(state)` and resolves, then
  * asks `persist()` in the background: a grant upgrades the state to 'persistent', a refusal or error keeps it. While a
- * request is still running or its `persist()` is pending, further `request()` calls start nothing new.
+ * request is still running, further `request()` calls join it; once kept, or while `persist()` is pending, they only
+ * refresh the usage estimate and start no new `persist()`.
  * `state` is `{persist: 'checking'|'persistent'|'best-effort'|'unsupported', usage, pending}`.
  */
 export function createPersistence({ storage, onChange = () => {} }) {
@@ -448,10 +449,18 @@ export function createPersistence({ storage, onChange = () => {} }) {
 		}
 		return { ...state };
 	}
+	async function refreshUsage() {
+		if (storage && storage.estimate) {
+			await readUsage();
+			emit();
+		}
+		return { ...state };
+	}
 	function request() {
 		if (starting) return starting;
-		if (state.pending || state.persist === 'persistent') return Promise.resolve({ ...state });
-		starting = run().finally(() => { starting = null; });
+		// Already kept, or the prompt is still open: only the usage figure can have changed (e.g. after an import).
+		const work = state.pending || state.persist === 'persistent' ? refreshUsage() : run();
+		starting = work.finally(() => { starting = null; });
 		return starting;
 	}
 	return { state, request };

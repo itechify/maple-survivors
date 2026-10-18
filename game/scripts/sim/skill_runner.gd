@@ -15,7 +15,8 @@ extends RefCounted
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
 const REUSE_SPREAD := 8.0
-## Grid candidates _any_target checks before it reads the whole query (a speed setting; the answer is the same).
+## Grid candidates _any_target checks before it reads the whole query. Performance only, not behaviour (no tier):
+## the answer is the same for any value.
 const ANY_PROBE := 8
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
@@ -118,18 +119,15 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if not has_target(world, key, st, origin):
 			_shortages.erase(key)
 			continue
-		var affordable := world.mp_affordable(int(st.mp_cost))
-		var plan := _admit_cast(world, key, st, origin) if affordable else {}
-		if affordable and plan.is_empty():
-			_shortages.erase(key)  # not reached: has_target agrees with admission
-			continue
-		if not affordable or not world.spend_mp(int(st.mp_cost)):
+		if not world.mp_affordable(int(st.mp_cost)):
 			waiting_mp = true
 			if not _shortages.has(key):
 				world.emit("mp_short", {"skill": key, "skill_id": int(st.skill_id), "required_mp": int(st.mp_cost),
 					"mp": int(world.player_state.mp)})
 			_shortages[key] = true
 			continue
+		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		world.spend_mp(int(st.mp_cost))
 		_shortages.erase(key)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]

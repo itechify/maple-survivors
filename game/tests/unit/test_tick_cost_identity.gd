@@ -51,6 +51,14 @@ func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule()
 	# cast_ready asks has_target instead of building the target list while a skill is short of MP; on every platform
 	# it must give admission's own answer, for every skill, with and without targets.
 	var w := _world()
+	# Half the mob kinds undead, so hp_or_undead is admitted through its undead targets at full HP (god mode), not
+	# only through the HP threshold.
+	var undead := 0
+	for k in w.mob_kinds.size():
+		if k % 2 == 0:
+			(w.mob_kinds[k] as MobKind).undead = true
+			undead += 1
+	assert_true(undead > 0 and undead < w.mob_kinds.size(), "some kinds undead, some not (%d)" % undead)
 	var seen := {}
 	for tick in 1500:
 		if tick % MP_CYCLE == 0:
@@ -71,9 +79,21 @@ func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule()
 					return
 				var rule := "buff" if String(st.kind) == "buff" else String(st.cast_rule)
 				seen["%s:%s" % [rule if rule != "" else "nearest", admitted]] = true
+				if rule == "hp_or_undead" and w.player_state.hp >= w.player_state.max_hp * 0.5:
+					# Above Heal's threshold only undead in its box admit it. The synthetic skill data has no WZ
+					# lt/rb box, so the same stats with a box around the character exercise the undead path.
+					var boxed := st.duplicate()
+					boxed.has_box = true
+					boxed.box = Rect2(-300.0, -200.0, 600.0, 260.0)
+					var undead_admitted := not w.runner._admit_cast(w, key, boxed, origin).is_empty()
+					if w.runner.has_target(w, key, boxed, origin) != undead_admitted:
+						fail("%s with a box at %.2f s: has_target disagrees with admission (%s)" % [key, w.time,
+							undead_admitted])
+						return
+					seen["hp_or_undead_undead_box:%s" % undead_admitted] = true
 		w.step(DT, _input(tick))
 		w.drain_events()
-	for rule: String in ["nearest", "box", "crowd", "hp_or_undead", "buff"]:
+	for rule: String in ["nearest", "box", "crowd", "hp_or_undead", "hp_or_undead_undead_box", "buff"]:
 		assert_true(seen.has(rule + ":true"), "%s admitted at least once (%s)" % [rule, seen.keys()])
 		assert_true(seen.has(rule + ":false"), "%s refused at least once (%s)" % [rule, seen.keys()])
 

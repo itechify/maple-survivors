@@ -272,6 +272,23 @@ test('persistence: a second request while one is pending starts no new persist()
 	assert.equal(asked, 1);
 });
 
+test('persistence: a later request (after an import) refreshes the usage figure without asking again', async () => {
+	for (const persisted of [true, false]) {
+		let usage = 1024;
+		let asked = 0;
+		const lines = [];
+		const p = lib.createPersistence({
+			storage: { persisted: async () => persisted, persist: () => { asked++; return never(); }, estimate: async () => ({ usage }) },
+			onChange: (s) => lines.push(lib.storageStatus(s).text),
+		});
+		await p.request();
+		usage = 300 * 1024 * 1024; // the import wrote the asset cache
+		await p.request();
+		assert.match(lines.at(-1), new RegExp(lib.formatBytes(usage).replace(/[.()]/g, '\\$&') + ' used'));
+		assert.equal(asked, persisted ? 0 : 1);
+	}
+});
+
 test('storageStatus: usage text appears when the estimate is known', () => {
 	assert.equal(lib.storageStatus({ persist: 'persistent', usage: 5 * 1024 * 1024 }).text, 'Storage: kept (persistent) (' + lib.formatBytes(5 * 1024 * 1024) + ' used)');
 	assert.equal(lib.storageStatus({ persist: 'persistent', usage: 0 }).text, 'Storage: kept (persistent)');

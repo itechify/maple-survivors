@@ -138,7 +138,8 @@ const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
 const DEFAULT_SUMMON_SPACING := 24.0
 ## balance.player.inventory_slots fallback. tier A: a new v83 character's Equip tab has 24 slots.
 const DEFAULT_INVENTORY_SLOTS := 24
-## Grid candidates skill_box_count checks before it reads the whole query (a speed setting; the count is the same).
+## Grid candidates skill_box_count checks before it reads the whole query. Performance only, not behaviour (no
+## tier): the count is the same for any value.
 const BOX_PROBE := 16
 
 var setup: Dictionary
