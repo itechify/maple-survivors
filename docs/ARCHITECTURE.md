@@ -846,7 +846,7 @@ its `game/`.
   before `get_tree().quit()` gives a clean exit (verified in a scratch build). This sequence is binding for every web
   quit (`WebHandoff.quit`); the shell also treats the post-quit `currentTime` TypeError as an exit (section 10.2), and
   the importer's zip reader uses no temporary storage (docs/ASSET_PIPELINE.md 2.3).
-- **Audio buses come from `game/default_bus_layout.tres`, never from `AudioServer.add_bus` (fix/web-audio):** web
+- **Audio buses come from `game/default_bus_layout.tres`, never from `AudioServer.add_bus` (2026-10-17):** web
   audio plays as Web Audio "samples", and the engine mirrors every bus into a JS bus graph. In Godot 4.7.2 appending a
   bus at runtime breaks that mirror: `AudioServer.add_bus` passes position -1 to the web driver, and the JS
   `Bus.addAt(-1)` / `Bus.move` (`splice(toIndex - 1)`) put the new bus in the wrong slot, so later index-based calls hit
