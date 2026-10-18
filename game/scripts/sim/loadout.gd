@@ -236,7 +236,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
-## and for a Hidden buff (docs/GAME_DESIGN.md 7.14): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
+## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
@@ -364,7 +364,7 @@ func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> fl
 
 ## The resolved HP-to-MP conversion of `key` ({} for a skill that has none): {pay, gain} as fractions, `pay` the share of
 ## MaxHP paid and `gain` the share of the HP paid that comes back as MP. The definition's `convert` block names the
-## canonical level fields (percent numbers) as `pay_field` and `gain_field` (docs/GAME_DESIGN.md 7.12).
+## canonical level fields (percent numbers) as `pay_field` and `gain_field` (docs/GAME_DESIGN.md 7.16).
 func _conversion(key: String, d: Dictionary, lv: int) -> Dictionary:
 	var block: Variant = d.get("convert", {})
 	if not (block is Dictionary) or (block as Dictionary).is_empty():
@@ -376,7 +376,7 @@ func _conversion(key: String, d: Dictionary, lv: int) -> Dictionary:
 ## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
 ## "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
 ## canonical level field of this rank's level), `distances` (survivor values per rank, the last one repeating) or a
-## plain `distance`, in that order (docs/GAME_DESIGN.md 7.9).
+## plain `distance`, in that order (docs/GAME_DESIGN.md 7.13).
 func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary:
 	var block: Variant = d.get("displacement", {})
 	if not (block is Dictionary) or (block as Dictionary).is_empty():
@@ -399,7 +399,7 @@ func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
 		effects[String(buff.stat)] = book.canonical(key, lv, String(buff.get("field", "")), 0.0)
 	for effect: Dictionary in buff.get("effects", []):
 		var stat := String(effect.stat)
-		# `scale` (optional, default 1) turns a positive WZ number into a penalty: Rage's WDEF side effect uses -1.
+		# `scale` (optional, default 1) flips a WZ sign (the Boosters' negative speed steps use -1; Rage's pdd is already negative in the WZ and takes no scale).
 		effects[stat] = float(effects.get(stat, 0.0)) \
 			+ book.canonical(key, lv, String(effect.field), 0.0) * float(effect.get("scale", 1.0))
 	return effects

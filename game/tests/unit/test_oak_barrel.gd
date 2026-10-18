@@ -1,5 +1,5 @@
 extends TestCase
-## Brawler Oak Barrel 5101007 (#194 of spec #168, docs/GAME_DESIGN.md 7.14): the shipped skill definition over a Skill.wz
+## Brawler Oak Barrel 5101007 (#194 of spec #168, docs/GAME_DESIGN.md 7.18): the shipped skill definition over a Skill.wz
 ## 510 book written with the v83 level values, through seeded RunWorld ticks. It auto-casts only below 30% HP with a mob
 ## in reach and the cooldown ready, fails at the Skill.wz `prop` chance rolled on the Pirate stream 16, hides and morphs
 ## the character into Morph 1002 for the canonical time, and ends early once HP is back above 60%.

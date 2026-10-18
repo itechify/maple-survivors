@@ -10,15 +10,15 @@ extends RefCounted
 ##   `box`, `weapon_reach` (the held weapon's swing envelope, Warrior Power Strike) and `range_around` (the level's
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
-## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
+## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.13) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
-## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.16) throws at once at the nearest cluster of mobs within its throw range; the blast
+## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
-## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.12) needs no monster: it casts when its survivor conditions
+## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.16) needs no monster: it casts when its survivor conditions
 ## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
-## Hidden (docs/GAME_DESIGN.md 7.14) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped the same way; buffs and non-damaging casts still run.
 ## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
@@ -111,6 +111,11 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 				return 0.0
 			return maxf(-(st.box as Rect2).position.x, 0.0)
 	return 0.0
+
+
+## The status a crowd skill of resolved stats `st` puts on its targets: its cast block's `status`, "slow" when it names none.
+static func crowd_status(st: Dictionary) -> String:
+	return String(st.cast_params.get("status", "slow"))
 
 
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
@@ -246,8 +251,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and world.skill_box_count(st.box, need) >= need
 		"crowd":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			var status := crowd_status(st)
 			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
-				return world.swarm.can_slow_cast(slot, _slow_serial)) >= need
+				return world.swarm.can_crowd_cast(slot, status, _slow_serial)) >= need
 		"weapon_reach":
 			var box := world.basic.envelope(world)
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
@@ -381,7 +387,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
 		world.face_toward(first_x, true)
-	# A moving attack (7.9) faces the mob it is aimed at in every movement state, then moves away from it or toward it.
+	# A moving attack (7.13) faces the mob it is aimed at in every movement state, then moves away from it or toward it.
 	var disp: Dictionary = st.displacement
 	var moves := not disp.is_empty() and String(st.kind) != "buff" and float(disp.distance) > 0.0
 	var side := 0
@@ -521,8 +527,9 @@ func _land_flights(dt: float, world: RunWorld) -> void:
 func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 	if not bool(st.has_box):
 		return {}
+	var status := crowd_status(st)
 	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
-		return world.swarm.can_slow_cast(slot, _slow_serial))
+		return world.swarm.can_crowd_cast(slot, status, _slow_serial))
 	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
 	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
 		return {}
@@ -530,11 +537,19 @@ func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 
 
 func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
-	_slow_serial += 1
-	var params := {"x": world.book.canonical(key, int(st.level), "x"),
-		"time": world.book.canonical(key, int(st.level), "time")}
+	var status := crowd_status(st)
+	var level := int(st.level)
+	var params := {"x": world.book.canonical(key, level, "x"), "time": world.book.canonical(key, level, "time")}
+	if status == "slow":
+		_slow_serial += 1
+		for i in mini(strike_count(st), targets.size()):
+			world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+		return
+	# Threaten (spec #165 #183): x is the PAD change, y the WDEF change. The level has no prop, so every target takes it
+	# and nothing is rolled (tier A absence); the Slow serial is Slow's own and stays put.
+	params["y"] = world.book.canonical(key, level, "y")
 	for i in mini(strike_count(st), targets.size()):
-		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+		world.swarm.apply_status(targets[i], status, params, world.events)
 
 
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,

@@ -118,9 +118,9 @@ family the branch uses.
 _Avoid_: job change, promotion
 
 **Advancement weapon**:
-A weapon a job advancement hands the character. At second job the branch hands one per weapon family it uses: the one
-of the held family is worn (the first family's when the held one doesn't suit the branch), and the rest go to the Equip
-tab. A Warrior branch hands two; a Brawler or Gunslinger one.
+A weapon a job advancement hands the character. A Warrior branch hands one for each of its two weapon families: the one
+of the held weapon's family is worn (the branch's first family's when the held weapon doesn't suit the branch), and the
+rest join the Equip tab.
 _Avoid_: job reward, starter weapon
 
 **Branch**:

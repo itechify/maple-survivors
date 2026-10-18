@@ -313,7 +313,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
-| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`), `duration` (float canonical seconds); reapplication emits again and refreshes |
+| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
@@ -469,19 +469,24 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
-and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, plus
-`slow_factor` and private poison pulse/damage/source arrays. `status_time(slot, status)` reads a timer. The shared entry
+and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
+`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `STATUS_COUNT = 5`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`threatened_pad`/`threatened_pdd`, applied in `RunWorld._player_hit`, `MobAttacks._impact`, `RunWorld.mob_defense` and the
+bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
+the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
+`prop`, so it draws no random number and RNG stream 13, reserved for spec #165, stays unused. `status_time(slot, status)` reads a timer. The shared entry
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
-`time`, signed Slow `x`, or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
-the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`). Bosses, and kinds whose Mob.wz digit for
-the element is 1, 2 or 4 (`MobKind.resists_status`), reject it. `step` receives the current event list in
+`time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Stun ignores even a supplied element;
+bosses reject every status. Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
-`has_statuses()` lets presentation skip status work. `can_act(slot)` (settled and not frozen) gates monster touch
+`has_statuses()` lets presentation skip status work. `can_act(slot)` (settled, not frozen or stunned) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
-falls and a fading-in one keeps fading in.
+Slow/Poison/Threaten/Stun art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
+and fall straight down when airborne; a refresh keeps the longer remaining duration.
 
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
 for absent elements. `undead` exposes the canonical flag. `Loadout.stats().element` comes from Skill.wz `elemAttr`;
@@ -497,8 +502,8 @@ checked before the plain job key, so a branch's own AP row wins over its first-j
 the recorded advancement choice, independent of later weapon swaps. Other per-job tables retain plain-job lookup.
 `Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
 survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
-player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; streams
-13-15 remain reserved for Warrior, Bowman and Thief. Existing stream initialization and draws are unchanged.
+player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
+13 belongs to Threaten (no v83 prop, so unused); 14-15 remain reserved for Bowman and Thief. Existing stream initialization and draws are unchanged.
 
 | File | Contents |
 |---|---|
@@ -599,13 +604,16 @@ What the tables above leave open; the class doc comments have the rest.
   not a boss skill attack or ball; god and death are take_hit's own guards). A landed hit starts the window through
   `PlayerUpkeep.land_hit` (spec #88). Balls ask `hit_window_blocks` before calling take_hit, because take_hit returns 0
   for both a blocked hit and a miss. Only explicit elite/source multipliers scale damage; time keyframes
-  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool.
+  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool. Power Guard
+  (spec #165 #182) is one step inside `take_hit` for `source_kind` "touch" with a `power_guard` buff total: the reflect
+  comes off the damage before Magic Guard's split and is dealt to `source.mob` as a `mob_hit` plus `_on_kill`
+  (GAME_DESIGN 7.10); it is a no-op, with no RNG, when the buff is off.
   `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
   level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
   The run's starting skill emits `skill_learned` before the first `step()`.
-- **Hidden and morph (#194, GAME_DESIGN 7.14):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
+- **Hidden and morph (#194, GAME_DESIGN 7.18):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
   `RunWorld.is_hidden()` true; `player_state.hidden` and `player_state.morph` (the Morph.wz id of the first morphing
   buff, 0 for the plain avatar, always 0 once dead) feed the presentation. Mobs, bosses, mob skills and balls read
   `is_hidden()` (MobSwarm `ctx.hidden`, MobAttacks, MobProjectileSystem, MobSkillRunner, BossDirector, SpawnDirector,
@@ -658,13 +666,15 @@ What the tables above leave open; the class doc comments have the rest.
   (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
   `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
   (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
-  carry `scale` (Rage's WDEF penalty is `-1`); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
+  carry `scale` (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
   passive skill with `final_attack: {chance_field}`, `damage: "physical"` and an `action`: the hit listener
   `RunWorld._final_attack_hit` rolls `prop` on RNG stream 12 (`final_rng`) after a damaging physical line of a matching
   family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and
   `_play_final_attacks` runs at the end of `_step_player_attacks`: `final_attack` event, then one `hit_mob(slot,
   loadout.stats(key), …, final_rng)` (damage, crit and the proc all on stream 12). Follow-ups never trigger follow-ups,
-  and a target the trigger killed gets none.
+  and a target the trigger killed gets none. Spread (#181): the Final Attack
+  skill's `count` (base 1, +1 per Spread card step) is the number of monsters one follow-up strikes;
+  `RunWorld._spread_targets` adds the extra ones around the struck target with no RNG (GAME_DESIGN 7.9).
 - **Shield slot (#158).** `"shield"` is the last of `Equipment.SLOTS` (Character.wz Shield, category 109). The worn map
   key is optional, so snapshots from before the slot load and save back unchanged (no format bump).
   `Equipment.displaced_slots(worn, id)` names what wearing an item moves back to the Equip tab: an overall's top and
@@ -686,7 +696,7 @@ What the tables above leave open; the class doc comments have the rest.
 - **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
   `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
   cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
-  `player_restored`. `cooldown_field` reads a skill's cooldown from a canonical level field. GAME_DESIGN 7.12.
+  `player_restored`. `cooldown_field` reads a skill's cooldown from a canonical level field. GAME_DESIGN 7.16.
 - **Weapon paths and grants (#157).** `RunWorld.apply_job(id, path)` / `change_job(id, path)` record `weapon_path`
   (snapshot key, written only when set) and `_grant_job_weapon` wears the weapon the path, the Magician's
   `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names (the weapon of the held family, else the first family's; the branch's other advancement weapons are handed over like `grants.items`, #165 #180); the previous weapon goes to the Equip

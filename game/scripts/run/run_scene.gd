@@ -212,10 +212,8 @@ var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
-var _meso_shot_ids := {}
 var _frame_items: Array[String] = []
 var _frame_inventory_full := false
-var _equip_shot_taken := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -244,15 +242,11 @@ var _quit_after := 0.0
 var _shot_queue := PackedStringArray()
 var _quit_after_capture := false
 var _timed_shots: Array = []
-## Skill keys whose first cast already queued its cast_<key>.png playtest shot.
-var _cast_shot_taken := {}
+## Keys of the one-off playtest evidence shots already queued by _first_event_shot (a skill key, a shot file name or an
+## event name).
+var _first_shots := {}
 ## Grenades in flight (#192): {slot (fx), from, to, seconds, t, burst art}; the sim strikes when they land.
 var _throws: Array = []
-var _hit_shot_taken := false
-var _miss_shot_taken := false
-## #76: the one-off evidence shots of ordinary mob attacks.
-var _mob_attack_shot_taken := false
-var _mob_hit_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -1109,20 +1103,20 @@ func handle_events(events: Array) -> void:
 					_restart_action = true # the sim started the follow-up's stance (RunWorld._play_final_attacks)
 				if String(e.effect) != "":
 					fx.play(String(e.effect), Vector2.ZERO, int(e.facing) > 0, avatar)
+				var fa_shot := "%s_followup.png" % String(e.skill)
+				_first_event_shot(fa_shot, fa_shot, 0.12) # tier C: playtest evidence of each Final Attack's first follow-up.
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":
 				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
-				if String(e.kind) == "meso" and not _meso_shot_ids.has(int(e.item_id)):
+				if String(e.kind) == "meso":
 					# tier C: capture the first drop of each coin sprite while it lies on the ground.
-					_meso_shot_ids[int(e.item_id)] = true
-					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
-				elif String(e.kind) == "equip" and not _equip_shot_taken:
+					_first_event_shot("meso_%d" % int(e.item_id), "meso_%d.png" % int(e.item_id), 0.4)
+				elif String(e.kind) == "equip":
 					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
-					_equip_shot_taken = true
-					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
+					_first_event_shot("equip_drop", "equip_drop_%d.png" % int(e.item_id), 0.5)
 			"pickup_blocked":
 				_frame_inventory_full = true
 			"pickup_collected":
@@ -1191,16 +1185,14 @@ func _on_mob_attack(e: Dictionary) -> void:
 	match String(e.phase):
 		"start":
 			_sound(String(e.sound))
-			if not _mob_attack_shot_taken:
-				_mob_attack_shot_taken = true
-				# tier C: capture the first windup halfway to its impact, like the boss windup shots.
-				_event_shot("mob_attack_windup.png", maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
+			# tier C: capture the first windup halfway to its impact, like the boss windup shots.
+			_first_event_shot("mob_attack_windup", "mob_attack_windup.png",
+				maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
 		"effect", "hit":
 			if String(e.effect) != "":
 				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
-			if String(e.phase) == "hit" and not _mob_hit_shot_taken:
-				_mob_hit_shot_taken = true
-				_event_shot("mob_attack_hit.png", 0.1) # tier C: the hit art's first frames over the character.
+			if String(e.phase) == "hit":
+				_first_event_shot("mob_attack_hit", "mob_attack_hit.png", 0.1) # tier C: the hit art's first frames over the character.
 
 
 ## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
@@ -1232,9 +1224,7 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
-	if not _cast_shot_taken.has(key):
-		_cast_shot_taken[key] = true
-		_event_shot("cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
+	_first_event_shot(key, "cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
@@ -1270,6 +1260,8 @@ func _on_mob_hit(e: Dictionary) -> void:
 	var m := int(e.mob)
 	numbers.spawn(int(e.damage), e.pos, DamageNumbers.CRIT if bool(e.crit) else DamageNumbers.DEALT, m)
 	counters.numbers += 1
+	if not _first_shots.has("reflect") and _is_power_guard(String(e.get("skill", ""))):
+		_first_event_shot("reflect", "reflect_first.png", 0.1) # tier C: playtest evidence of the first Power Guard reflect (its mob_hit).
 	var hv := String(e.hit_visual)
 	if hv != "":
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos
@@ -1283,17 +1275,13 @@ func _on_player_hit(e: Dictionary) -> void:
 	if bool(e.get("miss", false)):
 		numbers.spawn_miss(head, DamageNumbers.TAKEN, PLAYER_KEY)
 		counters.numbers += 1
-		if not _miss_shot_taken:
-			_miss_shot_taken = true
-			_event_shot("miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
+		_first_event_shot("miss", "miss_first.png", 0.05) # tier C: capture the first visible MISS during playtests.
 		return
 	numbers.spawn(int(e.damage), head, DamageNumbers.TAKEN, PLAYER_KEY)
 	counters.numbers += 1
 	avatar.set_expression("hit", HIT_FACE_TIME)
 	_blink_t = 0.0
-	if not _hit_shot_taken:
-		_hit_shot_taken = true
-		_event_shot("hit_first.png", BLINK_PERIOD * 0.7)
+	_first_event_shot("hit", "hit_first.png", BLINK_PERIOD * 0.7)
 
 
 func _on_job_changed(job_id: int) -> void:
@@ -1958,6 +1946,20 @@ func _perf_where(min_alive: int) -> Dictionary:
 func _event_shot(file_name: String, delay: float) -> void:
 	if _shots_dir != "":
 		_timed_shots.append([delay, file_name])
+
+
+## Queues `file_name` `delay` s ahead the first time `key` comes up; later calls with the same key queue nothing.
+func _first_event_shot(key: String, file_name: String, delay: float) -> void:
+	if _first_shots.has(key):
+		return
+	_first_shots[key] = true
+	_event_shot(file_name, delay)
+
+
+## Whether `skill` is a Power Guard buff (its skill data carries the RunWorld.POWER_GUARD_STAT buff stat).
+func _is_power_guard(skill: String) -> bool:
+	var buff: Dictionary = world.book.def(skill).get("buff", {})
+	return String(buff.get("stat", "")) == RunWorld.POWER_GUARD_STAT
 
 
 func _request_shot(file_name: String) -> void:

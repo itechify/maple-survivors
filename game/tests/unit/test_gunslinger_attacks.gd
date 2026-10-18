@@ -1,5 +1,5 @@
 extends TestCase
-## Gunslinger attacks (spec #168 ticket #192, docs/GAME_DESIGN.md 7.16): Invisible Shot, Blank Shot, Grenade and Recoil
+## Gunslinger attacks (spec #168 ticket #192, docs/GAME_DESIGN.md 7.20): Invisible Shot, Blank Shot, Grenade and Recoil
 ## Shot through the shipping data on seeded synthetic worlds with fixed ticks (a flat floor, tiny mob bodies that never
 ## move), then the cards and the Lv 30 advancement draw, then the original v83 numbers and art in the private cache
 ## (those SKIP without it).

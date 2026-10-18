@@ -260,7 +260,7 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 
 
 ## Slides a body standing on floor `fh` at `x` up to `distance` horizontal px toward `side` (-1 / 1) along its platform
-## (moving attacks, docs/GAME_DESIGN.md 7.9), staying between the horizontal limits `lo` and `hi`. Follows the chain of
+## (moving attacks, docs/GAME_DESIGN.md 7.13), staying between the horizontal limits `lo` and `hi`. Follows the chain of
 ## floors across slopes (the surface y comes from the floor under the final x). It stops at the platform's edge
 ## (the end of the chain: it never walks off) and EPS (0.01 px) short of a wall that stands across the surface on the way (the
 ## same stop as ground walking). Total: a blocked or degenerate slide returns the start. Returns

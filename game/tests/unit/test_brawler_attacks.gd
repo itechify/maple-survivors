@@ -1,5 +1,5 @@
 extends TestCase
-## The Brawler's attacks (spec #168 ticket #191, docs/GAME_DESIGN.md 7.14): Backspin Blow 5101002 (slides away, up to
+## The Brawler's attacks (spec #168 ticket #191, docs/GAME_DESIGN.md 7.18): Backspin Blow 5101002 (slides away, up to
 ## 3 mobs, stun), Double Uppercut 5101003 (2 hits, one mob, stun) and Corkscrew Blow 5101004 (a charge toward the mob
 ## that strikes up to 3 mobs on the way). Shipping data through public RunWorld casts on a flat synthetic ground, seeded
 ## and fixed-tick; the original-data checks at the end use the private asset cache and SKIP without it.

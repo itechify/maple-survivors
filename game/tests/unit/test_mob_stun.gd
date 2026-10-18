@@ -41,6 +41,41 @@ func test_stun_is_a_status_name_with_its_own_table_row() -> void:
 	assert_eq(MobSwarm.STATUS_ELEMENTS.size(), MobSwarm.STATUS_COUNT)
 
 
+func test_stun_and_threatened_coexist_and_expire_independently_across_slots() -> void:
+	var w := RF.quiet_world()
+	var m := RF.put_mob(w, 1110100, 700)
+	var other := RF.put_mob(w, 1110100, 800)
+	w.swarm.alpha[m] = 1.0
+	w.swarm.alpha[other] = 1.0
+	assert_eq(MobSwarm.THREATENED, 3, "keep the shipped Threaten table index")
+	assert_ne(MobSwarm.STUN, MobSwarm.THREATENED)
+	assert_true(w.swarm.apply_status(m, "threatened", {"x": -30, "y": -10, "time": 2}, w.events))
+	assert_true(w.swarm.apply_status(m, "stun", {"time": 1}, w.events))
+	assert_true(w.swarm.apply_status(other, "stun", {"time": 3}, w.events))
+	assert_near(w.swarm.threatened_pad(m, 82), 52)
+	assert_near(w.swarm.threatened_pdd(m, 12), 2)
+	assert_near(w.swarm.threatened_pad(other, 82), 82, 1e-6, "the next slot has no Threaten cut")
+	assert_false(w.swarm.can_act(m))
+	var ctx := _ctx(w)
+	for tick in 60:
+		w.swarm.step(DT, ctx)
+	assert_near(w.swarm.status_time(m, MobSwarm.STUN), 0)
+	assert_near(w.swarm.status_time(m, MobSwarm.THREATENED), 1)
+	assert_near(w.swarm.status_time(other, MobSwarm.STUN), 2)
+	assert_true(w.swarm.can_act(m), "Threaten alone does not stop attacks")
+	assert_false(w.swarm.can_act(other), "the next slot is still stunned")
+	assert_near(w.swarm.threatened_pad(m, 82), 52, 1e-6, "stun expiry keeps the cut")
+	for tick in 60:
+		w.swarm.step(DT, ctx)
+	assert_near(w.swarm.threatened_pad(m, 82), 82)
+	assert_near(w.swarm.threatened_pdd(m, 12), 12)
+	assert_near(w.swarm.status_time(other, MobSwarm.STUN), 1)
+	assert_true(w.swarm.has_statuses(), "the other slot's stun outlives Threaten")
+	for tick in 60:
+		w.swarm.step(DT, ctx)
+	assert_false(w.swarm.has_statuses())
+
+
 func test_stunned_mob_does_not_move_for_the_duration_then_resumes() -> void:
 	var w := RF.quiet_world()
 	var m := RF.put_mob(w, 1110100, 700)

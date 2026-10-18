@@ -1,5 +1,5 @@
 extends TestCase
-## Brawler 510 and Gunslinger 520 playable at Lv 30 (spec #168 ticket #189, docs/GAME_DESIGN.md sections 7.13 and 9):
+## Brawler 510 and Gunslinger 520 playable at Lv 30 (spec #168 ticket #189, docs/GAME_DESIGN.md sections 7.17 and 9):
 ## +325 Max HP / +175 Max MP, one advancement weapon per branch (Prime Hands 1482004, Cold Mind 1492004), the auto-AP rows
 ## that follow the branch's weapon whichever first-job path was taken, Improve MaxHP, the two Masteries and the two
 ## Boosters (each only while its weapon family is held), and the Gunslinger's Split Bullet / Mighty Bullet. Seeded

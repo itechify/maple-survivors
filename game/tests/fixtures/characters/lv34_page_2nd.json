@@ -1,0 +1,263 @@
+{
+	"_doc": {
+		"branch": "spec165/ticket-185",
+		"forced_branch": 120,
+		"invulnerable": true,
+		"outcome": "TIMEOUT",
+		"policy": "bot",
+		"revision": "cf3419ae2f90cb8fda9ae10f2a4f722537b59f68",
+		"round_seconds": 600.0,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round with the character invulnerable (RunWorld.god), stopped at the 600 s cap",
+		"stage": "henesys_hg1"
+	},
+	"attributes": {
+		"dex": 5,
+		"int": 4,
+		"luk": 4,
+		"str": 177
+	},
+	"base_attributes": {
+		"dex": 5,
+		"int": 4,
+		"luk": 4,
+		"str": 12
+	},
+	"base_fortune": 0.0,
+	"base_hp": 1350.0,
+	"base_mp": 215.0,
+	"card_ranks": {
+		"bw_mastery_new": 1,
+		"final_attack_bw_new": 1,
+		"final_attack_bw_rank": 1,
+		"final_attack_sword_page_new": 1,
+		"iron_body_new": 1,
+		"mana_elixir": 1,
+		"orange_potion": 1,
+		"power_strike_cooldown": 2,
+		"power_strike_damage": 3,
+		"power_strike_new": 1,
+		"power_strike_rank": 11,
+		"power_strike_targets": 3,
+		"slash_blast_cooldown": 2,
+		"slash_blast_new": 1,
+		"slash_blast_rank": 3,
+		"slash_blast_targets": 3,
+		"sword_booster_page_new": 1,
+		"three_snails_cooldown": 2,
+		"three_snails_count": 4,
+		"three_snails_pierce": 3,
+		"white_potion": 1
+	},
+	"earned_ap": 165,
+	"equipment": {
+		"inventory": [
+			{
+				"id": 1302000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 17
+				}
+			},
+			{
+				"id": 1302077,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 30
+				}
+			},
+			{
+				"id": 1322006,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 29
+				}
+			},
+			{
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			{
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1432000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 32
+				}
+			},
+			{
+				"id": 1302008,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 47
+				}
+			},
+			{
+				"id": 1422008,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 60
+				}
+			}
+		],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"hat": {
+				"id": 1002061,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 5
+				}
+			},
+			"shoes": {
+				"id": 1072017,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 10
+				}
+			},
+			"top": {
+				"id": 1040013,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 12
+				}
+			},
+			"weapon": {
+				"id": 1322014,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 49
+				}
+			}
+		}
+	},
+	"exp": 1347,
+	"format": 2,
+	"fortune": 0.0,
+	"job_id": 120,
+	"job_mp": 0.0,
+	"level": 34,
+	"look": {},
+	"mesos": 162792,
+	"player_mods": {},
+	"potions": {
+		"hp": {
+			"count": 15,
+			"item_id": 2000002
+		},
+		"mp": {
+			"count": 16,
+			"item_id": 2000006
+		}
+	},
+	"scrolls": {},
+	"skill_order": [
+		"three_snails",
+		"power_strike",
+		"slash_blast",
+		"iron_body",
+		"final_attack_sword_page",
+		"sword_booster_page",
+		"bw_mastery",
+		"final_attack_bw"
+	],
+	"skills": {
+		"bw_mastery": {
+			"mods": {},
+			"rank": 2
+		},
+		"final_attack_bw": {
+			"mods": {},
+			"rank": 2
+		},
+		"final_attack_sword_page": {
+			"mods": {},
+			"rank": 2
+		},
+		"iron_body": {
+			"mods": {},
+			"rank": 4
+		},
+		"power_strike": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					3.0,
+					1.0
+				],
+				"damage": [
+					0.0,
+					1.728
+				]
+			},
+			"rank": 12
+		},
+		"slash_blast": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					6.0,
+					1.0
+				]
+			},
+			"rank": 4
+		},
+		"sword_booster_page": {
+			"mods": {},
+			"rank": 2
+		},
+		"three_snails": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					4.0,
+					1.0
+				],
+				"pierce": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 3
+		}
+	}
+}

@@ -1,5 +1,5 @@
 extends TestCase
-## Moving attacks (spec #168 ticket #190, docs/GAME_DESIGN.md 7.9): a skill definition's `displacement` block moves the
+## Moving attacks (spec #168 ticket #190, docs/GAME_DESIGN.md 7.13): a skill definition's `displacement` block moves the
 ## grounded character away from or toward the mob it faces, before, after or during the hit, along footholds and
 ## stopping at platform edges and walls. FootholdMap.slide_along on synthetic segments, then whole casts on seeded
 ## synthetic worlds with a synthetic skill (no Pirate data). Fixed ticks.

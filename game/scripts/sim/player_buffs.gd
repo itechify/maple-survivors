@@ -78,7 +78,7 @@ func clear() -> void:
 	_refresh()
 
 
-## Whether an active buff makes the character Hidden (docs/GAME_DESIGN.md 7.14).
+## Whether an active buff makes the character Hidden (docs/GAME_DESIGN.md 7.18).
 func hidden() -> bool:
 	return _hidden
 
@@ -110,6 +110,14 @@ func effect_total(stat: String) -> float:
 	for buff: Dictionary in active.values():
 		total += float(buff.effects.get(stat, 0.0))
 	return total
+
+
+## The first active skill (in cast order) whose effect `stat` is above 0; "" when none is.
+func skill_with_effect(stat: String) -> String:
+	for skill: String in active:
+		if float(active[skill].effects.get(stat, 0.0)) > 0.0:
+			return skill
+	return ""
 
 
 ## effect_total over the buffs whose skill key `keep` (a Callable(skill: String) -> bool) accepts.

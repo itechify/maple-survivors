@@ -1,5 +1,5 @@
 extends TestCase
-## Brawler MP Recovery (spec #168 ticket #193, docs/GAME_DESIGN.md 7.12): the `self` cast rule with an `mp_below` plus
+## Brawler MP Recovery (spec #168 ticket #193, docs/GAME_DESIGN.md 7.16): the `self` cast rule with an `mp_below` plus
 ## `hp_at_least` condition and the `convert` block that pays a share of MaxHP and returns a share of it as MP. Seeded
 ## RunWorld ticks at a fixed dt on the synthetic map; the shipping definition runs over a synthetic 510 book carrying
 ## Skill.wz's ten levels (x 10, y 55..100, cooltime 70..25), and a real-cache test checks the original numbers.
