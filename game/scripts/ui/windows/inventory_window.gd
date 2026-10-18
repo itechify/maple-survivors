@@ -22,6 +22,9 @@ signal notice(text: String)
 ## tier C (ours; the v83 client's wording is unverified): the messages for a refused change.
 const MESSAGES := {"requirement": "You do not meet the requirements to equip this item.",
 	"inventory_full": "Your inventory is full. Make room before taking an item off.",
+	# tier B: wearing a two-handed weapon over a shield (or a shield over one) with no room for what moves makes the v83
+	# server send the same inventory-full status as a failed pickup (Cosmic; see HudMessages.show_inventory_full).
+	"equip_full": "You can't get anymore items.",
 	"scroll_type": "This scroll cannot be used on that item.",
 	"scroll_slots": "That item has no upgrade slots left.",
 	# tier B: the GMS client string pool (v95; v83 wording unverified) for a refused purchase or sale in a shop (#111).
@@ -152,7 +155,7 @@ func apply(action: String, reason: String) -> String:
 		queue_redraw()
 		item_action.emit(action)
 	else:
-		var text := message_for(reason)
+		var text := String(MESSAGES.equip_full) if action == "equip" and reason == "inventory_full" else message_for(reason)
 		if text != "":
 			notice.emit(text)
 	return reason

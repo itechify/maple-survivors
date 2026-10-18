@@ -3,8 +3,8 @@ extends InventoryWindow
 ## The v83 Equip window (hotkey E, or Menu -> Equip; #108) with the Cash tab and the Pet page (spec #34, #122).
 ##
 ## Equip page: UI.wz/UIWindow.img/Equip `backgrnd` (EQUIPMENT INVENTORY, the slot grid with the character outline) with
-## each worn item's icon in its v83 slot: CAP, CLOTHES (a top or an overall), PANTS, SHOES, GLOVES and WEAPON; the other
-## slots of the art have no equipment in this game. BtUIClose in the bottom strip closes the window.
+## each worn item's icon in its v83 slot: CAP, CLOTHES (a top or an overall), PANTS, SHOES, GLOVES, WEAPON and SHIELD (#158;
+## a two-handed weapon empties it); the other slots of the art have no equipment in this game. BtUIClose in the bottom strip closes the window.
 ##
 ## The bottom strip also switches the page (`set_page`): the Equip and Cash glyphs of the Item window's tab art, and the
 ## v83 BtPetEquipShow ("PET EQUIP.") button for the Pet page.
@@ -43,14 +43,15 @@ const PET_SIZE := Vector2(177, 181)
 ## tier C (ours, measured on the v83 backgrnd; cross-checked tier B against JourneyClient's slot offsets): the 32 px
 ## slot cells of the equip slots this game has. The top and the overall share the CLOTHES cell.
 const SLOT_POS := {"hat": Vector2(38, 35), "top": Vector2(38, 134), "overall": Vector2(38, 134),
-	"bottom": Vector2(38, 167), "shoes": Vector2(71, 200), "gloves": Vector2(5, 167), "weapon": Vector2(104, 134)}
+	"bottom": Vector2(38, 167), "shoes": Vector2(71, 200), "gloves": Vector2(5, 167), "weapon": Vector2(104, 134),
+	"shield": Vector2(137, 134)}
 ## The cells in hit-test order (the CLOTHES cell answers "top" or "overall", see slot_at).
-const CELLS := ["hat", "top", "bottom", "shoes", "gloves", "weapon"]
+const CELLS := ["hat", "top", "bottom", "shoes", "gloves", "weapon", "shield"]
 ## tier C (ours): the close button in the bottom strip.
 const CLOSE_BUTTON_POS := Vector2(10, 281)
 ## tier C (ours): the slot labels drawn without the cache.
 const LABELS := {"hat": "CAP", "top": "CLOTHES", "bottom": "PANTS", "shoes": "SHOES", "gloves": "GLOVES",
-	"weapon": "WEAPON"}
+	"weapon": "WEAPON", "shield": "SHIELD"}
 
 ## The pages (`page`).
 const PAGES := ["equip", "cash", "pet"]
