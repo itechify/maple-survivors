@@ -281,13 +281,13 @@ static func _reach_profile(w: RunWorld) -> Vector2:
 	var line := Vector2.ZERO
 	var base := Vector2.ZERO
 	for key: String in w.loadout.order:
-		if not w.loadout.book.is_active(key):
+		if not w.loadout.book.is_active(key) or not _usable(w, key):
 			continue
 		var st := w.runner.stats_of(w, key)
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
 			continue
-		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and float(w.player_state.mp) >= int(st.mp_cost)
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and _affordable(w, st)
 		var own := Vector2(r, r if ready else 0.0)
 		if int(w.book.def(key).get("job", 0)) == 0:
 			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
@@ -304,10 +304,21 @@ static func _can_take(w: RunWorld, i: int) -> bool:
 	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
 
 
+## Whether the held weapon can use owned skill `key` (SkillBook.usable_with, spec #151 #156/#163): the bot's MP and reach
+## scans skip a skill the runner would never cast.
+static func _usable(w: RunWorld, key: String) -> bool:
+	return w.book.usable_with(key, w.held_weapon_family())
+
+
+## Whether the player can pay the MP and HP cost of resolved skill stats `st` now.
+static func _affordable(w: RunWorld, st: Dictionary) -> bool:
+	return float(w.player_state.mp) >= int(st.mp_cost) and w.can_pay_hp(int(st.hp_cost))
+
+
 static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
 	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
-		if not w.book.is_active(key):
+		if not w.book.is_active(key) or not _usable(w, key):
 			continue
 		var stats := w.runner.stats_of(w, key)
 		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
@@ -329,10 +340,10 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 	if kind.boss or w.mob_elite[i] != 0:
 		return false
 	for key: String in w.loadout.order:
-		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
+		if not w.loadout.book.is_active(key) or not _usable(w, key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
 			continue
 		var st := w.runner.stats_of(w, key)
-		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and float(w.player_state.mp) >= int(st.mp_cost):
+		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and _affordable(w, st):
 			return false
 	return true
 

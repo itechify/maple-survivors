@@ -2935,7 +2935,8 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
-- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` resolves to
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, and the Warrior's
+  `weapon_reach` and `range_around`, 7.8) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
@@ -3145,6 +3146,53 @@ Stream 12 is only drawn when a Final Attack is owned and a line lands, so other 
 encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without retroactive HP. Tier C: one proc roll
 per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
 `effects` data shape.
+
+### 7.8 Warrior first job (100, #163)
+
+Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
+`skills/warrior.json`. Rank equals canonical level as everywhere (7); WZ prerequisites are ignored (tier C, #31).
+
+| Skill | Kind | Behaviour | Tiers |
+|---|---|---|---|
+| Power Strike 1001004 (20) | attack | auto-casts at the nearest mob inside the held weapon's swing envelope; hits `mob_count` mobs (1; only the Cleaving Strike card adds); damage 165-260 % of the physical weapon damage | A: damage %, mpCon 4-12, attackCount 1, art, sound; B: damage formula; C: Warrior melee families only (sword, axe, blunt, spear, polearm), 1.0 s cooldown, 0.6 s stance |
+| Slash Blast 1001005 (20) | attack | auto-casts when a mob's body centre is within `range` (130, 150 from level 16) of the body; hits up to `mobCount` 6 nearest, bosses first, both sides; pays hpCon 8-16 and mpCon 6-14; never casts when the HP cost would leave 0 HP (and then pays nothing) | A: damage 72-130 %, range, mobCount, hpCon, mpCon; C: weapon families, 1.6 s cooldown, 0.6 s stance, wider range / more targets only from cards |
+| Iron Body 1001003 (20) | buff | auto-cast, recast on expiry; adds canonical pdd (2-40) to weapon defence for 75-300 s | A: pdd, time, mpCon, action alert2 (no effect art in the WZ node); C: auto-cast, 0.8 s stance |
+| Improved HP Recovery 1000000 (16) | passive | adds canonical `hp` (3-50) to every regeneration pulse (`regen: {pool: hp, field: hp}`, `Loadout.regen_bonus`) | A: hp; C: v83 only while standing still, here always (HP regeneration is always on) |
+| Improved MaxHP Increase 1000001 (10) | passive | `max_hp_per_level` (canonical `x`, 4-40) at every later level-up (7.6) | B: Cosmic level-up rule |
+| Endure 1000002 (8) | passive | its own clock heals one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31 s down to 10 s) while hanging on a rope or ladder (the clock counts only climbing seconds and keeps its value when the character lets go; `climb_regen`, emits `player_restored` with skill `endure`) | A: time; C: the amount and the on-top-of-regeneration reading of v83's rope recovery |
+
+- **Cast rules.** `weapon_reach` and `range_around` are `SkillRunner` rules beside `nearest`/`box`/`crowd`. `weapon_reach`
+  uses `BasicAttack.envelope(world)`, the union of the held weapon's afterimage boxes (its far edge is the basic
+  attack's `reach`, tier A), so Power Strike strikes exactly where a swing can. `range_around` reads the canonical `range`
+  of the level (`Loadout.stats().range`, which the Wider Blast card scales). Both are instant, use `mob_count` as the
+  target cap (`SkillRunner.strike_count`) and their `attackCount` lines per target. `SkillRunner.reach_of` returns the
+  weapon reach and the range, so the bot engages them.
+- **Stance.** The data says `"action": "weapon"`: the cast stance, and so the swing/stab multiplier of the physical
+  formula, is the held weapon's first basic-attack action (`WeaponInfo.skill_action`: swingO1 for a one-handed sword, stabT1
+  for a spear, swingP1 for a polearm, swingT1 for a two-handed sword). Tier C: the WZ nodes have no action.
+- **HP cost.** `Loadout.stats().hp_cost` is the canonical `hpCon`. `SkillRunner.cast_ready` skips a skill whose HP cost
+  `RunWorld.can_pay_hp` refuses (HP must stay above 0; no `mp_short`, nothing paid), then pays MP and HP together
+  (`RunWorld.spend_hp`). The bot counts a skill ready only when both costs are payable.
+- **Facing.** Both attacks turn a standing character toward the target before the cast (Power Strike toward the side with
+  the nearer first target inside the envelope, ties keep the facing; Slash Blast toward its first target); a walking
+  character keeps its way. The `cast` event carries the new facing.
+- **Weapon gating** (7.5). Power Strike and Slash Blast list the five Warrior melee families (`weapon_families`, tier C: the
+  WZ nodes name no weapon and the String text says a sword). With a wand, a bare hand or any other family they are not
+  cast, their cards are not offered, the bot ignores them (`BotInput._reach_profile`, `_can_duel` and the teleport reserve
+  skip a skill `SkillBook.usable_with` refuses), and the Skill window greys them. Iron Body and the passives need no weapon.
+- **Cards** (`upgrades/warrior.json`, all `requires.jobs: [100]`, shared rarity): a learn and a rank card per skill, plus
+  Power Strike: Cleaving Strike (+1 target, 3 steps), Crushing Strike (+20 % damage), Quick Strike (-12 % cooldown); Slash
+  Blast: Whirling Blast (+2 targets, 3 steps, 6 to 12), Wider Blast (range x1.2, 3 steps), Quick Blast. Tier C weights and
+  steps. Attack cards are `power: true`, so the advancement draw (every eligible power `skill_new` card of the job, then
+  other new skills) offers Power Strike and Slash Blast. The bot needs no Warrior card scores; whether a card is never
+  taken is a smoke finding, not tuned here.
+- **Previews.** Rank cards show `damage` (percent) and `hpCon` beside the existing fields; the three passives show their
+  own number (Max HP per level-up, HP per pulse, seconds between recoveries) instead of the canonical field name
+  (`UpgradePool.PASSIVE_*`). The skill tooltip adds "HP cost" for an HP-paying skill.
+- **Fixture.** `tests/fixtures/characters/lv11_warrior_1st.json`: a real headless Henesys bot round, forced job 100, seed 1,
+  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163`; capped rounds of
+  seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
+  pass, not tuned).
 
 ### 7.7 Attack speed and Boosters (#160)
 
@@ -3459,8 +3507,16 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician is playable; Warrior, Bowman, Thief and Pirate are shown as "not in this build".
+- Level 10: Magician and Warrior (Dances with Balrog, #163) are playable; Bowman, Thief and Pirate are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
+- Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
+  teaches no skill and gives no weapon (the creation sword, axe or club stays). Earned AP go to STR (the Warrior has no
+  secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
+  Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
+  The Warrior's second jobs (Fighter, Page, Spearman) stay "Not in this build".
+- An **unforced bot** (no `--job`) picks a seeded random available first job on the job stream (8), so with the Warrior
+  and the Magician both open it takes either (spec #151, `BotInput.pick_choice` as #157 left it); `--job=100` /
+  `--job=200` force one. Unforced Lv 10 runs and records therefore differ from before the Warrior existed.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -3913,6 +3969,17 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
 | Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
+| Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR, no weapon grant | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
+| Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
+| Weapon-reach and range-around casts (#163) | `weapon_reach`: nearest mob inside `BasicAttack.envelope` (the union of the held weapon's afterimage boxes, far edge = `reach`); `range_around`: body centres within the level's canonical `range` of the body, `mobCount` cap | A (afterimage boxes, `range`, `mobCount`); C (the rules, auto-cast) | Skill.wz 100.img; ours |
+| Skill stance `"action": "weapon"` (#163) | the held weapon's first basic-attack action (`WeaponInfo.skill_action`), so a spear stabs and a polearm swings | C | the Warrior nodes have no `action` |
+| Power Strike / Slash Blast pacing (#163) | cooldowns 1.0 s / 1.6 s, 0.6 s cast stance | C | ours, untuned until the balance pass |
+| HP cost (#163) | Slash Blast pays canonical `hpCon`; never cast when HP would not stay above 0, then nothing is paid and no MP shortage is signalled | A (hpCon); C (the refusal rule) | Skill.wz; ours |
+| Improved HP Recovery (#163) | adds canonical `hp` (3-50) to every regeneration pulse, always (not only standing still) | A (hp); C (always) | Skill.wz; String text says "while standing still" |
+| Endure (#163) | one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31-10 s) while on a rope or ladder, `player_restored` skill `endure` | A (time); C (amount, on top of regeneration) | Skill.wz; v83's amount is not in the WZ |
+| Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
+| Warrior cards (#163) | learn/rank cards for all six; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
+| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163` |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

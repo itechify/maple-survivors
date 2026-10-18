@@ -136,6 +136,13 @@ static func basic_actions(weapon_id: int) -> PackedStringArray:
 	return PackedStringArray(BASIC_ACTIONS.get(type_of(weapon_id), ACTIONS_ONE_HANDED))
 
 
+## The body stance of a skill whose data says `"action": "weapon"` (Warrior Power Strike and Slash Blast, whose Skill.wz
+## nodes name no action): the weapon's first basic-attack stance (basic_actions), so a sword swings (swingO1), a spear
+## stabs (stabT1) and a two-handed sword uses its own swingT1; bare hands and unknown weapons use swingO1. tier C: ours.
+static func skill_action(weapon_id: int) -> String:
+	return String(basic_actions(weapon_id)[0])
+
+
 ## What the damage model sees for one swing of `action` with this weapon: "swing", "stab" or "shoot". A ranged family
 ## always shoots; everything else follows the stance name (attack_kind). tier B for the multipliers' swing/stab split.
 static func basic_kind(weapon_id: int, action: String) -> String:

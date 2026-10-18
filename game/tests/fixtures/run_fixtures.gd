@@ -103,7 +103,24 @@ static func skill_imgs() -> Dictionary:
 			"effect": _anim(10, 100.0, 50, 100), "hit": {"0": _anim(7, 100.0, 50, 60)}, "level": heal_levels},
 	}}
 	b230.skill.merge(support_230.skill)
-	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	# Warrior book (#163): the original v83 level-1 and top-level values (Skill.wz/100.img), levels between interpolated.
+	var slash_levels := _levels(20, {"hpCon": [8.0, 16.0], "mpCon": [6.0, 14.0], "damage": [72.0, 130.0],
+		"range": [130.0, 150.0], "mobCount": [6.0, 6.0]})
+	var b100 := {"skill": {
+		"1000000": {"icon": _canvas(32, 32), "level": _levels(16, {"hp": [3.0, 50.0]})},
+		"1000001": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [4.0, 40.0], "y": [3.0, 30.0]})},
+		"1000002": {"icon": _canvas(32, 32), "level": _levels(8, {"time": [31.0, 10.0]})},
+		"1001003": {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"level": _levels(20, {"time": [75.0, 300.0], "mpCon": [8.0, 15.0], "pdd": [2.0, 40.0]})},
+		"1001004": {"icon": _canvas(32, 32), "hit": {"0": _anim(2, 90.0, 69, 74)}, "effect": _anim(6, 50.0, 164, 156),
+			"CharLevel": {"10": {"hit": {"0": _anim(5, 150.0, 110, 146)}, "effect": _anim(6, 90.0, 228, 215)}},
+			"level": _levels(20, {"mpCon": [4.0, 12.0], "damage": [165.0, 260.0]})},
+		"1001005": {"icon": _canvas(32, 32), "hit": {"0": _anim(2, 70.0, 104, 83), "1": _anim(2, 70.0, 83, 91)},
+			"effect": _anim(5, 90.0, 74, 52),
+			"CharLevel": {"10": {"hit": {"0": _anim(4, 90.0, 95, 126)}, "effect": _anim(5, 90.0, 74, 52)}},
+			"level": slash_levels},
+	}}
+	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):

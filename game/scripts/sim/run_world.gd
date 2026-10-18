@@ -202,6 +202,8 @@ var loadout: Loadout
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
+## Seconds hung on a rope or ladder since Endure's last recovery (the clock only runs while climbing).
+var _climb_elapsed := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -911,6 +913,22 @@ func spend_mp(amount: int) -> bool:
 	return true
 
 
+## Whether paying `amount` HP would leave the player alive (HP above the cost); a zero cost is always payable.
+func can_pay_hp(amount: int) -> bool:
+	return amount <= 0 or _hp > float(amount)
+
+
+## Pays an action's HP cost (Slash Blast); refuses, changing nothing, when it would leave 0 HP.
+func spend_hp(amount: int) -> bool:
+	if amount <= 0:
+		return true
+	if not can_pay_hp(amount):
+		return false
+	_hp -= amount
+	_write_player_state(0.0)
+	return true
+
+
 ## Restores HP or MP, clamped to its maximum; returns and emits the actual integer pool gain (no event at zero).
 func restore_player(stat: String, amount: int, skill: String) -> int:
 	if stat not in ["hp", "mp"] or amount <= 0:
@@ -1087,10 +1105,12 @@ func targets_before(a: int, da: float, b: int, db: float) -> bool:
 ## All live bodies intersecting a canonical feet-relative, left-facing skill box; scheduled bosses first, then nearest
 ## centre, then slot (targets_before).
 ## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
-func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
+## `facing` (-1 / 1) tests the box on that side instead of the way the player faces now (0 = the current facing); a
+## skill that first turns toward its target asks both sides.
+func skill_box_targets(box: Rect2, filter: Callable = Callable(), facing := 0) -> PackedInt32Array:
 	if not box.has_area():
 		return PackedInt32Array()
-	if player.facing > 0:
+	if (facing if facing != 0 else player.facing) > 0:
 		box.position.x = -box.end.x
 	box.position += player.pos
 	var candidates := PackedInt32Array()
@@ -1792,6 +1812,13 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
+	# Endure (tier C): its own clock runs only while hanging on a rope or ladder and heals one base pulse each interval.
+	var climb_interval := loadout.climb_regen_interval()
+	if climb_interval > 0.0 and player.state == PlayerMotion.ST_LADDER:
+		_climb_elapsed += dt
+		while _climb_elapsed >= climb_interval - 1e-9:
+			_climb_elapsed -= climb_interval
+			restore_player("hp", roundi(upkeep.pulse_hp() + hp_regen), "endure")
 
 
 func _sync_slots() -> void:

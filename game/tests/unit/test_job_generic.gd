@@ -93,10 +93,10 @@ func test_max_hp_grant_survives_the_character_snapshot() -> void:
 
 
 func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:
-	var w := RunWorld.new(RF.setup("quiet", 75, _data())) # no Warrior rows: STR, Beginner growth
+	var w := RunWorld.new(RF.setup("quiet", 75, _data())) # no Bowman rows: STR, Beginner growth
 	RF.place_player(w, 400)
 	var hp0: int = w.player_state.max_hp
-	w.change_job(100)
+	w.change_job(300)
 	assert_eq(w.player_state.max_hp, hp0, "no grant")
 	_level_to(w, 2)
 	assert_eq(w.player_state.max_hp, hp0 + int(w.balance.growth["0"].hp))
@@ -203,8 +203,9 @@ func test_forced_job_must_be_a_playable_first_or_second_job() -> void:
 	var jobs := _tree(data)
 	for id in [200, 210, 220, 230]:
 		assert_eq(jobs.forced_job_error(id), "", "Magician line %d is playable" % id)
-	assert_true("not playable" in jobs.forced_job_error(100), jobs.forced_job_error(100))
-	assert_true("not playable" in jobs.forced_job_error(110), "a second job needs a playable line")
+	assert_eq(jobs.forced_job_error(100), "", "the Warrior is playable since #163")
+	assert_true("not playable" in jobs.forced_job_error(300), jobs.forced_job_error(300))
+	assert_true("not playable" in jobs.forced_job_error(110), "a second job needs to be playable itself")
 	assert_true("first or second job" in jobs.forced_job_error(211), "third jobs are refused")
 	assert_true("first or second job" in jobs.forced_job_error(0), "the Beginner is not an advancement")
 	assert_true("not in the canonical" in jobs.forced_job_error(12345))

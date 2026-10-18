@@ -83,6 +83,8 @@ static func layout(d: Dictionary) -> Array:
 	var facts := PackedStringArray()
 	if float(d.get("cooldown", -1.0)) >= 0.0:
 		facts.append("Cooldown %s sec." % SkillText.number(float(d.cooldown)))
+	if int(d.get("hp_cost", 0)) > 0:
+		facts.append("HP cost %d" % int(d.hp_cost))
 	if int(d.get("mp_cost", -1)) >= 0:
 		facts.append("MP cost %d" % int(d.mp_cost))
 	if not facts.is_empty():

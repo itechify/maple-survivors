@@ -23,6 +23,8 @@ var _images: Dictionary
 var _pending := {}
 ## weapon id -> reach(); the afterimage and body data never change during a run.
 var _reach := {}
+## weapon id -> envelope(), cached like _reach.
+var _envelope := {}
 var _buffer := PackedInt32Array()
 
 
@@ -90,6 +92,27 @@ func reach(world: RunWorld) -> float:
 				far = maxf(far, -(spec.box as Rect2).position.x)
 	_reach[weapon] = far
 	return far
+
+
+## The held weapon's swing envelope: the union of the afterimage boxes of the stances reach() looks at (feet-relative,
+## facing left), the box a "weapon_reach" skill (Warrior Power Strike) strikes inside; an empty Rect2 when the weapon
+## cannot swing. Its far edge is reach(). Cached per weapon.
+func envelope(world: RunWorld) -> Rect2:
+	var weapon := world.weapon_id()
+	if _envelope.has(weapon):
+		return _envelope[weapon]
+	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
+	var union := Rect2()
+	var any := false
+	if not info.is_empty():
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
+			if spec.is_empty():
+				continue
+			union = (spec.box as Rect2) if not any else union.merge(spec.box as Rect2)
+			any = true
+	_envelope[weapon] = union
+	return union
 
 
 func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:

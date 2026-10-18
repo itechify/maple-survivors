@@ -4,7 +4,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "1a6cdb7c2a05e4a64d796da194904458887672292a6c1152cf33360be7b1b8da"
+const WINDOWS_GOLDEN := "dc53e01e27abc34ca2b99bd37d4f7e42c788240fab36bfa0d9647cc22be95506"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
@@ -43,6 +43,10 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# Re-captured on Windows for #153: accuracy grants critical chance to every job/damage type, including Beginner
 	# and fixed Three Snails; basic damage and crit rolls now use stream 5. Non-critical creation-weapon bounds are
 	# unchanged (test_physical_damage). The owner explicitly permits the resulting Beginner/Magician event deltas.
+	# Re-captured on Windows for #163 (Warrior playable, lead-approved): the Lv 10 job_advance_pending options now list the
+	# Warrior as available, and the unforced bot picks a seeded random available first job on the job stream (spec #151), so
+	# the run takes whichever job that draw gives. With jobs.json 100 locked ("Not in this build") the #153 hash 1a6cdb7c...
+	# is reproduced exactly (checked on the pre-merge head).
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
 	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner

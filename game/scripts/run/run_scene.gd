@@ -234,6 +234,8 @@ var _quit_after := 0.0
 var _shot_queue := PackedStringArray()
 var _quit_after_capture := false
 var _timed_shots: Array = []
+## Skill keys whose first cast already queued its cast_<key>.png playtest shot.
+var _cast_shot_taken := {}
 var _hit_shot_taken := false
 var _miss_shot_taken := false
 ## #76: the one-off evidence shots of ordinary mob attacks.
@@ -1178,6 +1180,9 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
+	if not _cast_shot_taken.has(key):
+		_cast_shot_taken[key] = true
+		_event_shot("cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)

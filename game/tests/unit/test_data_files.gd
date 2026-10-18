@@ -175,9 +175,10 @@ func test_jobs_and_balance() -> void:
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
 	assert_true(tree.job(200).playable)
+	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
 	for id: int in [210, 220, 230]:
 		assert_true(tree.job(id).playable, "%d playable" % id)
-	for id: int in [100, 300, 400, 500]:
+	for id: int in [300, 400, 500]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
@@ -198,7 +199,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "200": "int"})
+	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)

@@ -34,6 +34,10 @@ extends Node
 ##           through the survivor weapon_families override (debug setup; no shipping skill needs a weapon yet); K opens Skill
 ##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
 ##           skill_weapon_greyed, skill_weapon_tooltip.
+##   skill_warrior  the Warrior's Skill window (#163): a Warrior owning all six skills and a Cleaving Strike card (debug
+##           setup); K opens Skill on the Warrior tab, hovering Slash Blast shows its HP / MP cost and weapon line, Esc
+##           closes and Iron Body casts itself (debug MP). Shots: skill_warrior_window, skill_warrior_tooltip,
+##           skill_warrior_iron_body.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
 ##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
 ##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
@@ -158,6 +162,8 @@ func _ready() -> void:
 			_scenario_skill()
 		"skill_weapon":
 			_scenario_skill_weapon()
+		"skill_warrior":
+			_scenario_skill_warrior()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1274,6 +1280,51 @@ func _scenario_skill() -> void:
 	if not await _until(func() -> bool: return run.world.state == RunWorld.PLAYING, 5.0, "card picked with 1"):
 		return
 	print("flow_driver: skill scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+func _scenario_skill_warrior() -> void:
+	if not await _enter_round("SkillWarrior"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	var w := run.world
+	w.change_job(100)
+	for id: String in ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
+			"improved_max_hp_new", "endure_new", "power_strike_targets"]:
+		w.upgrades.apply(id, w)
+	await _sleep(0.5)
+	await _key(KEY_K)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
+		return
+	var sw := run.ui_windows.find_window("skill") as SkillWindow
+	await _sleep(0.5)
+	var rows := sw.rows()
+	var blast := -1
+	for i in rows.size():
+		if String(rows[i].get("key", "")) == "slash_blast":
+			blast = i
+	_check(blast >= 0, "Slash Blast is listed on the Warrior tab")
+	await _shot("skill_warrior_window")
+	var origin := sw.get_global_rect().position
+	for i in maxi(0, blast - SkillWindow.VISIBLE_ROWS + 1):
+		await _wheel(origin + sw.row_rect(1).get_center(), true)
+	_hover(origin + sw.row_rect(blast - sw.scroll).get_center())
+	await _sleep(0.4)
+	var tip := sw.tooltip()
+	_check(String(tip.get("key", "")) == "slash_blast" and int(tip.get("hp_cost", 0)) == 8 and bool(tip.get("usable", false)),
+		"the tooltip shows Slash Blast's HP cost and says the sword can use it")
+	await _shot("skill_warrior_tooltip")
+	# Debug setup: enough MP for Iron Body, which auto-casts as soon as Esc lets the sim run again.
+	w._base_mp = 100.0
+	w.refresh_player_stats()
+	w.heal_fraction("mp", 1.0)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(w.buffs.has("iron_body"), "Iron Body was cast once the window closed")
+	await _shot("skill_warrior_iron_body")
+	print("flow_driver: skill_warrior scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
