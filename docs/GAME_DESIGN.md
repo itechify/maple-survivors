@@ -4052,6 +4052,32 @@ advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/I
 the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
 the bot selects their matching first-job path. Drain, Savage Blow and Steal belong to later tickets; no tuning here.
 
+### Bandit attacks (#214, spec #167)
+
+Savage Blow 4201005 and Steal 4201004 have 30 ranks, each mapping directly to its canonical Skill.wz level (tier A).
+Savage Blow requires a dagger (weapon33), auto-casts in the held weapon's swing envelope, and strikes each target
+4 times at ranks1-10, 5 at11-20 and 6 at21-30. Damage follows the original stepped table (40% at1, 80% at30),
+including the lower per-line damage at each extra-hit threshold; MP is15/18/27 by those bands. It uses the canonical
+`savage` action, effect, hit art and Use/Hit sounds. Its cooldown1.2s, action hold1s and one base target are tier C.
+
+Steal has no weapon requirement, uses canonical `swingO2`, effect and Use sound, and makes one physical melee hit:
+42-100% damage, MP12 at ranks1-15 and24 at16-30 (tier A). The tier-C auto-cast uses the existing range-around rule
+within100px, one base target, cooldown1.2s and action hold0.6s. Each damaging Steal line on a mob not yet Stolen
+rolls canonical `prop`11-40% on `RunWorld.thief_rng` stream15. A failure leaves it eligible. A success immediately
+drops exactly one extra item and marks it Stolen before damage/kill resolution, so lethal hits work too. Bosses
+can be stolen from: this is a packed per-mob flag, independent of status immunity. Relocation preserves the flag;
+a fresh logical spawn, including a reused slot, resets it. Ordinary attacks and other skills never roll for Steal.
+
+`RunWorld.drop_mob_loot(m, single)` is shared by ordinary deaths and living-mob Steal. The normal path retains its
+meso-then-equipment rolls, probabilities and stream order. The tier-C single-item interpretation uses the ordinary
+equipment chance and job/level/held-family pool on stream10; if that produces no equipment, it guarantees one normal
+meso bundle on stream9. It grants no EXP, potions, boss reward shower or kill credit. Only the success roll draws
+stream15; a run without Steal retains its previous event/player-state bytes. No canonical drop tables are introduced.
+
+Each attack appends exact-job420 power cards: learn weight4, rank weight3 with30 levels, and targets +1 three times
+at weight2 (tier C, existing Potential magnitudes; untuned). Other jobs cannot draw these cards. #215 owns balance
+smokes and tuning; #214 performs deterministic mechanics, cache, replay and presentation checks only.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4333,32 +4359,6 @@ drop on the map to the pet while the Magnet card is no longer offered.
 worn cash equipment, a pet and ALERT levels (`game/tests/fixtures/accounts/full_pet.json` is the full set) and the round
 record gains `nx_awarded`, which is never credited. With an empty account every record is byte-identical to a build
 without this feature (regression smoke, section 4.2).
-
-### Bandit attacks (#214, spec #167)
-
-Savage Blow 4201005 and Steal 4201004 have 30 ranks, each mapping directly to its canonical Skill.wz level (tier A).
-Savage Blow requires a dagger (weapon33), auto-casts in the held weapon's swing envelope, and strikes each target
-4 times at ranks1-10, 5 at11-20 and 6 at21-30. Damage follows the original stepped table (40% at1, 80% at30),
-including the lower per-line damage at each extra-hit threshold; MP is15/18/27 by those bands. It uses the canonical
-`savage` action, effect, hit art and Use/Hit sounds. Its cooldown1.2s, action hold1s and one base target are tier C.
-
-Steal has no weapon requirement, uses canonical `swingO2`, effect and Use sound, and makes one physical melee hit:
-42-100% damage, MP12 at ranks1-15 and24 at16-30 (tier A). The tier-C auto-cast uses the existing range-around rule
-within100px, one base target, cooldown1.2s and action hold0.6s. Each damaging Steal line on a mob not yet Stolen
-rolls canonical `prop`11-40% on `RunWorld.thief_rng` stream15. A failure leaves it eligible. A success immediately
-drops exactly one extra item and marks it Stolen before damage/kill resolution, so lethal hits work too. Bosses
-can be stolen from: this is a packed per-mob flag, independent of status immunity. Relocation preserves the flag;
-a fresh logical spawn, including a reused slot, resets it. Ordinary attacks and other skills never roll for Steal.
-
-`RunWorld.drop_mob_loot(m, single)` is shared by ordinary deaths and living-mob Steal. The normal path retains its
-meso-then-equipment rolls, probabilities and stream order. The tier-C single-item interpretation uses the ordinary
-equipment chance and job/level/held-family pool on stream10; if that produces no equipment, it guarantees one normal
-meso bundle on stream9. It grants no EXP, potions, boss reward shower or kill credit. Only the success roll draws
-stream15; a run without Steal retains its previous event/player-state bytes. No canonical drop tables are introduced.
-
-Each attack appends exact-job420 power cards: learn weight4, rank weight3 with30 levels, and targets +1 three times
-at weight2 (tier C, existing Potential magnitudes; untuned). Other jobs cannot draw these cards. #215 owns balance
-smokes and tuning; #214 performs deterministic mechanics, cache, replay and presentation checks only.
 
 ## 9. Jobs
 

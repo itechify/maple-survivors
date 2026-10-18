@@ -192,6 +192,49 @@ func test_steal_extra_equipment_follows_job_and_current_weapon_with_meso_fallbac
 		assert_true(int(drops[0].count) > 0)
 
 
+func test_a_lethal_steal_can_take_extra_loot_without_replacing_the_death_roll() -> void:
+	var w := _world()
+	w.learn_skill("steal")
+	var st := w.runner.stats_of(w, "steal")
+	# Find a real success-roll state without changing canonical prop or consuming any content stream.
+	var oracle := RandomNumberGenerator.new()
+	oracle.state = w.thief_rng.state
+	for attempt in 100:
+		var before := oracle.state
+		if oracle.randf() * 100.0 < 11.0:
+			w.thief_rng.state = before
+			break
+	var m := _target(w)
+	w.swarm.hp[m] = 1
+	w.balance.mesos.chance = 1.0
+	w.data.equipment_drops.chance = 0.0
+	var kills := w.kills
+	w.drain_events()
+	w.hit_mob(m, st, -1)
+	assert_eq(w.swarm.stolen[m], 1)
+	assert_false(w.swarm.is_live(m))
+	assert_eq(w.kills, kills + 1)
+	var events := w.drain_events()
+	var mesos := events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned" and e.kind == "meso")
+	assert_eq(mesos.size(), 2, "one extra Steal bundle plus the unchanged death bundle")
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "mob_died").size(), 1)
+
+
+func test_learning_steal_does_not_add_steal_rolls_to_other_attacks() -> void:
+	var w := _world()
+	w.learn_skill("steal")
+	w.learn_skill("double_stab")
+	var st := w.runner.stats_of(w, "double_stab")
+	var m := _target(w)
+	var before := w.thief_rng.state
+	w.drain_events()
+	for hit in 20:
+		w.hit_mob(m, st, -1)
+	assert_eq(w.thief_rng.state, before)
+	assert_eq(w.swarm.stolen[m], 0)
+	assert_eq(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned").size(), 0)
+
+
 func test_bandit_attack_cards_are_branch_only_power_cards_with_three_target_steps() -> void:
 	for key in ["savage_blow", "steal"]:
 		var w := _world()

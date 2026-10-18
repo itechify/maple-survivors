@@ -292,7 +292,7 @@ func despawn(i: int) -> bool:
 	return true
 
 
-## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP and Slow cast history.
+## Relocates the same live mob through despawn/spawn, preserving identity, HP/MP, Stolen and Slow cast history.
 ## Active statuses and movement reset as on a fresh spawn. Returns the new slot, or -1 when not live.
 func relocate(i: int, pos: Vector2, f: int) -> int:
 	if not is_live(i):

@@ -2237,6 +2237,7 @@ func _roll_mesos(mk: MobKind) -> int:
 ## One equipment drop for the character's current job, level and held weapon family (EquipmentDrops; `boss` takes the
 ## top of the level window) with v83 random stats, from the equipment stream; nothing when no listed item has info and
 ## fits. A weapon only drops from the family held now; bare hands get none (#159).
+## Returns whether an equipment pickup was spawned (Steal falls back to mesos when none fits).
 func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	var cfg: Dictionary = data.get("equipment_drops", {})
 	var infos: Dictionary = setup.get("equipment_info", {})
