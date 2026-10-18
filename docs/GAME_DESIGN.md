@@ -3438,6 +3438,11 @@ Draw rules:
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
+   **Exception (Warrior line only, spec #165 #180, owner decision):** the Warrior's second jobs have no attack skills, so
+   the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
+   `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
+   for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
+   passives still stop at Lv 30. Every other line keeps the rule unchanged.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -3716,7 +3721,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   to the Equip tab (7.8; anything the full tab cannot take lies at the feet). Earned AP go to STR (the Warrior has no
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
-  The Warrior's second jobs (Fighter, Page, Spearman) stay "Not in this build".
+  The Warrior's second jobs open at Lv 30 (spec #165, below).
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -3733,6 +3738,27 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   level. Each adds +475 Max MP and teaches no skill. This fixed tier C bonus is the midpoint of the 450-500 range
   in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
+- Level 30, Warrior (spec #165 #180): Fighter 110, Page 120 and Spearman 130 are selectable at their canonical level.
+  Each adds +325 Max HP (tier B: the v83 second-job +300-350, midpoint; growth stays 26 HP / 5 MP per level, all earned AP
+  still go to STR) and hands **two advancement weapons**, one per weapon family (tier C, below). The weapon of the held
+  weapon's family is worn, else the first family's; the displaced weapon and the other advancement weapon join the Equip
+  tab, and whatever the full tab cannot take lies at the player's feet, so advancing never fails. The grant checks no
+  requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
+  The Power Strike and Slash Blast cards stay on offer after the second job (section 8, rule 1 exception).
+  The Warrior's second-job skills come with #181-#184; until they land the advancement draw offers no Warrior skill
+  and the job only changes Max HP and weapons. `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
+  bot draws its branch on the job stream (8) like the Magician's.
+
+  | Branch | First family (worn when the held family is not the branch's) | Second family |
+  |---|---|---|
+  | Fighter 110 | sword: Gladius 1302008 | axe: Fireman's Axe 1312005 |
+  | Page 120 | sword: Gladius 1302008 | blunt: War Hammer 1322014 |
+  | Spearman 130 | spear: Forked Spear 1432002 | polearm: Mithril Pole Arm 1442001 |
+
+  The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
+  `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
+  `DataRepo.starter_equipment_ids` preload reads the same field. The Bowman, Thief and Pirate lines use the same shape
+  with one entry per branch when their class specs land.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -3766,10 +3792,12 @@ weapon after the job's `grants.items`, using the same Equip overflow pickup rule
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
 
-**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and optionally a
-`grant_item`. On advancing, when the held weapon's family (`RunWorld.held_weapon_family()`) is not in the list, the
-grant item is worn (tier C); a fitting weapon is kept and nothing is granted. The grant item ids are chosen by the class
-specs (basic weapons at the branch's level), so a row without one grants nothing today.
+**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and one advancement weapon
+per family (`grant_items`, same order; #165 #180 replaced the single `grant_item` of #157, ADR 0005 amendment). On
+advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
+(tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
+are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today only
+the Warrior's three branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
@@ -3889,7 +3917,10 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
 | Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
 | Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none: its sword is `balance.player.weapon_grants` (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
-| Branch weapon grant | A second job wears its `grant_item` only when the held weapon family is not in its `weapon_families` (`jobs.json`, #157; item ids come with the class specs) | C | Ticket #157 |
+| Branch weapon grant | A second job hands one advancement weapon per family (`jobs.json` `weapon_families` + `grant_items`, `JobTree.branch_grant`): the held family's is worn, else the first family's; the displaced weapon and the others go to the Equip tab (#157, reshaped by #165 #180) | C | Ticket #157, spec #165 |
+| Warrior advancement weapons | Fighter 110: Gladius 1302008 (sword), Fireman's Axe 1312005 (axe); Page 120: Gladius, War Hammer 1322014 (blunt); Spearman 130: Forked Spear 1432002 (spear), Mithril Pole Arm 1442001 (polearm); plain Lv 30 weapons, stat needs STR 95-100 (#180) | C | Ours |
+| Warrior second-job advancement | Fighter, Page and Spearman at the canonical Lv 30, +325 Max HP (`jobs.json` `grants.max_hp`), growth 26 HP / 5 MP per level unchanged (#180) | B (HP midpoint of +300-350), A (Lv 30) | Cosmic changeJob, v83-facts 4 |
+| Power Strike / Slash Blast after second job | Their ten cards list `requires.carry_jobs` [110, 120, 130]: eligible, still `power`, never in the advancement draw; Iron Body and the HP passives stop at Lv 30 (#180) | C | Owner decision, spec #165 |
 | Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
