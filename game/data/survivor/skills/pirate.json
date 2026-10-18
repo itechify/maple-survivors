@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), attacks #191-#192, MP Recovery #193, Oak Barrel #194.",
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), Brawler attacks #191 (Backspin Blow, Double Uppercut, Corkscrew Blow), Gunslinger attacks #192, MP Recovery #193, Oak Barrel #194.",
 	"skills": {
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
@@ -89,6 +89,46 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "Skill.wz/510.img/skill/5101006/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/5101006/Use", "hit": ""}
+		},
+		"backspin_blow": {
+			"skill_id": 5101002, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Backspin Blow", "desc": "Slides back and elbows up to 3 monsters, stunning them.",
+			"text": {"desc": "Slide back and elbow the monsters around you to damage and briefly stun them.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101002/icon", "damage": "physical", "weapon_families": ["knuckle"],
+			"_tier": "Tier A: canonical damage 88 to 240%, mpCon 12 to 30, mobCount 3, time 1 (the stun), the backspin action, effect/hit art, Use and Hit sounds, and the box height and 140 px reach. Skill.wz has no prop, so every landed hit stuns (bosses resist, see Monster statuses and elements in GAME_DESIGN). Tier C: knuckle requirement (the WZ node names no weapon); the canonical box lies behind the facing, so cast.around mirrors it to both sides and the attack strikes the nearest mobs on either side, then the character turns to the nearest one and slides 100 px away from it after the hits (7.9), stopping at platform edges and walls; cooldown 1.5 s and action hold 0.8 s; untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.5,
+			"displacement": {"direction": "away", "when": "after", "distance": 100},
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "backspin", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101002/hit/0", "effect": "Skill.wz/510.img/skill/5101002/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101002/Use", "hit": "Sound.wz/Skill.img/5101002/Hit"}
+		},
+		"double_uppercut": {
+			"skill_id": 5101003, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Double Uppercut", "desc": "Two quick punches that damage and stun the monster in front of you.",
+			"text": {"desc": "Two quick punches to damage and briefly stun a monster within your knuckler's reach.", "h": "MP -{mp_cost}; damage {damage}% x {attack_count}, up to {mob_count|monster|monsters}, stun for 1 sec."},
+			"icon": "Skill.wz/510.img/skill/5101003/icon", "damage": "physical", "weapon_families": ["knuckle"],
+			"_tier": "Tier A: canonical damage 100 to 290%, attackCount 2, mpCon 15 to 30, time 1 (the stun), the doubleupper action, effect/hit art, Use and Hit sounds. Skill.wz has no prop, so every landed hit stuns (bosses resist). Tier C: knuckle requirement; the level has no box or mobCount, so it follows the Power Strike rule: it strikes one monster inside the knuckle's swing envelope (the basic attack's reach), more only from cards; cooldown 1.2 s and action hold 1.0 s; untuned.",
+			"cast": {"rule": "weapon_reach"}, "cooldown": 1.2,
+			"on_hit": {"status": "stun", "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "doubleupper", "action_time": 1.0, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101003/hit/0", "effect": "Skill.wz/510.img/skill/5101003/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101003/Use", "hit": "Sound.wz/Skill.img/5101003/Hit"}
+		},
+		"corkscrew_blow": {
+			"skill_id": 5101004, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "Corkscrew Blow", "desc": "Charges forward and punches up to 3 monsters on the way.",
+			"text": {"desc": "Run forward and punch the monsters in your path.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters}, charges forward."},
+			"icon": "Skill.wz/510.img/skill/5101004/icon", "damage": "physical", "weapon_families": ["knuckle"],
+			"_tier": "Tier A: canonical damage 135 to 420%, mpCon 20 to 36, mobCount 3, the box reach 100 to 200 px (also the charge distance: displacement.distances copies -lt.x per level, checked against Skill.wz by a test) and height, the screw action, effect/hit art, Use and Hit sounds. Tier C: knuckle requirement; a mob in the box starts a full charge toward it (no prepare/keydown wind-up, the Loop sound is not played) that strikes up to mobCount mobs along the swept path (7.9) and stops at platform edges and walls; cooldown 2.0 s and action hold 0.8 s; untuned.",
+			"cast": {"rule": "box"}, "cooldown": 2.0,
+			"displacement": {"direction": "toward", "when": "during", "distances": [100, 100, 110, 110, 120, 120, 130, 130, 140, 140, 150, 150, 160, 160, 170, 170, 180, 180, 190, 200]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "screw", "action_time": 0.8, "ball": "",
+			"hit": "Skill.wz/510.img/skill/5101004/hit/0", "effect": "Skill.wz/510.img/skill/5101004/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101004/Use", "hit": "Sound.wz/Skill.img/5101004/Hit"}
 		},
 		"gun_booster": {
 			"skill_id": 5201003, "book": "520", "job": 520, "kind": "buff", "slot": "passive",

@@ -3350,8 +3350,8 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
 ### 7.9 Moving attacks (generic, #190, spec #168)
 
 An auto-cast attack may move the character: away from the mob it faces (Backspin Blow, Recoil Shot) or toward it (a
-Corkscrew Blow charge). The mechanism is generic and data-driven; no shipped skill uses it until #191 and #192 add the
-Pirate attacks. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
+Corkscrew Blow charge). The mechanism is generic and data-driven; Backspin Blow and Corkscrew Blow (7.15, #191) use it, and
+#192 adds the Gunslinger's Recoil Shot. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
 stops at the platform's edge or at a wall, never walks off and never passes a wall; the cast never fails because of
 terrain, it only moves less; while airborne (and on a rope, where nothing casts) the attack casts without moving.
 
@@ -3538,7 +3538,7 @@ the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP 
 cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
 `requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
 branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
-Double Shot. The branch attacks come with #191 (Brawler) and #192 (Gunslinger, 7.16), MP Recovery with #193 and Oak Barrel with
+Double Shot. The Brawler's attacks are 7.15 (#191); the Gunslinger's are 7.16 (#192), MP Recovery with #193 and Oak Barrel with
 #194.
 
 ### 7.14 Hidden state and Oak Barrel (#194, spec #168)
@@ -3596,6 +3596,41 @@ keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state w
 `test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
 `test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
 `scenes/debug/morph_driver.tscn`.
+
+### 7.15 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
+
+Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
+with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
+steps) in `upgrades/pirate.json`: `<skill>_new`, `<skill>_rank`, `<skill>_targets`. The cards are `"power": true`
+(the advancement draw offers power cards first, so a new Brawler is offered all three attacks) and `requires.jobs: [510]`
+(exact branch); through the skill's `weapon_families: ["knuckle"]` they are offered, and the skills cast, only while a
+knuckle is held (a Brawler wielding a gun casts none of them and sees none of their cards). Learn weight 4, rank weight 3,
+targets weight 2: tier C, untuned like every Pirate card.
+
+| Skill | Canonical L1 -> L20 (Skill.wz 510.img) | Survivor behaviour |
+|---|---|---|
+| Backspin Blow 5101002 | damage 88 -> 240% (+8 per level), mpCon 12 -> 30 (+2 every 2 levels), mobCount 3, stun `time` 1 s, box (0,-50)..(140,0), `backspin` action | cast rule `box` with `cast.around`: any mobs within 140 px on either side admit it, the 3 nearest (bosses first) are struck once each; the character turns to the nearest one and slides 100 px **away** from it after the hits (7.9, `when: after`, tier C distance), stopping at platform edges and walls; every landed hit stuns for 1 s |
+| Double Uppercut 5101003 | damage 100 -> 290% (+10 per level), `attackCount` 2, mpCon 15 -> 30 (+5 every 5 levels), stun `time` 1 s, no box, no mobCount, `doubleupper` action | cast rule `weapon_reach` (the Power Strike rule, 7.8): one mob inside the held knuckle's swing envelope is struck twice; more mobs only from cards; no movement; every landed line stuns for 1 s (two stuns keep the one second) |
+| Corkscrew Blow 5101004 | damage 135 -> 420% (+15 per level), mpCon 20 -> 36 (+4 every 4 levels), mobCount 3, box (-100..-200, -50)..(0,0), `screw` action | cast rule `box` (the facing side only, canonical): a mob within the reach starts a full charge **toward** it (`when: during`, 7.9) of the same 100 -> 200 px as the box reach, striking up to 3 mobs along the swept path; stops at platform edges and walls; no stun |
+
+**Stun.** Skill.wz gives Backspin Blow and Double Uppercut no `prop`, so `on_hit: {"status": "stun", "duration_field": "time"}`
+has no `chance_field` and every damaging line stuns (the ticket's "at its Skill.wz chance" is therefore 100%, tier A by
+absence). The status is the generic stun of "Monster statuses and elements" (bosses and steady bosses resist; the mob
+`mob` stars play over stunned mobs). A hit that does 0 damage does not stun.
+
+**Choices that are ours (tier C).** All three need a knuckle (the WZ nodes name no weapon). Backspin Blow's canonical box
+(0..140 on the positive side) lies **behind** the facing in the left-facing convention, while the owner's rule is that it
+slides away from "the faced mob": `cast.around` mirrors the reach to both sides (the Somersault Kick approach), so it
+fires when any mob is within 140 px, faces the nearest and backs off from it, and its hits include mobs on both sides.
+Corkscrew Blow's charge distance has no scalar Skill.wz field (the reach is the box's `lt.x`), so
+`displacement.distances` copies -`lt.x` per level and a private-cache test checks all 20 against Skill.wz. The charge is
+the full distance at once (no `prepare`/`keydown` wind-up, no Loop sound, the `dash` prepare action is not played), and
+its sweep ignores walls for the hit box: a mob just past a wall that the end-of-charge box still overlaps is struck.
+Cooldowns 1.5 s (Backspin), 1.2 s (Double Uppercut), 2.0 s (Corkscrew); cast stance holds 0.8 s, 1.0 s, 0.8 s.
+Presentation: the skills' `effect`, `hit/0`, Use and Hit sounds and the body actions `backspin`, `doubleupper`,
+`screw` (Character.wz/00002000.img) play as for Flash Fist; the second effect layer `effect0` of Backspin Blow, the
+second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP Recovery is 7.12 and Oak Barrel 7.14.
+with #194.
 
 ### 7.16 Gunslinger attacks (#192, spec #168)
 
@@ -4094,6 +4129,10 @@ Pirate tracer (#186) additions:
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
 | Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
 | Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
+| Backspin Blow (#191, 7.15) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
+| Double Uppercut (#191, 7.15) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
+| Corkscrew Blow (#191, 7.15) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the sweep ignores walls for its hit box | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
+| Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.10) |
 | Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
 | Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
 | Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
