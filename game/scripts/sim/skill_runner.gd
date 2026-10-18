@@ -239,6 +239,8 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 	hit.damage_min = damage.x
 	hit.damage_max = damage.y
 	hit.magic = true
+	hit.damage_type = "magic"
+	hit.defense = "mdd"
 	hit.element = "h" # tier B: Heal's holy undead attack; canonical node has no elemAttr, research/cleric-heal.md.
 	var hv := world.visual_index(String(st.hit))
 	# tier C: ticket #57 requires every undead in the box, without the original six-target cap.
@@ -299,6 +301,8 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"range": float(st.range), "radius": float(st.radius), "visual": vis, "hit_visual": hv,
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
+				"damage_type": String(st.damage_type), "damage_pct": float(st.damage_pct),
+				"player_level": int(st.player_level), "crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 			})
 	else:

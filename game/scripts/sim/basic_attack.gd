@@ -48,10 +48,16 @@ func step(dt: float, world: RunWorld) -> void:
 	_pending["weapon_id"] = weapon
 	_pending["action"] = action
 	_pending["facing"] = world.player.facing
-	_pending["str"] = int(world.player_state.str)
-	_pending["dex"] = int(world.player_state.dex)
-	_pending["level"] = int(world.player_state.level)
-	_pending["watk"] = world.weapon_attack()
+	var caster := world.loadout
+	var kind := WeaponInfo.attack_kind(action)
+	var damage := CombatMath.physical_damage_range(caster.str_stat, caster.dex_stat, caster.luk_stat,
+		world.weapon_attack(kind == "shoot"), weapon, kind, caster.job_id, caster.mastery)
+	var mult := caster.player_stat("damage", 1.0)
+	_pending.merge({"skill": "basic_attack", "damage_type": "physical", "attack_kind": kind, "defense": "pdd",
+		"damage_min": damage.x * mult, "damage_max": damage.y * mult, "damage_pct": 1.0, "magic": false,
+		"player_level": caster.char_level, "crit": caster.player_stat("crit",
+			caster.crit_chance + caster.acc * caster.crit_per_acc + caster.crit_bonus),
+		"crit_mult": caster.crit_mult, "crit_damage_bonus": caster.crit_damage_bonus})
 	_pending["left"] = float(spec.hit_after)
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
 	world.start_action(action, float(spec.action_time), true)
@@ -145,11 +151,7 @@ func _impact(world: RunWorld) -> void:
 	var mob := _nearest(world, _pending.box, int(_pending.facing))
 	if mob < 0:
 		return
-	var kind: MobKind = world.mob_kinds[world.swarm.kind[mob]]
-	var damage := CombatMath.basic_damage_range(int(_pending.str), int(_pending.dex), float(_pending.watk),
-		int(_pending.weapon_id), String(_pending.action), int(_pending.level), kind.level, world.mob_defense(mob, false))
-	world.hit_mob(mob, {"skill": "basic_attack", "damage_min": damage.x, "damage_max": damage.y,
-		"magic": false, "crit": 0.0, "crit_mult": 1.0}, world.visual_index(String(_pending.hit_visual)))
+	world.hit_mob(mob, _pending, world.visual_index(String(_pending.hit_visual)), world.basic_rng)
 
 
 func _emit(world: RunWorld, phase: String) -> void:
