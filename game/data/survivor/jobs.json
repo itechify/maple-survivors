@@ -1,11 +1,11 @@
 {
-	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants.max_mp adds to computed base Max MP (Improved MaxMP Increase preserves the current MP ratio on growth). No job grants skills. Accepting a job opens an extra advancement skill draw before the level's normal draw; canonical skill prerequisites are ignored (tier C owner choice #31).",
+	"_doc": "Which canonical jobs (game/data/canonical/jobs.json) are playable in this build and what advancing grants (docs/GAME_DESIGN.md section 9). A job missing here is not playable with default_reason. Optional level overrides the canonical advancement level for survivor mode; an option above the player's level shows level_reason instead. grants.max_mp adds to computed base Max MP (Improved MaxMP Increase preserves the current MP ratio on growth). grants.max_hp (added to base Max HP, like level growth) is supported alongside max_mp. format1_weapon (tier C, frozen spec #32 rule) is the weapon CharacterSnapshot.migrate gives a format-1 character of that job line, the nearest ancestor's entry; new jobs need none. No job grants skills. Accepting a job opens an extra advancement skill draw before the level's normal draw; canonical skill prerequisites are ignored (tier C owner choice #31).",
 	"default_reason": "Not yet available",
 	"level_reason": "Lv. {level}",
 	"jobs": {
-		"0": {"playable": true},
+		"0": {"playable": true, "format1_weapon": 1302000},
 		"100": {"playable": false, "reason": "Not in this build"},
-		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120}},
+		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120}, "format1_weapon": 1372005},
 		"300": {"playable": false, "reason": "Not in this build"},
 		"400": {"playable": false, "reason": "Not in this build"},
 		"500": {"playable": false, "reason": "Not in this build"},

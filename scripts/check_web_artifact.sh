@@ -27,7 +27,8 @@ while IFS= read -r f; do
   if [[ "$(head -c 4 "$f" | tr -d '\0')" == "PKG1" ]]; then fail "${f#"$DIR"/} (starts with the WZ signature PKG1)"; fi
 done < <(find "$DIR" -type f | sort)
 
-for need in index.html index.js index.wasm index.pck shell.js shell.css lib.js idbfs.js import_worker.js title.jpg   favicon.ico site.webmanifest \
+for need in index.html index.js index.wasm index.pck shell.js shell.css lib.js idbfs.js import_worker.js title.jpg \
+  favicon.ico site.webmanifest \
   wzimport.js wzimport_bg.wasm asset_manifest.json GODOT_LICENSES.txt WZIMPORT_LICENSES.txt THIRD_PARTY_NOTICES.md ARIMO_OFL.txt; do
   [[ -s "$DIR/$need" ]] || { echo "[check_web_artifact] MISSING: $need" >&2; BAD=1; }
 done

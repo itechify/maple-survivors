@@ -104,6 +104,13 @@ _Avoid_: class (reserved for the five Explorer lines: Warrior, Magician, Bowman,
 **Job tier**:
 How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second job, and so on.
 
+**Job line**:
+A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
+job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+(`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
+lineage to the nearest listed ancestor.
+_Avoid_: class line, family (a weapon family is a kind of weapon)
+
 **Job advancement**:
 The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
 new job's skills come only from cards.
@@ -182,6 +189,17 @@ _Avoid_: monster skill (that is a mob skill)
 **Mob skill**:
 A canonical Skill.wz/MobSkill.img skill a boss casts, such as Slow or a summon. Ordinary monsters cast none, so
 status effects on the character only ever come from bosses.
+
+**Hit window**:
+The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
+boss attacks ignore it.
+_Avoid_: i-frames, invincibility (Invincible is a skill)
+
+**Alive cap**:
+How many monsters a stage keeps alive at once at a given moment of the round. It rises over the round and keeps
+rising slowly after the last boss arrives; bursts, elites and boss summons may go past it, up to the stage's hard
+limit.
+_Avoid_: mob cap, max mobs
 
 ## Mesos and equipment
 

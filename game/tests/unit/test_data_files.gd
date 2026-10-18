@@ -92,7 +92,7 @@ func test_cards_are_consistent() -> void:
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
 		if c.kind == "potion_tier":
 			assert_true(c.potion_kind in ["hp", "mp"])
-			var manifest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/asset_manifest.json"))
+			var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 			assert_has(manifest.items.map(func(id: Variant) -> int: return int(id)), int(c.item_id), "%s target is imported" % c.id)
 			assert_true(c.requires.potions.has(c.potion_kind), "tier requires its predecessor")
 		if "{value}" in String(c.desc):
@@ -108,7 +108,7 @@ func test_cards_are_consistent() -> void:
 	assert_eq(int(fallback.max_rank), 0, "healing can be taken again on a later reward")
 	assert_eq(fallback.effects, [{"stat": "hp", "op": "heal", "value": 1.0},
 		{"stat": "mp", "op": "heal", "value": 1.0}], "Power Elixir fully restores both pools")
-	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_has(manifest.items, 2000005.0, "Power Elixir art is imported")
 
 
@@ -129,7 +129,7 @@ func test_stat_cards_are_replaced_by_owned_skills() -> void:
 func test_stages_mobs_and_manifest() -> void:
 	var stages: Dictionary = data.stages.stages
 	var mobs: Dictionary = data.mobs.mobs
-	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
+	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_true(manifest is Dictionary)
 	var want_maps := {"henesys_hg1": 104040000, "tree_that_grew_1": 101010100, "dark_cave": 105050400}
 	assert_eq(stages.keys(), want_maps.keys(), "the three distinct stages are offered")
@@ -186,7 +186,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
 	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
-	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0})
+	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0})
 	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
 	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
 	assert_eq(float(b.potions.drops.normal.mp), 0.03, "normal mobs drop a Blue 3% of the time")
@@ -321,7 +321,7 @@ func test_setup_carries_canonical_potion_specs() -> void:
 	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
 		"the starters and the potion_tier ladders: Red, Orange, White, Blue, Mana Elixir")
 	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every ladder potion is retained")
-	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
 
@@ -417,7 +417,7 @@ func test_every_derived_stage_mob_is_in_the_asset_manifest() -> void:
 		return
 	var lib := AssetLibrary.new()
 	lib.open()
-	var manifest: Variant = DataRepo.load_json("res://data/asset_manifest.json")
+	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	var mob_skill := lib.img(DataRepo.MOB_SKILL_IMG).root
 	for key: String in ["henesys_hg1", "tree_that_grew_1"]:
 		var stage: Dictionary = data.stages.stages[key]

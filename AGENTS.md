@@ -11,8 +11,8 @@ changing gameplay.
 |---|---|
 | `game/` | Godot 4.7.2 project (GDScript). `scripts/sim/` is pure deterministic simulation; `scripts/assets/`, `scripts/render/`, `scripts/ui/`, `scripts/audio/` are presentation; `scripts/run/` wires a run together. |
 | `game/data/canonical/` | MapleStory reference facts that are not in WZ (EXP table, job tree). Never put balance tweaks here. |
-| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. |
-| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache. |
+| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). |
+| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
 | `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh` (`--web` too), `godot_templates.sh`, `build_wasm.sh`, `check_web_artifact.sh`. |
 | `web/` | The web shell (HTML/CSS/JS, import worker) of the web build; `web/dev/` holds dev-only localhost servers and tests, never shipped. |
@@ -116,6 +116,7 @@ bash scripts/playtest.sh --speed=1 --minutes=3                 # 3 minutes in re
 bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-forward to 10:00 without drawing,
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
+bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -207,6 +208,12 @@ tuning or as fresh evidence. Reserve fresh 701..730 for the balance pass's froze
 assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/2026 on both stages.
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
+
+`--job=<id>` (any first or second job id of the canonical tree; `--branch=<id>` is the deprecated alias) forces the bot's
+job choice in `balance.sh`, `playtest.sh`, `--run` and `balance_run.gd`: a first job is taken at the first advancement, a
+second job takes its first job there and itself at the second. A job this build cannot offer (not playable) fails at
+startup. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
+the summary reports seconds per job id.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
 all use the sensible bot's cards, jobs and potion decisions. They warm up normally until 1:00 (override with

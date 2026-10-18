@@ -1,0 +1,667 @@
+# Golden: every entry the SHIPPING manifest selects (game/data/asset_manifest.json merged with game/data/asset_manifest.d/*.json),
+# one per line, sorted bytewise, no duplicates. Captured from the single-file manifest before it was split into fragments (#152).
+# Line forms: "img <WZ img> *" (whole img), "img <WZ img> <path>" (one sub-path), "map|mapimg|mob|character|item <id or path>".
+# Regenerate after an intentional manifest change: UPDATE_MANIFEST_GOLDEN=1 cargo test --manifest-path tools/wzimport/Cargo.toml shipping_manifest
+# (docs/ASSET_PIPELINE.md 4.1). Contains only WZ paths and ids from our own manifest, nothing from the WZ files.
+character 1002001
+character 1002008
+character 1002012
+character 1002013
+character 1002014
+character 1002016
+character 1002017
+character 1002019
+character 1002020
+character 1002033
+character 1002034
+character 1002035
+character 1002036
+character 1002037
+character 1002038
+character 1002041
+character 1002042
+character 1002060
+character 1002061
+character 1002062
+character 1002063
+character 1002064
+character 1002065
+character 1002066
+character 1002067
+character 1002068
+character 1002069
+character 1002073
+character 1002075
+character 1002080
+character 1002081
+character 1002083
+character 1002096
+character 1002097
+character 1002102
+character 1002103
+character 1002104
+character 1002105
+character 1002106
+character 1002132
+character 1002133
+character 1002134
+character 1002141
+character 1002142
+character 1002143
+character 1002144
+character 1002145
+character 1002151
+character 1002152
+character 1002153
+character 1002154
+character 1002155
+character 1002215
+character 1002216
+character 1002217
+character 1002218
+character 1002242
+character 1002243
+character 1002244
+character 1002245
+character 1002246
+character 1002252
+character 1002253
+character 1002254
+character 1002279
+character 1002296
+character 1002310
+character 1002317
+character 1002469
+character 1002480
+character 1002544
+character 1002579
+character 1002654
+character 1002738
+character 1002752
+character 1012000
+character 1012001
+character 1012021
+character 1012024
+character 1012025
+character 1012028
+character 1012029
+character 1012063
+character 1012165
+character 1012180
+character 1022000
+character 1022005
+character 1022018
+character 1022023
+character 1022028
+character 1022042
+character 1022043
+character 1022047
+character 1022066
+character 1022104
+character 1032029
+character 1032036
+character 1032051
+character 1032052
+character 1032053
+character 1032054
+character 1032063
+character 1032071
+character 1032073
+character 1032074
+character 1040002
+character 1040004
+character 1040006
+character 1040010
+character 1040013
+character 1040014
+character 1040017
+character 1040018
+character 1040019
+character 1040020
+character 1041002
+character 1041004
+character 1041006
+character 1041010
+character 1041011
+character 1041012
+character 1041015
+character 1041016
+character 1041017
+character 1041018
+character 1041025
+character 1041026
+character 1041029
+character 1041030
+character 1041031
+character 1041041
+character 1041042
+character 1041043
+character 1041051
+character 1041052
+character 1041053
+character 1042000
+character 1042024
+character 1042030
+character 1042032
+character 1042036
+character 1042046
+character 1042062
+character 1042088
+character 1042106
+character 1042186
+character 1050001
+character 1050002
+character 1050003
+character 1050008
+character 1050009
+character 1050010
+character 1050018
+character 1050023
+character 1050024
+character 1050025
+character 1050026
+character 1050027
+character 1050028
+character 1050029
+character 1050030
+character 1050031
+character 1050035
+character 1050036
+character 1050037
+character 1050038
+character 1050039
+character 1050045
+character 1050046
+character 1050047
+character 1050048
+character 1050049
+character 1050053
+character 1050054
+character 1050055
+character 1050056
+character 1050067
+character 1050068
+character 1050069
+character 1050070
+character 1051003
+character 1051004
+character 1051005
+character 1051023
+character 1051024
+character 1051025
+character 1051026
+character 1051027
+character 1051030
+character 1051031
+character 1051032
+character 1051033
+character 1051034
+character 1051044
+character 1051045
+character 1051046
+character 1051047
+character 1051052
+character 1051053
+character 1051054
+character 1051055
+character 1052001
+character 1052013
+character 1052025
+character 1052030
+character 1052043
+character 1052077
+character 1052087
+character 1052135
+character 1052166
+character 1052194
+character 1052218
+character 1060002
+character 1060004
+character 1060005
+character 1060006
+character 1060007
+character 1060012
+character 1060013
+character 1060014
+character 1060015
+character 1061002
+character 1061008
+character 1061010
+character 1061011
+character 1061012
+character 1061013
+character 1061021
+character 1061022
+character 1061027
+character 1061028
+character 1061034
+character 1061035
+character 1061036
+character 1061047
+character 1061048
+character 1061049
+character 1062000
+character 1062001
+character 1062003
+character 1062009
+character 1062023
+character 1062027
+character 1062030
+character 1062032
+character 1062057
+character 1062068
+character 1062089
+character 1062092
+character 1072001
+character 1072004
+character 1072005
+character 1072006
+character 1072008
+character 1072010
+character 1072012
+character 1072017
+character 1072018
+character 1072019
+character 1072020
+character 1072023
+character 1072024
+character 1072037
+character 1072038
+character 1072042
+character 1072043
+character 1072044
+character 1072045
+character 1072048
+character 1072049
+character 1072054
+character 1072055
+character 1072056
+character 1072062
+character 1072063
+character 1072064
+character 1072072
+character 1072073
+character 1072074
+character 1072075
+character 1072076
+character 1072077
+character 1072078
+character 1072088
+character 1072089
+character 1072090
+character 1072091
+character 1072097
+character 1072114
+character 1072115
+character 1072116
+character 1072117
+character 1072136
+character 1072137
+character 1072138
+character 1072139
+character 1072140
+character 1072141
+character 1072142
+character 1072143
+character 1072157
+character 1072158
+character 1072159
+character 1072160
+character 1072169
+character 1072189
+character 1072191
+character 1072233
+character 1072260
+character 1072322
+character 1072336
+character 1072417
+character 1082002
+character 1082019
+character 1082020
+character 1082026
+character 1082028
+character 1082040
+character 1082051
+character 1082052
+character 1082053
+character 1082054
+character 1082055
+character 1082056
+character 1082062
+character 1082063
+character 1082064
+character 1082077
+character 1082079
+character 1082080
+character 1082081
+character 1082082
+character 1082086
+character 1082087
+character 1082088
+character 1082098
+character 1082099
+character 1082100
+character 1082150
+character 1082156
+character 1082162
+character 1082172
+character 1082229
+character 1082233
+character 1082249
+character 1082255
+character 1092031
+character 1092033
+character 1092039
+character 1092040
+character 1092044
+character 1092062
+character 1102005
+character 1102007
+character 1102020
+character 1102044
+character 1102058
+character 1102066
+character 1102070
+character 1102092
+character 1102094
+character 1102107
+character 12000
+character 12001
+character 12002
+character 12003
+character 1302000
+character 1312004
+character 1322005
+character 1372000
+character 1372001
+character 1372002
+character 1372003
+character 1372004
+character 1372005
+character 1372006
+character 1372007
+character 1372012
+character 1372014
+character 1372015
+character 1372033
+character 1372034
+character 1382000
+character 1382001
+character 1382002
+character 1382003
+character 1382004
+character 1382005
+character 1382006
+character 1382007
+character 1382009
+character 1382012
+character 1382017
+character 1382018
+character 1382019
+character 1382039
+character 1702004
+character 1702012
+character 1702018
+character 1702042
+character 1702078
+character 1702083
+character 1702096
+character 1702134
+character 1702146
+character 1702175
+character 2000
+character 20000
+character 20001
+character 20002
+character 2001
+character 2002
+character 2003
+character 21000
+character 21001
+character 21002
+character 30000
+character 30002
+character 30003
+character 30007
+character 30020
+character 30022
+character 30023
+character 30027
+character 30030
+character 30032
+character 30033
+character 30037
+character 31000
+character 31002
+character 31003
+character 31007
+character 31040
+character 31042
+character 31043
+character 31047
+character 31050
+character 31052
+character 31053
+character 31057
+img Base.wz/smap.img *
+img Base.wz/zmap.img *
+img Character.wz/Afterimage/hit.img mace1
+img Character.wz/Afterimage/hit.img mace2
+img Character.wz/Afterimage/hit.img sword1
+img Character.wz/Afterimage/hit.img sword2
+img Character.wz/Afterimage/mace.img 0
+img Character.wz/Afterimage/swordOL.img 0
+img Character.wz/PetEquip/01812000.img info
+img Character.wz/PetEquip/01812001.img info
+img Character.wz/PetEquip/01812002.img info
+img Character.wz/PetEquip/01812003.img info
+img Character.wz/PetEquip/01812004.img info
+img Character.wz/PetEquip/01812005.img info
+img Effect.wz/BasicEff.img Enchant
+img Effect.wz/BasicEff.img JobChanged
+img Effect.wz/BasicEff.img LevelUp
+img Effect.wz/BasicEff.img NoBlue0
+img Effect.wz/BasicEff.img NoBlue1
+img Effect.wz/BasicEff.img NoCri0
+img Effect.wz/BasicEff.img NoCri1
+img Effect.wz/BasicEff.img NoRed0
+img Effect.wz/BasicEff.img NoRed1
+img Effect.wz/BasicEff.img NoViolet0
+img Effect.wz/BasicEff.img NoViolet1
+img Effect.wz/BasicEff.img Summoned
+img Effect.wz/BasicEff.img Teleport
+img Effect.wz/Summon.img 1
+img Effect.wz/Summon.img 3
+img Effect.wz/Tomb.img *
+img Etc.wz/Commodity.img *
+img Etc.wz/MakeCharInfo.img Info/CharFemale
+img Etc.wz/MakeCharInfo.img Info/CharMale
+img Etc.wz/MakeCharInfo.img Name/CharFemale
+img Etc.wz/MakeCharInfo.img Name/CharMale
+img Item.wz/Consume/0204.img *
+img Item.wz/Pet/5000000.img fly
+img Item.wz/Pet/5000000.img hang
+img Item.wz/Pet/5000000.img info
+img Item.wz/Pet/5000000.img info/icon
+img Item.wz/Pet/5000000.img info/iconRaw
+img Item.wz/Pet/5000000.img jump
+img Item.wz/Pet/5000000.img move
+img Item.wz/Pet/5000000.img stand0
+img Item.wz/Pet/5000000.img stand1
+img Item.wz/Pet/5000001.img fly
+img Item.wz/Pet/5000001.img hang
+img Item.wz/Pet/5000001.img info
+img Item.wz/Pet/5000001.img info/icon
+img Item.wz/Pet/5000001.img info/iconRaw
+img Item.wz/Pet/5000001.img jump
+img Item.wz/Pet/5000001.img move
+img Item.wz/Pet/5000001.img stand0
+img Item.wz/Pet/5000001.img stand1
+img Item.wz/Pet/5000002.img fly
+img Item.wz/Pet/5000002.img hang
+img Item.wz/Pet/5000002.img info
+img Item.wz/Pet/5000002.img info/icon
+img Item.wz/Pet/5000002.img info/iconRaw
+img Item.wz/Pet/5000002.img jump
+img Item.wz/Pet/5000002.img move
+img Item.wz/Pet/5000002.img stand0
+img Item.wz/Pet/5000002.img stand1
+img Map.wz/Effect.img quest/party/clear
+img Map.wz/MapHelper.img mark
+img Map.wz/Physics.img *
+img Npc.wz/1012100.img *
+img Npc.wz/1022000.img *
+img Npc.wz/1032001.img *
+img Npc.wz/1032103.img *
+img Npc.wz/1052001.img *
+img Npc.wz/1052104.img *
+img Npc.wz/1090000.img *
+img Npc.wz/2022002.img *
+img Npc.wz/2041016.img *
+img Npc.wz/9000069.img *
+img Npc.wz/9010000.img *
+img Npc.wz/9030000.img *
+img Npc.wz/9030100.img *
+img Npc.wz/9201133.img *
+img Npc.wz/9250025.img *
+img Skill.wz/000.img *
+img Skill.wz/200.img *
+img Skill.wz/210.img *
+img Skill.wz/220.img *
+img Skill.wz/230.img *
+img Skill.wz/MobSkill.img *
+img Sound.wz/BgmUI.img *
+img Sound.wz/Field.img Party1
+img Sound.wz/Game.img *
+img Sound.wz/Item.img 02000000/Use
+img Sound.wz/Item.img 02000001/Use
+img Sound.wz/Item.img 02000002/Use
+img Sound.wz/Item.img 02000003/Use
+img Sound.wz/Item.img 02000004/Use
+img Sound.wz/Item.img 02000005/Use
+img Sound.wz/Item.img 02000006/Use
+img Sound.wz/Skill.img 0001000
+img Sound.wz/Skill.img 0001001
+img Sound.wz/Skill.img 0001002
+img Sound.wz/Skill.img 1001004
+img Sound.wz/Skill.img 2001002
+img Sound.wz/Skill.img 2001003
+img Sound.wz/Skill.img 2001004
+img Sound.wz/Skill.img 2001005
+img Sound.wz/Skill.img 2101001
+img Sound.wz/Skill.img 2101002
+img Sound.wz/Skill.img 2101003
+img Sound.wz/Skill.img 2101004
+img Sound.wz/Skill.img 2101005
+img Sound.wz/Skill.img 2201001
+img Sound.wz/Skill.img 2201002
+img Sound.wz/Skill.img 2201003
+img Sound.wz/Skill.img 2201004
+img Sound.wz/Skill.img 2201005
+img Sound.wz/Skill.img 2301001
+img Sound.wz/Skill.img 2301002
+img Sound.wz/Skill.img 2301003
+img Sound.wz/Skill.img 2301004
+img Sound.wz/Skill.img 2301005
+img Sound.wz/UI.img *
+img Sound.wz/Weapon.img barehands
+img Sound.wz/Weapon.img mace
+img Sound.wz/Weapon.img swordL
+img String.wz/Consume.img *
+img String.wz/Eqp.img *
+img String.wz/Etc.img *
+img String.wz/Map.img *
+img String.wz/Mob.img *
+img String.wz/Npc.img 1012100
+img String.wz/Npc.img 1022000
+img String.wz/Npc.img 1032001
+img String.wz/Npc.img 1032103
+img String.wz/Npc.img 1052001
+img String.wz/Npc.img 1052104
+img String.wz/Npc.img 1090000
+img String.wz/Npc.img 2022002
+img String.wz/Npc.img 2041016
+img String.wz/Npc.img 9000069
+img String.wz/Npc.img 9010000
+img String.wz/Npc.img 9030000
+img String.wz/Npc.img 9030100
+img String.wz/Npc.img 9201133
+img String.wz/Npc.img 9250025
+img String.wz/Pet.img 5000000
+img String.wz/Pet.img 5000001
+img String.wz/Pet.img 5000002
+img String.wz/Skill.img *
+img UI.wz/Basic.img *
+img UI.wz/CashShop.img Base
+img UI.wz/CashShop.img CSChar
+img UI.wz/CashShop.img CSInventory
+img UI.wz/CashShop.img CSList
+img UI.wz/CashShop.img CSNotice
+img UI.wz/CashShop.img CSStatus
+img UI.wz/CashShop.img CSTab
+img UI.wz/Login.img *
+img UI.wz/StatusBar.img *
+img UI.wz/UIWindow.img *
+item 2000000
+item 2000001
+item 2000002
+item 2000003
+item 2000004
+item 2000005
+item 2000006
+item 4000000
+item 4000001
+item 4000003
+item 4000007
+item 4000008
+item 4000010
+item 4000011
+item 4000012
+item 4000013
+item 4000015
+item 4000016
+item 4000017
+item 4000019
+item 4000028
+item 4000042
+item 4000046
+item 4000067
+item 4000076
+item 4000081
+item 9000000
+item 9000001
+item 9000002
+item 9000003
+map 101010100
+map 104040000
+map 105050400
+map 910000000
+mapimg UI.wz/MapLogin.img
+mob 100100
+mob 100101
+mob 1110100
+mob 120100
+mob 1210100
+mob 1210102
+mob 130101
+mob 210100
+mob 2110200
+mob 2220000
+mob 2230100
+mob 2230101
+mob 2300100
+mob 3220000
+mob 3230100
+mob 3230300
+mob 6130101
+mob 6220000
+mob 6300005
+mob 7130100
+mob 7130101
+mob 8130100
+mob 8220009
+mob 9300003
+mob 9300062
+mob 9300063
+mob 9300064
+mob 9400205

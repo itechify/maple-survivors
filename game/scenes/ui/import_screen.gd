@@ -16,7 +16,8 @@ extends Control
 ##
 ## Importer location: next to the game executable (exported builds: <exe dir>/wzimport(.exe)), else the dev build
 ## <repo>/tools/wzimport/target/release/wzimport(.exe) (resolved from res://). The manifest is copied from
-## res://data/asset_manifest.json to user://import/asset_manifest.json first (inside a .pck it is not a real file).
+## res://data/asset_manifest.json merged with its res://data/asset_manifest.d/*.json fragments (AssetManifest) to
+## user://import/asset_manifest.json first (inside a .pck it is not a real file).
 
 ## The .wz files the import needs (docs/ASSET_PIPELINE.md section 1).
 const REQUIRED := ["Base.wz", "Character.wz", "Effect.wz", "Etc.wz", "Item.wz", "Map.wz", "Mob.wz", "Npc.wz",
@@ -234,7 +235,9 @@ func _drain(f: FileAccess, which: int) -> void:
 
 
 func _copy_manifest() -> String:
-	var text := FileAccess.get_file_as_string(MANIFEST)
+	# The importer gets one file here (the .pck holds no folder beside it), so the fragments are merged into it.
+	var merged := AssetManifest.load_merged(MANIFEST)
+	var text := AssetManifest.to_json(merged) if not merged.is_empty() else ""
 	if text == "":
 		return ""
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(MANIFEST_COPY.get_base_dir()))
