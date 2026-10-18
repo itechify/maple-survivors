@@ -11,7 +11,7 @@ const INFO := {
 }
 
 
-## First-job Thief of either path, ready for the Lv30 window; grants deliberately exceed its DEX.
+## Seeded first-job Thief of either path; tests set its advancement level. Grants deliberately exceed its DEX.
 func _thief(path := "claw") -> RunWorld:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
@@ -210,7 +210,7 @@ func test_branch_cards_require_the_exact_job_and_weapon_while_attacks_carry_only
 		w.step(DT, MoveInput.new())
 		assert_true(w.apply_job(job))
 		for card: Dictionary in w.pending_cards:
-			assert_has(BRANCH_SKILLS[job], card.skill, "advancement draw belongs to the new branch")
+			assert_eq(int(w.book.def(card.skill).job), job, "advancement draw belongs to the new branch")
 		for swap in [false, true]:
 			if swap:
 				_wear(w, 1332063 if job == 410 else 1472061)

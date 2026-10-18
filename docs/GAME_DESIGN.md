@@ -4449,7 +4449,7 @@ per family (`grant_items`, same order; #165 #180 replaced the single `grant_item
 advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
 (tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
 are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
-the Warrior's three branches and the two Pirate branches have them (section 9, Level 30).
+the Warrior's three branches and the two Thief and Pirate branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
