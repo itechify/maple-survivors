@@ -22,8 +22,9 @@ signal notice(text: String)
 ## tier C (ours; the v83 client's wording is unverified): the messages for a refused change.
 const MESSAGES := {"requirement": "You do not meet the requirements to equip this item.",
 	"inventory_full": "Your inventory is full. Make room before taking an item off.",
-	# tier B: wearing a two-handed weapon over a shield (or a shield over one) with no room for what moves makes the v83
-	# server send the same inventory-full status as a failed pickup (Cosmic; see HudMessages.show_inventory_full).
+	# tier B: Cosmic InventoryManipulator.equip (overall over a bottom, a shield over a two-handed weapon, a two-handed
+	# weapon over a shield) with a full Equip tab sends getShowInventoryFull (status 0xff), the same status a failed pickup
+	# shows (HudMessages.show_inventory_full); the v83 text of it is that pickup notice's.
 	"equip_full": "You can't get anymore items.",
 	"scroll_type": "This scroll cannot be used on that item.",
 	"scroll_slots": "That item has no upgrade slots left.",
