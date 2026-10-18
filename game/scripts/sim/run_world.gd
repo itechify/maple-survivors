@@ -1697,7 +1697,41 @@ func _play_final_attacks() -> void:
 		start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
 			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
-		hit_mob(slot, st, visual_index(String(st.hit)), final_rng)
+		var hit_visual := visual_index(String(st.hit))
+		hit_mob(slot, st, hit_visual, final_rng)
+		for extra: int in _spread_targets(slot, int(st.count) - 1):
+			hit_mob(extra, st, hit_visual, final_rng)
+
+
+## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing reach
+## (BasicAttack.reach) of the target's body centre, nearest the target first (scheduled bosses first, then the slot,
+## RunWorld.targets_before). Uses no RNG. tier C: ours; reach is measured around the struck target, as a circle.
+func _spread_targets(target: int, want: int) -> Array[int]:
+	var found: Array[int] = []
+	if want <= 0:
+		return found
+	var reach := basic.reach(self)
+	if reach <= 0.0:
+		return found
+	var centre := mob_center(target)
+	var buffer := PackedInt32Array()
+	var candidates := PackedInt32Array()
+	var count := mob_grid.query_radius(centre, reach + body_pad, buffer)
+	var distance := {}
+	for i in count:
+		var m := buffer[i]
+		if m == target or swarm.active[m] == 0:
+			continue
+		var d2 := mob_center(m).distance_squared_to(centre)
+		if d2 > reach * reach:
+			continue
+		candidates.append(m)
+		distance[m] = d2
+	var ordered: Array = Array(candidates)
+	ordered.sort_custom(func(a: int, b: int) -> bool: return targets_before(a, distance[a], b, distance[b]))
+	for m: int in ordered.slice(0, want):
+		found.append(m)
+	return found
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
