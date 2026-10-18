@@ -3247,15 +3247,15 @@ at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) 
   and what changing that would move.
 
 **Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
-number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
-and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
+number of steps *faster* (positive; the v83 Boosters are 2). Skill.wz stores `x` as -2 (a smaller speed number is faster),
+so the real Boosters declare `scale: -1` (7.9). It is an ordinary auto-cast buff: cast when inactive, ready and
 affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
 gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
 the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
 counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
 `Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
-weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
-the real ones come with the class specs.
+weapon change refreshes them and the cached skill stats). `test_attack_speed.gd` tests the consumer with a synthetic
+Booster; the six Warrior second-job Boosters are the first real ones (7.9).
 
 ### 7.8 Warrior first job (100, #163)
 
@@ -3318,6 +3318,67 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
+
+### 7.9 Warrior second job: Masteries, Boosters and Final Attack (#181)
+
+Eighteen v83 skills from `Skill.wz/110.img`, `120.img` and `130.img` (canonical level counts and numbers, icons, effect
+and hit art, Booster sounds), all appended to `skills/warrior.json` and `upgrades/warrior.json` (spec #165). A second job
+gets no attack skill of its own (7.8, `requires.carry_jobs`): the Final Attack is the branch's *attack skill*
+(GLOSSARY), the Mastery and Booster support it, and Power Strike and Slash Blast stay on offer.
+
+| Branch | Mastery (20) | Final Attack (30) | Booster (20) |
+|---|---|---|---|
+| Fighter 110 | `sword_mastery_fighter` 1100000, `axe_mastery` 1100001 | `final_attack_sword_fighter` 1100002, `final_attack_axe` 1100003 | `sword_booster_fighter` 1101004, `axe_booster` 1101005 |
+| Page 120 | `sword_mastery_page` 1200000, `bw_mastery` 1200001 | `final_attack_sword_page` 1200002, `final_attack_bw` 1200003 | `sword_booster_page` 1201004, `bw_booster` 1201005 |
+| Spearman 130 | `spear_mastery` 1300000, `polearm_mastery` 1300001 | `final_attack_spear` 1300002, `final_attack_polearm` 1300003 | `spear_booster` 1301004, `polearm_booster` 1301005 |
+
+A name two branches share takes the branch suffix; a unique name stays plain. Each skill works only while its own family
+is held: sword, axe and blunt cover the one- and two-handed weapons, spear and polearm are separate families
+(`weapon_families`, 7.5). The WZ nodes carry no `weapon` field, so every entry lists its family (tier C, v83-facts 3).
+
+- **Mastery** (`passive: {stat: mastery, field: mastery, effects: [{stat: acc, field: x}]}`, 7.6). Skill.wz `mastery` is a
+  step 1..10 (`ceil(level / 2)`: levels 1 and 2 are both step 1), shown as (10 + 5N)% = 15% to 60%; the accuracy is `x`
+  (+1 to +20 at level N), there is no `acc` key. Raises the minimum damage of every physical line and ACC only while its
+  family is held.
+- **Booster** (kind `buff`, auto-cast, recast on expiry, `time` 10 s per level up to 200 s, 7.7). The WZ `x` is -2 at every
+  level (v83 speed steps: negative is faster), so the entry reads it with `scale: -1` and the consumer gets +2 steps.
+  It pays canonical `hpCon` and `mpCon` together (29 at level 1 down to 10 at 20), and is not cast when the HP cost would
+  leave 0 HP (7.8). A swap to another family stops the speed-up without cancelling the buff.
+- **Final Attack** (`final_attack: {chance_field: prop}`, 7.6): `prop` = 2% per level (2 to 60%), follow-up damage
+  `damage` = 100 + 5 x level percent (105 to 250%). The WZ node has no follow-up action and no sound, so the follow-up
+  plays the held weapon's attack stance (`action: "weapon"`, 7.8; 0.6 s, tier C) and uses the `hit/0` art. Only a hit
+  with its own family triggers it; the Fighter holding an axe never rolls the sword Final Attack. RNG stream 12 as in 7.6.
+- **Spread** (one `skill_mod` card per Final Attack, `<final attack key>_spread`, name "Spreading Blow"; effect
+  `count` +1, three steps, a power card, weight 2). "The follow-up also strikes +N monsters next to the target": after the
+  follow-up hits the original target, up to N other live monsters whose body centre is within the held weapon's swing
+  reach (`BasicAttack.reach`, the far edge of its afterimage envelope, tier A) of the *struck target's* body centre are hit
+  by the same follow-up (the same stats, one `mob_hit` each). Candidates are ordered like every player targeting rule
+  (`RunWorld.targets_before`): a scheduled boss first, then the nearest to the target, then the lower slot. Spread
+  uses no RNG: the proc roll stays on stream 12 and the extra hits roll their damage and crits on it as the primary
+  follow-up does. Extra hits never trigger another Final Attack. This is also the hit-more-mobs card of the Final Attack
+  (the #84 rule in `test_data_files`), which is why only these six need it; Masteries and Boosters are damage-less passives.
+
+**Cards** (`upgrades/warrior.json`; each skill has a learn and a rank card, rank cards cap at the canonical level count;
+every card lists only its own branch in `requires.jobs`; weights are tier C): Final Attack and Booster learn and rank
+cards and the Spread cards are `power: true`; Masteries are not. A card is offered only while the held weapon family is
+the skill's (7.5), so a sword-holding Fighter sees Sword Mastery, Sword Booster and Final Attack: Sword cards and never the
+axe's, and after wielding the axe the reverse. Because the Final Attack and Booster learn cards are power cards listing the
+new job, the advancement draw (7.8, section 8) offers the held family's Final Attack and Booster. A Mastery appears
+among the other new skills of that draw.
+
+**Bot.** `balance.json` `bot.card_scores` scores the new and rank cards of all eighteen skills as attack cards: learn 100
+(the `SCORE_NEW_ATTACK`), rank 74 (`SCORE_RANK_ATTACK` 62 plus the current-job bonus 12), because the generic scoring
+treats a buff or a passive as non-attack. Spread scores as a targets card (75 plus the job bonus). No cast rules: the
+Booster is an ordinary auto-cast buff.
+
+**Presentation.** Skill and level text is the v83 String.wz text (no overrides: none of these strings says "party" or
+"canonical"; the Blunt Booster says "mace", as v83 does). The rank cards preview `Accuracy` for a Mastery (its `x`) and
+`Success rate` (`prop`) beside `Damage` for a Final Attack (`UpgradePool.PREVIEW_FIELDS`, `LevelUpWindow`).
+
+**Tests.** `tests/unit/test_warrior2_weapon_skills.gd` (RF skill fixtures carry the exact v83 level formulas; one test
+reads the real Skill.wz and SKIPs without the cache): every Mastery's minimum damage and ACC only for its family,
+every Booster's cost, speed steps, family gate and recast, every Final Attack's proc rate per family, Spread's
+count, reach, order and determinism, the cards by held family, the advancement draw and the bot scores.
 
 ## 8. Upgrades
 
@@ -4127,6 +4188,13 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Second-job weapon skill families (#181) | each of the 18 Masteries, Boosters and Final Attacks lists its one family in `weapon_families` (sword, axe, blunt, spear, polearm; sword/axe/blunt cover one- and two-handed) | C | the Skill.wz nodes have no `weapon` field; String text and v83-facts 3 |
+| Second-job Mastery (#181) | `mastery` step 1..10 (15-60%, levels 1 and 2 both 15%) and ACC `x` 1..20, only while the family is held | A (numbers), B (the (10 + 5N)% encoding) | Skill.wz 110/120/130; v83-facts 3 |
+| Second-job Booster (#181) | WZ `x` -2 read with `scale: -1` as +2 speed steps; `hpCon` = `mpCon` 29 down to 10, `time` 10 s per level (10-200 s); auto-cast, recast on expiry, 0.8 s stance | A (numbers), C (the sign convention, auto-cast, stance) | Skill.wz; ours |
+| Second-job Final Attack (#181) | `prop` 2 x level percent, `damage` 100 + 5 x level percent, follow-up in the held weapon's attack stance for 0.6 s, no sound, `hit/0` art | A (prop, damage, art), C (stance and action time: the node has no action) | Skill.wz; ours |
+| Spread (#181) | `skill_mod` `count` +1 per step, 3 steps: the follow-up also hits up to N other live monsters whose body centre is within `BasicAttack.reach` (a circle) of the struck target's, bosses first, then nearest to the target, then slot; no RNG | C | ours (owner decision 1 of spec #165) |
+| Weapon-skill cards (#181) | learn weights Mastery 3 / Final Attack 4 / Booster 3, rank weights 2 / 3 / 2, Spread 2; Final Attack, Booster and Spread are `power`, Masteries are not | C | ours, untuned |
+| Weapon-skill bot scores (#181) | `bot.card_scores`: learn 100, rank 74 for the 18 skills (attack-card values); Spread scores through `SCORE_MOD.count` | C | ours, untuned |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
