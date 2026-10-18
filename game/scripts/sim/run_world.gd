@@ -1164,18 +1164,48 @@ func skill_box_count(box: Rect2, limit: int, filter: Callable = Callable(),
 	return _skill_box_matches(box, filter, limit, 0, kinds_ok, facing).size()
 
 
+## Up to `limit` live bodies intersecting `rect` (world coordinates, skill_box_targets' edge rules), scheduled bosses
+## first, then nearest to `from`, then slot (targets_before). A charge's swept path (7.9).
+func skill_rect_targets(rect: Rect2, from: Vector2, limit: int) -> PackedInt32Array:
+	var matches := _world_rect_matches(rect, Callable(), 0)
+	var d2 := {}
+	for m: int in matches:
+		d2[m] = mob_center(m).distance_squared_to(from)
+	matches.sort_custom(func(a: int, b: int) -> bool: return targets_before(a, d2[a], b, d2[b]))
+	if limit > 0 and matches.size() > limit:
+		matches.resize(limit)
+	return PackedInt32Array(matches)
+
+
+## Moves the grounded player up to `distance` px toward `side` (-1 / 1) along its platform for a moving attack, stopping
+## at the platform's edge and at walls (PlayerMotion.displace). Never fails: returns the px actually covered (0 while
+## airborne or climbing, or when blocked), and the spent cast stands either way. The view follows on the next tick.
+func displace_player(side: int, distance: float) -> float:
+	return player.displace(side, distance, fhm, bounds)
+
+
 ## The live bodies of skill_box_targets in candidate order (unsorted), stopping at `limit` matches (0 = all), among
 ## the first `probe` grid candidates (0 = all; _box_candidates says how many the query gave), of the kinds `kinds_ok`
 ## allows (empty = any).
 func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0,
 		kinds_ok: PackedByteArray = PackedByteArray(), facing := 0) -> Array[int]:
+	if not box.has_area():
+		_box_candidates = 0
+		return []
+	if (facing if facing != 0 else player.facing) > 0:
+		box.position.x = -box.end.x
+	box.position += player.pos
+	return _world_rect_matches(box, filter, limit, probe, kinds_ok)
+
+
+## The live bodies intersecting a rect in world coordinates, with _skill_box_matches' edge rules, filter, limit, probe
+## and kinds_ok (candidate order, unsorted).
+func _world_rect_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0,
+		kinds_ok: PackedByteArray = PackedByteArray()) -> Array[int]:
 	var matches: Array[int] = []
 	_box_candidates = 0
 	if not box.has_area():
 		return matches
-	if (facing if facing != 0 else player.facing) > 0:
-		box.position.x = -box.end.x
-	box.position += player.pos
 	var candidates := PackedInt32Array()
 	var n := mob_grid.query_rect(box.grow(body_pad), candidates, probe)
 	_box_candidates = n

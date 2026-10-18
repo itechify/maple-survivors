@@ -235,7 +235,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value, icon, duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
+## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
@@ -339,7 +339,28 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
+		"displacement": _displacement(key, d, r, lv),
 	}
+
+
+## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when
+## "before" | "after" | "during", distance px >= 0}. The definition's `displacement` gives the distance as `field` (a
+## canonical level field of this rank's level), `distances` (survivor values per rank, the last one repeating) or a
+## plain `distance`, in that order (docs/GAME_DESIGN.md 7.9).
+func _displacement(key: String, d: Dictionary, rank: int, lv: int) -> Dictionary:
+	var block: Variant = d.get("displacement", {})
+	if not (block is Dictionary) or (block as Dictionary).is_empty():
+		return {}
+	var distance := 0.0
+	if block.has("field"):
+		distance = book.canonical(key, lv, String(block.field), 0.0)
+	elif block.has("distances") and not (block.distances as Array).is_empty():
+		var list: Array = block.distances
+		distance = float(list[clampi(rank - 1, 0, list.size() - 1)])
+	else:
+		distance = float(block.get("distance", 0.0))
+	return {"direction": String(block.get("direction", "away")), "when": String(block.get("when", "after")),
+		"distance": maxf(0.0, distance)}
 
 
 func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
