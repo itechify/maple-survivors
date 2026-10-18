@@ -492,6 +492,16 @@ feeds 1/3, and that Dark Cave round dies at 13:57 (Lv 43 -> 55, Zombie Mushmom k
 spawned). Every sensible-policy number before this entry comes from a bot that ignored card tiers. #77 tunes tier 2
 against this bot.
 
+#### Spec #130 review fixes regression smoke (2026-10-17)
+
+`ISOLATE=s130rf bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, shared real
+cache, no PATCH or tuning, on `spec130/review-fixes` (the integration tip `ada5f31` plus the review fixes). The fixes
+touch the web shell, the wasm importer's unused zip scratch code, docs, a Key Config font constant, a shared fullscreen
+mode test and a `WebHandoff.hand_over` helper; nothing in the sim. All 12 runs finish with no crashes, script errors or
+world warnings, and every record equals the #63 smoke above: Henesys bot C 15:29 / D 23:44 / D 21:08 (1 clear), random
+1 clear then deaths 7:42 / 10:59; Tree bot D 11:18 / 2:36 / 2:08, random D 20:23 / 2:38 / 1:28 (Tree stays record-only).
+Full suite 1323 tests, 0 failed, 0 skipped.
+
 #### Spec #33 / #105 worn equipment regression smoke (2026-10-16)
 
 `ISOLATE=s33t105 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
