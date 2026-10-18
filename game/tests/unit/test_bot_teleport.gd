@@ -52,6 +52,9 @@ func test_bot_reserves_two_casts_of_most_expensive_learned_auto_attack() -> void
 
 func test_bot_waits_five_simulation_seconds_between_escape_requests() -> void:
 	var w := _cornered_world()
+	# The mob is re-placed on the character every tick for five seconds; with the shrinking hit window (#88) that
+	# would kill it. The test is about the escape cooldown, not about surviving the contact.
+	w.god = true
 	var memo := {}
 	var input := BotInput.decide(w, memo)
 	assert_true(input.teleport_pressed)
