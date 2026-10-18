@@ -153,6 +153,9 @@ static func skill_imgs() -> Dictionary:
 		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
 	pirate["5001005"] = {"level": dash_levels}
 	imgs["500"] = {"skill": pirate}
+	# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+	imgs["510"] = {"skill": {"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0],
+		"cooltime": [70.0, 25.0]})}}}
 	return imgs
 
 
