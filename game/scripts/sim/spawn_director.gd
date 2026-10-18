@@ -271,7 +271,8 @@ func elite_interval_at(t: float) -> float:
 func step(dt: float, world: RunWorld) -> void:
 	var t := world.time
 	var swarm := world.swarm
-	_recycle(dt, world)
+	if not world.is_hidden():
+		_recycle(dt, world)  # Hidden (#194): no mob has a route to the character, so none is "gone" or stalled.
 	var cap := mini(max_alive_at(t), hard_cap)
 	var alive := swarm.alive_count()
 	_acc += effective_rate(world) * dt

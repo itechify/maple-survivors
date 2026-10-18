@@ -44,6 +44,14 @@
 		{"id": "bullet_time_rank", "power": false, "kind": "skill_rank", "skill": "bullet_time", "name": "Bullet Time",
 			"desc": "Bullet Time +{magnitude} skill level.",
 			"icon": "Skill.wz/500.img/skill/5000000/icon", "max_rank": 20, "weight": 2,
-			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]}
+			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]},
+		{"id": "oak_barrel_new", "power": false, "kind": "skill_new", "skill": "oak_barrel", "name": "Oak Barrel",
+			"desc": "Learn Oak Barrel: turn into a barrel below 30% HP and monsters ignore you.",
+			"icon": "Skill.wz/510.img/skill/5101007/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs":[510]}, "effects": []},
+		{"id": "oak_barrel_rank", "power": false, "kind": "skill_rank", "skill": "oak_barrel", "name": "Oak Barrel",
+			"desc": "Oak Barrel +{magnitude} skill level.",
+			"icon": "Skill.wz/510.img/skill/5101007/icon", "max_rank": 10, "weight": 2,
+			"requires": {"jobs":[510]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }

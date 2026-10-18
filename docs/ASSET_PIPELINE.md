@@ -15,7 +15,8 @@ loads. This document is the contract between the two.
 
 A GMS v83 install, i.e. the `.wz` files from the official v83 installer `MapleGlobal-v83-setup.exe`
 (Feb 2010, `Wizet` PKG1 archives, encrypted version `0x00AC`). These files are needed:
-`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz`.
+`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Morph.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz` (`Morph.wz` since
+#194: Oak Barrel's barrel).
 
 **How to get them.** Install with the official installer, or extract them without running it: the installer is a
 Nexon Game Manager stub followed by a two-volume CAB set. On the dev machine this worked:
@@ -220,7 +221,7 @@ address, and the page requests nothing from any address the player has not enter
 
 The archives an import needs are derived from the manifest (`requiredArchives` in `web/lib.js`): the archive of every
 named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, music), `Mob.wz` and `Sound.wz` for mobs,
-`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
+`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 13 archives the desktop
 import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
 records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
 until the write phase, and an interrupted write leaves no `cache.json`. Scratch storage for deflated zips was measured

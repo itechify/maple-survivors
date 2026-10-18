@@ -70,7 +70,8 @@ func spawn(spec: Dictionary) -> int:
 
 
 ## Advances flight within its remaining range; the first swept body contact consumes the ball even on MISS, except
-## that an ordinary ball is not consumed while the player's hit window blocks it (boss balls ignore the window).
+## that an ordinary ball is not consumed while the player's hit window blocks it (boss balls ignore the window) and no
+## ball touches a Hidden character.
 func step(dt: float, world: RunWorld) -> void:
 	for slot in _hi:
 		if active[slot] == 0:
@@ -84,7 +85,8 @@ func step(dt: float, world: RunWorld) -> void:
 		x[slot] = to.x
 		y[slot] = to.y
 		range_left[slot] = maxf(0.0, range_left[slot] - distance)
-		if enter >= 0.0:
+		# Hidden (#194): balls in flight pass through the character.
+		if enter >= 0.0 and not world.is_hidden():
 			var source := {"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
 				"dmg_mult": multiplier[slot], "boss": true, "source_kind": "projectile"}
 			if ordinary[slot] != 0:

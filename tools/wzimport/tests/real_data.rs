@@ -540,3 +540,32 @@ fn real_import_of_king_slime_dyle_kits_bars_and_sounds() {
     }
     std::fs::remove_dir_all(tmp).unwrap();
 }
+
+/// Oak Barrel's barrel (#194): the generic img export handles Morph.wz, and the shipping manifest asks for it.
+#[test]
+fn real_import_of_the_oak_barrel_morph() {
+    let Some(root) = wz_root() else { return };
+    let source: serde_json::Value = shipping_manifest();
+    assert!(source["imgs"].as_array().unwrap().iter().any(|v| v["img"] == "Morph.wz/1002.img"));
+    let tmp = std::env::temp_dir().join(format!("wzimport-real-morph-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let manifest = tmp.join("manifest.json");
+    std::fs::write(&manifest, serde_json::to_vec(&serde_json::json!({"format":1,
+        "imgs":[{"img":"Morph.wz/1002.img"}]})).unwrap()).unwrap();
+    let out = tmp.join("cache");
+    let result = run_import(&ImportOptions { wz: root, manifest, out: out.clone(), force: true }).unwrap();
+    assert!(result.errors.is_empty(), "{:?}", result.errors);
+    assert!(result.unresolved_uols.is_empty(), "{:?}", result.unresolved_uols);
+    let read = |p: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(out.join(p)).unwrap()).unwrap() };
+    let morph = read("Morph.wz/1002.img.json");
+    assert_eq!(morph["info"]["hide"], 1);
+    for (action, frames) in [("stand", 14), ("walk", 6), ("prone", 6), ("sit", 6), ("ladder", 2), ("rope", 2), ("jump", 1), ("fly", 2)] {
+        assert_eq!(morph[action].as_object().unwrap().len(), frames, "{action}");
+        assert!(morph[action]["0"]["$canvas"].is_array(), "{action}");
+    }
+    assert_eq!(morph["stand"]["0"]["origin"]["$v"], serde_json::json!([32, 70]));
+    let region = morph["stand"]["0"]["$canvas"].as_array().unwrap();
+    assert_eq!(region[3..], [55, 70]);
+    assert!(out.join(morph["$pages"][region[0].as_u64().unwrap() as usize].as_str().unwrap()).is_file());
+    std::fs::remove_dir_all(tmp).unwrap();
+}

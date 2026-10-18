@@ -45,6 +45,20 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
+		},
+		"oak_barrel": {
+			"skill_id": 5101007, "book": "510", "job": 510, "kind": "buff", "slot": "passive",
+			"name": "Oak Barrel", "desc": "Turns you into a barrel for a while: monsters ignore you, but you cannot attack.",
+			"text": {"desc": "Transform into an oak barrel. Monsters cannot see you, and you cannot attack, until it wears off or you recover.", "h": "MP -{mp_cost}; barrel for {duration} sec.; {prop}% chance to fail; {buff_cooldown} sec. between uses"},
+			"icon": "Skill.wz/510.img/skill/5101007/icon", "damage": "none",
+			"_buff": "Tier A: canonical time, prop (the failure chance, rolled once per cast on stream 16), cooltime, mpCon, morph 1002, effect art and sound. Tier C: auto-casts below 30% HP with a monster within cast.mob_within px (250), the barrel ends early once HP is above 60%, the cooldown counts from the cast even when the barrel outlasts it (the active barrel blocks a recast), and a failed cast still pays MP and starts the cooldown. No weapon requirement.",
+			"cast": {"rule": "nearest", "mob_within": 250},
+			"buff": {"hidden": true, "morph_field": "morph", "fail_field": "prop", "duration_field": "time",
+				"cooldown_field": "cooltime", "hp_threshold": 0.3, "end_hp_above": 0.6, "cooldown_from_cast": true},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/510.img/skill/5101007/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101007/Use", "hit": ""}
 		}
 	}
 }

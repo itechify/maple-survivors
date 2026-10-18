@@ -27,6 +27,8 @@ extends RefCounted
 ##   target: Vector2 (player position)       target_fh: int (player foothold, -1 = find the floor below target)
 ##   bounds: Rect2 (MapBounds; default foothold box + 300 above/100 below)
 ##   speed_mult: float (stage speed multiplier, default 1)   physics: PhysicsConstants (default v83)
+##   hidden: bool (the character is Hidden, #194): nothing chases it; ground mobs patrol their platform as if it had no route
+##     to the character and flyers hover in place (tier C)
 ##   boss_actions: action_snapshot() arrays; nonempty actions hold grounded movement and captured facing
 ##   events: Array receiving status expiry and poison mob_hit events (RunWorld's current event list)
 ## Both graphs must be built with the same gravity/fall_speed/jump_speed as `physics`.
@@ -421,7 +423,10 @@ func step(dt: float, ctx: Dictionary) -> void:
 	var fall := phys.fall_speed if phys != null else 670.0
 	var target: Vector2 = ctx.get("target", Vector2.ZERO)
 	var tfh: int = ctx.get("target_fh", -1)
-	var tp := m.platform_of(tfh) if tfh >= 0 else m.platform_of(m.find_below(target.x, target.y))
+	var hidden: bool = ctx.get("hidden", false)
+	var tp := -1
+	if not hidden:
+		tp = m.platform_of(tfh) if tfh >= 0 else m.platform_of(m.find_below(target.x, target.y))
 	var smult := float(ctx.get("speed_mult", 1.0))
 	var regen := maxf(0.001, float(tuning.regen_time))
 	var stop := float(tuning.stop_dist)
@@ -516,8 +521,10 @@ func step(dt: float, ctx: Dictionary) -> void:
 			var fly_speed := _k_speed[k] * smult
 			if statuses_active:
 				fly_speed *= slow_factor[i]
-			_fly(i, dt, fly_speed, target, bounds)
-			route_len[i] = Vector2(x[i], y[i]).distance_to(target)
+			# Hidden: the flyer steers at its own resting point, so it stands and bobs where it is.
+			var aim := Vector2(x[i], y[i] - _fly_bob[i]) if hidden else target
+			_fly(i, dt, fly_speed, aim, bounds)
+			route_len[i] = INF if hidden else Vector2(x[i], y[i]).distance_to(target)
 			continue
 		var f := fh[i]
 		if f < 0:

@@ -13,7 +13,9 @@ extends RefCounted
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
-## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
+## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
+## Hidden (docs/GAME_DESIGN.md 7.11) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
 ## stay out of the ready list while active, and use their canonical duration as the next readiness time.
@@ -65,9 +67,13 @@ static func strike_count(st: Dictionary) -> int:
 
 
 ## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
-## buff cooldown, whichever is longer; any other skill its cooldown (cast_ready adds the tick's overshoot to it).
+## buff cooldown, whichever is longer (a `cooldown_from_cast` buff, Oak Barrel, exactly its canonical cooldown: it can
+## end early, and the active buff alone blocks a recast); any other skill its cooldown (cast_ready adds the tick's
+## overshoot to it).
 static func restart_cooldown(st: Dictionary) -> float:
 	if String(st.kind) == "buff":
+		if bool(st.get("cooldown_from_cast", false)):
+			return float(st.buff_cooldown)
 		return maxf(float(st.duration), float(st.buff_cooldown))
 	return float(st.cooldown)
 
@@ -114,6 +120,12 @@ func step(dt: float, world: RunWorld) -> void:
 		cast_ready(dt, world)
 
 
+## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not manual and
+## deals damage.
+static func is_attack(st: Dictionary) -> bool:
+	return String(st.kind) != "buff" and String(st.cast_rule) != "manual" and String(st.damage_type) != "none"
+
+
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
@@ -128,8 +140,13 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
 	var held := world.held_weapon_family()
+	var hidden := world.is_hidden()
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
+			continue
+		if hidden and is_attack(stats_of(world, key)):
+			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
+			_shortages.erase(key)
 			continue
 		if not lo.book.usable_with(key, held):
 			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
@@ -183,6 +200,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			if String(st.kind) == "buff":
 				if not world.can_start_buff(key, st):
 					return false
+				var near := float(st.cast_params.get("mob_within", 0.0))
+				if near > 0.0:
+					return _any_target(world, origin, near, 1)
 				if float(st.duration) > 0.0:
 					return true
 			return _any_target(world, origin, float(st.range), int(st.count))
@@ -239,6 +259,9 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 	if String(st.kind) == "buff":
 		if not world.can_start_buff(key, st):
 			return {}
+		var near := float(st.cast_params.get("mob_within", 0.0))
+		if near > 0.0:
+			return {"go": true} if _any_target(world, origin, near, 1) else {}
 		if float(st.duration) > 0.0:
 			return {"go": true}
 	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
@@ -320,11 +343,14 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	var when := String(disp.get("when", "")) if moves else ""
 	casts += 1
 	fired_this_tick = true
+	var effect := String(st.effect)
 	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
-		world.start_buff(key, st)
+		# A failed cast (Oak Barrel's chance, #194) pays MP and starts the cooldown but plays no effect.
+		if not world.start_buff(key, st):
+			effect = ""
 	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
-		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
+		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	var start := world.player.pos
 	# `during` on a projectile skill has no sweep to resolve: the shots fly after the move, like `before`.

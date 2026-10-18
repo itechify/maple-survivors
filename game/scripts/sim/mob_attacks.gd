@@ -116,7 +116,9 @@ func step(world: RunWorld, dt: float) -> void:
 			continue
 		if service(pending, world):
 			_pending.erase(slot)
-	if world.state != RunWorld.PLAYING:
+	# Hidden (#194): no ordinary mob starts an attack (waits do not run down either); windups already begun still play
+	# out their phases but land nothing (_impact).
+	if world.state != RunWorld.PLAYING or world.is_hidden():
 		return
 	var now := world.time
 	var view := world.view
@@ -172,7 +174,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 	var stance: Dictionary = img.get(attack, {})
 	var info: Dictionary = stance.get("info", {})
 	var type := int(info.get("type", -1))
-	if type not in [0, 1, 2]:
+	if type not in [0, 1, 2] or world.is_hidden():
 		return {}
 	var id := swarm.mob_kind(slot).id
 	var pos := swarm.pos(slot)
@@ -238,6 +240,9 @@ static func service(pending: Dictionary, world: RunWorld) -> bool:
 
 static func _impact(pending: Dictionary, world: RunWorld) -> void:
 	emit(pending, "impact", world)
+	# Hidden (#194): an attack winding up when the character vanished lands nothing and launches no ball.
+	if world.is_hidden():
+		return
 	if int(pending.type) == 2:
 		_launch_ball(pending, world)
 		return
