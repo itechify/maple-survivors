@@ -200,6 +200,16 @@ static func parse_forced(spec: String) -> Dictionary:
 	return {"job": int(parts[0]), "path": parts[1].strip_edges() if parts.size() > 1 else ""}
 
 
+## Parses a `--job=<id>[:<path>]` value into run `options` (`job`, and `job_path` when a path is named): the one parser
+## the run flags (SceneFlow), the launcher and the balance tool share. Returns {job, path}.
+static func put_forced(options: Dictionary, spec: String) -> Dictionary:
+	var forced := parse_forced(spec)
+	options["job"] = int(forced.job)
+	if String(forced.path) != "":
+		options["job_path"] = String(forced.path)
+	return forced
+
+
 ## Why the tools cannot force `job_id` ("" when they can): it must be a first or second job of the canonical tree
 ## (tier 1 or 2) and every job on its line below the Beginner must be playable in this build. A forced `path` must be
 ## one of the line's first-job weapon paths.

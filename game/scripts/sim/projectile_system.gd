@@ -37,8 +37,8 @@ var range_left := PackedFloat32Array()
 var radius := PackedFloat32Array()
 var dmg_min := PackedFloat32Array()
 var dmg_max := PackedFloat32Array()
-var magic := PackedByteArray()
-var damage_type := PackedStringArray()
+## Per shot CombatMath.DAMAGE_FIXED / DAMAGE_MAGIC / DAMAGE_PHYSICAL (CombatMath.DAMAGE_TYPE_NAMES gives the name).
+var damage_kind := PackedByteArray()
 var damage_pct := PackedFloat64Array()
 var player_level := PackedInt32Array()
 var crit_damage_bonus := PackedFloat64Array()
@@ -113,8 +113,8 @@ func spawn(spec: Dictionary) -> int:
 	radius[i] = float(spec.get("radius", 10.0))
 	dmg_min[i] = float(spec.get("dmg_min", 1.0))
 	dmg_max[i] = float(spec.get("dmg_max", spec.get("dmg_min", 1.0)))
-	damage_type[i] = String(spec.get("damage_type", "magic" if bool(spec.get("magic", false)) else "fixed"))
-	magic[i] = 1 if damage_type[i] == "magic" else 0
+	damage_kind[i] = CombatMath.damage_type_code(
+		CombatMath.damage_type_of(String(spec.get("damage_type", "")), bool(spec.get("magic", false))))
 	damage_pct[i] = float(spec.get("damage_pct", 1.0))
 	player_level[i] = int(spec.get("player_level", 1))
 	crit_damage_bonus[i] = float(spec.get("crit_damage_bonus", 0.0))
@@ -240,7 +240,7 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k:
 		player_level: int = 1, mob_level: int = 1, crit_damage_bonus: float = 0.0) -> Vector2i:
 	if element_mult <= 0.0:
 		return Vector2i.ZERO
-	var dtype := damage_type if damage_type != "" else "magic" if is_magic else "fixed"
+	var dtype := CombatMath.damage_type_of(damage_type, is_magic)
 	if dtype == "physical":
 		var defended := CombatMath.physical_defense(Vector2(lo, hi), player_level, mob_level, defense)
 		lo = defended.x
@@ -267,15 +267,16 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		hit_count[i] += 1
 	hits_left[i] -= 1
 	# tier C: immune contact consumes a shell/pierce hit, without a damage roll or mob_hit event.
-	if magic[i] == 0 and m < physical_allowed.size() and physical_allowed[m] == 0:
+	var kind := damage_kind[i]
+	var is_magic := kind == CombatMath.DAMAGE_MAGIC
+	if not is_magic and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
-	var physical := damage_type[i] == "physical"
-	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) if physical \
-		else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
-	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
+	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
+		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
+	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
 		crit_mult[i], alt_rng if uses_alt[i] != 0 and alt_rng != null else rng, mk.element_multiplier(element[i]),
-		damage_type[i], damage_pct[i], player_level[i], mk.level, crit_damage_bonus[i])
+		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], player_level[i], mk.level, crit_damage_bonus[i])
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]
@@ -286,8 +287,8 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": magic[i] != 0,
-			"damage": roll.x, "element": element[i], "damage_type": damage_type[i]})
+		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 
@@ -313,7 +314,7 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, magic, uses_alt]:
+	for arr: Variant in [active, rotate, damage_kind, uses_alt]:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus]:
 		arr.resize(n)
@@ -321,7 +322,6 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	element.resize(n)
-	damage_type.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
 		_free.append(i)

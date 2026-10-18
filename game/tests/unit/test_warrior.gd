@@ -125,15 +125,15 @@ func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -
 		a.seed = seed_value
 		var b := RandomNumberGenerator.new()
 		b.seed = seed_value
-		var pick := BotInput.pick_job(options, a)
-		assert_eq(pick, BotInput.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
+		var pick := RF.pick_job(options, a)
+		assert_eq(pick, RF.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
 		seen[pick] = true
 	assert_eq(seen.keys().size(), 2, "over 30 seeds the job stream picks both the Warrior and the Magician")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	assert_eq(BotInput.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
-	assert_eq(BotInput.pick_job(options, rng, 200), 200, "--job=200 the Magician")
-	assert_eq(BotInput.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
+	assert_eq(RF.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
+	assert_eq(RF.pick_job(options, rng, 200), 200, "--job=200 the Magician")
+	assert_eq(RF.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
 
 
 # --- data -----------------------------------------------------------------------------------------------------
@@ -335,6 +335,23 @@ func test_both_attacks_turn_the_standing_character_toward_the_nearest_mob() -> v
 			assert_eq(w.player.facing, side, "%s faces the mob (side %d)" % [key, side])
 			assert_eq(_of(events, "cast")[0].facing, side, "the cast event carries the new facing")
 			assert_lt_hp(w, m, key)
+
+
+func test_both_attacks_turn_toward_the_nearest_mob_in_every_movement_state() -> void:
+	for state: int in [PlayerMotion.ST_WALK, PlayerMotion.ST_AIR, PlayerMotion.ST_PRONE]:
+		for key in ["power_strike", "slash_blast"]:
+			for side in [-1, 1]:
+				var w := _world(42)
+				w.learn_skill(key)
+				w.player.state = state
+				w.player.facing = -side
+				var m := _mob(w, 50.0 * side)
+				var events := _cast(w)
+				var label := "%s, state %d, mob on side %d" % [key, state, side]
+				assert_eq(_of(events, "cast").size(), 1, "%s casts at a mob behind it" % label)
+				assert_eq(w.player.facing, side, "%s faces the mob" % label)
+				assert_eq(_of(events, "cast")[0].facing, side, "%s: the cast event carries the facing" % label)
+				assert_lt_hp(w, m, label)
 
 
 func assert_lt_hp(w: RunWorld, m: int, key: String) -> void:

@@ -368,6 +368,28 @@ func test_final_attack_follows_projectile_hits_and_announces_itself() -> void:
 		assert_eq(announced[0].action, "swingO1")
 
 
+func test_the_final_attack_follow_up_plays_its_own_stance() -> void:
+	var w := _final_world()
+	w.book.def("final_blade")["action_time"] = 0.4
+	var mob := _dummy(w)
+	w.learn_skill("final_blade")
+	w.loadout.set_rank("final_blade", 2) # prop 100 %
+	assert_eq(w.upkeep.cast_action, "", "no stance yet")
+	_trigger(w, mob)
+	w.step(DT, MoveInput.new())
+	assert_eq(w.upkeep.cast_action, "swingO1", "the follow-up starts the skill's action")
+	assert_between(w.upkeep.cast_left, 0.3, 0.4, "for the skill's action time")
+	w.drain_events()
+	var data_without := _final_world()
+	data_without.book.def("final_blade")["action"] = ""
+	var other := _dummy(data_without)
+	data_without.learn_skill("final_blade")
+	data_without.loadout.set_rank("final_blade", 2)
+	_trigger(data_without, other)
+	data_without.step(DT, MoveInput.new())
+	assert_eq(data_without.upkeep.cast_action, "", "a skill without an action starts none")
+
+
 func test_a_basic_attack_triggers_final_attack() -> void:
 	var data := RF.quiet_data()
 	data.upgrades.cards = []

@@ -25,6 +25,8 @@ var _pending := {}
 var _reach := {}
 ## weapon id -> envelope(), cached like _reach.
 var _envelope := {}
+## weapon id -> the boxes of its playable stances (Array[Rect2]) that gate starting a swing, cached like _reach.
+var _reach_boxes := {}
 var _buffer := PackedInt32Array()
 
 
@@ -117,9 +119,15 @@ func envelope(world: RunWorld) -> Rect2:
 
 func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 	# Reach gates the opportunity, not its uniformly selected stance. Shorter stances may miss at impact.
-	for action: String in WeaponInfo.basic_actions(weapon):
-		var spec := _spec(weapon, info, action)
-		if not spec.is_empty() and _nearest(world, spec.box, world.player.facing) >= 0:
+	if not _reach_boxes.has(weapon):
+		var boxes: Array[Rect2] = []
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
+			if not spec.is_empty():
+				boxes.append(spec.box)
+		_reach_boxes[weapon] = boxes
+	for box: Rect2 in _reach_boxes[weapon]:
+		if _nearest(world, box, world.player.facing) >= 0:
 			return true
 	return false
 

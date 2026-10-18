@@ -140,7 +140,7 @@ func _init() -> void:
 			forced_path = String(forced.path)
 		elif a.begins_with("--branch="):
 			printerr("balance_run: --branch is deprecated: use --job=<id>")
-			forced_job = int(a.substr(9))
+			forced_job = int(JobTree.parse_forced(a.substr(9)).job)
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a.begins_with("--character="):

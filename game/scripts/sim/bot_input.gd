@@ -104,7 +104,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 				and int(memo.climb_t) > 2):
 			memo.erase("climb_x")
 	# Engage mode (#162): a build whose attacks all reach less than kite_reach closes to its ready attack's reach.
-	var engage := _engage_config(w)
+	if not memo.has("engage"): # built once per run: balance.json does not change under a bot
+		memo["engage"] = _engage_config(w)
+	var engage: Dictionary = memo.engage
 	var profile := _reach_profile(w)
 	var melee: bool = profile.x > 0.0 and profile.x < float(engage.kite_reach)
 	var engage_target := -1
@@ -426,7 +428,7 @@ static func climb_ladder(w: RunWorld) -> int:
 	return best
 
 
-## Resolves an open window using a seeded available job (or the forced job, see pick_job) and the card
+## Resolves an open window using a seeded available job (or the forced job, see pick_choice) and the card
 ## pick_card_for() prefers (`first_card` = true: always the first card). Returns how many choices were made.
 static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, forced_path := "") -> int:
 	var guard := 0
@@ -443,17 +445,12 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 	return made
 
 
-## Seeded available job, or the forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available
-## option that is an ancestor of `forced` counts too, so forcing a second job takes its first job at the first window.
-## -1 = "Not now". A single option consumes no RNG.
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
-		forced_path := "") -> int:
-	return int(pick_choice(options, rng, forced, jobs, forced_path).job_id)
-
-
-## pick_job plus the weapon path: {job_id, path} (job_id -1 and path "" = "Not now"). A first job listed per weapon path
-## (spec #151 #157) takes `forced_path` when the window has it; with none named, a forced branch takes the path whose
-## weapon family it can use (its JobTree.weapon_families), else the job stream draws one of the paths (tier C).
+## The window entry the bot takes: {job_id, path} (job_id -1 and path "" = "Not now"). A seeded available job, or the
+## forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available option that is an ancestor of
+## `forced` counts too, so forcing a second job takes its first job at the first window. A single option consumes no
+## RNG. A first job listed per weapon path (spec #151 #157) takes `forced_path` when the window has it; with none named,
+## a forced branch takes the path whose weapon family it can use (its JobTree.weapon_families), else the job stream
+## draws one of the paths (tier C).
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
 		forced_path := "") -> Dictionary:
 	var available: Array[Dictionary] = []

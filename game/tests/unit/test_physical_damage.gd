@@ -81,7 +81,7 @@ func test_mastery_and_lucky_seven_override_and_unchanged_creation_weapon_bounds(
 			[1312004, "swingO1", 1.48784, 9.656], [1312004, "stabO1", 1.26752, 7.208],
 			[1322005, "swingO1", 1.48784, 9.656], [1322005, "stabO1", 1.26752, 7.208],
 			[0, "swingO1", 1.0, 1.0], [0, "stabO1", 1.0, 1.0]]:
-		var bounds := CombatMath.basic_damage_range(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 1, 1, 0)
+		var bounds := RF.physical_bounds(12, 4, 0 if c[0] == 0 else 17, c[0], c[1], 1, 1, 0)
 		assert_near(bounds.x, c[2], 0.00001)
 		assert_near(bounds.y, c[3], 0.00001)
 	for c: Array in [["swingO3", "swing"], ["stabT2", "stab"], ["shoot1", "shoot"], ["throw1", "shoot"], ["alert2", ""]]:

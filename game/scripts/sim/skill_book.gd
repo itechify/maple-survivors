@@ -16,6 +16,8 @@ var defs := {}
 var skill_imgs := {}
 
 var _by_id := {}
+## weapon_families cache: key -> [signature of the definition's own value, the resolved PackedStringArray].
+var _families := {}
 
 
 ## Builds the book from the skills.json root and setup.skill_imgs.
@@ -102,7 +104,23 @@ func skill_node(key: String) -> Dictionary:
 ## it overrides the canonical value), then the Skill.wz `weapon` code (tier A: weapon type - 100, see
 ## WeaponInfo.family_of_skill_code), read from `weapon` and from `"weapon "` with a trailing space (tier A: the WZ typo on
 ## 5001003 Pirate Double Shot). No field or an unknown code means no requirement.
+## Cached per key (the casting scan asks every tick): the entry is re-read when the definition's own `weapon_families`
+## value changed (tests edit definitions in place); the Skill.wz img is static once the book is built.
 func weapon_families(key: String) -> PackedStringArray:
+	var raw: Variant = null
+	var d: Variant = defs.get(key)
+	if d is Dictionary:
+		raw = (d as Dictionary).get("weapon_families")
+	var signature := hash(raw)
+	var cached: Variant = _families.get(key)
+	if cached is Array and int(cached[0]) == signature:
+		return cached[1]
+	var out := _read_weapon_families(key)
+	_families[key] = [signature, out]
+	return out
+
+
+func _read_weapon_families(key: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	var d := def(key)
 	if d.has("weapon_families"):

@@ -63,6 +63,9 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+## read_skill_cooldowns states of a skill icon: waiting for MP, or blocked by the held weapon (0 = normal).
+const SKILL_STATE_MP_WAIT := 1
+const SKILL_STATE_BLOCKED := 2
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
@@ -618,10 +621,12 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	_tick_timers(dt)
 
 
-## Owned branch Teleport key, or empty before learning it.
+## Owned branch Teleport key the held weapon can use (SkillBook.usable_with), or empty before learning it or while the
+## weapon blocks it: a weapon-gated manual skill neither casts nor is offered to the bot.
 func teleport_skill() -> String:
+	var held := held_weapon_family()
 	for key: String in loadout.order:
-		if _is_teleport(key):
+		if _is_teleport(key) and book.usable_with(key, held):
 			return key
 	return ""
 
@@ -633,24 +638,29 @@ func teleport_affordable() -> bool:
 
 
 ## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
-## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
+## (0 before any), `mp_short` (ready and would cast, but MP is below its cost) and `blocked` (the held weapon cannot use
+## the skill, SkillBook.usable_with; it is then never mp_short). Teleport reports its repeat timer.
 func skill_readiness(key: String) -> Dictionary:
-	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "mp_short": _mp_short(key)}
+	var blocked := not book.usable_with(key, held_weapon_family())
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key),
+		"mp_short": not blocked and _mp_short(key), "blocked": blocked}
 
 
 ## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
-## (resized in place; nothing is allocated once they have the right size): left, total and mp_short (0/1) as
-## skill_readiness reports them.
-func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, mp_short: PackedByteArray) -> void:
+## (resized in place; nothing is allocated once they have the right size): left and total as skill_readiness reports
+## them, and `state` per skill (SKILL_STATE_*): 0 normal, 1 waiting for MP, 2 blocked by the held weapon.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, state: PackedByteArray) -> void:
 	var n := loadout.order.size()
 	left.resize(n)
 	total.resize(n)
-	mp_short.resize(n)
+	state.resize(n)
+	var held := held_weapon_family()
 	for i in n:
 		var key: String = loadout.order[i]
 		left[i] = _cooldown_left(key)
 		total[i] = _cooldown_total(key)
-		mp_short[i] = 1 if _mp_short(key) else 0
+		state[i] = SKILL_STATE_BLOCKED if not book.usable_with(key, held) \
+			else SKILL_STATE_MP_WAIT if _mp_short(key) else 0
 
 
 func _is_teleport(key: String) -> bool:
@@ -1202,9 +1212,11 @@ func player_low_platform() -> int:
 	return MobSwarm.low_platform(fhm, player.pos, tp, float(swarm.tuning.reach_y))
 
 
-## Turns a standing player toward x (casting at a target); a walking player keeps facing its way.
-func face_toward(tx: float) -> void:
-	if player.state == PlayerMotion.ST_STAND and absf(tx - player.pos.x) > 0.5:
+## Turns a standing player toward x (casting at a target); a walking player keeps facing its way. `any_state` turns the
+## player in every movement state for this cast (Power Strike, Slash Blast; tier C): a held direction sets the facing
+## again on the next motion step, so the turn does not fight walking.
+func face_toward(tx: float, any_state := false) -> void:
+	if (any_state or player.state == PlayerMotion.ST_STAND) and absf(tx - player.pos.x) > 0.5:
 		player.facing = 1 if tx > player.pos.x else -1
 
 
@@ -1409,8 +1421,9 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 ## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
 ## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
 ## -> Wooden Wand), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
-## tier C: when the previous weapon has no room in the full Equip tab it is dropped at the player's feet as a normal
-## equipment pickup (pickup_spawned; the magnet collects it once a slot is free), so advancing never fails.
+## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
+## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
+## a slot is free), so advancing never fails.
 func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
 	if path != "":
@@ -1422,15 +1435,20 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-	var spilled := {}
-	if Equipment.grant(equipment, instance, inventory_slots()) != "":
-		var slot := Equipment.slot_of(id)
-		spilled = equipment.worn[slot]
+	# Every slot the grant displaces (the weapon, and the shield of a two-handed grant) goes to the Equip tab while it
+	# has room; the rest, last slot first (the shield), is taken off here and dropped after the grant is worn.
+	var displaced := Equipment.displaced_slots(equipment.worn, id)
+	var room := maxi(0, inventory_slots() - equipment.inventory.size())
+	var spilled: Array = []
+	while displaced.size() > room:
+		var slot: String = displaced.pop_back()
+		spilled.append(equipment.worn[slot])
 		equipment.worn.erase(slot)
-		Equipment.grant(equipment, instance, inventory_slots())
+	var error := Equipment.grant(equipment, instance, inventory_slots())
+	assert(error == "", "a job grant always fits once the displaced items are spilled")
 	_equipment_changed("grant", "weapon", id)
-	if not spilled.is_empty():
-		spawn_equipment(player.pos, spilled)
+	for item: Dictionary in spilled:
+		spawn_equipment(player.pos, item)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1499,7 +1517,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
 	if swarm.active[m] == 0:
 		return
-	var dtype := String(st.get("damage_type", "magic" if bool(st.get("magic", false)) else "fixed"))
+	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
 	var magic := dtype == "magic"
 	if not magic and not physical_hit_allowed(m):
 		return
@@ -1591,7 +1609,9 @@ func _play_final_attacks() -> void:
 		var key := String(entry.skill)
 		if not book.usable_with(key, held_weapon_family()):
 			continue
-		var st := loadout.stats(key)
+		var st := runner.stats_of(self, key)
+		# The follow-up plays the skill's own stance when its data has one (tier C: it replaces a swing still playing).
+		start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
 			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
 		hit_mob(slot, st, visual_index(String(st.hit)), final_rng)
@@ -1799,12 +1819,16 @@ func update_view() -> void:
 	view = r
 
 
-func _tick_timers(dt: float) -> void:
-	var caster_buffs := Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
+## The active buffs' totals that feed the caster (matk, watk, acc, attack_speed); a change refreshes _refresh_caster.
+func _caster_buff_totals() -> Vector4:
+	return Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
 		buffs.effect_total("attack_speed"))
+
+
+func _tick_timers(dt: float) -> void:
+	var caster_buffs := _caster_buff_totals()
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
-	if caster_buffs != Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
-			buffs.effect_total("attack_speed")):
+	if caster_buffs != _caster_buff_totals():
 		_refresh_caster()
 	refresh_player_speed()
 	if _dead:

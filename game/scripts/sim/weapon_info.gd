@@ -151,7 +151,7 @@ static func basic_kind(weapon_id: int, action: String) -> String:
 
 ## Physical formula row for this weapon and job; Thief descendants use LUK daggers.
 static func physical_formula(weapon_id: int, job_id: int) -> Array:
-	if family(weapon_id) == "dagger" and Equipment.job_allows({"reqJob": 8}, job_id):
+	if family(weapon_id) == "dagger" and Equipment.job_allows({"reqJob": Equipment.JOB_BIT_THIEF}, job_id):
 		return THIEF_DAGGER_PHYSICAL
 	return PHYSICAL.get(type_of(weapon_id), BARE_PHYSICAL)
 

@@ -30,6 +30,24 @@ const ACCURACY_FACTORS := {
 }
 
 
+## Damage kinds of a hit line, as the byte a pooled array stores (DAMAGE_TYPE_NAMES is the string a hit dictionary carries).
+const DAMAGE_FIXED := 0
+const DAMAGE_MAGIC := 1
+const DAMAGE_PHYSICAL := 2
+const DAMAGE_TYPE_NAMES := ["fixed", "magic", "physical"]
+
+
+## The damage type of a hit line: the explicit `damage_type` when set, else the legacy `magic` flag picks magic or fixed
+## (the one place that default lives; callers with a spec dictionary pass its two keys).
+static func damage_type_of(damage_type: String, is_magic: bool) -> String:
+	return damage_type if damage_type != "" else "magic" if is_magic else "fixed"
+
+
+## The DAMAGE_* byte of a damage type name (an unknown name, e.g. "none", counts as fixed).
+static func damage_type_code(damage_type: String) -> int:
+	return maxi(DAMAGE_FIXED, DAMAGE_TYPE_NAMES.find(damage_type))
+
+
 ## Mastery fraction for a canonical `mastery` field value: (10 + 5 x m) / 100 (Energy Bolt L1 m=1 -> 0.15).
 static func mastery_fraction(mastery_field: int) -> float:
 	return (10.0 + 5.0 * mastery_field) / 100.0
@@ -93,13 +111,6 @@ static func physical_defense(bounds: Vector2, player_level: int, mob_level: int,
 	var hi := maxf(1.0, bounds.y * level_factor - 0.5 * pdd)
 	var lo := maxf(1.0, bounds.x * level_factor - 0.6 * pdd)
 	return Vector2(minf(lo, hi), hi)
-
-
-## Legacy basic-attack bounds; new hit paths defer defence until impact and use physical_damage_range directly.
-static func basic_damage_range(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
-	return physical_defense(physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
 
 
 ## One uniform roll in [range.x, range.y].

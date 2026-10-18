@@ -29,7 +29,7 @@ const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy (unused)", "eva": "Avoid",
+	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
 	"damage": "Damage", "hpCon": "HP cost", Loadout.MAX_MP_PERCENT: "Max MP",
 	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse",

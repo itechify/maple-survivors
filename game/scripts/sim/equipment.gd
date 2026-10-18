@@ -34,7 +34,8 @@ const DEFAULT_OUTFIT := [1040002, 1060002, 1072001, 1302000]
 const SPEED_CAP := 140
 const JUMP_CAP := 123
 ## tier A: v83 reqJob bits by job branch (job id / 100): 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate.
-const JOB_BITS := {1: 1, 2: 2, 3: 4, 4: 8, 5: 16}
+const JOB_BIT_THIEF := 8
+const JOB_BITS := {1: 1, 2: 2, 3: 4, 4: JOB_BIT_THIEF, 5: 16}
 ## Requirement fields checked against the character's total main stats, in reporting order.
 const STAT_REQS := {"reqSTR": "str", "reqDEX": "dex", "reqINT": "int", "reqLUK": "luk"}
 
