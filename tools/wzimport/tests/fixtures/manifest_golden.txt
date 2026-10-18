@@ -570,12 +570,18 @@ character 31053
 character 31057
 img Base.wz/smap.img *
 img Base.wz/zmap.img *
+img Character.wz/Afterimage/axe.img 0
 img Character.wz/Afterimage/hit.img mace1
 img Character.wz/Afterimage/hit.img mace2
 img Character.wz/Afterimage/hit.img sword1
 img Character.wz/Afterimage/hit.img sword2
 img Character.wz/Afterimage/mace.img 0
+img Character.wz/Afterimage/poleArm.img 0
+img Character.wz/Afterimage/spear.img 0
 img Character.wz/Afterimage/swordOL.img 0
+img Character.wz/Afterimage/swordOS.img 0
+img Character.wz/Afterimage/swordTL.img 0
+img Character.wz/Afterimage/swordTS.img 0
 img Character.wz/PetEquip/01812000.img info
 img Character.wz/PetEquip/01812001.img info
 img Character.wz/PetEquip/01812002.img info
