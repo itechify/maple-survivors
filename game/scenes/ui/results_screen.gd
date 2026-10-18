@@ -101,6 +101,9 @@ static func stat_rows(p_summary: Dictionary) -> Array:
 	]
 	if p_summary.has("tiers_cleared"):
 		rows.append(["Tiers cleared", str(int(p_summary.tiers_cleared))])
+	# Only persistent endings were credited; a tool round computes nx_awarded but never shows it.
+	if p_summary.has("ending") and p_summary.has("nx_awarded"):
+		rows.append(["NX earned", "+%s NX" % group_digits(int(p_summary.nx_awarded))])
 	return rows
 
 

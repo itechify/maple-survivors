@@ -108,9 +108,19 @@ func test_maple_text_wrap_and_ellipsize() -> void:
 	assert_true(e.ends_with("..."), e)
 	assert_true(MapleText.width(e) <= 60.0, e)
 	assert_eq(MapleText.ellipsize("Snail", 200), "Snail")
-	assert_eq(MapleText.font().antialiasing, TextServer.FONT_ANTIALIASING_NONE)
+	# A SystemFont where the OS has Arial/Tahoma/Dotum, else the bundled Arimo (MapleFonts): a FontVariation on a
+	# FontFile, which holds the antialiasing setting and takes the weight from its wght axis (CI machines have no
+	# such system fonts).
+	var regular := MapleText.font()
+	var bold := MapleText.font(true)
+	if regular is SystemFont:
+		assert_eq((regular as SystemFont).antialiasing, TextServer.FONT_ANTIALIASING_NONE)
+		assert_eq((bold as SystemFont).font_weight, 700)
+	else:
+		assert_true(regular is FontVariation, "the bundled fallback font")
+		assert_eq(((regular as FontVariation).base_font as FontFile).antialiasing, TextServer.FONT_ANTIALIASING_NONE)
+		assert_true((bold as FontVariation).variation_opentype.values().has(700), "bold is the wght 700 face")
 	assert_eq(MapleText.font(), MapleText.font(), "cached")
-	assert_eq(MapleText.font(true).font_weight, 700)
 
 
 func test_wz_button_without_art_keeps_size_and_signals() -> void:

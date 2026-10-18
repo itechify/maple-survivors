@@ -6,9 +6,11 @@ use crate::error::{Result, WzError};
 use crate::json;
 use crate::manifest::ImgRequest;
 use crate::property::{CanvasRef, Img, Node, Value};
+use crate::sink::{self, FileSink, Sink};
 use crate::sound::{wav_bytes, SoundFormat};
 use crate::uol::{resolve_all, UolReport};
 use crate::wzroot::{WzPath, WzRoot};
+#[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -38,9 +40,21 @@ pub struct ExportOutcome {
 
 /// Parse, resolve and write one img. `request` says which sub-trees to write.
 pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &Path) -> Result<ExportOutcome> {
+    export_img_to(wz, img_path, request, &FileSink::new(out_dir))
+}
+
+/// Export one img through a host sink (no filesystem or archive-sized output buffer).
+pub fn export_img_to(wz: &WzRoot, img_path: &str, request: &ImgRequest, sink: &dyn Sink) -> Result<ExportOutcome> {
     let mut img = wz.load_img(img_path)?;
-    let mut out = ExportOutcome { json: format!("{img_path}.json"), paths: request.output_paths(), ..Default::default() };
-    let mut srcs = vec![SrcImg { path: img.path.clone(), bytes: img.bytes.clone() }];
+    let mut out = ExportOutcome {
+        json: format!("{img_path}.json"),
+        paths: request.output_paths(),
+        ..Default::default()
+    };
+    let mut srcs = vec![SrcImg {
+        path: img.path.clone(),
+        bytes: img.bytes.clone(),
+    }];
     out.uol = resolve_with_external(wz, &mut img, &mut srcs);
 
     for (p, explicit) in &request.paths {
@@ -55,10 +69,17 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
     }
     // Only UOLs inside the written sub-trees matter (the rest of the img is parsed but not exported).
     if let Some(paths) = &out.paths {
-        out.uol.unresolved.retain(|u| paths.iter().any(|p| u.path == *p || u.path.starts_with(&format!("{p}/"))));
+        out.uol.unresolved.retain(|u| {
+            paths
+                .iter()
+                .any(|p| u.path == *p || u.path.starts_with(&format!("{p}/")))
+        });
     }
     for u in &out.uol.unresolved {
-        out.warnings.push(format!("{img_path}: unresolved UOL {} -> {:?} ({})", u.path, u.target, u.reason));
+        out.warnings.push(format!(
+            "{img_path}: unresolved UOL {} -> {:?} ({})",
+            u.path, u.target, u.reason
+        ));
     }
 
     let tree = match &out.paths {
@@ -80,16 +101,28 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
         }
         Value::Sound(s) => {
             sound_index.entry((s.src, s.data_off)).or_insert_with(|| {
-                let file = s.format.extension().map(|ext| format!("{}/{}.{ext}", srcs[s.src as usize].path, s.origin));
-                sounds.push(SoundOut { sref: (**s).clone(), file, node_path: path.to_string() });
+                let file = s
+                    .format
+                    .extension()
+                    .map(|ext| format!("{}/{}.{ext}", srcs[s.src as usize].path, s.origin));
+                sounds.push(SoundOut {
+                    sref: (**s).clone(),
+                    file,
+                    node_path: path.to_string(),
+                });
                 sounds.len() - 1
             });
         }
         _ => {}
     });
 
-    let decoded: Vec<Result<Vec<u8>>> =
-        uniq.par_iter().map(|(c, _)| canvas::decode(&srcs[c.src as usize].bytes, c)).collect();
+    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
+    let iter = uniq.par_iter();
+    #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
+    let iter = uniq.iter();
+    let decoded: Vec<Result<Vec<u8>>> = iter
+        .map(|(c, _)| canvas::decode(&srcs[c.src as usize].bytes, c))
+        .collect();
     let mut sizes = Vec::with_capacity(uniq.len());
     for ((c, path), d) in uniq.iter().zip(&decoded) {
         match d {
@@ -105,18 +138,18 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
     let page_pixels = atlas::compose(&layout, &images);
     drop(decoded);
     let page_files: Vec<String> = (0..layout.pages.len()).map(|i| format!("{img_path}.{i}.png")).collect();
-    let pngs: Vec<Result<Vec<u8>>> = page_pixels
-        .par_iter()
-        .zip(layout.pages.par_iter())
-        .map(|(px, &(w, h))| atlas::encode_png(w, h, px))
-        .collect();
+    #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
+    let iter = page_pixels.par_iter().zip(layout.pages.par_iter());
+    #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
+    let iter = page_pixels.iter().zip(layout.pages.iter());
+    let pngs: Vec<Result<Vec<u8>>> = iter.map(|(px, &(w, h))| atlas::encode_png(w, h, px)).collect();
     drop(page_pixels);
     for (file, png) in page_files.iter().zip(pngs) {
         let png = png?;
         out.bytes += png.len() as u64;
-        write_file(out_dir, file, &png)?;
+        sink::write(sink, file, &png)?;
     }
-    remove_stale_pages(out_dir, img_path, page_files.len());
+    sink.remove_stale_pages(img_path, page_files.len());
     out.pages = page_files.len() as u32;
     out.canvases = uniq.len() as u32;
 
@@ -124,7 +157,8 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
     for s in &sounds {
         let Some(file) = &s.file else {
             if let SoundFormat::Malformed(why) = &s.sref.format {
-                out.warnings.push(format!("{img_path}: sound {} skipped: {why}", s.node_path));
+                out.warnings
+                    .push(format!("{img_path}: sound {} skipped: {why}", s.node_path));
             }
             continue;
         };
@@ -135,16 +169,18 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
             _ => data.to_vec(),
         };
         out.bytes += bytes.len() as u64;
-        write_file(out_dir, file, &bytes)?;
+        sink::write(sink, file, &bytes)?;
         out.sounds += 1;
     }
 
     // JSON tree.
-    let regions: HashMap<(u32, u32), Region> =
-        index.iter().map(|(k, &i)| (*k, layout.regions[i])).collect();
+    let regions: HashMap<(u32, u32), Region> = index.iter().map(|(k, &i)| (*k, layout.regions[i])).collect();
     let sound_files: HashMap<(u32, u32), Option<String>> =
         sound_index.iter().map(|(k, &i)| (*k, sounds[i].file.clone())).collect();
-    let ctx = JsonCtx { regions: &regions, sounds: &sound_files };
+    let ctx = JsonCtx {
+        regions: &regions,
+        sounds: &sound_files,
+    };
     let mut text = String::with_capacity(img.bytes.len().min(1 << 24));
     text.push('{');
     let mut first = true;
@@ -163,10 +199,11 @@ pub fn export_img(wz: &WzRoot, img_path: &str, request: &ImgRequest, out_dir: &P
     write_members(&mut text, &tree.children, first, &ctx, "", &mut dups);
     text.push('}');
     for d in dups {
-        out.warnings.push(format!("{img_path}: duplicate key {d:?} (first kept)"));
+        out.warnings
+            .push(format!("{img_path}: duplicate key {d:?} (first kept)"));
     }
     out.bytes += text.len() as u64;
-    write_file(out_dir, &out.json, text.as_bytes())?;
+    sink::write(sink, &out.json, text.as_bytes())?;
     Ok(out)
 }
 
@@ -192,7 +229,10 @@ fn resolve_with_external(wz: &WzRoot, img: &mut Img, srcs: &mut Vec<SrcImg>) -> 
         let k = match srcs.iter().position(|s| s.path == ip) {
             Some(k) => k,
             None => {
-                srcs.push(SrcImg { path: ip.clone(), bytes: e.bytes.clone() });
+                srcs.push(SrcImg {
+                    path: ip.clone(),
+                    bytes: e.bytes.clone(),
+                });
                 srcs.len() - 1
             }
         };
@@ -216,14 +256,21 @@ fn reindex(n: &mut Node, src: u32) {
 
 /// The sub-trees named by `paths` (relative to `n`), at their normal place.
 pub fn select(n: &Node, paths: &[String]) -> Node {
-    let mut out = Node { name: n.name.clone(), value: n.value.clone(), children: Vec::new() };
+    let mut out = Node {
+        name: n.name.clone(),
+        value: n.value.clone(),
+        children: Vec::new(),
+    };
     for c in &n.children {
         if paths.contains(&c.name) {
             out.children.push(c.clone());
             continue;
         }
         let prefix = format!("{}/", c.name);
-        let sub: Vec<String> = paths.iter().filter_map(|p| p.strip_prefix(&prefix).map(String::from)).collect();
+        let sub: Vec<String> = paths
+            .iter()
+            .filter_map(|p| p.strip_prefix(&prefix).map(String::from))
+            .collect();
         if !sub.is_empty() {
             out.children.push(select(c, &sub));
         }
@@ -233,7 +280,11 @@ pub fn select(n: &Node, paths: &[String]) -> Node {
 
 fn collect(n: &Node, path: &str, f: &mut dyn FnMut(&Node, &str)) {
     for c in &n.children {
-        let p = if path.is_empty() { c.name.clone() } else { format!("{path}/{}", c.name) };
+        let p = if path.is_empty() {
+            c.name.clone()
+        } else {
+            format!("{path}/{}", c.name)
+        };
         f(c, &p);
         collect(c, &p, f);
     }
@@ -244,10 +295,21 @@ struct JsonCtx<'a> {
     sounds: &'a HashMap<(u32, u32), Option<String>>,
 }
 
-fn write_members(out: &mut String, children: &[Node], mut first: bool, ctx: &JsonCtx, path: &str, dups: &mut Vec<String>) {
+fn write_members(
+    out: &mut String,
+    children: &[Node],
+    mut first: bool,
+    ctx: &JsonCtx,
+    path: &str,
+    dups: &mut Vec<String>,
+) {
     let mut seen: HashSet<&str> = HashSet::with_capacity(children.len());
     for c in children {
-        let p = if path.is_empty() { c.name.clone() } else { format!("{path}/{}", c.name) };
+        let p = if path.is_empty() {
+            c.name.clone()
+        } else {
+            format!("{path}/{}", c.name)
+        };
         if !seen.insert(c.name.as_str()) {
             dups.push(p);
             continue;
@@ -350,7 +412,9 @@ pub fn bad_file_component(s: &str) -> bool {
 /// Write `bytes` to `out_dir/rel` (creating directories) through a temporary file and a rename.
 pub fn write_file(out_dir: &Path, rel: &str, bytes: &[u8]) -> Result<()> {
     if let Some(bad) = rel.split('/').find(|c| bad_file_component(c)) {
-        return Err(WzError::Other(format!("{rel}: {bad:?} is not a valid file name on Windows")));
+        return Err(WzError::Other(format!(
+            "{rel}: {bad:?} is not a valid file name on Windows"
+        )));
     }
     let path = out_dir.join(rel);
     if let Some(parent) = path.parent() {
@@ -359,7 +423,9 @@ pub fn write_file(out_dir: &Path, rel: &str, bytes: &[u8]) -> Result<()> {
     static SEQ: AtomicU64 = AtomicU64::new(0);
     let tmp = path.with_file_name(format!(
         "{}.{}-{}.tmp",
-        path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+        path.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
         std::process::id(),
         SEQ.fetch_add(1, Ordering::Relaxed)
     ));
@@ -368,7 +434,7 @@ pub fn write_file(out_dir: &Path, rel: &str, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn remove_stale_pages(out_dir: &Path, img_path: &str, from: usize) {
+pub(crate) fn remove_stale_pages(out_dir: &Path, img_path: &str, from: usize) {
     for i in from.. {
         let p = out_dir.join(format!("{img_path}.{i}.png"));
         if !p.exists() || std::fs::remove_file(&p).is_err() {

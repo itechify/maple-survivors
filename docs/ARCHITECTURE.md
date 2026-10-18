@@ -8,7 +8,8 @@ Status: Phase 0 decision record (2026-10-13). Evidence lives in `docs/RESEARCH.m
 Make a single-player Vampire-Survivors-style game that looks, sounds and moves like MapleStory v83 (GMS, Feb 2010
 build), using the original assets, with a different combat and progression loop. Hard constraints from the brief:
 
-- Fully offline: no server, no localhost sockets, no database, no account, no Java process.
+- Fully offline: no server, no localhost sockets, no database, no account, no Java process. (The web build, section
+  10, adds one narrow exception in its page shell, outside `game/`: section 7.)
 - Authentic presentation: original maps, sprites, animations, frame timings, origins, sounds, UI art.
 - Hundreds of mobs, dozens to hundreds of projectiles and pickups, at a stable 60 FPS.
 - Original MapleStory assets are proprietary: never committed or distributed; the player points the game at their
@@ -86,9 +87,13 @@ bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` deco
 for both RunWorld and the Free Market.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
-draws CharacterSnapshot.look with the current job's weapon. A status bar displays full HP/MP and identity, while
+draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
 PauseMenu's boundary mode offers Save & quit without the round-loss warning. NPC stand animations use canonical
-life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71).
+life positions/facing and remain inert, including Maple TV (drawn despite its v83 hide flag, per #71). The four scroll
+NPCs (#111, `survivor/shops.json`) stand on the floor beside them and are the only NPCs that can be talked to: NPC Chat
+(Space) next to one, or a double-click, opens its `ShopWindow` in the hub's window stack (`FreeMarket.open_shop`),
+trading through the map-less RunWorld (`shop_stock`, `buy_scroll`, `sell_item`, `sell_scrolls` over the pure `Shop`
+module) and saving the slot at once.
 `--run` calls `start_run`, an independent one-off with no save writes.
 
 The `flow_driver.tscn` `rounds` scenario exercises these boundaries through injected signboard, character-slot,
@@ -102,13 +107,15 @@ rewards and clear events. It checks presentation only; natural outcomes belong t
 | Autoload | Script | Role |
 |---|---|---|
 | `Assets` | `scripts/assets/asset_library.gd` | Locates the cache, loads/caches img JSON (`WzImg`), atlas page textures, sounds; builds `SpriteAnim` frame lists |
-| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`) |
+| `Settings` | `scripts/core/settings.gd` | `user://settings.cfg`: WZ root, volumes, window scale, fill-window view mode, frame cap (`[display] max_fps`: vsync on and `Engine.max_fps` = the display's refresh rate by default, `--vsync=off` uncaps), key bindings (rebound actions applied to the `InputMap`), HP / MP ALERT levels (`[alert]`; persistent rounds only, #121) |
 | `Sfx` | `scripts/audio/audio_service.gd` | BGM player with fade, pooled SFX players |
 | `Flow` | `scripts/core/scene_flow.gd` | Scene flow of 4.1: swaps main.tscn's child; character slots, tiered map select, saved round seeds, carry/death/victory; tool-only `start_run` (`--run`) bypasses persistence |
 
 Everything else is owned by the scene that uses it.
 
-`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`.
+`SaveData` owns local `user://save.json`, format 2: `best`, `runs`, three nullable `slots`, and `history`, plus an
+optional `account: {nx, owned}` (spec #34; absent = an empty account, no format bump). A finished round's `nx_awarded`
+is credited inside the same atomic write as the clear boundary or the death/victory archive.
 The run wrapper is `{name, look, created, character, tier, phase, rounds_played, tiers_cleared, stage?, round_seed?}`;
 `character` is #67's validated `CharacterSnapshot`, `tier` indexes the next tier, and `phase` is `free_market`,
 `map_select` or `round`. A round requires its chosen stage and seed, saved before entering the simulation.
@@ -167,7 +174,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MobSwarm` | All mobs, struct-of-arrays with free list | `_init(capacity, kinds, tuning)`, `spawn(kind, x, y, fh, hp) -> int`, `despawn(i)`, `step(dt, ctx)`, `apply_hit(i, dmg, dir) -> bool`, `alive_count()`, accessors `pos(i)`, `is_live(i)`, `is_settled(i)` (live and fully faded in), `mob_kind(i)`, `live_in_rect(area)` (ascending slots), `static low_platform(fhm, target, tp, reach_y)`, packed arrays `kind x y vx vy hp max_hp state state_t fh platform facing anim_t route_len steady` |
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray())`, per-shot pierce and already-hit list; optional live defense/immunity arrays are indexed by target slot at impact |
-| `PickupSystem` | EXP and potion drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `step(dt, player_pos, magnet_r, fhm, events)`, `active_count()`, `exp_count()` |
+| `PickupSystem` | EXP, potion, meso and equipment drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `spawn_meso(pos, amount)`, `spawn_equipment(pos, instance)`, `step(dt, player_pos, magnet_r, fhm, events, equip_room := -1)`, `active_count()`, `exp_count()` |
 | `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `clone()` (an independent copy for previews) |
@@ -183,10 +190,13 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
-| `BossAttacks` | Selected canonical type-0 area and type-2 ball windups, effect timing and delayed impact | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate |
+| `BossAttacks` | Scheduled bosses' selected canonical attacks (`stage.bosses[].attacks`), cadence and scaling | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate; the windup/impact code is `MobAttacks`' static half |
+| `MobAttacks` | The shared canonical type 0/1/2 attack code (`plan`, `service`, `emit`, `area_at`) and ordinary mobs' attacks (#76) | `step(world, dt)`, `reset_slot`, `move_slot`, `resize`, `wait_left(slot)`, static `attack_names(img)`, `first_wait(interval, identity)`; owned as `RunWorld.mob_attacks`; per-slot waits in a packed array, pending windups keyed by slot and checked against the swarm identity |
+| `MobActions` | Ordinary mobs' authored attack stances per slot in packed arrays, and the composed per-slot action view | `begin`, `busy`, `reset_slot`, `resize`, `view(boss_view, bosses, swarm, now)`; owned as `RunWorld.mob_actions`; `RunWorld.mob_action_view()` is what MobSwarm and MobRenderer read |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; same ProjectileRenderer drawing interface |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total, mp_short}` is the HUD's per-skill cooldown sweep and blue waiting-for-MP data (Teleport: its repeat timer); `read_skill_cooldowns(left, total, mp_short)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
+| `BotShop` | What the bots do with equipment and mesos (spec #33, #112), beside `BotInput`: wears the best item it owns, and plans and applies one Free Market visit through RunWorld's equip/shop API. Used by `balance_run.gd` (mid-round and between `--tier` rounds), RunScene's autoplay and `FreeMarket.bot_shop` | `auto_equip(world) -> int`, `equip_trigger(events)`, `plan(character, stock, facts, policy, rng) -> {sell, steps}`, `visit(world, policy, rng) -> record`, `character_of / stock_of / facts_of(world)` |
 
 Player projectile hit exclusion uses `MobSwarm.identity`, a packed 64-bit logical identity independent of the
 reusable slot index and canonical mob-kind ID. Each fresh `MobSwarm.spawn` receives the next run-local identity;
@@ -208,8 +218,10 @@ var setup := {
 	                                  # StageRoster.mob_ids (pools, bosses, and the bosses' canonical summon/revive ids)
 	"skill_imgs": {"000": Dictionary, "200": Dictionary, "210": Dictionary},  # Skill.wz/<book>.img roots
 	"equipment_info": {1040002: Dictionary, 1060002: Dictionary, 1072001: Dictionary,
-		1302000: Dictionary, 1372005: Dictionary}, # canonical info of balance.player.equipment + every weapon_by_job
-		                                       # weapon (DataRepo.starter_equipment_ids), keyed by original item id
+		1302000: Dictionary, 1372005: Dictionary}, # canonical Character.wz info of Equipment.DEFAULT_OUTFIT, the
+		                                       # weapon_grants wand, every MakeCharInfo top/bottom/shoes/weapon and
+		                                       # every item setup.character holds (DataRepo.starter_equipment_ids),
+		                                       # keyed by original item id; req*, attackSpeed, afterImage, sfx
 	"body_img": Dictionary,           # Character.wz/00002000.img, exact stance frame delays
 	"afterimage_imgs": {"swordOL": Dictionary, "mace": Dictionary}, # Character.wz/Afterimage roots the worn weapons'
 	                                  # canonical info/afterImage names (WeaponInfo.afterimage_name)
@@ -223,8 +235,28 @@ var setup := {
 	"view_size": Vector2(800, 600),   # the live logical view, get_viewport().get_visible_rect().size (800x600 on 4:3,
 	                                  # 1066x600 on 16:9, more with fill_window; see 4.5); RunWorld keeps a
 	                                  # player-centred view rect of this size for spawn logic
+	"character": Dictionary,          # optional CharacterSnapshot (see 4.5); its `cash` ({slot: id}) and `pet` (species)
+	                                  # are what the character wants to wear / bring out
+	"account": {"owned": [1002469, 5000000]},  # optional (spec #34): the account's owned cash item ids, absent = an
+	                                  # empty account; `nx` is never part of the setup, only the save credits it
+	"alert": {"hp": 0.3, "mp": 0.2},  # optional: HP / MP ALERT fractions the pet's auto potions follow, absent = 0
 }
 ```
+
+The account reaches the sim only as plain data: `setup.account.owned` filters `character.cash` and `character.pet` to what
+the account owns (`CashCatalog.resolve`), and the result is `RunWorld.worn_cash`, `RunWorld.pet` and, with a pet out,
+a `PetSystem`. Fortune from cash slots is computed live (`RunWorld.cash_fortune`, added to `player_state.fortune`) and never
+written back to the character. Where `account` and `alert` come from: a persistent round (`SceneFlow._resume_round`)
+passes `SaveData.account` and the settings' ALERT levels; a tool round (`RunScene` `options.account`, from
+`--account=<json>` through `AccountFile.load_file`/`apply`) uses the file's `owned`/`cash`/`pet`/`alert` and ignores
+its `nx`. Without either, the setup has no `account`, nothing is worn and no pet exists, which keeps every record
+byte-identical to a round without the feature.
+
+The money side lives outside the sim. A finished round's summary carries `nx_awarded` (`NxAward`, from `bosses_killed` and
+`levels_gained` and `balance.nx_award`); `SceneFlow` credits it to `SaveData.account` in the same atomic write as the
+clear's round-boundary snapshot or the death/victory run archive, and only for persistent rounds. The Cash Shop
+(`scenes/ui/cash_shop.gd`, rules in `scripts/core/cash_shop.gd`) and the Equip window's Cash tab and Pet page edit
+`account.owned` (buy) and the slot's `character.cash` / `character.pet` (wear, bring out) and save at once.
 
 Tests build the same Dictionary from synthetic data. `scripts/core/data_repo.gd` loads the JSON files (outside sim).
 
@@ -278,9 +310,12 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_jump` | `pos` |
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
-| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion), `potion_kind` (hp/mp or empty), `count` (potion bundle; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind`, `potion_kind`, `count` |
+| `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
+| `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): the player came within magnet range of an equipment drop while the Equip tab is full; once per approach, the drop stays on the ground |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
+| `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
+| `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
@@ -294,10 +329,12 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
 | `boss_attack` | `boss_index`, `mob`, `mob_id`, `attack` (canonical stance, e.g. attack1), `phase` (`start` / `effect` / `impact`), `pos` (captured feet), `facing`, `area` (Rect2, captured world-space range), `time` (event tick), `impact_time` (absolute planned sim time), `effect`, `sound` (WZ paths, effect may be empty). Start holds the stance and plays sound; effect phase starts art; impact tests the current player position/grounded state. |
+| `mob_attack` | An ordinary (non-boss) mob's attack (#76): the `boss_attack` fields without `boss_index`, same phases (`start` / `effect` / `impact` / `hit`) |
 | `mob_projectile_spawned` | `proj`, `mob`, `mob_id`, `pos` (muzzle), `velocity` (Vector2 px/s), `range`, `speed` (float), `ball`, `hit` (WZ paths), `time` |
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
+| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, the Magician weapon grant in `change_job` and an equipment pickup (`slot` `""`, `item_id` the new item) |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
@@ -346,6 +383,23 @@ the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack 
 An explicit `magic=1` also selects magic damage, falling back to mob MADamage when no local attack value exists.
 Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
 The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
+
+**Shared mob attack path (#76).** The windup/impact code above lives in `MobAttacks` as static functions
+(`plan`, `service`, `emit`, `area_at`); `BossAttacks` keeps only the boss loop (which attacks, `attack_interval`,
+`attack_dmg_mult`, the BossDirector action gate). `MobAttacks.step` runs the same code for ordinary mobs: every kind
+whose Mob.wz img lists `attackN` with type 0, 1 or 2 (scheduled-boss kinds and slots with `mob_boss >= 0` excluded)
+tries its attacks in canonical order and starts the first whose range admits the character. A slot's wait (packed
+`_wait`) counts down only while the mob can act (fully faded in, not frozen) with its feet inside `RunWorld.view`;
+the first wait is 50-100% of the interval by the golden-ratio fraction of the swarm identity (`first_wait`, tier C),
+later waits the full `balance.mob_attacks` interval. A start also needs the mob grounded and not busy. Pending
+windups are keyed by slot and carry the swarm identity; a dead, reused or relocated slot drops its windup. Hits use
+`source_kind = mob_attack` (balls from ordinary mobs too, through MobProjectileSystem's `ordinary` flag), `boss =
+false`, the elite flag, and `dmg_mult` from `balance.mob_attacks.mobs[id]`; events are `mob_attack`. Ordinary
+stances live in `MobActions` (packed per-slot arrays); `RunWorld.mob_action_view()` composes them with
+`BossDirector.action_snapshot` for MobSwarm (hold ground/facing) and MobRenderer, and returns the boss snapshot
+itself while no ordinary stance is live. Ordinary mobs cast no mob skills: character statuses come only from bosses
+(owner, #76), so `MobSkillRunner` runs scheduled bosses only. Per-slot waits and stances reset in `spawn_mob` and move
+(waits) or reset (stances, windups) in `relocate_mob`.
 
 Type 1 is a targeted direct strike (tier C, not verified v83 RE): acquisition checks the character body centre
 within `range/r` of the mirrored `range/sp`. Once admitted, the single character is locked; `attackAfter`
@@ -432,6 +486,7 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, invincibility, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
 | `jobs.json` | which canonical jobs are playable and their Max MP bonuses; no skill grants, extra advancement draw |
+| `cash_items.json` | the Cash Shop catalog (id, kind equip / pet / pet_upgrade, NX price, Commodity SN, prerequisites) and the tier C Fortune each cash slot adds (`CashCatalog`, spec #34); the account and the worn items reach a round as setup keys `account` / `alert` and the CharacterSnapshot `cash` / `pet` keys |
 
 `RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
 places the player at the destination minus the configured lift, resets velocity/ladder/down-jump state, and emits
@@ -547,6 +602,33 @@ What the tables above leave open; the class doc comments have the rest.
   Potion slots have a separate kind and bundle count: they never expire, absorb EXP, or count toward `max_active`.
   Both kinds use the same pop, gravity and magnet motion. `collected_potions` reports hp/mp quantities collected this tick;
   `active_count()` includes all drops, while `exp_count()` preserves the balance harness's EXP-drop metric.
+  **Mesos (#107):** kind `MESO` = 3 (`EQUIP` = 4 is #109, below) with `meso[i]` = the amount; `spawn_meso(pos, amount)`
+  picks the coin sprite item from the amount (`MesoDrops.sprite_item`: <50 bronze 09000000, 50-99 gold 09000001, 100-999
+  bundle 09000002, 1000+ bag 09000003). Like potions they never expire, merge or count toward `max_active`. A collected
+  one adds its amount to `step_mesos` (this step; RunWorld adds it to `mesos`) and `collected_mesos` (the round's total),
+  and its `pickup_collected` / `pickup_spawned` events carry `kind` `"meso"` with the amount in `count`.
+- **Mesos:** `MesoDrops` (pure statics) holds the brackets, `amount_range(level, listed, fallback)` and `roll(rng, span,
+  mult)` (uniform in [min, max), times the multiplier). A kill rolls `balance.mesos.chance` on its own RNG stream (9,
+  `meso_rng`), then the amount from `mobs.json` `mesos` (or the level fallback) x `balance.mesos.mult`;
+  a scheduled boss's death drops `balance.mesos.boss_drops` bundles with no chance roll. `RunWorld.spawn_meso(pos, amount)`
+  is the public seam; `RunWorld.mesos` is the carried total (snapshot format 2). PickupRenderer animates the coins
+  (`AssetLibrary.meso_frame_path`: `Item.wz/Special/0900.img/<id>/iconRaw/0..3`, 100 ms a frame); RunScene sums the frame's
+  collected mesos into one "You have gained mesos (+N)" message. The balance record carries `mesos_earned` per round.
+- **Equipment drops (#109):** kind `EQUIP` = 4; `spawn_equipment(pos, instance)` keeps the Equipment instance in
+  `equip_instance[i]` (a plain Array beside the Packed arrays; `item_id` is the equipment id, drawn from its
+  `Character.wz/.../info/iconRaw`). Equipment never expires, merges or counts toward `max_active`. `step(..., equip_room)`
+  takes how many items the Equip tab still holds (RunWorld passes `inventory_slots() - inventory.size()`, -1 = unlimited):
+  a collected drop is appended to `collected_equipment` (RunWorld puts it in `equipment.inventory`, emits
+  `equipment_changed` action `pickup`, counts `equips_collected`). With room 0 a drop is not magnetised (one already flying
+  falls back to the floor) and `pickup_blocked` is emitted once each time the player comes within magnet range; it is picked
+  up as soon as room appears. `EquipmentDrops` (pure statics: `eligible`, `pick`, `pick_boss`) filters
+  `survivor/equipment_drops.json` `items` (ids only; reqLevel, reqJob and stats come from `setup.equipment_info`, which
+  `DataRepo.starter_equipment_ids` extends with the list) by the character's current job (`Equipment.job_allows`) and
+  level window, weighting nearer reqLevels; `Equipment.create_drop(id, info, rng)` rolls the v83 random stats. A kill rolls
+  `equipment_drops.chance` on its own RNG stream (10, `equip_rng`); a scheduled boss's death drops
+  `equipment_drops.boss_drops` item(s) from the top of the window with no chance roll. `RunWorld.spawn_equipment` is the public
+  seam; RunScene shows "You have gained an item (name)" and "You can't get anymore items." through the HUD message queue.
+  The balance record carries `equips_dropped` and `equips_collected` per round.
 - **Potions:** `setup.item_info` maps original item IDs to canonical `Item.wz/Consume/0200.img` nodes loaded by
   `DataRepo.build_setup`. `player_state.potions` is `{hp: {item_id, count}, mp: {item_id, count}}`.
   `RunWorld.spawn_potion(kind, pos, count := 1)` emits a ground bundle (also the boss-reward seam);
@@ -578,11 +660,15 @@ What the tables above leave open; the class doc comments have the rest.
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
-`RunWorld` accepts an optional `setup.character` format-1 `CharacterSnapshot` and exposes
-`character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
+`RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
+exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
 it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered
-skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look and Beginner weapon.
-Resolved attributes/Fortune are also included for consumers. Each new world refills computed HP/MP and creates
+skills with ranks/modifiers, player modifiers/card limits, potion stock/tier IDs, Fortune, look, worn equipment and
+inventory (`scripts/sim/equipment.gd` instances), scroll stacks and mesos.
+Resolved attributes/Fortune are also included for consumers. RunWorld owns the live equipment: UI and bots change it
+only through `equip_item`, `unequip_item` and `discard_item` (see the RunWorld header); a character without a
+snapshot wears `Equipment.DEFAULT_OUTFIT`. `SceneFlow.new_character` makes the creation choices worn equipment and
+`continue_character` migrates a format-1 save slot once. Each new world refills computed HP/MP and creates
 fresh map systems, timers, buffs and statuses. Snapshot reads during any pending level/job/reward/advancement
 choice push an error, return empty in release and assert in debug. With no character the original setup/event
 path is retained. The sim does no file I/O: `DataRepo.load_character` validates the explicit tool JSON file for
@@ -615,13 +701,13 @@ score setting. Both knobs are tier C survivor tuning.
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
-| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. |
+| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. |
 | `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
 | `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the pure `sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. The one HUD control that takes the mouse is the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`, process mode ALWAYS so it works while the HUD is frozen). |
-| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
+| Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The Equip and Item windows (#108; `InventoryWindow` base: the v83 double-click / drag protocol, `ItemTooltip`, `DropConfirm` on `Basic.img/YesNo`) show and change the character only through a RunWorld (`equip_item`, `unequip_item`, `discard_item`, `discard_scrolls`, and `use_scroll` for a scroll dragged from the Use tab onto a worn item, resolved by the pure `Scrolls` module on RNG stream 11) and read their plain data through `InventoryModel`; `RunScene._on_item_action` maps the world's `equipment_changed` and `scroll_used` at once (the Enchant effect is an `EnchantFx` layer above the windows, unfrozen while the run is held). The Free Market hosts the same stack (`FreeMarket.ui_windows`) over `FreeMarket.inventory`, a map-less RunWorld of the saved character whose `character_snapshot()` is written back into the save slot after every change. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
 `RunScene.boss_bars()` builds presentation-only snapshots from live encounter records and swarm HP, independently
@@ -673,19 +759,35 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 ## 7. Offline guarantees
 
 - No networking API is used by the game or the importer; enforced by `tests/unit/test_offline.gd` (scan of every
-  script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings) and the
-  importer's `no_network_deps` (Cargo.lock scan) and `no_network_src` (`std::net`/socket types in its sources) tests.
-- The importer is a local process reading local files; the game launches it with `OS.execute_with_pipe`/`OS.create_process`.
-- Settings and saves are local files under the user data folder.
+  script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings, and for
+  `JavaScriptBridge`) and the importer's `no_network_deps` (Cargo.lock scan) and `no_network_src`
+  (`std::net`/socket types in its sources) tests. This holds for every build, the web build included: `game/` has
+  no networking and no JavaScript, and `tools/wzimport/` has no network code (it may carry wasm-bindgen bindings and a
+  Node test harness); both compile the same for desktop and web.
+- On desktop the importer is a local process reading local files; the game launches it with
+  `OS.execute_with_pipe`/`OS.create_process`.
+- Settings and saves are local files under the user data folder (in a browser: `user://` in the page's IndexedDB).
+- **What the web shell may fetch (ADR 0004).** The shell in `web/` is the only shipped code that makes requests, and
+  only two kinds: (1) the static bundle it was served with (`index.js`, `index.wasm`, `index.pck`, its own scripts,
+  `asset_manifest.json` and the licence files), and (2) when the player types a folder or `.zip` address into the
+  import screen, requests to that address: a `HEAD` / `GET Range: bytes=0-0` probe, then ranged or whole-file reads
+  for the import. Nothing is hard-coded: the repo, the site and the docs name no source or mirror, there is no
+  default address, no analytics, no service worker and no telemetry, and a folder or `.zip` import from the player's
+  disk makes no request at all. The player's files are read in the page and never uploaded. The importer's browser
+  readers (`Blob`, HTTP `Range`) live in `web/` as host callbacks, so the Rust side stays free of network code.
+- Developer tooling outside `game/` that uses the network ships in no build: `scripts/godot.sh` and
+  `scripts/godot_templates.sh` (the pinned Godot editor and web templates), the CI workflow, and the localhost test
+  servers in `web/dev/`.
 - Verified by process-level socket snapshots during a 15:00 playtest and of the exported build (0 TCP connections,
   0 UDP endpoints, no child process other than the local importer; `docs/IMPLEMENTATION_PLAN.md` acceptance checks).
   A run with the network adapter disabled has not been done.
 
 ## 8. Licensing and assets
 
-- Our code: original. Godot (MIT) notices ship with exports: `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
+- Our code: original. Godot (MIT) notices ship with exports (the web build too: the four notice files sit beside
+  `index.html` and are linked from the import screen): `scripts/export.sh` writes `GODOT_LICENSES.txt` (the
   engine's licence, its bundled components and their licence texts, from the engine itself), `WZIMPORT_LICENSES.txt`
-  (every crate's licence files) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
+  (every crate's licence files), `ARIMO_OFL.txt` (the bundled font's licence) and copies `THIRD_PARTY_NOTICES.md` next to the exe. Rust crates are permissive
   (MIT/Apache/Zlib); the list is in `THIRD_PARTY_NOTICES.md`.
 - Cosmic (AGPL-3.0) and the AGPL/GPL/MPL clients: facts and prose descriptions only, never code. Where a constant comes
   from them it is labelled with its tier and source in `docs/GAME_DESIGN.md`.
@@ -698,8 +800,9 @@ The real client's physics integrator and timestep, mob speed-stat conversion, pr
 fade timing, climb speed, camera smoothing, and the touch-damage formula are not recoverable from data or clean
 sources. Each is implemented as a labelled, data-driven constant so it can be corrected when better evidence appears.
 
-The canonical `equipment_info` supplies physical `incPAD`, magic `incMAD`, weapon speed, `afterImage` and `sfx`.
-`RunWorld.weapon_id()` selects the configured job weapon; `mob_defense(slot, magic)` reads live slot defense, and
+Worn equipment instances supply every `inc*` stat (W.ATT summed over all worn items); the canonical `equipment_info`
+supplies requirements, weapon speed, `afterImage` and `sfx`. `RunWorld.weapon_id()` is the worn weapon (0 means a
+bare-handed punch, `BasicAttack.BARE_HANDS`); `mob_defense(slot, magic)` reads live slot defense, and
 `physical_hit_allowed(slot)` is the physical-immunity seam. Basic swings show their action while standing or airborne;
 new skills retain standing-only action presentation. Neither action changes movement or locks it.
 
@@ -711,3 +814,270 @@ so projectile damage resolves the defense present at impact; basic and instant h
 `player_speed_stat()` composes upgrade speed with the timed slow. `player_state.slow` is `{skill_id: int,
 remaining: float, multiplier: float, visual: String}` while active, otherwise `{}`. The presentation repeats slow
 art in a pooled slot until the sim state expires; window pauses cannot consume its duration.
+
+## 10. Web build
+
+The web build (spec #130, ADR 0004) is the "Web" preset of `game/export_presets.cfg`: single-threaded
+(`variant/thread_support=false`, template `web_nothreads_*`), GL Compatibility, no GDExtension, no PWA, and the same
+`include_filter`/`exclude_filter` as desktop (`tests/unit/test_export_presets.gd` holds this). Its shell is
+`web/index.html` through `html/custom_html_shell="res://../web/index.html"`: FileAccess turns `res://` into the
+project folder, so the shell stays beside `game/` without staging, and an ISOLATE mirror gets a copy of `web/` beside
+its `game/`.
+
+- **Templates:** the official 4.7.2 `web_nothreads_debug.zip` and `web_nothreads_release.zip`, installed by
+  `bash scripts/godot_templates.sh install-web` (downloads the official templates archive, checks its SHA-512 against
+  the release's `SHA512-SUMS.txt`, unpacks only those two into the editor's templates folder:
+  `%APPDATA%/Godot/export_templates/4.7.2.stable` on Windows, `~/.local/share/godot/export_templates/4.7.2.stable`
+  on Linux; `godot_templates.sh dir` prints it).
+- **Export:** `ISOLATE=<name> bash scripts/export.sh --web [--debug]` writes the whole site to `game/export/web/`
+  (`index.{html,js,wasm,pck}`: wasm 39.5 MB, pck 1.2 MB, plus everything of section 10.3). `node web/dev/serve.mjs
+  game/export/web` serves it on 127.0.0.1:8060 with `application/wasm`, plus `web/dev/` at `/dev/`.
+- **Dev cache injection (never exported):** `http://127.0.0.1:8060/dev/inject.html` copies a desktop-built cache
+  folder straight into the IndexedDB database behind `user://` (`web/idbfs.js` documents the record format). The
+  import screen of section 10.2 replaces it for players.
+- **`user://` on web:** `OS.get_user_data_dir()` is `/userfs/MapleSurvivors` (Godot's web OS returns
+  `/userfs/<custom_user_dir_name>`), so the cache is `/userfs/MapleSurvivors/asset_cache/v83`; the game prints that as
+  its cache root. `/userfs` is Emscripten IDBFS: IndexedDB database `/userfs`, store `FILE_DATA`, keys are absolute
+  paths. The whole tree is read into memory when the engine starts. The engine writes it back after any frame in which
+  a file under `/userfs` was closed for writing or removed, and always once more on quit, before `onExit`.
+- **Quitting on web:** in Godot 4.7.2, if an `AudioStreamPlayer` still holds a sample playback at shutdown,
+  `Main::cleanup` throws (`SampleNode._pause` reads the AudioContext that was already closed) and `onExit` never runs.
+  The final IndexedDB sync has already happened by then. Stopping every `AudioStreamPlayer` and pausing the tree
+  before `get_tree().quit()` gives a clean exit (verified in a scratch build). This sequence is binding for every web
+  quit (`WebHandoff.quit`); the shell also treats the post-quit `currentTime` TypeError as an exit (section 10.2), and
+  the importer's zip reader uses no temporary storage (docs/ASSET_PIPELINE.md 2.3).
+- **Arguments:** command-line user args reach `OS.get_cmdline_user_args()` through the engine config `args` after
+  `--`; `web/index.html` maps `?arg=<value>` query parameters to them. The web templates are built without path
+  overrides: a scene path on the command line (e.g. `res://scenes/debug/flow_driver.tscn`) aborts the engine.
+
+### 10.1 Spike measurements (#131, 2026-10-17)
+
+Setup: dev PC (Ryzen 7 7800X3D, RTX 4070 SUPER, display at 60 Hz in this session); installed Chrome 155.0.8059.40,
+headed and driven by Playwright with a 1600x1200 viewport; release export of the #131 branch. The runs match the
+desktop playtests: `--run=henesys_hg1 --seed=2026 --autoplay --autopick --speed=1 --warp=<s> --perf`. The simulation
+is bit-identical to desktop: kills, levels, alive counts and the death time agree at every checkpoint.
+"Uncapped" means Chrome with `--disable-gpu-vsync --disable-frame-rate-limit` plus the game's `--vsync=off`. Web frame
+times come in 0.1 ms steps, the browser's timer resolution without cross-origin isolation.
+
+| Window (run time) | Mobs (minute means / max) | Web frame ms p50 / p95 / p99 / max | Desktop exe frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|
+| uncapped 10:00-13:00 | 201-269 / 290 | 3.3 / 6.2 / 7.9 / 33.3 | 1.86 / 3.46 / 4.93 / 18.3 | 1659 / 1207 |
+| uncapped 13:00-15:07 (death) | 292-341 / 341 | 3.7 / 8.7 / 10.9 / 83.7 | 2.01 / 5.33 / 6.91 / 17.0 | 3929 / 2849 |
+| capped 60 Hz 13:00-15:00 | 292-339 / 340 | 16.7 / 16.8 / 16.8 / 21.5 (work p95 6.8 ms) | not run | 3732 / not run |
+
+1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run played all 7,200 ticks of its 120 s in
+   7,081 recorded frames (frames right after a screenshot are not recorded, and fewer than 2% ran a catch-up tick),
+   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
+   reached: Henesys caps at 330 alive from 15:00 (`stages.json`), and in this seed the bot dies at 15:07 on both
+   platforms.
+2. **Sim:** 1.38x desktop: 3.9 ms/tick at about 340 mobs, 1.7 ms at 200-290.
+3. **Peak wasm heap:** 178 MiB in a `--run` session with 200-341 mobs; it stops growing during the warp. The title
+   screen alone takes the heap to 339 MiB, and the heap never shrinks, so a full title-to-round session peaks at 339
+   MiB or more. Measuring the full flow needs menu input on web, which is left to the QA ticket. Chrome's
+   `usedJSHeapSize` peaks at 330-340 MiB in rounds (it swings between about 235 and 330 MiB, which is GC churn with no
+   visible frame cost) and 604 MiB on the title. Whether that figure counts the typed arrays holding the in-memory
+   IDBFS copy of the 157 MiB cache was not checked.
+4. **Max texture size:** WebGL2 `MAX_TEXTURE_SIZE` is 16384 (ANGLE D3D11). The largest cache page is 2493x340
+   (`Map.wz/Back/grassySoil.img.0.png`), followed by 2048 px pages, so nothing comes close.
+5. **Rendering against desktop:** compared by eye on the same frames (`evidence/spec130/t131/`). Maps, mobs, skills,
+   the CanvasGroup invincibility blink, HUD, title and overlay match desktop. Text drawn with the `SystemFont` (Arial)
+   falls back to Godot's built-in font, visible on "Re-import WZ data", names and the overlay. This is expected; a
+   bundled font is the web profile ticket's job. Audio plays through Web Audio samples (AudioContext `running`), and
+   Godot resumes it on the first key or click. Under Playwright the context starts without a gesture, so the click
+   requirement could not be reproduced. Every run reported `missing: []`. Quitting hits the shutdown error above.
+
+**Verdict: pass.** In Chrome the game holds the desktop bar (60 FPS at 330-400 mobs on the dev PC) at the 330-341 mobs
+it reaches, with no engine or presentation change. On web the sim costs about 1.4x desktop and frame time about
+1.6-1.8x.
+
+### 10.2 Web shell and the shell-game protocol (#133)
+
+The shell is `web/index.html` (Godot's custom HTML shell, placeholders filled at export) plus files that must sit
+beside it in the export: `shell.css`, `shell.js` (page logic), `lib.js` (pure helpers, unit-tested with
+`node --test web/dev/test/*.test.mjs`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
+worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (a copy of
+`game/data/asset_manifest.json`, fetched same-origin). `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
+picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
+
+**Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
+IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
+check is exact for what the manifest names and nothing else: every `imgs[]` entry, every `mapimgs` entry and the imgs
+the `maps`/`mobs`/`character`/`items` ids resolve to (the formulas of `tools/wzimport/src/manifest.rs`), plus
+`Map.wz/MapHelper.img` (`portal`) and `Sound.wz/Mob.img` (one sub-path per listed mob), must be listed in `cache.json`,
+and the `paths` the index records for an img must cover the manifest's: an img cached whole covers any selection, a
+partial one covers a request only when it holds that path or a shorter path above it (so a path added to the manifest,
+or an img that went from a selection to the whole img, reads as incomplete); and for every img the index lists, its
+`.json` and `.N.png` records must exist. Dependencies the importer derives by reading WZ data (map backs, tiles, objs,
+mob links) are only caught by the second rule. A cache that fails is "incomplete":
+- remembered source is a **URL**: the shell re-imports from it at once, automatically, and says so on screen;
+- remembered source is a **folder or zip**: the import screen says what is missing and asks the player to pick it
+  again. Where `showDirectoryPicker` exists the folder handle is kept in a separate IndexedDB (`maple-shell`, never
+  `/userfs`), and a "Use ... again" button plus the browser's permission prompt replaces the picker.
+
+Re-imports are complete imports (docs/ASSET_PIPELINE.md 2.4). The old cache is replaced only after the new one has
+been read successfully.
+
+**Import.** One source per import: a folder (`showDirectoryPicker`, else `<input webkitdirectory>`; a dropped folder
+where the browser offers a handle), a zip (picker or drop) or a web address (a folder base URL or a `.zip` URL). The
+work is in `import_worker.js` and never runs while an engine is mounted. For a URL the worker first probes: a
+`Range: bytes=0-0` GET per file gives size and range support; the player sees the total size and that the download
+comes straight from the host they named, and only then confirms. CORS refusals and unreachable hosts are told apart (a
+`no-cors` HEAD) and get distinct messages. The URL is remembered in `localStorage`, with the kind and label of the last
+source. Nothing the engine could sync lives in `/userfs` but the cache, saves and settings.
+
+**Storage.** The worker deletes the old cache records, writes directory records and files straight into IndexedDB
+`/userfs` (`idbfs.js`: batches of at most 50 records or 32 MiB) and `cache.json` last, so an interrupted import leaves no
+`cache.json` and reads as "no cache". `navigator.storage.persist()` runs at boot and after an import. The result shows
+in the footer of the shell screens and in a toast at the first game start ("kept (persistent)" or "best effort").
+
+**Request marker (the protocol).** `user://web_request.json`, i.e. `/userfs/MapleSurvivors/web_request.json`:
+
+```json
+{"format": 1, "request": "reimport"}
+```
+
+`request` is one of `reimport` (show the import screen), `export_save` (download `user://save.json` as
+`maple-survivors-save-YYYYMMDD-HHMMSS.json`, then restart the engine) or `import_save` (ask for a save file, validate it,
+keep the old file as `save.json.bak` the way `SaveData` does, write `save.json`, restart). The game writes the file,
+closes it in a normal frame, stops its audio players, pauses the tree and calls `get_tree().quit()` (the game side is the
+web profile ticket, #134). When the engine exits the shell reads the marker from IndexedDB, deletes it, handles it and
+starts a **new** `Engine` on a fresh canvas element. An unknown `request`, a wrong `format` or invalid JSON is logged,
+deleted and ignored; no marker is a plain quit. Both end on a "The game has quit" screen with Play again. Exit is
+detected from `onExit`, and also from a page error mentioning `currentTime` of null while an engine runs (Godot 4.7.2's
+teardown after a quit with audio alive; the final IndexedDB sync has already happened by then).
+
+Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
+or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
+contents when it loads the file.
+
+**Network.** The shell requests its own static bundle and, when the player enters an address, that address (`fetch`
+for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`
+and `tools/wzimport/` stay offline (ADR 0004). `web/dev/serve_sources.mjs` is a localhost test host with range,
+no-range and CORS-blocked modes; test addresses are always `http://127.0.0.1:<port>/...`.
+
+### 10.3 Deploying the site (#135)
+
+`bash scripts/export.sh --web` (see the header of the script) is the single path that makes the site; `game/export/web/`
+is gitignored. It exports the Web preset, copies the shell files and `asset_manifest.json`, builds the wasm importer
+(`scripts/build_wasm.sh`) and places it beside `index.html`, writes the licence files linked from the import screen
+(`GODOT_LICENSES.txt`, `WZIMPORT_LICENSES.txt` including the wasm-only crates, `THIRD_PARTY_NOTICES.md` including the
+font, `ARIMO_OFL.txt`) and finishes with `scripts/check_web_artifact.sh`: the build fails if a `.wz`, `.img`,
+`*.img.json`, atlas `*.N.png`, `.mp3`/`.wav`, a `cache.json` or any file starting with the WZ signature (`PKG1`) is in
+the folder, or if a file the site needs is missing (`web/dev/test/artifact_check.test.mjs` plants each shape).
+`ISOLATE` and `EXPORT_DIR` work as for the Windows export. Everything is static, so the folder works on any static
+host and under a sub-path such as `/maple-survivors/` (the shell uses relative URLs only).
+
+The workflow `.github/workflows/pages.yml` ("Web build"): its `build` job runs on every pull request, on pushes to
+`main` and on `workflow_dispatch`. It installs the pinned Godot 4.7.2 editor (`scripts/godot.sh`) and its web templates
+(`scripts/godot_templates.sh install-web`), Rust with `wasm32-unknown-unknown` and the locked `wasm-bindgen-cli`, runs
+`cargo test`, `node --test web/dev/test/*.test.mjs` and `bash scripts/test.sh`, then `export.sh --web` and the artifact
+check again, and uploads `game/export/web` as the Pages artifact. Tests that need the real asset cache (or
+`MAPLE_WZ_ROOT`) SKIP in CI because CI has no WZ data and never will; a SKIP proves nothing, and the log counts them.
+The `deploy` job (`actions/deploy-pages`) runs only for pushes to `main` and `workflow_dispatch`, never for pull
+requests, so a pull request proves the whole pipeline except the final publish. `workflow_dispatch` is only offered
+for the copy of the workflow on the default branch.
+
+CI runs on Linux with no asset cache and no Arial/Tahoma/Dotum, which found two test assumptions that Windows runs hide
+(fixed in the tests only): `test_maple_text_wrap_and_ellipsize` now accepts the bundled-Arimo `FontVariation` as well as
+a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` keeps its 20-minute golden digest for
+Windows only: on Linux the same code and data produce other event bytes for seed 1 (cause not investigated, probably
+the platform's math library), so there it checks that two replays on the same machine agree. The web build's wasm
+output was recorded as identical to Windows in 10.1; the Linux difference was not compared against wasm.
+
+**One-time owner setup:** repository Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**. Until that
+is set the `deploy` job fails (the `build` job and pull requests are unaffected). The site is then at
+`https://itechify.github.io/maple-survivors/`. Out of scope by design: custom domains, analytics, a service worker and
+offline caching of the page.
+
+### 10.4 Browser QA measurements (#136, 2026-10-17)
+
+What was tested: the artifact of `bash scripts/export.sh --web` on the integration branch (head f619dc4, with B2/B3:
+equipment, shops, Cash Shop, pet), served by `web/dev/serve.mjs` on 127.0.0.1, not the deployed Pages site (the owner
+enables Pages after merge; the deployed-URL pass is still to do). Dev PC as in 10.1; Chrome 155.0.8059.40 (installed,
+headed) and Playwright's Firefox 157.0, both in fresh profiles, 1100x800 viewport for the menu flow. Same method and
+flags as 10.1 (`--run=henesys_hg1 --seed=2026 --autoplay --autopick --speed=1 --warp=<s> --perf`, uncapped = Chrome
+`--disable-gpu-vsync --disable-frame-rate-limit` plus `--vsync=off`). The display ran at **165 Hz** this session (rAF
+164 Hz measured with no flags), so the "capped" run is capped at 6.1 ms per frame, not 16.7 ms.
+
+| Window (run time) | Mobs (minute means / max) | Web frame ms p50 / p95 / p99 / max | Desktop exe frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|
+| uncapped 10:00-13:00 | 202-257 / 290 | 3.4 / 5.7 / 8.3 / 133 (one frame; next worst 15) | not re-run | 1260 / not re-run |
+| uncapped 13:00-17:00 (alive at 17:00) | 285-355 / 356 | 4.5 / 15.3 / 27.4 / 75.3 | 2.3 / 8.6 / 12.1 / 45.6 | 5807 / 4274 |
+| capped (165 Hz) 13:00-15:00 | 285-325 / 339 | 6.1 / 14.5 / 17.4 / 55.4 | not run | 4354 / not run |
+
+Minutes 15 and 16 (342-356 mobs) on their own, uncapped: web p95 16.8 / 16.4 ms and p99 31.3 / 34.7 ms against desktop
+p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
+
+1. **What changed since 10.1.** With B2/B3 the same seed no longer dies at 15:07: the bot is alive at 17:00 with up to
+   356 mobs (Henesys' cap of 330 no longer holds), and the desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
+   measured 2849 at 292-341 mobs. The web/desktop ratio is unchanged (sim 1.36x here, 1.38x in 10.1; frame p95 1.8x,
+   p99 2.3x).
+2. **Verdict against the bar (60 FPS at 330-400 mobs): marginal.** Median and mean are comfortable (p50 4.2-4.6 ms,
+   uncapped mean 6.5 ms), but at 340-356 mobs the p95 sits at the 16.7 ms budget and the p99 at 27-35 ms, so a 60 Hz
+   display would drop frames in a few percent of frames from about 14:00. 10.1's p95 of 8.7 ms at the same mob counts
+   no longer holds: desktop moved the same way (p95 5.3 -> 8.6 ms), so this is the merged content, not the web
+   platform. 400 mobs is still not reached (356 maximum). Filed as its own issue; nothing was tuned here.
+3. **Heap.** A `--run` session peaks at 286 MiB of wasm memory (10.1: 178 MiB). A real title -> character select -> round
+   session holds 358 MiB right on the title screen and does not grow in the round (the heap never shrinks). Chrome's
+   `usedJSHeapSize` is 358-370 MiB in rounds and 469 MiB on the title.
+4. **Firefox.** The #131 black canvas was most likely Firefox's window occlusion tracking: the same build froze (black
+   canvas, no frames, page calls hanging) while another window covered the headed Firefox window, and worked once the
+   preference `widget.windows.window_occlusion_tracking.enabled=false` was set (in the QA driver only; nothing in the
+   game or shell). With it the build renders and plays: folder and zip import (8-9 s), title, character creation, a
+   round, Key Config, Options, fullscreen, pause, Continue after a reload, tier 2, death and history. Firefox frame
+   times were not measured (one rAF probe at the title read about 35 callbacks per second; not investigated). Firefox
+   also leaves the import screen's "Storage: checking..." line unresolved until its persistence permission prompt is
+   answered.
+
+### Web profile (#134)
+
+Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`: `OS.has_feature("web")`, with a
+`forced` override so unit tests can run the web branches on desktop). Desktop behaviour is unchanged. There is no
+`JavaScriptBridge` and no JavaScript in `game/`: the game talks to the web shell (`web/`) with files and by quitting.
+
+- **Cache location:** `AssetCachePaths.resolve_cache_root()` is always `<user data dir>/asset_cache/v83`, i.e.
+  `/userfs/MapleSurvivors/asset_cache/v83`, where the shell writes it. The `MAPLE_SURVIVORS_CACHE` env var and the
+  `cache_dir` / `wz_root` settings are skipped, and `resolve_wz_root()` is `""`. The pure rule is
+  `AssetCachePaths.cache_root_for(web, env, configured, user_dir)`.
+- **Hand-off (`scripts/core/web_handoff.gd`, `WebHandoff`):** the browser build cannot run `wzimport` or copy files, so
+  the title's "Re-import WZ data", "Export save" and "Import save" (and the import screen's button when there is no
+  cache) write the request marker and quit; the shell reads and deletes it after the engine exits, does the work and
+  starts a new engine. Marker: `user://web_request.json` = `{"format":1,"request":"reimport"|"export_save"|"import_save"}`,
+  written with `FileAccess` and closed in a normal frame (the engine syncs `/userfs` to IndexedDB after any frame in
+  which a file was closed after writing, and once more on quit; nothing written during teardown arrives).
+  `WebHandoff.quit_to_shell(tree, kind)` runs the BINDING sequence: flush `user://save.json` for the two save kinds
+  (`Flow`'s `SaveData.save_file()`), write the marker, stop every `AudioStreamPlayer` under the root, set
+  `tree.paused = true`, then `tree.quit()`. Without the audio stop and the pause Godot 4.7.2's web teardown throws on
+  the closed AudioContext and `onExit` never fires (section 10 "Quitting on web"). `WebHandoff.exit_app(tree, code)` is
+  the same quit without a marker, used on web by the tool quits (`--shot`, `--quit-after`, run launcher) so automated
+  browser runs also end with `onExit`. Seams for tests: marker path, save and the final quit callable are parameters
+  (`tests/unit/test_web_handoff.gd`).
+- **Import screen:** on web it has no folder field, Browse or `FileDialog` and never reaches `OS.execute*`; one button
+  hands over with `reimport` (the screen only shows when the cache is missing; the title goes straight to the marker).
+- **Title:** no Quit (hidden; Esc does nothing there). Three plates on the bottom plank: Fullscreen, Export save,
+  Import save.
+- **Fonts (`MapleFonts`, `assets/fonts/arimo/`):** a browser has no system fonts, and a `SystemFont` with no match is
+  drawn with Godot's built-in font whatever its `fallbacks` hold (checked on desktop with a font name that does not
+  exist: same size as `ThemeDB.fallback_font`). `MapleFonts.make(names, weight)` therefore returns the bundled Arimo
+  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont: no
+  antialiasing, normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
+  `SystemFont` (Arial, Tahoma, Dotum) with Arimo in its `fallbacks` otherwise, so desktop keeps real Arial. Arimo is
+  metric compatible with Arial. Licence: SIL OFL 1.1 (`assets/fonts/arimo/OFL.txt`, `THIRD_PARTY_NOTICES.md`;
+  `scripts/export.sh` copies it to `ARIMO_OFL.txt` beside the exe). `MapleText.font`, `HudWidget.make_font` and
+  `Hud.make_font` return `Font` now.
+- **Display:** no window size/position calls (`window_scale` ignored) and no `Engine.max_fps` / vsync (the browser paces
+  frames with requestAnimationFrame); the project's stretch (800x600 expand, integer scale, fractional below 800x600)
+  is applied to the tab size by the existing `fit_viewport()` logic (`fill_window` keeps its default off, as on
+  desktop). Godot emits no `size_changed` when a tab shrinks below the base size while the stretched view stays 800x600
+  (seen in Chrome: 800x600 -> 640x480 kept a cropped 1x view), so on web `Settings._process` re-fits whenever
+  `root.size` changed. The Options window shows a FULLSCREEN check box in place of the FRAME CAP row, and the title has a
+  Fullscreen plate; both call `GameSettings.toggle_fullscreen()` straight from the click (browsers only allow fullscreen
+  inside an input handler) and read the state back from `window_get_mode()`, so leaving with Esc cannot desync them.
+- **Keys:** Godot's web input calls `preventDefault()` on every key event of the focused canvas (the shell focuses it,
+  `html/focus_canvas_on_start`), so Left Alt (Firefox/Chrome menu), Space, arrows, Tab and F5/F11/F12 should not
+  trigger browser actions while the game has focus. Checked under Playwright's synthetic key events in Chrome and
+  Firefox: every key above reached the page with `defaultPrevented` set and Alt jumps. Synthetic events do not run the
+  browser's own accelerators (reload, fullscreen, developer tools), so the real-keyboard behaviour of F5/F11/F12 and of
+  the Alt menu is left to a manual check in the QA ticket (#136). Keys a page cannot reliably take: F11 (browser fullscreen) and F12 (developer tools) are tinted "Web" and not
+  bindable in the Key Config window (`KeyBindings.WEB_RESERVED`), and the window's strip notes that Ctrl+W / Ctrl+T /
+  Ctrl+N always reach the browser. Esc leaves browser fullscreen before the game sees it (accepted).

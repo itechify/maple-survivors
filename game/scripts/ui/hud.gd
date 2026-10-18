@@ -14,8 +14,8 @@ const MSG_MAX := HudWidget.MSG_MAX
 var library: AssetLibrary
 var player_state: Dictionary = {}
 var run_info: Dictionary = {}
-var font: SystemFont
-var bold_font: SystemFont
+var font: Font
+var bold_font: Font
 var status := HudStatusBar.new()
 var counters := HudCounters.new()
 var skills := HudSkills.new()
@@ -80,6 +80,18 @@ func push_notice(key: String, text: String, life: float = MSG_LIFE) -> void:
 func show_exp(n: int) -> void:
 	system_messages.show_exp(n)
 
+## Shows the collected-mesos notice.
+func show_mesos(n: int) -> void:
+	system_messages.show_mesos(n)
+
+## Shows the equipment pickup notice.
+func show_item_gain(item_name: String) -> void:
+	system_messages.show_item_gain(item_name)
+
+## Shows the "inventory full" notice (an equipment drop that cannot be picked up).
+func show_inventory_full() -> void:
+	system_messages.show_inventory_full()
+
 ## Returns currently visible message lines.
 func messages() -> Array[Dictionary]:
 	return system_messages.messages()
@@ -105,7 +117,7 @@ func _layout_slots() -> void:
 	boss_bar.size = Vector2(HudBossBar.BAR_WIDTH, HudBossBar.ROW_HEIGHT)
 
 ## Creates the common HUD and window system font.
-static func make_font(weight: int = 400) -> SystemFont:
+static func make_font(weight: int = 400) -> Font:
 	return HudWidget.make_font(weight)
 
 

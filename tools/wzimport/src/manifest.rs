@@ -137,6 +137,7 @@ pub fn item_path(id: u64) -> Option<(String, String)> {
         3 => "Install",
         4 => "Etc",
         5 => "Cash",
+        9 => "Special", // the meso coin sprites 09000000-09000003
         _ => return None,
     };
     Some((format!("Item.wz/{kind}/{:04}.img", id / 10000), format!("{id:08}")))
@@ -168,11 +169,12 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     if !m.maps.is_empty() || !m.mapimgs.is_empty() {
         plan.add_path("Map.wz/MapHelper.img", "portal", false);
     }
-    let map_jobs = m
+    let mut map_jobs: Vec<_> = m
         .maps
         .iter()
         .map(|&id| (map_img_path(id), format!("map {id}")))
-        .chain(m.mapimgs.iter().map(|p| (p.trim_matches('/').to_string(), format!("mapimg {}", p.trim_matches('/')))));
+        .chain(m.mapimgs.iter().map(|p| (p.trim_matches('/').to_string(), format!("mapimg {}", p.trim_matches('/'))))).collect();
+    map_jobs.sort_by_cached_key(|(path, _)| wz.img_order(path));
     for (img_path, label) in map_jobs {
         let img = match wz.load_img(&img_path) {
             Ok(img) => img,
@@ -188,7 +190,10 @@ pub fn expand(m: &Manifest, wz: &WzRoot) -> Plan {
     // A mob named by the manifest is an error when missing, even if a map's life reached it first.
     let explicit_mobs: BTreeSet<u64> = m.mobs.iter().copied().collect();
     let mut seen = BTreeSet::new();
-    while let Some((id, via)) = mob_queue.pop() {
+    while !mob_queue.is_empty() {
+        // Links may add new jobs; choose the next lowest available offset each time.
+        let next = (0..mob_queue.len()).min_by_key(|&i| wz.img_order(&mob_img_path(mob_queue[i].0))).unwrap();
+        let (id, via) = mob_queue.remove(next);
         if !seen.insert(id) {
             continue;
         }
@@ -310,6 +315,7 @@ mod tests {
         assert!(character_img_path(1802000).is_none());
         assert_eq!(item_path(4000019).unwrap(), ("Item.wz/Etc/0400.img".to_string(), "04000019".to_string()));
         assert_eq!(item_path(2000000).unwrap().0, "Item.wz/Consume/0200.img");
+        assert_eq!(item_path(9000003).unwrap(), ("Item.wz/Special/0900.img".to_string(), "09000003".to_string()));
         assert!(item_path(1000000).is_none());
     }
 

@@ -86,28 +86,27 @@ func _ready() -> void:
 	var hub := flow.current as FreeMarket
 	missing.append_array(hub.missing_paths())
 	flow.save.end_run(0, "deleted", "2026-10-16T12:00:00")
-	var data := DataRepo.load_all()
-	var base := RunWorld.new({"data": data}).character_snapshot()
 	var model := CharacterCreation.new(Assets.img(CharacterCreation.IMG).root)
+	var loader := SceneFlow.equipment_info_loader()
 	for i in 3:
-		var character := base.duplicate(true)
-		character.look = model.look(i % 2, {"face": i, "hair": i, "hair_colour": i,
-			"skin": i, "top": i, "bottom": i, "shoes": i})
-		character.beginner_weapon = model.options(0, "weapon")[i]
-		_write("weapon_%d.json" % int(character.beginner_weapon), character)
+		var weapon: int = model.options(0, "weapon")[i]
+		var character := SceneFlow.new_character(model.look(i % 2, {"face": i, "hair": i, "hair_colour": i,
+			"skin": i, "top": i, "bottom": i, "shoes": i}), weapon, loader)
+		_write("weapon_%d.json" % weapon, character)
 		var wrapper := {"name": ["Fallen70", "Victor70", "Retired70"][i], "character": character,
 			"created": "2026-10-16T12:00:00", "tier": i, "phase": "map_select",
 			"rounds_played": i + 1, "tiers_cleared": i}
 		flow.save.create_slot(wrapper)
 		flow.save.end_run(0, ["died", "victory", "deleted"][i], "2026-10-16T13:00:00")
 	for i in 3:
-		var character := base.duplicate(true)
-		character.look = model.look(i % 2, {"face": i, "hair": i, "hair_colour": i,
-			"skin": i, "top": i, "bottom": i, "shoes": i})
-		character.beginner_weapon = model.options(0, "weapon")[i]
+		var character := SceneFlow.new_character(model.look(i % 2, {"face": i, "hair": i, "hair_colour": i,
+			"skin": i, "top": i, "bottom": i, "shoes": i}), model.options(0, "weapon")[i], loader)
 		if i > 0:
 			character.job_id = 200 if i == 1 else 220
 			character.level = 10 if i == 1 else 35
+			# As after the Magician advancement: the granted Wooden Wand is worn, the creation weapon kept.
+			var wand := SceneFlow.new_character({}, 1372005, loader).equipment.worn.weapon
+			Equipment.grant(character.equipment, wand, 24)
 		flow.save.create_slot({"name": ["SwordMaple", "MapleGirl", "AxeMaple"][i], "character": character,
 			"created": "2026-10-16T12:00:00", "tier": 0, "phase": "map_select",
 			"rounds_played": i, "tiers_cleared": 0})

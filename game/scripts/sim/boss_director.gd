@@ -226,6 +226,15 @@ func live_count() -> int:
 	return count
 
 
+## Scheduled bosses killed so far.
+func dead_count() -> int:
+	var count := 0
+	for record: Dictionary in records:
+		if bool(record.dead):
+			count += 1
+	return count
+
+
 ## True only after every scheduled boss has spawned and died (or was skipped for a missing mob img).
 func all_dead() -> bool:
 	if records.is_empty():

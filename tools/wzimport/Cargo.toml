@@ -9,10 +9,15 @@ publish = false
 [lib]
 name = "wzimport"
 path = "src/lib.rs"
+crate-type = ["rlib", "cdylib"]
 
 [[bin]]
 name = "wzimport"
 path = "src/main.rs"
+
+[features]
+default = ["parallel"]
+parallel = ["dep:rayon"]
 
 [dependencies]
 aes = "0.8"
@@ -20,10 +25,14 @@ anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 png = "0.18"
-rayon = "1"
+rayon = { version = "1", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.105"
+js-sys = "=0.3.82"
 
 [profile.release]
 opt-level = 3

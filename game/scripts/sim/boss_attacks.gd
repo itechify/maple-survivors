@@ -1,6 +1,7 @@
 class_name BossAttacks
 extends RefCounted
-## Canonical area (0), targeted direct (1) and ball (2) windups; survivor data selects cadence and scaling.
+## Scheduled bosses' canonical area (0), targeted direct (1) and ball (2) attacks: survivor data selects which attacks,
+## their cadence and scaling; the windup/impact code is MobAttacks' shared half (ordinary mobs use the same code).
 
 ## tier C: fallback repeat interval for authored attacks without a survivor override (WZ has no attack interval).
 const DEFAULT_INTERVAL := 8.0
@@ -21,7 +22,8 @@ func step(world: RunWorld) -> void:
 				or not swarm.is_live(slot):
 			_pending.erase(index)
 			continue
-		_service(pending, world)
+		if MobAttacks.service(pending, world):
+			_pending.erase(index)
 	var now := world.time
 	for index in bosses.records.size():
 		var record: Dictionary = bosses.records[index]
@@ -30,134 +32,24 @@ func step(world: RunWorld) -> void:
 				or not swarm.can_act(slot) or swarm.fh[slot] < 0:
 			continue
 		var entry: Dictionary = bosses.entries[index]
-		var id := int(record.mob_id)
-		var img := world.mob_img(id)
+		var img := world.mob_img(int(record.mob_id))
 		for attack: String in entry.get("attacks", []):
 			var key := "%d/%s" % [index, attack]
-			if now < float(_next.get(key, 0.0)) - 1e-6:
+			if now < float(_next.get(key, 0.0)) - MobAttacks.EPS:
 				continue
-			var stance: Dictionary = img.get(attack, {})
-			var info: Dictionary = stance.get("info", {})
-			var type := int(info.get("type", -1))
-			if type not in [0, 1, 2]:
+			var pending := MobAttacks.plan(world, slot, img, attack, index,
+				float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))))
+			if pending.is_empty():
 				continue
-			var pos := swarm.pos(slot)
-			var facing := 1 if world.player.pos.x > pos.x else -1
-			var area := area_at(info.get("range", {}), pos, facing)
-			var range_data: Dictionary = info.get("range", {})
-			var travel := float(range_data.get("r", 0.0))
-			var offset := _vec(range_data.get("sp", {}))
-			if facing > 0:
-				offset.x = -offset.x
-			if type == 2:
-				area = Rect2(pos - Vector2.ONE * travel, Vector2.ONE * travel * 2.0)
-			# tier C: type 1 admits the character's body centre within r of the mirrored sp, then locks it.
-			# Later-client CMob descriptions suggest targeted direct damage; v83 admission details are unverified.
-			if type == 1 and world.player_body_center().distance_to(pos + offset) > travel:
-				continue
-			if (type == 0 and not area.intersects(world.player_box(), true)) \
-					or (type == 2 and world.player.pos.distance_to(pos) > travel):
-				continue
-			var after := maxf(0.0, float(info.get("attackAfter", 0.0)) / 1000.0)
-			var effect_after := maxf(0.0, float(info.get("effectAfter", 0.0)) / 1000.0)
-			var magic := int(info.get("magic", 0)) != 0 or (info.has("MADamage") and not info.has("PADamage"))
-			var kind := swarm.mob_kind(slot)
-			var damage := float(info.get("MADamage" if magic else "PADamage", kind.mad if magic else kind.pad))
-			var duration := maxf(after, MobKind.stance_time(stance, after))
-			bosses.begin_action(index, attack, duration, facing, now)
-			var pending := {"boss_index": index, "mob": slot, "mob_id": id, "attack": attack,
-				"type": type, "range": travel, "bullet_speed": float(info.get("bulletSpeed", 0.0)),
-				"spawn_offset": _vec(range_data.get("sp", {})),
-				"ball": "Mob.wz/%07d.img/%s/info/ball" % [id, attack],
-				"hit": "Mob.wz/%07d.img/%s/info/hit" % [id, attack] if info.has("hit") else "",
-				"pos": pos, "facing": facing, "area": area, "impact_time": now + after,
-				"effect_time": now + effect_after, "effect_done": false, "impact_done": false, "damage": damage,
-				"magic": magic, "element": String(info.get("elemAttr", "")),
-				"jump_attack": int(info.get("jumpAttack", 0)) != 0,
-				"dmg_mult": float(entry.get("attack_dmg_mult", entry.get("dmg_mult", 1.0))),
-				"effect": "Mob.wz/%07d.img/%s/info/effect" % [id, attack] if info.has("effect") else "",
-				"sound": "Sound.wz/Mob.img/%07d/%s" % [id, attack.left(1).to_upper() + attack.substr(1)]}
+			bosses.begin_action(index, attack, float(pending.duration), int(pending.facing), now)
 			_pending[index] = pending
 			_next[key] = now + float(entry.get("attack_interval", DEFAULT_INTERVAL))
-			_emit(pending, "start", world)
-			_service(pending, world)
+			MobAttacks.emit(pending, "start", world)
+			if MobAttacks.service(pending, world):
+				_pending.erase(index)
 			break
 
 
-## World-space canonical attack range, mirrored horizontally when the mob faces right.
+## World-space canonical attack range, mirrored horizontally when the mob faces right (MobAttacks.area_at).
 static func area_at(range_data: Dictionary, pos: Vector2, facing: int) -> Rect2:
-	var lt := _vec(range_data.get("lt", {}))
-	var rb := _vec(range_data.get("rb", {}))
-	var rect := Rect2(lt, rb - lt).abs()
-	if facing > 0:
-		rect.position.x = -rect.end.x
-	rect.position += pos
-	return rect
-
-
-func _service(pending: Dictionary, world: RunWorld) -> void:
-	if not bool(pending.effect_done) and world.time >= float(pending.effect_time) - 1e-6:
-		pending.effect_done = true
-		_emit(pending, "effect", world)
-	if not bool(pending.impact_done) and world.time >= float(pending.impact_time) - 1e-6:
-		pending.impact_done = true
-		_impact(pending, world)
-	# WZ may put effectAfter after attackAfter (Jr. Balrog attack3: 500/400 ms).
-	if bool(pending.effect_done) and bool(pending.impact_done):
-		_pending.erase(int(pending.boss_index))
-
-
-func _impact(pending: Dictionary, world: RunWorld) -> void:
-	_emit(pending, "impact", world)
-	if int(pending.type) == 2:
-		_launch_ball(pending, world)
-		return
-	# tier C: the lore jump-slam dodge uses the player's grounded state at impact, not at windup.
-	var targeted := int(pending.type) == 1
-	var can_hit := targeted or not bool(pending.jump_attack) or world.player.fh >= 0
-	# tier C: a locked type-1 strike follows the character, including airborne/escaped targets, at attackAfter.
-	if can_hit and (targeted or (pending.area as Rect2).intersects(world.player_box(), true)):
-		var kind := world.swarm.mob_kind(int(pending.mob))
-		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos,
-			{"mob": int(pending.mob), "mob_id": int(pending.mob_id), "boss": true,
-				"accuracy": kind.acc, "dmg_mult": float(pending.dmg_mult), "source_kind": "attack"})
-		if String(pending.hit) != "":
-			_emit(pending, "hit", world)
-
-
-func _launch_ball(pending: Dictionary, world: RunWorld) -> void:
-	var offset: Vector2 = pending.spawn_offset
-	if int(pending.facing) > 0:
-		offset.x = -offset.x
-	var pos: Vector2 = pending.pos + offset
-	var target := world.player_body_center()
-	# tier C: adopt the reference's r*600/bulletSpeed ms interpretation; WZ speed/range fields are unchanged.
-	var speed := float(pending.bullet_speed) * 1000.0 / 600.0
-	if speed <= 0.0:
-		speed = float(world.balance.get("mob_projectiles", {}).get("default_speed", DEFAULT_BALL_SPEED))
-	var velocity := (target - pos).normalized() * speed
-	var kind := world.swarm.mob_kind(int(pending.mob))
-	var slot := world.mob_projectiles.spawn({"pos": pos, "velocity": velocity, "range": float(pending.range),
-		"visual": world.visual_index(pending.ball), "radius": float(world.balance.get("mob_projectiles", {}).get("radius", MobProjectileSystem.DEFAULT_RADIUS)),
-		"mob": int(pending.mob), "mob_id": int(pending.mob_id), "damage": float(pending.damage),
-		"multiplier": float(pending.dmg_mult), "accuracy": kind.acc, "magic": bool(pending.magic),
-		"element": String(pending.element), "hit": String(pending.hit), "source_pos": pending.pos})
-	world.emit("mob_projectile_spawned", {"proj": slot, "mob": int(pending.mob), "mob_id": int(pending.mob_id),
-		"pos": pos, "velocity": velocity, "range": float(pending.range), "speed": speed,
-		"ball": String(pending.ball), "hit": String(pending.hit), "time": world.time})
-
-
-func _emit(pending: Dictionary, phase: String, world: RunWorld) -> void:
-	world.emit("boss_attack", {"boss_index": int(pending.boss_index), "mob": int(pending.mob),
-		"mob_id": int(pending.mob_id), "attack": String(pending.attack), "phase": phase,
-		"pos": world.player.pos if phase == "hit" else pending.pos, "facing": int(pending.facing), "area": pending.area,
-		"time": world.time, "impact_time": float(pending.impact_time),
-		"effect": String(pending.hit if phase == "hit" else pending.effect), "sound": String(pending.sound)})
-
-
-static func _vec(value: Variant) -> Vector2:
-	if value is Vector2:
-		return value
-	if value is Dictionary and value.get("$v") is Array and value["$v"].size() >= 2:
-		return Vector2(float(value["$v"][0]), float(value["$v"][1]))
-	return Vector2.ZERO
+	return MobAttacks.area_at(range_data, pos, facing)

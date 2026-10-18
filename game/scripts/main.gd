@@ -6,6 +6,8 @@ extends Node
 ## Settings autoload (GameSettings.apply_frame_cap); `--vsync=off` (any screen) uncaps it for perf runs.
 ## `--shot=<abs png> [--shot-at=<s>]` saves one screenshot of whatever is shown after s seconds (default 10) and quits:
 ## a check that a build (e.g. the exported exe) starts and reaches its first screen.
+## `--hub [--character=<abs JSON>] [--mesos=N]` (tool-only, HubTestKit) goes straight into the Free Market with a test
+## character and kit against a throwaway save: `bash scripts/run.sh -- --hub`.
 
 
 func _ready() -> void:
@@ -24,6 +26,14 @@ func _ready() -> void:
 	if assets == null or not assets.has_cache():
 		flow.goto_import()
 		return
+	flow.autoplay = flags.has("autoplay") and String(flags.autoplay) != "0" # menu-started characters play with the bot too
+	var hub := HubTestKit.parse_args(OS.get_cmdline_user_args())
+	if not hub.is_empty():
+		var hint := HubTestKit.npc_chat_hint(InputMap.action_get_events("npc_chat") if InputMap.has_action("npc_chat") else [])
+		if hint != "":
+			print(hint)
+		flow.start_hub(hub)
+		return
 	var run := SceneFlow.parse_run_args(OS.get_cmdline_user_args())
 	if not run.is_empty():
 		flow.start_run(String(run.run), int(run.seed), run.options)
@@ -39,4 +49,4 @@ func _shot_and_quit(path: String, seconds: float) -> void:
 	var flow := get_node_or_null("/root/Flow") as SceneFlow
 	var err := img.save_png(path) if img != null else ERR_CANT_CREATE
 	print("main: --shot %s (screen %s) err=%d" % [path, flow.current_name if flow != null else "?", err])
-	get_tree().quit(0 if err == OK else 1)
+	WebHandoff.exit_app(get_tree(), 0 if err == OK else 1)

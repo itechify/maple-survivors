@@ -47,8 +47,7 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	source.learn_skill("teleport_fp")
 	source.loadout.set_rank("fire_arrow", 7)
 	source.loadout.add_skill_mod("fire_arrow", "cooldown", "mul", 0.88)
-	source.character_look = {"skin": 0, "face": 20000, "hair": 30030, "equips": [1040002]}
-	source.beginner_weapon = 1302000
+	source.character_look = {"skin": 0, "face": 20000, "hair": 30030}
 	var character := source.character_snapshot()
 	character.level = 35
 	character.exp = 17
@@ -62,7 +61,7 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	b.god = true
 	assert_eq(a.character_snapshot(), b.character_snapshot())
 	assert_eq(a.player_state, b.player_state)
-	assert_eq(b.beginner_weapon, 1302000)
+	assert_eq(b.weapon_id(), 1302000)
 	var memo_a := {}
 	var memo_b := {}
 	for tick in 10800:
@@ -79,10 +78,13 @@ func test_json_character_and_same_seed_replay_identically_for_three_minutes() ->
 	assert_eq(a.character_snapshot(), b.character_snapshot())
 	assert_eq(a.player_state, b.player_state)
 	# Snapshot and input are detached from the live character and one another.
-	parsed.look.equips.append(1072001)
+	parsed.look.hair = 30000
+	parsed.equipment.worn.erase("weapon")
 	var copy := b.character_snapshot()
-	copy.look.equips.clear()
-	assert_eq(b.character_snapshot().look.equips, [1040002])
+	copy.equipment.worn.clear()
+	copy.look.clear()
+	assert_eq(b.character_snapshot().look, {"skin": 0, "face": 20000, "hair": 30030})
+	assert_eq(Equipment.worn_ids(b.character_snapshot().equipment.worn), [1040002, 1060002, 1072001, 1302000])
 
 
 func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
@@ -151,10 +153,84 @@ func test_character_file_rejects_missing_malformed_and_unknown_formats() -> void
 	assert_eq(errors.size(), 1)
 	var path := test_dir("invalid.json")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))
-	for text: String in ["{", "[]", '{"format": 2}', '{"format": 1, "level": 35}']:
+	for text: String in ["{", "[]", '{"format": 2}', '{"format": 3}', '{"format": 1, "level": 35}']:
 		var file := FileAccess.open(path, FileAccess.WRITE)
 		file.store_string(text)
 		file.close()
 		errors.clear()
 		assert_eq(DataRepo.load_character(path, errors), {})
 		assert_eq(errors.size(), 1, "invalid character never silently starts fresh")
+
+
+## Creation-item info shaped like v83 Character.wz (incPDD/tuc as in the real items; weapon stats invented).
+const CREATION_INFO := {1041011: {"incPDD": 3, "tuc": 7}, 1061008: {"incPDD": 2, "tuc": 7},
+	1072038: {"incPDD": 2, "tuc": 5}, 1040002: {"incPDD": 3, "tuc": 7}, 1060002: {"incPDD": 2, "tuc": 7},
+	1072001: {"incPDD": 2, "tuc": 5}, 1322005: {"incPAD": 19, "attackSpeed": 5, "tuc": 7},
+	1302000: {"incPAD": 17, "attackSpeed": 4, "tuc": 7}, 1372005: {"incPAD": 15, "incMAD": 23, "tuc": 7}}
+
+
+func _creation_setup() -> Dictionary:
+	var setup := RF.setup("quiet", 3, RF.quiet_data())
+	setup.equipment_info = CREATION_INFO.duplicate(true)
+	return setup
+
+
+## The spec #32 shape of a character: no equipment, scrolls or mesos; look equips and beginner_weapon instead.
+func _format1(character: Dictionary, equips: Array, weapon: int) -> Dictionary:
+	var old := character.duplicate(true)
+	for key: String in ["equipment", "scrolls", "mesos"]:
+		old.erase(key)
+	old.format = 1
+	old.look = {"skin": 3, "face": 21002, "hair": 31057}
+	if not equips.is_empty():
+		old.look["equips"] = equips
+	old.beginner_weapon = weapon
+	return old
+
+
+func test_format_one_migrates_to_an_equal_character_plus_worn_equipment() -> void:
+	var source := RunWorld.new(_creation_setup())
+	source.loadout.add_player_mod("fortune", "add", 4.0)
+	source.refresh_player_stats()
+	var current := source.character_snapshot()
+	for spec: Array in [[0, [1041011, 1061008, 1072038], 1322005, [1041011, 1061008, 1072038, 1322005]],
+			[210, [1041011, 1061008, 1072038], 1322005, [1041011, 1061008, 1072038, 1372005]],
+			[0, [], 0, [1040002, 1060002, 1072001, 1302000]]]:
+		var character := current.duplicate(true)
+		character.job_id = spec[0]
+		var old := _format1(character, spec[1], spec[2])
+		assert_eq(CharacterSnapshot.validation_error(old), "", "format-1 saves stay valid")
+		var parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
+		var setup := _creation_setup()
+		setup.character = parsed
+		var migrated := RunWorld.new(setup).character_snapshot()
+		var expected := character.duplicate(true)
+		expected.look = {"skin": 3, "face": 21002, "hair": 31057}
+		expected.equipment = {"worn": Equipment.worn_from_ids(spec[3], CREATION_INFO), "inventory": []}
+		assert_eq(migrated, expected, "job %d: same character, the outfit and resolved weapon now worn" % spec[0])
+		assert_eq(CharacterSnapshot.migrate(old, source.jobs, CREATION_INFO), expected, "the pure migration agrees")
+		assert_eq(migrated.mesos, 0)
+		assert_eq(migrated.scrolls, {})
+		assert_eq(DataRepo.character_look(old, DataRepo.load_all()).equips, spec[3],
+			"a format-1 slot draws exactly what it will wear")
+
+
+func test_format_one_and_two_save_slots_load_and_unknown_formats_are_rejected() -> void:
+	var character := RunWorld.new(_creation_setup()).character_snapshot()
+	var wrapper := {"name": "Maple70", "created": "2026-10-16", "tier": 0, "phase": "map_select",
+		"rounds_played": 0, "tiers_cleared": 0}
+	for value: Dictionary in [character, _format1(character, [1041011, 1061008, 1072038], 1322005)]:
+		wrapper.character = value
+		assert_eq(SaveData.validation_error(wrapper), "", "format %d" % int(value.format))
+	var future := character.duplicate(true)
+	future.format = 3
+	assert_ne(CharacterSnapshot.validation_error(future), "")
+	var bad := character.duplicate(true)
+	bad.equipment.worn.top = bad.equipment.worn.weapon
+	assert_ne(CharacterSnapshot.validation_error(bad), "", "an item in the wrong equip slot")
+	bad = character.duplicate(true)
+	bad.erase("mesos")
+	assert_ne(CharacterSnapshot.validation_error(bad), "")
+	bad = character.duplicate(true)
+	bad.scrolls = {"2040002": -1}
+	assert_ne(CharacterSnapshot.validation_error(bad), "")

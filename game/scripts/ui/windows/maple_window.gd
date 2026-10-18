@@ -23,7 +23,7 @@ extends Control
 ## Panel drop distance of the open transition (px). tier C: ours.
 const SLIDE := 10.0
 ## Input actions of the in-run windows that pass through windows with `window_hotkeys`.
-const HOTKEY_ACTIONS := ["stat_window", "skill_window"]
+const HOTKEY_ACTIONS := ["stat_window", "skill_window", "equip_window", "item_window"]
 
 ## Open/close transition length (s); 0 = instant. tier C: ours.
 var transition_seconds := 0.15

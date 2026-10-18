@@ -2,6 +2,12 @@
 	"_doc": {
 		"branch": "spec32/ticket-67",
 		"forced_branch": 210,
+		"migration": {
+			"by": "spec33/ticket-105",
+			"from_format": 1,
+			"how": "tools/character_fixture.gd --migrate (CharacterSnapshot.migrate)",
+			"to_format": 2
+		},
 		"outcome": "CLEARED",
 		"policy": "bot",
 		"revision": "8a7dae594a36fe90356ab1976eca12172eebdbba",
@@ -26,7 +32,6 @@
 	"base_fortune": 0.0,
 	"base_hp": 512.0,
 	"base_mp": 1019.0,
-	"beginner_weapon": 0,
 	"card_ranks": {
 		"energy_bolt_count": 1,
 		"energy_bolt_damage": 3,
@@ -51,13 +56,52 @@
 		"white_potion": 1
 	},
 	"earned_ap": 185,
+	"equipment": {
+		"inventory": [],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"shoes": {
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1372005,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incMAD": 23,
+					"incPAD": 15
+				}
+			}
+		}
+	},
 	"exp": 3389,
-	"format": 1,
+	"format": 2,
 	"fortune": 0.0,
 	"job_id": 210,
 	"job_mp": 595.0,
 	"level": 38,
 	"look": {},
+	"mesos": 0,
 	"player_mods": {},
 	"potions": {
 		"hp": {
@@ -69,6 +113,7 @@
 			"item_id": 2000006
 		}
 	},
+	"scrolls": {},
 	"skill_order": [
 		"three_snails",
 		"magic_guard",

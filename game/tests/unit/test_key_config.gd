@@ -47,11 +47,46 @@ func test_an_action_can_sit_on_several_keys() -> void:
 	var kb := _defaults()
 	assert_true(kb.bind("jump", KEY_F))
 	assert_true(kb.bind("jump", KEY_G))
-	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C, KEY_F, KEY_G]))
-	assert_eq(kb.action_on(KEY_SPACE), "jump", "the old keys stay")
-	assert_eq(kb.unbind(KEY_SPACE), "jump")
-	assert_eq(kb.action_on(KEY_SPACE), "", "Space unbound")
-	assert_eq(kb.unbind(KEY_SPACE), "", "unbinding a free key does nothing")
+	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_C, KEY_F, KEY_G]))
+	assert_eq(kb.action_on(KEY_C), "jump", "the old keys stay")
+	assert_eq(kb.unbind(KEY_C), "jump")
+	assert_eq(kb.action_on(KEY_C), "", "C unbound")
+	assert_eq(kb.unbind(KEY_C), "", "unbinding a free key does nothing")
+
+
+func test_space_is_npc_chat_and_can_be_rebound() -> void:
+	var kb := _defaults()
+	assert_eq(kb.action_on(KEY_SPACE), "npc_chat", "v83: Space is NPC Chat, not jump (#111)")
+	assert_false(KEY_SPACE in kb.keys_of("jump"))
+	assert_true("npc_chat" in KeyBindings.BINDABLE)
+	assert_true(kb.bind("npc_chat", KEY_N), "NPC Chat can be rebound")
+	assert_eq(kb.keys_of("npc_chat"), PackedInt32Array([KEY_SPACE, KEY_N]))
+	assert_true(kb.bind("jump", KEY_SPACE), "and Space can be given to another action")
+	assert_eq(kb.keys_of("npc_chat"), PackedInt32Array([KEY_N]))
+	var s := GameSettings.new(cfg_path)
+	var draft := KeyBindings.from_settings(s)
+	draft.unbind(KEY_SPACE)
+	draft.bind("npc_chat", KEY_N)
+	draft.apply_to(s)
+	assert_eq(s.binding_keys("npc_chat"), PackedInt32Array([KEY_N]), "applied to the InputMap at once")
+	var t := GameSettings.new(cfg_path)
+	assert_eq(KeyBindings.from_settings(t).keys_of("npc_chat"), PackedInt32Array([KEY_N]), "saved and loaded")
+	t.free()
+	s.free()
+
+
+func test_a_settings_file_that_still_holds_space_on_jump_keeps_it_there() -> void:
+	# Saved before NPC Chat took Space: jump still holds it, so Space must not also talk to NPCs.
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "jump", [KEY_ALT, KEY_SPACE, KEY_C])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	assert_eq(s.bindings.get("npc_chat"), PackedInt32Array(), "NPC Chat yields Space to the action that was rebound to it")
+	s.apply_bindings()
+	assert_eq(s.binding_keys("npc_chat"), PackedInt32Array())
+	assert_eq(s.binding_keys("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C]))
+	assert_eq(KeyBindings.from_settings(s).action_on(KEY_SPACE), "jump")
+	s.free()
 
 
 func test_fixed_keys_cannot_be_bound() -> void:
@@ -82,12 +117,17 @@ func test_default_restores_the_project_keys_less_the_movement_set() -> void:
 	kb.unbind(KEY_SPACE)
 	kb.bind("stat_window", KEY_F)
 	kb.reset_defaults()
-	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C]))
+	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_C]), "v83: Alt jumps, Space is NPC Chat")
+	assert_eq(kb.keys_of("npc_chat"), PackedInt32Array([KEY_SPACE]), "v83: Space is the NPC Chat key (#111)")
 	assert_eq(kb.keys_of("drink_hp"), PackedInt32Array([KEY_DELETE, KEY_Q]))
-	assert_eq(kb.keys_of("drink_mp"), PackedInt32Array([KEY_END, KEY_E]))
+	assert_eq(kb.keys_of("drink_mp"), PackedInt32Array([KEY_END]), "E belongs to the Equip window (#108)")
 	assert_eq(kb.keys_of("teleport"), PackedInt32Array([KEY_X]))
 	assert_eq(kb.keys_of("stat_window"), PackedInt32Array([KEY_S]))
 	assert_eq(kb.keys_of("skill_window"), PackedInt32Array([KEY_K]))
+	assert_eq(kb.keys_of("equip_window"), PackedInt32Array([KEY_E]), "v83: E opens the Equip window")
+	assert_eq(kb.keys_of("item_window"), PackedInt32Array([KEY_I]), "v83: I opens the Item window")
+	assert_true(kb.bind("item_window", KEY_F), "the window keys can be rebound")
+	assert_eq(kb.keys_of("item_window"), PackedInt32Array([KEY_I, KEY_F]))
 	var wasd := KeyBindings.new({}, "wasd")
 	wasd.reset_defaults()
 	assert_eq(wasd.keys_of("stat_window"), PackedInt32Array(), "WASD: S is movement, so Stat has no default key")
@@ -97,14 +137,14 @@ func test_default_restores_the_project_keys_less_the_movement_set() -> void:
 func test_ok_saves_and_applies_and_round_trips_through_settings() -> void:
 	var s := GameSettings.new(cfg_path)
 	var kb := KeyBindings.from_settings(s)
-	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_SPACE, KEY_C]), "no saved bindings: the defaults")
+	assert_eq(kb.keys_of("jump"), PackedInt32Array([KEY_ALT, KEY_C]), "no saved bindings: the defaults")
 	kb.unbind(KEY_SPACE)
 	kb.bind("jump", KEY_F)
 	kb.bind("drink_mp", KEY_Q)
 	kb.apply_to(s)
 	assert_eq(s.binding_keys("jump"), PackedInt32Array([KEY_ALT, KEY_C, KEY_F]), "applied to the InputMap at once")
 	assert_eq(s.binding_keys("drink_hp"), PackedInt32Array([KEY_DELETE]))
-	assert_eq(s.binding_keys("drink_mp"), PackedInt32Array([KEY_END, KEY_E, KEY_Q]))
+	assert_eq(s.binding_keys("drink_mp"), PackedInt32Array([KEY_END, KEY_Q]))
 	var cfg := ConfigFile.new()
 	assert_eq(cfg.load(cfg_path), OK, "saved")
 	assert_false(cfg.has_section_key("input", "teleport"), "unchanged actions are not written")
@@ -155,6 +195,42 @@ func test_ok_never_saves_a_fixed_key() -> void:
 	assert_false(KEY_W in s.binding_keys("jump"), "W is movement now")
 	assert_eq(s.binding_keys("move_up"), PackedInt32Array([KEY_W]))
 	s.free()
+
+
+## reload_from is how the test runner drops the developer's own settings.cfg (#103): every field, the InputMap and the
+## save path end up as a fresh GameSettings on that path, and `changed` tells listeners (audio volumes) to re-read.
+func test_reload_from_a_missing_file_restores_every_default_and_the_project_keys() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("assets", "wz_root", "C:/wz")
+	cfg.set_value("assets", "cache_dir", "C:/cache")
+	cfg.set_value("audio", "master", 0.5)
+	cfg.set_value("audio", "bgm", 0.1)
+	cfg.set_value("audio", "sfx", 0.2)
+	cfg.set_value("display", "window_scale", 2)
+	cfg.set_value("display", "fill_window", true)
+	cfg.set_value("display", "max_fps", 60)
+	cfg.set_value("controls", "movement", "wasd")
+	cfg.set_value("input", "jump", [KEY_Z])
+	cfg.set_value("input", "teleport", [KEY_SPACE])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	s.apply_movement()
+	assert_eq(s.binding_keys("teleport"), PackedInt32Array([KEY_SPACE]), "the file's rebinds are live")
+	var emitted := [0]
+	s.changed.connect(func() -> void: emitted[0] += 1)
+	var missing := TestCase.test_dir("no_such_settings.cfg")
+	s.reload_from(missing)
+	assert_eq(emitted[0], 1, "changed emitted once")
+	var fresh := GameSettings.new(missing)
+	for p: Dictionary in s.get_script().get_script_property_list():
+		if p.usage & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			assert_eq(s.get(p.name), fresh.get(p.name), "%s back to its default" % p.name)
+	for action in ["jump", "teleport", "move_left", "move_up"]:
+		assert_eq(s.binding_keys(action), GameSettings.default_keys(action), "%s has its project keys" % action)
+	assert_false(FileAccess.file_exists(missing), "reloading never writes")
+	s.free()
+	fresh.free()
 
 
 func test_hud_key_labels_read_the_live_bindings() -> void:

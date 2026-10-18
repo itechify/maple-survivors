@@ -31,7 +31,9 @@ extends Node2D
 ## scheduled boss's stances, skill/attack art, sounds, name and boss-bar art before the run starts.
 ##
 ## In-run windows (#85; WindowStack in `ui_layer`, CanvasLayer 11, above the modal windows): `ui_windows` hosts the
-## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86) and the status bar's Menu
+## draggable Stat window (stat_window action, S), the Skill window (skill_window, K; #86), the Equip and Item windows
+## (equip_window E / item_window I; #108: they change the character through `world` and `_on_item_action` makes the
+## drawn look, the Stat window and each other follow) and the status bar's Menu
 ## popup (hud.menu_button); keys the run does not use go to the front window (UiWindow.handle_key); later windows
 ## register a factory in _build_ui_windows() (`ui_windows.register("skill", ...)`) and become reachable from their
 ## hotkey and the Menu at once. While any of them is open the tick loop holds and the world freezes exactly like the
@@ -81,7 +83,8 @@ const WINDOW_DELAY := 1.2
 ## (otherwise the animation's own length, ~1.3 s, is used).
 const JOB_WINDOW_DELAY := 1.3
 ## Input action -> the in-run window it toggles (project.godot defaults S and K; rebindable in Settings).
-const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill"}
+const WINDOW_HOTKEYS := {"stat_window": "stat", "skill_window": "skill", "equip_window": "equip",
+	"item_window": "item"}
 ## CanvasLayer of the in-run windows: above the modal windows (10), below the perf overlay (20).
 const UI_LAYER := 11
 ## In-run windows that also open while the run is paused (from the pause menu, #87).
@@ -144,6 +147,8 @@ var mob_layers := PackedInt32Array()
 var shots: ProjectileRenderer
 var mob_shots: ProjectileRenderer
 var drops: PickupRenderer
+## The pet out (spec #34, #120); null without one. Drawn in the actor layer it stands in, behind the avatar.
+var pet_renderer: PetRenderer
 var fx: FxRenderer
 var fx_back: FxRenderer
 var numbers: DamageNumbers
@@ -152,6 +157,9 @@ var hud: Hud
 var notice_layer: CanvasLayer
 var notice_fx: FxRenderer
 var windows_layer: CanvasLayer
+## The scroll result effect (Enchant Success / Failure) above the in-run windows (#110).
+var enchant: EnchantFx
+var wiring: InventoryWiring
 ## The in-run windows (Stat, Menu popup; Skill / Key Config / Options register here too) and their layer.
 var ui_layer: CanvasLayer
 var ui_windows: WindowStack
@@ -179,6 +187,7 @@ var _kind_names := PackedStringArray()
 var _slot_layers := PackedInt32Array()
 var _base_layer := 0
 var _player_layer := -1
+var _pet_layer := -1
 var _top: Node2D
 var _tag_source: _TagSource
 ## Waiting window request {"kind": "job"/"cards", ...} and the presentation delay before it opens.
@@ -194,6 +203,11 @@ var _immunity_fx := {}
 var _shown_action := ""
 var _blink_t := 0.0
 var _frame_exp := 0
+var _frame_mesos := 0
+var _meso_shot_ids := {}
+var _frame_items: Array[String] = []
+var _frame_inventory_full := false
+var _equip_shot_taken := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
@@ -222,6 +236,9 @@ var _quit_after_capture := false
 var _timed_shots: Array = []
 var _hit_shot_taken := false
 var _miss_shot_taken := false
+## #76: the one-off evidence shots of ordinary mob attacks.
+var _mob_attack_shot_taken := false
+var _mob_hit_shot_taken := false
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -243,6 +260,21 @@ var _perf_on := false
 var _perf_refresh := 0.0
 var _perf_lines := PackedStringArray()
 var _perf_canvas: Node2D
+## File name of the tool account file (--account) this run applied; "" without one.
+var _account_name := ""
+
+
+## options.account (spec #34): an absolute JSON path (--account, tool rounds) or an already normalised account
+## Dictionary (Flow). Returns {account: normalised Dictionary or {} when none, errors, name: the file name for a path,
+## else ""}. A missing or malformed file is an error, never an empty account.
+static func account_from_options(p_options: Dictionary) -> Dictionary:
+	var errors := PackedStringArray()
+	if not p_options.has("account"):
+		return {"account": {}, "errors": errors, "name": ""}
+	if p_options.account is Dictionary:
+		return {"account": p_options.account, "errors": errors, "name": ""}
+	var path := String(p_options.account)
+	return {"account": AccountFile.load_file(path, errors), "errors": errors, "name": path.get_file()}
 
 
 ## Sets the stage, seed (-1 = random) and options; call before adding the scene to the tree.
@@ -278,18 +310,9 @@ func _ready() -> void:
 		_fail("unknown stage '%s'" % stage_key)
 		return
 	map_id = int(stage.get("map_id", 0))
-	var lib := library
-	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
-		func(p: String) -> Dictionary:
-			var w := lib.img(p)
-			return w.root if w != null else {},
-		func(id: int) -> Dictionary: return lib.mob_root(id),
-		setup_missing)
-	for m in setup_missing:
-		push_warning("RunScene: missing in the asset cache: " + m)
+	var character := {}
 	if options.has("character"):
 		var character_errors := PackedStringArray()
-		var character: Dictionary
 		if options.character is Dictionary:
 			character = (options.character as Dictionary).duplicate(true)
 			var error := CharacterSnapshot.validation_error(character)
@@ -300,7 +323,26 @@ func _ready() -> void:
 		if not character_errors.is_empty():
 			_fail("; ".join(character_errors))
 			return
-		setup["character"] = character
+	var lib := library
+	# The character's held items join the equipment info the setup loads.
+	var setup := DataRepo.build_setup(data, stage_key, run_seed, _view_size(),
+		SceneFlow.equipment_info_loader(lib),
+		func(id: int) -> Dictionary: return lib.mob_root(id),
+		setup_missing, character)
+	for m in setup_missing:
+		push_warning("RunScene: missing in the asset cache: " + m)
+	var tool_account := account_from_options(options)
+	if not tool_account.errors.is_empty():
+		_fail("; ".join(tool_account.errors))
+		return
+	if not tool_account.account.is_empty():
+		AccountFile.apply(setup, tool_account.account)
+		_account_name = String(tool_account.name)
+	# A persistent round's ALERT levels come from the player's settings (SceneFlow hands them over and the Options
+	# window follows them, see _on_settings_changed); a tool round has no such option and keeps its account's levels.
+	var live_alert: Variant = options.get("settings_alert")
+	if live_alert is Dictionary:
+		setup["alert"] = (live_alert as Dictionary).duplicate()
 	world = RunWorld.new(setup)
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
@@ -313,7 +355,7 @@ func _ready() -> void:
 	_build_presentation()
 	_warm_ui()
 	_warm_stage()
-	_apply_job_look(int(world.player_state.job_id))
+	_apply_look()
 	handle_events(world.drain_events())
 	_start_title()
 	_play_bgm()
@@ -420,17 +462,20 @@ func toggle_menu() -> void:
 
 
 ## The Stat window's numbers (StatWindow): identity, pools and the v83 stats the sim has; rows it does not model
-## (guild, fame, hands) are left out and show "-". tier C: attack = the held weapon's incPAD, magic = INT + magic
-## attack (equipment incMAD and buffs), accuracy = buff accuracy only (the sim has no player accuracy rule).
+## (guild, fame, hands) are left out and show "-". tier C: attack = W.ATT summed over worn equipment, magic = INT +
+## magic attack (equipment incMAD and buffs), accuracy = equipment incACC + buff accuracy (the sim has no player
+## accuracy rule). `<stat>_bonus` is what worn equipment adds to STR/DEX/INT/LUK (shown as "total (base+bonus)").
 func stat_info() -> Dictionary:
 	var ps := world.player_state
 	var out := {"name": _player_name(), "job": world.jobs.name_of(int(ps.job_id)), "ap": 0,
-		"exp_next": int(ps.exp_next), "attack": int(float(world.weapon_info().get("incPAD", 0))),
+		"exp_next": int(ps.exp_next), "attack": roundi(world.weapon_attack()),
 		"magic": int(world.loadout.int_stat + world.loadout.matk), "weapon_def": int(ps.pdd), "magic_def": int(ps.mdd),
 		"accuracy": int(ps.get("acc", 0)), "avoid": int(ps.avoid), "speed": roundi(world.player_speed_stat()),
 		"jump": world.player.jump_stat}
 	for key: String in ["level", "exp", "hp", "max_hp", "mp", "max_mp", "str", "dex", "int", "luk"]:
 		out[key] = int(ps.get(key, 0))
+	for stat: String in ["str", "dex", "int", "luk"]:
+		out[stat + "_bonus"] = roundi(world.equipment_bonus("inc" + stat.to_upper()))
 	return out
 
 
@@ -462,7 +507,10 @@ func advance_frame(delta: float) -> void:
 			_sim_us += Time.get_ticks_usec() - t0
 			_sim_ticks += 1
 			_after_tick()
-			handle_events(world.drain_events())
+			var drained := world.drain_events()
+			handle_events(drained)
+			if _autoplay:
+				BotShop.equip_after(world, drained) # the bot wears the best it owns (spec #33, #112); the look follows equipment_changed
 			if world.state != RunWorld.PLAYING and _autopick:
 				_service_windows()
 			if world.state != RunWorld.PLAYING:
@@ -485,6 +533,16 @@ func advance_frame(delta: float) -> void:
 		hud.show_exp(_frame_exp)
 		counters.exp_messages += 1
 	_frame_exp = 0
+	if _frame_mesos > 0 and hud != null:
+		hud.show_mesos(_frame_mesos)
+	_frame_mesos = 0
+	if hud != null:
+		for item_name: String in _frame_items:
+			hud.show_item_gain(item_name)
+		if _frame_inventory_full:
+			hud.show_inventory_full()
+	_frame_items.clear()
+	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
 		_present(delta)
@@ -558,6 +616,10 @@ func _build_actors() -> void:
 	avatar.name = "Player"
 	avatar.library = library
 	player_group.add_child(avatar)
+	if world.pet_system != null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
 
 
 ## The top container, drawn after every actor layer's content: shots, monster balls, effects, numbers and name tags.
@@ -631,6 +693,9 @@ func _build_ui_windows() -> void:
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
 		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
+		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
+	enchant = wiring.enchant
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
@@ -638,6 +703,44 @@ func _build_ui_windows() -> void:
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 	if settings != null:
 		watch_settings(settings)
+
+
+## An Equip / Item window's change makes the drawn look, the Stat window and the other inventory window follow (the
+## world's events are mapped at once, the run being held); the windows' messages go to the HUD (InventoryWiring).
+func _on_item_action(_action: String) -> void:
+	handle_events(world.drain_events())
+	_sync_pet()
+	_refresh_inventory_windows()
+
+
+## Redraws the open Equip / Item windows and refreshes the Stat window from the live world (an item moved, or a
+## pickup landed under them: the Item window reads its tabs and meso line from the world at draw time).
+func _refresh_inventory_windows() -> void:
+	if ui_windows == null:
+		return
+	for id: String in ["equip", "item"]:
+		var w := ui_windows.find_window(id) as InventoryWindow
+		if w != null:
+			w.refresh()
+	var sw := ui_windows.find_window("stat") as StatWindow
+	if sw != null:
+		sw.set_info(stat_info())
+
+
+## Draws the pet the world has out now: brought out from the Equip window's Pet page it appears at once beside the
+## player, a different one replaces it, and none removes it (#122).
+func _sync_pet() -> void:
+	if world.pet_system == null:
+		if pet_renderer != null:
+			pet_renderer.queue_free()
+			pet_renderer = null
+			_pet_layer = -1
+		return
+	if pet_renderer == null:
+		pet_renderer = PetRenderer.new()
+		pet_renderer.name = "Pet"
+		pet_renderer.library = library
+	_update_pet(0.0)
 
 
 ## Makes the HUD's key labels follow `s`: they are read now and again on every `s.changed` (Key Config OK, a
@@ -650,6 +753,9 @@ func watch_settings(s: GameSettings) -> void:
 
 
 func _on_settings_changed() -> void:
+	# A persistent round follows the ALERT levels live (tool rounds never read the settings).
+	if world != null and settings != null and options.get("settings_alert") is Dictionary:
+		world.set_alert(settings.alert_levels())
 	_teleport_label = _first_key_label("teleport")
 	if hud == null or world == null:
 		return
@@ -690,7 +796,8 @@ func _sync_modal_input() -> void:
 ## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
-			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t"]:
+			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
+			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
 	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
 	if npc > 0:
@@ -703,7 +810,7 @@ func _warm_ui() -> void:
 	MapleText.width("Lv.", MapleText.SIZE, false)
 	if library == null:
 		return
-	for wid: Variant in world.balance.player.get("weapon_by_job", {}).values():
+	for wid: Variant in Equipment.held_ids(world.equipment) + world.balance.player.get("weapon_grants", {}).values():
 		var wimg := library.img(AvatarRenderer.part_img_path(int(wid)))
 		if wimg != null:
 			for i in wimg.pages.size():
@@ -756,8 +863,7 @@ func _warm_stage() -> void:
 			library.find_anim(stances + "/" + String(attack))
 			for part: String in ["effect", "ball", "hit"]:
 				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [id, String(attack), part])
-			var a := String(attack)
-			_warm_sound(SND_MOB % [id, a.left(1).to_upper() + a.substr(1)])
+			_warm_sound(MobAttacks.attack_sound(id, String(attack)))
 		if not (float(id) in enabled or id in enabled):
 			continue
 		for skill: Variant in info.get("skill", {}).values():
@@ -772,6 +878,19 @@ func _warm_stage() -> void:
 			var spec: Variant = library.find(base)
 			if spec is Dictionary and spec.has("summonEffect"):
 				library.find_anim("Effect.wz/Summon.img/%d" % int(spec.summonEffect))
+	_warm_ordinary_mobs()
+
+
+## Ordinary mobs' attack stances, info effect/hit art and sounds (#76).
+func _warm_ordinary_mobs() -> void:
+	for kind: MobKind in world.mob_kinds:
+		var img := world.mob_img(kind.id)
+		var stances := library.mob_anim_img_path(kind.id)
+		for attack: String in MobAttacks.attack_names(img):
+			library.find_anim(stances + "/" + attack)
+			for part: String in ["effect", "ball", "hit"]:
+				library.find_anim("Mob.wz/%07d.img/%s/info/%s" % [kind.id, attack, part])
+			_warm_sound(MobAttacks.attack_sound(kind.id, attack))
 
 
 ## Caches a sound's stream when the node exists (absent optional sounds are not recorded as missing).
@@ -867,6 +986,8 @@ func handle_events(events: Array) -> void:
 				elif e.phase == "impact":
 					# tier C: ground-wave art begins 50 ms after the canonical damage impact; capture its first frames.
 					_event_shot("boss_shockwave_%d_%s.png" % [int(e.boss_index), String(e.attack)], 0.12)
+			"mob_attack":
+				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
 			"teleport":
@@ -891,7 +1012,7 @@ func handle_events(events: Array) -> void:
 				if e.phase == "start":
 					_restart_action = true
 					_sound(String(e.sound))
-				else:
+				elif String(e.afterimage) != "": # a bare-handed punch has no afterimage
 					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
@@ -918,10 +1039,28 @@ func handle_events(events: Array) -> void:
 				cam.snap_to(e.pos)
 			"pickup_spawned":
 				_sound(SND_DROP)
+				if String(e.kind) == "meso" and not _meso_shot_ids.has(int(e.item_id)):
+					# tier C: capture the first drop of each coin sprite while it lies on the ground.
+					_meso_shot_ids[int(e.item_id)] = true
+					_event_shot("meso_%d.png" % int(e.item_id), 0.4)
+				elif String(e.kind) == "equip" and not _equip_shot_taken:
+					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
+					_equip_shot_taken = true
+					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
+			"pickup_blocked", "grant_blocked":
+				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
 			"pickup_collected":
+				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
 				_frame_exp += int(e.exp)
-			"potion_used":
+				if String(e.get("kind", "")) == "meso":
+					_frame_mesos += int(e.count)
+				elif String(e.get("kind", "")) == "equip":
+					_frame_items.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
+			"pet_teleported":
+				if pet_renderer != null:
+					pet_renderer.snap()
+			"potion_used", "pet_potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
 			"level_up":
@@ -934,6 +1073,11 @@ func handle_events(events: Array) -> void:
 				_pending_window = {"kind": "job", "options": e.options}
 			"job_changed":
 				_on_job_changed(int(e.job_id))
+			"equipment_changed":
+				_apply_look()
+				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
+			"scroll_used":
+				_on_scroll_used(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -961,6 +1105,32 @@ func _on_boss_skill(e: Dictionary) -> void:
 		# tier C: affected pos1 is anchored above the player's canonical body box; lifetime follows sim status.
 		_slow_fx = fx.play_repeating(String(e.player_effect),Vector2.ZERO,INF,false,avatar,Vector2(0,world.body.position.y))
 	_sound(SND_MOB % [int(e.mob_id),String(e.action).replace("skill", "Skill")])
+
+
+## An ordinary mob's attack phase (#76): its Sound.wz attack sound at the windup, the canonical effect/hit art, and
+## playtest evidence of the first windup and the first hit.
+func _on_mob_attack(e: Dictionary) -> void:
+	match String(e.phase):
+		"start":
+			_sound(String(e.sound))
+			if not _mob_attack_shot_taken:
+				_mob_attack_shot_taken = true
+				# tier C: capture the first windup halfway to its impact, like the boss windup shots.
+				_event_shot("mob_attack_windup.png", maxf(DT, (float(e.impact_time) - float(e.time)) * 0.5))
+		"effect", "hit":
+			if String(e.effect) != "":
+				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
+			if String(e.phase) == "hit" and not _mob_hit_shot_taken:
+				_mob_hit_shot_taken = true
+				_event_shot("mob_attack_hit.png", 0.1) # tier C: the hit art's first frames over the character.
+
+
+## A scroll was read (the run is held while the windows are open): the Enchant effect over the character, its sound,
+## and an evidence shot of the result for playtests.
+func _on_scroll_used(e: Dictionary) -> void:
+	var result := String(e.result)
+	wiring.scroll_used(result, avatar.get_global_transform_with_canvas().origin)
+	_event_shot("scroll_%s.png" % result, 0.35)
 
 
 func _on_cast(e: Dictionary) -> void:
@@ -1013,16 +1183,17 @@ func _on_job_changed(job_id: int) -> void:
 	# centred window hides the effect (autopick runs never wait).
 	var a := library.find_anim(FX_JOB_CHANGED) if library != null else null
 	_window_delay = maxf(_window_delay, a.total if a != null and a.total > 0.0 else JOB_WINDOW_DELAY)
-	_apply_job_look(job_id)
+	_apply_look()
 	_event_shot("job_%d.png" % job_id, 0.8)
 	_event_shot("job_%d_after.png" % job_id, 4.0)
 
 
-## Carries the snapshot's look and resolves the drawn weapon through the same rule as the simulation.
-func _apply_job_look(job_id: int) -> void:
-	avatar.set_look(DataRepo.character_look({"look": world.character_look,
-		"job_id": job_id, "beginner_weapon": world.beginner_weapon}, {"balance": world.balance,
-		"jobs": data.jobs, "jobs_survivor": data.jobs_survivor}))
+## Draws the carried look with the live worn equipment (the only source of what is drawn) and the round's owned cash
+## equipment over it. Never reads world.character_snapshot(), which refuses while a choice is pending (job
+## advancement is drawn mid-choice).
+func _apply_look() -> void:
+	avatar.set_look(DataRepo.character_look({"look": world.character_look, "equipment": world.equipment}, data,
+		world.worn_cash))
 
 
 ## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
@@ -1034,7 +1205,7 @@ func _warp(to: float) -> void:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
-		world.drain_events()
+		BotShop.equip_after(world, world.drain_events())
 	_warped = world.time
 
 
@@ -1264,10 +1435,11 @@ func _present(delta: float) -> void:
 		_slow_fx = -1
 	_update_mob_status_effects()
 	_update_player(delta)
+	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
-	var boss_actions := world.bosses.action_snapshot(world.swarm)
+	var mob_actions := world.mob_action_view()
 	for i in mob_renderers.size():
-		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, boss_actions)
+		mob_renderers[i].update_from(world.swarm, _kind_ids, mob_layers[i], _slot_layers, mob_actions)
 	shots.update_from(world.projectiles, world.visual_paths, delta)
 	mob_shots.update_from(world.mob_projectiles, world.visual_paths, delta)
 	drops.update_from(world.pickups, delta)
@@ -1356,6 +1528,25 @@ func _update_player(delta: float) -> void:
 	_tag_source.y[0] = p.pos.y
 	_tag_source.state[0] = MobRenderer.DIE if dead else MobRenderer.STAND
 	player_tag.update_from(_tag_source, PackedByteArray([1]), PackedStringArray([_player_name()]))
+
+
+## Draws the pet from its simulated state, in the actor layer of the foothold it stands on (the player's layer while it
+## hangs on a rope or is in the air), just behind the avatar when that is the avatar's layer.
+func _update_pet(delta: float) -> void:
+	if pet_renderer == null:
+		return
+	var pet := world.pet_system
+	var layer := _player_layer if pet.action == "hang" or _pet_layer < 0 else _pet_layer
+	if pet.action != "hang" and pet.motion.fh >= 0:
+		layer = world.fhm.layer[pet.motion.fh]
+	pet_renderer.show_state(world.pet_state(), delta)
+	var c := map.actor_layer(layer)
+	if layer != _pet_layer or pet_renderer.get_parent() != c:
+		_pet_layer = layer
+		if pet_renderer.get_parent() != null:
+			pet_renderer.get_parent().remove_child(pet_renderer)
+		c.add_child(pet_renderer)
+		c.move_child(pet_renderer, player_group.get_index() if player_group.get_parent() == c else 0)
 
 
 ## Moves the player, its behind-effects and the drops into actor layer `layer` (drawn with that foothold layer):
@@ -1505,6 +1696,8 @@ func build_summary() -> Dictionary:
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
 		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
+		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
+		"nx_awarded": world.nx_awarded(),
 	}
 
 
@@ -1552,7 +1745,7 @@ func _automation_end(summary: Dictionary) -> void:
 		_request_shot("final.png")
 		get_tree().create_timer(FINAL_SHOT_TIMEOUT, true, false, true).timeout.connect(_quit_without_final_shot)
 	else:
-		get_tree().quit()
+		WebHandoff.exit_app(get_tree())
 
 
 ## --quit-after fallback: no frame was drawn in FINAL_SHOT_TIMEOUT real seconds, so quit without final.png.
@@ -1562,7 +1755,7 @@ func _quit_without_final_shot() -> void:
 	_quit_after_capture = false
 	print("RunScene: final.png skipped: no frame was drawn within %.0f s (window occluded or minimized?)"
 		% FINAL_SHOT_TIMEOUT)
-	get_tree().quit()
+	WebHandoff.exit_app(get_tree())
 
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
@@ -1571,7 +1764,7 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 	s.sort()
 	var pr := _present_us.duplicate()
 	pr.sort()
-	return {
+	var out := {
 		"summary": summary, "frames": s.size(), "frame_ms": {"p50": _pct(s, 0.5), "p95": _pct(s, 0.95),
 			"p99": _pct(s, 0.99), "max": s[s.size() - 1] if not s.is_empty() else 0.0, "avg": _avg(s)},
 		"frame_work_us": {"p50": _pct(pr, 0.5), "p95": _pct(pr, 0.95), "avg": _avg(pr)},
@@ -1582,6 +1775,12 @@ func perf_summary(summary: Dictionary = {}) -> Dictionary:
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
 		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}
+	if _account_name != "":
+		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
+	if world.pet_system != null:
+		out["pet"] = {"species": world.pet_system.species, "pickups": world.pet_system.pickups,
+			"potions_used": world.potions.pet_used.duplicate()} # #119: pet drinks and pickups, apart from the player's
+	return out
 
 
 ## Frame-time percentiles per run minute with the mean / max alive mobs of those frames.
@@ -1643,7 +1842,7 @@ func _capture() -> void:
 	_skip_perf_frames = 2
 	if _quit_after_capture:
 		_quit_after_capture = false
-		get_tree().quit()
+		WebHandoff.exit_app(get_tree())
 
 
 func _record_frame(frame_ms: float, work_us: int) -> void:
