@@ -6,8 +6,12 @@ extends RefCounted
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
 ##   scheduled bosses first, then nearest (SpatialHash query; RunWorld.targets_before); with fewer targets than shots the extra shots reuse targets in order, aimed a
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
-## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
+## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines); the
+##   `box`, `weapon_reach` (the held weapon's swing envelope, Warrior Power Strike) and `range_around` (the level's
+##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
+##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
+## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
 ## stay out of the ready list while active, and use their canonical duration as the next readiness time.
@@ -55,7 +59,7 @@ static func count_meaning(kind: String) -> String:
 ## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
 ## their mob_count (canonical mobCount plus count cards), the others `count`.
 static func strike_count(st: Dictionary) -> int:
-	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd"] else int(st.count)
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around"] else int(st.count)
 
 
 ## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
@@ -64,6 +68,26 @@ static func restart_cooldown(st: Dictionary) -> float:
 	if String(st.kind) == "buff":
 		return maxf(float(st.duration), float(st.buff_cooldown))
 	return float(st.cooldown)
+
+
+## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
+## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
+## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
+## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach (BasicAttack.reach, the same number
+## the basic attack engages at), range_around the level's `range` around the body.
+static func reach_of(st: Dictionary, world: RunWorld) -> float:
+	if String(st.kind) == "buff" or String(st.damage_type) == "none":
+		return 0.0
+	match String(st.cast_rule):
+		"", "nearest", "range_around":
+			return maxf(float(st.range), 0.0)
+		"weapon_reach":
+			return maxf(world.basic.reach(world), 0.0)
+		"box":
+			if not bool(st.has_box):
+				return 0.0
+			return maxf(-(st.box as Rect2).position.x, 0.0)
+	return 0.0
 
 
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
@@ -101,8 +125,16 @@ func tick_cooldowns(dt: float, world: RunWorld) -> void:
 func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
+	var held := world.held_weapon_family()
 	for key: String in lo.order:
-		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
+		if not lo.book.is_active(key):
+			continue
+		if not lo.book.usable_with(key, held):
+			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
+			# resumes on the first tick a matching weapon is held again.
+			_shortages.erase(key)
+			continue
+		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
 				and String(stats_of(world, key).cast_rule) != "manual":
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:
@@ -119,6 +151,10 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if not has_target(world, key, st, origin):
 			_shortages.erase(key)
 			continue
+		if not world.can_pay_hp(int(st.hp_cost)):
+			# Slash Blast pays HP too and never casts when that would leave 0 HP: not an MP shortage, nothing is spent.
+			_shortages.erase(key)
+			continue
 		if not world.mp_affordable(int(st.mp_cost)):
 			waiting_mp = true
 			if not _shortages.has(key):
@@ -128,6 +164,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 			continue
 		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
 		world.spend_mp(int(st.mp_cost))
+		world.spend_hp(int(st.hp_cost))
 		_shortages.erase(key)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
@@ -154,6 +191,12 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
 			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
 				return world.swarm.can_slow_cast(slot, _slow_serial)) >= need
+		"weapon_reach":
+			var box := world.basic.envelope(world)
+			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
+				PackedByteArray(), -world.player.facing) > 0
+		"range_around":
+			return _any_target(world, origin, float(st.range), strike_count(st))
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -179,6 +222,10 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_box(world, st)
 		"crowd":
 			return _admit_crowd(world, st)
+		"weapon_reach":
+			return _admit_weapon_reach(world)
+		"range_around":
+			return _admit_range_around(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"manual":
@@ -193,6 +240,39 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 		if float(st.duration) > 0.0:
 			return {"go": true}
 	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
+		return {}
+	return {"targets": _tgt.duplicate()}
+
+
+## Weapon-reach rule (Warrior Power Strike): the live mobs inside the held weapon's swing envelope (BasicAttack.envelope),
+## nearest first. The player turns in every movement state, so both sides are asked and the side with the nearer first
+## target wins (the current facing on a tie). The plan carries the side to face before casting; a walking or airborne
+## player's held direction sets its facing again on the next motion step, so the turn lasts for the cast (tier C).
+func _admit_weapon_reach(world: RunWorld) -> Dictionary:
+	var box := world.basic.envelope(world)
+	if not box.has_area():
+		return {}
+	var sides: Array[int] = [world.player.facing, -world.player.facing]
+	var origin := world.cast_origin()
+	var best := PackedInt32Array()
+	var best_side := 0
+	for side in sides:
+		var found := world.skill_box_targets(box, Callable(), side)
+		if found.is_empty():
+			continue
+		if best.is_empty() or world.targets_before(found[0], world.mob_center(found[0]).distance_squared_to(origin),
+				best[0], world.mob_center(best[0]).distance_squared_to(origin)):
+			best = found
+			best_side = side
+	if best.is_empty():
+		return {}
+	return {"targets": best, "facing": best_side}
+
+
+## Range-around rule (Warrior Slash Blast): the nearest live mobs whose body centre is within the level's `range` of the
+## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before).
+func _admit_range_around(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
+	if _find_targets(world, origin, float(st.range), strike_count(st)) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -220,15 +300,19 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
 		world.face_toward(world.mob_center(targets[0]).x)
+	elif String(st.cast_rule) == "weapon_reach":
+		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
+	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
+		world.face_toward(world.mob_center(targets[0]).x, true)
 	casts += 1
 	fired_this_tick = true
 	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
 		world.start_buff(key, st)
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
-	world.start_action(String(st.action), float(st.action_time))
+	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	match String(st.cast_rule):
-		"box":
+		"box", "weapon_reach", "range_around":
 			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
 				world.visual_index(String(st.hit)))
 		"crowd":
@@ -282,6 +366,8 @@ func _resolve_hp_or_undead(world: RunWorld, key: String, st: Dictionary, targets
 	hit.damage_min = damage.x
 	hit.damage_max = damage.y
 	hit.magic = true
+	hit.damage_type = "magic"
+	hit.defense = "mdd"
 	hit.element = "h" # tier B: Heal's holy undead attack; canonical node has no elemAttr, research/cleric-heal.md.
 	var hv := world.visual_index(String(st.hit))
 	# tier C: ticket #57 requires every undead in the box, without the original six-target cap.
@@ -363,6 +449,8 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"range": float(st.range), "radius": float(st.radius), "visual": vis, "hit_visual": hv,
 				"rotate": bool(st.rotate), "dmg_min": float(st.damage_min), "dmg_max": float(st.damage_max),
 				"magic": bool(st.magic), "crit": float(st.crit), "crit_mult": float(st.crit_mult),
+				"damage_type": String(st.damage_type), "damage_pct": float(st.damage_pct),
+				"player_level": int(st.player_level), "crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
 			})
 	else:

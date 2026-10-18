@@ -39,7 +39,7 @@ const REQ_TEXT := {"reqLEV": "REQ LEV", "reqSTR": "REQ STR", "reqDEX": "REQ DEX"
 ## UPGRADES AVAILABLE); facts without art use TEXT_LABELS.
 const PROPERTY := {"category": 3, "attack_speed": 4, "incPAD": 6, "incMAD": 7, "incPDD": 8, "incMDD": 9,
 	"incACC": 10, "incEVA": 11, "incSpeed": 13, "incJump": 14, "slots": 16}
-const TEXT_LABELS := {"category": "CATEGORY", "attack_speed": "ATTACK SPEED", "incSTR": "STR", "incDEX": "DEX",
+const TEXT_LABELS := {"category": "CATEGORY", "attack_speed": "ATTACK SPEED", "ammo": "AMMO", "incSTR": "STR", "incDEX": "DEX",
 	"incINT": "INT", "incLUK": "LUK", "incMHP": "MaxHP", "incMMP": "MaxMP", "incPAD": "WEAPON ATTACK",
 	"incMAD": "MAGIC ATTACK", "incPDD": "WEAPON DEF.", "incMDD": "MAGIC DEF.", "incACC": "ACCURACY",
 	"incEVA": "AVOIDABILITY", "incSpeed": "SPEED", "incJump": "JUMP", "slots": "NUMBER OF UPGRADES AVAILABLE"}
@@ -80,6 +80,9 @@ static func fact_lines(d: Dictionary) -> Array:
 		out.append(["category", ""])
 	if int(d.get("attack_speed", -1)) >= 0:
 		out.append(["attack_speed", ""])
+	var ammo: Dictionary = d.get("ammo", {})
+	if not ammo.is_empty():
+		out.append(["ammo", "%s (+%d)" % [String(ammo.get("name", "")), int(ammo.get("incPAD", 0))]])
 	for stat: Array in d.get("stats", []):
 		var v := int(stat[1])
 		out.append([String(stat[0]), ("+%d" if v > 0 else "%d") % v])

@@ -2,7 +2,8 @@ class_name SkillTooltip
 extends Control
 ## The v83-style tooltip of the Skill window (#86): a dark translucent box with a light frame (v83's
 ## UI.wz/UIToolTip.img frame is not in the asset cache, so it is drawn), the name in bold, the icon beside the
-## description, then "[Current Level : N]" / "[Next Level : N]" with their lines, cooldown and MP cost, and an orange
+## description, then "[Current Level : N]" / "[Next Level : N]" with their lines, cooldown and MP cost, the weapon the
+## skill needs ("Weapon : Claw", red with "(not held)" when the held weapon cannot use it), and an orange
 ## "Upgrades" section with one line per behaviour card. A star-tab card shows its name, icon, text and rank.
 ##
 ##   tip.show_data(model.skill_tooltip(key), anchor)   # anchor: canvas position of its top-left (clamped to the view)
@@ -20,6 +21,8 @@ const FILL := Color(0.06, 0.08, 0.15, 0.9)
 const FRAME := Color(0.78, 0.82, 0.9)
 const TEXT := Color(1, 1, 1)
 const DIM := Color8(190, 200, 215)
+## tier C (ours): the "Weapon : X (not held)" line of a skill the held weapon cannot use.
+const BLOCKED := Color8(255, 130, 130)
 
 ## The data shown (SkillWindowModel.skill_tooltip / card_tooltip); {} hides the tooltip.
 var data: Dictionary = {}
@@ -80,10 +83,16 @@ static func layout(d: Dictionary) -> Array:
 	var facts := PackedStringArray()
 	if float(d.get("cooldown", -1.0)) >= 0.0:
 		facts.append("Cooldown %s sec." % SkillText.number(float(d.cooldown)))
+	if int(d.get("hp_cost", 0)) > 0:
+		facts.append("HP cost %d" % int(d.hp_cost))
 	if int(d.get("mp_cost", -1)) >= 0:
 		facts.append("MP cost %d" % int(d.mp_cost))
 	if not facts.is_empty():
 		out.append(["text", "   ".join(facts), DIM, float(MapleText.LINE_SMALL) + 2.0])
+	if String(d.get("needs", "")) != "":
+		var blocked := not bool(d.get("usable", true))
+		out.append(["text", "Weapon : %s%s" % [d.needs, " (not held)" if blocked else ""], BLOCKED if blocked else DIM,
+			float(MapleText.LINE_SMALL) + 2.0])
 	var ups: Array = d.get("upgrades", [])
 	if not ups.is_empty():
 		out.append(["rule", "", FRAME, 7.0])

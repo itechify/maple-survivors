@@ -117,6 +117,7 @@ bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
 bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
+bash scripts/playtest.sh --job=100                                             # the Warrior at Lv10 (spec #151); --job=400:claw names a weapon path
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -126,7 +127,7 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 `frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
 `max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
+`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
 no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
@@ -145,7 +146,9 @@ input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tie
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
-`keys` (#87); see the script header. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+`keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
+greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
+through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
 character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
@@ -163,7 +166,7 @@ prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round
 "+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
 items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
 account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
-`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar) and `hair_cap_probe.tscn` (cap vs hair layers)
+`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw; `-- --mode=ammo [--branch=410 --level=37]` real ammo projectiles per tier) and `hair_cap_probe.tscn` (cap vs hair layers)
 are the avatar contact-sheet tools.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;
@@ -209,10 +212,12 @@ assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
-`--job=<id>` (any first or second job id of the canonical tree; `--branch=<id>` is the deprecated alias) forces the bot's
+`--job=<id>[:<path>]` (any first or second job id of the canonical tree; `--job=400:claw` also names a first job's weapon
+path, `JobTree.parse_forced`; `--branch=<id>` is the deprecated alias) forces the bot's
 job choice in `balance.sh`, `playtest.sh`, `--run` and `balance_run.gd`: a first job is taken at the first advancement, a
-second job takes its first job there and itself at the second. A job this build cannot offer (not playable) fails at
-startup. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
+second job takes its first job there and itself at the second. A job (or path) this build cannot offer (not playable, or a path the line lacks) fails at
+startup. Without `--job` the bot draws its first job (Warrior or Magician today) and, for a job with paths, its path on the
+job stream 8. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;

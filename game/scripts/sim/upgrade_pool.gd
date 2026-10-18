@@ -7,6 +7,8 @@ extends RefCounted
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
 ## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
+## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
+## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
 ## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
 ## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
@@ -18,7 +20,14 @@ extends RefCounted
 ## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
+	"damage", "hpCon"]
+## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
+## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
+## Recovery (field hp, which is a percent for Heal).
+const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
+const PASSIVE_REGEN_HP := "regen_hp"
+const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
@@ -116,6 +125,9 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 		if int(state.potions.stock.get(potion_kind, {}).get("item_id", 0)) != int(req.potions[potion_kind]):
 			return false
 	var skill := String(c.get("skill", ""))
+	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
+	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
+		return false
 	match String(c.get("kind", "")):
 		"skill_new":
 			if not lo.book.has(skill) or lo.has(skill):
@@ -260,6 +272,10 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
+			var renamed := _passive_preview(lo.book.def(skill))
+			if not renamed.is_empty() and changes.has(renamed[0]):
+				changes[renamed[1]] = changes[renamed[0]]
+				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
 			if passive.has("per_level"):
 				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
@@ -286,6 +302,18 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_effect_stat": effect_stat,
 		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
 	}
+
+
+## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
+## PASSIVE_MAX_HP), else [].
+static func _passive_preview(d: Dictionary) -> Array:
+	var regen: Variant = d.get("regen")
+	if regen is Dictionary and regen.has("field") and String(regen.get("pool", "")) == "hp":
+		return [String(regen.field), PASSIVE_REGEN_HP]
+	var passive: Dictionary = d.get("passive", {})
+	if String(passive.get("stat", "")) == PASSIVE_MAX_HP and passive.has("field"):
+		return [String(passive.field), PASSIVE_MAX_HP]
+	return []
 
 
 ## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value

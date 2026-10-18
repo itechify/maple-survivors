@@ -14,6 +14,8 @@ const INFO := {
 	1082019: {"reqJob": 2, "reqLevel": 20, "reqINT": 40, "incPAD": 2, "incMAD": 5, "tuc": 5},
 	1072999: {"incSpeed": 35, "incJump": 20, "tuc": 5},
 	1050010: {"reqLevel": 15, "incPDD": 20, "tuc": 10},
+	1092005: {"reqLevel": 10, "incPDD": 10, "incMDD": 3, "tuc": 7}, # a shield
+	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
 }
 
 
@@ -67,7 +69,7 @@ func test_equipping_and_unequipping_changes_every_derived_stat() -> void:
 	for stat: String in ["str", "dex", "int", "luk"]:
 		assert_eq(int(ps[stat]) - int(before[stat]), int(INFO[1002001]["inc" + stat.to_upper()]), stat)
 	assert_eq(world.equipment_bonus("incLUK"), 5.0)
-	assert_eq(int(ps.acc) - int(before.acc), 7)
+	assert_near(float(ps.acc) - float(before.acc), 11.1, 1e-6, "incACC7 plus DEX2 x0.8 and LUK5 x0.5")
 	assert_near(float(ps.avoid) - float(before.avoid), 6.0 + 2 * RunWorld.AVOID_DEX_FACTOR + 5 * RunWorld.AVOID_LUK_FACTOR,
 		1e-6, "avoid gains incEVA and the DEX/LUK it adds")
 	assert_eq(int(ps.max_hp) - int(before.max_hp), 40)
@@ -173,19 +175,21 @@ func test_magician_advancement_grants_and_wears_the_wooden_wand() -> void:
 	assert_eq(_ids(world.equipment.inventory), [1302000], "second job grants nothing")
 
 
-func test_a_full_inventory_skips_the_wand_grant_and_keeps_the_weapon() -> void:
+func test_a_full_inventory_wears_the_wand_and_drops_the_old_weapon_at_the_feet() -> void:
 	var world := _world([], func(c: Dictionary) -> void:
 		for i in 24:
 			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
 	world.drain_events()
 	world.change_job(200)
 	assert_eq(world.progression.job_id, 200, "the advancement itself still happens")
-	assert_eq(world.weapon_id(), 1302000, "the character keeps its weapon")
-	assert_eq(world.equipment.inventory.size(), 24, "nothing was destroyed or added")
+	assert_eq(world.weapon_id(), 1372005, "the grant is worn (spec #151 #157: advancing never fails)")
+	assert_eq(world.equipment.inventory.size(), 24, "the inventory is unchanged")
 	var events := world.drain_events()
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"), [])
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "grant_blocked"),
-		[{"type": "grant_blocked", "reason": "inventory_full", "item_id": 1372005}])
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"),
+		[{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
+	var spawned := events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
+	assert_eq(spawned.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000],
+		"the creation sword lies on the ground as a normal pickup")
 
 
 func test_format_two_round_trips_through_json_text_into_an_identical_world() -> void:
@@ -204,3 +208,44 @@ func test_format_two_round_trips_through_json_text_into_an_identical_world() -> 
 	assert_eq(a.player_state, b.player_state)
 	parsed.equipment.worn.hat.stats.incSTR = 99
 	assert_eq(b.equipment.worn.hat.stats.incSTR, 3, "the world is detached from its input")
+
+
+func test_a_snapshot_with_a_shield_round_trips_and_a_pre_shield_snapshot_loads_unchanged() -> void:
+	# A snapshot saved before the shield slot existed: its worn map has no "shield" key at all.
+	var old := RunWorld.new(_setup()).character_snapshot()
+	assert_false(old.equipment.worn.has("shield"))
+	assert_eq(int(old.format), 2, "no format bump")
+	var old_parsed: Dictionary = JSON.parse_string(JSON.stringify(old))
+	assert_eq(CharacterSnapshot.validation_error(old_parsed), "")
+	var loaded := RunWorld.new(_setup(old_parsed))
+	assert_eq(loaded.character_snapshot(), old, "loads and saves back unchanged")
+	assert_eq(Equipment.worn_ids(loaded.equipment.worn), [1040002, 1060002, 1072001, 1302000])
+	# One with a shield worn.
+	var source := _world([1092005], func(c: Dictionary) -> void: c.level = 10)
+	assert_eq(source.equip_item(0), "")
+	var character := source.character_snapshot()
+	assert_eq(character.equipment.worn.shield.id, 1092005)
+	var parsed: Dictionary = JSON.parse_string(JSON.stringify(character))
+	assert_eq(CharacterSnapshot.validation_error(parsed), "")
+	var restored := RunWorld.new(_setup(parsed))
+	assert_eq(restored.character_snapshot(), character, "the shield survives save and load")
+	assert_eq(restored.player_state.pdd, source.player_state.pdd, "and still counts")
+	assert_eq(AvatarRenderer.part_img_path(1092005), "Character.wz/Shield/01092005.img")
+	assert_true(1092005 in DataRepo.character_look(restored.character_snapshot(), {}).equips, "and is drawn")
+	# A two-handed weapon beside a shield is not a valid snapshot.
+	parsed.equipment.worn.weapon = Equipment.create(1402000, INFO[1402000])
+	assert_ne(CharacterSnapshot.validation_error(parsed), "")
+
+
+func test_a_shield_counts_in_the_live_stats_and_a_two_handed_weapon_moves_it() -> void:
+	var world := _world([1092005, 1402000], func(c: Dictionary) -> void: c.level = 20)
+	var base_pdd: float = world.player_state.pdd
+	assert_eq(world.equip_item(0), "")
+	assert_eq(world.player_state.pdd, base_pdd + 10.0, "W.DEF counts the shield")
+	assert_eq(world.weapon_id(), 1302000)
+	assert_eq(world.equip_item(0), "", "the two-handed sword")
+	assert_eq(world.weapon_id(), 1402000)
+	assert_false(world.equipment.worn.has("shield"))
+	assert_eq(_ids(world.equipment.inventory), [1302000, 1092005])
+	assert_eq(world.player_state.pdd, base_pdd, "the shield's defence went with it")
+	assert_eq(world.held_weapon_family(), "sword")

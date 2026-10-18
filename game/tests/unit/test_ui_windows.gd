@@ -272,7 +272,7 @@ func test_rank_preview_uses_the_space_for_values_that_change() -> void:
 
 
 func test_every_previewed_field_has_a_label() -> void:
-	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
+	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS:
 		if field != "x":
 			assert_true(LevelUpWindow.FIELD_LABELS.has(field), "label for previewed field %s" % field)
 
@@ -300,6 +300,23 @@ func test_job_window_pick_magician_after_confirmation() -> void:
 	w.handle_input(key(KEY_A))
 	assert_eq(_got, [200], "any key closes the confirmation and emits job_chosen")
 	assert_false(w.is_open())
+
+
+func test_job_window_lists_a_first_job_once_per_weapon_path() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	var options := [
+		{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
+		{"job_id": 400, "path": "claw", "name": "Thief - Claw", "available": true, "reason": ""},
+		{"job_id": 400, "path": "dagger", "name": "Thief - Dagger", "available": true, "reason": ""}]
+	w.open(options, 10, 0)
+	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.text),
+		["Magician", "Thief - Claw", "Thief - Dagger", "Not now."])
+	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.path), ["", "claw", "dagger", ""])
+	w.handle_input(key(KEY_3))
+	assert_eq(_got, [400], "the second Thief entry is chosen")
+	assert_eq(w.picked_path, "dagger", "and tells which path it was")
 
 
 func test_job_window_confirmation_times_out_and_mouse() -> void:

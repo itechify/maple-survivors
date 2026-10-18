@@ -125,7 +125,7 @@ func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 
 ## Fields a v83 skill level node can carry, so every override template can resolve without the cache.
 const LEVEL_FIELDS := ["mpCon", "mad", "mastery", "attackCount", "fixdamage", "x", "y", "time", "prop", "pdd", "mdd",
-	"acc", "eva", "mobCount", "range", "speed", "cooltime", "hp"]
+	"acc", "eva", "mobCount", "range", "speed", "cooltime", "hp", "damage", "hpCon"]
 
 
 func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders() -> void:

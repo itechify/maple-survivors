@@ -123,8 +123,9 @@ _Avoid_: path (on its own; a weapon path is the first-job weapon choice), specia
 
 **Weapon path**:
 A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
-Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun. The job window offers each path as its own entry and
-hands the character that weapon. It is not a job: both Thief paths are job 400.
+Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
+offers each path as its own entry and hands the character that weapon. It is not a job: both Thief paths are job 400.
+The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
 _Avoid_: branch (that is the second-job choice), build, stance
 
 ## Skills
@@ -210,7 +211,7 @@ _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
 The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
-comes only from monster drops, never from shops.
+comes only from monster drops (plus the weapon a job advancement hands over), never from shops.
 _Avoid_: Gear (in player-visible text), armour, loot
 
 **Equip slot**:
@@ -220,8 +221,10 @@ _Avoid_: Equipment slot, gear slot
 
 **Weapon family**:
 The weapon kind a mastery, booster or weapon-gated skill refers to: sword, axe, blunt weapon, spear, polearm, bow,
-crossbow, claw, dagger, knuckle, gun, wand or staff, each with its one- and two-handed variants. Skills cast and cards
-are offered only for the family of the weapon held, and weapon drops come only from it.
+crossbow, claw, dagger, knuckle, gun, wand or staff; swords, axes and blunt weapons count their one- and two-handed
+versions as one family. A skill that names a family casts, and its cards are offered, only while the weapon held belongs
+to it (a skill that names none works with any weapon, bare hands included); weapon drops come only from the held
+family (a wand and a staff count as one for drops).
 _Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
 
 **Ammo tier**:

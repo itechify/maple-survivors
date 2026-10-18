@@ -11,7 +11,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
 
 
 
@@ -82,7 +82,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent", "mobCount", "damage", "hpCon", "max_hp_per_level", "regen_hp"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -288,6 +288,22 @@ func test_every_event_matches_the_schema() -> void:
 		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 	for event: Dictionary in eater.drain_events():
 		_check(event, seen)
+	# A synthetic Final Attack (#161) follows a physical line of the held sword with its own event.
+	var final_data := RF.quiet_data()
+	final_data.skills.skills["final_fixture"] = {"skill_id": 9991005, "book": "999", "kind": "passive", "slot": "passive",
+		"name": "Final", "damage": "physical", "ranks": [1], "action": "swingO1", "action_time": 0.0,
+		"final_attack": {"chance_field": "prop"}, "effect": "", "icon": ""}
+	var final_setup := RF.setup("quiet", 161, final_data)
+	final_setup.skill_imgs["999"] = {"skill": {"9991005": {"level": {"1": {"prop": 100, "damage": 200}}}}}
+	var finisher := RunWorld.new(final_setup)
+	RF.place_player(finisher, 400)
+	finisher.learn_skill("final_fixture")
+	var target := RF.put_mob(finisher, 100100, 450, 190, 1000)
+	finisher.hit_mob(target, {"skill": "fixture", "damage_type": "physical", "magic": false, "damage_min": 5.0,
+		"damage_max": 5.0, "crit": 0.0, "crit_mult": 1.5}, -1)
+	finisher.step(DT, MoveInput.new())
+	for event: Dictionary in finisher.drain_events():
+		_check(event, seen)
 	# An equipment drop beside the player with a full Equip tab: spawn, then the inventory-full notice.
 	var full := RF.quiet_world(400, 61)
 	while full.equipment.inventory.size() < full.inventory_slots():
@@ -304,6 +320,15 @@ func test_every_event_matches_the_schema() -> void:
 	scroller.grant_scrolls(2040400, 1)
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
+		_check(event, seen)
+	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	var thrower := RF.quiet_world()
+	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
+	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
+	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
+	thrower.progression.level = 37
+	thrower.change_job(410)
+	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
 	var blocked := RF.quiet_world()

@@ -241,6 +241,8 @@ var _quit_after := 0.0
 var _shot_queue := PackedStringArray()
 var _quit_after_capture := false
 var _timed_shots: Array = []
+## Skill keys whose first cast already queued its cast_<key>.png playtest shot.
+var _cast_shot_taken := {}
 var _hit_shot_taken := false
 var _miss_shot_taken := false
 ## #76: the one-off evidence shots of ordinary mob attacks.
@@ -711,7 +713,8 @@ func _build_ui_windows() -> void:
 	use_window_stack(stack)
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
-		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text,
+		world.held_weapon_family)))
 	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
 		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
 	enchant = wiring.enchant
@@ -953,6 +956,11 @@ func _forced_job() -> int:
 	return int(options.get("job", 0))
 
 
+## The weapon path named after the forced job (options.job_path, `--job=400:claw`); "" = the bot's own pick.
+func _forced_job_path() -> String:
+	return String(options.get("job_path", ""))
+
+
 # --- loop ----------------------------------------------------------------------------------------------------
 
 ## The MoveInput of the next tick: BotInput with autoplay, else the input actions (jump_pressed only on the first
@@ -1060,6 +1068,13 @@ func handle_events(events: Array) -> void:
 				if library.find(sound) is Dictionary:
 					_sound(sound)
 				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
+			"final_attack":
+				# The follow-up's own player effect where Skill.wz has one (finalAttack dirs); its hit is a mob_hit.
+				if world.player.state == PlayerMotion.ST_STAND and not bool(world.player_state.dead) \
+						and String(e.action) != "":
+					_restart_action = true # the sim started the follow-up's stance (RunWorld._play_final_attacks)
+				if String(e.effect) != "":
+					fx.play(String(e.effect), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":
@@ -1074,8 +1089,8 @@ func handle_events(events: Array) -> void:
 					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
 					_equip_shot_taken = true
 					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
-			"pickup_blocked", "grant_blocked":
-				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
+			"pickup_blocked":
+				_frame_inventory_full = true
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
@@ -1105,6 +1120,8 @@ func handle_events(events: Array) -> void:
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
 			"scroll_used":
 				_on_scroll_used(e)
+			"ammo_upgraded":
+				_on_ammo_upgraded(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -1160,6 +1177,20 @@ func _on_scroll_used(e: Dictionary) -> void:
 	_event_shot("scroll_%s.png" % result, 0.35)
 
 
+## The held ranged weapon's ammo moved up a tier (#155): the one-line system notice in the v83 item's own name, and an
+## evidence shot of the new projectile for playtests.
+func _on_ammo_upgraded(e: Dictionary) -> void:
+	if hud == null:
+		return
+	var item_name := ""
+	if library != null:
+		var found: Variant = library.find(InventoryModel.name_path(int(e.item_id)))
+		item_name = String(found) if found is String else ""
+	hud.push_message(Ammo.notice(Ammo.noun(world.data.get("ammo", {}), String(e.family)),
+		item_name if item_name != "" else "Item %d" % int(e.item_id)))
+	_event_shot("ammo_%d.png" % int(e.item_id), 0.4)
+
+
 func _on_cast(e: Dictionary) -> void:
 	if world.player.state == PlayerMotion.ST_STAND and not bool(world.player_state.dead):
 		_restart_action = true
@@ -1167,6 +1198,9 @@ func _on_cast(e: Dictionary) -> void:
 	if effect != "":
 		fx.play(effect, Vector2.ZERO, int(e.facing) > 0, avatar)
 	var key := String(e.skill)
+	if not _cast_shot_taken.has(key):
+		_cast_shot_taken[key] = true
+		_event_shot("cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
@@ -1228,7 +1262,7 @@ func _apply_look() -> void:
 ## Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world, false, _forced_job())
+		BotInput.auto_choose(world, false, _forced_job(), _forced_job_path())
 		if world.state != RunWorld.PLAYING:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
@@ -1298,14 +1332,14 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_job(req.options, world.job_rng, _forced_job(), world.jobs)
-				if j < 0 or not world.apply_job(j):
+				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path())
+				if j.job_id < 0 or not world.apply_job(j.job_id, j.path):
 					world.decline_job()
 				handle_events(world.drain_events())
 				continue
 			var jw := JobAdvanceWindow.new()
 			_show_window(jw, "job", req, level)
-			jw.job_chosen.connect(_on_job_chosen)
+			jw.job_chosen.connect(func(id: int) -> void: _on_job_chosen(id, jw.picked_path))
 			jw.declined.connect(_on_job_declined)
 			jw.open(req.options, level, int(world.player_state.job_id))
 		else:
@@ -1336,11 +1370,12 @@ func _auto_resolve_window(delta: float) -> void:
 	if _window_kind == "cards":
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
-		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs)
-		if j < 0:
+		var j := BotInput.pick_choice(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs,
+			_forced_job_path())
+		if j.job_id < 0:
 			_on_job_declined()
 		else:
-			_on_job_chosen(j)
+			_on_job_chosen(j.job_id, j.path)
 
 
 func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -> void:
@@ -1382,8 +1417,8 @@ func _on_card_chosen(card_id: String) -> void:
 	_service_windows()
 
 
-func _on_job_chosen(job_id: int) -> void:
-	if _window_kind != "job" or not world.apply_job(job_id):
+func _on_job_chosen(job_id: int, path := "") -> void:
+	if _window_kind != "job" or not world.apply_job(job_id, path):
 		return
 	_close_window()
 	handle_events(world.drain_events())
@@ -1548,7 +1583,8 @@ func _update_player(delta: float) -> void:
 	_restart_action = false
 	# Ladders and ropes animate only while climbing.
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
-		avatar.advance(delta)
+		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
+		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
 	var inv := float(world.player_state.invincible_t)
 	if inv > 0.0 and not dead:
 		_blink_t += delta
@@ -1685,7 +1721,7 @@ func run_info() -> Dictionary:
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
-			"mp_short": bool(ready.mp_short)})
+			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills}

@@ -19,7 +19,7 @@
 #
 # Frame times: the game caps the frame rate at the display's refresh rate (Settings / GameSettings.apply_frame_cap), so
 # frame_ms without --vsync=off is the cap (16.7 ms at 60 Hz); pass --vsync=off for performance measurements.
-# Output files: t<s>.png every --shot-every, levelup_N / job_N / hit_first / death_* / clear / final.png, summary.json
+# Output files: t<s>.png every --shot-every, levelup_N / job_N / cast_<skill> (each skill's first cast) / hit_first / death_* / clear / final.png, summary.json
 # (RunScene.perf_summary: frame_ms p50/p95/p99/max, frame_work_us, sim_us_per_tick, max_alive, level_by_minute, ...).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -37,7 +37,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "playtest.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 200, 210)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon path (e.g. 210, 400:claw)" >&2; exit 2; }
       EXTRA+=("--job=$JOB_ID") ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;

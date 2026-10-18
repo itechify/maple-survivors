@@ -23,6 +23,8 @@ var since_hit := INF
 var cast_action := ""
 var cast_left := 0.0
 var action_airborne := false
+## The fraction of the stance's canonical frame time it plays in (attack speed, WeaponInfo.speed_factor); 1.0 normally.
+var action_scale := 1.0
 var _buffs: PlayerBuffs
 var _regen: Dictionary
 var _regen_elapsed := 0.0
@@ -102,10 +104,12 @@ func pulse_mp() -> float:
 	return float(_regen.get("mp", DEFAULT_REGEN.mp))
 
 
-## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion.
-func start_action(action: String, seconds: float, airborne: bool = false) -> void:
+## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion; `scale` is the
+## attack-speed fraction of the frame time the avatar plays it in.
+func start_action(action: String, seconds: float, airborne: bool = false, scale: float = 1.0) -> void:
 	if action == "" or seconds <= 0.0:
 		return
 	cast_action = action
 	cast_left = seconds
 	action_airborne = airborne
+	action_scale = scale

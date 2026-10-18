@@ -3,8 +3,8 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Captured once; identical on Windows and Linux (see the test below).
-const GOLDEN := "9545f55b76f16af7631c0508b15c9ae884f7ab0142481fc48edb79df588cd551"
+## Captured on Windows after merging #142; binary event encoding is platform independent (see below).
+const GOLDEN := "b452687752046c1e218794598caff4133379f4ea98d82056166bfa659dc9a6e5"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
@@ -42,12 +42,20 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# re-captured for #152 (upgrades.json cards grouped by job line, common -> beginner -> magician, the per-line file merge
 	# order): the same cards in their pre-#152 order reproduce the #63 hash 823defb0... exactly (bb6eee9), so the only
 	# change is which cards the seeded roll draws.
+	# Re-captured on Windows for #153: accuracy grants critical chance to every job/damage type, including Beginner
+	# and fixed Three Snails; basic damage and crit rolls now use stream 5. Non-critical creation-weapon bounds are
+	# unchanged (test_physical_damage). The owner explicitly permits the resulting Beginner/Magician event deltas.
+	# Re-captured on Windows for #163 (Warrior playable, lead-approved): the Lv 10 job_advance_pending options now list the
+	# Warrior as available, and the unforced bot picks a seeded random available first job on the job stream (spec #151), so
+	# the run takes whichever job that draw gives. With jobs.json 100 locked ("Not in this build") the #153 hash 1a6cdb7c...
+	# is reproduced exactly (checked on the pre-merge head).
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	# Platform independent (#142): the digest hashes var_to_bytes of the events, not JSON text. The earlier Windows-only
 	# golden differed on Linux in 16 of 72000 ticks, all from one artifact: JSON.stringify writes Vector2 fields through
 	# float-to-text, which rounds exact decimal ties differently per platform (1090.8125 -> .813 on Windows, .812 on
 	# Linux). The simulation itself did not diverge. libm does differ across platforms (a sin in the flyer bob,
 	# integer-exponent pow calls in upgrades) but none of it reaches the event stream today.
-	# Re-captured for #142 (serializer only; the old serializer reproduced the old Windows golden f3f8998b... on the same
-	# code immediately before the change).
-	assert_eq(_event_digest(72000), GOLDEN, "20-minute pre-change event bytes, seed 1")
+	# Re-captured for the #142 merge onto spec #151 (serializer only). This branch retains the #153 crit rolls and
+	# #163 Warrior option / seeded first-job pick above, so its golden legitimately differs from main's 9545f55b... .
+	# The binary digest matches on the unoptimised 19ca0a8 tip and the merged code (Windows, Godot 4.7.2).
+	assert_eq(_event_digest(72000), GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

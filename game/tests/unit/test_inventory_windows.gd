@@ -11,8 +11,11 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const INFO := {
 	1040002: {"incPDD": 3, "tuc": 7}, 1060002: {"incPDD": 2, "tuc": 7}, 1072001: {"incPDD": 2, "tuc": 5},
 	1302000: {"incPAD": 17, "attackSpeed": 4, "tuc": 7},
+	1472000: {"incPAD": 10, "attackSpeed": 6, "tuc": 7}, # a claw
 	1372005: {"reqLevel": 8, "incPAD": 15, "incMAD": 23, "attackSpeed": 6, "tuc": 7},
 	1002001: {"reqLevel": 15, "incPDD": 10, "tuc": 7},
+	1092005: {"reqLevel": 10, "incPDD": 10, "incMDD": 3, "tuc": 7}, # a shield
+	1402000: {"incPAD": 40, "attackSpeed": 6, "tuc": 7}, # a two-handed sword
 	1082002: {"reqLevel": 10, "incPDD": 2, "tuc": 5},
 	1050035: {"reqJob": 2, "reqLevel": 38, "reqINT": 115, "reqLUK": 40, "incINT": 1, "incLUK": 4, "incPDD": 36,
 		"incMDD": 18, "tuc": 10},
@@ -364,3 +367,75 @@ func test_hovering_a_slot_shows_its_tooltip() -> void:
 	ew._gui_input(m2)
 	assert_eq(ew.tooltip().get("stats"), [["incPDD", 3]], "the worn undershirt")
 	assert_eq(ew.tooltip().get("slots"), 7)
+
+
+# --- shield slot (#158) ---------------------------------------------------------------------------------------------
+
+func test_the_equip_window_has_a_shield_cell_where_the_v83_art_puts_it() -> void:
+	var world := _world()
+	var ew: EquipWindow = _windows(world)[1]
+	assert_eq(ew.slot_rect("shield").position, Vector2(137, 134), "SHIELD, right of WEAPON on the same row")
+	assert_eq(ew.slot_at(ew.slot_rect("shield").get_center()), "shield")
+	assert_eq(ew.slot_at(ew.slot_rect("weapon").get_center()), "weapon")
+	assert_eq(ew.worn_id("shield"), 0)
+
+
+func test_double_clicking_a_shield_wears_it_beside_the_sword_and_shows_in_the_shield_cell() -> void:
+	var world := _world([1092005], func(c: Dictionary) -> void: c.level = 10)
+	var made := _windows(world)
+	var ew: EquipWindow = made[1]
+	var iw: ItemWindow = made[2]
+	var pdd_before: float = world.player_state.pdd
+	double_click(iw, iw.slot_rect(0).get_center())
+	assert_eq(ew.worn_id("shield"), 1092005)
+	assert_eq(ew.worn_id("weapon"), 1302000, "the one-handed sword stays")
+	assert_eq(world.player_state.pdd, pdd_before + 10.0, "the shield's incPDD counts")
+	assert_eq(world.equipment_bonus("incMDD"), 3.0)
+	assert_eq(ew.tooltip_for({"kind": "worn", "slot": "shield", "id": 1092005}).category, 10, "ItemCategory SHIELD")
+	double_click(ew, ew.slot_rect("shield").get_center())
+	assert_eq(ew.worn_id("shield"), 0, "a double-click takes it off")
+	assert_eq(_ids(world.equipment.inventory), [1092005])
+
+
+func test_a_two_handed_weapon_takes_the_shield_off_and_a_full_inventory_refuses_with_the_v83_message() -> void:
+	var world := _world([1402000], func(c: Dictionary) -> void:
+		c.equipment.worn["shield"] = Equipment.create(1092005, INFO[1092005]))
+	var made := _windows(world)
+	var ew: EquipWindow = made[1]
+	var iw: ItemWindow = made[2]
+	double_click(iw, iw.slot_rect(0).get_center())
+	assert_eq(ew.worn_id("weapon"), 1402000)
+	assert_eq(ew.worn_id("shield"), 0, "the shield moved to the inventory")
+	assert_eq(_ids(world.equipment.inventory), [1302000, 1092005])
+	var full := _world([1402000], func(c: Dictionary) -> void:
+		c.equipment.worn["shield"] = Equipment.create(1092005, INFO[1092005])
+		for i in 23:
+			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
+	var made2 := _windows(full)
+	var iw2: ItemWindow = made2[2]
+	var notices := []
+	iw2.notice.connect(func(t: String) -> void: notices.append(t))
+	var before := full.character_snapshot()
+	double_click(iw2, iw2.slot_rect(0).get_center())
+	assert_eq(notices, [InventoryWindow.MESSAGES.equip_full], "refused with the v83 message")
+	assert_eq(InventoryWindow.MESSAGES.equip_full, "You can't get anymore items.")
+	assert_eq(full.character_snapshot(), before, "nothing changed")
+
+
+# --- ranged weapon ammo (#155) --------------------------------------------------------------------------------------
+
+func test_a_ranged_weapons_tooltip_lists_the_current_ammo() -> void:
+	var world := _world([1472000, 1302000], func(character: Dictionary) -> void:
+		character.job_id = 410
+		character.level = 52)
+	var made := _windows(world)
+	var iw: ItemWindow = made[2]
+	var claw := iw.tooltip_for(iw.cell(0))
+	assert_eq(claw.ammo.item_id, 2070005, "Lv 52 Assassin: Steely Throwing-Knives")
+	assert_eq(claw.ammo.incPAD, 25)
+	assert_true(String(claw.ammo.name) != "", "named from String.wz, or by id without the cache")
+	var lines := ItemTooltip.fact_lines(claw)
+	var ammo_line := lines.filter(func(l: Array) -> bool: return l[0] == "ammo")
+	assert_eq(ammo_line.size(), 1)
+	assert_true(String(ammo_line[0][1]).ends_with("(+25)"), String(ammo_line[0][1]))
+	assert_false(iw.tooltip_for(iw.cell(1)).has("ammo"), "a sword lists no ammo")

@@ -26,6 +26,7 @@ const FILES := {
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
+	"ammo": "survivor/ammo.json",
 }
 ## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
 ## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
@@ -251,6 +252,17 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	var ids := PackedInt32Array()
 	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
 		_add_id(ids, int(id))
+	# Weapon paths, branch grants (spec #151 #157) and grants.items of the jobs this build can play; an unplayable job's
+	# items are not in the asset cache yet, so they load once its class spec makes it playable.
+	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
+	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
+		if row is Dictionary and bool(row.get("playable", false)):
+			_add_id(ids, int(row.get("grant_item", 0)))
+			var extra: Variant = row.get("grants", {}).get("items", []) if row.get("grants", {}) is Dictionary else []
+			for item: Variant in extra if extra is Array else []:
+				_add_id(ids, int(item))
+			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
+				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
 		for field: String in ["top", "bottom", "shoes", "weapon"]:
@@ -367,6 +379,25 @@ static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringA
 	return out
 
 
+## The canonical facts of every ammo item survivor/ammo.json names ({id: {incPAD}}, tier A: Item.wz/Consume 0206 arrows,
+## 0207 throwing stars, 0233 bullets; an item without incPAD, like Arrow for Bow, adds 0). Ids whose node is absent are
+## listed in `missing` and left out. `img_loader` as for build_setup.
+static func ammo_info(ammo: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := {}
+	var imgs := {}
+	for id in Ammo.item_ids(ammo):
+		var path := Ammo.img_path(id)
+		if not imgs.has(path):
+			imgs[path] = img_loader.call(path)
+		var img: Variant = imgs[path]
+		var key := "%08d" % id
+		if img is Dictionary and img.get(key) is Dictionary and img[key].get("info") is Dictionary:
+			out[id] = {"incPAD": int(img[key].info.get("incPAD", 0))}
+		else:
+			missing.append(path + "/" + key)
+	return out
+
+
 ## Every Skill.wz book named in skills.json ("000", "200", ...).
 static func skill_books(data: Dictionary) -> PackedStringArray:
 	var books := PackedStringArray()
@@ -453,6 +484,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"mob_skill_img": mob_skill,
 		"item_info": item_info,
 		"scroll_info": scroll_info(scroll_item_ids(data, character), img_loader, missing),
+		"ammo_info": ammo_info(data.get("ammo", {}), img_loader, missing),
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,

@@ -31,6 +31,18 @@ const TELEPORT_MP_RESERVE_FRACTION := 0.25
 const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
+## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
+## walks up to mobs instead of kiting; 220 sits below every Magician attack (Magic Claw 260 is the shortest) and above
+## the one-handed swings (~90-130).
+const ENGAGE_KITE_REACH := 220.0
+## tier C: stop at this fraction of the longest ready attack's reach, so the body hit boxes still overlap its box.
+const ENGAGE_REACH_FRACTION := 0.8
+## tier C: only mobs this far (px) on the bot's level are engaged; farther ones leave the bot to its EXP drops.
+const ENGAGE_CHASE_RANGE := 300.0
+## tier C: below this HP fraction, or while a boss attack winds up, the melee bot kites like any other build.
+const ENGAGE_RETREAT_HP := 0.35
+## tier C: closer than this (px) to the engaged mob the bot keeps its facing instead of turning back and forth.
+const ENGAGE_DEADZONE := 6.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -91,6 +103,14 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		if int(memo.climb_t) > CLIMB_GIVE_UP or (w.player.fh >= 0 and absf(p.x - float(memo.climb_x)) > 12.0
 				and int(memo.climb_t) > 2):
 			memo.erase("climb_x")
+	# Engage mode (#162): a build whose attacks all reach less than kite_reach closes to its ready attack's reach.
+	if not memo.has("engage"): # built once per run: balance.json does not change under a bot
+		memo["engage"] = _engage_config(w)
+	var engage: Dictionary = memo.engage
+	var profile := _reach_profile(w)
+	var melee: bool = profile.x > 0.0 and profile.x < float(engage.kite_reach)
+	var engage_target := -1
+	var engage_gap := INF
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
 	var threat_nearest := [INF, INF]
@@ -109,6 +129,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		# tier C: emergency blinks use the existing duel-height band, not mobs on remote platforms.
 		if absf(dy) <= DUEL_DY:
 			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
+		if melee and absf(dy) <= DUEL_DY and absf(dx) <= float(engage.chase_range) and absf(dx) < engage_gap:
+			engage_gap = absf(dx)
+			engage_target = i
 		if absf(dx) < FLEE_DIST:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
@@ -145,7 +168,15 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		return mi
 	memo.erase("portal_x")
 	var dueling := false
-	if minf(nearest[0], nearest[1]) < FLEE_DIST:
+	var engaging := engage_target >= 0 and not _backing_off(w, engage)
+	if engaging:
+		# tier C: walk to the engage distance of the nearest on-level mob, then stand facing it (one press turns).
+		var side := 1 if s.x[engage_target] > p.x else -1
+		if engage_gap > float(profile.y) * float(engage.reach_fraction):
+			dir = side
+		elif engage_gap > float(engage.deadzone) and w.player.facing != side:
+			dir = side
+	elif minf(nearest[0], nearest[1]) < FLEE_DIST:
 		dueling = close == 1 and duel >= 0 and _can_duel(w, duel)
 		if dueling:
 			# tier C: a lone ordinary mob while no attack skill can fire: stand facing it so the basic attack swings
@@ -218,7 +249,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			mi.down = true
 			mi.jump_pressed = true
 			memo["down_cd"] = 60
-		elif dir != 0 and not dueling:
+		elif dir != 0 and not dueling and not engaging:
 			var ahead: float = nearest[0 if dir < 0 else 1]
 			if ahead > 25.0 and ahead < 75.0:
 				mi.jump_pressed = true
@@ -230,16 +261,66 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return mi
 
 
+## The engage-mode constants: balance.json bot.engage over the tier C defaults above.
+static func _engage_config(w: RunWorld) -> Dictionary:
+	var cfg := {"kite_reach": ENGAGE_KITE_REACH, "reach_fraction": ENGAGE_REACH_FRACTION,
+		"chase_range": ENGAGE_CHASE_RANGE, "retreat_hp": ENGAGE_RETREAT_HP, "deadzone": ENGAGE_DEADZONE}
+	cfg.merge(w.balance.get("bot", {}).get("engage", {}), true)
+	return cfg
+
+
+## True when a melee build should fall back to kiting: HP below the retreat fraction, or a boss attack winding up.
+static func _backing_off(w: RunWorld, engage: Dictionary) -> bool:
+	return float(w.player_state.hp) < float(w.player_state.max_hp) * float(engage.retreat_hp) \
+			or w.boss_attacks.telegraph_up()
+
+
+## (longest attack reach the build owns, longest reach that is ready now), px. Counts the held weapon's swing
+## (BasicAttack.reach, always ready) and the active damaging skills (SkillRunner.reach_of); ready = off cooldown and
+## affordable. Beginner (job 0) skills such as Three Snails only count while the build has no attack of its own job
+## line, so a Warrior's long starter shot does not make it kite. (0, 0) = nothing can attack.
+static func _reach_profile(w: RunWorld) -> Vector2:
+	var line := Vector2.ZERO
+	var base := Vector2.ZERO
+	for key: String in w.loadout.order:
+		if not w.loadout.book.is_active(key) or not _usable(w, key):
+			continue
+		var st := w.runner.stats_of(w, key)
+		var r := SkillRunner.reach_of(st, w)
+		if r <= 0.0:
+			continue
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and _affordable(w, st)
+		var own := Vector2(r, r if ready else 0.0)
+		if int(w.book.def(key).get("job", 0)) == 0:
+			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
+		else:
+			line = Vector2(maxf(line.x, own.x), maxf(line.y, own.y))
+	var skills := line if line.x > 0.0 else base
+	var swing := w.basic.reach(w)
+	return Vector2(maxf(skills.x, swing), maxf(skills.y, swing))
+
+
 ## Whether the bot can collect pickup `i` now: an equipment drop needs room in the Equip tab (a full one never takes it,
 ## so chasing it would camp the bot on the drop); every other kind is always takable.
 static func _can_take(w: RunWorld, i: int) -> bool:
 	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
 
 
+## Whether the held weapon can use owned skill `key` (SkillBook.usable_with, spec #151 #156/#163): the bot's MP and reach
+## scans skip a skill the runner would never cast.
+static func _usable(w: RunWorld, key: String) -> bool:
+	return w.book.usable_with(key, w.held_weapon_family())
+
+
+## Whether the player can pay the MP and HP cost of resolved skill stats `st` now.
+static func _affordable(w: RunWorld, st: Dictionary) -> bool:
+	return float(w.player_state.mp) >= int(st.mp_cost) and w.can_pay_hp(int(st.hp_cost))
+
+
 static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
 	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
-		if not w.book.is_active(key):
+		if not w.book.is_active(key) or not _usable(w, key):
 			continue
 		var stats := w.runner.stats_of(w, key)
 		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
@@ -261,10 +342,10 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 	if kind.boss or w.mob_elite[i] != 0:
 		return false
 	for key: String in w.loadout.order:
-		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
+		if not w.loadout.book.is_active(key) or not _usable(w, key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
 			continue
 		var st := w.runner.stats_of(w, key)
-		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and float(w.player_state.mp) >= int(st.mp_cost):
+		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and _affordable(w, st):
 			return false
 	return true
 
@@ -347,40 +428,63 @@ static func climb_ladder(w: RunWorld) -> int:
 	return best
 
 
-## Resolves an open window using a seeded available job (or the forced job, see pick_job) and the card
+## Resolves an open window using a seeded available job (or the forced job, see pick_choice) and the card
 ## pick_card_for() prefers (`first_card` = true: always the first card). Returns how many choices were made.
-static func auto_choose(w: RunWorld, first_card := false, forced_job := 0) -> int:
+static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, forced_path := "") -> int:
 	var guard := 0
 	var made := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := pick_job(w.pending_jobs, w.job_rng, forced_job, w.jobs)
-			if job < 0 or not w.apply_job(job):
+			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 		else:
 			w.apply_choice(pick_card(w.pending_cards) if first_card else pick_card_for(w, w.pending_cards))
 	return made
 
 
-## Seeded available job, or the forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available
-## option that is an ancestor of `forced` counts too, so forcing a second job takes its first job at the first window.
-## -1 = "Not now". A single option consumes no RNG.
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null) -> int:
-	var available: Array[int] = []
+## The window entry the bot takes: {job_id, path} (job_id -1 and path "" = "Not now"). A seeded available job, or the
+## forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available option that is an ancestor of
+## `forced` counts too, so forcing a second job takes its first job at the first window. A single option consumes no
+## RNG. A first job listed per weapon path (spec #151 #157) takes `forced_path` when the window has it; with none named,
+## a forced branch takes the path whose weapon family it can use (its JobTree.weapon_families), else the job stream
+## draws one of the paths (tier C).
+static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
+		forced_path := "") -> Dictionary:
+	var available: Array[Dictionary] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
-			available.append(int(o.job_id))
+			available.append(o)
 	if available.is_empty():
-		return -1
-	if forced in available:
-		return forced
-	if forced > 0 and jobs != null:
-		for id in available:
+		return {"job_id": -1, "path": ""}
+	var ids := available.map(func(o: Dictionary) -> int: return int(o.job_id))
+	var target := -1
+	if forced in ids:
+		target = forced
+	elif forced > 0 and jobs != null:
+		for id: int in ids:
 			if jobs.is_descendant(forced, id):
-				return id
-	return available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null else available[0]
+				target = id
+				break
+	if target < 0:
+		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
+			else available[0])
+	var entries := available.filter(func(o: Dictionary) -> bool: return int(o.job_id) == target)
+	for o in entries:
+		if forced_path != "" and String(o.get("path", "")) == forced_path:
+			return _entry(o)
+	if forced_path == "" and jobs != null and entries.size() > 1:
+		var families := jobs.weapon_families(forced)
+		for o in entries:
+			if jobs.path_of(target, String(o.get("path", ""))).get("family", "") in families:
+				return _entry(o)
+	return _entry(entries[rng.randi_range(0, entries.size() - 1)] if entries.size() > 1 and rng != null else entries[0])
+
+
+static func _entry(o: Dictionary) -> Dictionary:
+	return {"job_id": int(o.job_id), "path": String(o.get("path", ""))}
 
 
 ## The card a first-card player takes ("" when there is none).

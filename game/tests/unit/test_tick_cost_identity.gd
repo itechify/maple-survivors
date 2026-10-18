@@ -21,12 +21,13 @@ const PET_BACK := 2700
 ## bursts between long MP-short stretches (level-ups refill it too).
 const MP_CYCLE := 300
 const MP_DRAIN := 60
-## Captured on Windows on the unoptimised code (b2ef00d); Linux (WSL, Godot 4.7.2) gives the same bytes. Do not
-## regenerate to bless a change: this ticket's work must not change them.
-const GOLDEN := "4e51522e3f417470880615c9df9a3c33a95279b2156fc6eb40fb2530f8b33087"
-const TOTALS := {"exp": 4321, "mesos": 88576, "pickup_mesos": 88576, "equips_collected": 24,
-	"equips_dropped": 45, "inventory": 24, "hp_potions": 12, "mp_potions": 0, "kills": 214, "casts": 214, "level": 13,
-	"pool": 21, "time": 59.999999999997875}
+## Re-captured on Windows on the unoptimised spec #151 tip (19ca0a8), then matched against the #177 merge.
+## Spec #151 changes crit RNG, physical combat and player-state fields (including attack speed and accuracy), so
+## its events and totals legitimately differ from main's 4e51522e... baseline. The #146 optimisation changes neither.
+const GOLDEN := "cb554e313bffb3d58175fcb3070671f86464c7ec806b658a05aa65929c1b1546"
+const TOTALS := {"exp": 5133, "mesos": 97368, "pickup_mesos": 97368, "equips_collected": 24,
+	"equips_dropped": 30, "inventory": 24, "hp_potions": 15, "mp_potions": 0, "kills": 276, "casts": 249, "level": 14,
+	"pool": 6, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]
 
@@ -99,9 +100,10 @@ func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule()
 
 
 func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
-	# _fill_live_defense (one pass over the swarm) must write mob_defense(slot, true) and physical_hit_allowed(slot) for
+	# _fill_live_defense (one pass over the swarm) must write both mob_defense cases and physical_hit_allowed(slot) for
 	# every live slot, while defense buffs (MobSkill 112/113) and weapon immunity (140) are on and after they expire.
 	var buffed := 0
+	var pdd_buffed := 0
 	var immune := 0
 	var checked := 0
 	var defense := MF.world([112, 113])
@@ -124,6 +126,8 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 				if w.swarm.active[slot] == 0:
 					continue
 				var expected := PackedFloat32Array([w.mob_defense(slot, true)])[0]
+				var expected_pdd := PackedFloat32Array([w.mob_defense(slot, false)])[0]
+				assert_eq(w._live_pdd[slot], expected_pdd, "bulk physical defense matches per-slot PDD")
 				if w._live_mdd[slot] != expected or (w._live_physical_allowed[slot] == 1) != w.physical_hit_allowed(slot):
 					fail("slot %d at %.2f s: %s / %d, per slot %s / %s" % [slot, w.time, w._live_mdd[slot],
 						w._live_physical_allowed[slot], expected, w.physical_hit_allowed(slot)])
@@ -131,10 +135,13 @@ func test_bulk_live_defense_equals_the_per_slot_defense_and_immunity() -> void:
 				checked += 1
 				if w.mob_skills.defense_bonus(slot, true, w.time) > 0.0:
 					buffed += 1
+				if w.mob_skills.defense_bonus(slot, false, w.time) > 0.0:
+					pdd_buffed += 1
 				if not w.physical_hit_allowed(slot):
 					immune += 1
 	assert_true(checked > 1000, "live slots compared (%d)" % checked)
 	assert_true(buffed > 0, "some slots compared under a magic defense buff (%d)" % buffed)
+	assert_true(pdd_buffed > 0, "some slots compared under a physical defense buff (%d)" % pdd_buffed)
 	assert_true(immune > 0, "some slots compared under weapon immunity (%d)" % immune)
 
 

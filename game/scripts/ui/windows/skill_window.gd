@@ -48,6 +48,7 @@ var selected := -1
 var scroll := 0
 
 var _hover := -1
+var _seen_family := ""
 var _mouse := Vector2.ZERO
 var _tip: SkillTooltip
 var _bt_close: WzButton
@@ -187,6 +188,15 @@ func _window_gui_input(event: InputEvent, local: Vector2) -> void:
 			_place_tip()
 
 
+func _process(_delta: float) -> void:
+	# The held weapon can change while the window is open (Equip window): redraw the greyed rows.
+	if model != null and model.held_family.is_valid():
+		var family := String(model.held_family.call())
+		if family != _seen_family:
+			_seen_family = family
+			_refresh()
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_EXIT and _hover >= 0:
 		_hover = -1
@@ -293,7 +303,8 @@ func _draw_rows() -> void:
 			break
 		var row: Dictionary = list[idx]
 		var r := row_rect(i)
-		var learned := bool(row.get("learned", true))
+		# A skill the held weapon cannot use (#156) is drawn like an unlearned one: the v83 skill0 plate, iconDisabled.
+		var learned := bool(row.get("learned", true)) and (not row.has("key") or model.usable(String(row.key)))
 		var plate := UiArt.frame(ART + ("skill1" if learned else "skill0"))
 		if plate != null:
 			UiArt.blit(self, plate, r.position)

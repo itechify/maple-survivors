@@ -22,6 +22,10 @@ signal notice(text: String)
 ## tier C (ours; the v83 client's wording is unverified): the messages for a refused change.
 const MESSAGES := {"requirement": "You do not meet the requirements to equip this item.",
 	"inventory_full": "Your inventory is full. Make room before taking an item off.",
+	# tier B: Cosmic InventoryManipulator.equip (overall over a bottom, a shield over a two-handed weapon, a two-handed
+	# weapon over a shield) with a full Equip tab sends getShowInventoryFull (status 0xff), the same status a failed pickup
+	# shows (HudMessages.show_inventory_full); the v83 text of it is that pickup notice's.
+	"equip_full": "You can't get anymore items.",
 	"scroll_type": "This scroll cannot be used on that item.",
 	"scroll_slots": "That item has no upgrade slots left.",
 	# tier B: the GMS client string pool (v95; v83 wording unverified) for a refused purchase or sale in a shop (#111).
@@ -127,6 +131,11 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 	var tip := InventoryModel.tooltip(instance, info_of(id), character_totals(), item_name(id))
 	tip["icon"] = InventoryModel.icon_path(id)
 	tip["desc"] = InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id)))
+	# A ranged weapon lists the ammo this character fires with it (#155): the item's v83 name and its W.Att.
+	var ammo := world.ammo_tooltip(id) if world != null else {}
+	if not ammo.is_empty():
+		ammo["name"] = item_name(int(ammo.item_id))
+		tip["ammo"] = ammo
 	return tip
 
 
@@ -152,7 +161,8 @@ func apply(action: String, reason: String) -> String:
 		queue_redraw()
 		item_action.emit(action)
 	else:
-		var text := message_for(reason)
+		# Wearing an item over others (overall, shield / two-handed weapon) into a full Equip tab has its own v83 text.
+		var text := message_for("equip_full" if action == "equip" and reason == "inventory_full" else reason)
 		if text != "":
 			notice.emit(text)
 	return reason

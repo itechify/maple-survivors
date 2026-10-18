@@ -349,11 +349,48 @@ character 1082229
 character 1082233
 character 1082249
 character 1082255
+character 1092000
+character 1092001
+character 1092002
+character 1092003
+character 1092004
+character 1092005
+character 1092006
+character 1092007
+character 1092008
+character 1092009
+character 1092010
+character 1092011
+character 1092012
+character 1092013
+character 1092014
+character 1092015
+character 1092016
+character 1092017
+character 1092022
+character 1092023
+character 1092024
+character 1092025
+character 1092026
+character 1092027
+character 1092028
+character 1092030
 character 1092031
 character 1092033
+character 1092035
+character 1092036
+character 1092037
+character 1092038
 character 1092039
 character 1092040
+character 1092041
+character 1092042
 character 1092044
+character 1092046
+character 1092052
+character 1092058
+character 1092060
+character 1092061
 character 1092062
 character 1102005
 character 1102007
@@ -370,8 +407,41 @@ character 12001
 character 12002
 character 12003
 character 1302000
+character 1302002
+character 1302003
+character 1302004
+character 1302005
+character 1302006
+character 1302008
+character 1302009
+character 1302010
+character 1302011
+character 1302012
+character 1302077
+character 1312001
+character 1312003
 character 1312004
+character 1312005
+character 1312006
+character 1312007
+character 1312008
+character 1312009
+character 1312010
+character 1312016
+character 1312032
+character 1322000
+character 1322002
+character 1322004
 character 1322005
+character 1322006
+character 1322014
+character 1322015
+character 1322016
+character 1322017
+character 1322018
+character 1322019
+character 1322054
+character 1332000
 character 1372000
 character 1372001
 character 1372002
@@ -399,6 +469,69 @@ character 1382017
 character 1382018
 character 1382019
 character 1382039
+character 1402000
+character 1402001
+character 1402002
+character 1402003
+character 1402006
+character 1402007
+character 1402008
+character 1402011
+character 1402012
+character 1402018
+character 1402039
+character 1412000
+character 1412001
+character 1412002
+character 1412003
+character 1412004
+character 1412005
+character 1412006
+character 1412007
+character 1412008
+character 1412011
+character 1412012
+character 1412027
+character 1422000
+character 1422001
+character 1422002
+character 1422003
+character 1422004
+character 1422005
+character 1422006
+character 1422007
+character 1422008
+character 1422009
+character 1422010
+character 1422014
+character 1422029
+character 1432000
+character 1432001
+character 1432002
+character 1432003
+character 1432004
+character 1432005
+character 1432006
+character 1432007
+character 1432012
+character 1432040
+character 1442000
+character 1442001
+character 1442003
+character 1442004
+character 1442005
+character 1442006
+character 1442007
+character 1442008
+character 1442009
+character 1442010
+character 1442024
+character 1442051
+character 1452000
+character 1462000
+character 1472000
+character 1482000
+character 1492000
 character 1702004
 character 1702012
 character 1702018
@@ -445,12 +578,22 @@ character 31053
 character 31057
 img Base.wz/smap.img *
 img Base.wz/zmap.img *
+img Character.wz/Afterimage/axe.img 0
+img Character.wz/Afterimage/bow.img 0
+img Character.wz/Afterimage/crossBow.img 0
+img Character.wz/Afterimage/gun.img 0
 img Character.wz/Afterimage/hit.img mace1
 img Character.wz/Afterimage/hit.img mace2
 img Character.wz/Afterimage/hit.img sword1
 img Character.wz/Afterimage/hit.img sword2
+img Character.wz/Afterimage/knuckle.img 0
 img Character.wz/Afterimage/mace.img 0
+img Character.wz/Afterimage/poleArm.img 0
+img Character.wz/Afterimage/spear.img 0
 img Character.wz/Afterimage/swordOL.img 0
+img Character.wz/Afterimage/swordOS.img 0
+img Character.wz/Afterimage/swordTL.img 0
+img Character.wz/Afterimage/swordTS.img 0
 img Character.wz/PetEquip/01812000.img info
 img Character.wz/PetEquip/01812001.img info
 img Character.wz/PetEquip/01812002.img info
@@ -525,6 +668,7 @@ img Npc.wz/9030100.img *
 img Npc.wz/9201133.img *
 img Npc.wz/9250025.img *
 img Skill.wz/000.img *
+img Skill.wz/100.img *
 img Skill.wz/200.img *
 img Skill.wz/210.img *
 img Skill.wz/220.img *
@@ -543,7 +687,9 @@ img Sound.wz/Item.img 02000006/Use
 img Sound.wz/Skill.img 0001000
 img Sound.wz/Skill.img 0001001
 img Sound.wz/Skill.img 0001002
+img Sound.wz/Skill.img 1001003
 img Sound.wz/Skill.img 1001004
+img Sound.wz/Skill.img 1001005
 img Sound.wz/Skill.img 2001002
 img Sound.wz/Skill.img 2001003
 img Sound.wz/Skill.img 2001004
@@ -564,9 +710,7 @@ img Sound.wz/Skill.img 2301003
 img Sound.wz/Skill.img 2301004
 img Sound.wz/Skill.img 2301005
 img Sound.wz/UI.img *
-img Sound.wz/Weapon.img barehands
-img Sound.wz/Weapon.img mace
-img Sound.wz/Weapon.img swordL
+img Sound.wz/Weapon.img *
 img String.wz/Consume.img *
 img String.wz/Eqp.img *
 img String.wz/Etc.img *
@@ -609,6 +753,24 @@ item 2000003
 item 2000004
 item 2000005
 item 2000006
+item 2060000
+item 2060001
+item 2060002
+item 2060003
+item 2061000
+item 2061001
+item 2061002
+item 2061003
+item 2070001
+item 2070002
+item 2070003
+item 2070004
+item 2070005
+item 2070006
+item 2070015
+item 2330000
+item 2330001
+item 2330002
 item 4000000
 item 4000001
 item 4000003

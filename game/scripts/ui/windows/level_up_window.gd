@@ -29,10 +29,12 @@ const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",
-	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy (unused)", "eva": "Avoid",
-	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power", Loadout.MAX_MP_PERCENT: "Max MP"}
-## Fields shown as a percent.
-const PERCENT_FIELDS := ["mastery", "hp", Loadout.MAX_MP_PERCENT]
+	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
+	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
+	"damage": "Damage", "hpCon": "HP cost", Loadout.MAX_MP_PERCENT: "Max MP",
+	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
+## Fields shown as a percent (canonical `damage` is the skill's percent of the weapon damage).
+const PERCENT_FIELDS := ["mastery", "hp", "damage", Loadout.MAX_MP_PERCENT]
 ## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "pierce": ["Pierce", ""],
@@ -204,7 +206,7 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 				SkillText.number(float(mods[key].after)), unit])
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
-	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
+	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]

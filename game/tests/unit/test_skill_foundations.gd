@@ -168,7 +168,8 @@ func test_hit_listeners_observe_cast_level_status_and_live_hp_before_lethal_hit(
 		if hits.is_empty():
 			continue
 		assert_eq(hits[0].slot, m)
-		assert_eq(hits[0].hit, {"skill": "synthetic", "level": 1, "magic": false, "damage": 10, "element": ""})
+		assert_eq(hits[0].hit, {"skill": "synthetic", "level": 1, "magic": false, "damage": 10, "element": "",
+			"damage_type": "fixed"}) # #161 added damage_type so listeners (Final Attack) can tell physical lines
 		assert_eq(hits[0].hp, 5, "listener can absorb from the still-living victim")
 		assert_near(hits[0].freeze, 3.0, 1e-6, "status applies first and snapshots launch level")
 
@@ -200,6 +201,7 @@ func test_hook_receives_post_element_magic_and_physical_hits_but_no_poison_or_im
 		var mk: MobKind = w.mob_kinds[0]
 		mk.move_speed = 0.0
 		mk.mdd = 0
+		mk.pdd = 0
 		var m := w.spawn_mob(0, w.player.pos + Vector2(100, 0), w.player.fh, 100.0, false)
 		var hits: Array = []
 		w.add_hit_listener(func(_slot: int, hit: Dictionary) -> void: hits.append(hit.duplicate()))
@@ -208,10 +210,15 @@ func test_hook_receives_post_element_magic_and_physical_hits_but_no_poison_or_im
 				mk.elements["F"] = multiplier
 				var st := w.loadout.stats("synthetic")
 				st.magic = magic
+				st.damage_type = "magic" if magic else "physical"
+				st.defense = "mdd" if magic else "pdd"
+				st.player_level = mk.level
+				st.crit = 0.0 # This checks listener/element routing independently of accuracy crit rolls.
 				st.element = "f"
 				if projectile:
 					w.projectiles.spawn({"x": w.swarm.x[m], "y": w.swarm.y[m] - 5,
-						"dmg_min": 10, "dmg_max": 10, "magic": magic, "element": "f", "skill": "synthetic", "level": 1})
+						"dmg_min": 10, "dmg_max": 10, "magic": magic, "damage_type": st.damage_type,
+						"player_level": mk.level, "element": "f", "skill": "synthetic", "level": 1})
 					w.step(DT, MoveInput.new())
 				else:
 					w.hit_mob(m, st, -1)

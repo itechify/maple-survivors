@@ -15,6 +15,7 @@ extends Node2D
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
+##   job_paths       Lv. 10 with the shipped Thief weapon paths made playable by a test-only override (spec #151 #157)
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
@@ -203,12 +204,14 @@ func _show_window(which: String) -> void:
 			window = w
 			if args.has("focus"):
 				w.set_focus(int(args.focus))
-		"job", "job10", "job_none", "job_confirm":
+		"job", "job10", "job_none", "job_confirm", "job_paths":
 			var w := JobAdvanceWindow.new()
 			layer.add_child(w)
 			match which:
 				"job10":
 					w.open(JOB10, 10, 0)
+				"job_paths":
+					w.open(_playable_thief_options(), 10, 0)
 				"job_none":
 					w.open(JOB30, 30, 200)
 				_:
@@ -219,6 +222,21 @@ func _show_window(which: String) -> void:
 				w.confirm_seconds = 999.0
 				w.select(0)
 			window = w
+		"ammo":
+			# #155: an Assassin reaches Lv 55 and the throwing stars become Ilbi: the real notice, and the Equip window
+			# with the claw's tooltip listing the ammo (the real world and events, the real String.wz names).
+			var world := _ammo_world()
+			world._gain_exp(world.progression.exp_to_next())
+			for e: Dictionary in world.drain_events():
+				if e.type == "ammo_upgraded":
+					var found: Variant = UiArt.lib().find(InventoryModel.name_path(int(e.item_id)))
+					hud.push_message(Ammo.notice(Ammo.noun(world.data.ammo, String(e.family)), String(found)))
+			var w := EquipWindow.new(world)
+			layer.add_child(w)
+			w.position = Vector2(60, 40)
+			var motion := InputEventMouseMotion.new()
+			motion.position = w.slot_rect("weapon").get_center()
+			w._gui_input(motion)
 		"options":
 			# Settings from a scratch file (never the developer's settings.cfg); not in the tree, so no autoload effects.
 			var settings := GameSettings.new("user://_test_cache/gallery_options.cfg")
@@ -236,6 +254,33 @@ func _show_window(which: String) -> void:
 			window = w
 		_:
 			push_error("ui_gallery: unknown --window=%s" % which)
+
+
+## A Lv 54 Assassin wearing a Garnier-class claw (1472000) from the real cache, one level short of Ilbi Throwing-Stars.
+func _ammo_world() -> RunWorld:
+	var lib := UiArt.lib()
+	var data := DataRepo.load_all()
+	var loader := func(path: String) -> Dictionary:
+		var found := lib.img(path)
+		return found.root if found != null else {}
+	var ids := PackedInt32Array([1472000])
+	ids.append_array(Equipment.DEFAULT_OUTFIT)
+	var setup := {"data": data, "seed": 3, "equipment_info": DataRepo.equipment_info(ids, loader),
+		"ammo_info": DataRepo.ammo_info(data.ammo, loader)}
+	var world := RunWorld.new(setup)
+	world.equipment.worn["weapon"] = Equipment.create(1472000, setup.equipment_info[1472000])
+	world.progression.level = 54
+	world.progression.job_id = 410
+	world.refresh_player_stats(false)
+	world.drain_events()
+	return world
+
+
+## The Lv. 10 advancement options with the shipped Thief row made playable (test-only override; the build keeps it locked).
+func _playable_thief_options() -> Array:
+	var data := DataRepo.load_all()
+	data.jobs_survivor.jobs["400"].playable = true
+	return JobTree.from_data(data.jobs, data.jobs_survivor).advancements(0, 10)
 
 
 func _rank_cards() -> Array:

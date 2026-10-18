@@ -16,11 +16,11 @@ func test_load_all_has_every_file() -> void:
 	var errors := PackedStringArray()
 	var d := DataRepo.load_all(DataRepo.DATA_ROOT, errors)
 	assert_true(errors.is_empty(), "%s" % [errors])
-	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items"]:
+	for key: String in ["skills", "upgrades", "stages", "balance", "mobs", "equipment_drops", "jobs_survivor", "scrolls", "shops", "jobs", "exp_table", "cash_items", "ammo"]:
 		assert_true(d.has(key) and not d[key].is_empty(), "setup.data.%s" % key)
 	var bad := PackedStringArray()
 	assert_true(DataRepo.load_all("res://no_such_dir", bad).skills.is_empty())
-	assert_eq(bad.size(), 12, "every missing file reported")
+	assert_eq(bad.size(), 13, "every missing file reported")
 
 
 func test_skills_reference_canonical_ids() -> void:
@@ -175,9 +175,10 @@ func test_jobs_and_balance() -> void:
 	for k: String in data.jobs_survivor.jobs:
 		assert_false(tree.job(int(k)).is_empty(), "survivor job %s exists in the canonical tree" % k)
 	assert_true(tree.job(200).playable)
+	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
 	for id: int in [210, 220, 230]:
 		assert_true(tree.job(id).playable, "%d playable" % id)
-	for id: int in [100, 300, 400, 500]:
+	for id: int in [300, 400, 500]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
@@ -198,7 +199,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "200": "int"})
+	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
@@ -231,12 +232,12 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1372005]),
-		"without MakeCharInfo the setup loads the default outfit and the granted wand")
+	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006]),
+		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, and the Warrior's handed-over Spear and Steel Pipe")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
-	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4, "listed items are added once (the creation coat, pants, shoes and the Wooden Wand are also listed)")
+	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 2, "listed items are added once (the creation coat, pants, shoes and the Wooden Wand are also listed; the Warrior sword 1302077 and Steel Pipe 1322006 are not, the Spear 1432000 is)")
 
 
 func test_build_setup_and_paths() -> void:
@@ -259,6 +260,12 @@ func test_build_setup_and_paths() -> void:
 			for id: int in Scrolls.ids(data.scrolls):
 				scrolls["%08d" % id] = {"info": {"success": 60.0, "incMAD": 2.0}}
 			return scrolls
+		for ammo_id in Ammo.item_ids(data.ammo):
+			if p == Ammo.img_path(ammo_id):
+				var ammo_items := {}
+				for id in Ammo.item_ids(data.ammo):
+					ammo_items["%08d" % id] = {"info": {"incPAD": 7}}
+				return ammo_items
 		return {"info": {}} if p.begins_with("Character.wz/") else {"stub": p}
 	var mob_loader := func(id: int) -> Dictionary: return {} if id == 1110100 else {"info": {"id": id}}
 	var missing := PackedStringArray()
@@ -271,6 +278,8 @@ func test_build_setup_and_paths() -> void:
 	assert_has(s.skill_imgs, "230", "Cleric attacks and Teleport book")
 	assert_eq(s.mob_imgs.size(), mob_ids.size() - 1, "all stage kinds except the loader's missing Green Mushroom")
 	assert_eq(missing, PackedStringArray(["Mob.wz/1110100.img"]))
+	assert_eq(s.ammo_info.size(), 18, "the ammo items' canonical facts are in the setup (#155)")
+	assert_eq(s.ammo_info[2070001], {"incPAD": 7})
 	assert_eq(s.scroll_info.size(), Scrolls.ids(data.scrolls).size(), "every roster scroll's canonical info is loaded")
 	assert_eq(s.scroll_info[2043700], {"success": 60, "incMAD": 2})
 	assert_eq(s.stage, "henesys_hg1")

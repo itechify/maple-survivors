@@ -149,7 +149,8 @@ func _assert_skill_icons_match(s: RunScene) -> void:
 	var expected: Array[Dictionary] = []
 	for row: Dictionary in s.run_info().skills:
 		expected.append({"icon": row.icon, "rank": row.rank, "key_label": row.key_label,
-			"sweep_step": HudSkills.sweep_step(row.cooldown_left, row.cooldown_total), "mp_short": row.mp_short})
+			"sweep_step": HudSkills.sweep_step(row.cooldown_left, row.cooldown_total), "mp_short": row.mp_short,
+			"blocked": row.blocked})
 	assert_eq(s.hud.skills.displayed(), expected, "skill widget fed by the run scene")
 
 
