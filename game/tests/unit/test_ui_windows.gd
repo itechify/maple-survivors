@@ -272,7 +272,7 @@ func test_rank_preview_uses_the_space_for_values_that_change() -> void:
 
 
 func test_every_previewed_field_has_a_label() -> void:
-	for field: String in UpgradePool.PREVIEW_FIELDS + [Loadout.MAX_MP_PERCENT]:
+	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS:
 		if field != "x":
 			assert_true(LevelUpWindow.FIELD_LABELS.has(field), "label for previewed field %s" % field)
 

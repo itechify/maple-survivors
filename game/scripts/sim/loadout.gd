@@ -220,7 +220,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count,
 ## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
-## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
+## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
+## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
@@ -229,6 +230,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var lv := book.canonical_level(key, r)
 	var dtype := String(d.get("damage", "none"))
 	var action := String(d.get("action", ""))
+	if action == "weapon":
+		# tier C: the stance (and so the swing/stab multiplier) of the held weapon's first basic-attack action.
+		action = WeaponInfo.skill_action(weapon_id)
 	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0)
 	var lo := 0.0
@@ -274,6 +278,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"box": box,
 		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
+		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
 		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
@@ -290,7 +295,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))),
-		"range": skill_stat(key, "range", float(d.get("range", 0.0))),
+		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)
+			if String(cast.get("rule", "")) == "range_around" else 0.0))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", 1))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
@@ -366,14 +372,32 @@ func passive_best(passive_stat: String) -> float:
 
 ## Extra HP or MP (`pool` "hp" / "mp") that the owned skills with a `regen` field add to one regeneration pulse at
 ## `char_level`. A skill declares `"regen": {"pool": "mp", "divisor": 10}`; its bonus is floor(character level x skill
-## level / divisor), whole points. tier B: the pre-Big-Bang Improved MP Recovery / Improved HP Recovery rule.
+## level / divisor), whole points. tier B: the pre-Big-Bang Improved MP Recovery rule. A `"field"` instead of a divisor
+## (`{"pool": "hp", "field": "hp"}`, Improved HP Recovery) adds that canonical level number as it is (tier A: +3 to +50).
 func regen_bonus(pool: String, char_level: int) -> float:
 	var t := 0.0
 	for k: String in order:
 		var r: Variant = book.def(k).get("regen")
 		if r is Dictionary and String(r.get("pool", "")) == pool:
-			t += floorf(float(char_level * level(k)) / maxf(1.0, float(r.get("divisor", 1.0))))
+			if r.has("field"):
+				t += book.canonical(k, level(k), String(r.field))
+			else:
+				t += floorf(float(char_level * level(k)) / maxf(1.0, float(r.get("divisor", 1.0))))
 	return t
+
+
+## Seconds between the rope/ladder recoveries of the owned skills with a `climb_regen` block ({"interval_field": "time"},
+## Endure): the shortest canonical interval among them at their level; 0 when none is owned. tier C: ours; the interval
+## numbers are tier A (31 s at level 1 down to 10 s).
+func climb_regen_interval() -> float:
+	var best := 0.0
+	for k: String in order:
+		var c: Variant = book.def(k).get("climb_regen")
+		if c is Dictionary and book.usable_with(k, weapon_family):
+			var seconds := book.canonical(k, level(k), String(c.get("interval_field", "time")))
+			if seconds > 0.0 and (best <= 0.0 or seconds < best):
+				best = seconds
+	return best
 
 
 ## Effect of skill `key`'s `passive` at canonical `skill_level`: its survivor `per_level` value times the level, else

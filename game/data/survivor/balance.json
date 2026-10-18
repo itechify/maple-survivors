@@ -12,7 +12,8 @@
 		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
 		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
 		"ap_per_level": 5,
-		"ap_stat": {"0": "str", "200": "int"},
+		"ap_stat": {"0": "str", "100": "str", "200": "int"},
+		"_ap_warrior": "Tier C (spec #151 #163): the Warrior line puts all earned AP into STR and has no ap_secondary entry: none of the 133 weapons and shields in the asset cache whose reqJob is the Warrior bit or any job (Warrior drops, creation weapons, shields) has a reqDEX above 0 (a scan of Character.wz info/reqDEX), so DEX would only be needed once Warrior armour drops exist; add an ap_secondary \"100\" DEX row with that ticket.",
 		"_ap_secondary": "Tier C: per job line, an optional secondary stat that earned AP fills first, up to its base-value target at the character's level (keyframes [{level, target}], linear, floored, held outside their range). The rest goes to ap_stat. Lines without an entry (the Beginner) put all AP into ap_stat. The targets are not in WZ; 200 follows the v83 Magician equipment pattern (reqLUK 15 at Lv13, 30 at Lv28, 40 at Lv38, 70 at Lv68: about level + 2), so the character meets v83 LUK requirements. Second jobs inherit their first job's entry through the job lineage (the same lookup as ap_stat).",
 		"ap_secondary": {"200": {"stat": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]}},
 		"_equipment": "Worn equipment comes from the character (creation outfit, later drops); its stats are the canonical info in the asset cache. weapon_grants, tier C: advancing to that job wears this weapon and moves the previous one to the inventory (Magician 200 gets the Wooden Wand). inventory_slots, tier A: a new v83 character's Equip tab.",
@@ -28,6 +29,8 @@
 	"growth": {
 		"0": {"hp": 14, "mp": 10},
 		"_int_mp": "Tier B: Magician MP growth adds floor(INT / 10), using INT before spending that level's AP.",
+		"_100": "Tier B: Warrior HP 24-28 / MP 4-6 per level (Cosmic levelUp, v83-facts 4), fixed midpoints 26 / 5; Improved MaxHP Increase adds its own HP per level-up on top.",
+		"100": {"hp": 26, "mp": 5},
 		"200": {"hp": 12, "mp": 22, "int_mp_divisor": 10}
 	},
 	"_level_up_refill": "Fraction of the new maximum restored on each level-up, after that level's growth. MP 1.0: tier B, v83 servers refill both pools (Cosmic Character.levelUp calls changeHpMp(maxhp, maxmp)). HP 0.0: tier C, owner choice for difficulty.",

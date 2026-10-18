@@ -87,8 +87,8 @@ func test_job_tree_options() -> void:
 		assert_eq(o.reason, "Lv. 10", "%d shows its requirement" % o.job_id)
 	assert_eq(_sorted(ids), [100, 200, 300, 400, 500])
 	for o: Dictionary in t.advancements(0, 10):
-		if int(o.job_id) == 200:
-			assert_true(o.available, "Magician at 10")
+		if int(o.job_id) in [100, 200]:
+			assert_true(o.available, "Warrior and Magician at 10")
 			assert_eq(o.reason, "")
 		else:
 			assert_eq(o.reason, "Not in this build")

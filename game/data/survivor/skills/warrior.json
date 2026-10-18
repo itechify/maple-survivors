@@ -1,0 +1,91 @@
+{
+	"_doc": "Warrior first-job skills (book 100, job 100): Power Strike, Slash Blast, Iron Body and the passives Improved HP Recovery, Improved MaxHP Increase and Endure (spec #151 ticket #163). Entry format and tier rules: see ../skills.json _doc. New keys here: action \"weapon\" (the cast stance is the held weapon's first basic-attack stance, WeaponInfo.skill_action, so a spear stabs and a polearm swings; tier C: the WZ nodes have no action); cast rules weapon_reach (the nearest mob inside the held weapon's swing envelope, BasicAttack.envelope; tier A reach, the same as the basic attack) and range_around (up to mobCount mobs whose body centre is within the canonical level's `range` px of the player; tier A numbers); regen {pool, field} (Loadout.regen_bonus reads the canonical level field instead of a level formula); climb_regen {interval_field} (a pulse every canonical `time` seconds while on a rope or ladder, RunWorld; tier C reading of Endure). hpCon is read from the canonical level as hp_cost. Prerequisites in the WZ req nodes are ignored (tier C owner choice #31). cooldown and action_time are tier C (ours).",
+	"skills": {
+		"power_strike": {
+			"skill_id": 1001004, "book": "100", "job": 100, "kind": "instant", "slot": "active",
+			"name": "Power Strike", "desc": "Deals a killer blow to the nearest monster within your weapon's reach.",
+			"text": {"desc": "Use MP to deliver a killer blow to a monster within your weapon's reach.", "h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/100.img/skill/1001004/icon",
+			"damage": "physical",
+			"weapon_families": ["sword", "axe", "blunt", "spear", "polearm"],
+			"_survivor": "Tier A: canonical damage %, mpCon, 20 levels, effect/hit art and sound, attackCount 1. Tier C: the WZ node names no weapon (the String text says a sword), so the Warrior melee families (sword, axe, blunt, spear, polearm; v83-facts section 2) can use it; auto-cast on the nearest mob inside the held weapon's swing envelope (the basic attack's reach), 1 s cooldown, stance of the weapon's first basic-attack action held 0.6 s; extra targets only from cards.",
+			"cast": {"rule": "weapon_reach"}, "cooldown": 1.0,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "weapon", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/100.img/skill/1001004/hit/0",
+			"effect": "Skill.wz/100.img/skill/1001004/effect",
+			"char_level": {
+				"thresholds": [10, 15, 20, 25],
+				"hit": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/100.img/skill/1001004/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1001004/Use", "hit": ""}
+		},
+		"slash_blast": {
+			"skill_id": 1001005, "book": "100", "job": 100, "kind": "instant", "slot": "active",
+			"name": "Slash Blast", "desc": "Spends HP and MP to strike every monster around you.",
+			"text": {"desc": "Use HP and MP to attack the monsters around you.", "h": "HP -{hp_cost}, MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} within {range} px"},
+			"icon": "Skill.wz/100.img/skill/1001005/icon",
+			"damage": "physical",
+			"weapon_families": ["sword", "axe", "blunt", "spear", "polearm"],
+			"_survivor": "Tier A: canonical damage %, hpCon, mpCon, range (130 to 150), mobCount 6, 20 levels, effect/hit art and sound. Tier C: the same Warrior melee weapon families as Power Strike; auto-cast when a monster is within range of the player's body, never when the HP cost would leave 0 HP, 1.6 s cooldown, stance of the weapon's first basic-attack action held 0.6 s; extra targets and a wider range only from cards.",
+			"cast": {"rule": "range_around"}, "cooldown": 1.6,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "weapon", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/100.img/skill/1001005/hit/0",
+			"effect": "Skill.wz/100.img/skill/1001005/effect",
+			"char_level": {
+				"thresholds": [10, 15, 20, 25],
+				"hit": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/hit/0",
+				"effect": "Skill.wz/100.img/skill/1001005/CharLevel/{cl}/effect"
+			},
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1001005/Use", "hit": ""}
+		},
+		"iron_body": {
+			"skill_id": 1001003, "book": "100", "job": 100, "kind": "buff", "slot": "passive",
+			"name": "Iron Body", "desc": "Temporarily increases your weapon defence.",
+			"icon": "Skill.wz/100.img/skill/1001003/icon", "damage": "none",
+			"_buff": "Tier A: canonical pdd, time, mpCon, the alert2 action and sound; the node has no effect art. Tier C: self-only auto-cast while inactive and affordable, recast on expiry; canonical effects snapshot until expiry; 0.8 s cast hold.",
+			"buff": {"stat": "pdd", "field": "pdd", "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1001003/Use", "hit": ""}
+		},
+		"improved_hp_recovery": {
+			"skill_id": 1000000, "book": "100", "job": 100, "kind": "passive", "slot": "passive",
+			"name": "Improved HP Recovery", "desc": "Recovers additional HP with every regeneration pulse.",
+			"text": {"desc": "Recover additional HP every 10 sec.", "h": "Recover additional HP +{hp}"},
+			"regen": {"pool": "hp", "field": "hp"},
+			"_regen": "Tier A: canonical hp per level (3 to 50) added to each regeneration pulse. Tier C: v83 applies it only while standing still; here HP regeneration always runs (balance.json regen), so the bonus does too.",
+			"icon": "Skill.wz/100.img/skill/1000000/icon", "damage": "none",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"improved_max_hp": {
+			"skill_id": 1000001, "book": "100", "job": 100, "kind": "passive", "slot": "passive",
+			"name": "Improved MaxHP Increase", "desc": "Increases the Max HP gained at each level-up.",
+			"text": {"desc": "Boosts the Max HP you gain at each level-up.", "h": "Each level-up gives +{x} more Max HP"},
+			"icon": "Skill.wz/100.img/skill/1000001/icon", "damage": "none",
+			"_passive": "Tier B: Cosmic adds the canonical x (4 to 40) to the Max HP of each level-up at the skill's level then; never retroactive. The AP half of the skill (y per HP AP) has no meaning here (AP is automatic).",
+			"passive": {"stat": "max_hp_per_level", "field": "x"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"endure": {
+			"skill_id": 1000002, "book": "100", "job": 100, "kind": "passive", "slot": "passive",
+			"name": "Endure", "desc": "Recovers some HP while hanging on a rope or ladder.",
+			"text": {"desc": "Even when hanging on a rope or a ladder, you recover some HP after a certain amount of time.", "h": "Recover HP every {time} sec. on a rope or ladder"},
+			"climb_regen": {"interval_field": "time"},
+			"_climb_regen": "Tier A: the canonical time (31 s down to 10 s) between recoveries on a rope or ladder. Tier C: the amount is one base regeneration pulse (balance.json regen.hp plus hp_regen), on top of the regeneration that runs everywhere; v83's amount is not in the WZ data.",
+			"icon": "Skill.wz/100.img/skill/1000002/icon", "damage": "none",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		}
+	}
+}

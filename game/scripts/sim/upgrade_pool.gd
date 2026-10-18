@@ -19,7 +19,15 @@ extends RefCounted
 ## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
+	"damage", "hpCon"]
+## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
+## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
+## Recovery (field hp, which is a percent for Heal), seconds between rope recoveries for Endure (field time).
+const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
+const PASSIVE_REGEN_HP := "regen_hp"
+const PASSIVE_CLIMB_INTERVAL := "climb_interval"
+const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP, PASSIVE_CLIMB_INTERVAL]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
@@ -264,6 +272,10 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
+			var renamed := _passive_preview(lo.book.def(skill))
+			if not renamed.is_empty() and changes.has(renamed[0]):
+				changes[renamed[1]] = changes[renamed[0]]
+				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
 			if passive.has("per_level"):
 				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
@@ -290,6 +302,21 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		"skill_effect_stat": effect_stat,
 		"skill_mod_changes": _mod_changes(c, lo, magnitude) if kind == "skill_mod" and lo.has(skill) else {},
 	}
+
+
+## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
+## PASSIVE_MAX_HP), else [].
+static func _passive_preview(d: Dictionary) -> Array:
+	var regen: Variant = d.get("regen")
+	if regen is Dictionary and regen.has("field") and String(regen.get("pool", "")) == "hp":
+		return [String(regen.field), PASSIVE_REGEN_HP]
+	var passive: Dictionary = d.get("passive", {})
+	if String(passive.get("stat", "")) == PASSIVE_MAX_HP and passive.has("field"):
+		return [String(passive.field), PASSIVE_MAX_HP]
+	var climb: Variant = d.get("climb_regen")
+	if climb is Dictionary:
+		return [String(climb.get("interval_field", "time")), PASSIVE_CLIMB_INTERVAL]
+	return []
 
 
 ## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value

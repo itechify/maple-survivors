@@ -52,7 +52,7 @@ static func count_meaning(kind: String) -> String:
 ## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
 ## their mob_count (canonical mobCount plus count cards), the others `count`.
 static func strike_count(st: Dictionary) -> int:
-	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd"] else int(st.count)
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around"] else int(st.count)
 
 
 ## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
@@ -66,13 +66,16 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
-## casts). One switch on the cast rule; weapon-reach and range-around rules (#163) add their cases here.
-static func reach_of(st: Dictionary, _world: RunWorld) -> float:
+## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach (BasicAttack.reach, the same number
+## the basic attack engages at), range_around the level's `range` around the body.
+static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
 	match String(st.cast_rule):
-		"", "nearest":
+		"", "nearest", "range_around":
 			return maxf(float(st.range), 0.0)
+		"weapon_reach":
+			return maxf(world.basic.reach(world), 0.0)
 		"box":
 			if not bool(st.has_box):
 				return 0.0
@@ -140,6 +143,10 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		if plan.is_empty():
 			_shortages.erase(key)
 			continue
+		if not world.can_pay_hp(int(st.hp_cost)):
+			# Slash Blast pays HP too and never casts when that would leave 0 HP: not an MP shortage, nothing is spent.
+			_shortages.erase(key)
+			continue
 		if not world.spend_mp(int(st.mp_cost)):
 			waiting_mp = true
 			if not _shortages.has(key):
@@ -147,6 +154,7 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 					"mp": int(world.player_state.mp)})
 			_shortages[key] = true
 			continue
+		world.spend_hp(int(st.hp_cost))
 		_shortages.erase(key)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
@@ -162,6 +170,10 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_box(world, st)
 		"crowd":
 			return _admit_crowd(world, st)
+		"weapon_reach":
+			return _admit_weapon_reach(world)
+		"range_around":
+			return _admit_range_around(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"manual":
@@ -176,6 +188,40 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 		if float(st.duration) > 0.0:
 			return {"go": true}
 	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
+		return {}
+	return {"targets": _tgt.duplicate()}
+
+
+## Weapon-reach rule (Warrior Power Strike): the live mobs inside the held weapon's swing envelope (BasicAttack.envelope),
+## nearest first. A standing player may turn, so both sides are asked and the side with the nearer first target wins
+## (the current facing on a tie); a walking player keeps its way. The plan carries the side to face before casting.
+func _admit_weapon_reach(world: RunWorld) -> Dictionary:
+	var box := world.basic.envelope(world)
+	if not box.has_area():
+		return {}
+	var sides: Array[int] = [world.player.facing]
+	if world.player.state == PlayerMotion.ST_STAND:
+		sides.append(-world.player.facing)
+	var origin := world.cast_origin()
+	var best := PackedInt32Array()
+	var best_side := 0
+	for side in sides:
+		var found := world.skill_box_targets(box, Callable(), side)
+		if found.is_empty():
+			continue
+		if best.is_empty() or world.targets_before(found[0], world.mob_center(found[0]).distance_squared_to(origin),
+				best[0], world.mob_center(best[0]).distance_squared_to(origin)):
+			best = found
+			best_side = side
+	if best.is_empty():
+		return {}
+	return {"targets": best, "facing": best_side}
+
+
+## Range-around rule (Warrior Slash Blast): the nearest live mobs whose body centre is within the level's `range` of the
+## player's body, up to the skill's mob count; bosses first (RunWorld.targets_before).
+func _admit_range_around(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
+	if _find_targets(world, origin, float(st.range), strike_count(st)) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
 
@@ -203,6 +249,10 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
 	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
 		world.face_toward(world.mob_center(targets[0]).x)
+	elif String(st.cast_rule) == "weapon_reach":
+		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
+	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
+		world.face_toward(world.mob_center(targets[0]).x)
 	casts += 1
 	fired_this_tick = true
 	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
@@ -211,7 +261,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
 	world.start_action(String(st.action), float(st.action_time))
 	match String(st.cast_rule):
-		"box":
+		"box", "weapon_reach", "range_around":
 			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
 				world.visual_index(String(st.hit)))
 		"crowd":

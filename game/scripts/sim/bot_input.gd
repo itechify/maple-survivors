@@ -13,7 +13,7 @@ extends RefCounted
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
-## Choices (auto_choose): a seeded random available job (optionally a forced first or second job: its first-job ancestor is taken at the first window, itself at the second), and the upgrade card a sensible player would take (pick_card_for):
+## Choices (auto_choose): a seeded random available job (the Magician when it is open and nothing is forced, DEFAULT_FIRST_JOB; optionally a forced first or second job: its first-job ancestor is taken at the first window, itself at the second), and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
 ## defence, then the rest; ties go to the earlier card. Each step a card grants beyond the first adds SCORE_GAIN_STEP
 ## (balance bot.gain_step_score), so a higher-tier offer outscores the same card at Normal tier. pick_card() is the
@@ -43,6 +43,10 @@ const ENGAGE_CHASE_RANGE := 300.0
 const ENGAGE_RETREAT_HP := 0.35
 ## tier C: closer than this (px) to the engaged mob the bot keeps its facing instead of turning back and forth.
 const ENGAGE_DEADZONE := 6.0
+## tier C (spec #151 #163): the first job an unforced bot takes when several are open (pick_choice with no forced job).
+## The Magician was the only playable first job before the Warrior, so unforced runs, records and smokes keep choosing it
+## without drawing a random number; `--job=100` (the forced job) plays the Warrior.
+const DEFAULT_FIRST_JOB := 200
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -281,13 +285,13 @@ static func _reach_profile(w: RunWorld) -> Vector2:
 	var line := Vector2.ZERO
 	var base := Vector2.ZERO
 	for key: String in w.loadout.order:
-		if not w.loadout.book.is_active(key):
+		if not w.loadout.book.is_active(key) or not _usable(w, key):
 			continue
 		var st := w.runner.stats_of(w, key)
 		var r := SkillRunner.reach_of(st, w)
 		if r <= 0.0:
 			continue
-		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and float(w.player_state.mp) >= int(st.mp_cost)
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and _affordable(w, st)
 		var own := Vector2(r, r if ready else 0.0)
 		if int(w.book.def(key).get("job", 0)) == 0:
 			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
@@ -304,10 +308,21 @@ static func _can_take(w: RunWorld, i: int) -> bool:
 	return w.pickups.kind[i] != PickupSystem.EQUIP or w.equipment.inventory.size() < w.inventory_slots()
 
 
+## Whether the held weapon can use owned skill `key` (SkillBook.usable_with, spec #151 #156/#163): the bot's MP and reach
+## scans skip a skill the runner would never cast.
+static func _usable(w: RunWorld, key: String) -> bool:
+	return w.book.usable_with(key, w.held_weapon_family())
+
+
+## Whether the player can pay the MP and HP cost of resolved skill stats `st` now.
+static func _affordable(w: RunWorld, st: Dictionary) -> bool:
+	return float(w.player_state.mp) >= int(st.mp_cost) and w.can_pay_hp(int(st.hp_cost))
+
+
 static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
 	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
-		if not w.book.is_active(key):
+		if not w.book.is_active(key) or not _usable(w, key):
 			continue
 		var stats := w.runner.stats_of(w, key)
 		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
@@ -329,10 +344,10 @@ static func _can_duel(w: RunWorld, i: int) -> bool:
 	if kind.boss or w.mob_elite[i] != 0:
 		return false
 	for key: String in w.loadout.order:
-		if not w.loadout.book.is_active(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
+		if not w.loadout.book.is_active(key) or not _usable(w, key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6:
 			continue
 		var st := w.runner.stats_of(w, key)
-		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and float(w.player_state.mp) >= int(st.mp_cost):
+		if String(st.kind) != "buff" and String(st.cast_rule) != "manual" and _affordable(w, st):
 			return false
 	return true
 
@@ -452,6 +467,8 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 	if available.is_empty():
 		return {"job_id": -1, "path": ""}
 	var ids := available.map(func(o: Dictionary) -> int: return int(o.job_id))
+	if forced == 0 and DEFAULT_FIRST_JOB in ids:
+		forced = DEFAULT_FIRST_JOB
 	var target := -1
 	if forced in ids:
 		target = forced

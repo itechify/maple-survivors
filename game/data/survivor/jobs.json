@@ -4,7 +4,7 @@
 	"level_reason": "Lv. {level}",
 	"jobs": {
 		"0": {"playable": true, "format1_weapon": 1302000},
-		"100": {"playable": false, "reason": "Not in this build"},
+		"100": {"playable": true, "level": 10, "grants": {"max_hp": 225}, "_provenance": "tier B: first-job Max HP +200-250 (Cosmic changeJob, v83-facts 4), fixed midpoint; tier C: first-job advancement at Lv 10 (owner choice, spec #151 #163). The Warrior keeps the creation sword, axe or club: no weapon grant. Growth and AP: balance.json growth/ap_stat \"100\"."},
 		"200": {"playable": true, "level": 10, "_provenance": "tier C: owner choice, first-job advancement at Lv 10; canonical Magician remains Lv 8", "grants": {"max_mp": 120}, "format1_weapon": 1372005},
 		"300": {"playable": false, "reason": "Not in this build", "_provenance": "tier B: Cosmic job-instructor NPC scripts give the Beginner Bowman's bow (docs v83-facts 4), item stats tier A; the path list shape is tier C ours",
 			"paths": [{"id": "bow", "label": "Bowman", "item_id": 1452051, "family": "bow"}]},
