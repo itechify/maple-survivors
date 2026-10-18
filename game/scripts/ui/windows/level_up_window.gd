@@ -34,12 +34,14 @@ const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP co
 	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
 	"damage": "Damage", "hpCon": "HP cost", "prop": "Success rate", Loadout.MAX_MP_PERCENT: "Max MP",
+	"knockback_chance": "Knock-back chance", "blast_targets": "Blast targets", "pierce_falloff": "Pierce fall-off",
 	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
 ## Fields shown as a percent (canonical `damage` is the skill's percent of the weapon damage).
-const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", Loadout.MAX_MP_PERCENT]
+const PERCENT_FIELDS := ["mastery", "hp", "damage", "prop", Loadout.MAX_MP_PERCENT, "knockback_chance", "pierce_falloff"]
 ## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
 ## TARGETS), in display order. tier C: our wording.
 const MOD_LABELS := {SkillRunner.SHOTS: ["Shots", ""], SkillRunner.TARGETS: ["Targets", ""], "pierce": ["Pierce", ""],
+	"blast_targets": ["Blast targets", ""], "pierce_falloff": ["Pierce fall-off", "%"],
 	"damage": ["Damage", "%"], "cooldown": ["Cooldown", " s"], "area": ["Reach", "%"], "range": ["Range", " px"],
 	"speed": ["Shot speed", ""], "crit": ["Critical rate", "%"]}
 
@@ -208,7 +210,7 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 				SkillText.number(float(mods[key].after)), unit])
 	var changes: Dictionary = card.get("skill_changes", {})
 	var x_label: Array = X_LABELS.get(String(card.get("skill_effect_stat", "")), X_LABEL_DEFAULT)
-	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS:
+	for field: String in UpgradePool.PREVIEW_FIELDS + UpgradePool.PASSIVE_PREVIEW_KEYS + UpgradePool.MECHANIC_PREVIEW_KEYS:
 		if not changes.has(field):
 			continue
 		var values: Dictionary = changes[field]
