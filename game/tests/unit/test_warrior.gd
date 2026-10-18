@@ -117,14 +117,22 @@ func test_warrior_growth_is_26_hp_and_5_mp_per_level() -> void:
 	assert_eq(w.player_state.max_mp, mp0 + 5)
 
 
-func test_an_unforced_bot_still_takes_the_magician_when_both_first_jobs_are_open() -> void:
+func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -> void:
 	var options := [{"job_id": 100, "available": true}, {"job_id": 200, "available": true}]
+	var seen := {}
+	for seed_value in range(1, 31):
+		var a := RandomNumberGenerator.new()
+		a.seed = seed_value
+		var b := RandomNumberGenerator.new()
+		b.seed = seed_value
+		var pick := BotInput.pick_job(options, a)
+		assert_eq(pick, BotInput.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
+		seen[pick] = true
+	assert_eq(seen.keys().size(), 2, "over 30 seeds the job stream picks both the Warrior and the Magician")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	var state := rng.state
-	assert_eq(BotInput.pick_job(options, rng), 200, "tier C default: the Magician was the only first job")
-	assert_eq(rng.state, state, "and the choice draws no random number, as before the Warrior existed")
 	assert_eq(BotInput.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
+	assert_eq(BotInput.pick_job(options, rng, 200), 200, "--job=200 the Magician")
 	assert_eq(BotInput.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
 
 

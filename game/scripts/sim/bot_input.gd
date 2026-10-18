@@ -13,7 +13,7 @@ extends RefCounted
 ## Same-map portals are approached when they shorten the trip to drops or leave nearby danger for a safer floor.
 ## The bot reads the jump graph to reach an entrance ledge and holds Up through the portal chain; mob nav is unchanged.
 ##
-## Choices (auto_choose): a seeded random available job (the Magician when it is open and nothing is forced, DEFAULT_FIRST_JOB; optionally a forced first or second job: its first-job ancestor is taken at the first window, itself at the second), and the upgrade card a sensible player would take (pick_card_for):
+## Choices (auto_choose): a seeded random available job (optionally a forced first or second job: its first-job ancestor is taken at the first window, itself at the second), and the upgrade card a sensible player would take (pick_card_for):
 ## a new attack skill first, then more shots / pierce / damage / rank for the attack skills of the current job, then
 ## defence, then the rest; ties go to the earlier card. Each step a card grants beyond the first adds SCORE_GAIN_STEP
 ## (balance bot.gain_step_score), so a higher-tier offer outscores the same card at Normal tier. pick_card() is the
@@ -43,10 +43,6 @@ const ENGAGE_CHASE_RANGE := 300.0
 const ENGAGE_RETREAT_HP := 0.35
 ## tier C: closer than this (px) to the engaged mob the bot keeps its facing instead of turning back and forth.
 const ENGAGE_DEADZONE := 6.0
-## tier C (spec #151 #163): the first job an unforced bot takes when several are open (pick_choice with no forced job).
-## The Magician was the only playable first job before the Warrior, so unforced runs, records and smokes keep choosing it
-## without drawing a random number; `--job=100` (the forced job) plays the Warrior.
-const DEFAULT_FIRST_JOB := 200
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -467,8 +463,6 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 	if available.is_empty():
 		return {"job_id": -1, "path": ""}
 	var ids := available.map(func(o: Dictionary) -> int: return int(o.job_id))
-	if forced == 0 and DEFAULT_FIRST_JOB in ids:
-		forced = DEFAULT_FIRST_JOB
 	var target := -1
 	if forced in ids:
 		target = forced
