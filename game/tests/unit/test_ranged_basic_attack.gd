@@ -90,6 +90,19 @@ func test_each_ranged_family_fires_one_projectile_per_attack_and_never_runs_out(
 		assert_true(impacts_late > 0)
 
 
+func test_ammo_shots_roll_on_the_basic_attack_stream() -> void:
+	var world := _world("bow", 5)
+	assert_true(world.projectiles.alt_rng == world.basic_rng, "the shots' rolls and crits come from stream 5")
+	var twin := _world("bow", 5)
+	_target(world, 400 + 200)
+	_target(twin, 400 + 200)
+	var rng_before: int = world.rng.state
+	var hits_a: Array = _fight(world, 60 * 6).hits
+	assert_true(hits_a.size() >= 2)
+	assert_eq(world.rng.state, rng_before, "stream 1 (skills) is untouched by arrow hits")
+	assert_eq(_fight(twin, 60 * 6).hits, hits_a, "same seed, same hits")
+
+
 func test_the_shot_flies_after_the_impact_tick_carrying_the_ammos_sprite() -> void:
 	var world := _world("claw")
 	_target(world, 400 + 200)
