@@ -272,6 +272,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
 			for field: String in PREVIEW_FIELDS:
+				# `prop` is previewed for Final Attack only (#181): other skills' cards (Poison Breath) keep their events.
+				if field == "prop" and not lo.book.def(skill).has("final_attack"):
+					continue
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))
