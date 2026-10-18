@@ -90,6 +90,11 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	return 0.0
 
 
+## The status a crowd skill of resolved stats `st` puts on its targets: its cast block's `status`, "slow" when it names none.
+static func crowd_status(st: Dictionary) -> String:
+	return String(st.cast_params.get("status", "slow"))
+
+
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
 func stats_of(world: RunWorld, key: String) -> Dictionary:
 	if world.loadout.version != _version:
@@ -190,7 +195,7 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 		"crowd":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
 			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
-				return world.swarm.can_slow_cast(slot, _slow_serial)) >= need
+				return world.swarm.can_crowd_cast(slot, crowd_status(st), _slow_serial)) >= need
 		"weapon_reach":
 			var box := world.basic.envelope(world)
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
@@ -328,7 +333,7 @@ func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 	if not bool(st.has_box):
 		return {}
 	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
-		return world.swarm.can_slow_cast(slot, _slow_serial))
+		return world.swarm.can_crowd_cast(slot, crowd_status(st), _slow_serial))
 	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
 	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
 		return {}
@@ -336,11 +341,19 @@ func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 
 
 func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: PackedInt32Array) -> void:
-	_slow_serial += 1
-	var params := {"x": world.book.canonical(key, int(st.level), "x"),
-		"time": world.book.canonical(key, int(st.level), "time")}
+	var status := crowd_status(st)
+	var level := int(st.level)
+	var params := {"x": world.book.canonical(key, level, "x"), "time": world.book.canonical(key, level, "time")}
+	if status == "slow":
+		_slow_serial += 1
+		for i in mini(strike_count(st), targets.size()):
+			world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+		return
+	# Threaten (spec #165 #183): x is the PAD change, y the WDEF change. The level has no prop, so every target takes it
+	# and nothing is rolled (tier A absence); the Slow serial is Slow's own and stays put.
+	params["y"] = world.book.canonical(key, level, "y")
 	for i in mini(strike_count(st), targets.size()):
-		world.swarm.apply_slow_cast(targets[i], _slow_serial, params, world.events)
+		world.swarm.apply_status(targets[i], status, params, world.events)
 
 
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,

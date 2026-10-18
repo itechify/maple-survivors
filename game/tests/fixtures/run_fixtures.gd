@@ -132,6 +132,18 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# Page Threaten (#183): the v83 endpoints of Skill.wz/120.img (x = y = -1..-20, time 44..120, mpCon 12/20 with the
+	# L11 step, six targets, the box widening at L11); levels between are interpolated. The node has no prop.
+	var threaten_levels := _levels(20, {"mpCon": [12.0, 20.0], "time": [44.0, 120.0], "x": [-1.0, -20.0],
+		"y": [-1.0, -20.0], "mobCount": [6.0, 6.0]})
+	for level: String in threaten_levels:
+		var wide := int(level) > 10
+		threaten_levels[level].lt = {"$v": [-300.0 if wide else -250.0, -200.0 if wide else -150.0]}
+		threaten_levels[level].rb = {"$v": [300.0 if wide else 250.0, 200.0 if wide else 150.0]}
+	if not imgs.has("120"):
+		imgs["120"] = {"skill": {}}
+	imgs["120"].skill["1201006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(7, 100.0, 86, 160),
+		"mob": _anim(8, 70.0, 30, 17).merged({"pos": 2.0, "repeat": 1.0}), "level": threaten_levels}
 	return imgs
 
 

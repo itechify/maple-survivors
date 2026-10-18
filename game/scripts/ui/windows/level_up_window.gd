@@ -25,7 +25,8 @@ extends MapleWindow
 
 ## Label and unit of a rank card's canonical `x` by the skill's buff effect stat (skills.json `buff.stat`, the card's
 ## `skill_effect_stat`): a healing buff's x is HP per pulse; otherwise (Magic Guard) it is the percent absorbed by MP.
-const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon reduction", "%"], "slow": ["Move speed", "%"]}
+const X_LABELS := {"hp": ["HP / pulse", ""], "weapon_damage_reduction": ["Weapon reduction", "%"], "slow": ["Move speed", "%"],
+	"threatened": ["Monster weapon ATT / DEF", ""]}
 const X_LABEL_DEFAULT := ["MP absorption", "%"]
 ## Label of each previewed field (UpgradePool.PREVIEW_FIELDS plus survivor passive stats); `x` comes from X_LABELS.
 const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP cost", "fixdamage": "Damage",

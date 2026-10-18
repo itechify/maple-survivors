@@ -27,11 +27,13 @@ const STANCES := {
 	HIT: ["hit1", "stand", "fly", "move"],
 	DIE: ["die1", "hit1", "stand", "fly", "move"],
 }
-## tier A: original cached player-skill mob cues; Slow plays once, Poison repeats.
-const STATUS_PATHS := ["Skill.wz/210.img/skill/2101003/mob", "Skill.wz/210.img/skill/2101005/mob"]
+## tier A: original cached player-skill mob cues; Slow plays once, Poison and Threaten (pos 2, repeat 1) repeat.
+const STATUS_PATHS := ["Skill.wz/210.img/skill/2101003/mob", "Skill.wz/210.img/skill/2101005/mob",
+	"Skill.wz/120.img/skill/1201006/mob"]
 const SLOW_CUE := 0
 const POISON_CUE := 1
-const CUES_PER_SLOT := 2
+const THREATEN_CUE := 2
+const CUES_PER_SLOT := 3
 ## tier C: persistent Slow cue after its one-shot art, freeze fallback (Cold Beam has no mob overlay), poison fallback.
 const SLOW_TINT := Color(1.0, 0.72, 0.40)
 const FREEZE_TINT := Color(0.45, 0.80, 1.0)
@@ -172,10 +174,12 @@ func update_from(swarm: Object, kind_ids: PackedInt32Array, only_layer: int = -1
 			var base := i * MobSwarm.STATUS_COUNT
 			var slow := status_left[base + MobSwarm.SLOW]
 			var poison := status_left[base + MobSwarm.POISON]
-			if slow > 0.0 or poison > 0.0:
+			var threat := status_left[base + MobSwarm.THREATENED]
+			if slow > 0.0 or poison > 0.0 or threat > 0.0:
 				var box: Rect2 = statuses.mob_kind(i).hitbox
 				_draw_cue(i, SLOW_CUE, slow, status_elapsed[base + MobSwarm.SLOW], box, pos, face > 0, a)
 				_draw_cue(i, POISON_CUE, poison, status_elapsed[base + MobSwarm.POISON], box, pos, face > 0, a)
+				_draw_cue(i, THREATEN_CUE, threat, status_elapsed[base + MobSwarm.THREATENED], box, pos, face > 0, a)
 			else:
 				_hide_statuses(i)
 			if slow > 0.0:
@@ -198,7 +202,7 @@ func _load_status_anims() -> void:
 		_status_anims.append(_lib().find_anim(path))
 
 
-## Shows cue `cue` (SLOW_CUE plays once, POISON_CUE repeats) of slot i while its status has `left` seconds.
+## Shows cue `cue` (SLOW_CUE plays once, POISON_CUE and THREATEN_CUE repeat) of slot i while its status has `left` seconds.
 func _draw_cue(i: int, cue: int, left: float, elapsed: float, box: Rect2, pos: Vector2, flip: bool, alpha: float) -> void:
 	var slot := i * CUES_PER_SLOT + cue
 	var anim: SpriteAnim = _status_anims[cue]
@@ -208,12 +212,13 @@ func _draw_cue(i: int, cue: int, left: float, elapsed: float, box: Rect2, pos: V
 	_status_pool.ensure(slot + 1)
 	# tier C: canonical pos3 at body centre (Slow), pos2 at body top (Poison); WZ origins supply spacing.
 	var anchor := Vector2(0.0, box.get_center().y if cue == SLOW_CUE else box.position.y)
-	_status_pool.show(slot, anim.frames[anim.index_at(elapsed, cue == POISON_CUE)], (pos + anchor).round(), flip, alpha)
+	_status_pool.show(slot, anim.frames[anim.index_at(elapsed, cue != SLOW_CUE)], (pos + anchor).round(), flip, alpha)
 
 
 func _hide_statuses(i: int) -> void:
 	_status_pool.hide(i * CUES_PER_SLOT + SLOW_CUE)
 	_status_pool.hide(i * CUES_PER_SLOT + POISON_CUE)
+	_status_pool.hide(i * CUES_PER_SLOT + THREATEN_CUE)
 
 
 ## The animation a mob shows in a state (cached per id; null when the mob has none).
