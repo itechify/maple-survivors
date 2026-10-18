@@ -10,6 +10,8 @@ extends RefCounted
 ##   `box`, `weapon_reach` (the held weapon's swing envelope, Warrior Power Strike) and `range_around` (the level's
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
+## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
+## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
@@ -304,24 +306,64 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
 		world.face_toward(world.mob_center(targets[0]).x, true)
+	# A moving attack (7.9) faces the mob it is aimed at in every movement state, then moves away from it or toward it.
+	var disp: Dictionary = st.displacement
+	var moves := not disp.is_empty() and String(st.kind) != "buff" and float(disp.distance) > 0.0
+	var side := 0
+	if moves:
+		if not targets.is_empty():
+			world.face_toward(world.mob_center(targets[0]).x, true)
+		var toward := world.player.facing
+		if not targets.is_empty() and absf(world.mob_center(targets[0]).x - world.player.pos.x) > 0.5:
+			toward = 1 if world.mob_center(targets[0]).x > world.player.pos.x else -1
+		side = toward if String(disp.direction) == "toward" else -toward
+	var when := String(disp.get("when", "")) if moves else ""
 	casts += 1
 	fired_this_tick = true
 	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
 		world.start_buff(key, st)
+	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
-	match String(st.cast_rule):
-		"box", "weapon_reach", "range_around":
-			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-				world.visual_index(String(st.hit)))
-		"crowd":
-			_resolve_crowd(world, key, st, targets)
-		"hp_or_undead":
-			_resolve_hp_or_undead(world, key, st, targets)
-		"", "nearest":
-			if String(st.kind) != "buff":
-				_resolve_nearest(world, key, st, origin, targets)
+	var start := world.player.pos
+	# `during` on a projectile skill has no sweep to resolve: the shots fly after the move, like `before`.
+	var charge := when == "during" and String(st.kind) != "projectile"
+	if when == "before" or when == "during":
+		world.displace_player(side, float(disp.distance))
+	if charge:
+		_resolve_charge(world, st, start)
+	else:
+		match String(st.cast_rule):
+			"box", "weapon_reach", "range_around":
+				_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
+					world.visual_index(String(st.hit)))
+			"crowd":
+				_resolve_crowd(world, key, st, targets)
+			"hp_or_undead":
+				_resolve_hp_or_undead(world, key, st, targets)
+			"", "nearest":
+				if String(st.kind) != "buff":
+					_resolve_nearest(world, key, st, origin, targets)
+	if when == "after":
+		world.displace_player(side, float(disp.distance))
+
+
+## A charge (displacement `during`): the character has already moved from `start` to where the terrain let it stop; it
+## strikes up to the skill's mob count among the live mobs inside the swept path, bosses first then nearest to where
+## the charge began. The path is the skill's attack box (the player's body without one) at the start and at the end,
+## and everything between: a mob that triggered the cast is still struck when the charge stops short of it, and a
+## cast whose admitted mobs lie outside the path strikes nothing (tier C).
+func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2) -> void:
+	var local: Rect2 = st.box if bool(st.has_box) else world.body
+	if bool(st.has_box) and world.player.facing > 0:
+		local.position.x = -local.end.x  # canonical boxes face left
+	var at_start := Rect2(local.position + start, local.size)
+	var at_end := Rect2(local.position + world.player.pos, local.size)
+	var swept := world.skill_rect_targets(at_start.merge(at_end), start - Vector2(0.0, world.cast_height),
+		int(st.mob_count))
+	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
+		world.visual_index(String(st.hit)))
 
 
 func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
