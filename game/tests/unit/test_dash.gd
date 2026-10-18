@@ -258,8 +258,9 @@ func test_the_shipping_data_defines_dash_and_its_cards() -> void:
 	var cards: Array = data.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.get("skill", "") == "dash")
 	assert_eq(cards.map(func(c: Dictionary) -> String: return c.id), ["dash_new", "dash_rank"])
 	for card: Dictionary in cards:
-		assert_eq((card.requires.jobs as Array).map(func(j: Variant) -> int: return int(j)), [500, 510, 520],
-			"the Pirate line only")
+		# #189: a first-job skill: job 500 in the advancement draw, kept on offer for both branches (carry_jobs).
+		var jobs: Array = (card.requires.jobs as Array) + (card.requires.get("carry_jobs", []) as Array)
+		assert_eq(jobs.map(func(j: Variant) -> int: return int(j)), [500, 510, 520], "the Pirate line only")
 	assert_eq(cards[1].max_rank, 10)
 
 
