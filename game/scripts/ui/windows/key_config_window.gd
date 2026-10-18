@@ -67,7 +67,10 @@ const OK_POS := Vector2(521, BUTTON_Y)
 const CANCEL_POS := Vector2(572, BUTTON_Y)
 const CLOSE_POS := Vector2(611, 6)
 ## Web build: the note in the button strip about the keys the browser keeps (KeyBindings.WEB_RESERVED are tinted "Web").
+## tier C (ours): left edge of the note, between the Delete and OK buttons.
 const NOTE_X := 160.0
+## tier C (ours): the note uses the same small size as the keycap labels.
+const NOTE_FONT_SIZE := 9
 const WEB_NOTE := "F11 and F12 stay with the browser, and so do Ctrl+W, Ctrl+T and Ctrl+N."
 ## Fixed keys' tint (the art's own pink for v83's fixed keys) and the selected key's outline.
 const FIXED_TINT := Color8(187, 136, 170, 190)
@@ -254,7 +257,7 @@ func _draw() -> void:
 	else:
 		_draw_plain()
 	if WebProfile.is_web():
-		MapleText.draw(self, Vector2(NOTE_X, BUTTON_Y + 3.0), WEB_NOTE, MapleText.BLACK, 9)
+		MapleText.draw(self, Vector2(NOTE_X, BUTTON_Y + 3.0), WEB_NOTE, MapleText.BLACK, NOTE_FONT_SIZE)
 	var fixed := draft.fixed_keys()
 	for code: int in fixed:
 		if code == KEY_ESCAPE and bg != null:
