@@ -464,6 +464,64 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #165 Warrior second job (#180-#184, QA #185): regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and with
+`--job=110`, `--job=120` and `--job=130`, real cache, no PATCH, no tuning, training seeds only, at the integration tip
+`bf6c42b` (every ticket #180-#184) plus #185's tooling. "Before" is `b6af314`, main as it stood before this spec, rerun with
+the same commands (`--job=100` for the forced rows: the first job a Warrior takes). No crash, script error, world warning
+or `missing` entry in any of the 72 records (16 smoke, 6 fixture and 2 chain configurations, three seeds each).
+
+| Deaths (m:ss, seeds 1 / 2 / 2026) | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| before, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, `--job=110` = `120` = `130` | D 5:39 / 5:31 / 5:23 | D 5:21 / 8:39 / 5:16 | D 2:08 / 1:03 / 0:51 | same |
+
+- **Nothing moved.** Every one of the 12 default-pick records and the 36 forced ones (`--job=110`, `120`, `130`) is byte-identical to the "before"
+  rerun (the forced `--job=110/120/130` records equal the `--job=100` ones once the `forced_branch` field is masked), so the
+  spec changes no Magician, Beginner or first-job Warrior seeded record, as the decisions require. The older rows of
+  4.2 (spec #151's smoke, `b3599ba`) reproduce at `b3599ba` with this cache (rerun `--job=100`: bot D 5:29 / 5:36 / 5:27,
+  random D 5:41 / 5:15 / 5:15 by truncated seconds) and differ from this "before" by the content `b6af314` gained from
+  main when #176 was squash-merged (#173 Legendary ranks, #177, #175); that was not bisected further, and this smoke's own
+  `b6af314` rerun is the comparison.
+- **The smoke cannot reach the second job.** A forced Warrior is Lv 11-12 when it dies at the first boss (Mano, 5:11-5:40;
+  the bot never kills it, as in spec #151's record); the one exception is the careless `random` policy's seed 2 (Lv 27, dies
+  at 8:39 after killing Mano). No run reaches Lv 30, so `--job=110/120/130` only forces the first job (every Warrior takes job
+  100 at 4:25-4:34) and these rows do not exercise the second-job code. Henesys: 0 clears, every run dies; Mano is killed in
+  2 of 6 default-pick runs and 1 of 6 forced ones (all unchanged from "before"). The Tree That Grew dies before the first job
+  in every run (record only, as the owner's rework is pending).
+- **`--tier=2` chain** (seeds 1 2 2026, default pick and `--job=110`): no tier-1 clear exists to feed it (0/3 and 0/3), so
+  tier 2 never starts. The chain code is covered by `test_balance_chain.gd`; there is no real clear-fed Warrior chain to record.
+- **Branch fixtures on `--stage=dark_cave`** (`--character=`, 3 seeds, bot and random). These do run second-job code:
+  the fixtures carry the Final Attack, Booster and Mastery cards the bot took in the advancement draw and later levels
+  (the other second-job skills are exercised by the playtests below, not by these records):
+
+| Fixture (Lv 34) | Dark Cave bot, deaths | Dark Cave random, deaths | first boss (6300005) killed |
+|---|---|---|---|
+| `lv34_fighter_2nd.json` (110) | D 5:27 / 5:19 / 3:51 | D 5:15 / 5:19 / 3:24 | 0 of 4 spawned fights |
+| `lv34_page_2nd.json` (120) | D 5:10 / 6:41 / 5:07 | D 5:19 / 5:28 / 3:28 | 1 of 5 |
+| `lv34_spearman_2nd.json` (130) | D 10:03 / 10:12 / 3:54 | D 5:20 / 9:27 / 3:46 | 3 of 4 (the second boss spawns, not killed) |
+
+  No clears; every run dies (seed 2026 before the first boss in five of its six runs). The two longest
+  Dark Cave runs are the bot Spearman seeds 1 and 2 (10 minutes, Lv 59-60). Recorded for the balance pass, not tuned; no
+  run clears without a death and not every run dies before the first boss, so the stop-and-ask conditions do not apply.
+- **Fixtures.** `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: real headless Henesys bot rounds,
+  seed 1, policy `bot`, `--job=<110|120|130> --god=1 --seconds=600` (`tools/character_fixture.gd`, revision in each `_doc`).
+  `--god=1` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
+  reaches the Lv 30 advancement (Mano is killed at 6:07 by the invulnerable Fighter; Lv 34 at 10:00; `_doc.invulnerable`
+  says so). Regenerating each one twice with the same revision reproduces it byte for byte.
+- **Flow driver** `--scenario=warrior2 --branch=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
+  advancement weapons, a real advancement-draw skill, the Skill window with the unheld family greyed, Save & quit, Continue)
+  passes for all three branches; see its header in `flow_driver.gd`. Playtest evidence shots are `cast_<skill>_after.png`,
+  `<final attack key>_followup.png` and `reflect_first.png` (RunScene, `_shots_dir` only; the `_after` shot doubles the
+  shot count of every playtest). The in-action shots (Final Attack follow-up, Rage, Power Guard, Threaten, Hyper Body)
+  come from three-minute `playtest.sh --stage=dark_cave --character=` runs of evidence-only copies of the fixtures with
+  every branch skill at rank 10 (not committed); on Henesys a Lv 34 Warrior one-shots everything, so no follow-up fires there.
+- **Full suite** (cache `spec165`): 1752 tests, 0 failed, 0 skipped, 154 files; the tests that need the cache ran, none SKIPped.
+  The three fixtures were regenerated from the committed code with their recorded revision and are byte-identical to the
+  committed files.
+
 #### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, once with the default
@@ -4305,6 +4363,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
 | Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
 | Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
+| Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god=1 --seconds=600 --label=spec165/ticket-185`; `--god=1` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
+| Playtest evidence shots (#185) | `cast_<skill>_after.png` 0.7 s after a skill's first cast, `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

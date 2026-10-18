@@ -1075,6 +1075,10 @@ func handle_events(events: Array) -> void:
 					_restart_action = true # the sim started the follow-up's stance (RunWorld._play_final_attacks)
 				if String(e.effect) != "":
 					fx.play(String(e.effect), Vector2.ZERO, int(e.facing) > 0, avatar)
+				var fa_shot := "%s_followup.png" % String(e.skill)
+				if not _cast_shot_taken.has(fa_shot):
+					_cast_shot_taken[fa_shot] = true
+					_event_shot(fa_shot, 0.12) # tier C: playtest evidence of each Final Attack's first follow-up.
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":
@@ -1201,6 +1205,7 @@ func _on_cast(e: Dictionary) -> void:
 	if not _cast_shot_taken.has(key):
 		_cast_shot_taken[key] = true
 		_event_shot("cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
+		_event_shot("cast_%s_after.png" % key, 0.7) # tier C: and 0.7 s later (a status overlay such as Threaten's, a raised HP bar).
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
@@ -1211,6 +1216,9 @@ func _on_mob_hit(e: Dictionary) -> void:
 	var m := int(e.mob)
 	numbers.spawn(int(e.damage), e.pos, DamageNumbers.CRIT if bool(e.crit) else DamageNumbers.DEALT, m)
 	counters.numbers += 1
+	if String(e.get("skill", "")).begins_with("power_guard") and not _cast_shot_taken.has("reflect"):
+		_cast_shot_taken["reflect"] = true
+		_event_shot("reflect_first.png", 0.1) # tier C: playtest evidence of the first Power Guard reflect (its mob_hit).
 	var hv := String(e.hit_visual)
 	if hv != "":
 		var at: Vector2 = world.mob_center(m) if m >= 0 and m < world.swarm.capacity() else e.pos

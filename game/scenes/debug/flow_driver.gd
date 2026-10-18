@@ -97,6 +97,15 @@ extends Node
 ##           -> Continue again: job, weapon, shield, skills and mesos equal the snapshot before quitting. Shots:
 ##           warrior_job_window, warrior_job_confirm, warrior_advanced, warrior_playing, warrior_shield_worn,
 ##           warrior_hub, warrior_save_and_quit, warrior_character_select, warrior_continue_restored; summary.json.
+##   warrior2 the Warrior second job end to end (spec #165 QA #185; `--branch=110|120|130`, default 120): new character
+##           (invulnerable, debug) -> EXP drops through the real Lv10 job window (Warrior) and then up to Lv30, where the real
+##           job window takes the branch; its advancement weapons (the held family's worn, the other and the displaced
+##           sword in the Equip tab) and a branch skill from the real advancement draw; the bot's steering plays; the whole
+##           branch book is learned through its cards (debug) for the Skill window (the other family's skills greyed, a
+##           tooltip); the slot moves to the Free Market (debug shortcut for the warp) and Continue opens the hub; Esc ->
+##           Save & quit -> character select -> Continue: job, weapons, skills and cards equal the snapshot before quitting.
+##           Shots: warrior2_<b>_job_window_100/_<b>, _job_confirm_*, _advancement_draw, _playing, _skill_window_top,
+##           _skill_window_bottom, _skill_greyed_tooltip, _hub, _character_select, _continue_restored; summary.json.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
@@ -176,6 +185,8 @@ func _ready() -> void:
 			_scenario_skill_warrior()
 		"warrior":
 			_scenario_warrior()
+		"warrior2":
+			_scenario_warrior2()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1511,6 +1522,214 @@ func _scenario_warrior() -> void:
 	file.store_string(JSON.stringify(report, "\t"))
 	file.close()
 	print("flow_driver: warrior scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## The Warrior second job end to end (spec #165 QA #185): Lv10 and then Lv30 through the real job windows, the branch
+## (`--branch=110|120|130`, default 120) and its two advancement weapons, a real Final Attack / Booster / Mastery card
+## from the advancement draw, the Skill window (the unheld family greyed), Save & quit and Continue. Debug setup: the
+## character is invulnerable (RunWorld.god, the climb takes minutes of EXP drops), every branch skill is learned through
+## its card after the draw (for the Skill window shots), and the round boundary is saved by hand (no multi-minute warp).
+func _scenario_warrior2() -> void:
+	var branch := int(args.get("branch", "120"))
+	var key_lists := {
+		110: ["sword_mastery_fighter", "axe_mastery", "final_attack_sword_fighter", "final_attack_axe",
+			"sword_booster_fighter", "axe_booster", "rage", "power_guard_fighter"],
+		120: ["sword_mastery_page", "bw_mastery", "final_attack_sword_page", "final_attack_bw",
+			"sword_booster_page", "bw_booster", "threaten", "power_guard_page"],
+		130: ["spear_mastery", "polearm_mastery", "final_attack_spear", "final_attack_polearm",
+			"spear_booster", "polearm_booster", "iron_will", "hyper_body"],
+	}
+	if not key_lists.has(branch):
+		_fail("--branch must be 110, 120 or 130")
+		return
+	var branch_keys: Array = key_lists[branch]
+	var tag := "warrior2_%d" % branch
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Warrior185"):
+		return
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(2.0)
+	var w := run.world
+	w.god = true
+	var spawned_level := 0
+	var spawned_at := -100.0
+	var seen := {100: false, branch: false}
+	var drawn_shot := false
+	var learned_at_draw: Array = []
+	for guard in 4000:
+		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.6)
+			var want := 100 if w.progression.job_id == 0 else branch
+			var jw := run.window as JobAdvanceWindow
+			var idx := -1
+			for i in jw.entries.size():
+				if jw.entries[i].kind == "job" and int(jw.entries[i].job_id) == want and jw.entries[i].available:
+					idx = i
+			_check(idx >= 0, "the job window offers job %d at Lv %d (entries %s)" % [want, w.progression.level, jw.entries.map(
+				func(e: Dictionary) -> String: return "%s%s" % [e.text, "" if e.available else " (" + String(e.reason) + ")"])])
+			if idx < 0:
+				return
+			seen[want] = true
+			await _shot("%s_job_window_%d" % [tag, want])
+			await _key((KEY_1 + idx) as Key)
+			await _sleep(0.4)
+			await _shot("%s_job_confirm_%d" % [tag, want])
+			await _key(KEY_ENTER)
+			await _sleep(0.9)
+		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.5)
+			if is_instance_valid(run.window) and run.window is LevelUpWindow:
+				var lw := run.window as LevelUpWindow
+				var pick := _card_index(run, lw.cards)
+				if seen[branch] and not drawn_shot:
+					drawn_shot = true
+					learned_at_draw = lw.cards.map(func(c: Dictionary) -> String: return String(c.get("id", "")))
+					await _shot("%s_advancement_draw" % tag)
+				await _key((KEY_1 + pick) as Key)
+				await _sleep(0.4)
+		elif seen[branch] and run.window == null and w.state == RunWorld.PLAYING:
+			break
+		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < 30 \
+				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
+			spawned_level = w.progression.level
+			spawned_at = w.time
+			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+		await _sleep(0.25)
+	_check(seen[100] and seen[branch] and w.progression.job_id == branch,
+		"the real job windows made the character job %d (is %d)" % [branch, w.progression.job_id])
+	_check(w.progression.level >= 30, "at Lv 30 or more (%d)" % w.progression.level)
+	_check(not learned_at_draw.is_empty() and learned_at_draw.any(func(id: String) -> bool:
+		return branch_keys.any(func(k: String) -> bool: return id.begins_with(k))),
+		"the advancement draw offered a %d skill (%s)" % [branch, learned_at_draw])
+	var learned_real: Array = branch_keys.filter(func(k: String) -> bool: return w.loadout.has(k))
+	_check(not learned_real.is_empty(), "the draw taught a branch skill (%s)" % [learned_real])
+	# The two advancement weapons: the held family's worn, the other (and the displaced Beginner-Warrior sword) in the Equip tab.
+	var grants: Array = w.jobs.branch_grant(branch).get("weapons", [])
+	var grant_ids: Array = grants.map(func(g: Dictionary) -> int: return int(g.item_id))
+	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
+	_check(grants.size() == 2 and w.weapon_id() in grant_ids, "one advancement weapon is worn (%d of %s)" % [w.weapon_id(), grant_ids])
+	var spare := grant_ids.filter(func(id: int) -> bool: return id != w.weapon_id())
+	_check(spare.size() == 1 and spare[0] in inventory_ids, "the other (%s) waits in the Equip tab (%s)" % [spare, inventory_ids])
+	_check(1302077 in inventory_ids, "the first-job sword the grant displaced is in the Equip tab")
+	_check(w.player_state.max_hp > 0 and w.state == RunWorld.PLAYING, "playing as a Lv%d" % w.progression.level)
+	var worn0 := w.weapon_id()
+	# A few seconds of real play with the bot's steering.
+	var kills0 := w.kills
+	_steer = true
+	await _until(func() -> bool: return w.kills > kills0 + 3, 40.0, "the second-job Warrior kills something")
+	await _sleep(1.0)
+	_steer = false
+	_release_all()
+	await _shot("%s_playing" % tag)
+	_check(w.kills > kills0, "killed %d in this stretch" % (w.kills - kills0))
+	# Debug setup: learn the whole branch book, then show the Skill window (the other family's skills are greyed).
+	for k: String in branch_keys:
+		if not w.loadout.has(k):
+			w.upgrades.apply("%s_new" % k, w)
+	await _sleep(0.3)
+	await _key(KEY_K)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
+		return
+	var sw := run.ui_windows.find_window("skill") as SkillWindow
+	await _sleep(0.6)
+	var held_family := w.held_weapon_family()
+	var shown: Array = sw.rows().map(func(r: Dictionary) -> String: return String(r.get("key", "")))
+	_check(shown.size() >= 8, "the job's tab lists its skills (%s)" % [shown])
+	var grey_key := ""
+	for k: String in branch_keys.slice(0, 6):
+		if not w.book.usable_with(k, held_family):
+			grey_key = k
+	_check(grey_key != "", "a skill of the unheld family is not usable with the held %s (%s)" % [held_family, grey_key])
+	await _shot("%s_skill_window_top" % tag)
+	var origin := sw.get_global_rect().position
+	for i in maxi(0, shown.size() - SkillWindow.VISIBLE_ROWS):
+		await _wheel(origin + sw.row_rect(1).get_center(), true)
+	await _sleep(0.4)
+	await _shot("%s_skill_window_bottom" % tag)
+	var grey_row := shown.find(grey_key)
+	if grey_row >= 0:
+		if grey_row < sw.scroll:
+			sw.scroll = grey_row
+		elif grey_row >= sw.scroll + SkillWindow.VISIBLE_ROWS:
+			sw.scroll = grey_row - SkillWindow.VISIBLE_ROWS + 1
+		await _sleep(0.2)
+		_hover(origin + sw.row_rect(grey_row - sw.scroll).get_center())
+		await _sleep(0.4)
+		var tip := sw.tooltip()
+		_check(String(tip.get("key", "")) == grey_key and not bool(tip.get("usable", true)),
+			"the tooltip says %s is not usable with the held weapon (%s)" % [grey_key, tip.get("needs", "")])
+		await _shot("%s_skill_greyed_tooltip" % tag)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	_collect_missing(run)
+	# The round boundary (debug shortcut for the warp-clear): the carried snapshot is saved at the Free Market.
+	var carried := run.world.character_snapshot()
+	var slot := flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the second-job Warrior was saved at the Free Market boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	_check(int(expected.job_id) == branch and int(expected.equipment.worn.weapon.id) == worn0,
+		"the hub holds the job %d Warrior with weapon %d" % [branch, worn0])
+	for k: String in branch_keys:
+		_check(expected.skills.has(k), "the hub's character knows %s" % k)
+	await _shot("%s_hub" % tag)
+	_collect_missing(hub)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("%s_character_select" % tag)
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for key: String in ["job_id", "level", "equipment", "skills", "skill_order", "card_ranks", "mesos"]:
+		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for key: String in ["job_id", "level", "equipment", "skills", "skill_order", "card_ranks", "mesos"]:
+		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
+	for k: String in learned_real:
+		_check(restored.skills.has(k), "Continue kept the learned %s" % k)
+	var spare_after: Array = restored.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
+	_check(spare[0] in spare_after and int(restored.equipment.worn.weapon.id) == worn0,
+		"Continue kept the worn weapon %d and the second advancement weapon %d" % [worn0, spare[0]])
+	_check(again.inventory.held_weapon_family() == WeaponInfo.family(worn0), "and the held weapon family")
+	await _key(KEY_E)
+	await _sleep(0.5)
+	var aew := again.ui_windows.find_window("equip") as EquipWindow
+	_check(aew != null and aew.worn_id("weapon") == worn0, "the Equip window shows the restored weapon")
+	await _shot("%s_continue_restored" % tag)
+	_collect_missing(again)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	var report := {"scenario": "warrior2", "branch": branch, "job_id": int(restored.job_id), "level": int(restored.level),
+		"weapon": worn0, "second_weapon": spare[0], "learned_by_draw": learned_real, "kills": w.kills - kills0,
+		"missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	file.close()
+	print("flow_driver: warrior2 scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 
