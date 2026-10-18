@@ -23,11 +23,10 @@ const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "p
 	"damage", "hpCon"]
 ## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
 ## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
-## Recovery (field hp, which is a percent for Heal), seconds between rope recoveries for Endure (field time).
+## Recovery (field hp, which is a percent for Heal).
 const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
-const PASSIVE_CLIMB_INTERVAL := "climb_interval"
-const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP, PASSIVE_CLIMB_INTERVAL]
+const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
 const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
@@ -313,9 +312,6 @@ static func _passive_preview(d: Dictionary) -> Array:
 	var passive: Dictionary = d.get("passive", {})
 	if String(passive.get("stat", "")) == PASSIVE_MAX_HP and passive.has("field"):
 		return [String(passive.field), PASSIVE_MAX_HP]
-	var climb: Variant = d.get("climb_regen")
-	if climb is Dictionary:
-		return [String(climb.get("interval_field", "time")), PASSIVE_CLIMB_INTERVAL]
 	return []
 
 

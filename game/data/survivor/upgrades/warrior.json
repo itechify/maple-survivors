@@ -70,14 +70,6 @@
 		{"id": "improved_max_hp_rank", "kind": "skill_rank", "skill": "improved_max_hp", "name": "Improved MaxHP Increase",
 			"desc": "Improved MaxHP Increase +{magnitude} skill level: more Max HP per level-up.",
 			"icon": "Skill.wz/100.img/skill/1000001/icon", "max_rank": 10, "weight": 2,
-			"requires": {"jobs": [100]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
-		{"id": "endure_new", "kind": "skill_new", "skill": "endure", "name": "Endure",
-			"desc": "Learn Endure: recover HP while hanging on a rope or ladder.",
-			"icon": "Skill.wz/100.img/skill/1000002/icon", "max_rank": 1, "weight": 1,
-			"requires": {"jobs": [100]}, "effects": []},
-		{"id": "endure_rank", "kind": "skill_rank", "skill": "endure", "name": "Endure",
-			"desc": "Endure +{magnitude} skill level: recover HP on ropes and ladders more often.",
-			"icon": "Skill.wz/100.img/skill/1000002/icon", "max_rank": 8, "weight": 1,
 			"requires": {"jobs": [100]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
 	]
 }

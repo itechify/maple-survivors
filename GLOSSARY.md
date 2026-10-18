@@ -125,7 +125,7 @@ _Avoid_: path (on its own; a weapon path is the first-job weapon choice), specia
 A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
 Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
 offers each path as its own entry and hands the character that weapon. It is not a job: both Thief paths are job 400.
-The Warrior has no path: it keeps the weapon chosen at creation (the Magician's Wooden Wand is a plain job grant, not a path).
+The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
 _Avoid_: branch (that is the second-job choice), build, stance
 
 ## Skills

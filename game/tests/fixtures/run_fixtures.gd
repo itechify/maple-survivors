@@ -109,7 +109,6 @@ static func skill_imgs() -> Dictionary:
 	var b100 := {"skill": {
 		"1000000": {"icon": _canvas(32, 32), "level": _levels(16, {"hp": [3.0, 50.0]})},
 		"1000001": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [4.0, 40.0], "y": [3.0, 30.0]})},
-		"1000002": {"icon": _canvas(32, 32), "level": _levels(8, {"time": [31.0, 10.0]})},
 		"1001003": {"icon": _canvas(32, 32), "action": {"0": "alert2"},
 			"level": _levels(20, {"time": [75.0, 300.0], "mpCon": [8.0, 15.0], "pdd": [2.0, 40.0]})},
 		"1001004": {"icon": _canvas(32, 32), "hit": {"0": _anim(2, 90.0, 69, 74)}, "effect": _anim(6, 50.0, 164, 156),
@@ -334,14 +333,20 @@ static func auto_choose(w: RunWorld) -> void:
 static func with_basic_attack(setup: Dictionary) -> Dictionary:
 	setup.equipment_info = {
 		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
-		1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0, "afterImage": "mace", "sfx": "mace"}}
+		1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0, "afterImage": "mace", "sfx": "mace"},
+		# The Warrior's Lv 10 grants (spec #151 owner change): the Beginner Warrior's sword is worn, the spear and the
+		# Steel Pipe wait in the Equip tab.
+		1302077: {"reqJob": 1, "reqLevel": 10, "reqSTR": 35, "incPAD": 30.0, "attackSpeed": 4.0, "afterImage": "swordOS",
+			"sfx": "swordS"},
+		1432000: {"reqJob": 13, "reqLevel": 10, "incPAD": 32.0, "attackSpeed": 8.0, "afterImage": "spear", "sfx": "spear"},
+		1322006: {"reqJob": 0, "reqLevel": 10, "incPAD": 29.0, "attackSpeed": 5.0, "afterImage": "mace", "sfx": "mace"}}
 	setup.body_img = {}
 	var images := {"0": {}}
 	for action: String in BasicAttack.ACTIONS:
 		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
 		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
 			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
-	setup.afterimage_imgs = {"swordOL": images, "mace": images}
+	setup.afterimage_imgs = {"swordOL": images, "swordOS": images, "spear": images, "mace": images}
 	return setup
 
 

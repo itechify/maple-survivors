@@ -405,20 +405,6 @@ func regen_bonus(pool: String, char_level: int) -> float:
 	return t
 
 
-## Seconds between the rope/ladder recoveries of the owned skills with a `climb_regen` block ({"interval_field": "time"},
-## Endure): the shortest canonical interval among them at their level; 0 when none is owned. tier C: ours; the interval
-## numbers are tier A (31 s at level 1 down to 10 s).
-func climb_regen_interval() -> float:
-	var best := 0.0
-	for k: String in order:
-		var c: Variant = book.def(k).get("climb_regen")
-		if c is Dictionary and book.usable_with(k, weapon_family):
-			var seconds := book.canonical(k, level(k), String(c.get("interval_field", "time")))
-			if seconds > 0.0 and (best <= 0.0 or seconds < best):
-				best = seconds
-	return best
-
-
 ## Effect of skill `key`'s `passive` at canonical `skill_level`: its survivor `per_level` value times the level, else
 ## the canonical `field` of that level (0 without a passive).
 func passive_value(key: String, skill_level: int, passive: Dictionary) -> float:

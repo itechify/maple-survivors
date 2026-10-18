@@ -32,8 +32,7 @@ const FIELD_LABELS := {"mad": "Magic ATT", "mastery": "Mastery", "mpCon": "MP co
 	"time": "Duration", "pdd": "Weapon DEF", "mdd": "Magic DEF", "acc": "Accuracy", "eva": "Avoid",
 	"mobCount": "Targets", "cooltime": "Cooldown", "speed": "Speed", "range": "Range", "hp": "Recovery power",
 	"damage": "Damage", "hpCon": "HP cost", Loadout.MAX_MP_PERCENT: "Max MP",
-	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse",
-	UpgradePool.PASSIVE_CLIMB_INTERVAL: "Recovery every"}
+	UpgradePool.PASSIVE_MAX_HP: "Max HP per level-up", UpgradePool.PASSIVE_REGEN_HP: "HP per pulse"}
 ## Fields shown as a percent (canonical `damage` is the skill's percent of the weapon damage).
 const PERCENT_FIELDS := ["mastery", "hp", "damage", Loadout.MAX_MP_PERCENT]
 ## Label and unit of each mod-card value (UpgradePool skill_mod_changes keys: a `count` card is SkillRunner.SHOTS or
@@ -213,7 +212,7 @@ static func change_lines(card: Dictionary) -> PackedStringArray:
 		var values: Dictionary = changes[field]
 		if values.before == values.after:
 			continue
-		var suffix := " s" if field in ["time", "cooltime", UpgradePool.PASSIVE_CLIMB_INTERVAL] else ""
+		var suffix := " s" if field in ["time", "cooltime"] else ""
 		if field == "range":
 			suffix = " px"
 		if field in PERCENT_FIELDS:

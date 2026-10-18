@@ -3212,8 +3212,23 @@ the real ones come with the class specs.
 
 ### 7.8 Warrior first job (100, #163)
 
-Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
-`skills/warrior.json`. Rank equals canonical level as everywhere (7); WZ prerequisites are ignored (tier C, #31).
+Five v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
+`skills/warrior.json`. Rank equals canonical level as everywhere (7); WZ prerequisites are ignored (tier C, #31). Endure
+1000002 is not in the build: the owner dropped it after spec #151 (it only healed on ropes and ladders), so it has no
+entry, cards or rope-regeneration clock.
+
+**Weapons at the advancement** (owner change after the spec, which had the Warrior keep its creation weapon). Advancing to
+100 wears the Beginner Warrior's sword 1302077 (PAD 30, reqLv 10; tier B: the v83 job instructor's first-job gift, v83-facts
+4) through `balance.player.weapon_grants`, so the grant skips the requirements (a Lv 10 Warrior may not have the sword's
+STR 35). The creation weapon (sword, axe or club) goes to the Equip tab as for every grant. Two more items from
+`jobs.json` `grants.items` (an additive optional key) follow it into the tab, **Spear 1432000** (Lv 10, reqJob 13, PAD 32,
+no stat need) and **Steel Pipe 1322006** (Lv 10 one-handed blunt, reqJob 0, PAD 29, no stat need). Tier C choice: the plain
+shop weapons of the spear and blunt families at reqLevel 10 that a Warrior can wear from the first level; the Iron Hammer
+1322032, the other Lv 10 blunt, wants STR 35, and the Lv 10 spears 1432029 and 1432050 are quest or untradable rewards.
+Items that find no free slot (the old weapon has the first claim on it) lie at the player's feet as normal equipment
+pickups, so advancing never fails (`RunWorld._grant_job_items`). The bot makes no deliberate swap, but its
+score-based planner (`BotShop.auto_equip`, #112) treats the handed-over items like any other Equip item: it wears the
+Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the tab) and ignores the Steel Pipe (29). The Magician advancement is unchanged.
 
 | Skill | Kind | Behaviour | Tiers |
 |---|---|---|---|
@@ -3222,7 +3237,6 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
 | Iron Body 1001003 (20) | buff | auto-cast, recast on expiry; adds canonical pdd (2-40) to weapon defence for 75-300 s | A: pdd, time, mpCon, action alert2 (no effect art in the WZ node); C: auto-cast, 0.8 s stance |
 | Improved HP Recovery 1000000 (16) | passive | adds canonical `hp` (3-50) to every regeneration pulse (`regen: {pool: hp, field: hp}`, `Loadout.regen_bonus`) | A: hp; C: v83 only while standing still, here always (HP regeneration is always on) |
 | Improved MaxHP Increase 1000001 (10) | passive | `max_hp_per_level` (canonical `x`, 4-40) at every later level-up (7.6) | B: Cosmic level-up rule |
-| Endure 1000002 (8) | passive | its own clock heals one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31 s down to 10 s) while hanging on a rope or ladder (the clock counts only climbing seconds and keeps its value when the character lets go; `climb_regen`, emits `player_restored` with skill `endure`) | A: time; C: the amount and the on-top-of-regeneration reading of v83's rope recovery |
 
 - **Cast rules.** `weapon_reach` and `range_around` are `SkillRunner` rules beside `nearest`/`box`/`crowd`. `weapon_reach`
   uses `BasicAttack.envelope(world)`, the union of the held weapon's afterimage boxes (its far edge is the basic
@@ -3250,11 +3264,11 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
   steps. Attack cards are `power: true`, so the advancement draw (every eligible power `skill_new` card of the job, then
   other new skills) offers Power Strike and Slash Blast. The bot needs no Warrior card scores; whether a card is never
   taken is a smoke finding, not tuned here.
-- **Previews.** Rank cards show `damage` (percent) and `hpCon` beside the existing fields; the three passives show their
-  own number (Max HP per level-up, HP per pulse, seconds between recoveries) instead of the canonical field name
+- **Previews.** Rank cards show `damage` (percent) and `hpCon` beside the existing fields; the two passives show their
+  own number (Max HP per level-up, HP per pulse) instead of the canonical field name
   (`UpgradePool.PASSIVE_*`). The skill tooltip adds "HP cost" for an HP-paying skill.
 - **Fixture.** `tests/fixtures/characters/lv11_warrior_1st.json`: a real headless Henesys bot round, forced job 100, seed 1,
-  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163`; capped rounds of
+  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
 
@@ -3544,7 +3558,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Level 10: Magician and Warrior (Dances with Balrog, #163) are playable; Bowman, Thief and Pirate are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
-  teaches no skill and gives no weapon (the creation sword, axe or club stays). Earned AP go to STR (the Warrior has no
+  teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
+  to the Equip tab (7.8; anything the full tab cannot take lies at the feet). Earned AP go to STR (the Warrior has no
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs (Fighter, Page, Spearman) stay "Not in this build".
@@ -3584,8 +3599,9 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 | Pirate - Knuckle | Steel Knuckler 1482000 | knuckle |
 | Pirate - Gun | Pistol 1492000 | gun |
 
-Warrior has no grant and keeps its creation weapon (owner choice); the Magician keeps its Wooden Wand
-(`balance.player.weapon_grants`, unchanged). Bowman, Thief and Pirate stay `playable: false` ("Not in this build")
+Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
+and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman, Thief and Pirate stay `playable: false` ("Not in this build")
 until their class specs; only the data shape and these rows land with #157. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
@@ -3694,7 +3710,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
 | Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
-| Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
+| Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none: its sword is `balance.player.weapon_grants` (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
 | Branch weapon grant | A second job wears its `grant_item` only when the held weapon family is not in its `weapon_families` (`jobs.json`, #157; item ids come with the class specs) | C | Ticket #157 |
 | Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
@@ -4019,17 +4035,17 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
 | Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
-| Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR, no weapon grant | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
+| Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
+| Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot's planner wears the Spear | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule) | v83-facts 4; owner request 2026-10-18 |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
 | Weapon-reach and range-around casts (#163) | `weapon_reach`: nearest mob inside `BasicAttack.envelope` (the union of the held weapon's afterimage boxes, far edge = `reach`); `range_around`: body centres within the level's canonical `range` of the body, `mobCount` cap | A (afterimage boxes, `range`, `mobCount`); C (the rules, auto-cast) | Skill.wz 100.img; ours |
 | Skill stance `"action": "weapon"` (#163) | the held weapon's first basic-attack action (`WeaponInfo.skill_action`), so a spear stabs and a polearm swings | C | the Warrior nodes have no `action` |
 | Power Strike / Slash Blast pacing (#163) | cooldowns 1.0 s / 1.6 s, 0.6 s cast stance | C | ours, untuned until the balance pass |
 | HP cost (#163) | Slash Blast pays canonical `hpCon`; never cast when HP would not stay above 0, then nothing is paid and no MP shortage is signalled | A (hpCon); C (the refusal rule) | Skill.wz; ours |
 | Improved HP Recovery (#163) | adds canonical `hp` (3-50) to every regeneration pulse, always (not only standing still) | A (hp); C (always) | Skill.wz; String text says "while standing still" |
-| Endure (#163) | one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31-10 s) while on a rope or ladder, `player_restored` skill `endure` | A (time); C (amount, on top of regeneration) | Skill.wz; v83's amount is not in the WZ |
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
-| Warrior cards (#163) | learn/rank cards for all six; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
-| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163` |
+| Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
+| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
