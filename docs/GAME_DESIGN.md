@@ -3345,8 +3345,8 @@ refresh-without-stacking and boss rules) and it coexists with all three.
   (`MobSwarm.lower_threatened_pdd`), so the player's physical hits, shots and Final Attacks all see it; magic defence is
   untouched. Death, release and relocation end the status silently, as for the other statuses.
 - **Cards and bot.** `threaten_new` / `threaten_rank` (`requires.jobs: [120]`, not power cards, weights 3 / 2); the rank
-  preview shows `x` as "Monster weapon ATT / DEF". The bot scores them like Magic Guard (`balance.bot.card_scores` 110 /
-  109, tier C) and needs no cast rule (every skill auto-casts).
+  preview shows `x` as "Monster weapon ATT / DEF". The bot scores them by default, like Iron Body
+  (no `balance.bot.card_scores` entry: the crowd rule is not an attack, tier C) and needs no cast rule (every skill auto-casts).
 
 ## 8. Upgrades
 
@@ -4260,7 +4260,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Threaten success chance (#183) | the node has no `prop`: always succeeds, no roll, no RNG (RNG stream 13 stays reserved for this spec, never drawn); a run without Threaten is byte-identical | A (absence) | Skill.wz/120.img level nodes; owner decision 5 of spec #165 |
 | Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
 | Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
-| Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; bot scores 110 / 109 like Magic Guard | C | ours |
+| Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
 
 ## 12. Later phases
 

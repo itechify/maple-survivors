@@ -91,12 +91,15 @@ func test_the_page_cards_exist_for_job_120_only_and_are_not_power_cards() -> voi
 	assert_eq(int(cards.threaten_rank.max_rank), 20)
 
 
-func test_threaten_cards_score_with_the_defensive_buffs() -> void:
+func test_threaten_cards_score_by_default_like_a_defensive_buff_not_an_attack() -> void:
 	var w := _world()
 	var scores: Dictionary = w.balance.bot.card_scores
-	assert_eq(scores.get("threaten_new"), scores.get("magic_guard_new"), "learn scored like Magic Guard")
-	assert_eq(scores.get("threaten_rank"), scores.get("magic_guard_rank"), "rank scored like Magic Guard")
-	assert_eq(BotInput.card_score(w, w.upgrades.card("threaten_new")), float(scores.threaten_new))
+	assert_false(scores.has("threaten_new") or scores.has("threaten_rank"), "no override: default scoring like Iron Body")
+	assert_eq(BotInput.card_score(w, w.upgrades.card("threaten_new")), BotInput.SCORE_NEW_PASSIVE,
+		"the crowd rule is never scored as an attack")
+	w.learn_skill("threaten")
+	assert_eq(BotInput.card_score(w, w.upgrades.card("threaten_rank")),
+		BotInput.SCORE_RANK_PASSIVE + BotInput.SCORE_JOB_BONUS, "a current-job rank card")
 
 
 func test_real_120_img_has_the_threaten_levels_and_no_success_chance() -> void:
@@ -415,3 +418,42 @@ func test_the_level_line_and_description_use_the_survivor_text_with_no_party() -
 		"MP -7; enemy weapon attack -20, weapon def. -10 for 6 sec., up to 2 monsters")
 	assert_eq(text.desc("threaten"), "Use MP to threaten the monsters around you, lowering their weapon attack and weapon defence.")
 	assert_false("party" in text.desc("threaten").to_lower())
+
+
+func _img(path: String) -> Dictionary:
+	var parsed: Variant = DataRepo.load_json(AssetCachePaths.resolve_cache_root().path_join(path + ".json"))
+	return parsed if parsed is Dictionary else {}
+
+
+## The whole real-data path: the Page on the real Henesys map with the real 120.img level 5 (x = y = -5, 60 s, 12 MP).
+func test_real_cache_cast_threatens_a_crowd_with_the_v83_level() -> void:
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	data.balance.player.mp = 300
+	data.balance.player.skills = []
+	var setup := DataRepo.build_setup(data, "henesys_hg1", 183, Vector2(800, 600), _img,
+		func(id: int) -> Dictionary: return _img("Mob.wz/%07d.img" % id))
+	if not setup.skill_imgs.has("120"):
+		skip("the cache has no Skill.wz/120.img (import with the Warrior second-job manifest)")
+		return
+	var w := RunWorld.new(setup)
+	w.change_job(120)
+	w.learn_skill("threaten")
+	w.loadout.set_rank("threaten", 5)
+	w.god = true
+	var id: int = DataRepo.stage_mob_ids(data, "henesys_hg1")[0]
+	var mobs: Array = []
+	for dx in [-40.0, -80.0, -120.0, 50.0, 90.0, 130.0, 170.0]:
+		mobs.append(RF.put_mob(w, id, w.player.pos.x + dx, w.player.pos.y))
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	var mp := int(w.player_state.mp)
+	w.drain_events()
+	w.runner.step(DT, w)
+	assert_eq(w.runner.casts, 1, "seven monsters in the 250 x 150 box: a crowd")
+	assert_eq(int(w.player_state.mp), mp - 12, "canonical mpCon of level 5")
+	var threatened := mobs.filter(func(m: int) -> bool: return w.swarm.status_time(m, MobSwarm.THREATENED) > 0.0)
+	assert_eq(threatened.size(), 6, "mobCount 6 of the seven")
+	assert_near(w.swarm.status_time(threatened[0], MobSwarm.THREATENED), 60.0)
+	assert_eq(w.swarm.threatened_pad(threatened[0], 20.0), 15.0)
+	assert_eq(_applied(w.drain_events(), THREATENED).size(), 6)
