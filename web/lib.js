@@ -385,3 +385,74 @@ export function saveFileName(date) {
 export function isAudioTeardownError(message) {
 	return /currentTime/.test(String(message)) && /null|undefined/.test(String(message));
 }
+
+// ---- Storage persistence (#148) ---------------------------------------------------------------------------------------
+// navigator.storage.persist() may wait for the player's answer to a permission prompt (Firefox), possibly forever in an
+// unattended window. So the shell shows the current state at once and treats a granted request as an upgrade.
+
+/** The footer storage line for a persistence state: `{text, good}`. `snapshot` is `{persist, usage}` (usage in bytes). */
+export function storageStatus(snapshot) {
+	const base = {
+		persistent: 'Storage: kept (persistent)',
+		'best-effort': 'Storage: best effort (the browser may clear it when space runs short)',
+		unsupported: 'Storage: not confirmed by this browser',
+	}[snapshot.persist] || 'Storage: checking...';
+	const usage = snapshot.usage ? ` (${formatBytes(snapshot.usage)} used)` : '';
+	return { text: base + usage, good: snapshot.persist === 'persistent' };
+}
+
+/**
+ * The persistence state machine, with the storage API injected (`navigator.storage`; may be missing or throw).
+ * `request()` reads `persisted()` without prompting, reports that state through `onChange(state)` and resolves, then
+ * asks `persist()` in the background: a grant upgrades the state to 'persistent', a refusal or error keeps it. While a
+ * request is still running or its `persist()` is pending, further `request()` calls start nothing new.
+ * `state` is `{persist: 'checking'|'persistent'|'best-effort'|'unsupported', usage, pending}`.
+ */
+export function createPersistence({ storage, onChange = () => {} }) {
+	const state = { persist: 'checking', usage: 0, pending: false };
+	let starting = null; // the running request() promise
+	const emit = () => onChange({ ...state });
+	async function readUsage() {
+		try {
+			const est = await storage.estimate();
+			if (est && est.usage) state.usage = est.usage;
+		} catch (e) {
+			/* no estimate */
+		}
+	}
+	async function ask() {
+		state.pending = true;
+		try {
+			if (await storage.persist()) state.persist = 'persistent';
+		} catch (e) {
+			/* refused or failed: keep the best-effort line */
+		}
+		state.pending = false;
+		emit();
+	}
+	async function run() {
+		if (!storage || !storage.persist || !storage.persisted) {
+			state.persist = 'unsupported';
+		} else {
+			try {
+				state.persist = (await storage.persisted()) ? 'persistent' : 'best-effort';
+			} catch (e) {
+				state.persist = 'unsupported';
+			}
+		}
+		emit();
+		if (state.persist === 'best-effort') ask();
+		if (storage && storage.estimate) {
+			await readUsage();
+			emit();
+		}
+		return { ...state };
+	}
+	function request() {
+		if (starting) return starting;
+		if (state.pending || state.persist === 'persistent') return Promise.resolve({ ...state });
+		starting = run().finally(() => { starting = null; });
+		return starting;
+	}
+	return { state, request };
+}
