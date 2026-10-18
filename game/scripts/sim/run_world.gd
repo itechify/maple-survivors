@@ -124,10 +124,6 @@ const EVENT_FIELDS := {
 }
 
 ## tier C defaults used when balance.json lacks a value.
-## The buff stat both Power Guard skills feed (percent of contact damage), and the most one reflect may take off a
-## monster, as a fraction of its Max HP (tier B: the String desc of the skill, a third-party v83 reimplementation).
-const POWER_GUARD_STAT := "power_guard"
-const POWER_GUARD_CAP := 0.10
 const DEFAULT_BODY := Rect2(-14, -58, 28, 58)
 const DEFAULT_CAST_HEIGHT := 30.0
 ## Shots leave this far in front of the cast origin, toward their target (the hand, not the face). tier C: ours.
@@ -154,8 +150,14 @@ const DEFAULT_INVENTORY_SLOTS := 24
 const BOX_PROBE := 16
 ## Buff effect stats of Hyper Body (percent of the whole Max HP / Max MP). Not the max_mp_percent passive: that one
 ## rescales current MP on growth, a buff leaves current HP/MP alone (spec #165 ticket #184).
-const MAX_HP_PCT := "max_hp_pct"
-const MAX_MP_PCT := "max_mp_pct"
+const MAX_HP_PCT := "max_hp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
+const MAX_MP_PCT := "max_mp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
+## The buff stat both Power Guard skills feed (percent of contact damage). tier B: the String desc of the skill, a
+## third-party v83 reimplementation.
+const POWER_GUARD_STAT := "power_guard"
+## The most one Power Guard reflect may take off a monster, as a fraction of its Max HP. tier B: only in the String desc
+## of the skill (no WZ field), a third-party v83 reimplementation.
+const POWER_GUARD_CAP := 0.10
 
 var setup: Dictionary
 var data: Dictionary
@@ -1497,17 +1499,20 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	if path != "":
 		id = int(jobs.path_of(job_id, path).get("item_id", id))
 	else:
+		# One pass: the first weapon of the held family is worn, the rest are `others`; with none of that family the
+		# first entry is worn (it comes back off the front of `others`).
 		var weapons: Array = jobs.branch_grant(job_id).get("weapons", [])
-		var worn_index := 0
-		for i in weapons.size():
-			if weapons[i].family == held_weapon_family():
-				worn_index = i
-				break
-		for i in weapons.size():
-			if i == worn_index:
-				id = int(weapons[i].item_id)
+		var worn := -1
+		for raw: Variant in weapons:
+			var w: Dictionary = raw
+			if worn < 0 and String(w.family) == held_weapon_family():
+				worn = int(w.item_id)
 			else:
-				others.append(int(weapons[i].item_id))
+				others.append(int(w.item_id))
+		if worn < 0 and not others.is_empty():
+			worn = int(others.pop_front())
+		if worn >= 0:
+			id = worn
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
@@ -2249,11 +2254,7 @@ func _power_guard_reflect(damage: int, magic: bool, source: Dictionary) -> int:
 ## EXP and drops like any other. It does not go through the hit listeners (no Final Attack, no on-hit status).
 func _apply_reflect(m: int, amount: int) -> void:
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
-	var key := ""
-	for skill: String in buffs.active:
-		if float(buffs.active[skill].effects.get(POWER_GUARD_STAT, 0.0)) > 0.0:
-			key = skill
-			break
+	var key := buffs.skill_with_effect(POWER_GUARD_STAT)
 	emit("mob_hit", {"mob": m, "mob_id": mk.id, "damage": amount, "crit": false,
 		"pos": Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y), "hit_visual": "", "skill": key})
 	_instant_dealt += amount

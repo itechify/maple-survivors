@@ -210,7 +210,7 @@ func _draw_cue(i: int, cue: int, left: float, elapsed: float, box: Rect2, pos: V
 		_status_pool.hide(slot)
 		return
 	_status_pool.ensure(slot + 1)
-	# tier C: canonical pos3 at body centre (Slow), pos2 at body top (Poison); WZ origins supply spacing.
+	# tier C: canonical pos3 at body centre (Slow), pos2 at body top (Poison and Threaten); WZ origins supply spacing.
 	var anchor := Vector2(0.0, box.get_center().y if cue == SLOW_CUE else box.position.y)
 	_status_pool.show(slot, anim.frames[anim.index_at(elapsed, cue != SLOW_CUE)], (pos + anchor).round(), flip, alpha)
 
