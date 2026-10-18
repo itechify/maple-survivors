@@ -4014,6 +4014,44 @@ The export's existing `data/survivor/*/*.json` include filter covers these files
 Adding the two Thief window entries intentionally changes unforced bot records. The inherited event/pacing tests freeze
 their old job pool; existing combat and player-state goldens are retained. Full smoke belongs to #215; no balance tuning.
 
+### 7.22 Assassin and Bandit: passives, buffs and recovery (#212)
+
+Both Thief branches advance at canonical Lv30. They keep the Thief's growth and LUK/DEX auto-AP policy.
+Each adds +325 MaxHP / +175 MaxMP (tier B midpoints) and wears its advancement weapon without requirement checks:
+Assassin 410 gets Steel Guards 1472008 (claw, PAD18), Bandit 420 gets Reef Claw 1332012 (dagger, PAD45).
+The displaced weapon joins Equip, overflowing at the feet through the existing grant machinery (tier C weapon choices).
+
+All values below come from the branch's original Skill.wz book (tier A); ranks equal canonical levels.
+
+| Key / skill | Branch / weapon | Levels | Effect, first to last level |
+|---|---|---|---|
+| `claw_mastery` 4100000 | 410 / claw | 20 | mastery 15–60%, ACC +1–20; endless stars ignore recharge capacity |
+| `critical_throw` 4100001 | 410 / claw | 30 | crit chance 21–50%, total critical damage 113–200% |
+| `endure_assassin` 4100002 | 410 / any | 20 | HP +3–60 and MP +1–20 every 29–10 seconds |
+| `claw_booster` 4101003 | 410 / claw | 20 | attack speed +2; HP/MP cost 29–10 each, duration 10–200 seconds |
+| `haste_assassin` 4101004 | 410 / any | 20 | speed +2–40, jump +1–20, duration 10–200 seconds, MP15/30 |
+| `dagger_mastery` 4200000 | 420 / dagger | 20 | mastery 15–60%, ACC +1–20 |
+| `endure_bandit` 4200001 | 420 / any | 20 | same Endure recovery |
+| `dagger_booster` 4201002 | 420 / dagger | 20 | same Booster costs, duration and speed |
+| `haste_bandit` 4201003 | 420 / any | 20 | same Haste movement, duration and cost |
+
+Mastery, Critical Throw and Booster family tags follow the v83 descriptions (tier C tags; those nodes omit `weapon`).
+Boosters invert canonical x=-2 with scale=-1. Buffs auto-cast while inactive and affordable, without a target, holding
+alert2 for 0.8 seconds (tier C, existing Booster convention). Haste is self-only and respects speed140 / jump123 caps.
+Its text reads `buff_speed` / `buff_jump`, avoiding the projectile `speed` field of resolved skill stats.
+
+Endure heals anywhere, including while moving, with any weapon (owner #167). The additive skill definition is
+`periodic_recovery: {interval_field: "time", hp_field: "hp", mp_field: "mp"}`. PlayerUpkeep owns each skill's clock;
+RunWorld applies both pools, clamped to their maxima, independently of the shared regeneration pulse. The first pulse
+waits one full interval after learning, rank changes retain elapsed seconds, paused/dead worlds do not advance it,
+and a round boundary resets it (tier C clock lifecycle). Existing `regen` skills keep their shared-pulse semantics.
+
+Every skill has learn/rank cards, weight2, requiring its exact branch and held weapon through the skill (tier C).
+Lucky Seven and Double Stab remain carried attacks for both branches, gated by held weapon and excluded from the
+advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/Ilbi at 30/35/40/45/50/55, with
+the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
+the bot selects their matching first-job path. Drain, Savage Blow and Steal belong to later tickets; no tuning here.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4321,7 +4359,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063 and puts the other in Equip (overflow at feet).
   Both paths use starting stars 2070015 when holding a claw. Growth is 22 HP / 15 MP per level; auto-AP uses LUK
   primary and DEX target max(25, level), meeting LUK ≥80 / DEX ≥25 at Lv30 through the existing earned-AP calculation.
-  No new stat reset is added. Assassin/Bandit stay locked until #212. Skills and cards: 7.21.
+  No new stat reset is added. Skills and cards: 7.21; the playable second jobs are in 7.22.
+- Level30, Thief (#212): Assassin410 and Bandit420 are offered from either first-job path, granting +325 MaxHP /
+  +175 MaxMP and Steel Guards1472008 / Reef Claw1332012 respectively. The new branch's weapon is worn even when
+  the old path differs; the old weapon moves to Equip. Growth and AP stay the Thief's. `--job=410` / `--job=420`
+  work in tools. Skills, carried attacks and star tiers: 7.22.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -4368,7 +4410,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
   `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
   `DataRepo.starter_equipment_ids` preload reads the same field. The Pirate branches use the same shape with one entry
-  each (#189); the Bowman and Thief lines follow when their class specs land.
+  each (#189); the Thief branches use Steel Guards1472008 / Reef Claw1332012 (#212).
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -4454,6 +4496,17 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Thief second job (#212) additions:
+
+| Constant / choice | Value | Provenance |
+|---|---|---|
+| Assassin / Bandit advancement | Lv30; +325 MaxHP / +175 MaxMP | A canonical level; B v83-facts section4 fixed midpoints |
+| Advancement weapons | Steel Guards1472008 / Reef Claw1332012 | C owner #167 selection, unconditional wear and existing Equip overflow; A item stats |
+| Branch passives / buffs | Table in7.22; Booster x=-2 scaled by -1 | A Skill.wz410/420 values; C family tags from descriptions where WZ omits weapon |
+| Branch buff casting | self auto-cast, 0.8s alert2 hold, Haste within existing caps | C existing Booster convention and owner self-only Haste |
+| Endure recovery lifecycle | skill clock starts at learning, retains elapsed seconds on rank change, resets per round | C fixed-tick timer lifecycle; A HP/MP/time, owner recovery anywhere |
+| Branch learn/rank cards | weight2, exact branch, weapon gated, caps20 (Critical Throw30) | C initial untuned weights/gates; A rank caps |
 
 Thief tracer (#207) additions:
 

@@ -237,7 +237,7 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
 	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
-		1472061, 1332063, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1482004, 1492004]),
+		1472061, 1332063, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1472008, 1332012, 1482004, 1492004]),
 		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, both Thief weapons, both Pirate weapons, the five Warrior advancement weapons and the two Pirate advancement weapons")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:

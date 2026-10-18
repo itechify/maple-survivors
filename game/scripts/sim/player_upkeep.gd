@@ -1,7 +1,7 @@
 class_name PlayerUpkeep
 extends RefCounted
 ## The player's per-tick timers (docs/ARCHITECTURE.md 4.4.6), owned by RunWorld as `upkeep`: timed buffs
-## (PlayerBuffs) and their healing pulses, hit invincibility, the cast-stance hold and the balance.regen pulse clock.
+## (PlayerBuffs) and their healing pulses, hit invincibility, the cast-stance hold, shared regen and skill recovery clocks.
 ## RunWorld owns the HP/MP pools: tick() reports the buff healing due and regen_pulses() how many regeneration
 ## pulses fell due, and the world applies them. Pure: no nodes, files or time.
 
@@ -28,6 +28,9 @@ var action_scale := 1.0
 var _buffs: PlayerBuffs
 var _regen: Dictionary
 var _regen_elapsed := 0.0
+## Skill-owned recovery clocks, per round. Resolved values refresh only when the loadout changes.
+var _recovery_version := -1
+var _recoveries := {}
 var _window_lengths: Array[float] = []
 var _chain_gap := float(DEFAULT_HIT_WINDOW.chain_gap)
 var _reset_after := float(DEFAULT_HIT_WINDOW.reset_after)
@@ -102,6 +105,36 @@ func pulse_hp() -> float:
 ## Base MP restored by one pulse (before mp_regen modifiers and the skills' Loadout.regen_bonus).
 func pulse_mp() -> float:
 	return float(_regen.get("mp", DEFAULT_REGEN.mp))
+
+
+## Advances each owned periodic_recovery skill's canonical interval; returns HP/MP due, independently of shared regen.
+## A weapon-gated recovery pauses while unusable. Rank changes preserve elapsed seconds; a new round starts fresh.
+func periodic_recovery(dt: float, loadout: Loadout) -> Vector2:
+	if _recovery_version != loadout.version:
+		var next := {}
+		for key: String in loadout.order:
+			var rule: Dictionary = loadout.book.def(key).get("periodic_recovery", {})
+			if rule.is_empty():
+				continue
+			var level := loadout.level(key)
+			var interval := loadout.book.canonical(key, level, String(rule.get("interval_field", "time")))
+			if interval <= 0.0:
+				continue
+			next[key] = {"elapsed": float(_recoveries.get(key, {}).get("elapsed", 0.0)), "interval": interval,
+				"hp": loadout.book.canonical(key, level, String(rule.get("hp_field", "hp"))),
+				"mp": loadout.book.canonical(key, level, String(rule.get("mp_field", "mp")))}
+		_recoveries = next
+		_recovery_version = loadout.version
+	var due := Vector2.ZERO
+	for key: String in _recoveries:
+		if not loadout.book.usable_with(key, loadout.weapon_family):
+			continue
+		var clock: Dictionary = _recoveries[key]
+		clock.elapsed += dt
+		while float(clock.elapsed) >= float(clock.interval) - _EPS:
+			clock.elapsed = maxf(0.0, float(clock.elapsed) - float(clock.interval))
+			due += Vector2(float(clock.hp), float(clock.mp))
+	return due
 
 
 ## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion; `scale` is the
