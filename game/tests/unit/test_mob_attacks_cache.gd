@@ -91,7 +91,8 @@ func test_dark_cave_draws_tauro_attacks_and_no_boogie_cast_with_nothing_missing(
 		if String(view.actions[boogie]) != "":
 			boogie_cast = true
 	assert_true(drawn_attack, "an attack stance is in the drawn action view")
-	assert_true(scene._mob_attack_shot_taken and scene._mob_hit_shot_taken, "an ordinary windup and hit were shown")
+	assert_true(scene._first_shots.has("mob_attack_windup") and scene._first_shots.has("mob_attack_hit"),
+		"an ordinary windup and hit were shown")
 	assert_false(boogie_cast, "Jr. Boogie draws no cast stance")
 	assert_true(scene.hud.buff_row.displayed().is_empty(), "no status on the buff row")
 	_assert_nothing_missing(scene, "Dark Cave mob attacks")
