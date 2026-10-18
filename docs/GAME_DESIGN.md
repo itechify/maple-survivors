@@ -478,6 +478,62 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #168 Pirate (#186-#194): QA regression smoke and fixtures (#195, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` with the default job
+pick and with `--job=500:knuckle`, `--job=500:gun`, `--job=510` and `--job=520` (20 invocations, 60 runs), a private real
+cache built from the integration manifest, on `24183ee` (every #168 ticket) plus #195's tool changes, no PATCH or tuning.
+No crashes, script errors or world warnings: all 60 records have `warnings: []` and `missing: []`. "Before" is the
+Warrior-spec smoke above (`b3599ba`, default pick), the last Henesys/Tree record with the same data except the Pirate line.
+D = death time, then level at the end; Lv 30 = the Lv 30 advancement was reached.
+
+| Henesys (seeds 1 / 2 / 2026) | bot | random |
+|---|---|---|
+| before, default pick | D 5:40 / 5:36 / 5:11 | D 7:31 / 5:16 / 5:44 |
+| now, default pick | D 5:40 Lv11 / 5:32 Lv12 / 7:54 Lv21 | D 7:31 Lv19 / 8:40 Lv27 / 5:43 Lv13 |
+| `--job=500:knuckle` and `--job=510` (identical) | D 5:28 Lv11 / 5:35 Lv12 / 5:14 Lv11 | D 7:16 Lv21 / 5:14 Lv10 / 5:05 Lv11 |
+| `--job=500:gun` | D 8:15 Lv24 / 10:15 Lv32 (Brawler at Lv 30) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+| `--job=520` | D 8:15 Lv24 / 10:05 Lv31 (Gunslinger) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+
+- **Non-Pirate runs are not worse.** Default-pick seed 1 is a Magician (200) and seed 2 a Warrior (100) in both policies,
+  and they match "before" or beat it (Magician bot 5:40 and random 7:31 unchanged; Warrior bot 5:32 against 5:36, random
+  8:40 against 5:16, the Warrior second-job work being in this branch). Default seed 2026 now draws a Gun Pirate
+  (the unforced pool includes Pirate), which is why it moved. Tree is byte-identical to before in every cell
+  (D 2:09 / 1:04 / 0:52, Lv 2-3, no job reached, both policies): it dies before Lv 10, so the Pirate never exists
+  there. Tree stays record-only.
+- **How far Pirates get.** The first job always arrives at 4:25-4:34. The knuckle bot never reaches Lv 30
+  (0 of the 6 distinct runs; best D 7:16 at Lv 21, Mano killed in 1 of 6). The gun bot reaches it in 1 of 6 distinct runs:
+  bot seed 2 (a Brawler in `--job=500:gun`, because a forced first job takes a seeded branch at Lv 30, a Gunslinger in
+  `--job=520`). Gun runs kill Mano in 4 of 6 and always die between 5:29 and 10:15. `--job=510` with no path names
+  the knuckle path, so it repeats `--job=500:knuckle` exactly; `--job=520` repeats `--job=500:gun` apart from the
+  Lv 30 choice. The two known early deaths reproduce: `--job=510` D 5:14 at Lv 11 (seed 2026), `--job=520` D 7:54 at Lv 21
+  (seed 2026) and D 8:15 at Lv 24 (seed 1).
+- **Likely cause, recorded not fixed.** The deaths read like the Warrior's: damage is too low for what the swarm becomes
+  and the pool is small (326 HP at Lv 11). Knuckle runs die to Mano's touch (about 26 % of max HP per hit, 3 to 4
+  hits) before enough levels; the gun runs that pass Mano die at 7:54-8:15 (seeds 2026 and 1) under 40-110 live mobs, taking 500-850
+  damage a minute while the bot kites a short-ranged character (mp-short 65-120 s per run; Flash Fist and Double Shot starve the pool). The bot
+  does take and rank the Pirate attacks (Double Shot 4-6, Somersault Kick 9-12 in the gun runs) and no skill walks it
+  into mobs, so no bot change was made. It never takes Dash or Bullet Time under the `bot` card policy (only
+  `random` does). Pirate tuning and bot work belong to the balance pass.
+- **A god-mode probe shows the knuckle line is slow, not broken.** The same bot made invulnerable on knuckles (the
+  fixture tool's `--god`, 45 sim minutes) is still Lv 18: Mano takes 392 s to kill and the second boss is never
+  killed, so it never levels again; the Gunslinger kills all three bosses by 1412 s and is Lv 42.
+- Death times are of single seeds: the 3-seed smoke is bimodal per seed (see the Warrior record) and cannot judge pacing.
+- **Fixtures.** `tests/fixtures/characters/lv37_brawler_2nd.json` and `lv36_gunslinger_2nd.json` come from the character
+  fixture tool (`ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game --script
+  res://tools/character_fixture.gd -- --out=<abs> --revision=<sha> --label=spec168/ticket-195 --job=510:knuckle
+  --god --exp-mult=3 --seconds=480` and `--job=520:gun --god --seconds=780`; seed 1, bot, `henesys_hg1`). Because the
+  bot cannot reach Lv 30 by itself, the tool got two documented aids (tier C, diagnostic only): `--god` (invulnerable)
+  and `--exp-mult` (EXP multiplier, used only for the knuckle line). Both are written into each `_doc`
+  (`diagnostic`, `exp_mult`, `forced_path`). The Brawler is Lv 37 (Brawler from 412.9 s), the Gunslinger Lv 36 (520
+  from 636.8 s, natural EXP).
+- `flow_driver --scenario=pirate [--path=knuckle|gun] [--branch=510|520]` (injected input; debug setup: invulnerable EXP-drop warp
+  to Lv 30, the Dash card applied) passes for both paths: the Lv 10 window offers both Pirate paths, the chosen path's
+  weapon is worn and the other path's weapon and the creation weapon are in the Equip tab, the Lv 30 window offers
+  both second jobs and the Lv 30 weapon (Prime Hands / Cold Mind) is worn, Dash on X raises speed and spends MP, and
+  Save & quit then Continue keeps job, path, equipment, skills and mesos.
+- Full suite and `cargo test` results are in the ticket report; the feature-ticket rule held: no balance data changed.
+
 #### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, once with the default
@@ -4555,6 +4611,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Pirate second-job fixtures (#195) | `lv37_brawler_2nd.json` (510 knuckle, seed 1, 480 s cap, `--god --exp-mult=3`) and `lv36_gunslinger_2nd.json` (520 gun, seed 1, 780 s cap, `--god`); the aids are diagnostic and recorded in each `_doc` | C | `tools/character_fixture.gd --label=spec168/ticket-195` (GAME_DESIGN 4.2) |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

@@ -1583,6 +1583,9 @@ func _scenario_pirate() -> void:
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
+	_check(not run.ui_windows.has_windows() and not run.paused, "Esc closed both windows (paused %s)" % run.paused)
+	if run.paused or run.ui_windows.has_windows():
+		return
 	# Dash (#188): its card is applied as debug setup; the skill is then cast on its own key.
 	w.upgrades.apply("dash_new", w)
 	w.heal_fraction("mp", 1.0)
@@ -1686,6 +1689,9 @@ func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String,
 	var advanced_shot := false
 	var texts: Array = []
 	for guard in 1500:
+		if guard % 50 == 0:
+			print("flow_driver: climbing to Lv%d: level %d, state %d, window %s, paused %s" % [
+				target, w.progression.level, w.state, run.window, run.paused])
 		if w.state == RunWorld.DEAD:
 			_fail("the character died on the way to Lv%d" % target)
 			return {}

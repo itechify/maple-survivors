@@ -99,7 +99,7 @@ func _init() -> void:
 	if HARNESS.forced_path != "":
 		character._doc["forced_path"] = HARNESS.forced_path
 	if god:
-		character._doc["diagnostic"] = "invulnerable (RunWorld.god = true; fixture tool --god): the kiting bot dies at Lv 21-24 as a Pirate, so the round played to its cap with damage ignored"
+		character._doc["diagnostic"] = "invulnerable (RunWorld.god = true; fixture tool --god): the kiting bot dies as a Pirate before the second job (Lv 11 on knuckles at the first boss, Lv 21-24 on guns), so the round played to its cap with damage ignored"
 	if exp_mult != 1.0:
 		character._doc["exp_mult"] = exp_mult
 		character._doc["diagnostic_exp"] = "balance exp_mult x%s (fixture tool --exp-mult): the knuckle bot cannot beat the second boss, so it levels too slowly to reach Lv 30 by itself" % str(exp_mult)
