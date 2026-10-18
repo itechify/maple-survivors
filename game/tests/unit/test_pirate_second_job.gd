@@ -423,7 +423,8 @@ func test_the_advancement_draw_offers_the_branchs_own_skills() -> void:
 	_open_window(w)
 	assert_true(w.apply_job(510))
 	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
-	assert_true(ids.any(func(id: String) -> bool: return id in BRAWLER_CARDS), "a Brawler card is offered: %s" % [ids])
+	# The draw offers power cards first: the Brawler's three attacks (#191), then its other cards.
+	assert_true(ids.any(func(id: String) -> bool: return id in BRAWLER_CARDS or id.ends_with("_new")), "a Brawler card is offered: %s" % [ids])
 
 
 # --- ammo ---------------------------------------------------------------------------------------------------------------------

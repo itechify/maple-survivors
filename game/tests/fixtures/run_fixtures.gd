@@ -165,13 +165,34 @@ static func skill_imgs() -> Dictionary:
 		return levels
 	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
 		"x": [-2.0, -2.0]})
+	# #191: the Brawler's attacks, original v83 tables (Skill.wz/510.img 5101002-5101004): the stepwise mpCon pairs/fives/fours,
+	# Backspin's box (0,-50)..(140,0) behind the facing, Double Uppercut's string-typed attackCount/time without a box, and
+	# Corkscrew's reach lt.x -100..-200 (two levels per 10 px, then 190 and 200).
+	var backspin_levels := {}
+	var uppercut_levels := {}
+	var corkscrew_levels := {}
+	for lv in range(1, 21):
+		backspin_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 12.0 + 2.0 * floorf((lv - 1) / 2.0), "damage": 80.0 + 8.0 * lv,
+			"time": 1.0, "lt": {"$v": [0.0, -50.0]}, "rb": {"$v": [140.0, 0.0]}, "mobCount": 3.0}
+		uppercut_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 15.0 + 5.0 * floorf((lv - 1) / 5.0), "damage": 90.0 + 10.0 * lv,
+			"attackCount": "2", "time": "1"}
+		var reach := 200.0 if lv == 20 else 100.0 + 10.0 * floorf((lv - 1) / 2.0)
+		corkscrew_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 20.0 + 4.0 * floorf((lv - 1) / 4.0), "damage": 120.0 + 15.0 * lv,
+			"mobCount": 3.0, "lt": {"$v": [-reach, -50.0]}, "rb": {"$v": [0.0, 0.0]}}
 	imgs["510"] = {"skill": {
 		# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
 		"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0], "cooltime": [70.0, 25.0]})},
 		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
 		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
 		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
-			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)},
+		"5101002": {"icon": _canvas(32, 32), "action": {"0": "backspin"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18), "level": backspin_levels},
+		"5101003": {"icon": _canvas(32, 32), "action": {"0": "doubleupper"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40), "1": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18),
+			"level": uppercut_levels},
+		"5101004": {"icon": _canvas(32, 32), "action": {"0": "screw"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "level": corkscrew_levels}}}
 	imgs["520"] = {"skill": {
 		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
 		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
