@@ -31,6 +31,18 @@ const TELEPORT_MP_RESERVE_FRACTION := 0.25
 const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
+## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
+## walks up to mobs instead of kiting; 220 sits below every Magician attack (Magic Claw 260 is the shortest) and above
+## the one-handed swings (~90-130).
+const ENGAGE_KITE_REACH := 220.0
+## tier C: stop at this fraction of the longest ready attack's reach, so the body hit boxes still overlap its box.
+const ENGAGE_REACH_FRACTION := 0.8
+## tier C: only mobs this far (px) on the bot's level are engaged; farther ones leave the bot to its EXP drops.
+const ENGAGE_CHASE_RANGE := 300.0
+## tier C: below this HP fraction, or while a boss attack winds up, the melee bot kites like any other build.
+const ENGAGE_RETREAT_HP := 0.35
+## tier C: closer than this (px) to the engaged mob the bot keeps its facing instead of turning back and forth.
+const ENGAGE_DEADZONE := 6.0
 ## A mob nearer than this (px, on the drop's side and before it) keeps the bot from walking to a drop.
 const BLOCK_DIST := 250.0
 ## Climbing: drops above needed to go up; the highest rope bottom (px above the floor) reachable with a jump; a rope
@@ -91,6 +103,12 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		if int(memo.climb_t) > CLIMB_GIVE_UP or (w.player.fh >= 0 and absf(p.x - float(memo.climb_x)) > 12.0
 				and int(memo.climb_t) > 2):
 			memo.erase("climb_x")
+	# Engage mode (#162): a build whose attacks all reach less than kite_reach closes to its ready attack's reach.
+	var engage := _engage_config(w)
+	var profile := _reach_profile(w)
+	var melee: bool = profile.x > 0.0 and profile.x < float(engage.kite_reach)
+	var engage_target := -1
+	var engage_gap := INF
 	var danger := [0.0, 0.0]
 	var nearest := [INF, INF]
 	var threat_nearest := [INF, INF]
@@ -109,6 +127,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		# tier C: emergency blinks use the existing duel-height band, not mobs on remote platforms.
 		if absf(dy) <= DUEL_DY:
 			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
+		if melee and absf(dy) <= DUEL_DY and absf(dx) <= float(engage.chase_range) and absf(dx) < engage_gap:
+			engage_gap = absf(dx)
+			engage_target = i
 		if absf(dx) < FLEE_DIST:
 			close += 1
 			duel = i if absf(dy) <= DUEL_DY else -2
@@ -145,7 +166,15 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		return mi
 	memo.erase("portal_x")
 	var dueling := false
-	if minf(nearest[0], nearest[1]) < FLEE_DIST:
+	var engaging := engage_target >= 0 and not _backing_off(w, engage)
+	if engaging:
+		# tier C: walk to the engage distance of the nearest on-level mob, then stand facing it (one press turns).
+		var side := 1 if s.x[engage_target] > p.x else -1
+		if engage_gap > float(profile.y) * float(engage.reach_fraction):
+			dir = side
+		elif engage_gap > ENGAGE_DEADZONE and w.player.facing != side:
+			dir = side
+	elif minf(nearest[0], nearest[1]) < FLEE_DIST:
 		dueling = close == 1 and duel >= 0 and _can_duel(w, duel)
 		if dueling:
 			# tier C: a lone ordinary mob while no attack skill can fire: stand facing it so the basic attack swings
@@ -218,7 +247,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			mi.down = true
 			mi.jump_pressed = true
 			memo["down_cd"] = 60
-		elif dir != 0 and not dueling:
+		elif dir != 0 and not dueling and not engaging:
 			var ahead: float = nearest[0 if dir < 0 else 1]
 			if ahead > 25.0 and ahead < 75.0:
 				mi.jump_pressed = true
@@ -228,6 +257,45 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		mi.up = true
 	mi.jump_held = mi.jump_pressed
 	return mi
+
+
+## The engage-mode constants: balance.json bot.engage over the tier C defaults above.
+static func _engage_config(w: RunWorld) -> Dictionary:
+	var cfg := {"kite_reach": ENGAGE_KITE_REACH, "reach_fraction": ENGAGE_REACH_FRACTION,
+		"chase_range": ENGAGE_CHASE_RANGE, "retreat_hp": ENGAGE_RETREAT_HP}
+	cfg.merge(w.balance.get("bot", {}).get("engage", {}), true)
+	return cfg
+
+
+## True when a melee build should fall back to kiting: HP below the retreat fraction, or a boss attack winding up.
+static func _backing_off(w: RunWorld, engage: Dictionary) -> bool:
+	return float(w.player_state.hp) < float(w.player_state.max_hp) * float(engage.retreat_hp) \
+			or w.boss_attacks.telegraph_up()
+
+
+## (longest attack reach the build owns, longest reach that is ready now), px. Counts the held weapon's swing
+## (BasicAttack.reach, always ready) and the active damaging skills (SkillRunner.reach_of); ready = off cooldown and
+## affordable. Beginner (job 0) skills such as Three Snails only count while the build has no attack of its own job
+## line, so a Warrior's long starter shot does not make it kite. (0, 0) = nothing can attack.
+static func _reach_profile(w: RunWorld) -> Vector2:
+	var line := Vector2.ZERO
+	var base := Vector2.ZERO
+	for key: String in w.loadout.order:
+		if not w.loadout.book.is_active(key):
+			continue
+		var st := w.runner.stats_of(w, key)
+		var r := SkillRunner.reach_of(st, w)
+		if r <= 0.0:
+			continue
+		var ready := float(w.runner.cooldowns.get(key, 0.0)) <= 1e-6 and float(w.player_state.mp) >= int(st.mp_cost)
+		var own := Vector2(r, r if ready else 0.0)
+		if int(w.book.def(key).get("job", 0)) == 0:
+			base = Vector2(maxf(base.x, own.x), maxf(base.y, own.y))
+		else:
+			line = Vector2(maxf(line.x, own.x), maxf(line.y, own.y))
+	var skills := line if line.x > 0.0 else base
+	var swing := w.basic.reach(w)
+	return Vector2(maxf(skills.x, swing), maxf(skills.y, swing))
 
 
 ## Whether the bot can collect pickup `i` now: an equipment drop needs room in the Equip tab (a full one never takes it,
