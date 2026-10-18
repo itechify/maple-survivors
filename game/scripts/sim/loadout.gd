@@ -345,7 +345,7 @@ func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
 		effects[String(buff.stat)] = book.canonical(key, lv, String(buff.get("field", "")), 0.0)
 	for effect: Dictionary in buff.get("effects", []):
 		var stat := String(effect.stat)
-		# `scale` (optional, default 1) turns a positive WZ number into a penalty: Rage's WDEF side effect uses -1.
+		# `scale` (optional, default 1) flips a WZ sign (the Boosters' negative speed steps use -1; Rage's pdd is already negative in the WZ and takes no scale).
 		effects[stat] = float(effects.get(stat, 0.0)) \
 			+ book.canonical(key, lv, String(effect.field), 0.0) * float(effect.get("scale", 1.0))
 	return effects
