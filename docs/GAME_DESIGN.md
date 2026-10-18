@@ -221,7 +221,8 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   attacks only grounded, fully faded in, not frozen, with its feet on screen and the character in a range; it tries its
   attacks in canonical order. Its wait counts only that on-screen time: the first is 50-100% of its interval (by spawn
   identity, so a wave spawned together does not attack in unison), the next the full interval (5 s for both Tauros).
-  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); boss
+  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); an
+  attack the window turns away shows no hit art either (#144, tier C); boss
   `attack`/`projectile` hits ignore it. All cadence values are tier C.
 - **Mob skills (#76):** ordinary mobs cast none. Character statuses (Slow and the like) come only from bosses (owner,
   #76); Jr. Boogie 3230300 lists Seal (120) and Curse (124) in Mob.wz but deals contact damage only, and both are skipped
@@ -462,6 +463,18 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #142 / #143 / #144 / #146 / #148 combined regression smoke (2026-10-18)
+
+`ISOLATE=lead_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` on
+the merged branch (all five tickets plus their review fixes), real cache, no PATCH or tuning. All 12 runs finish with no
+crashes, script errors or world warnings; every record has `missing: []` and `warnings: []`. Every outcome and end time
+agrees to the second with the #152 smoke on `39276ef` below (which rounds to whole seconds; here to 0.1 s): Henesys
+bot D 849.7 / 906.6 / 287.9 s, random D 501.7 / 339.4 / 321.4 s; Tree bot D 574.3 / 76.6 / 47.9 s, random D 339.3 / 84.3 / 47.9 s. Magician is reached at
+265.0-281.8 s in the same five Henesys runs, and bot seed 2026 still dies at Lv 9 before advancing. #146's tick-cost work
+is output-identical by construction (`test_tick_cost_identity.gd`), and #144 only withholds the `hit` art of attacks
+the hit window already turned away, so no change was expected. MP-short seconds per run (SYSTEMS line): Henesys bot
+83.1 / 90.7 / 150.5, random 68.7 / 86.4 / 112.8.
 
 #### #152 job-generic prefactor regression smoke (2026-10-17)
 
@@ -3490,6 +3503,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hit window chain gap (#88) | `balance.hit_window.chain_gap` 2.5 s: a landed hit this soon after the previous landed hit steps to the next shorter window; between 2.5 s and the reset the step holds | C | ours |
 | Hit window reset (#88) | `balance.hit_window.reset_after` 3.0 s without a landed hit restores the full window (and starts the chain over) | C | ours |
 | Boss skill attacks ignore the hit window (#88) | A boss skill attack (`source_kind` `attack`, `projectile` from a scheduled boss) lands during the window, hits at most once per attack instance (a ball is used up only when it hits), starts the full `lengths[0]` window without advancing the chain and counts as a landed hit for the reset. Boss body touch and every ordinary mob attack respect the window; an ordinary ball that the window turns away flies on, with no hit and no hit art, and can land once the window ends (also from inside the body box). Misses give no window and do not touch the chain; god and death still block everything | C | ours |
+| Ordinary mob attacks and the hit window (#144) | An ordinary mob's area or targeted (type 0/1) attack that the hit window turns away at impact does nothing: no damage, no `player_hit`, no `hit` phase and no hit art, as an ordinary ball already behaves (#88). A rolled MISS is not blocked: it emits the MISS `player_hit` and keeps its hit art. Boss attacks bypass the window as before; dead and god-mode attacks are still no-ops for damage and keep their hit art, as before. No v83 evidence settles the window rule: Cosmic does no invincibility check (the client decides hits), the HeavenClient-family clients skip collisions while invincible but have no mob-attack hit art, and Harepacker's later-client simulator draws hit art regardless (weak evidence) | C | ours; owner decision 2026-10-17 |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
 | Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |

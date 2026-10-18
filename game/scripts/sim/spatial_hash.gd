@@ -115,8 +115,9 @@ func rebuild(xs: PackedFloat32Array, ys: PackedFloat32Array, active: PackedByteA
 		_sy[k] = ys[i]
 
 
-## Writes the indices of points inside r into out; returns how many.
-func query_rect(r: Rect2, out: PackedInt32Array) -> int:
+## Writes the indices of points inside r into out; returns how many. With `limit` > 0 it stops after that many (the
+## first ones in cell order).
+func query_rect(r: Rect2, out: PackedInt32Array, limit: int = 0) -> int:
 	if _count == 0:
 		return 0
 	var c0 := clampi(int(floor((r.position.x - _x0) * _inv)), 0, _cols - 1)
@@ -140,11 +141,14 @@ func query_rect(r: Rect2, out: PackedInt32Array) -> int:
 					out.resize(cap)
 				out[n] = _ids[k]
 				n += 1
+				if n == limit:
+					return n
 	return n
 
 
-## Writes the indices of points within distance rad of c into out; returns how many.
-func query_radius(c: Vector2, rad: float, out: PackedInt32Array) -> int:
+## Writes the indices of points within distance rad of c into out; returns how many. With `limit` > 0 it stops after
+## that many (the first ones in cell order).
+func query_radius(c: Vector2, rad: float, out: PackedInt32Array, limit: int = 0) -> int:
 	if _count == 0 or rad < 0.0:
 		return 0
 	var c0 := clampi(int(floor((c.x - rad - _x0) * _inv)), 0, _cols - 1)
@@ -165,4 +169,6 @@ func query_radius(c: Vector2, rad: float, out: PackedInt32Array) -> int:
 					out.resize(cap)
 				out[n] = _ids[k]
 				n += 1
+				if n == limit:
+					return n
 	return n

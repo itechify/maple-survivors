@@ -15,6 +15,9 @@ extends RefCounted
 
 ## Vertical spacing of shots that reuse a target. tier C: ours.
 const REUSE_SPREAD := 8.0
+## Grid candidates _any_target checks before it reads the whole query. Performance only, not behaviour (no tier):
+## the answer is the same for any value.
+const ANY_PROBE := 8
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
 const SHOTS := "shots"
@@ -36,6 +39,7 @@ var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat64Array()
 var _shortages := {}
+var _undead := PackedByteArray()
 var _slow_serial := 0
 
 
@@ -110,22 +114,61 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
-		var plan := _admit_cast(world, key, st, origin)
-		if plan.is_empty():
+		# has_target gives admission's answer without building and sorting the target list (issue #146): a ready skill
+		# without a target, or short of MP, never needs the list. Only a skill about to cast is admitted in full.
+		if not has_target(world, key, st, origin):
 			_shortages.erase(key)
 			continue
-		if not world.spend_mp(int(st.mp_cost)):
+		if not world.mp_affordable(int(st.mp_cost)):
 			waiting_mp = true
 			if not _shortages.has(key):
 				world.emit("mp_short", {"skill": key, "skill_id": int(st.skill_id), "required_mp": int(st.mp_cost),
 					"mp": int(world.player_state.mp)})
 			_shortages[key] = true
 			continue
+		var plan := _admit_cast(world, key, st, origin)  # has_target said yes, so admission does too
+		world.spend_mp(int(st.mp_cost))
 		_shortages.erase(key)
 		cooldowns[key] = restart_cooldown(st) if is_buff else maxf(cd, -dt) + restart_cooldown(st)
 		cooldown_totals[key] = cooldowns[key]
 		_resolve_cast(world, key, st, origin, plan)
 		break
+
+
+## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
+## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
+## ordering them. cast_ready uses it while the skill is short of MP, when the targets themselves are never used.
+func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> bool:
+	match String(st.cast_rule):
+		"", "nearest":
+			if String(st.kind) == "buff":
+				if not world.can_start_buff(key, st):
+					return false
+				if float(st.duration) > 0.0:
+					return true
+			return _any_target(world, origin, float(st.range), int(st.count))
+		"box":
+			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			return bool(st.has_box) and world.skill_box_count(st.box, need) >= need
+		"crowd":
+			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
+				return world.swarm.can_slow_cast(slot, _slow_serial)) >= need
+		"hp_or_undead":
+			var heal: Dictionary = world.book.def(key).get("heal", {})
+			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
+				return true
+			if not bool(st.has_box):
+				return false
+			# The undead filter of _admit_hp_or_undead as a mask over mob kinds (no Callable per body).
+			var kinds: Array = world.swarm.kinds
+			_undead.resize(kinds.size())
+			var any := false
+			for k in kinds.size():
+				_undead[k] = 1 if (kinds[k] as MobKind).undead else 0
+				any = any or _undead[k] != 0
+			return any and world.skill_box_count(st.box, 1, Callable(), _undead) >= 1
+	return false
 
 
 func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
@@ -273,6 +316,27 @@ func _find_targets(world: RunWorld, origin: Vector2, rng_px: float, want: int) -
 			_tgt.resize(want)
 			_tgt_d.resize(want)
 	return _tgt.size()
+
+
+## Whether _find_targets(world, origin, rng_px, want) would find at least one target. It first looks at only the
+## first ANY_PROBE candidates of the same grid query (usually one of them is in range) and reads the whole query only
+## when none is.
+func _any_target(world: RunWorld, origin: Vector2, rng_px: float, want: int) -> bool:
+	if want <= 0:
+		return false
+	var s := world.swarm
+	var r2 := rng_px * rng_px
+	var limit := ANY_PROBE
+	while true:
+		var n := world.mob_grid.query_radius(origin, rng_px + world.body_pad, _buf, limit)
+		for c in n:
+			var m := _buf[c]
+			if s.active[m] != 0 and world.mob_center(m).distance_squared_to(origin) <= r2:
+				return true
+		if limit == 0 or n < limit:
+			return false
+		limit = 0
+	return false
 
 
 func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2, targets: PackedInt32Array) -> void:

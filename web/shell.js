@@ -29,7 +29,7 @@ const state = {
 	events: [],
 	engineRunning: false,
 	toldStorage: false, // the storage result toast was shown (once per page load)
-	persistReady: null, // promise of the navigator.storage.persist() request, set at boot
+	persistReady: null, // promise of the boot-time storage state read (never waits on the persist() prompt), set at boot
 };
 // For browser automation and bug reports (read-only by convention).
 window.mapleShell = state;
@@ -86,32 +86,23 @@ function setStatus(text, kind, detail) {
 
 // ---- Storage persistence ------------------------------------------------------------------------------------------------
 
-async function requestPersistence() {
-	const line = $('storage-line');
-	if (!navigator.storage || !navigator.storage.persist) {
-		state.persist = 'unsupported';
-	} else {
-		try {
-			state.persist = (await navigator.storage.persisted()) || (await navigator.storage.persist()) ? 'persistent' : 'best-effort';
-		} catch (e) {
-			state.persist = 'unsupported';
-		}
-	}
-	let usage = '';
-	try {
-		const est = await navigator.storage.estimate();
-		if (est && est.usage) usage = ` (${lib.formatBytes(est.usage)} used)`;
-	} catch (e) {
-		/* no estimate */
-	}
-	const text = {
-		persistent: 'Storage: kept (persistent)',
-		'best-effort': 'Storage: best effort (the browser may clear it when space runs short)',
-		unsupported: 'Storage: not confirmed by this browser',
-	}[state.persist];
-	line.textContent = text + usage;
-	line.className = 'storage ' + (state.persist === 'persistent' ? 'good' : 'warn');
-	note('persist: ' + state.persist);
+// The footer shows the current state at once; the browser's permission prompt (Firefox) is answered in the background
+// and a grant only upgrades the line. Nothing here waits on it (lib.createPersistence).
+const persistence = lib.createPersistence({
+	storage: navigator.storage,
+	onChange(snapshot) {
+		state.persist = snapshot.persist;
+		const status = lib.storageStatus(snapshot);
+		const line = $('storage-line');
+		line.textContent = status.text;
+		line.className = 'storage ' + (status.good ? 'good' : 'warn');
+		note('persist: ' + state.persist);
+	},
+});
+
+/** Reads the storage state, shows it, and asks for persistence in the background. Resolves without the prompt. */
+function requestPersistence() {
+	return persistence.request();
 }
 
 // ---- Remembered source ----------------------------------------------------------------------------------------------------
