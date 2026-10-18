@@ -4014,6 +4014,30 @@ The export's existing `data/survivor/*/*.json` include filter covers these files
 Adding the two Thief window entries intentionally changes unforced bot records. The inherited event/pacing tests freeze
 their old job pool; existing combat and player-state goldens are retained. Full smoke belongs to #215; no balance tuning.
 
+### 7.22 Disorder (#210)
+
+`disorder` (4001002) is a status-only instant skill, usable with any weapon. It applies the existing **Threatened**
+status: signed canonical x/y lower PAD and WDEF by 1..20, floored at zero, for the canonical 7..60 seconds, costing
+5..10 MP across 20 ranks (tier A). The real table is stepwise; it is read as-is, without interpolation.
+
+It uses Threaten's crowd admission: at least three live ordinary mobs that accept the status and are not already
+threatened. Skill.wz gives Disorder no box or count, so `cast.box` supplies (-250,-150)..(250,150) and `cast.mob_count`
+supplies six, nearest first (tier C). Loadout uses these only as fallbacks when canonical lt/rb or mobCount are absent.
+The 1 s cooldown and 0.8 s alert2 stance are tier C survivor choices; v83 provides no action or player effect here.
+Disorder's canonical `mob` art plays once on each recipient, alongside the shared Threatened cue and its Use sound.
+
+`cast.interrupt: true` cancels a successfully affected mob's pending pre-impact ordinary attack and releases its
+authored stance. The next-attack wait keeps running on its original schedule. No stun is applied; movement and
+future attacks remain available. An attack already at impact or a projectile already launched is not undone
+(tier C interpretation of the v83 attack-interruption text). Threaten omits the flag and keeps its previous behavior
+and records. Neither skill rolls RNG. Bosses and already-threatened mobs cannot receive Disorder.
+
+Only `disorder_new` and `disorder_rank` cards exist, not power cards, with jobs [400] and no carry_jobs or behavior
+cards. Learn/rank weights 3/2 match Threaten (tier C). Deterministic tests cover crowd admission, nearest cap, canonical
+cuts/costs/durations and expiry, boss/duplicate exclusion, weapon freedom, attack interruption and the next attack's
+original schedule; paired Threaten coverage protects its unchanged behavior. A real-cache test checks all 20 levels.
+The `thief --disorder=1` flow-driver probe captures a real cast on an evidence-only prepared crowd.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4454,6 +4478,15 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Disorder (#210) additions:
+
+| System | Values / rule | Tier and source |
+|---|---|---|
+| Disorder 4001002 | 20 levels; MP 5..10, signed PAD/WDEF x/y -1..-20, time 7..60 s; any weapon, mob art and Use sound | A: Skill.wz/400.img and Sound.wz/Skill.img/4001002; no canonical box/count/action/effect |
+| Disorder crowd | at least 3 eligible ordinary mobs; nearest 6 in (-250,-150)..(250,150); 1 s cooldown, alert2 held 0.8 s | C: survivor adaptation, matching low-rank Threaten's reach; untuned |
+| Disorder interrupt | cancel a recipient's pending pre-impact attack and stance, retain its existing next-attack wait; no stun, no undo of impacts or launched balls | C: our interpretation of v83 text "stunting the ongoing attacks"; Threaten remains unchanged |
+| Disorder presentation/cards | own mob animation once at recipient centre, shared Threatened cue while active; learn/rank weights 3/2, job400 only, no behavior cards | C: presentation and card choices; A: mob art and rank cap20 |
 
 Thief tracer (#207) additions:
 

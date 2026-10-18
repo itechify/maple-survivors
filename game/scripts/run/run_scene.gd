@@ -1079,6 +1079,8 @@ func handle_events(events: Array) -> void:
 					fx.play(String(e.afterimage), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"mob_hit":
 				_on_mob_hit(e)
+			"skill_mob_effect":
+				fx.play(String(e.effect), (e.pos as Vector2).round())
 			"mob_died":
 				_sound(SND_MOB % [int(e.mob_id), "Die"])
 			"player_hit":

@@ -549,7 +549,14 @@ func _resolve_crowd(world: RunWorld, key: String, st: Dictionary, targets: Packe
 	# and nothing is rolled (tier A absence); the Slow serial is Slow's own and stays put.
 	params["y"] = world.book.canonical(key, level, "y")
 	for i in mini(strike_count(st), targets.size()):
-		world.swarm.apply_status(targets[i], status, params, world.events)
+		var slot := targets[i]
+		if world.swarm.apply_status(slot, status, params, world.events):
+			# tier C: Disorder interrupts the pending attack, without stun or a new timer; Threaten omits this flag.
+			if bool(st.cast_params.get("interrupt", false)):
+				world.mob_attacks.interrupt(world, slot)
+			if String(st.hit) != "":
+				# tier C: status-only mob art plays once at the recipient's centre, without a damaging mob_hit.
+				world.emit("skill_mob_effect", {"skill": key, "mob": slot, "pos": world.mob_center(slot), "effect": String(st.hit)})
 
 
 func _resolve_instant_targets(world: RunWorld, st: Dictionary, targets: PackedInt32Array,
