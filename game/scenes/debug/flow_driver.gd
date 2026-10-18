@@ -36,7 +36,8 @@ extends Node
 ##           skill_weapon_greyed, skill_weapon_tooltip.
 ##   skill_warrior  the Warrior's Skill window (#163): a Warrior owning all six skills and a Cleaving Strike card (debug
 ##           setup); K opens Skill on the Warrior tab, hovering Slash Blast shows its HP / MP cost and weapon line, Esc
-##           closes. Shots: skill_warrior_window, skill_warrior_tooltip.
+##           closes and Iron Body casts itself (debug MP). Shots: skill_warrior_window, skill_warrior_tooltip,
+##           skill_warrior_iron_body.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
 ##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
 ##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
@@ -1315,7 +1316,14 @@ func _scenario_skill_warrior() -> void:
 	_check(String(tip.get("key", "")) == "slash_blast" and int(tip.get("hp_cost", 0)) == 8 and bool(tip.get("usable", false)),
 		"the tooltip shows Slash Blast's HP cost and says the sword can use it")
 	await _shot("skill_warrior_tooltip")
+	# Debug setup: enough MP for Iron Body, which auto-casts as soon as Esc lets the sim run again.
+	w._base_mp = 100.0
+	w.refresh_player_stats()
+	w.heal_fraction("mp", 1.0)
 	await _key(KEY_ESCAPE)
+	await _sleep(0.5)
+	_check(w.buffs.has("iron_body"), "Iron Body was cast once the window closed")
+	await _shot("skill_warrior_iron_body")
 	print("flow_driver: skill_warrior scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
