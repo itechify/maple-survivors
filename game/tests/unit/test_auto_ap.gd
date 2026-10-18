@@ -13,7 +13,7 @@ func _keyframes() -> Array:
 	return DataRepo.load_all().balance.player.ap_secondary["200"].keyframes
 
 
-func _level_to(w: RunWorld, target: int) -> void:
+func _level_to(w: RunWorld, target: int, forced_job := 0) -> void:
 	var exp := (w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level)
 		- w.progression.exp)
 	w.pickups.spawn(w.player.pos, exp, 4000019)
@@ -22,7 +22,7 @@ func _level_to(w: RunWorld, target: int) -> void:
 		if int(w.player_state.level) == target:
 			break
 	assert_eq(int(w.player_state.level), target, "EXP was collected through the run")
-	RF.auto_choose(w)
+	BotInput.auto_choose(w, false, forced_job)
 
 
 func test_luk_target_matches_the_v83_magician_requirements() -> void:
@@ -42,9 +42,9 @@ func test_split_fills_the_secondary_stat_up_to_target_and_never_more_than_earned
 
 func test_magician_levelled_from_10_to_70_keeps_base_luk_at_target_and_the_rest_in_int() -> void:
 	var w := RF.quiet_world(400.0, 601)
-	_level_to(w, 9)
+	_level_to(w, 9, 200)
 	for level in range(10, 71):
-		_level_to(w, level)
+		_level_to(w, level, 200) # #199: exercise Magician AP independently of the expanding first-job pool.
 		assert_true(int(w.player_state.job_id) in [200, 210, 220, 230], "a Magician line job")
 		var earned := 5 * (level - 1)
 		# Base values come from the Beginner start (LUK 4, INT 4); equipment is not involved here.
@@ -62,6 +62,7 @@ func test_beginner_attributes_are_unchanged_at_every_level() -> void:
 	data.jobs_survivor.jobs["200"].playable = false
 	data.jobs_survivor.jobs["100"].playable = false
 	data.jobs_survivor.jobs["500"].playable = false
+	data.jobs_survivor.jobs["300"].playable = false
 	var w := RunWorld.new(RF.setup("quiet", 602, data))
 	RF.place_player(w, 400.0)
 	for level in range(2, 31):
