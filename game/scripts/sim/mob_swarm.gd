@@ -332,24 +332,27 @@ func can_crowd_cast(i: int, status: String, serial: int) -> bool:
 ## `weapon_attack` of the mob in slot i after a Threaten cut: lowered by the flat amount (never below 0) while it is
 ## threatened, `weapon_attack` itself otherwise. Contact damage and weapon attacks (MobAttacks) read it.
 func threatened_pad(i: int, weapon_attack: float) -> float:
-	if i < 0 or i >= capacity() or status_left[i * STATUS_COUNT + THREATENED] <= 0.0:
-		return weapon_attack
-	return maxf(0.0, weapon_attack - threat_pad[i])
+	return _threat_cut(i, weapon_attack, threat_pad)
 
 
 ## `weapon_defense` of the mob in slot i after a Threaten cut (never below 0) while it is threatened, else unchanged.
 func threatened_pdd(i: int, weapon_defense: float) -> float:
-	if i < 0 or i >= capacity() or status_left[i * STATUS_COUNT + THREATENED] <= 0.0:
-		return weapon_defense
-	return maxf(0.0, weapon_defense - threat_pdd[i])
+	return _threat_cut(i, weapon_defense, threat_pdd)
 
 
 ## Applies the Threaten cut to `pdd` (per-slot weapon defence already filled for the live slots) of every threatened slot.
 func lower_threatened_pdd(pdd: PackedFloat32Array) -> void:
 	for k in _status_slots.size():
 		var i := _status_slots[k]
-		if i < pdd.size() and status_left[i * STATUS_COUNT + THREATENED] > 0.0:
-			pdd[i] = maxf(0.0, pdd[i] - threat_pdd[i])
+		if i < pdd.size():
+			pdd[i] = _threat_cut(i, pdd[i], threat_pdd)
+
+
+## `value` less the Threaten cut `cuts[i]` (never below 0) while slot i is threatened, else `value` unchanged.
+func _threat_cut(i: int, value: float, cuts: PackedFloat32Array) -> float:
+	if i < 0 or i >= capacity() or status_left[i * STATUS_COUNT + THREATENED] <= 0.0:
+		return value
+	return maxf(0.0, value - cuts[i])
 
 
 ## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key);
