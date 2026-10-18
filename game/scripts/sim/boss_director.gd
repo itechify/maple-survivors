@@ -186,8 +186,14 @@ func _track_pursuit(index: int, world: RunWorld, dt: float) -> void:
 		record.stall = 0.0
 		record.anchor = Vector2(s.x[slot], s.y[slot])
 		return
-	var distance := float(s.route_len[slot])
 	var pos := Vector2(s.x[slot], s.y[slot])
+	if world.is_hidden():
+		# Hidden (#194): nobody to pursue, so the boss neither stalls nor teleports to the character.
+		record.stall = 0.0
+		record.best_distance = INF
+		record.anchor = pos
+		return
+	var distance := float(s.route_len[slot])
 	var moved := pos.distance_to(record.anchor)
 	var progress := float(rules.teleport_progress)
 	if distance <= float(s.tuning.stop_dist) or (distance < float(record.best_distance) - progress and moved >= progress):

@@ -670,6 +670,7 @@ img Item.wz/Pet/5000002.img stand1
 img Map.wz/Effect.img quest/party/clear
 img Map.wz/MapHelper.img mark
 img Map.wz/Physics.img *
+img Morph.wz/1002.img *
 img Npc.wz/1012100.img *
 img Npc.wz/1022000.img *
 img Npc.wz/1032001.img *

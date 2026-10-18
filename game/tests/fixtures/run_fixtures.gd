@@ -197,7 +197,23 @@ static func skill_imgs() -> Dictionary:
 		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
 		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
 			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	# #194: Oak Barrel 5101007, the v83 level values; the other second-job skills of the line add their own entries.
+	imgs["510"].skill["5101007"] = oak_barrel_skill()
 	return imgs
+
+
+## Skill.wz/510.img/skill/5101007 (Oak Barrel): the v83 level values (tier A, read from the owner's files), synthetic art.
+static func oak_barrel_skill() -> Dictionary:
+	var mp := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+	var time := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+	var prop := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
+	var cooltime := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
+	var levels := {}
+	for i in 10:
+		levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": float(mp[i]), "time": float(time[i]),
+			"prop": float(prop[i]), "cooltime": float(cooltime[i]), "morph": 1002.0}
+	return {"icon": _canvas(32, 32), "effect": _anim(10, 90.0, 60, 80), "affected": _anim(5, 150.0, 100, 90),
+		"level": levels}
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).

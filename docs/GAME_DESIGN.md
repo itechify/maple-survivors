@@ -3350,7 +3350,7 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
 ### 7.9 Moving attacks (generic, #190, spec #168)
 
 An auto-cast attack may move the character: away from the mob it faces (Backspin Blow, Recoil Shot) or toward it (a
-Corkscrew Blow charge). The mechanism is generic and data-driven; Backspin Blow and Corkscrew Blow (7.14, #191) use it, and
+Corkscrew Blow charge). The mechanism is generic and data-driven; Backspin Blow and Corkscrew Blow (7.15, #191) use it, and
 #192 adds the Gunslinger's Recoil Shot. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
 stops at the platform's edge or at a wall, never walks off and never passes a wall; the cast never fails because of
 terrain, it only moves less; while airborne (and on a rope, where nothing casts) the attack casts without moving.
@@ -3538,10 +3538,66 @@ the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP 
 cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
 `requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
 branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
-Double Shot. The Brawler's attacks are 7.14 (#191); the Gunslinger's come with #192, MP Recovery with #193 and Oak Barrel with
+Double Shot. The Brawler's attacks are 7.15 (#191); the Gunslinger's come with #192, MP Recovery with #193 and Oak Barrel with
 #194.
 
-### 7.14 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
+### 7.14 Hidden state and Oak Barrel (#194, spec #168)
+
+**Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
+block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
+Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (owner rules, #168 grilling):
+
+- **Monsters, bosses included, ignore the character.** `MobSwarm.step` gets `ctx.hidden` and no target: ground mobs
+  patrol their platform the way a mob with no route does (they walk the way they face and turn at walls and platform
+  ends), flyers hover where they are (tier C). Scheduled bosses neither stall nor teleport to the character
+  (`BossDirector`), and `SpawnDirector` does not recycle mobs as "gone" or "stalled".
+- **No hit of any kind lands:** contact damage (`_touch`), ordinary and boss attacks (`MobAttacks.plan` starts nothing;
+  a windup already under way plays its phases but lands nothing and launches no ball), mob skills aimed at the character
+  (Slow), and balls (they pass through; the ball is not used up and ends at its range). `take_hit` also returns 0 for
+  any source as the safety net.
+- **The character cannot attack:** `SkillRunner.cast_ready` skips every attack skill (active, not a buff, not manual,
+  damage type other than none; the cooldown keeps running), and `BasicAttack` starts no swing and drops one in its
+  windup. Buffs, potions, pickups, movement and manual movement skills (Teleport, Dash) still work. Shots already in
+  flight keep flying.
+- **Presentation:** `player_state.hidden` and `player_state.morph`.
+- **Edge cases (tier C):** a boss already fading out for a pursuit teleport when Hidden begins still finishes that teleport;
+  Cleric Heal still heals below its HP threshold but never strikes undead (it is an attack in this rule even though its
+  `damage` is `none`).
+
+**The buff block.** `buff`: `hidden` (bool), `morph_field` (the level number holding the Morph.wz id), `fail_field` (the
+level number holding the failure chance in percent), `end_hp_above` (an HP fraction above which the buff ends early),
+`cooldown_from_cast` (the cooldown is exactly the cooldown field from the cast, instead of at least the duration; the
+active buff alone blocks a recast). A cast with a failure chance rolls once on the Pirate stream 16 (`pirate_rng`,
+`randf() < fail_chance`); a failed cast pays MP, starts the cooldown, plays no effect and emits `buff_failed` instead
+of `buff_cast`. A skill's `cast` block may set `mob_within` (px): a buff with it needs a living mob within that distance of
+the cast origin (the same reach test as nearest-rule attacks).
+
+**Oak Barrel 5101007** (Brawler 510, ranks 1–10 = Skill.wz levels, no weapon requirement, `skills/pirate.json` entry
+`oak_barrel`, slot "passive" like the other buffs):
+
+| | rank 1 | rank 10 | source |
+|---|---|---|---|
+| MP | 11 | 20 | tier A `mpCon` |
+| Barrel time | 12 s | 30 s | tier A `time` |
+| Failure chance | 37% | 10% | tier A `prop` (read as the failure chance, as the #194 brief states) |
+| Cooldown | 35 s | 15 s | tier A `cooltime` |
+| Morph | 1002 | 1002 | tier A `morph` |
+
+It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), a mob is within 250 px
+(`cast.mob_within`, tier C) and the cooldown is ready; the barrel ends early once HP is above 60% (`end_hp_above` 0.6,
+tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
+(weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
+
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
+`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
+their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
+keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
+`test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
+`test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
+`scenes/debug/morph_driver.tscn`.
+
+### 7.15 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
 
 Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
 with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
@@ -3573,7 +3629,7 @@ its sweep ignores walls for the hit box: a mob just past a wall that the end-of-
 Cooldowns 1.5 s (Backspin), 1.2 s (Double Uppercut), 2.0 s (Corkscrew); cast stance holds 0.8 s, 1.0 s, 0.8 s.
 Presentation: the skills' `effect`, `hit/0`, Use and Hit sounds and the body actions `backspin`, `doubleupper`,
 `screw` (Character.wz/00002000.img) play as for Flash Fist; the second effect layer `effect0` of Backspin Blow, the
-second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP Recovery is 7.12, Oak Barrel follows
+second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP Recovery is 7.12 and Oak Barrel 7.14.
 with #194.
 
 ## 8. Upgrades
@@ -4026,9 +4082,9 @@ Pirate tracer (#186) additions:
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
 | Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
 | Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
-| Backspin Blow (#191, 7.14) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
-| Double Uppercut (#191, 7.14) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
-| Corkscrew Blow (#191, 7.14) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the sweep ignores walls for its hit box | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
+| Backspin Blow (#191, 7.15) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
+| Double Uppercut (#191, 7.15) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
+| Corkscrew Blow (#191, 7.15) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the sweep ignores walls for its hit box | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
 | Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.10) |
 | Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
 | Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
@@ -4313,6 +4369,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
 | Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
 | Mob Stun behavior | no walking, route/jump/flyer pursuit, new attacks or mob skills, touch damage or hit flinch/push while stunned; animation clocks and damage continue; an airborne mob still falls straight down; a new stun keeps the longer remaining time; elementless (never rejected by an element); `on_hit` `prop`/`time` from Skill.wz | C | #187 owner brief; the stunned look and the `prop`/`time` fields are Skill.wz (tier A) |
+| Hidden state (#194, 7.14) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
+| Oak Barrel values (#194) | MP 11-20, time 12-30 s, failure chance 37-10% (`prop`), cooldown 35-15 s, morph 1002; the cooldown counts from the cast even when the barrel outlasts it | A | Skill.wz/510.img/skill/5101007 (`prop` read as the failure chance per the #194 brief) |
+| Oak Barrel conditions (#194) | casts below 30% HP with a mob within 250 px and the cooldown ready; the barrel ends early above 60% HP; a failed cast still pays MP and the cooldown, rolled once per cast on stream 16; cards: learn weight 3, rank weight 2, max rank 10, Brawlers only | C | owner decisions (30%, 60%, mob near, stream 16) + ours (250 px, card weights) |
+| Morph rendering (#194) | the avatar is replaced by one `Morph.wz` canvas per frame, feet on the origin; attack and cast stances show `stand`; the morph's `info` speed/jump are not applied | A art / C mapping | Morph.wz/1002.img; stance-to-action mapping is ours |
 | Mob Stun cue | the v83 stun stars (`mob` node of Backspin Blow, Shout, Blank Shot ...: 3 frames, 100 ms, repeat), looped over the body top (pos2); yellow (1,.95,.55) tint fallback | A art / C anchor and fallback tint | Skill.wz 111.img skill 1111008 mob (identical to 5101002/5101003/5201004); manifest entry in asset_manifest.json |
 | Mob status cues | Slow one-shot cached mob art, Poison repeat art; pos3 centre/pos2 top; Slow amber (1,.72,.40), Freeze cyan (.45,.80,1), fallback Poison violet (.72,.45,.90) | A art / C anchors and tint choices | original Skill.wz/210.img, Cold Beam has no mob overlay; [status research](research/monster-status-effects.md) |
 | Default frame delay | 100 ms | C | HeavenClient |

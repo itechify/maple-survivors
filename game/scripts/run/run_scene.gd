@@ -1583,6 +1583,8 @@ func _update_player(delta: float) -> void:
 	var p := world.player
 	player_group.position = p.pos.round()
 	var dead := bool(world.player_state.dead)
+	# A morphing buff (Oak Barrel) draws the character as its Morph.wz art; the avatar returns when it ends or on death.
+	avatar.set_morph(0 if dead else int(world.player_state.get("morph", 0)))
 	if not dead:
 		avatar.set_facing(p.facing)
 	var layer := _player_layer

@@ -66,6 +66,9 @@ func step(world: RunWorld) -> void:
 			var spec: Dictionary = _tables.get(str(id), {}).get("level", {}).get(str(level), {})
 			if spec.is_empty() or id not in SUPPORTED:
 				continue
+			# Hidden (#194): a skill aimed at the character (Slow) is not cast while it is Hidden.
+			if id == SKILL_SLOW and world.is_hidden():
+				continue
 			var key := "%d/%d/%d" % [index, id, level]
 			# tier C: a skill first becomes ready one canonical interval after the boss arrives (never on the arrival
 			# tick), then one interval after each cast; WZ has the interval, not when the first use may happen.
