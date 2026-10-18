@@ -3033,6 +3033,8 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
   Admission prepares targets before the existing single MP payment/cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+- Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
+  (7.9); it resolves to `Loadout.stats().displacement` (`{}` when absent).
 - Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
   `skill_mod` effects with `stat: "area", op: "mul"` multiply that scale (the planned ×1.2 card step is tier C).
   `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
@@ -3331,6 +3333,55 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
+
+### 7.9 Moving attacks (generic, #190, spec #168)
+
+An auto-cast attack may move the character: away from the mob it faces (Backspin Blow, Recoil Shot) or toward it (a
+Corkscrew Blow charge). The mechanism is generic and data-driven; no shipped skill uses it until #191 and #192 add the
+Pirate attacks. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
+stops at the platform's edge or at a wall, never walks off and never passes a wall; the cast never fails because of
+terrain, it only moves less; while airborne (and on a rope, where nothing casts) the attack casts without moving.
+
+**The `displacement` block** (optional, in the skill's definition in `skills/<line>.json`, any cast rule, any non-buff
+kind):
+
+```json
+"displacement": {
+  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "when": "before" | "after" | "during",   // default "after"
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
+  // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
+}
+```
+
+`Loadout.stats(key)` resolves it to `displacement`: `{}` for a skill without the block, otherwise
+`{"direction", "when", "distance"}` with `distance` in px, never negative. A distance of 0 means no move.
+
+- **Direction.** The reference mob is the first admitted target (bosses first, then nearest: the order every rule
+  uses); with no target, or one within 0.5 px of the character's x, the character's facing stands in for it. `toward` is
+  the side of that mob, `away` the opposite side. A moving attack turns the character toward its reference mob in every
+  movement state (like Power Strike), so `away` backs off while still facing the mob and `toward` charges at it.
+- **Distance** is horizontal px (the way ground walking integrates), not path length along a slope.
+- **Terrain** (`FootholdMap.slide_along`, called through `PlayerMotion.displace` and `RunWorld.displace_player`): follows
+  the platform's chain of floors, so slopes carry the feet up and down; stops at the end of the chain (the platform
+  edge), 0.01 px (`FootholdMap.EPS`) short of a wall standing across the surface on the way (a wall hanging below the
+  surface is walked past, as on foot), and inside the map's horizontal limits. A blocked move is simply shorter or zero.
+- **Result.** The move is instant (the character is placed, at rest on its foothold); input, knockback, the hit window and
+  the pet follow as after any attack, from the next tick. Presentation that wants a glide reads the `cast` event's `pos`
+  (where the cast began, before any displacement, for every `when`) and the player's position afterwards; no extra event.
+- **`when`.** MP, HP and the cooldown are paid first, and the targets are chosen at the start position. `after`: the
+  hits (or shots) resolve, then the character moves. `before`: the character moves, then the hits resolve on the same
+  targets (they are not re-chosen after the move, so a `before` melee hit does not miss because it moved), and shots leave
+  from the moved position. `during` (a charge): the character moves, then strikes up to the skill's `mob_count` mobs
+  inside the swept path instead of the admitted targets. On a projectile skill `during` acts as `before`.
+- **The swept path** of a charge is the skill's attack box (the canonical `lt`/`rb` scaled by `area`, mirrored for the
+  facing; the player's body box when the level has none) at the start and at the end of the move, and everything between,
+  so a mob that triggered the cast is still struck when the charge stops short of it. Hits go to the mobs in it ordered
+  scheduled bosses first, then nearest to where the charge began; each takes `attackCount` lines. A cast admitted by a
+  mob outside the path strikes nothing (tier C: the admission rule and the path belong to the skill's data).
+- **Determinism.** No new RNG stream and no new events; the same seed gives the same run
+  (`tests/unit/test_moving_attacks.gd`: slides on synthetic footholds, then whole casts with a synthetic skill).
 
 ## 8. Upgrades
 
@@ -3942,6 +3993,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|---|
 | Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
 | Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
+| Moving attacks (#190, 7.9) | A skill's `displacement` block (`direction` away/toward the faced mob, `when` before/after/during, `field`/`distances`/`distance` in horizontal px) moves the grounded character along its platform: instant placement, stops at the platform edge, 0.01 px (`FootholdMap.EPS`) short of a wall, inside the map limits; the cast never fails for terrain; no move while airborne; `during` (a charge) strikes up to `mob_count` bosses-first/nearest mobs in the swept attack box (start to end; the body box without a skill box); `before`/`after` keep the targets admitted at the start; the character turns to the mob first; `cast` event `pos` is the pre-move position | C | owner decisions (#168 grilling) + ours; `FootholdMap.slide_along`, `PlayerMotion.displace`, `SkillRunner._resolve_cast` |
 | Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD: the shared blue waiting-for-MP tint (#82; was 0.35 grey); 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
 | HUD skill cooldown sweep and MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82); HudSkills (SWEEP_STEPS), RunWorld.skill_readiness / read_skill_cooldowns |
 | Bot Teleport MP reserve | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.TELEPORT_MP_RESERVE_FRACTION` / `TELEPORT_ATTACK_RESERVE_CASTS` |
