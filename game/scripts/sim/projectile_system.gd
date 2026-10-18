@@ -281,7 +281,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
 		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": magic[i] != 0,
-			"damage": roll.x, "element": element[i]})
+			"damage": roll.x, "element": element[i], "damage_type": damage_type[i]})
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 

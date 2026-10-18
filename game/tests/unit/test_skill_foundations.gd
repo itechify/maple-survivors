@@ -168,7 +168,8 @@ func test_hit_listeners_observe_cast_level_status_and_live_hp_before_lethal_hit(
 		if hits.is_empty():
 			continue
 		assert_eq(hits[0].slot, m)
-		assert_eq(hits[0].hit, {"skill": "synthetic", "level": 1, "magic": false, "damage": 10, "element": ""})
+		assert_eq(hits[0].hit, {"skill": "synthetic", "level": 1, "magic": false, "damage": 10, "element": "",
+			"damage_type": "fixed"}) # #161 added damage_type so listeners (Final Attack) can tell physical lines
 		assert_eq(hits[0].hp, 5, "listener can absorb from the still-living victim")
 		assert_near(hits[0].freeze, 3.0, 1e-6, "status applies first and snapshots launch level")
 
