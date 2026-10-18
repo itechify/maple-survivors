@@ -14,6 +14,9 @@ func _event_digest(ticks: int) -> String:
 	# #186 adds Pirate to the unforced first-job pool intentionally. Keep this pre-Pirate baseline's job pool fixed
 	# to prove stream 16 and the additive data consumers do not perturb any existing seeded event bytes.
 	var data := DataRepo.load_all()
+	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
+	data.jobs_survivor.jobs["400"].playable = false
+	data.jobs_survivor.jobs["400"].reason = "Not in this build"
 	data.jobs_survivor.jobs["500"].playable = false
 	data.jobs_survivor.jobs["500"].reason = "Not in this build"
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1, data)))

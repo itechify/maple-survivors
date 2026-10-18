@@ -302,6 +302,11 @@ The manifest says what to import. The importer expands convenience entries into 
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
 
+Thief (#207): `thief.json` owns whole Skill.wz 400/410/420 books, all their active-skill sound nodes, Dark Lord
+1052001 (moved from main), claws/daggers and stars (moved from common), both first-job path gifts, second-job
+Steel Guards 1472008 and Reef Claw 1332012, and the curated Thief drop roster. Shared afterimages and Weapon.img
+sounds stay in common. The five survivor Thief line files use the existing export filter. The manifest golden is updated.
+
 Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active-skill Sound.wz nodes, Kyrin
 1090000 and her String.wz name, regular knuckles/guns 1482000-9 / 1492000-9, and bullets 2330000-2. Kyrin moved
 from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img

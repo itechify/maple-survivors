@@ -188,9 +188,10 @@ var reward_rng: RandomNumberGenerator
 var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
+## Thief-only rolls (stream 15, #207): reserved for Steal's success chance (#214).
+var thief_rng: RandomNumberGenerator
 ## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
 ## needs its own stream.
-var thief_rng: RandomNumberGenerator
 var pirate_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0

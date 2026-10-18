@@ -39,7 +39,7 @@
 		{"img": "Character.wz/PetEquip/01812005.img", "paths": ["info"]},
 		{"img": "String.wz/Consume.img"},
 		{"img": "Item.wz/Consume/0204.img"},
-		{"img": "String.wz/Npc.img", "paths": ["1022000", "1012100", "1052001", "9010000", "9201133", "9030000", "9030100", "9250025", "9000069", "1032103", "2022002", "1052104", "2041016"]},
+		{"img": "String.wz/Npc.img", "paths": ["1022000", "1012100", "9010000", "9201133", "9030000", "9030100", "9250025", "9000069", "1032103", "2022002", "1052104", "2041016"]},
 		{"img": "Npc.wz/1032103.img"},
 		{"img": "Npc.wz/2022002.img"},
 		{"img": "Npc.wz/1052104.img"},
@@ -51,7 +51,6 @@
 		{"img": "Npc.wz/9201133.img"},
 		{"img": "Npc.wz/1022000.img"},
 		{"img": "Npc.wz/1012100.img"},
-		{"img": "Npc.wz/1052001.img"},
 		{"img": "Npc.wz/9010000.img"},
 		{"img": "Character.wz/PetEquip/01812000.img", "paths": ["info"]},
 		{"img": "Character.wz/PetEquip/01812001.img", "paths": ["info"]}

@@ -147,6 +147,9 @@ func test_full_run_real_map() -> void:
 	var data := DataRepo.load_all()
 	# #186 intentionally expands the unforced job pool. Preserve this inherited Magician pacing regression's
 	# pre-Pirate pool and all its bounds; the forced Pirate tests/playtests cover the tracer, #195 owns its smoke.
+	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
+	data.jobs_survivor.jobs["400"].playable = false
+	data.jobs_survivor.jobs["400"].reason = "Not in this build"
 	data.jobs_survivor.jobs["500"].playable = false
 	data.jobs_survivor.jobs["500"].reason = "Not in this build"
 	for stage: String in ["henesys_hg1", "tree_that_grew_1"]:

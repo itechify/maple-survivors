@@ -133,6 +133,14 @@ static func skill_imgs() -> Dictionary:
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
 	# #186: original v83 endpoints, synthetic linear interpolation between them. No proprietary art.
+	# #207: original Thief endpoints; intermediate fixture levels are synthetic interpolation.
+	imgs["400"] = {"skill": {
+		"4000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})},
+		"4001334": {"weapon": 33, "level": _levels(20, {"mpCon": [8.0, 14.0],
+			"damage": [98.0, 140.0], "attackCount": [2.0, 2.0]})},
+		"4001344": {"weapon": 47, "level": _levels(20, {"mpCon": [8.0, 16.0],
+			"damage": [58.0, 150.0], "bulletCount": [2.0, 2.0]})},
+	}}
 	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
 	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
 			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:

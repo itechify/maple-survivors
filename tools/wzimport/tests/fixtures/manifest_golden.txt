@@ -42,6 +42,9 @@ character 1002103
 character 1002104
 character 1002105
 character 1002106
+character 1002107
+character 1002122
+character 1002127
 character 1002132
 character 1002133
 character 1002134
@@ -50,11 +53,16 @@ character 1002142
 character 1002143
 character 1002144
 character 1002145
+character 1002146
 character 1002151
 character 1002152
 character 1002153
 character 1002154
 character 1002155
+character 1002171
+character 1002176
+character 1002181
+character 1002207
 character 1002215
 character 1002216
 character 1002217
@@ -64,10 +72,12 @@ character 1002243
 character 1002244
 character 1002245
 character 1002246
+character 1002247
 character 1002252
 character 1002253
 character 1002254
 character 1002279
+character 1002281
 character 1002296
 character 1002310
 character 1002317
@@ -118,6 +128,16 @@ character 1040017
 character 1040018
 character 1040019
 character 1040020
+character 1040031
+character 1040034
+character 1040042
+character 1040048
+character 1040057
+character 1040061
+character 1040082
+character 1040094
+character 1040098
+character 1040105
 character 1041002
 character 1041004
 character 1041006
@@ -133,12 +153,21 @@ character 1041026
 character 1041029
 character 1041030
 character 1041031
+character 1041036
+character 1041039
 character 1041041
 character 1041042
 character 1041043
+character 1041044
+character 1041047
 character 1041051
 character 1041052
 character 1041053
+character 1041057
+character 1041074
+character 1041077
+character 1041094
+character 1041100
 character 1042000
 character 1042024
 character 1042030
@@ -186,6 +215,7 @@ character 1050070
 character 1051003
 character 1051004
 character 1051005
+character 1051006
 character 1051023
 character 1051024
 character 1051025
@@ -224,6 +254,16 @@ character 1060012
 character 1060013
 character 1060014
 character 1060015
+character 1060021
+character 1060024
+character 1060031
+character 1060037
+character 1060043
+character 1060050
+character 1060071
+character 1060083
+character 1060087
+character 1060093
 character 1061002
 character 1061008
 character 1061010
@@ -234,12 +274,21 @@ character 1061021
 character 1061022
 character 1061027
 character 1061028
+character 1061029
+character 1061032
 character 1061034
 character 1061035
 character 1061036
+character 1061037
+character 1061043
 character 1061047
 character 1061048
 character 1061049
+character 1061053
+character 1061069
+character 1061076
+character 1061093
+character 1061099
 character 1062000
 character 1062001
 character 1062003
@@ -263,8 +312,11 @@ character 1072017
 character 1072018
 character 1072019
 character 1072020
+character 1072022
 character 1072023
 character 1072024
+character 1072028
+character 1072032
 character 1072037
 character 1072038
 character 1072042
@@ -279,6 +331,7 @@ character 1072056
 character 1072062
 character 1072063
 character 1072064
+character 1072070
 character 1072072
 character 1072073
 character 1072074
@@ -286,15 +339,19 @@ character 1072075
 character 1072076
 character 1072077
 character 1072078
+character 1072084
 character 1072088
 character 1072089
 character 1072090
 character 1072091
 character 1072097
+character 1072104
+character 1072107
 character 1072114
 character 1072115
 character 1072116
 character 1072117
+character 1072128
 character 1072136
 character 1072137
 character 1072138
@@ -303,10 +360,12 @@ character 1072140
 character 1072141
 character 1072142
 character 1072143
+character 1072150
 character 1072157
 character 1072158
 character 1072159
 character 1072160
+character 1072161
 character 1072169
 character 1072189
 character 1072191
@@ -320,7 +379,12 @@ character 1082019
 character 1082020
 character 1082026
 character 1082028
+character 1082029
+character 1082032
+character 1082037
 character 1082040
+character 1082042
+character 1082045
 character 1082051
 character 1082052
 character 1082053
@@ -330,6 +394,8 @@ character 1082056
 character 1082062
 character 1082063
 character 1082064
+character 1082065
+character 1082074
 character 1082077
 character 1082079
 character 1082080
@@ -338,6 +404,8 @@ character 1082082
 character 1082086
 character 1082087
 character 1082088
+character 1082092
+character 1082095
 character 1082098
 character 1082099
 character 1082100
@@ -367,6 +435,9 @@ character 1092014
 character 1092015
 character 1092016
 character 1092017
+character 1092018
+character 1092019
+character 1092020
 character 1092022
 character 1092023
 character 1092024
@@ -442,6 +513,25 @@ character 1322018
 character 1322019
 character 1322054
 character 1332000
+character 1332001
+character 1332002
+character 1332003
+character 1332004
+character 1332006
+character 1332008
+character 1332009
+character 1332010
+character 1332011
+character 1332012
+character 1332013
+character 1332014
+character 1332015
+character 1332016
+character 1332017
+character 1332018
+character 1332019
+character 1332031
+character 1332063
 character 1372000
 character 1372001
 character 1372002
@@ -530,6 +620,36 @@ character 1442051
 character 1452000
 character 1462000
 character 1472000
+character 1472001
+character 1472002
+character 1472003
+character 1472004
+character 1472005
+character 1472006
+character 1472007
+character 1472008
+character 1472009
+character 1472010
+character 1472011
+character 1472012
+character 1472013
+character 1472014
+character 1472015
+character 1472016
+character 1472017
+character 1472018
+character 1472019
+character 1472020
+character 1472021
+character 1472022
+character 1472023
+character 1472024
+character 1472025
+character 1472026
+character 1472027
+character 1472028
+character 1472029
+character 1472061
 character 1482000
 character 1482001
 character 1482002
@@ -696,6 +816,9 @@ img Skill.wz/200.img *
 img Skill.wz/210.img *
 img Skill.wz/220.img *
 img Skill.wz/230.img *
+img Skill.wz/400.img *
+img Skill.wz/410.img *
+img Skill.wz/420.img *
 img Skill.wz/500.img *
 img Skill.wz/510.img *
 img Skill.wz/520.img *
@@ -747,6 +870,17 @@ img Sound.wz/Skill.img 2301002
 img Sound.wz/Skill.img 2301003
 img Sound.wz/Skill.img 2301004
 img Sound.wz/Skill.img 2301005
+img Sound.wz/Skill.img 4001002
+img Sound.wz/Skill.img 4001003
+img Sound.wz/Skill.img 4001334
+img Sound.wz/Skill.img 4001344
+img Sound.wz/Skill.img 4101003
+img Sound.wz/Skill.img 4101004
+img Sound.wz/Skill.img 4101005
+img Sound.wz/Skill.img 4201002
+img Sound.wz/Skill.img 4201003
+img Sound.wz/Skill.img 4201004
+img Sound.wz/Skill.img 4201005
 img Sound.wz/Skill.img 5001001
 img Sound.wz/Skill.img 5001002
 img Sound.wz/Skill.img 5001003

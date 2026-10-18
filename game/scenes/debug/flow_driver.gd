@@ -106,6 +106,8 @@ extends Node
 ##           Save & quit -> character select -> Continue: job, weapons, skills and cards equal the snapshot before quitting.
 ##           Shots: warrior2_<b>_job_window_100/_<b>, _job_confirm_*, _advancement_draw, _playing, _skill_window_top,
 ##           _skill_window_bottom, _skill_greyed_tooltip, _hub, _character_select, _continue_restored; summary.json.
+##   thief   first-job tracer (#207), --path=claw|dagger: real Lv10 window, both gifts, and combat screenshots.
+##           Invulnerable EXP-drop climb; skill cards applied for evidence only. Save stays in shots_dir.
 ##   pirate  the Pirate line end to end (spec #168 QA #195; `--path=knuckle|gun`, `--branch=510|520`): title -> new character
 ##           -> round; EXP drops (debug warp, invulnerable meanwhile) take it through the real level-up cards to Lv10 and the
 ##           real job window (both paths offered, one taken; its weapon worn, the other path's weapon and the creation
@@ -196,6 +198,8 @@ func _ready() -> void:
 			_scenario_warrior()
 		"warrior2":
 			_scenario_warrior2()
+		"thief":
+			_scenario_thief()
 		"pirate":
 			_scenario_pirate()
 		"keys":
@@ -1542,6 +1546,64 @@ func _scenario_warrior() -> void:
 ## through the real level-up cards and the real Lv 30 window (`--branch=510|520`, default the path's own), the Lv 30 weapon
 ## worn, Dash on its real skill key (X; its card is applied as debug setup, not drawn), then the Free Market boundary, Save &
 ## quit and Continue keeping job, path, weapons and skills.
+func _scenario_thief() -> void:
+	var path_id := String(args.get("path", "claw"))
+	if path_id not in ["claw", "dagger"]:
+		_fail("--path must be claw or dagger")
+		return
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Thief207"):
+		return
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(2.0)
+	var w := run.world
+	w.god = true # tier C: evidence-only invulnerability while the EXP drops open the real job window.
+	var first := await _pirate_climb(run, 10, 400, path_id, "thief_lv10")
+	if first.is_empty():
+		return
+	_check(first.entries.any(func(t: String) -> bool: return t.begins_with("Thief - Claw")) \
+		and first.entries.any(func(t: String) -> bool: return t.begins_with("Thief - Dagger")), "both Thief paths shown")
+	var weapon := 1472061 if path_id == "claw" else 1332063
+	var other := 1332063 if path_id == "claw" else 1472061
+	_check(w.weapon_id() == weapon and w.weapon_path == path_id, "chosen weapon and path")
+	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == other), "opposite gift in Equip")
+	var key := "lucky_seven" if path_id == "claw" else "double_stab"
+	w.upgrades.apply(key + "_new", w) # evidence: ensure this attack is available regardless of the random draw.
+	w.upgrades.apply("nimble_body_new", w)
+	w.heal_fraction("mp", 1.0)
+	run.handle_events(w.drain_events())
+	var kills0 := w.kills
+	_steer = true
+	if not await _until(func() -> bool: return w.kills > kills0, 30.0, "Thief combat kill"):
+		return
+	_steer = false
+	_release_all()
+	# Evidence-only durable target, so the captured frame shows an attack instead of the gap after a kill.
+	var mob_kind := 0
+	var dx := 120.0 if path_id == "claw" else 45.0
+	w.spawn_mob(mob_kind, w.player.pos + Vector2(dx, 0), w.player.fh, 1000.0, false)
+	w.basic.cooldown = 60.0
+	w.runner.cooldowns[key] = 0.0
+	w.heal_fraction("mp", 1.0)
+	run.handle_events(w.drain_events())
+	if not await _until(func() -> bool: return String(w.player_state.action) == String(w.book.def(key).action) \
+		and float(w.player_state.action_t) < 0.1, 15.0, "Thief attack action"):
+		return
+	await _shot("thief_" + path_id + "_fighting", 0.05)
+	_check(w.warnings.is_empty(), "no world warnings")
+	_collect_missing(run)
+	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])
+	_quit()
+
+
+## Pirate end-to-end scenario (see the scenario list above).
 func _scenario_pirate() -> void:
 	var path_id := String(args.get("path", "knuckle"))
 	var other_path := "gun" if path_id == "knuckle" else "knuckle"
@@ -3219,10 +3281,10 @@ func _until(cond: Callable, timeout: float, what: String) -> bool:
 	return true
 
 
-func _shot(step: String) -> void:
+func _shot(step: String, settle_seconds := 0.35) -> void:
 	# The collaborative desktop may occlude the window; explicitly render this evidence frame.
 	# tier C: let the existing modal input guard and 0.15s open transition finish before the next input/capture.
-	await _sleep(0.35)
+	await _sleep(settle_seconds)
 	await get_tree().process_frame
 	RenderingServer.force_draw()
 	_collect_missing(flow.current)

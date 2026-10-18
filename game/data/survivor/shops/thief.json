@@ -1,0 +1,7 @@
+{
+	"_doc": "Thief Free Market weapon slots (#207), existing NPC rates and weapon pricing (tier C selection). Existing data/survivor/*/*.json export filter ships every Thief line file.",
+	"weapon_slots": [
+		"claw",
+		"dagger"
+	]
+}
