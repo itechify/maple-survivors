@@ -887,9 +887,12 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 
 1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run played all 7,200 ticks of its 120 s in
    7,081 recorded frames (frames right after a screenshot are not recorded, and fewer than 2% ran a catch-up tick),
-   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
-   reached: Henesys caps at 330 alive from 15:00 (`stages.json`), and in this seed the bot dies at 15:07 on both
-   platforms.
+   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs were not
+   reached because in this seed the bot dies at 15:07 on both platforms. Henesys' alive cap is not a flat 330
+   (`stages.json`, `SpawnDirector.max_alive_at`): its `max_alive` keyframe curve reaches 330 at 15:00 and, past that last
+   keyframe, keeps rising at a quarter of its previous slope (`post_duration_slope` 0.25: 0.125 mobs/s, about 345 by
+   17:00). Bursts may go past the curve up to `hard_cap` 400, and elites spawn while fewer than 400 are alive; boss
+   summons (MobSkill 200) and revives are bounded by their canonical summon limit and revive list, not by `hard_cap`.
 2. **Sim:** 1.38x desktop: 3.9 ms/tick at about 340 mobs, 1.7 ms at 200-290.
 3. **Peak wasm heap:** 178 MiB in a `--run` session with 200-341 mobs; it stops growing during the warp. The title
    screen alone takes the heap to 339 MiB, and the heap never shrinks, so a full title-to-round session peaks at 339
@@ -1030,7 +1033,8 @@ Minutes 15 and 16 (342-356 mobs) on their own, uncapped: web p95 16.8 / 16.4 ms 
 p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
 
 1. **What changed since 10.1.** With B2/B3 the same seed no longer dies at 15:07: the bot is alive at 17:00 with up to
-   356 mobs (Henesys' cap of 330 no longer holds), and the desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
+   356 mobs. That is the alive cap working as designed (10.1 item 1): the curve is at about 345 by 17:00, and a burst
+   or an elite adds the rest. The desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
    measured 2849 at 292-341 mobs. The web/desktop ratio is unchanged (sim 1.36x here, 1.38x in 10.1; frame p95 1.8x,
    p99 2.3x).
 2. **Verdict against the bar (60 FPS at 330-400 mobs): marginal.** Median and mean are comfortable (p50 4.2-4.6 ms,
