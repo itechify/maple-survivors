@@ -463,17 +463,6 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-**Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
-(a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
-heal casts) and `BasicAttack.reach(world)` (the farthest afterimage box edge of the held weapon's five stances, or the
-punch). When the longest attack it owns reaches under `bot.engage.kite_reach` (220 px; Beginner skills such as Three
-Snails only count while it owns no attack of its own job line) it stops kiting: it walks to 0.8 x the reach of its
-longest ready attack (off cooldown, affordable; the swing always counts) from the nearest on-level mob within 300 px and
-stands facing it. Below 35% HP, or while a boss attack winds up, it kites as before. Every Magician attack reaches
-260+ px, so Magician and Beginner inputs are unchanged (`test_bot_melee.gd` holds digests captured on main). The
-random policy shares the movement and the camper policies still override it after their warmup. Constants:
-`bot.engage` in `balance.json`, tier C (section 11).
-
 #### #160 weapon attack speed and Boosters: timing deltas (spec #151)
 
 No smoke was run for this ticket (the lead runs the spec's smokes). The deltas follow from the design in 7.7: every
@@ -3173,9 +3162,10 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
 - **HP cost.** `Loadout.stats().hp_cost` is the canonical `hpCon`. `SkillRunner.cast_ready` skips a skill whose HP cost
   `RunWorld.can_pay_hp` refuses (HP must stay above 0; no `mp_short`, nothing paid), then pays MP and HP together
   (`RunWorld.spend_hp`). The bot counts a skill ready only when both costs are payable.
-- **Facing.** Both attacks turn a standing character toward the target before the cast (Power Strike toward the side with
-  the nearer first target inside the envelope, ties keep the facing; Slash Blast toward its first target); a walking
-  character keeps its way. The `cast` event carries the new facing.
+- **Facing.** Both attacks turn the character toward the target before the cast in every movement state (Power Strike
+  toward the side with the nearer first target inside the envelope, ties keep the facing; Slash Blast toward its first
+  target). A held direction sets a walking or airborne character's facing again on the next motion step, so the turn lasts
+  for the cast only (tier C). The `cast` event carries the new facing.
 - **Weapon gating** (7.5). Power Strike and Slash Blast list the five Warrior melee families (`weapon_families`, tier C: the
   WZ nodes name no weapon and the String text says a sword). With a wand, a bare hand or any other family they are not
   cast, their cards are not offered, the bot ignores them (`BotInput._reach_profile`, `_can_duel` and the teleport reserve
@@ -3578,6 +3568,17 @@ named, the bot draws one of a first job's paths from the job stream (8); a force
 family the branch can use. `--job=<id>[:<path>]` (`--job=400:claw`; `balance.sh`, `playtest.sh`, `--run`) names the path;
 a path the line does not have fails at startup.
 
+**Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
+(a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
+heal casts) and `BasicAttack.reach(world)` (the farthest afterimage box edge of the held weapon's five stances, or the
+punch). When the longest attack it owns reaches under `bot.engage.kite_reach` (220 px; Beginner skills such as Three
+Snails only count while it owns no attack of its own job line) it stops kiting: it walks to 0.8 x the reach of its
+longest ready attack (off cooldown, affordable; the swing always counts) from the nearest on-level mob within 300 px and
+stands facing it. Below 35% HP, or while a boss attack winds up, it kites as before. Every Magician attack reaches
+260+ px, so Magician and Beginner inputs are unchanged (`test_bot_melee.gd` holds digests captured on main). The
+random policy shares the movement and the camper policies still override it after their warmup. Constants:
+`bot.engage` in `balance.json`, tier C (section 11).
+
 ## 10. Presentation
 
 - 800x600 logical view (wider windows show more map at the same pixel scale), integer scaling, nearest filtering. An
@@ -3606,6 +3607,12 @@ a path the line does not have fails at startup.
 | Job base accuracy | `CombatMath.ACCURACY_FACTORS`: DEX/LUK .8/.5, .6/.3, Brawler .9/.3, nearest ancestor | B | SouthPerry/HS.net, refs §5 |
 | Accuracy → crit | Base 0, +0.0005 per ACC, default ×1.5; all jobs and damage types including basic | C | Owner spec #151 / ADR 0005; small placeholder, no tuning |
 | Passive crit damage | Add `crit_damage_bonus` skill-% points when positive, otherwise ×`crit_mult` | B | SouthPerry Critical Shot/Throw additive rule |
+
+| Weapon family rule (#154, #156, #158) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Family display names | `WeaponInfo.FAMILY_LABELS`: Sword, Axe, Blunt weapon, Dagger, Wand, Staff, Spear, Pole Arm, Bow, Crossbow, Claw, Knuckle, Gun; "Bare hands" for none. The Skill window and its tooltip name the weapon a skill needs with them | C | ours; the wording follows the v83 item names |
+| Two-handed weapons | `WeaponInfo.FIRST_TWO_HANDED_TYPE` 140: every weapon type from 140 (two-handed swords, axes, blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) blocks the shield slot | B | Cosmic `isTwoHanded` (server reimplementation; facts only) |
+| Basic-attack stance table | `WeaponInfo.ACTIONS_ONE_HANDED`, `ACTIONS_TWO_HANDED` and `BASIC_ACTIONS` (the table under "Weapons on the avatar"): every listed stance exists in the type's representative weapon item, the body and (melee) the afterimage; which of them a family uses for the automatic attack, and their order (the basic-attack stream indexes it), is our choice | A (the stances exist), C (the selection and order), B (the five one-handed stances) | `Character.wz/Weapon` and `Afterimage`; ours; pre-Big-Bang client descriptions |
 
 | Free Market rule | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -3698,7 +3705,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Numeric-string scroll info | `DataRepo.scroll_info` casts numeric strings (hat Accuracy 10% 2040016 stores `success` as `"10"`) | A (WZ data), C (cast) | v83 Item.wz/Consume/0204.img |
 | Hub scroll seed | The Free Market's scroll rolls are seeded by `FreeMarket.scroll_seed(snapshot)`: the saved run seed `round_seed` x 1000003 plus a hash of the character's equipment, scrolls and mesos, re-applied after every change; the same save always rolls the same, every scroll changes the next seed, quitting cannot reroll. `bot_shop(policy, seed)` rolls its scrolls from its own stream `hash("scrolls-shop-hub-<seed>")` | C | Lead decision, review |
 | Autoplay in the hub | With the `autoplay` option the Free Market runs `bot_shop("bot", round_seed)` once on entry | C | Ticket #112 text |
-| Player accuracy | Worn `incACC` (plus Bless) is stored in `player_state.acc` and shown in the Stat window only: the player's attacks never roll a hit chance in this game (no v83 player-hit roll is modelled), so accuracy has no combat effect | C | Lead decision, review of #105 |
+| Player accuracy | The job base (above) plus worn `incACC`, active buff `acc` and passive ACC is stored in `player_state.acc`, shown in the Stat window, and feeds the crit chance (row "Accuracy → crit"). The player's attacks never roll a hit chance (no v83 player-hit roll is modelled), so accuracy has no other combat effect | C | Lead decision, review of #105; owner spec #151 |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
