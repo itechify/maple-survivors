@@ -1537,6 +1537,15 @@ func _scenario_pirate() -> void:
 	var first_weapon := {"knuckle": 1482000, "gun": 1492000}
 	var branch := int(args.get("branch", 510 if path_id == "knuckle" else 520))
 	var lv30_weapon := 1482004 if branch == 510 else 1492004 # Prime Hands / Cold Mind (jobs.json grant_items)
+	# The scenario presses the default keys (E, I, X): start from a throwaway settings file, not the developer's bindings.
+	_backup_settings()
+	var settings := get_node_or_null("/root/Settings") as GameSettings
+	if settings == null:
+		_fail("no Settings autoload")
+		return
+	var scratch := "user://flow_driver_pirate_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
+	settings.reload_from(scratch)
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return
 	await _sleep(2.0)
@@ -1675,7 +1684,7 @@ func _scenario_pirate() -> void:
 	file.close()
 	print("flow_driver: pirate scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
-	get_tree().quit(1 if _failed else 0)
+	_quit()
 
 
 ## Takes the run to `target` level with EXP drops through the real level-up cards, answering the job window with the entry for

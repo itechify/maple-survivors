@@ -532,6 +532,10 @@ D = death time, then level at the end; Lv 30 = the Lv 30 advancement was reached
   weapon is worn and the other path's weapon and the creation weapon are in the Equip tab, the Lv 30 window offers
   both second jobs and the Lv 30 weapon (Prime Hands / Cold Mind) is worn, Dash on X raises speed and spends MP, and
   Save & quit then Continue keeps job, path, equipment, skills and mesos.
+- Screenshots (evidence, not committed) were taken with `flow_driver --scenario=pirate` (job windows, Equip tab with both weapons, Dash,
+  Save & quit / Continue), the new `scenes/debug/pirate_combat_driver.tscn` (both first-job paths, Brawler attacks, basic /
+  Split / Mighty bullets: summary.json records ammo 2330000 / 2330001 / 2330002) and the earlier drivers `dash_driver`,
+  `morph_driver --job=510` (Oak Barrel), `stun_driver` and `gunslinger_driver`; each was looked at.
 - Full suite and `cargo test` results are in the ticket report; the feature-ticket rule held: no balance data changed.
 
 #### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
