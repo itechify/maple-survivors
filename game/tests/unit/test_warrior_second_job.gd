@@ -302,3 +302,28 @@ func test_a_job_100_warrior_is_unaffected_and_a_magician_never_sees_warrior_card
 	magician.change_job(210)
 	for id in KEPT + DROPPED:
 		assert_false(id in magician.upgrades.eligible(magician), id)
+
+
+# --- the tools --------------------------------------------------------------------------------------------------------
+
+func test_job_110_120_130_can_be_forced_and_an_unknown_second_job_still_fails() -> void:
+	var data := DataRepo.load_all()
+	for job in [110, 120, 130]:
+		assert_eq(SceneFlow.forced_job_error({"job": job}, data), "", "--job=%d is accepted" % job)
+	assert_true("not playable" in SceneFlow.forced_job_error({"job": 310}, data), "the Hunter's line is still locked")
+	assert_true("not in the canonical" in SceneFlow.forced_job_error({"job": 150}, data), "a job the tree lacks fails")
+
+
+func test_the_bot_takes_the_forced_warrior_branch_and_an_unforced_one_draws_on_the_job_stream() -> void:
+	var w := _warrior()
+	_open_window(w)
+	for job in [110, 120, 130]:
+		assert_eq(BotInput.pick_choice(w.pending_jobs, w.job_rng, job, w.jobs, ""), {"job_id": job, "path": ""})
+	var seen := {}
+	for seed_value in 12:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var pick := BotInput.pick_choice(w.pending_jobs, rng, 0, w.jobs, "")
+		assert_true(pick.job_id in [110, 120, 130])
+		seen[pick.job_id] = true
+	assert_eq(seen.size(), 3, "all three branches come up over seeds")
