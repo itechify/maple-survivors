@@ -2995,7 +2995,7 @@ Where it applies (all read the same two functions, never a second rule):
 - **Casting.** `SkillRunner.cast_ready` skips an owned active skill the held weapon cannot use: no MP is spent, no
   shortage is signalled, and the cooldown keeps running, so the skill casts on the first tick a matching weapon is held
   again. A manual skill is refused the same way (no manual cast exists yet). Buffs already running keep running
-  (tier C). Passive effects are untouched here; a mastery's weapon check is the class spec's (#161).
+  (tier C). A passive's weapon check is done where its effect is read (`Loadout.passive_total`, see 7.6).
 - **Cards.** `UpgradePool.is_eligible` rejects every card with a `skill` (learn, rank and behaviour cards) while the
   weapon held when the draw rolls cannot use that skill; the advancement draw reads the same eligibility. Taking a card
   does not re-check it.
@@ -3008,6 +3008,36 @@ Where it applies (all read the same two functions, never a second rule):
 No shipping Magician or Beginner skill has a requirement (wand and staff skills are untagged), so their records are
 unchanged. Tier C summary: the `weapon_families` override and its `"any"` marker, the "buffs keep running" rule and the
 tooltip wording; tier A: the `weapon` field and its typo key.
+
+### 7.6 Shared passives, W.Att buffs and Final Attack (#161)
+
+These are the consumers every job line's passives use; the class specs only add data. All of them are skipped while the
+held weapon family fails the skill's `weapon_families` (7.5), and none of them changes a record until such a skill is owned.
+
+| Passive `stat` | Skill.wz field | Effect |
+|---|---|---|
+| `mastery` | `mastery` N | replaces the untrained 10% with (10 + 5N)%, raising the minimum damage of every physical line; the best owned value counts |
+| `acc` | `x` (a Mastery's second effect) | added to ACC, so also to crit chance (`balance.crit.per_acc`) and the Stat window's ACC |
+| `crit_chance` | `prop` | percent chance added to the crit chance of every damage type and the basic attack |
+| `crit_damage` | `damage` | the critical hit's total percent: on a crit the skill multiplier gains `damage - 100` points (additive, 7.5/6.1) instead of x`crit_mult`; best owned value counts |
+| `max_hp_per_level` | `x` | Max HP gained at every level-up after learning, at the skill's rank at that moment; never retroactive |
+
+A skill declares them in skills.json as `passive: {"stat": "mastery", "field": "mastery", "effects": [{"stat": "acc",
+"field": "x"}]}`: the first stat as before, the rest in the optional `effects` list. **Buffs.** `watk` (Rage's `pad`) adds to
+W.Att while active, refreshing the physical bounds the tick it starts or ends; a buff `effects` entry takes an optional
+`scale` (default 1), so Rage's weapon-defence penalty is `{"stat": "pdd", "field": "pdd", "scale": -1}` (check the sign
+Skill.wz stores when the Warrior spec lands) and lowers `hit_defense().pdd` while it lasts.
+
+**Final Attack.** A passive skill with `final_attack: {"chance_field": "prop"}`, `damage: "physical"` (the canonical
+`damage` is the follow-up's skill percent) and an `action` (the stance whose swing/stab/shoot kind picks the bounds).
+After a damaging physical line (basic attack, instant skill or shot) while a matching family is held, it rolls `prop`
+percent on RNG stream 12; on a hit it queues one follow-up on the same mob, played at the end of that tick's attacks
+(`final_attack` event, then a normal `mob_hit` of the skill with live PDD, level gap and crits, all rolled on stream 12).
+Magic and fixed lines never trigger it, a follow-up never triggers another, and a target the trigger killed gets none.
+Stream 12 is only drawn when a Final Attack is owned and a line lands, so other records are unchanged. Tier B: mastery
+encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without retroactive HP. Tier C: one proc roll
+per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
+`effects` data shape.
 
 ## 8. Upgrades
 
@@ -3674,6 +3704,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
 | MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
 | MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
+| Mastery passive | WZ `mastery` N gives (10 + 5N)% (the same encoding as magic masteries); the best owned Mastery of the held family replaces the 10% base; its `x` adds ACC | B | Cosmic and String.wz agree (v83-facts section 3); #161 |
+| Crit passives | `crit_chance` = `prop` percent added to the crit chance; `crit_damage` = `damage` total percent, so a crit adds `damage - 100` points to the skill % instead of multiplying | B (additive rule), C (data shape) | SouthPerry Critical Shot/Throw (v83-facts section 5); #161 |
+| Improved MaxHP per level-up | `max_hp_per_level` adds the skill's `x` HP at each level-up after learning, never retroactively; persists through `base_hp` | B | v83 Cosmic level-up HP rule (v83-facts section 3); #161 |
+| Final Attack proc | canonical `prop`% chance after a damaging physical line of a matching family, follow-up at canonical `damage`% on the same mob, RNG stream 12, played at the end of the tick, none on a killed target or after a follow-up | A (prop, damage), C (per-line roll, timing, stream, no chains) | v83 Skill.wz; #161 |
+| Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

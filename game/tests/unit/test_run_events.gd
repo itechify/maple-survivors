@@ -288,6 +288,22 @@ func test_every_event_matches_the_schema() -> void:
 		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 	for event: Dictionary in eater.drain_events():
 		_check(event, seen)
+	# A synthetic Final Attack (#161) follows a physical line of the held sword with its own event.
+	var final_data := RF.quiet_data()
+	final_data.skills.skills["final_fixture"] = {"skill_id": 9991005, "book": "999", "kind": "passive", "slot": "passive",
+		"name": "Final", "damage": "physical", "ranks": [1], "action": "swingO1", "action_time": 0.0,
+		"final_attack": {"chance_field": "prop"}, "effect": "", "icon": ""}
+	var final_setup := RF.setup("quiet", 161, final_data)
+	final_setup.skill_imgs["999"] = {"skill": {"9991005": {"level": {"1": {"prop": 100, "damage": 200}}}}}
+	var finisher := RunWorld.new(final_setup)
+	RF.place_player(finisher, 400)
+	finisher.learn_skill("final_fixture")
+	var target := RF.put_mob(finisher, 100100, 450, 190, 1000)
+	finisher.hit_mob(target, {"skill": "fixture", "damage_type": "physical", "magic": false, "damage_min": 5.0,
+		"damage_max": 5.0, "crit": 0.0, "crit_mult": 1.5}, -1)
+	finisher.step(DT, MoveInput.new())
+	for event: Dictionary in finisher.drain_events():
+		_check(event, seen)
 	# An equipment drop beside the player with a full Equip tab: spawn, then the inventory-full notice.
 	var full := RF.quiet_world(400, 61)
 	while full.equipment.inventory.size() < full.inventory_slots():

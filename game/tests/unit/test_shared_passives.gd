@@ -214,6 +214,183 @@ func test_a_watk_buff_raises_damage_and_its_pdd_side_effect_lowers_defence() -> 
 	assert_eq(w.hit_defense().pdd, pdd_before, "and the defence penalty")
 
 
+## Final Attack: Sword shape: prop 40% / damage 200% at rank 1, prop 100% / damage 250% at rank 2; sword only.
+func _final_data(data: Dictionary) -> void:
+	data.balance.crit = {"chance": 0.0, "per_acc": 0.0, "mult": 1.5}
+	data.skills.skills["final_blade"] = {"skill_id": 9991005, "book": "999", "kind": "passive", "slot": "passive",
+		"name": "Final Attack", "damage": "physical", "ranks": [1, 2], "action": "swingO1", "action_time": 0.0,
+		"weapon_families": ["sword"], "final_attack": {"chance_field": "prop"}, "effect": "",
+		"icon": "Skill.wz/999.img/skill/9991005/icon"}
+
+
+func _final_world(p_seed := 161) -> RunWorld:
+	var w := _world(p_seed, _final_data)
+	w.setup.skill_imgs["999"].skill["9991005"] = {"level": {"1": {"prop": 40, "damage": 200},
+		"2": {"prop": 100, "damage": 250}}}
+	RF.place_player(w, 200)
+	return w
+
+
+## A mob that cannot die or move, and a physical trigger line like a basic attack or skill hit would report.
+func _dummy(w: RunWorld) -> int:
+	var mob := RF.put_mob(w, 100100, 260, 190, 1000000)
+	w.mob_kinds[w.swarm.kind[mob]].move_speed = 0
+	w.god = true
+	return mob
+
+
+func _trigger(w: RunWorld, mob: int, dtype := "physical") -> void:
+	w.hit_mob(mob, {"skill": "fixture", "damage_type": dtype, "magic": dtype == "magic", "damage_min": 100.0,
+		"damage_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5}, -1)
+
+
+func _count(w: RunWorld, skill: String) -> int:
+	var n := 0
+	for e: Dictionary in w.drain_events():
+		if e.type == "mob_hit" and String(e.skill) == skill:
+			n += 1
+	return n
+
+
+func test_final_attack_procs_at_its_prop_rate_on_a_matching_family_only() -> void:
+	var w := _final_world()
+	var mob := _dummy(w)
+	w.learn_skill("final_blade")
+	var procs := 0
+	for hit in 1000:
+		_trigger(w, mob)
+		w.step(DT, MoveInput.new())
+		procs += _count(w, "final_blade")
+	assert_between(procs, 340, 460, "prop 40% over 1000 hits on a fixed seed (expected 400, 5 sigma = 77)")
+	_wear(w, 1332063) # a dagger is not a sword
+	for hit in 300:
+		_trigger(w, mob)
+		w.step(DT, MoveInput.new())
+		procs += _count(w, "final_blade")
+	assert_between(procs, 340, 460, "no follow-up on a mismatched family")
+	_wear(w, 1302000)
+	w.loadout.set_rank("final_blade", 2)
+	var sure := 0
+	for hit in 50:
+		_trigger(w, mob)
+		w.step(DT, MoveInput.new())
+		sure += _count(w, "final_blade")
+	assert_eq(sure, 50, "prop 100% follows every hit")
+
+
+func test_final_attack_ignores_magic_and_fixed_hits_and_never_chains_on_itself() -> void:
+	var w := _final_world()
+	var mob := _dummy(w)
+	w.learn_skill("final_blade")
+	w.loadout.set_rank("final_blade", 2)
+	for dtype: String in ["magic", "fixed"]:
+		for hit in 20:
+			_trigger(w, mob, dtype)
+			w.step(DT, MoveInput.new())
+		assert_eq(_count(w, "final_blade"), 0, dtype + " lines get no Final Attack")
+	_trigger(w, mob)
+	for tick in 5:
+		w.step(DT, MoveInput.new())
+	assert_eq(_count(w, "final_blade"), 1, "one trigger, one follow-up, no chain (prop is 100%)")
+
+
+func test_final_attack_hits_for_its_own_percent_through_live_defence() -> void:
+	var w := _final_world()
+	var mob := _dummy(w)
+	w.learn_skill("final_blade")
+	w.loadout.set_rank("final_blade", 2)
+	var st := w.loadout.stats("final_blade")
+	assert_eq(st.damage_pct, 2.5)
+	var mk: MobKind = w.mob_kinds[w.swarm.kind[mob]]
+	var defended := CombatMath.physical_defense(Vector2(st.damage_min, st.damage_max), 1, mk.level, mk.pdd)
+	_trigger(w, mob)
+	w.step(DT, MoveInput.new())
+	var follow: Array = w.drain_events().filter(func(e: Dictionary) -> bool:
+		return e.type == "mob_hit" and String(e.skill) == "final_blade")
+	assert_eq(follow.size(), 1)
+	if follow.size() == 1:
+		assert_between(follow[0].damage, floori(defended.x * 2.5), ceili(defended.y * 2.5), "bounds x 250%")
+		assert_eq(follow[0].mob, mob, "on the same target")
+
+
+func test_final_attack_stream_twelve_leaves_every_other_stream_untouched() -> void:
+	var with_fa := _final_world()
+	var control := _final_world() # same seed, Final Attack never learned
+	with_fa.learn_skill("final_blade")
+	with_fa.loadout.set_rank("final_blade", 2)
+	var a := _dummy(with_fa)
+	var b := _dummy(control)
+	var twelve := with_fa.final_rng.state
+	for tick in 30:
+		_trigger(with_fa, a)
+		_trigger(control, b)
+		with_fa.step(DT, MoveInput.new())
+		control.step(DT, MoveInput.new())
+	assert_ne(with_fa.final_rng.state, twelve, "the follow-ups rolled on stream 12")
+	for stream: String in ["rng", "basic_rng", "spawn_rng", "card_rng", "drop_rng", "potion_rng", "reward_rng", "job_rng",
+			"meso_rng", "equip_rng", "scroll_rng"]:
+		assert_eq(with_fa.get(stream).state, control.get(stream).state, stream + " is unaffected by Final Attack")
+
+
+func test_final_attack_is_skipped_when_the_trigger_killed_its_target() -> void:
+	var w := _final_world()
+	var mob := RF.put_mob(w, 100100, 260, 190, 0.0001)
+	w.mob_kinds[w.swarm.kind[mob]].move_speed = 0
+	w.god = true
+	w.learn_skill("final_blade")
+	w.loadout.set_rank("final_blade", 2)
+	_trigger(w, mob)
+	for tick in 3:
+		w.step(DT, MoveInput.new())
+	assert_eq(w.swarm.active[mob], 0, "the trigger killed it")
+	assert_eq(_count(w, "final_blade"), 0, "a dead target takes no follow-up (tier C)")
+
+
+func test_final_attack_follows_projectile_hits_and_announces_itself() -> void:
+	var w := _final_world()
+	var mob := _dummy(w)
+	w.learn_skill("final_blade")
+	w.loadout.set_rank("final_blade", 2)
+	w.drain_events()
+	w.projectiles.spawn({"x": 200.0, "y": w.mob_center(mob).y, "vx": 600.0, "range": 400.0, "damage_type": "physical",
+		"dmg_min": 100.0, "dmg_max": 100.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "skill": "fixture"})
+	var events := []
+	for tick in 30:
+		w.step(DT, MoveInput.new())
+		events.append_array(w.drain_events())
+	var follow := events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "final_blade")
+	assert_eq(follow.size(), 1, "an airborne physical shot triggers it too")
+	var announced := events.filter(func(e: Dictionary) -> bool: return e.type == "final_attack")
+	assert_eq(announced.size(), 1)
+	if announced.size() == 1:
+		assert_eq(announced[0].skill, "final_blade")
+		assert_eq(announced[0].mob, mob)
+		assert_eq(announced[0].action, "swingO1")
+
+
+func test_a_basic_attack_triggers_final_attack() -> void:
+	var data := RF.quiet_data()
+	data.upgrades.cards = []
+	data.balance.player.skills = []
+	data.balance.magnet_radius = 0
+	data.balance.mob_motion.push_px = 0
+	_final_data(data)
+	var setup := RF.with_basic_attack(RF.setup("quiet", 161, data))
+	setup.skill_imgs["999"] = {"skill": {"9991005": {"level": {"1": {"prop": 100, "damage": 200}}}}}
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.player.facing = 1
+	w.god = true
+	assert_true(w.learn_skill("final_blade"))
+	var mob := RF.put_mob(w, 100100, 450, 190, 1000)
+	w.mob_kinds[w.swarm.kind[mob]].move_speed = 0
+	var follow := 0
+	for tick in 40:
+		w.step(DT, MoveInput.new())
+		follow += _count(w, "final_blade")
+	assert_eq(follow, 1, "the creation sword's swing was followed up")
+
+
 func test_a_weapon_gated_buff_is_not_cast_with_another_weapon() -> void:
 	var w := _world(161, _rage_data)
 	w.setup.skill_imgs["999"].skill["9991004"] = {"level": {"1": {"pad": 3, "pdd": 3, "time": 46, "mpCon": 0}}}
