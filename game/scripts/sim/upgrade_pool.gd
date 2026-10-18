@@ -3,7 +3,8 @@ extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
 ##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id),
+## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id, or one of
+## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
 ## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
@@ -106,7 +107,8 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var jobs: Array = req.get("jobs", [])
 	if not jobs.is_empty():
 		var ok := false
-		for j: Variant in jobs:
+		# carry_jobs (spec #165 #180): later jobs that keep offering the card; the advancement draw reads `jobs` only.
+		for j: Variant in jobs + req.get("carry_jobs", []):
 			if state.progression.job_id == int(j):
 				ok = true
 				break

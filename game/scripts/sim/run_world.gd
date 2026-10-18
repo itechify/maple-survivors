@@ -1551,18 +1551,29 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 ## Wears the weapon an advancement grants and moves the previous one to the inventory (a grant never checks
 ## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
 ## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
-## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
+## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's advancement weapons
+## (JobTree.branch_grant, tier C, spec #165 #180): the one of the held weapon's family is worn, else the first family's;
+## the branch's other advancement weapons join the Equip tab after the displaced weapon (_hand_over).
 ## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
 ## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
 ## a slot is free), so advancing never fails.
 func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
+	var others: Array = []
 	if path != "":
 		id = int(jobs.path_of(job_id, path).get("item_id", id))
 	else:
-		var branch := jobs.branch_grant(job_id)
-		if not branch.is_empty() and held_weapon_family() not in branch.families:
-			id = int(branch.item_id)
+		var weapons: Array = jobs.branch_grant(job_id).get("weapons", [])
+		var worn_index := 0
+		for i in weapons.size():
+			if weapons[i].family == held_weapon_family():
+				worn_index = i
+				break
+		for i in weapons.size():
+			if i == worn_index:
+				id = int(weapons[i].item_id)
+			else:
+				others.append(int(weapons[i].item_id))
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
@@ -1580,6 +1591,8 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	_equipment_changed("grant", "weapon", id)
 	for item: Dictionary in spilled:
 		spawn_equipment(player.pos, item)
+	for other: int in others:
+		_hand_over(other)
 
 
 ## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
@@ -1591,13 +1604,17 @@ func _grant_job_items(job_id: int, path := "") -> void:
 	# tier B: Kyrin gives both Pirate weapons. Path extras follow the same overflow rule as grants.items.
 	items.append_array(jobs.path_of(job_id, path).get("extra_items", []))
 	for raw: Variant in items if items is Array else []:
-		var id := int(raw)
-		var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-		if equipment.inventory.size() < inventory_slots():
-			equipment.inventory.append(instance)
-			_equipment_changed("grant", "", id)
-		else:
-			spawn_equipment(player.pos, instance)
+		_hand_over(int(raw))
+
+
+## Gives a new instance of item `id` to the Equip tab, or to the player's feet when the tab is full.
+func _hand_over(id: int) -> void:
+	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
+	if equipment.inventory.size() < inventory_slots():
+		equipment.inventory.append(instance)
+		_equipment_changed("grant", "", id)
+	else:
+		spawn_equipment(player.pos, instance)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;

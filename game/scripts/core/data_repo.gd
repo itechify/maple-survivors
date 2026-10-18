@@ -257,7 +257,9 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
 	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
 		if row is Dictionary and bool(row.get("playable", false)):
-			_add_id(ids, int(row.get("grant_item", 0)))
+			var advancement: Variant = row.get("grant_items", [])
+			for item: Variant in advancement if advancement is Array else []:
+				_add_id(ids, int(item))
 			var extra: Variant = row.get("grants", {}).get("items", []) if row.get("grants", {}) is Dictionary else []
 			for item: Variant in extra if extra is Array else []:
 				_add_id(ids, int(item))

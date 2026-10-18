@@ -32,8 +32,8 @@ func _data() -> Dictionary:
 	jobs["500"] = {"playable": true, "paths": [
 		{"id": "knuckle", "label": "Pirate - Knuckle", "item_id": 1482000, "family": "knuckle"},
 		{"id": "gun", "label": "Pirate - Gun", "item_id": 1492000, "family": "gun"}]}
-	jobs["410"] = {"playable": true, "weapon_families": ["claw"], "grant_item": 1472061}
-	jobs["420"] = {"playable": true, "weapon_families": ["dagger"], "grant_item": 1332063}
+	jobs["410"] = {"playable": true, "weapon_families": ["claw"], "grant_items": [1472061]}
+	jobs["420"] = {"playable": true, "weapon_families": ["dagger"], "grant_items": [1332063]}
 	return data
 
 
@@ -204,18 +204,18 @@ func test_one_free_slot_keeps_one_displaced_item_and_drops_the_other() -> void:
 
 # --- second-job branch grants ----------------------------------------------------------------------------------------
 
-func test_a_branch_grants_its_weapon_only_when_the_held_family_does_not_fit() -> void:
+func test_a_branch_hands_its_advancement_weapon_of_the_held_family_or_its_first_family() -> void:
 	var w := _world()
 	_open_window(w, 10)
 	assert_true(w.apply_job(400, "claw"))
 	assert_eq(w.weapon_id(), 1472061)
 	var held := _inventory_ids(w)
 	w.change_job(410)
-	assert_eq(w.weapon_id(), 1472061, "a claw fits the Assassin: nothing is granted")
-	assert_eq(_inventory_ids(w), held)
+	assert_eq(w.weapon_id(), 1472061, "spec #165: every advancement hands its weapon, the Assassin's claw too")
+	assert_eq(_inventory_ids(w), held + [1472061], "the claw it held moves to the inventory")
 	w.change_job(420)
-	assert_eq(w.weapon_id(), 1332063, "a claw does not fit the Bandit: the dagger is granted")
-	assert_eq(_inventory_ids(w), held + [1472061], "the claw moves to the inventory")
+	assert_eq(w.weapon_id(), 1332063, "a claw does not fit the Bandit: its first (only) family's dagger is worn")
+	assert_eq(_inventory_ids(w), held + [1472061, 1472061], "and the claw moves to the inventory")
 	assert_eq(w.weapon_path, "claw", "the path stays what the first job recorded")
 
 
@@ -228,9 +228,9 @@ func test_a_bare_handed_character_gets_the_branch_weapon_and_a_branch_without_da
 	var plain := _world()
 	plain.change_job(210)
 	assert_eq(plain.weapon_id(), 1302000, "no weapon_families on the row: no grant")
-	var shipped := _world()
-	shipped.change_job(110)
-	assert_eq(shipped.weapon_id(), 1302000, "a branch with families but no grant item (class specs choose it) grants nothing")
+	var unfinished := _world()
+	unfinished.change_job(310) # families, but no grant_items yet (the Bowman class spec chooses them)
+	assert_eq(unfinished.weapon_id(), 1302000, "a branch with families but no grant items grants nothing")
 
 
 func test_a_playable_jobs_grant_items_load_their_info_and_an_unplayable_jobs_do_not() -> void:
@@ -309,7 +309,7 @@ func test_pick_choice_takes_the_forced_path() -> void:
 	assert_eq(BotInput.pick_choice(options, rng, 420, jobs, ""), {"job_id": 400, "path": "dagger"},
 		"without a named path the branch's own weapon family picks it")
 	assert_eq(BotInput.pick_choice(options, rng, 410, jobs, ""), {"job_id": 400, "path": "claw"})
-	var shipped_shape := _data() # the shipped second-job rows: families, no grant_item yet
+	var shipped_shape := _data() # a second-job row with families but no grant_items yet
 	shipped_shape.jobs_survivor.jobs["420"] = {"playable": true, "weapon_families": ["dagger"]}
 	var no_item := JobTree.from_data(shipped_shape.jobs, shipped_shape.jobs_survivor)
 	assert_eq(no_item.branch_grant(420), {}, "no grant item: nothing to grant")
