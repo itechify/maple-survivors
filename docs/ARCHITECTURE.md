@@ -1054,6 +1054,35 @@ p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
    also leaves the import screen's "Storage: checking..." line unresolved until its persistence permission prompt is
    answered.
 
+**#146 re-measure (2026-10-18).** The drop pool was not the cost. A per-system profile of the late round
+(`game/tools/profile_run.gd`) found 110-150 drops lying (the bot collects them) and the pickup step at 2-3% of the tick.
+More than half of the tick (51-56%) was SkillRunner rescanning targets on ticks where no ready skill could be paid for:
+every ready skill built and sorted its target list only to fail the MP check. Another 14% went to the per-tick
+projectile defense loop. Both now give the same answers with less work, and the sim output is unchanged (see
+`test_tick_cost_identity.gd`). What is left is per-mob work: swarm movement, the director's recycling and the grid
+rebuild.
+
+Seed 2026 cannot be re-measured over this window on current main: since mob attacks (#145) and the hit window (#171)
+its bot dies at 4:47, and none of seeds 1-12 is alive at 17:00 either (one clears at 15:15, the others die between 5:24
+and 15:12). The rows below use **seed 5** (Cleric, Lv38, alive at 15:00, dies at 15:12) over 13:00-15:00, so they are not
+comparable with the seed-2026 rows above. Base = b2ef00d (main before
+#146), after = b0a17c5; each tree exported with `scripts/export.sh --web` and played the same day with the same flags:
+`--run=henesys_hg1 --seed=5 --autoplay --autopick --speed=1 --warp=780 --perf --vsync=off --shot-every=30
+--quit-after=900`, Chrome 155 headed and uncapped, real v83 data imported in-page from the folder, driven by
+`web/dev/perf_run.mjs`. Desktop is `scripts/playtest.sh --seed=5 --speed=1 --warp=780 --minutes=15 --vsync=off`. The
+dev PC's main display ran at 164 Hz (3440x1440; a second display at 143 Hz). Other agents' Godot test runs were active on
+the machine at times during the session. Both trees play the same round: 2640 kills, Lv38, `missing: []`.
+
+| Window (seed 5) | Mobs (minute means / max) | Build | Web frame ms p50 / p95 / p99 / max | Desktop frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|---|
+| uncapped 13:00-15:00 | 285-338 / 339 | base b2ef00d | 4.0 / 8.8 / 11.9 / 19.1 | 2.25 / 5.41 / 6.49 / 16.2 | 3166 / 2274 |
+| uncapped 13:00-15:00 | 285-338 / 339 | after b0a17c5 | 4.0 / 6.7 / 9.7 / 20.8 | 2.26 / 3.58 / 4.39 / 15.7 | 1252 / 836 |
+
+Minute 14 alone (338 mobs): web p95 / p99 9.3 / 12.5 ms before, 6.1 / 8.1 ms after; desktop 5.55 / 6.53 ms before,
+3.42 / 4.14 ms after. Frame work p95 (RunScene's own work per frame): web 5.9 -> 3.2 ms, desktop 4.0 -> 1.9 ms. Peak wasm
+heap 286 MiB in both. With seed 2026 gone, nothing here reaches 340-400 mobs, so the bar of 60 FPS at 330-400 mobs is
+measured only up to 339 mobs: at 339 the web p99 is now 8-10 ms against the 16.7 ms budget.
+
 ### Web profile (#134)
 
 Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`: `OS.has_feature("web")`, with a
