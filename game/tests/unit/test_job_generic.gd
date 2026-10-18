@@ -205,18 +205,20 @@ func test_forced_job_must_be_a_playable_first_or_second_job() -> void:
 		assert_eq(jobs.forced_job_error(id), "", "Magician line %d is playable" % id)
 	assert_eq(jobs.forced_job_error(100), "", "the Warrior is playable since #163")
 	assert_true("not playable" in jobs.forced_job_error(300), jobs.forced_job_error(300))
-	assert_true("not playable" in jobs.forced_job_error(110), "a second job needs to be playable itself")
+	for id in [110, 120, 130]:
+		assert_eq(jobs.forced_job_error(id), "", "the Warrior branch %d is playable since #180" % id)
+	assert_true("not playable" in jobs.forced_job_error(310), "a second job needs to be playable itself")
 	assert_true("first or second job" in jobs.forced_job_error(211), "third jobs are refused")
 	assert_true("first or second job" in jobs.forced_job_error(0), "the Beginner is not an advancement")
 	assert_true("not in the canonical" in jobs.forced_job_error(12345))
-	data.jobs_survivor.jobs["100"] = {"playable": true}
+	data.jobs_survivor.jobs["300"] = {"playable": true}
 	jobs = _tree(data)
-	assert_eq(jobs.forced_job_error(100), "", "playable once the data says so")
-	assert_true("110" in jobs.forced_job_error(110), "its second job still is not")
-	data.jobs_survivor.jobs["110"] = {"playable": true}
-	assert_eq(_tree(data).forced_job_error(110), "")
-	assert_eq(SceneFlow.forced_job_error({"job": 100}, data), "")
-	assert_true(SceneFlow.forced_job_error({"job": 300}, data) != "")
+	assert_eq(jobs.forced_job_error(300), "", "playable once the data says so")
+	assert_true("310" in jobs.forced_job_error(310), "its second job still is not")
+	data.jobs_survivor.jobs["310"] = {"playable": true}
+	assert_eq(_tree(data).forced_job_error(310), "")
+	assert_eq(SceneFlow.forced_job_error({"job": 310}, data), "")
+	assert_true(SceneFlow.forced_job_error({"job": 400}, data) != "")
 	assert_eq(SceneFlow.forced_job_error({}, data), "", "nothing forced")
 
 
