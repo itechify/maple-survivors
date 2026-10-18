@@ -91,8 +91,11 @@ func test_assassin_cards_learn_rank_and_add_three_pierce_steps() -> void:
 	w.loadout.set_rank("drain", 30)
 	assert_false("drain_rank" in w.upgrades.eligible(w))
 	for job in [400, 420]:
+		w = _world()
 		w.progression.job_id = job
-		for id in ["drain_new", "drain_rank", "drain_pierce"]:
+		assert_false(w.upgrades.is_eligible(w.upgrades.card("drain_new"), w))
+		w.learn_skill("drain")
+		for id in ["drain_rank", "drain_pierce"]:
 			assert_false(w.upgrades.is_eligible(w.upgrades.card(id), w))
 
 
