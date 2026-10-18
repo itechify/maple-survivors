@@ -3,7 +3,8 @@ extends SceneTree
 ## ISOLATE=t67 bash scripts/test.sh character_snapshot # prepares the isolated project, then:
 ## ISOLATE=t67 bash scripts/godot.sh --headless --path _scratch/godot_runs/t67/game
 ##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA>
-## `--job=<id>` (default 210), `--seed=<n>` (default 1) and `--seconds=<s>` pick the forced job, the seed and a time cap:
+## `--label=<ticket>` (the _doc.branch provenance; default spec32/ticket-67, the Lv38 F/P fixture; lv11_warrior_1st.json says
+## spec151/ticket-163), `--job=<id>` (default 210), `--seed=<n>` (default 1) and `--seconds=<s>` pick the forced job, the seed and a time cap:
 ## with a cap the round stops there (a low-level fixture such as lv20_warrior_1st.json: `--job=100 --seconds=600`) and only
 ## has to be alive and warning-free; without one the round must clear.
 ## Only numeric character state/IDs/skill keys and provenance are written; never cache trees or decoded assets.
@@ -24,6 +25,7 @@ func _init() -> void:
 	var job := 210
 	var seconds := 0.0
 	var seed_value := 1
+	var label := "spec32/ticket-67"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			output = arg.substr(6)
@@ -35,6 +37,8 @@ func _init() -> void:
 			job = int(arg.substr(6))
 		elif arg.begins_with("--seconds="):
 			seconds = float(arg.substr(10))
+		elif arg.begins_with("--label="):
+			label = arg.substr(8)
 		elif arg.begins_with("--seed="):
 			seed_value = int(arg.substr(7))
 	if output != "" and migrate != "":
@@ -73,7 +77,7 @@ func _init() -> void:
 	character["_doc"] = {"source": "real headless Henesys bot round, all bosses/reward choices completed" if seconds <= 0.0
 			else "real headless Henesys bot round, stopped at the %d s cap (a low-level fixture)" % int(seconds),
 		"stage": "henesys_hg1", "seed": seed_value, "policy": "bot", "forced_branch": job,
-		"branch": "spec32/ticket-67" if job == 210 and seconds <= 0.0 else "spec151/ticket-163", "revision": revision,
+		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
 	var file := FileAccess.open(output, FileAccess.WRITE)

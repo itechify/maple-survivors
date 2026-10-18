@@ -1166,7 +1166,7 @@ func _on_cast(e: Dictionary) -> void:
 	var key := String(e.skill)
 	if not _cast_shot_taken.has(key):
 		_cast_shot_taken[key] = true
-		_event_shot("cast_%s.png" % key, 0.2) # tier C: playtest evidence of each skill's first cast, mid-effect.
+		_event_shot("cast_%s.png" % key, 0.05) # tier C: playtest evidence of each skill's first cast, 50 ms in (the cast effect is short).
 	var use := String(world.book.def(key).get("sounds", {}).get("use", ""))
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)

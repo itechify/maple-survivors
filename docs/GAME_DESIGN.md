@@ -3121,7 +3121,7 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
 | Iron Body 1001003 (20) | buff | auto-cast, recast on expiry; adds canonical pdd (2-40) to weapon defence for 75-300 s | A: pdd, time, mpCon, action alert2 (no effect art in the WZ node); C: auto-cast, 0.8 s stance |
 | Improved HP Recovery 1000000 (16) | passive | adds canonical `hp` (3-50) to every regeneration pulse (`regen: {pool: hp, field: hp}`, `Loadout.regen_bonus`) | A: hp; C: v83 only while standing still, here always (HP regeneration is always on) |
 | Improved MaxHP Increase 1000001 (10) | passive | `max_hp_per_level` (canonical `x`, 4-40) at every later level-up (7.6) | B: Cosmic level-up rule |
-| Endure 1000002 (8) | passive | its own clock heals one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31 s down to 10 s) while hanging on a rope or ladder (`climb_regen`, emits `player_restored` with skill `endure`) | A: time; C: the amount and the on-top-of-regeneration reading of v83's rope recovery |
+| Endure 1000002 (8) | passive | its own clock heals one base regeneration pulse (`balance.regen.hp` + `hp_regen`) every canonical `time` (31 s down to 10 s) while hanging on a rope or ladder (the clock counts only climbing seconds and keeps its value when the character lets go; `climb_regen`, emits `player_restored` with skill `endure`) | A: time; C: the amount and the on-top-of-regeneration reading of v83's rope recovery |
 
 - **Cast rules.** `weapon_reach` and `range_around` are `SkillRunner` rules beside `nearest`/`box`/`crowd`. `weapon_reach`
   uses `BasicAttack.envelope(world)`, the union of the held weapon's afterimage boxes (its far edge is the basic
@@ -3152,7 +3152,7 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
   own number (Max HP per level-up, HP per pulse, seconds between recoveries) instead of the canonical field name
   (`UpgradePool.PASSIVE_*`). The skill tooltip adds "HP cost" for an HP-paying skill.
 - **Fixture.** `tests/fixtures/characters/lv11_warrior_1st.json`: a real headless Henesys bot round, forced job 100, seed 1,
-  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295`; capped rounds of
+  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163`; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
 
@@ -3488,7 +3488,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
-  job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
+  job consumes no branch roll (nor does an unforced window that offers the Magician: `DEFAULT_FIRST_JOB`, below). `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
 - Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
   fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
@@ -3937,7 +3937,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all six; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Unforced first job (#163) | `BotInput.DEFAULT_FIRST_JOB` 200: an unforced bot takes the Magician when both first jobs are open, without a random draw | C | keeps unforced records unchanged; `--job=100` plays the Warrior |
-| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295` |
+| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163` |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
