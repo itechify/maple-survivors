@@ -52,11 +52,13 @@ const SLOW_CONSECUTIVE_LIMIT := 2
 const SLOW := 0
 const POISON := 1
 const FREEZE := 2
-const STATUS_COUNT := 3
+const STUN := 3
+const STATUS_COUNT := 4
 ## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze"]
+const STATUS_NAMES := ["slow", "poison", "freeze", "stun"]
 ## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
-const STATUS_ELEMENTS := ["", "S", "I"]
+## Stun has none and never reads an element, not even one passed in `params` (tier C, #187).
+const STATUS_ELEMENTS := ["", "S", "I", ""]
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -188,15 +190,17 @@ func is_settled(i: int) -> bool:
 	return is_live(i) and alpha[i] >= 1.0
 
 
-## Seconds left on status `s` (SLOW, POISON or FREEZE) of slot i; 0 when it is not active.
+## Seconds left on status `s` (SLOW, POISON, FREEZE or STUN) of slot i; 0 when it is not active.
 func status_time(i: int, s: int) -> float:
 	return status_left[i * STATUS_COUNT + s]
 
 
-## Gate for monster touch damage and starting attacks/skills: fully visible and not frozen (tier B later-client RE
-## for attacks/skills; tier C owner choice for touch damage).
+## Gate for monster touch damage and starting attacks/skills: fully visible, not frozen and not stunned (tier B
+## later-client RE for frozen attacks/skills; tier C owner choice for frozen touch damage; a stunned monster follows
+## the frozen rule, #187).
 func can_act(i: int) -> bool:
-	return is_settled(i) and status_left[i * STATUS_COUNT + FREEZE] <= 0.0
+	var base := i * STATUS_COUNT
+	return is_settled(i) and status_left[base + FREEZE] <= 0.0 and status_left[base + STUN] <= 0.0
 
 
 ## Whether any slot has a player-inflicted status; presentation can skip status work when false.
@@ -313,9 +317,9 @@ func apply_slow_cast(i: int, serial: int, params: Dictionary, events: Array) -> 
 	return true
 
 
-## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key);
-## `params.element` overrides the status's own element (STATUS_ELEMENTS). Refreshes without stacking (tier C, issue
-## #54); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
+## Applies "slow" (canonical signed x/time), "freeze" or "stun" (time) or "poison" (canonical level/time, optional skill
+## key); `params.element` overrides the status's own element (STATUS_ELEMENTS; "stun" ignores it). Refreshes without
+## stacking (tier C, issue #54; a stun keeps the longer of the remaining and the new time, #187); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
 ## digit 4) against the status element reject it. Appends application/expiry events to the supplied simulation event list. Removal/death/
 ## relocation clears silently; mob_died/mob_spawned and the arrays describe those transitions.
 func apply_status(i: int, status: String, params: Dictionary, events: Array) -> bool:
@@ -323,6 +327,8 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 	var time := float(params.get("time", 0.0))
 	if time <= 0.0 or not accepts_status(i, status, params):
 		return false
+	var j := i * STATUS_COUNT + s
+	var refreshed := false
 	if s == POISON:
 		var level := int(params.get("level", 0))
 		if level <= 0 or level >= POISON_LEVEL_BASE:
@@ -333,12 +339,17 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
 		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
-	var j := i * STATUS_COUNT + s
+	elif s == STUN and status_left[j] > time:
+		# tier C: a new stun on a stunned monster refreshes it to the longer remaining time (#187); a shorter new one
+		# changes nothing, art clock included.
+		time = status_left[j]
+		refreshed = true
 	if _status_at[i] < 0:
 		_status_at[i] = _status_slots.size()
 		_status_slots.append(i)
 	status_left[j] = time
-	status_elapsed[j] = 0.0
+	if not refreshed:
+		status_elapsed[j] = 0.0
 	events.append({"type": "mob_status_applied", "mob": i, "mob_id": mob_kind(i).id, "status": status, "duration": time})
 	return true
 
@@ -350,7 +361,10 @@ func accepts_status(i: int, status: String, params: Dictionary = {}) -> bool:
 		return false
 	var mk := mob_kind(i)
 	# tier C: v83 server reference rejects boss statuses and immune/strong/neutral status elements.
-	return not mk.boss and steady[i] == 0 and not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))
+	if mk.boss or steady[i] != 0:
+		return false
+	# tier C: stun is elementless; elemental resistance only gates the other statuses.
+	return s == STUN or not mk.resists_status(String(params.get("element", STATUS_ELEMENTS[s])))
 
 
 ## Damages mob i by dmg from direction dir (-1/1: the way the blow pushes). Returns true when this hit killed it.
@@ -373,8 +387,8 @@ func apply_hit(i: int, dmg: int, dir: int) -> bool:
 		_clear_statuses(i)
 		_alive -= 1
 		return true
-	# tier C: a frozen monster keeps its frozen pose instead of starting the hit stun or push.
-	if status_left[i * STATUS_COUNT + FREEZE] > 0.0 or steady[i] != 0 \
+	# tier C: a frozen or stunned monster keeps its pose instead of starting the hit stun or push.
+	if status_left[i * STATUS_COUNT + FREEZE] > 0.0 or status_left[i * STATUS_COUNT + STUN] > 0.0 or steady[i] != 0 \
 			or (mk != null and (mk.boss or mk.no_flinch or dmg < mk.pushed)):
 		return false
 	state[i] = HIT
@@ -487,6 +501,16 @@ func step(dt: float, ctx: Dictionary) -> void:
 			vx[i] = 0.0
 			if i < action_facings.size():
 				facing[i] = action_facings[i]
+			continue
+		if statuses_active and status_left[i * STATUS_COUNT + STUN] > 0.0:
+			# tier C (#187): a stunned monster stands where it is (a flyer hovers without its bob) and runs no route,
+			# jump or hit slide; its clocks keep running, and one stunned mid-air still falls straight down.
+			vx[i] = 0.0
+			if fh[i] >= 0 or _k_fly[k] != 0:
+				if st != STAND:
+					_set_state(i, STAND)
+			else:
+				_air(i, dt, m, grav, fall, lim, bottom)
 			continue
 		if _k_fly[k] != 0:
 			var fly_speed := _k_speed[k] * smult
@@ -690,8 +714,9 @@ func _end_status(i: int, s: int) -> void:
 		_poison_damage[i] = 0
 		_poison_skill[i] = ""
 	var base := i * STATUS_COUNT
-	if status_left[base + SLOW] > 0.0 or status_left[base + POISON] > 0.0 or status_left[base + FREEZE] > 0.0:
-		return
+	for other in STATUS_COUNT:
+		if status_left[base + other] > 0.0:
+			return
 	var at := _status_at[i]
 	var last := _status_slots[_status_slots.size() - 1]
 	_status_slots[at] = last

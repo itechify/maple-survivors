@@ -3,6 +3,9 @@
 Tree boss manifest additions: Mob9300003 and6220000 automatically include their original Sound.wz/Mob.img
 entries; Effect.wz/Summon.img/3 accompanies King Slime's canonical skill200/2. The existing whole MobSkill.img
 and UIWindow.img include Dyle's repeat-marked immunity icon and both MobGage icons. No decoded art is committed.
+The stunned-mob stars (#187): `Skill.wz/111.img` with `paths: ["skill/1111008/mob"]` in the main manifest (Hero's Shout;
+the same three frames are the `mob` node of every v83 stunning skill, e.g. 510.img 5101002, so a later Pirate fragment
+that imports a whole stunning-skill book need not repeat it).
 
 The game renders the player's own MapleStory v83 data. Nothing proprietary is in this repository. A local, offline
 importer (`tools/wzimport`, Rust) reads the original `.wz` archives and writes an **asset cache** that the Godot runtime
