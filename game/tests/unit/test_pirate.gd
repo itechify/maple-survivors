@@ -55,7 +55,10 @@ func test_both_paths_are_offered_at_ten_and_grant_both_weapons() -> void:
 		_open(w)
 		var options := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500)
 		assert_eq(options.map(func(o: Dictionary) -> String: return o.get("path", "")), ["knuckle", "gun"])
+		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Pirate - Knuckle", "Pirate - Gun"])
 		assert_true(options.all(func(o: Dictionary) -> bool: return o.available))
+		assert_true(w.jobs.advancements(0, 9).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500).all(
+			func(o: Dictionary) -> bool: return not o.available and o.reason == "Lv. 10"))
 		var hp: int = w.player_state.max_hp
 		var mp: int = w.player_state.max_mp
 		assert_true(w.apply_job(500, path))
@@ -327,6 +330,22 @@ func test_forced_pirate_path_flags_are_accepted_by_run_and_launcher() -> void:
 		assert_eq(RunLauncher.options_from_args({"job": "500:" + path}).job_path, path)
 
 
+func test_bot_keeps_the_wielded_path_when_the_other_gift_scores_higher() -> void:
+	var w := _world()
+	_open(w)
+	BotInput.auto_choose(w, false, 500, "gun")
+	var events := w.drain_events()
+	assert_true(BotShop.item_score(w.equipment.inventory[-1], BotShop.weights_for(w.balance, 500, w.jobs)) >
+		BotShop.item_score(w.equipment.worn.weapon, BotShop.weights_for(w.balance, 500, w.jobs)))
+	BotShop.equip_after(w, events)
+	assert_eq(w.weapon_id(), 1492000, "the bot must not replace its gun with Kyrin's higher-PAD knuckle")
+	assert_eq(w.weapon_path, "gun")
+	# A manual swap is still allowed; bot upgrades follow the held family rather than forcing the recorded AP path.
+	assert_eq(w.equip_item(_inventory(w).find(1482000)), "")
+	BotShop.auto_equip(w)
+	assert_eq(w.weapon_id(), 1482000)
+
+
 func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_cache() -> void:
 	if not require_cache():
 		return
@@ -361,8 +380,10 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 		assert_true(lib.sound(book.def(key).sounds.use) != null, key + " use sound")
 		assert_true(lib.node("Character.wz/00002000.img/" + String(book.def(key).action)) is Dictionary)
 	assert_eq(book.weapon_families("double_shot"), PackedStringArray(["gun"]))
-	assert_eq(int(book.canonical("bullet_time", 20, "acc")), 20)
-	assert_eq(int(book.canonical("bullet_time", 20, "eva")), 20)
+	loadout.add_skill("bullet_time")
+	loadout.set_rank("bullet_time", 20)
+	assert_eq(loadout.passive_total("acc"), 20.0)
+	assert_eq(loadout.passive_total("avoid"), 20.0)
 	assert_true(lib.img("Skill.wz/510.img") != null)
 	assert_true(lib.img("Skill.wz/520.img") != null)
 	assert_false(lib.anim("Npc.wz/1090000.img/stand").is_empty())

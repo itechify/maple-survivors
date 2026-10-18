@@ -3762,6 +3762,7 @@ Pirate tracer (#186) additions:
 | Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
 | Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
+| Path bot equipment | auto-equip upgrades only the held family (shared drop families allowed) when a weapon path is recorded | C owner rule: bot never swaps paths; prevents Kyrin's spare knuckle replacing the gun; no RNG |
 
 | Physical combat rule (#153) | Value / behavior | Tier | Source |
 |---|---|---|---|

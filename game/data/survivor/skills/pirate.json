@@ -34,14 +34,14 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "doublefire", "action_time": 0.6, "ball": "Skill.wz/500.img/skill/5001003/ball",
 			"hit": "Skill.wz/500.img/skill/5001003/hit/0", "effect": "Skill.wz/500.img/skill/5001003/effect",
-			"char_level": {"thresholds": [10, 15, 20, 25], "ball": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/ball", "hit": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/effect"},
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/effect"},
 			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001003/Use", "hit": ""}
 		},
 		"bullet_time": {
 			"skill_id": 5000000, "book": "500", "job": 500, "kind": "passive", "slot": "passive",
 			"name": "Bullet Time", "desc": "Increases accuracy and avoidability. Accuracy also raises critical chance.",
 			"icon": "Skill.wz/500.img/skill/5000000/icon", "damage": "none",
-			"passive": {"stat": "acc", "field": "acc", "effects": [{"stat": "avoid", "field": "eva"}]},
+			"passive": {"stat": "acc", "field": "x", "effects": [{"stat": "avoid", "field": "y"}]},
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
