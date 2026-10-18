@@ -112,7 +112,13 @@ _Avoid_: job change, promotion
 **Branch**:
 One of the second-job paths a first job splits into, e.g. the Magician's Fire/Poison (210), Ice/Lightning (220)
 and Cleric (230).
-_Avoid_: path, specialisation, subclass
+_Avoid_: path (on its own; a weapon path is the first-job weapon choice), specialisation, subclass
+
+**Weapon path**:
+A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
+Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun. The job window offers each path as its own entry and
+hands the character that weapon. It is not a job: both Thief paths are job 400.
+_Avoid_: branch (that is the second-job choice), build, stance
 
 ## Skills
 
@@ -190,9 +196,21 @@ comes only from monster drops, never from shops.
 _Avoid_: Gear (in player-visible text), armour, loot
 
 **Equip slot**:
-One place equipment is worn: hat, top, bottom, overall, shoes, gloves or weapon. An overall fills the top and
-bottom slots together.
+One place equipment is worn: hat, top, bottom, overall, shoes, gloves, weapon or shield. An overall fills the top and
+bottom slots together; a two-handed weapon blocks the shield slot.
 _Avoid_: Equipment slot, gear slot
+
+**Weapon family**:
+The weapon kind a mastery, booster or weapon-gated skill refers to: sword, axe, blunt weapon, spear, polearm, bow,
+crossbow, claw, dagger, knuckle, gun, wand or staff, each with its one- and two-handed variants. Skills cast and cards
+are offered only for the family of the weapon held, and weapon drops come only from it.
+_Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
+
+**Ammo tier**:
+The throwing stars, arrows or bullets a ranged character fires: one real v83 ammo item at a time, endless and never
+an item stack. The class starts on its basic ammo, and the specialist branch moves up the tiers by itself at fixed
+levels, changing the projectile you see.
+_Avoid_: ammo card, ammo stack, projectile (that is the shot on screen)
 
 **Worn equipment**:
 The equipment currently in a character's equip slots; only worn equipment adds stats.
