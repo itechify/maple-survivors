@@ -3333,8 +3333,8 @@ weights 3 and 2.
   `text.desc` override, 8.2). The WZ `affected` art (what party members see) is not used.
 - **Power Guard.** While active, **contact damage** (glossary: a monster's body touching you; `source_kind` "touch")
   is reflected. Mob attacks, boss attacks, projectiles and magic never are. The reflect is
-  `floor(damage x x% / 100)` (x = 11 to 40, the buff's snapshot), halved against a boss (`MobKind.boss` or a scheduled
-  boss slot), and at most `floor(10% of that monster's Max HP)`. The same amount comes off the damage the character
+  `floor(damage x x% / 100)` (x = 11 to 40, the buff's snapshot), halved against a boss (tier C: `MobKind.boss`, the canonical info/boss flag, or a scheduled boss slot,
+  so an unscheduled boss kind also gets the half rate), and at most `floor(10% of that monster's Max HP)`. The same amount comes off the damage the character
   receives. No RNG.
 - **Where it sits.** `RunWorld.take_hit`: hit window and god/dead guard, then avoid (a miss reflects nothing), then the
   defence formula, then the Invincible reduction, then **Power Guard** (`_power_guard_reflect`), then Magic Guard's
@@ -3345,7 +3345,9 @@ weights 3 and 2.
 - **The reflect is the character's damage.** It emits a `mob_hit` (the Power Guard key as `skill`, no hit art, never a
   crit), counts in `damage_dealt`, and a kill goes through `_on_kill` (EXP, drops, boss rewards, kill count) like
   any player kill. It does not go through the hit listeners: no Final Attack, no on-hit status, no MP Eater.
-  Frozen or immune monsters are not special-cased (the reflect ignores physical immunity).
+  Frozen or immune monsters are not special-cased (the reflect ignores physical immunity). A non-boss is staggered and
+  pushed by it like by any player hit (`MobSwarm.apply_hit`). It resolves before the player's death check, so a lethal
+  touch still reflects and its `mob_hit` / `mob_died` come before `player_died`.
 - **Not done.** Prerequisite skills in the WZ `req` nodes (Power Guard needs Rage 3 / Threaten 3) are ignored (#31).
   Both Power Guards feed the one `power_guard` stat; branch exclusivity means a run owns one.
 - **Bot.** `balance.json` `bot.card_scores`: `rage_new` 100 and `rage_rank` 74 (what an attack card scores), so Rage is
@@ -3835,7 +3837,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Rage (#182) | W.Att +`pad` 3-12, weapon defence +`pdd` -3 to -12 (negative in the WZ, no `scale`), 46-160 s, `mpCon` 12/20; self only; auto-cast, recast on expiry, any weapon | A (values); C (self only, auto-cast) | Skill.wz/110.img/skill/1101006 |
 | Power Guard values (#182) | reflect `x` 11-40 %, `time` 3-90 s, `mpCon` 15/30; the Page node is the same table | A | Skill.wz/110.img 1101007, 120.img 1201007 |
 | Power Guard rule (#182) | contact damage only, half the rate against a boss, capped at 10 % of the monster's Max HP, the same amount subtracted from the damage taken | B | third-party v83 server reimplementation; the cap is only in the String desc (no WZ field) |
-| Power Guard details (#182) | amounts floored (a cap that floors to 0 reflects nothing and does not reduce the hit); applied after Invincible and before Magic Guard's split; the reflect is the character's own damage (damage number, a kill gives EXP and drops, `damage_dealt`), never a crit, no Final Attack or on-hit status; ignores physical immunity; one reflect per hit window; no RNG | C | ours |
+| Power Guard details (#182) | amounts floored (a cap that floors to 0 reflects nothing and does not reduce the hit); applied after Invincible and before Magic Guard's split; boss = canonical boss kind or scheduled slot; the reflect is the character's own damage (damage number, a kill gives EXP and drops, `damage_dealt`), never a crit, no Final Attack or on-hit status; ignores physical immunity; one reflect per hit window; no RNG | C | ours |
 | Rage / Power Guard cards and bot (#182) | `rage_*`, `power_guard_fighter_*`, `power_guard_page_*` learn/rank cards, not power, weights 3/2; `bot.card_scores` `rage_new` 100, `rage_rank` 74 (attack-like), Power Guard unscored (defensive-buff default) | C | ours, untuned |
 
 | Meso rule (spec #33, #107) | Value / behavior | Tier | Source |

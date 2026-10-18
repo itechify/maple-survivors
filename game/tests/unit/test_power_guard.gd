@@ -321,8 +321,8 @@ func test_a_mob_killed_by_the_reflect_gives_exp_and_can_drop() -> void:
 	assert_true(kinds.has("meso"), "and a meso drop rolled as for any kill")
 
 
-func test_a_boss_killed_by_the_reflect_counts_as_a_boss_kill() -> void:
-	# Reflect on a scheduled boss goes through the same kill path as any player damage.
+func test_a_boss_kind_killed_by_the_reflect_dies_like_any_player_kill() -> void:
+	# An unscheduled canonical boss (mob_boss -1) takes the ordinary kill path; scheduled-boss rewards are not exercised.
 	var w := _world()
 	_cast_buff(w, "power_guard_fighter", 30)
 	var m := _mob(w, BOSS)
@@ -396,4 +396,11 @@ func test_real_skill_wz_values() -> void:
 		assert_eq(book.canonical(key, 30, "time"), 90.0, key)
 		assert_eq(book.canonical(key, 1, "mpCon"), 15.0, key)
 		assert_eq(book.canonical(key, 30, "mpCon"), 30.0, key)
+	# The art and sounds the data names resolve (the Page's sound names the UOL target).
+	var world := _world()
+	for key in ["rage", "power_guard_fighter", "power_guard_page"]:
+		var def: Dictionary = world.book.def(key)
+		assert_true(library.find_anim(String(def.effect)) != null, "%s effect art" % key)
+		assert_true(library.sound(String(def.sounds.use)) != null, "%s sound" % key)
+		assert_true(library.find(String(def.icon)) != null, "%s icon" % key)
 	library.free()
