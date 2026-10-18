@@ -963,15 +963,21 @@ func player_speed_stat() -> float:
 
 
 func _refresh_caster() -> void:
+	loadout.weapon_id = weapon_id()
+	loadout.weapon_family = held_weapon_family() # first: the weapon-gated passives below read it
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)
 	loadout.luk_stat = float(_attributes.luk)
 	loadout.watk = weapon_attack()
-	loadout.acc = player_acc + buffs.effect_total("acc")
-	loadout.weapon_id = weapon_id()
-	loadout.weapon_family = held_weapon_family()
+	loadout.acc = player_acc + buffs.effect_total("acc") + loadout.passive_total(Loadout.ACC)
 	loadout.job_id = progression.job_id
+	# Weapon-gated passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
+	# critical hit's total percent, so its additive bonus is the part above 100.
+	var mastery := loadout.passive_best(Loadout.MASTERY)
+	loadout.mastery = CombatMath.mastery_fraction(int(mastery)) if mastery > 0.0 else Loadout.BASE_MASTERY
+	loadout.crit_bonus = loadout.passive_total(Loadout.CRIT_CHANCE) / 100.0
+	loadout.crit_damage_bonus = maxf(0.0, loadout.passive_best(Loadout.CRIT_DAMAGE) - 100.0)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
@@ -1899,6 +1905,8 @@ func _gain_exp(n: int) -> void:
 func _on_level_up(level: int) -> void:
 	var g: Dictionary = _job_value(balance.get("growth", {}), {})
 	_base_hp += float(g.get("hp", 0.0))
+	# Improved MaxHP Increase: the skill's HP per level-up at its rank now, never retroactive (tier B, v83 Cosmic).
+	_base_hp += loadout.passive_total(Loadout.MAX_HP_PER_LEVEL)
 	_base_mp += float(g.get("mp", 0.0))
 	var divisor := float(g.get("int_mp_divisor", 0.0))
 	if divisor > 0.0:

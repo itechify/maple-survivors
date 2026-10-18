@@ -12,6 +12,17 @@ extends RefCounted
 
 ## Passive stat of Improved MaxMP Increase: a fraction of the computed Max MP (tier C survivor reinterpretation).
 const MAX_MP_PERCENT := "max_mp_percent"
+## Passive stats of the shared physical passives (docs/GAME_DESIGN.md 7.6). mastery: the canonical Mastery skill value N
+## (the mastery fraction is (10 + 5N)%); acc: skill ACC; crit_chance: percent chance (Skill.wz `prop`); crit_damage: the
+## critical hit's total percent (Skill.wz `damage`; the bonus is that minus 100); max_hp_per_level: Max HP gained at each
+## level-up after learning.
+const MASTERY := "mastery"
+const ACC := "acc"
+const CRIT_CHANCE := "crit_chance"
+const CRIT_DAMAGE := "crit_damage"
+const MAX_HP_PER_LEVEL := "max_hp_per_level"
+## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
+const BASE_MASTERY := 0.10
 
 var book: SkillBook
 ## Owned skill key -> survivor rank (>= 1).
@@ -70,8 +81,7 @@ var job_id := 0:
 		if value != job_id:
 			job_id = value
 			version += 1
-## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
-var mastery := 0.10:
+var mastery := BASE_MASTERY:
 	set(value):
 		if value != mastery:
 			mastery = value
@@ -310,18 +320,48 @@ func _buff_effects(key: String, lv: int, buff: Dictionary) -> Dictionary:
 		effects[String(buff.stat)] = book.canonical(key, lv, String(buff.get("field", "")), 0.0)
 	for effect: Dictionary in buff.get("effects", []):
 		var stat := String(effect.stat)
-		effects[stat] = float(effects.get(stat, 0.0)) + book.canonical(key, lv, String(effect.field), 0.0)
+		# `scale` (optional, default 1) turns a positive WZ number into a penalty: Rage's WDEF side effect uses -1.
+		effects[stat] = float(effects.get(stat, 0.0)) \
+			+ book.canonical(key, lv, String(effect.field), 0.0) * float(effect.get("scale", 1.0))
 	return effects
 
 
-## Sum of owned passive effects: canonical fields or survivor per-level values from skills.json.
+## Every effect of owned skill `key`'s `passive`: the legacy single `stat` (with `field` or `per_level`) first, then the
+## optional `effects` list of {stat, field | per_level} entries (a Mastery skill adds mastery and ACC, Critical Shot adds
+## chance and damage).
+func passive_effects(key: String) -> Array:
+	var p: Dictionary = book.def(key).get("passive", {})
+	var out: Array = []
+	if p.has("stat"):
+		out.append(p)
+	out.append_array(p.get("effects", []))
+	return out
+
+
+## Sum of owned passive effects of `passive_stat`: canonical fields or survivor per-level values from skills.json. A skill
+## whose weapon requirement the held family fails (SkillBook.usable_with with `weapon_family`) contributes nothing.
 func passive_total(passive_stat: String) -> float:
 	var t := 0.0
 	for k: String in order:
-		var p: Dictionary = book.def(k).get("passive", {})
-		if String(p.get("stat", "")) == passive_stat:
-			t += passive_value(k, level(k), p)
+		if not book.usable_with(k, weapon_family):
+			continue
+		for effect: Dictionary in passive_effects(k):
+			if String(effect.get("stat", "")) == passive_stat:
+				t += passive_value(k, level(k), effect)
 	return t
+
+
+## The largest single owned effect of `passive_stat` (same weapon gating as passive_total); 0 when none. For stats that
+## do not stack across skills (mastery, crit damage).
+func passive_best(passive_stat: String) -> float:
+	var best := 0.0
+	for k: String in order:
+		if not book.usable_with(k, weapon_family):
+			continue
+		for effect: Dictionary in passive_effects(k):
+			if String(effect.get("stat", "")) == passive_stat:
+				best = maxf(best, passive_value(k, level(k), effect))
+	return best
 
 
 ## Extra HP or MP (`pool` "hp" / "mp") that the owned skills with a `regen` field add to one regeneration pulse at
