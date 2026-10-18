@@ -9,7 +9,6 @@ use crate::property::{parse_img, Img};
 use crate::reader::Reader;
 use crate::source::ReadAt;
 use std::fs::File;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -64,11 +63,6 @@ impl Dir {
     pub fn get(&self, name: &str) -> Option<&Entry> {
         self.entries.iter().find(|e| e.name == name)
     }
-}
-
-/// Read exactly `buf.len()` bytes at `offset` without moving a shared cursor (thread-safe).
-pub fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<()> {
-    file.read_exact_at(offset, buf)
 }
 
 /// Versions tried when the stored encrypted version does not match v83: every version whose hash gives the

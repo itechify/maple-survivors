@@ -741,8 +741,9 @@ Budget at 60 FPS (16.7 ms) on the dev PC, target 300 mobs at < 5 ms total frame 
 - No networking API is used by the game or the importer; enforced by `tests/unit/test_offline.gd` (scan of every
   script, scene, resource, config and `project.godot` under `game/` for network classes, nodes and settings, and for
   `JavaScriptBridge`) and the importer's `no_network_deps` (Cargo.lock scan) and `no_network_src`
-  (`std::net`/socket types in its sources) tests. This holds for every build, the web build included: `game/` and
-  `tools/wzimport/` have no networking and no JavaScript, and compile the same for desktop and web.
+  (`std::net`/socket types in its sources) tests. This holds for every build, the web build included: `game/` has
+  no networking and no JavaScript, and `tools/wzimport/` has no network code (it may carry wasm-bindgen bindings and a
+  Node test harness); both compile the same for desktop and web.
 - On desktop the importer is a local process reading local files; the game launches it with
   `OS.execute_with_pipe`/`OS.create_process`.
 - Settings and saves are local files under the user data folder (in a browser: `user://` in the page's IndexedDB).
@@ -822,7 +823,9 @@ its `game/`.
 - **Quitting on web:** in Godot 4.7.2, if an `AudioStreamPlayer` still holds a sample playback at shutdown,
   `Main::cleanup` throws (`SampleNode._pause` reads the AudioContext that was already closed) and `onExit` never runs.
   The final IndexedDB sync has already happened by then. Stopping every `AudioStreamPlayer` and pausing the tree
-  before `get_tree().quit()` gives a clean exit (verified in a scratch build).
+  before `get_tree().quit()` gives a clean exit (verified in a scratch build). This sequence is binding for every web
+  quit (`WebHandoff.quit`); the shell also treats the post-quit `currentTime` TypeError as an exit (section 10.2), and
+  the importer's zip reader uses no temporary storage (docs/ASSET_PIPELINE.md 2.3).
 - **Arguments:** command-line user args reach `OS.get_cmdline_user_args()` through the engine config `args` after
   `--`; `web/index.html` maps `?arg=<value>` query parameters to them. The web templates are built without path
   overrides: a scene path on the command line (e.g. `res://scenes/debug/flow_driver.tscn`) aborts the engine.
@@ -880,7 +883,10 @@ picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (sec
 IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
 check is exact for what the manifest names and nothing else: every `imgs[]` entry, every `mapimgs` entry and the imgs
 the `maps`/`mobs`/`character`/`items` ids resolve to (the formulas of `tools/wzimport/src/manifest.rs`), plus
-`Map.wz/MapHelper.img` and `Sound.wz/Mob.img`, must be listed in `cache.json`; and for every img the index lists, its
+`Map.wz/MapHelper.img` (`portal`) and `Sound.wz/Mob.img` (one sub-path per listed mob), must be listed in `cache.json`,
+and the `paths` the index records for an img must cover the manifest's: an img cached whole covers any selection, a
+partial one covers a request only when it holds that path or a shorter path above it (so a path added to the manifest,
+or an img that went from a selection to the whole img, reads as incomplete); and for every img the index lists, its
 `.json` and `.N.png` records must exist. Dependencies the importer derives by reading WZ data (map backs, tiles, objs,
 mob links) are only caught by the second rule. A cache that fails is "incomplete":
 - remembered source is a **URL**: the shell re-imports from it at once, automatically, and says so on screen;

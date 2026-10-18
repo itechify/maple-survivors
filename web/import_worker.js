@@ -4,7 +4,7 @@
 // the resulting asset cache straight into the IndexedDB database behind Godot's /userfs (idbfs.js), so it is there
 // when the engine starts. Three kinds of source, one per import:
 //   folder  {kind:'folder', files: {'Mob.wz': File, ...}}   Blob readers (FileReaderSync)
-//   zip     {kind:'zip', file: File}                        Blob reader (no scratch: decisions 7, offset-ordered reads)
+//   zip     {kind:'zip', file: File}                        Blob reader (no scratch: docs/ASSET_PIPELINE.md 2.3)
 //   url     {kind:'url', parsed, probe}                     sync XHR with Range behind a block cache, or a whole-file
 //                                                           download into a Blob when the host has no range support
 // The page talks to it with messages: {type:'probe', id, parsed, manifestText} and {type:'import', id, source,

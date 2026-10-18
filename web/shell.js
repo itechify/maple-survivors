@@ -28,6 +28,8 @@ const state = {
 	lastExit: null,
 	events: [],
 	engineRunning: false,
+	toldStorage: false, // the storage result toast was shown (once per page load)
+	persistReady: null, // promise of the navigator.storage.persist() request, set at boot
 };
 // For browser automation and bug reports (read-only by convention).
 window.mapleShell = state;

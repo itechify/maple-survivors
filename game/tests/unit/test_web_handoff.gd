@@ -32,7 +32,7 @@ func _read_marker() -> Variant:
 # --- marker ----------------------------------------------------------------------------------------------------------
 
 func test_marker_contract_constants() -> void:
-	# Fixed by the shell contract (decisions.md section 3); the shell reads exactly this file.
+	# Fixed by the shell contract (docs/ARCHITECTURE.md 10.2 "Request marker"); the shell reads exactly this file.
 	assert_eq(WebHandoff.MARKER_PATH, "user://web_request.json")
 	assert_eq(WebHandoff.FORMAT, 1)
 	assert_eq(WebHandoff.KINDS, ["reimport", "export_save", "import_save"])
@@ -104,6 +104,22 @@ func test_quit_to_shell_order_and_effects() -> void:
 	assert_true(seen.paused, "tree paused before the quit")
 	assert_true(paused_after)
 	assert_eq(seen.playing, 0, "every AudioStreamPlayer stopped before the quit")
+
+
+func test_hand_over_uses_the_override_instead_of_quitting() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var seen: Array[String] = []
+	var override := func(kind: String) -> void: seen.append(kind)
+	assert_eq(WebHandoff.hand_over(tree, WebHandoff.EXPORT_SAVE, override), OK)
+	assert_eq(seen, ["export_save"], "the override got the kind")
+	assert_false(FileAccess.file_exists(_marker), "no marker is written when the override handles it")
+	assert_false(tree.paused, "the tree is not paused by an override")
+
+
+func test_hand_over_without_an_override_is_quit_to_shell() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	assert_eq(WebHandoff.hand_over(tree, "bogus"), ERR_INVALID_PARAMETER, "unknown kind: error, nothing quit")
+	assert_false(tree.paused)
 
 
 func test_quit_to_shell_with_bad_kind_does_not_quit() -> void:

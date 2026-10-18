@@ -25,7 +25,8 @@ test('img path formulas match the importer (tools/wzimport/src/manifest.rs tests
 	assert.equal(lib.characterImgPath(9990000), null);
 	assert.equal(lib.itemImgPath(4000019), 'Item.wz/Etc/0400.img');
 	assert.equal(lib.itemImgPath(2000000), 'Item.wz/Consume/0200.img');
-	assert.equal(lib.itemImgPath(9000000), null);
+	assert.equal(lib.itemImgPath(9000000), 'Item.wz/Special/0900.img');
+	assert.equal(lib.itemImgPath(1000000), null);
 });
 
 test('the real manifest needs the twelve archives the desktop import reads', () => {

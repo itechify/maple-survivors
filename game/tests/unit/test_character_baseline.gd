@@ -39,7 +39,8 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# ce161497... is reproduced exactly, so the only new bytes are the bot taking a higher-tier card over a Normal-preferred one.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
-	# runner and in WSL, #135; cause not investigated, probably the platform's math library), so there the test
+	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
+	# decision on whether to keep this platform split is pending), so there the test
 	# checks what survives a platform change: two runs on the same machine agree, over two minutes of play.
 	if OS.get_name() != "Windows":
 		assert_eq(_event_digest(7200), _event_digest(7200), "two replays agree (the golden digest is Windows-only)")

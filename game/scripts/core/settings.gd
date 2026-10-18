@@ -510,13 +510,17 @@ static func window_scale_size(scale: int, web: bool) -> Vector2i:
 
 ## True when the window is fullscreen (on web: the canvas element, which the browser may leave on its own with Esc).
 static func is_fullscreen() -> bool:
-	var mode := DisplayServer.window_get_mode()
+	return is_fullscreen_mode(DisplayServer.window_get_mode())
+
+
+## True for the two fullscreen window modes (the one definition is_fullscreen() and toggled_window_mode() share).
+static func is_fullscreen_mode(mode: int) -> bool:
 	return mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
 
 
 ## The window mode a fullscreen toggle goes to from `mode`.
 static func toggled_window_mode(mode: int) -> int:
-	if mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+	if is_fullscreen_mode(mode):
 		return DisplayServer.WINDOW_MODE_WINDOWED
 	return DisplayServer.WINDOW_MODE_FULLSCREEN
 

@@ -19,7 +19,10 @@ inflate forward), so a zip on a host that serves ranges needs no full download.
 
 The shell and the game talk through files and quitting only. The shell writes into `user://` (the cache, an imported
 `save.json`) before starting the engine; the game asks the shell for something (re-import, save export or import) by
-writing a request marker into `user://` and quitting, and the shell handles it and restarts the engine.
+writing a request marker into `user://` and quitting, and the shell handles it and restarts the engine. The one other
+channel is the page URL: `?arg=<value>` query parameters become the engine's user args (`OS.get_cmdline_user_args()`),
+and they carry tool flags only (autoplay, screenshots, run selection); such flags never write saves, and there is no
+other shell-to-game channel.
 
 ## Considered options
 

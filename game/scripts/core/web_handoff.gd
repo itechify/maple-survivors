@@ -9,7 +9,7 @@ extends RefCounted
 ## was closed after writing, and once more on quit, which is why the marker must be written and closed in a normal
 ## frame and never from `_exit_tree` or other teardown code.
 ##
-## Quit sequence (BINDING, decisions.md 6): write and close the marker, stop every AudioStreamPlayer under the root,
+## Quit sequence (docs/ARCHITECTURE.md 10 "Quitting on web", ADR 0004): write and close the marker, stop every AudioStreamPlayer under the root,
 ## pause the tree, then quit. Godot 4.7.2's web teardown throws on the already closed AudioContext when a player still
 ## holds a sample playback, and then `onExit` never fires; quit() only takes effect at the end of the frame, so audio
 ## must be stopped and the tree paused (no more scripts that could start sounds) first.
@@ -80,6 +80,15 @@ static func quit_to_shell(tree: SceneTree, kind: String, quit_fn: Callable = Cal
 		return err
 	quit(tree, quit_fn)
 	return OK
+
+
+## Hands `kind` to the shell: calls `override` with the kind when it is valid (the test/tool seam of the screens that
+## call this, which then does the handover itself), else quit_to_shell(). Returns OK, or the marker error (nothing quit).
+static func hand_over(tree: SceneTree, kind: String, override: Callable = Callable()) -> Error:
+	if override.is_valid():
+		override.call(kind)
+		return OK
+	return quit_to_shell(tree, kind)
 
 
 ## Rewrites user://save.json from the loaded save (closing the file in this frame) so IndexedDB holds its latest state.
