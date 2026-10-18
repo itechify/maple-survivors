@@ -32,6 +32,10 @@ const REUSE_SPREAD := 8.0
 const ANY_PROBE := 8
 ## Candidate targets the cluster rule weighs (the nearest within the throw range, bosses first). tier C: ours (#192).
 const CLUSTER_CANDIDATES := 12
+## _buff_admission verdicts.
+const BUFF_REFUSED := 0
+const BUFF_ADMITTED := 1
+const BUFF_FALLS_THROUGH := -1
 ## Shortest flight of a thrown grenade in seconds, so a point-blank throw still lands after the ball is seen. tier C: ours (#192).
 const MIN_FLIGHT := 0.1
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
@@ -233,11 +237,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			if String(st.kind) == "buff":
 				if not world.can_start_buff(key, st):
 					return false
-				var near := float(st.cast_params.get("mob_within", 0.0))
-				if near > 0.0:
-					return _any_target(world, origin, near, 1)
-				if float(st.duration) > 0.0:
-					return true
+				var admitted := _buff_admission(world, st, origin)
+				if admitted != BUFF_FALLS_THROUGH:
+					return admitted == BUFF_ADMITTED
 			return _any_target(world, origin, float(st.range), int(st.count))
 		"box":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
@@ -297,15 +299,22 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 	return {}
 
 
+## The nearest rule's verdict on a buff that can start: BUFF_ADMITTED or BUFF_REFUSED when the cast block names `mob_within`
+## (a living mob in reach is needed) or the buff is timed (no mob needed), else BUFF_FALLS_THROUGH to the target scan.
+func _buff_admission(world: RunWorld, st: Dictionary, origin: Vector2) -> int:
+	var near := float(st.cast_params.get("mob_within", 0.0))
+	if near > 0.0:
+		return BUFF_ADMITTED if _any_target(world, origin, near, 1) else BUFF_REFUSED
+	return BUFF_ADMITTED if float(st.duration) > 0.0 else BUFF_FALLS_THROUGH
+
+
 func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
 	if String(st.kind) == "buff":
 		if not world.can_start_buff(key, st):
 			return {}
-		var near := float(st.cast_params.get("mob_within", 0.0))
-		if near > 0.0:
-			return {"go": true} if _any_target(world, origin, near, 1) else {}
-		if float(st.duration) > 0.0:
-			return {"go": true}
+		var admitted := _buff_admission(world, st, origin)
+		if admitted != BUFF_FALLS_THROUGH:
+			return {"go": true} if admitted == BUFF_ADMITTED else {}
 	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
@@ -365,22 +374,23 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
+	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
 	if String(st.cast_rule) in ["", "nearest", "cluster"] and not targets.is_empty() and String(st.kind) != "buff":
-		world.face_toward(world.mob_center(targets[0]).x)
+		world.face_toward(first_x)
 	elif String(st.cast_rule) == "weapon_reach":
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
-		world.face_toward(world.mob_center(targets[0]).x, true)
+		world.face_toward(first_x, true)
 	# A moving attack (7.9) faces the mob it is aimed at in every movement state, then moves away from it or toward it.
 	var disp: Dictionary = st.displacement
 	var moves := not disp.is_empty() and String(st.kind) != "buff" and float(disp.distance) > 0.0
 	var side := 0
 	if moves:
 		if not targets.is_empty():
-			world.face_toward(world.mob_center(targets[0]).x, true)
+			world.face_toward(first_x, true)
 		var toward := world.player.facing
-		if not targets.is_empty() and absf(world.mob_center(targets[0]).x - world.player.pos.x) > 0.5:
-			toward = 1 if world.mob_center(targets[0]).x > world.player.pos.x else -1
+		if not targets.is_empty() and absf(first_x - world.player.pos.x) > 0.5:
+			toward = 1 if first_x > world.player.pos.x else -1
 		side = toward if String(disp.direction) == "toward" else -toward
 	var when := String(disp.get("when", "")) if moves else ""
 	casts += 1
@@ -400,7 +410,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	if when == "before" or when == "during":
 		world.displace_player(side, float(disp.distance))
 	if charge:
-		_resolve_charge(world, st, start)
+		_resolve_charge(world, st, start, side)
 	else:
 		match String(st.cast_rule):
 			"box", "weapon_reach", "range_around":
@@ -425,14 +435,24 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 ## strikes up to the skill's mob count among the live mobs inside the swept path, bosses first then nearest to where
 ## the charge began. The path is the skill's attack box (the player's body without one) at the start and at the end,
 ## and everything between: a mob that triggered the cast is still struck when the charge stops short of it, and a
-## cast whose admitted mobs lie outside the path strikes nothing (tier C).
-func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2) -> void:
+## cast whose admitted mobs lie outside the path strikes nothing (tier C). A wall that stopped the charge (`side` is the
+## direction it moved in) also ends the path: nothing on its far side is struck, however far the box reaches (tier C).
+func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int) -> void:
 	var local: Rect2 = st.box if bool(st.has_box) else world.body
 	if bool(st.has_box) and world.player.facing > 0:
 		local.position.x = -local.end.x  # canonical boxes face left
 	var at_start := Rect2(local.position + start, local.size)
 	var at_end := Rect2(local.position + world.player.pos, local.size)
-	var swept := world.skill_rect_targets(at_start.merge(at_end), start - Vector2(0.0, world.cast_height),
+	var path := at_start.merge(at_end)
+	var stop := world.fhm.wall_hit(world.player.pos.x, world.player.pos.y, path.end.x if side > 0 else path.position.x,
+		world.player.pos.y)
+	if stop != FootholdMap.NONE:
+		var wall_x := world.fhm.x1[stop]
+		if side > 0:
+			path.end.x = minf(path.end.x, wall_x)
+		else:
+			path.position.x = maxf(path.position.x, wall_x)
+	var swept := world.skill_rect_targets(path, start - Vector2(0.0, world.cast_height),
 		int(st.mob_count))
 	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
 		world.visual_index(String(st.hit)))

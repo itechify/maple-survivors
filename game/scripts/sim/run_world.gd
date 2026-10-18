@@ -176,7 +176,8 @@ var reward_rng: RandomNumberGenerator
 var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
-## Pirate-only rolls (stream 16, #186); unused until a Pirate skill needs a roll.
+## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
+## needs its own stream.
 var pirate_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
@@ -619,8 +620,9 @@ func morph_id() -> int:
 
 
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call. A buff with a
-## `fail_chance` (Oak Barrel: Skill.wz `prop`, tier A) rolls it once on the Pirate stream 16 first and, when the cast
-## fails, starts nothing and emits `buff_failed`. Returns whether the buff started.
+## `fail_chance` (Oak Barrel: Skill.wz `prop`, tier A) rolls it once on the Pirate stream 16 first (every `fail_field`
+## buff draws it, so a future non-Pirate failure chance needs its own stream) and, when the cast fails, starts nothing and
+## emits `buff_failed`. Returns whether the buff started.
 func start_buff(skill: String, stats: Dictionary) -> bool:
 	if float(stats.get("fail_chance", 0.0)) > 0.0 and pirate_rng.randf() < float(stats.fail_chance):
 		emit("buff_failed", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level)})
@@ -2062,6 +2064,8 @@ func _tick_timers(dt: float) -> void:
 ## Ends the buffs whose `end_hp_above` fraction the character's HP has passed (Oak Barrel's barrel once HP is back above
 ## 60%, #194). Runs after every HP change of the tick (potions, buff pulses, regeneration).
 func _end_buffs_above_hp() -> void:
+	if not buffs.ends_on_hp():
+		return
 	for skill: String in buffs.active.keys():
 		var above := float(buffs.active[skill].get("end_hp_above", 0.0))
 		if above > 0.0 and _hp > float(_max_hp) * above:

@@ -343,3 +343,64 @@ func test_a_skill_key_round_trips_through_ok() -> void:
 	assert_eq(kb.keys_of("dash"), PackedInt32Array([KEY_X]), "Default puts the skill key back on X")
 	t.free()
 	s.free()
+
+
+## A key holds one action across every skill key, learned or not (review of #188): a character without Dash rebinds X,
+## and the next character who knows Dash (same session or after a restart) must not find X on two actions.
+func _holders(s: GameSettings, key: int) -> Array:
+	var out: Array = []
+	for a: StringName in InputMap.get_actions():
+		if String(a).begins_with("ui_"):
+			continue
+		if key in s.binding_keys(String(a)):
+			out.append(String(a))
+	return out
+
+
+func test_rebinding_x_takes_it_off_the_unlisted_skill_keys() -> void:
+	var s := GameSettings.new(cfg_path) # character A: no manual skill, so Key Config lists neither Teleport nor Dash
+	var a := KeyBindings.from_settings(s)
+	a.unbind(KEY_X)
+	assert_true(a.bind("jump", KEY_X))
+	a.apply_to(s)
+	assert_eq(_holders(s, KEY_X), ["jump"], "live: X is on jump only, Dash and Teleport lost it")
+	var b := KeyBindings.from_settings(s, ["dash"]) # character B knows Dash, same session
+	assert_eq(b.action_on(KEY_X), "jump")
+	assert_eq(b.keys_of("dash"), PackedInt32Array(), "Dash has no key until rebound")
+	var t := GameSettings.new(cfg_path) # after a restart
+	t.apply_bindings()
+	assert_eq(_holders(t, KEY_X), ["jump"], "saved: still one holder")
+	assert_eq(KeyBindings.from_settings(t, ["dash"]).keys_of("dash"), PackedInt32Array())
+	assert_eq(KeyBindings.from_settings(t, ["teleport"]).keys_of("teleport"), PackedInt32Array())
+	t.free()
+	s.free()
+
+
+func test_binding_a_rebound_skill_keys_key_takes_it_off_that_skill_key() -> void:
+	var s := GameSettings.new(cfg_path)
+	var dasher := KeyBindings.from_settings(s, ["dash"]) # a Pirate moves Dash to F
+	dasher.unbind(KEY_X)
+	assert_true(dasher.bind("dash", KEY_F))
+	dasher.apply_to(s)
+	var a := KeyBindings.from_settings(s) # a character without Dash puts a potion on F
+	a.unbind(KEY_F)
+	assert_true(a.bind("drink_hp", KEY_F))
+	a.apply_to(s)
+	assert_eq(_holders(s, KEY_F), ["drink_hp"], "F left the unlisted Dash")
+	var t := GameSettings.new(cfg_path)
+	t.apply_bindings()
+	assert_eq(_holders(t, KEY_F), ["drink_hp"], "saved")
+	assert_eq(KeyBindings.from_settings(t, ["dash"]).action_on(KEY_F), "drink_hp")
+	t.free()
+	s.free()
+
+
+func test_loading_a_file_with_one_key_on_a_skill_key_and_another_action_keeps_one_holder() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "jump", [KEY_X])
+	cfg.set_value("input", "dash", [KEY_X])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	assert_eq(_holders(s, KEY_X), ["jump"], "a skill key yields to the fixed actions")
+	s.free()

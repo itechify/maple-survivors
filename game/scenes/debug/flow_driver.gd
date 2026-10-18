@@ -1781,6 +1781,11 @@ func _scenario_keys() -> void:
 	if settings == null:
 		_fail("no Settings autoload")
 		return
+	# The scenario assumes the project's default keys (jump on C, ...): start from a throwaway settings file instead of
+	# the developer's own bindings (the test runner does the same, #103). The real file is put back on quit.
+	var scratch := "user://flow_driver_keys_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
+	settings.reload_from(scratch)
 	if not await _enter_round("Keys87"):
 		return
 	var run := flow.current as RunScene
