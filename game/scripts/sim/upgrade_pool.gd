@@ -16,7 +16,8 @@ extends RefCounted
 ## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
 ## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
 ## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
-## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
+## tables resolve the skill ranks / modifier steps. Tiers in magnitudes.clamp clamp to remaining headroom; other
+## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
@@ -402,8 +403,10 @@ func _headroom(c: Dictionary, state: RunWorld) -> int:
 
 
 func _requested_magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
-	var value: Variant = _tier_value(c, tier)
-	return _headroom(c, state) if str(value) == "max" else maxi(1, int(value))
+	var value := maxi(1, int(_tier_value(c, tier)))
+	# tier C: owner #173 (2026-10-18): configured tiers clamp their fixed gain; -1 headroom means unlimited.
+	var headroom := _headroom(c, state)
+	return mini(value, headroom) if tier in _magnitudes.get("clamp", []) and headroom >= 0 else value
 
 
 func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:

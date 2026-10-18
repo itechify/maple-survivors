@@ -522,6 +522,29 @@ timing is computed relative to the held weapon's own speed step, and only an act
   small change (`Loadout.stats` and `BasicAttack._spec` take `WeaponInfo.NORMAL_SPEED` as the reference step instead of
   the weapon's own) and the Beginner/Staff records and the baseline digest must be re-captured.
 
+#### #173 fixed Legendary magnitudes regression smoke (2026-10-18)
+
+`ISOLATE=s173_smoke bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, on `b1e18d3` plus #173, no PATCH or tuning. All 12 runs finish without crashes, script errors or world
+warnings; every record has `missing: []` and `warnings: []`. Every outcome and end time matches the latest combined
+#142/#143/#144/#146/#148 smoke below. All are deaths (0/3 clears per row); Henesys still reaches Magician in 5/6
+runs at 265.0–281.8 s and spawns bosses in those five. Bot seed 2026 still dies at Lv9 before Magician, as before.
+Tree remains record-only. Death times are in seed order 1 / 2 / 2026; boss counts include every spawned encounter.
+Legendary counts are displayed tiers after equal-gain relabelling, rather than raw Legendary rolls.
+
+| Stage / policy | Death seconds (unchanged) | Magician reached | Bosses dead / spawned | Legendary offered / picked |
+|---|---|---|---|---|
+| Henesys bot | 849.7 / 906.6 / 287.9 | 2/3 | 4/5 | 1/1 |
+| Henesys random | 501.7 / 339.4 / 321.4 | 3/3 | 1/3 | 1/0 |
+| Tree bot | 574.3 / 76.6 / 47.9 | 1/3 | 1/1 | 0/0 |
+| Tree random | 339.3 / 84.3 / 47.9 | 1/3 | 0/1 | 0/0 |
+
+The synthetic character-event and tick-cost digests also retain their existing goldens. The new seam tests cover
+Legendary +8 ranks, clamping to six ranks, +5 stacking steps (including unlimited cards), equal-gain Epic +3,
+and the actual descriptions, previews, applied gains and bot scores. No balance values beyond #173's specified
+Legendary magnitudes changed. Raw smoke records and logs are in the ignored `_scratch/s173_balance/` directory.
+Full suite: 1,417 tests, 0 failed, 0 skipped; Godot reports two DummyTexture RID leaks at shutdown after TESTS_PASSED.
+
 #### #142 / #143 / #144 / #146 / #148 combined regression smoke (2026-10-18)
 
 `ISOLATE=lead_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` on
@@ -3364,8 +3387,8 @@ and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 | Potential tier | Normal | Rare | Epic | Unique | Legendary |
 |---|---|---|---|---|---|
 | Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
-| Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
-| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | all remaining steps |
+| Skill rank gain | +1 | +2 | +3 | +5 | +8, capped by ranks left |
+| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | +5, capped by steps left |
 | New skill starting rank | 1 | 2 | 3 | 4 | 5 |
 
 All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the spec #30
@@ -3374,15 +3397,17 @@ the balance pass). Every non-Normal weight is multiplied by `1 + max(0, Fortune)
 (0.02), then weights normalize together: at Fortune 100 the weights total 150, i.e. 50/36/10/3.4/0.6%.
 `upgrades.magnitudes` holds the per-kind tables; every default tier gives more than the one below it (owner,
 2026-10-15). An individual card's `magnitudes` can override any tier, with unspecified tiers retaining their kind
-defaults. Legendary can max a 20-rank attack or buff in one pick.
+defaults. Legendary adds up to eight ranks to an owned attack or buff, or up to five stacking steps (owner decision
+#173, 2026-10-18); it learns a new skill at rank five as before.
 
-A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, and any tier whose
-gain equals a lower tier's (Legendary's `max` spending the last steps, or an equal per-card entry) wears the lowest
+A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, except tiers listed
+in `upgrades.magnitudes.clamp` (Legendary), whose fixed request clamps to what is left. Any tier whose
+gain equals a lower tier's (a clamped Legendary spending the last steps, or an equal per-card entry) wears the lowest
 such label, so a label never overstates the card: a rank card at 17/20 rolling Legendary shows Epic (+3), at 15/20
 Unique (+5), at 16/20 Legendary (+4); an Epic at 18/20 shows Rare (+2). Stacking cards cap at 2–4 steps, so a fresh
 cap-2 card shows at most Rare, a cap-4 card at most Unique, and no current stacking card can show Legendary.
-Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card downgrades a `max` roll to
-its highest finite tier. All tier C.
+Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card would grant all five Legendary
+steps without clamping; no such card currently exists. All tier C.
 
 Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
 omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
@@ -4043,8 +4068,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
 | Pet drawing (#120) | `PetRenderer` draws `RunWorld.pet_state()` (and the Free Market's `FreeMarketMotion.pet_state()`, the same `PetSystem` follower with no drops) from `Item.wz/Pet/<species>.img` (`stand0 stand1 move jump hang fly` and `info/icon`, `info/iconRaw` in the manifest; no `Pet.wz` in v83) at the real frame delays and origins; the art faces left so facing right mirrors; no name tag or chat balloon. Action to animation: stand -> `stand0`, move -> `move`, jump -> `jump`, hang -> `hang` (tier A: the WZ names); a pet running to a drop in the air (Wing Boots, `fetching` and `jump`) uses `fly`, and a hanging pet is drawn 22 px beside the climber instead of exactly behind (C: ours, the sim keeps it on the player's position). Drawn in the actor layer of the foothold it stands on, just behind the avatar when that is the avatar's layer. `stand1` is imported but not used | A (animations) / C (mapping, offset) | v83 `Item.wz/Pet`; ours |
 | HP / MP ALERT defaults (#121) | HP ALERT 30 %, MP ALERT 20 % of max (`Settings` `[alert]` hp/mp; 0 = do not alert; 5 % steps on the Options sliders). A persistent round takes them from the settings at launch and follows changes at once; tool rounds ignore the settings and take `--account`'s `alert` (default 0) | C | ours, low enough to be safe and on so a new pouch works at once; the v83 SysOpt rows are the slider style |
-| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
-| Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
+| Card tier magnitudes | rank +1/+2/+3/+5/+8; stacking +1/+2/+3/+4/+5; new skill 1/2/3/4/5; per-card overrides; Legendary clamps to ranks/steps left | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; fixed Legendary gains and data-driven clamp: owner decision #173, 2026-10-18 |
+| Card honesty / boss floor | highest fitting tier except configured clamped tiers (Legendary); a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43 / #173; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
