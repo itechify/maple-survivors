@@ -1129,6 +1129,11 @@ func weapon_id() -> int:
 	return int(equipment.worn.weapon.id) if equipment.worn.has("weapon") else 0
 
 
+## The worn weapon's family ("sword", "claw", ...; WeaponInfo.FAMILIES); "" when bare-handed.
+func held_weapon_family() -> String:
+	return WeaponInfo.family(weapon_id())
+
+
 ## The worn weapon's canonical info node (empty when bare-handed or absent from setup.equipment_info).
 func weapon_info() -> Dictionary:
 	var id := weapon_id()

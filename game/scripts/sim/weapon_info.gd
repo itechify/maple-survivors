@@ -10,12 +10,38 @@ extends RefCounted
 const TYPE_ONE_HANDED_SWORD := 130
 ## tier C: starter Sword/Wand use afterimage variant 0 (both are below required level 10).
 const AFTERIMAGE_VARIANT := "0"
+## Weapon family of each v83 weapon type (item id / 10000; docs/adr/0005, GLOSSARY "Weapon family"). tier A: the
+## type codes are Character.wz/Weapon's id blocks and the Skill.wz `weapon` field (type - 100). One- and two-handed
+## swords, axes and blunt weapons share a family, so a Sword Mastery covers both.
+const FAMILIES := {
+	130: "sword", 131: "axe", 132: "blunt", 133: "dagger", 137: "wand", 138: "staff",
+	140: "sword", 141: "axe", 142: "blunt", 143: "spear", 144: "polearm",
+	145: "bow", 146: "crossbow", 147: "claw", 148: "knuckle", 149: "gun",
+}
+## tier B: Cosmic `isTwoHanded` (server reimplementation): every weapon type from 140 (two-handed swords, axes and
+## blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) takes both hands, so no shield.
+const FIRST_TWO_HANDED_TYPE := 140
 
 
 ## Weapon type of an original item id (130 one-handed sword, 137 wand, ...).
 @warning_ignore("integer_division")
 static func type_of(weapon_id: int) -> int:
 	return weapon_id / 10000
+
+
+## Weapon family of an item id ("sword", "claw", ...); "" when bare-handed (0) or not a known weapon type.
+static func family(weapon_id: int) -> String:
+	return String(FAMILIES.get(type_of(weapon_id), "")) if weapon_id > 0 else ""
+
+
+## Weapon family of a Skill.wz `weapon` code (type - 100: 30 one-handed sword, 47 claw, ...); "" when unknown.
+static func family_of_skill_code(code: int) -> String:
+	return String(FAMILIES.get(code + 100, ""))
+
+
+## True for a two-handed weapon (it blocks the shield slot); false bare-handed or for a non-weapon id.
+static func is_two_handed(weapon_id: int) -> bool:
+	return FAMILIES.has(type_of(weapon_id)) and type_of(weapon_id) >= FIRST_TWO_HANDED_TYPE
 
 
 ## k of the physical swing bounds (STR x k + DEX) x WATK / 100 (tier B: pre-Big-Bang formula compilation): one-handed
