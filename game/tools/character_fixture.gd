@@ -3,6 +3,9 @@ extends SceneTree
 ## ISOLATE=t67 bash scripts/test.sh character_snapshot # prepares the isolated project, then:
 ## ISOLATE=t67 bash scripts/godot.sh --headless --path _scratch/godot_runs/t67/game
 ##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA>
+## `--god=1` (spec #165 #185, the second-job Warrior fixtures) keeps the character alive by setting RunWorld.god: a Warrior bot
+## dies at the first boss around Lv 12 and never reaches the Lv 30 advancement on its own. The round is otherwise the same real
+## bot round (cards, jobs, drops, equipment) and `_doc.invulnerable` records it. Use it with `--seconds=<s>`.
 ## `--label=<ticket>` (the _doc.branch provenance; default spec32/ticket-67, the Lv38 F/P fixture; lv11_warrior_1st.json says
 ## spec151/ticket-163), `--job=<id>` (default 210), `--seed=<n>` (default 1) and `--seconds=<s>` pick the forced job, the seed and a time cap:
 ## with a cap the round stops there (a low-level fixture such as lv20_warrior_1st.json: `--job=100 --seconds=600`) and only
@@ -25,6 +28,7 @@ func _init() -> void:
 	var job := 210
 	var seconds := 0.0
 	var seed_value := 1
+	var god := false
 	var label := "spec32/ticket-67"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
@@ -41,6 +45,8 @@ func _init() -> void:
 			label = arg.substr(8)
 		elif arg.begins_with("--seed="):
 			seed_value = int(arg.substr(7))
+		elif arg == "--god=1":
+			god = true
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -65,6 +71,7 @@ func _init() -> void:
 	if seconds > 0.0:
 		# A capped fixture (--seconds): the round stops at the cap, so the character is still low level.
 		world.balance["run_time_cap"] = seconds
+	world.god = god
 	var record := HARNESS.run_one(world, "bot", seed_value, -1.0, 60.0, job)
 	print("FIXTURE_RUN " + JSON.stringify(record))
 	var finished := world.state == RunWorld.CLEARED if seconds <= 0.0 else world.state != RunWorld.DEAD
@@ -80,6 +87,10 @@ func _init() -> void:
 		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
+	if god:
+		# RunWorld.god for the whole round (see the header)
+		character._doc["invulnerable"] = true
+		character._doc["source"] = "real headless Henesys bot round with the character invulnerable (RunWorld.god), stopped at the %d s cap" % int(seconds)
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)
