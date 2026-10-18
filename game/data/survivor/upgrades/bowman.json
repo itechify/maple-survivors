@@ -1,0 +1,205 @@
+{
+	"_doc": "Bowman first-job cards (#199). Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
+	"cards": [
+		{
+			"id": "blessing_of_amazon_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "blessing_of_amazon",
+			"name": "The Blessing of Amazon",
+			"desc": "Learn The Blessing of Amazon: Increases accuracy, which also raises critical chance.",
+			"icon": "Skill.wz/300.img/skill/3000000/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "blessing_of_amazon_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "blessing_of_amazon",
+			"name": "The Blessing of Amazon",
+			"desc": "The Blessing of Amazon +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000000/icon",
+			"max_rank": 16,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "critical_shot_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "critical_shot",
+			"name": "Critical Shot",
+			"desc": "Learn Critical Shot: Increases critical chance and critical damage with bows and crossbows.",
+			"icon": "Skill.wz/300.img/skill/3000001/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "critical_shot_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "critical_shot",
+			"name": "Critical Shot",
+			"desc": "Critical Shot +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000001/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "eye_of_amazon_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "eye_of_amazon",
+			"name": "The Eye of Amazon",
+			"desc": "Learn The Eye of Amazon: Extends bow and crossbow attacks.",
+			"icon": "Skill.wz/300.img/skill/3000002/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "eye_of_amazon_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "eye_of_amazon",
+			"name": "The Eye of Amazon",
+			"desc": "The Eye of Amazon +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000002/icon",
+			"max_rank": 8,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "focus_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "focus",
+			"name": "Focus",
+			"desc": "Learn Focus: Temporarily increases accuracy and avoidability.",
+			"icon": "Skill.wz/300.img/skill/3001003/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "focus_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "focus",
+			"name": "Focus",
+			"desc": "Focus +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001003/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "arrow_blow_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Learn Arrow Blow: Fires a powerful arrow at the nearest monster.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "arrow_blow_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Arrow Blow +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 20,
+			"weight": 3,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "arrow_blow_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Arrow Blow fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "count", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "bow_double_shot_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Learn Double Shot: Fires two arrows at nearby monsters.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "bow_double_shot_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Double Shot +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 20,
+			"weight": 3,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "bow_double_shot_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Double Shot fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "count", "op": "add", "value": 1}
+			]
+		}
+	]
+}

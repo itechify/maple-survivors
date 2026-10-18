@@ -452,7 +452,8 @@ func test_level_up_opens_the_window() -> void:
 func test_job_window_reaches_magician() -> void:
 	if not require_cache():
 		return
-	scene = _make("henesys_hg1", 12, {"window_autopick": 0.05})
+	# #199 expands the job pool: this presentation test specifically needs the Magician and its wand.
+	scene = _make("henesys_hg1", 12, {"window_autopick": 0.05, "job": 200})
 	var w := scene.world
 	_frames(2)
 	w.pickups.spawn(w.player.pos, w.progression.curve.total_to(10), 4000019)
