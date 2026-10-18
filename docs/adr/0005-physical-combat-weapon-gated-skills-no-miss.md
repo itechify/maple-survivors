@@ -8,8 +8,11 @@ v83". The owner decided them in the 2026-10-17 grilling:
   matching weapon is held. Survivor overrides cover the skills v83 leaves untagged (tier C). Level-up cards are offered
   for the weapon held when the draw rolls. A weapon swapped in the Equip window turns the mismatched skills off.
   - Thief and Pirate pick a **weapon path** at first job: Thief Claw/Dagger, Pirate Knuckle/Gun. The path hands the
-    character that weapon.
-  - Second job grants the branch weapon only when the held one can't be used by the branch.
+    character that weapon. The Pirate also gets the other path's weapon in the Equip tab, as v83's Kyrin gives both
+    (tier B; owner, #168 grilling 2026-10-18).
+  - Every second job hands over a plain Lv 30 weapon of a family the branch uses, worn at once, the old weapon going
+    to the Equip tab. *Amended 2026-10-18 (#168 grilling):* the first rule granted a basic weapon only when the held
+    one couldn't be used by the branch, which left a Lv 10 weapon in a Lv 30 hand.
   - Weapon drops come only from the wielded weapon family.
 - **Ammo is endless and upgrades itself.** Stars, arrows and bullets are never consumed, never an item stack and never
   a card.

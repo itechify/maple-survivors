@@ -113,7 +113,8 @@ _Avoid_: class line, family (a weapon family is a kind of weapon)
 
 **Job advancement**:
 The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
-new job's skills come only from cards.
+new job's skills come only from cards. A second-job advancement hands over a plain Lv 30 weapon of a family the branch
+uses, worn at once.
 _Avoid_: job change, promotion
 
 **Branch**:
@@ -124,7 +125,8 @@ _Avoid_: path (on its own; a weapon path is the first-job weapon choice), specia
 **Weapon path**:
 A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
 Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
-offers each path as its own entry and hands the character that weapon. It is not a job: both Thief paths are job 400.
+offers each path as its own entry and hands the character that weapon (a Pirate also gets the other path's weapon in
+the Equip tab, as the v83 instructor gives both). It is not a job: both Thief paths are job 400.
 The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
 _Avoid_: branch (that is the second-job choice), build, stance
 
@@ -135,7 +137,16 @@ A skill the run casts for the player when its trigger holds and MP allows: attac
 inactive, heals below an HP threshold, Slow when enough monsters are near.
 
 **Manual skill**:
-A skill the player triggers with its own key, such as Teleport.
+A skill the player triggers with its own skill key, such as Teleport or Dash.
+
+**Hidden**:
+A timed state in which monsters, bosses included, neither chase nor attack the character, and the character cannot
+attack; Oak Barrel and Dark Sight put the character in it.
+_Avoid_: stealth, invisible, cloaked
+
+**Skill key**:
+The Key Config binding of one manual skill the character has learned.
+_Avoid_: hotkey, quickslot
 
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
@@ -168,7 +179,7 @@ _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
 ## Monsters
 
 **Status effect**:
-A timed condition a skill puts on a monster: slowed, poisoned or frozen.
+A timed condition a skill puts on a monster: slowed, poisoned, frozen or stunned (neither moving nor attacking).
 _Avoid_: debuff, ailment
 
 **Element attribute**:
