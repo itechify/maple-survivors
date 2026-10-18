@@ -10,9 +10,11 @@ v83". The owner decided them in the 2026-10-17 grilling:
   - Thief and Pirate pick a **weapon path** at first job: Thief Claw/Dagger, Pirate Knuckle/Gun. The path hands the
     character that weapon. The Pirate also gets the other path's weapon in the Equip tab, as v83's Kyrin gives both
     (tier B; owner, #168 grilling 2026-10-18).
-  - Every second job hands over a plain Lv 30 weapon of a family the branch uses, worn at once, the old weapon going
-    to the Equip tab. *Amended 2026-10-18 (#168 grilling):* the first rule granted a basic weapon only when the held
-    one couldn't be used by the branch, which left a Lv 10 weapon in a Lv 30 hand.
+  - Second job hands one advancement weapon for each of the branch's weapon families. The one of the held family is
+    worn, or the branch's first family when the held one can't be used by the branch; the other goes to the Equip tab.
+    *Amended 2026-10-18 (#165):* originally "only when the held one can't be used". Drops stay in the wielded family
+    and the bot never swaps, so without a grant the branch's second family (a Fighter's axe, a Spearman's polearm)
+    and its Mastery, Booster and Final Attack were unreachable. Every advancement is also an upgrade, as at first job.
   - Weapon drops come only from the wielded weapon family.
 - **Ammo is endless and upgrades itself.** Stars, arrows and bullets are never consumed, never an item stack and never
   a card.

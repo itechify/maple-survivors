@@ -113,9 +113,15 @@ _Avoid_: class line, family (a weapon family is a kind of weapon)
 
 **Job advancement**:
 The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
-new job's skills come only from cards. A second-job advancement hands over a plain Lv 30 weapon of a family the branch
-uses, worn at once.
+new job's skills come only from cards. A second-job advancement hands over a Lv 30 advancement weapon for each weapon
+family the branch uses.
 _Avoid_: job change, promotion
+
+**Advancement weapon**:
+A weapon a job advancement hands the character. At second job the branch hands one per weapon family it uses: the one
+of the held family is worn (the first family's when the held one doesn't suit the branch), and the rest go to the Equip
+tab. A Warrior branch hands two; a Brawler or Gunslinger one.
+_Avoid_: job reward, starter weapon
 
 **Branch**:
 One of the second-job paths a first job splits into, e.g. the Magician's Fire/Poison (210), Ice/Lightning (220)
@@ -151,6 +157,18 @@ _Avoid_: hotkey, quickslot
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
 
+**Attack skill**:
+A skill whose cards raise the character's damage output: an auto-cast or manual attack, and a passive that strikes
+on its own, such as Final Attack.
+
+**Final Attack**:
+A passive that sometimes follows one of the character's hits with an extra strike, only while its weapon family is
+held. It is a Warrior branch's attack skill.
+_Avoid_: follow-up skill, proc
+
+**Party buff**:
+A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
+
 ## Cards and rarity
 
 **Rank**:
@@ -179,7 +197,8 @@ _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
 ## Monsters
 
 **Status effect**:
-A timed condition a skill puts on a monster: slowed, poisoned, frozen or stunned (neither moving nor attacking).
+A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatened (weaker attacks and defence) or
+stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
 
 **Element attribute**:
