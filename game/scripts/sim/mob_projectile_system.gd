@@ -69,7 +69,8 @@ func spawn(spec: Dictionary) -> int:
 	return slot
 
 
-## Advances flight within its remaining range; the first swept body contact consumes the ball even on MISS.
+## Advances flight within its remaining range; the first swept body contact consumes the ball even on MISS, except
+## that an ordinary ball is not consumed while the player's hit window blocks it (boss balls ignore the window).
 func step(dt: float, world: RunWorld) -> void:
 	for slot in _hi:
 		if active[slot] == 0:
@@ -90,12 +91,16 @@ func step(dt: float, world: RunWorld) -> void:
 				source.boss = false
 				source.source_kind = "mob_attack"
 				source["elite"] = elite[slot] != 0
-			world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
-			world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
-				"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
-				"time": world.time})
-			despawn(slot)
-		elif range_left[slot] <= 1e-6:
+			# tier C (spec #88): an ordinary ball the hit window turns away is neither a hit nor used up; it flies on
+			# and can still land once the window ends (also from inside the body box: the sweep then enters at t = 0).
+			if not world.hit_window_blocks(source):
+				world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
+				world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
+					"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
+					"time": world.time})
+				despawn(slot)
+				continue
+		if range_left[slot] <= 1e-6:
 			despawn(slot)
 
 
