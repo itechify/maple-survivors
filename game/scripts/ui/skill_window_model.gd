@@ -83,7 +83,8 @@ func weapon_needed(key: String) -> String:
 
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
 ## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
-## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), needs (the weapon it needs, "" for any;
+## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), hp_cost (only for an active skill that
+## pays HP, Slash Blast), needs (the weapon it needs, "" for any;
 ## weapon_needed), usable (the held weapon can use it), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
 ## effective stats, so cards show in the numbers.
@@ -102,6 +103,7 @@ func skill_tooltip(key: String) -> Dictionary:
 		tip.next = text.level_line(key, tip.next_level, loadout.stats(key, r + 1))
 	if kind != "passive":
 		tip.mp_cost = int(st.mp_cost)
+		tip.hp_cost = int(st.hp_cost)
 		tip.cooldown = SkillRunner.restart_cooldown(st)
 	var upgrades: Array[Dictionary] = []
 	for c: Dictionary in pool.cards:

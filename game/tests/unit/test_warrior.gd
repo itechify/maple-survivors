@@ -509,6 +509,23 @@ func test_the_forced_warrior_bot_closes_to_melee_range() -> void:
 	assert_true(mi.right, "it walks toward a mob 200 px away instead of kiting")
 
 
+# --- the committed fixture ----------------------------------------------------------------------------------------------
+
+func test_the_warrior_fixture_restores_as_a_living_warrior_with_both_attacks() -> void:
+	var character := DataRepo.load_json("res://tests/fixtures/characters/lv11_warrior_1st.json") as Dictionary
+	assert_eq(int(character.format), CharacterSnapshot.FORMAT)
+	assert_eq(int(character._doc.forced_branch), 100, "its _doc says which bot round made it")
+	var setup := RF.with_basic_attack(RF.setup("quiet", 5, RF.quiet_data()))
+	setup.character = character
+	var w := RunWorld.new(setup)
+	assert_eq(w.progression.job_id, 100)
+	assert_eq(w.progression.level, 11)
+	assert_true(w.loadout.has("power_strike") and w.loadout.has("slash_blast"))
+	assert_eq(w.weapon_id(), 1302000)
+	assert_eq(w.player_state.str, 62, "the earned AP are all in STR")
+	assert_eq(w.player_state.max_hp, 427 + int(w.equipment_bonus("incMHP")), "225 grant + 26 per level over the Beginner's")
+
+
 # --- card previews and skill text --------------------------------------------------------------------------------------
 
 func test_passive_rank_cards_preview_their_own_numbers() -> void:
@@ -524,6 +541,23 @@ func test_passive_rank_cards_preview_their_own_numbers() -> void:
 		var lines := LevelUpWindow.change_lines(card)
 		assert_eq(lines.size(), 1, "%s has one change line: %s" % [c[0], lines])
 	assert_eq(LevelUpWindow.change_lines(w.upgrades.choice_card("endure_rank", w))[0], "Recovery every: 31 s → 28 s")
+
+
+func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
+	var w := _world(93)
+	w.learn_skill("slash_blast")
+	w.learn_skill("power_strike")
+	var model := SkillWindowModel.new(w.book, w.upgrades, w.loadout, w.jobs, 100, SkillText.new(w.book),
+		func() -> String: return "sword")
+	assert_eq(model.skill_tooltip("slash_blast").hp_cost, 8)
+	assert_eq(model.skill_tooltip("power_strike").hp_cost, 0)
+	var lines := SkillTooltip.layout(model.skill_tooltip("slash_blast")).filter(
+		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
+	assert_has(lines, "Cooldown 1.6 sec.   HP cost 8   MP cost 6")
+	assert_has(lines, "Weapon : Sword / Axe / Blunt weapon / Spear / Pole Arm")
+	lines = SkillTooltip.layout(model.skill_tooltip("power_strike")).filter(
+		func(l: Array) -> bool: return l[0] == "text").map(func(l: Array) -> String: return String(l[1]))
+	assert_has(lines, "Cooldown 1 sec.   MP cost 4")
 
 
 func test_slash_blast_text_names_its_hp_and_mp_cost_range_and_targets() -> void:

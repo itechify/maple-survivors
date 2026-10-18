@@ -126,7 +126,7 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 `frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
 `max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
+`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
 no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.

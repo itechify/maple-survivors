@@ -6,7 +6,10 @@ extends RefCounted
 ## - projectile skills: `count` shots, each aimed at the position (body centre) of a different target at cast time,
 ##   scheduled bosses first, then nearest (SpatialHash query; RunWorld.targets_before); with fewer targets than shots the extra shots reuse targets in order, aimed a
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
-## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
+## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines); the
+##   `box`, `weapon_reach` (the held weapon's swing envelope, Warrior Power Strike) and `range_around` (the level's
+##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
+##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains

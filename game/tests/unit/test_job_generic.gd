@@ -93,10 +93,10 @@ func test_max_hp_grant_survives_the_character_snapshot() -> void:
 
 
 func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:
-	var w := RunWorld.new(RF.setup("quiet", 75, _data())) # no Warrior rows: STR, Beginner growth
+	var w := RunWorld.new(RF.setup("quiet", 75, _data())) # no Bowman rows: STR, Beginner growth
 	RF.place_player(w, 400)
 	var hp0: int = w.player_state.max_hp
-	w.change_job(100)
+	w.change_job(300)
 	assert_eq(w.player_state.max_hp, hp0, "no grant")
 	_level_to(w, 2)
 	assert_eq(w.player_state.max_hp, hp0 + int(w.balance.growth["0"].hp))
