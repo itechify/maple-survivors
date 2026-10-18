@@ -485,8 +485,8 @@ the review fixes and #164). No crashes, script errors, world warnings or `missin
   is above 0 (ACC x `crit.per_acc`, every job and damage type, owner decision), and basic-attack damage and crits roll
   on the basic-attack stream (5), which also picks the swing stance. Reverting only those two on `92307b7` gives runs
   bit-identical to before (Tree seed 1 for 120 s; Henesys seeds 1, 2 and 4 for 600 s, including the Magician
-  advancement), so the damage formulas are unchanged. Over Henesys bot seeds 1..24 to 600 s the old and new builds
-  are equal (10 vs 9 alive at 600 s, mean end 477 vs 476 s): seeds 1 and 2 were two of the long survivors before and
+  advancement), so the damage formulas are unchanged. A headless probe (refs `research/spec151/diag/`, not
+  `balance.sh` records) over Henesys bot seeds 1..24 to 600 s finds the old and new builds equal (10 vs 9 alive at 600 s, mean end 477 vs 476 s): seeds 1 and 2 were two of the long survivors before and
   land on a short branch now. The 3-seed smoke is bimodal per seed and cannot judge pacing on its own.
 - **Beginner deltas (expected).** Crit rolls (above) and #159's drop rule: a Beginner holding the creation sword no
   longer draws the any-job Wooden Wand (only the held family drops).
@@ -496,6 +496,10 @@ the review fixes and #164). No crashes, script errors, world warnings or `missin
   Warrior skill and never learning Iron Body; ACC is about 6 (all AP in STR), so crits add about 0.3%. Recorded for
   the balance pass and the Warrior second-job spec, not tuned.
 - **The Tree That Grew:** recorded only (seed 1 now dies at 2:09 before the first job).
+- **One forced-Warrior seed moved after the review fixes:** Henesys random seed 1 with `--job=100` was D 7:13 (Mano
+  killed) at `f86ea37` and is D 5:42 at `b3599ba`. Of the review fixes only the Warrior facing change (Power Strike and
+  Slash Blast turn to the nearest mob in every movement state) changes a Warrior run without Final Attack, a weapon grant
+  or Teleport; every other fix left the records and goldens unchanged.
 - `--job=210` (Henesys bot): D 5:40 / 7:35 / 5:11, Magician at 4:26-4:29, matching the default-pick Magician seeds.
 - Full suite 1623 tests, 0 failed, 0 skipped; `cargo test` and the web dev tests pass. `test_character_baseline`'s
   Windows golden was re-captured twice (#153 crits and stream 5; #163 the Warrior option in the Lv 10 window and the
