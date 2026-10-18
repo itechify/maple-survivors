@@ -62,6 +62,23 @@ static func restart_cooldown(st: Dictionary) -> float:
 	return float(st.cooldown)
 
 
+## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
+## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
+## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
+## casts). One switch on the cast rule; weapon-reach and range-around rules (#163) add their cases here.
+static func reach_of(st: Dictionary, _world: RunWorld) -> float:
+	if String(st.kind) == "buff" or String(st.damage_type) == "none":
+		return 0.0
+	match String(st.cast_rule):
+		"", "nearest":
+			return maxf(float(st.range), 0.0)
+		"box":
+			if not bool(st.has_box):
+				return 0.0
+			return maxf(-(st.box as Rect2).position.x, 0.0)
+	return 0.0
+
+
 ## Cached resolved stats of `key` (refreshed when the loadout changed).
 func stats_of(world: RunWorld, key: String) -> Dictionary:
 	if world.loadout.version != _version:
