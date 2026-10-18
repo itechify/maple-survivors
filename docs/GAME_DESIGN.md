@@ -536,7 +536,7 @@ D = death time, then level at the end; Lv 30 = the Lv 30 advancement was reached
   Save & quit / Continue), the new `scenes/debug/pirate_combat_driver.tscn` (both first-job paths, Brawler attacks, basic /
   Split / Mighty bullets: summary.json records ammo 2330000 / 2330001 / 2330002) and the earlier drivers `dash_driver`,
   `morph_driver --job=510` (Oak Barrel), `stun_driver` and `gunslinger_driver`; each was looked at.
-- Full suite and `cargo test` results are in the ticket report; the feature-ticket rule held: no balance data changed.
+- Full suite 1891 tests, 0 failed, 0 skipped (real private cache, merged tip `65992b4`); `cargo test` 64 passed with the real-data tests on (`MAPLE_WZ_ROOT`). The feature-ticket rule held: no balance data changed.
 
 #### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
 
