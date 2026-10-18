@@ -623,12 +623,44 @@ func _step_player(dt: float, input: MoveInput) -> void:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
+	_try_manual_buffs(input)
 	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## The skill keys of the manual skills the character has learned (Key Config lists exactly these): one
+## {action, name, icon, skill} per skill key id in learning order, whatever weapon is held. The id is the skill's
+## `skill_key` and the name of its input action ("teleport", "dash"); Teleport's three job-line variants share one.
+func manual_skill_keys() -> Array:
+	var out: Array = []
+	var seen := {}
+	for key: String in loadout.order:
+		var id := skill_key_of(key)
+		if id == "" or seen.has(id):
+			continue
+		seen[id] = true
+		var d := book.def(key)
+		out.append({"action": id, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")), "skill": key})
+	return out
+
+
+## The skill key id of skill `key` ("" when it is not a manual skill).
+func skill_key_of(key: String) -> String:
+	var d: Variant = book.defs.get(key)
+	return String((d as Dictionary).get("skill_key", "")) if d is Dictionary else ""
+
+
+## Owned manual skill of skill key `id` that the held weapon can use (SkillBook.usable_with), or "".
+func manual_skill(id: String) -> String:
+	var held := held_weapon_family()
+	for key: String in loadout.order:
+		if skill_key_of(key) == id and book.usable_with(key, held):
+			return key
+	return ""
 
 
 ## Owned branch Teleport key the held weapon can use (SkillBook.usable_with), or empty before learning it or while the
@@ -673,6 +705,18 @@ func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, s
 			else SKILL_STATE_MP_WAIT if _mp_short(key) else 0
 
 
+## Pressing (or holding) the skill key of a manual buff such as Dash casts it: it needs no cooldown left, no active
+## copy, a free casting state and the MP; otherwise the press does nothing (no event, no MP spent). Teleport has
+## its own handler (_try_teleport).
+func _try_manual_buffs(input: MoveInput) -> void:
+	if input.skills_pressed.is_empty() and input.skills_held.is_empty():
+		return
+	for id: String in input.skills_pressed.keys() + input.skills_held.keys():
+		var key := manual_skill(id)
+		if key != "" and not _is_teleport(key) and book.kind(key) == "buff" and can_cast():
+			runner.cast_manual_buff(self, key)
+
+
 func _is_teleport(key: String) -> bool:
 	var d: Variant = book.defs.get(key)
 	return d is Dictionary and (d as Dictionary).has("teleport")
@@ -693,12 +737,15 @@ func _cooldown_total(key: String) -> float:
 func _mp_short(key: String) -> bool:
 	if _is_teleport(key):
 		return _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()
+	if String(book.def(key).get("skill_key", "")) != "":
+		# A manual buff waits for MP whenever its key could be pressed but could not pay.
+		return _cooldown_left(key) <= 1e-6 and not buffs.has(key) and _mp < float(runner.stats_of(self, key).mp_cost)
 	return _cooldown_left(key) <= 1e-6 and runner.is_waiting_mp(key) \
 		and _mp < float(runner.stats_of(self, key).mp_cost)
 
 
 func _try_teleport(input: MoveInput) -> bool:
-	if not (input.teleport_pressed or input.teleport_held) or _teleport_left > 1e-6 or not can_cast():
+	if not input.skill_requested("teleport") or _teleport_left > 1e-6 or not can_cast():
 		return false
 	var key := teleport_skill()
 	if key == "":
@@ -1086,7 +1133,7 @@ func attack_speed_boost() -> int:
 ## capped at the v83 123, Equipment.JUMP_CAP).
 func refresh_player_speed() -> void:
 	player.speed_stat = roundi(player_speed_stat())
-	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump))
+	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump + buffs.effect_total("jump")))
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".

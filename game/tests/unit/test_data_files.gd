@@ -399,7 +399,26 @@ const HIT_MORE_EXEMPT := {
 	"teleport_fp": "movement: deals no damage",
 	"teleport_il": "movement: deals no damage",
 	"teleport_cleric": "movement: deals no damage",
+	"dash": "movement buff: deals no damage",
 }
+
+
+## Manual skills and skill keys (#188): every manual skill names a known skill key with an input action, and only
+## manual skills have one.
+func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
+	var skills: Dictionary = data.skills.skills
+	for key: String in skills:
+		var s: Dictionary = skills[key]
+		var manual := String(s.get("cast", {}).get("rule", "")) == "manual"
+		assert_eq(s.has("skill_key"), manual, "%s: a skill key exactly when the cast rule is manual" % key)
+		if manual:
+			var id := String(s.skill_key)
+			assert_true(id in KeyBindings.SKILL_KEYS, "%s: skill key %s is listed in KeyBindings.SKILL_KEYS" % [key, id])
+			assert_true(InputMap.has_action(id), "%s: project.godot has an input action %s" % [key, id])
+			assert_false(GameSettings.default_keys(id).is_empty(), "%s: %s has a default key" % [key, id])
+	for id: String in KeyBindings.SKILL_KEYS:
+		assert_true(skills.values().any(func(s: Dictionary) -> bool: return s.get("skill_key", "") == id),
+			"skill key %s belongs to a skill" % id)
 
 
 func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:

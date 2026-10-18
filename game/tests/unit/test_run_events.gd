@@ -271,7 +271,7 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.heal_fraction("mp", 1.0)
 	teleporter.learn_skill("teleport_fp")
 	var blink := MoveInput.new()
-	blink.teleport_pressed = true
+	blink.press_skill("teleport")
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)

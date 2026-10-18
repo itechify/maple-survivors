@@ -174,6 +174,26 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		break
 
 
+## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
+## the buff is not already running, its cooldown is over and its MP and HP can be paid. Same cast as an auto-cast buff
+## (cooldown = its duration, `buff_cast` then `cast` events), minus the target scan.
+func cast_manual_buff(world: RunWorld, key: String) -> bool:
+	if not world.can_cast() or not world.loadout.book.is_active(key) or not world.loadout.book.usable_with(key,
+			world.held_weapon_family()):
+		return false
+	var st := stats_of(world, key)
+	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
+			or not world.mp_affordable(int(st.mp_cost)) or not world.can_pay_hp(int(st.hp_cost)):
+		return false
+	world.spend_mp(int(st.mp_cost))
+	world.spend_hp(int(st.hp_cost))
+	_shortages.erase(key)
+	cooldowns[key] = restart_cooldown(st)
+	cooldown_totals[key] = cooldowns[key]
+	_resolve_cast(world, key, st, world.cast_origin(), {})
+	return true
+
+
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
 ## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them. cast_ready uses it while the skill is short of MP, when the targets themselves are never used.
@@ -320,7 +340,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	var when := String(disp.get("when", "")) if moves else ""
 	casts += 1
 	fired_this_tick = true
-	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
+	if String(st.cast_rule) in ["", "nearest", "manual"] and String(st.kind) == "buff":
 		world.start_buff(key, st)
 	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),

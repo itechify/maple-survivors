@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards remain available to both Pirate branches (exact requires.jobs). Untuned.",
+	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards remain available to both Pirate branches (exact requires.jobs). Dash (#188): learn weight 2, rank weight 2 (10 canonical levels), no behaviour modifier; Untuned.",
 	"cards": [
 		{"id": "flash_fist_new", "power": true, "kind": "skill_new", "skill": "flash_fist", "name": "Flash Fist",
 			"desc": "Learn Flash Fist: Punches one monster in front of you.",
@@ -44,6 +44,14 @@
 		{"id": "bullet_time_rank", "power": false, "kind": "skill_rank", "skill": "bullet_time", "name": "Bullet Time",
 			"desc": "Bullet Time +{magnitude} skill level.",
 			"icon": "Skill.wz/500.img/skill/5000000/icon", "max_rank": 20, "weight": 2,
+			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]},
+		{"id": "dash_new", "power": false, "kind": "skill_new", "skill": "dash", "name": "Dash",
+			"desc": "Learn Dash: press its skill key to run faster and jump higher for a while.",
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "max_rank": 1, "weight": 2,
+			"requires": {"jobs":[500,510,520]}, "effects": []},
+		{"id": "dash_rank", "power": false, "kind": "skill_rank", "skill": "dash", "name": "Dash",
+			"desc": "Dash +{magnitude} skill level: faster, higher, and for longer.",
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "max_rank": 10, "weight": 2,
 			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }
