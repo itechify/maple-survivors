@@ -183,6 +183,17 @@ _Avoid_: monster skill (that is a mob skill)
 A canonical Skill.wz/MobSkill.img skill a boss casts, such as Slow or a summon. Ordinary monsters cast none, so
 status effects on the character only ever come from bosses.
 
+**Hit window**:
+The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
+boss attacks ignore it.
+_Avoid_: i-frames, invincibility (Invincible is a skill)
+
+**Alive cap**:
+How many monsters a stage keeps alive at once at a given moment of the round. It rises over the round and keeps
+rising slowly after the last boss arrives; bursts, elites and boss summons may go past it, up to the stage's hard
+limit.
+_Avoid_: mob cap, max mobs
+
 ## Mesos and equipment
 
 **Mesos**:
