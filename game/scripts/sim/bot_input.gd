@@ -56,10 +56,10 @@ const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 2
 const SCORE_POTION_TIER := 52.0
 ## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
 ## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a
-## Normal pierce card, 70). Of the cards that are not themselves new attack skills, only a Unique stacking card (+4 shots,
-## 87+18 = 105) passes a Normal new attack skill (100); a Unique +5 attack rank is 98 and a +2 passive rank 54+6 = 60. A
-## higher-tier new attack skill (106-124) passes a Normal one, as it should. Gains only add, so this never reorders
-## Normal offers.
+## Normal pierce card, 70). A Unique stacking card (+4 shots, 87+18 = 105), Legendary +5 shots (87+24 = 111), and
+## Legendary +8 attack rank (62+12+6*7 = 116) pass a Normal new attack skill (100); a Unique +5 attack rank is 98 and
+## a +2 passive rank 54+6 = 60. A higher-tier new attack skill (106-124) passes a Normal one, as it should. These are
+## unclamped gains; scoring uses the actual magnitude offered. Gains only add, so this never reorders Normal offers.
 const SCORE_GAIN_STEP := 6.0
 
 

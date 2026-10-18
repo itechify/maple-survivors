@@ -200,7 +200,8 @@ func test_ice_lightning_cards_gate_jobs_apply_steps_and_stop_at_caps() -> void:
 		assert_eq(w.upgrades.apply(skill + "_cooldown", w), 0, "cap rejects another step")
 		assert_near(w.loadout.stats(skill).cooldown, cooldown * 0.681472, 0.0001)
 		assert_eq(BotInput.card_score(w, {"id": skill + "_cooldown"}), 66.0)
-		w.upgrades.apply(skill + "_rank", w, "legendary")
+		for consumed: int in [8, 16, 24, 29]:
+			assert_eq(w.upgrades.apply(skill + "_rank", w, "legendary"), consumed)
 		assert_eq(w.loadout.rank(skill), 30, "rank cards reach canonical maximum")
 		assert_false(skill + "_rank" in w.upgrades.eligible(w))
 		assert_eq(w.upgrades.apply(skill + "_rank", w), 0)

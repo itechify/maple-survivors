@@ -76,7 +76,7 @@ func _open_level(w: RunWorld) -> void:
 
 
 func test_rank_tiers_apply_the_previewed_magnitude_through_run_choices() -> void:
-	var expected := [5, 6, 7, 9, 20]
+	var expected := [5, 6, 7, 9, 12]
 	for i in TIERS.size():
 		var w := _tier_world(TIERS[i], "energy_bolt_rank")
 		RF.change_job_bare(w, 200)
@@ -91,6 +91,25 @@ func test_rank_tiers_apply_the_previewed_magnitude_through_run_choices() -> void
 		assert_true(String(c.desc).contains("+%d rank" % (expected[i] - 4)), "text reflects the actual rank gain")
 		assert_true(w.apply_choice("energy_bolt_rank"))
 		assert_eq(w.loadout.level("energy_bolt"), expected[i], "the offered tier survives picking by id")
+
+
+func test_legendary_rank_grants_eight_or_the_remaining_ranks() -> void:
+	for example: Array in [[1, 8, 9], [14, 6, 20]]:
+		var w := _tier_world("legendary", "energy_bolt_rank")
+		RF.change_job_bare(w, 200)
+		w.learn_skill("energy_bolt")
+		w.loadout.set_rank("energy_bolt", example[0])
+		_open_level(w)
+		var c: Dictionary = w.pending_cards[0]
+		assert_eq(String(c.tier), "legendary")
+		assert_eq(int(c.magnitude), example[1])
+		assert_eq(int(c.skill_level_next), example[2])
+		assert_eq(BotInput.card_score(w, c), 116.0 if int(example[1]) == 8 else 104.0, "bot scores the granted ranks")
+		assert_true(String(c.desc).contains("+%d rank" % example[1]), "text shows the granted ranks")
+		assert_true(LevelUpWindow.rank_text(c).contains("%d → %d" % [example[0], example[2]]),
+			"the rank preview shows the granted level change")
+		assert_true(w.apply_choice("energy_bolt_rank"))
+		assert_eq(w.loadout.level("energy_bolt"), example[2], "applying grants exactly the previewed ranks")
 
 
 func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
@@ -116,6 +135,29 @@ func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
 	assert_true(String(magnet.pending_cards[0].desc).contains("144.14%"), "four x1.25 steps give +144.140625%")
 	assert_true(magnet.apply_choice("magnet"))
 	assert_near(magnet.magnet_r, radius * 2.44140625, 1e-6, "player-stat stacking scales too")
+
+
+func test_legendary_stacking_grants_five_clamps_and_supports_unlimited_cards() -> void:
+	for example: Array in [[8, 0, 5, "legendary"], [8, 5, 3, "epic"], [0, 0, 5, "legendary"]]:
+		var data := RF.quiet_data()
+		data.upgrades.rarity.weights = {"legendary": 1.0}
+		data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": example[0],
+			"desc": "+{magnitude} shells.", "effects": [{"stat": "count", "op": "add", "value": 1}]}]
+		var w := RunWorld.new(RF.setup("quiet", 43, data))
+		RF.place_player(w, 400)
+		for step in int(example[1]):
+			w.upgrades.apply("roomy", w)
+		var before := int(w.loadout.stats("three_snails").count)
+		_open_level(w)
+		var c: Dictionary = w.pending_cards[0]
+		assert_eq(int(c.magnitude), example[2])
+		assert_eq(String(c.tier), example[3])
+		assert_eq(c.desc, "+%d shells." % example[2])
+		assert_eq(BotInput.card_score(w, c), 111.0 if int(example[2]) == 5 else 99.0, "bot scores the granted steps")
+		assert_eq(c.skill_mod_changes.shots, {"before": before, "after": before + int(example[2])})
+		assert_true(w.apply_choice("roomy"))
+		assert_eq(w.loadout.stats("three_snails").count, before + int(example[2]))
+		assert_eq(w.loadout.card_ranks.roomy, int(example[1]) + int(example[2]))
 
 
 func test_new_skill_tiers_start_at_the_offered_rank() -> void:
@@ -239,9 +281,10 @@ func test_every_default_tier_gives_more_and_equal_gains_wear_the_lowest_label() 
 		var last := 0
 		for tier: String in TIERS:
 			var value: Variant = magnitudes[kind][tier]
-			if str(value) != "max":
-				assert_true(int(value) > last, "%s %s gives more than the tier below" % [kind, tier])
-				last = int(value)
+			# JSON numbers parse as floats; require an integer value rather than a string sentinel.
+			assert_true((value is int or value is float) and value == int(value), "%s %s is an integer magnitude" % [kind, tier])
+			assert_true(int(value) > last, "%s %s gives more than the tier below" % [kind, tier])
+			last = int(value)
 	var data := RF.quiet_data()
 	data.upgrades.rarity.weights = {"epic": 1.0}
 	data.upgrades.cards = [{"id": "flat", "kind": "skill_mod", "skill": "three_snails", "max_rank": 10,
