@@ -481,6 +481,13 @@ byte-identical to `11664d2` apart from the new `job_times` key, `job_t` equals `
 `--job=210` equals `--branch=210`. No crashes, script errors or world warnings. Full suite 1379 tests, 0 failed,
 0 skipped; `cargo test` and the web dev tests pass.
 
+After merging `main` with spec #88 (`39276ef`), the same smoke on the merge equals `39276ef` plus the regroup commit
+record for record (again apart from `job_times`; `--job=210` equals `--branch=210`): Henesys bot D 14:10 / 15:07 / 4:48,
+random D 8:22 / 5:39 / 5:21; Tree bot D 9:34 / 1:17 / 0:48, random D 5:39 / 1:24 / 0:48. Bot seed 2026 now dies at Lv 9
+before advancing, so the #88 guard that every Henesys seed reaches Magician no longer holds. The owner chose
+(2026-10-17) to relax it to the 2/3 early-milestone majority until the balance pass. The other five Henesys runs reach
+Magician at 265.0–281.8 s.
+
 #### Spec #88 hit-window pressure regression smoke (2026-10-17)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
