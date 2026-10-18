@@ -442,7 +442,7 @@ static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced :
 
 ## pick_job plus the weapon path: {job_id, path} (job_id -1 and path "" = "Not now"). A first job listed per weapon path
 ## (spec #151 #157) takes `forced_path` when the window has it; with none named, a forced branch takes the path whose
-## weapon family it can use (its JobTree.branch_grant families), else the job stream draws one of the paths (tier C).
+## weapon family it can use (its JobTree.weapon_families), else the job stream draws one of the paths (tier C).
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
 		forced_path := "") -> Dictionary:
 	var available: Array[Dictionary] = []
@@ -468,7 +468,7 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 		if forced_path != "" and String(o.get("path", "")) == forced_path:
 			return _entry(o)
 	if forced_path == "" and jobs != null and entries.size() > 1:
-		var families: Array = jobs.branch_grant(forced).get("families", [])
+		var families := jobs.weapon_families(forced)
 		for o in entries:
 			if jobs.path_of(target, String(o.get("path", ""))).get("family", "") in families:
 				return _entry(o)

@@ -80,14 +80,20 @@ func path_of(job_id: int, path_id: String) -> Dictionary:
 	return {}
 
 
+## The weapon families a second job can use (survivor jobs.json `weapon_families`); [] when the row lists none.
+func weapon_families(job_id: int) -> Array:
+	var families: Variant = _survivor.get(job_id, {}).get("weapon_families", [])
+	return families.map(func(f: Variant) -> String: return String(f)) if families is Array else []
+
+
 ## A second job's weapon grant (survivor jobs.json `weapon_families` + `grant_item`): {families: [String], item_id}.
 ## {} when the job lists no families or no grant item (nothing is granted then).
 func branch_grant(job_id: int) -> Dictionary:
-	var s: Dictionary = _survivor.get(job_id, {})
-	var families: Variant = s.get("weapon_families", [])
-	if not families is Array or families.is_empty() or int(s.get("grant_item", 0)) <= 0:
+	var families := weapon_families(job_id)
+	var item_id := int(_survivor.get(job_id, {}).get("grant_item", 0))
+	if families.is_empty() or item_id <= 0:
 		return {}
-	return {"families": families.map(func(f: Variant) -> String: return String(f)), "item_id": int(s.grant_item)}
+	return {"families": families, "item_id": item_id}
 
 
 ## Display name of a job ("" when unknown).

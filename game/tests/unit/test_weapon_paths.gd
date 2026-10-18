@@ -264,6 +264,12 @@ func test_pick_choice_takes_the_forced_path() -> void:
 	assert_eq(BotInput.pick_choice(options, rng, 420, jobs, ""), {"job_id": 400, "path": "dagger"},
 		"without a named path the branch's own weapon family picks it")
 	assert_eq(BotInput.pick_choice(options, rng, 410, jobs, ""), {"job_id": 400, "path": "claw"})
+	var shipped_shape := _data() # the shipped second-job rows: families, no grant_item yet
+	shipped_shape.jobs_survivor.jobs["420"] = {"playable": true, "weapon_families": ["dagger"]}
+	var no_item := JobTree.from_data(shipped_shape.jobs, shipped_shape.jobs_survivor)
+	assert_eq(no_item.branch_grant(420), {}, "no grant item: nothing to grant")
+	assert_eq(BotInput.pick_choice(no_item.advancements(0, 10), rng, 420, no_item, ""), {"job_id": 400, "path": "dagger"},
+		"but the families still pick the path")
 	var unnamed := BotInput.pick_choice(options, rng, 400, jobs, "")
 	assert_eq(unnamed.job_id, 400)
 	assert_true(unnamed.path in ["claw", "dagger"], "no path named: a seeded one")
