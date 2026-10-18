@@ -740,7 +740,7 @@ off by default).
 | Canonical, from WZ | asset cache (read at runtime) | mob stats, frame delays/origins/hitboxes, Physics.img, skill level tables, map geometry, names | Never copied into the repo, never edited |
 | Canonical, not in WZ | `game/data/canonical/` | EXP table, job tree (ids, advancement levels) | Facts with a `_source` note |
 | Survivor design | `game/data/survivor/` | skill behaviour, upgrades, stages and waves, balance multipliers, per-mob overrides | All tuning happens here |
-| Asset selection | `game/data/asset_manifest.json` | maps, mobs, character parts, UI/effect/sound images to import | Grows with content |
+| Asset selection | `game/data/asset_manifest.json` + `asset_manifest.d/<line>.json` | maps, mobs, character parts, UI/effect/sound images to import | Grows with content |
 
 ## 6. Performance architecture
 
@@ -912,8 +912,8 @@ it reaches, with no engine or presentation change. On web the sim costs about 1.
 The shell is `web/index.html` (Godot's custom HTML shell, placeholders filled at export) plus files that must sit
 beside it in the export: `shell.css`, `shell.js` (page logic), `lib.js` (pure helpers, unit-tested with
 `node --test web/dev/test/*.test.mjs`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
-worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (a copy of
-`game/data/asset_manifest.json`, fetched same-origin). `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
+worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (`game/data/asset_manifest.json` merged with its
+`asset_manifest.d/*.json` fragments by `wzimport manifest`, ASSET_PIPELINE 4.1; fetched same-origin). `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
 picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
 
 **Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from

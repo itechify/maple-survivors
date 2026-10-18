@@ -30,6 +30,16 @@ enum Cmd {
         #[arg(long)]
         force: bool,
     },
+    /// Write the merged manifest (main file plus its asset_manifest.d/*.json fragments) as one JSON file; used by
+    /// scripts/export.sh --web, whose page cannot list a folder. Prints the JSON when --out is omitted.
+    Manifest {
+        /// Main manifest JSON (game/data/asset_manifest.json); its fragments are read from the sibling `.d` folder.
+        #[arg(long)]
+        manifest: PathBuf,
+        /// File to write (default: stdout).
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// Print a tree: an archive directory, an img or a node (e.g. Mob.wz/0100100.img/move 2).
     Dump {
         /// Folder holding the .wz files (default: $MAPLE_WZ_ROOT).
@@ -97,6 +107,14 @@ fn main() -> anyhow::Result<()> {
             }
             if !r.errors.is_empty() {
                 std::process::exit(1);
+            }
+        }
+        Cmd::Manifest { manifest, out } => {
+            let merged = wzimport::manifest::Manifest::load(&manifest).map_err(anyhow::Error::msg)?;
+            let json = serde_json::to_string(&merged)?;
+            match out {
+                Some(path) => std::fs::write(&path, json + "\n").with_context(|| format!("write {}", path.display()))?,
+                None => println!("{json}"),
             }
         }
         Cmd::Dump { wz, path, depth, imgs } => {
