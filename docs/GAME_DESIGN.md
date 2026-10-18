@@ -473,7 +473,9 @@ script errors or world warnings, and every record has `missing: []` and `warning
 
 Henesys clears fall from 2/6 to 0/6 (bot and random seed 1 cleared before). All six Henesys runs now die between 5:12
 and 9:24; three of them die while the first boss, Mano (spawned at 5:00), is still alive. Every recorded boss hit is a
-body touch, so the shrinking contact window drives these deaths, not the boss-attack bypass. Magician is reached at the
+body touch, so the shrinking contact window drives these deaths, not the boss-attack bypass. The bypass is not measured
+by this smoke at all: Mano only touches (baseline too), and the first Henesys boss with a skill attack, Mushmom 6130101
+at 10:00, is never reached (baseline: 9 Henesys `attack` hits from 6130101 / 9400205). Magician is reached at the
 same times as before in all six Henesys runs. Tree stays 0/6 clears and record-only: five of six runs die before 2:30
 (baseline two).
 
