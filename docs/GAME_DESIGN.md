@@ -463,6 +463,15 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Web audio fix regression smoke (2026-10-17)
+
+`ISOLATE=webaudio_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache re-imported for the current manifest, no PATCH or tuning, on `fix/web-audio` (`main` at `c0a4877` plus
+`game/default_bus_layout.tres` and an `AudioService` fallback counter; nothing in the sim). All 12 runs finish with no
+crashes, script errors or world warnings, and every record equals the Spec #130 review fixes smoke below: Henesys bot
+C 15:29 / D 23:44 / D 21:08 (Magician 265.9–281.3 s), random 1 clear (16:28) then deaths 7:42 / 10:59; Tree bot
+D 11:18 / 2:36 / 2:08, random D 20:23 / 2:38 / 1:28 (Tree stays record-only). Full suite 1342 tests, 0 failed, 0 skipped.
+
 #### #131 web build spike regression smoke (2026-10-17)
 
 `ISOLATE=s130t131 bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
