@@ -18,6 +18,9 @@ const INFO := {
 	1050001: {"reqJob": 2, "incMDD": 3, "tuc": 7, "price": 500}, # a weak Magician overall
 	1050002: {"reqJob": 2, "incMDD": 8, "incINT": 2, "tuc": 7, "price": 800}, # a strong Magician overall
 	1082002: {"incPAD": 1, "tuc": 5, "price": 150}, # gloves
+	1092009: {"incPDD": 10, "tuc": 7, "price": 400}, # an all-job shield
+	1402001: {"incPAD": 40, "attackSpeed": 6, "tuc": 7, "price": 3000}, # a strong two-handed sword
+	1402002: {"incPAD": 18, "attackSpeed": 6, "tuc": 7, "price": 900}, # a weak two-handed sword
 }
 const SCROLL_INFO := {
 	2043700: {"incMAD": 1, "success": 100, "price": 1}, # wand 100%
@@ -108,6 +111,44 @@ func test_an_overall_is_compared_with_the_top_and_bottom_it_replaces() -> void:
 	assert_eq(w.equipment.worn.overall.id, 1050002)
 	assert_false(w.equipment.worn.has("top") or w.equipment.worn.has("bottom"))
 	assert_eq(_inventory_ids(w).size(), 2, "top and bottom are in the Equip tab")
+
+
+## A quiet-stage Warrior-job bot (the Beginner weights) wearing the starter sword and `worn_extra` ids, holding `inventory`.
+func _warrior(inventory: Array, worn_extra: Array = []) -> RunWorld:
+	var w := _world(10, 0, inventory)
+	w.progression.job_id = 100
+	w.equipment.worn.weapon = Equipment.create(1302000, INFO[1302000])
+	for id: int in worn_extra:
+		w.equipment.worn[Equipment.slot_of(id)] = Equipment.create(id, INFO[id])
+	return w
+
+
+func test_the_shield_is_a_slot_the_bot_fills_and_scores_by_its_defence() -> void:
+	var w := _warrior([1092009])
+	assert_eq(BotShop.auto_equip(w), 1)
+	assert_eq(w.equipment.worn.shield.id, 1092009, "an empty shield slot takes a shield with value")
+	assert_eq(w.weapon_id(), 1302000, "beside the one-handed sword")
+
+
+func test_a_two_handed_weapon_must_beat_the_sword_and_the_shield_it_displaces() -> void:
+	# Beginner weights: incPAD 10, incPDD 1.5. Sword 17 -> 170, shield 10 -> 15.
+	var strong := _warrior([1402001], [1092009])
+	assert_eq(BotShop.auto_equip(strong), 1, "400 beats 170 + 15")
+	assert_eq(strong.weapon_id(), 1402001)
+	assert_false(strong.equipment.worn.has("shield"))
+	assert_eq(_inventory_ids(strong).size(), 2, "the sword and the shield wait in the Equip tab")
+	var weak := _warrior([1402002], [1092009])
+	assert_eq(BotShop.auto_equip(weak), 0, "180 beats the sword's 170 but not with the shield's 15 lost")
+	assert_eq(weak.weapon_id(), 1302000)
+	assert_eq(weak.equipment.worn.shield.id, 1092009)
+
+
+func test_a_shield_does_not_replace_a_two_handed_weapon_that_scores_higher() -> void:
+	var w := _warrior([1092009], [])
+	w.equipment.worn.weapon = Equipment.create(1402001, INFO[1402001])
+	assert_eq(BotShop.auto_equip(w), 0, "a 15 point shield against the 400 point weapon it would move")
+	assert_eq(w.weapon_id(), 1402001)
+	assert_false(w.equipment.worn.has("shield"))
 
 
 func test_an_equip_that_does_not_fit_the_full_tab_is_skipped_without_looping() -> void:

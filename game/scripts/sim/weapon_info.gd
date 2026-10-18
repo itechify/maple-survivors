@@ -1,7 +1,7 @@
 class_name WeaponInfo
 extends RefCounted
 ## What the basic attack needs to know about a weapon (docs/GAME_DESIGN.md 6.1.1), from its original item id and its
-## canonical Character.wz/Weapon info node: the weapon type (id / 10000), the swing formula's STR factor k, the
+## canonical Character.wz/Weapon info node: the weapon type (id / 10000), physical formula stats and multipliers, the
 ## afterimage (info/afterImage) with its hit-spark family, the canonical attack interval (info/attackSpeed) and the
 ## swing sound (info/sfx). Read by CombatMath, BasicAttack and DataRepo (which afterimage imgs a setup loads).
 ## Pure: plain data in, values out.
@@ -27,6 +27,22 @@ const FAMILY_LABELS := {
 ## tier B: Cosmic `isTwoHanded` (server reimplementation): every weapon type from 140 (two-handed swords, axes and
 ## blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) takes both hands, so no shield.
 const FIRST_TWO_HANDED_TYPE := 140
+## tier B: pre-Big-Bang SouthPerry/HS.net formula compilation and Cosmic WeaponType (v83-facts §5).
+## Each row is [swing multiplier, stab multiplier, primary, secondary]. Hands/families use the helpers above.
+const PHYSICAL := {
+	130: [4.0, 4.0, "str", "dex"], 131: [4.4, 3.2, "str", "dex"], 132: [4.4, 3.2, "str", "dex"],
+	133: [4.0, 4.0, "str", "dex"],
+	140: [4.6, 4.6, "str", "dex"], 141: [4.8, 3.4, "str", "dex"], 142: [4.8, 3.4, "str", "dex"],
+	143: [3.0, 5.0, "str", "dex"], 144: [5.0, 3.0, "str", "dex"],
+	145: [3.4, 3.4, "dex", "str"], 146: [3.6, 3.6, "dex", "str"],
+	147: [3.6, 3.6, "luk", "str+dex"], 148: [4.8, 4.8, "str", "dex"], 149: [3.6, 3.6, "dex", "str"],
+	# tier C: preserve the existing wand/staff melee formula; §5 has no verified wand/staff physical row.
+	137: [4.4, 3.2, "str", "dex"], 138: [4.4, 3.2, "str", "dex"],
+}
+## tier C: preserve the existing bare-handed/unknown-weapon formula, including equipment-only PAD.
+const BARE_PHYSICAL := [4.4, 3.2, "str", "dex"]
+## tier B: Thief dagger uses the same LUK and STR+DEX formula as a claw (SouthPerry/Cosmic).
+const THIEF_DAGGER_PHYSICAL := [3.6, 3.6, "luk", "str+dex"]
 
 
 ## Weapon type of an original item id (130 one-handed sword, 137 wand, ...).
@@ -55,10 +71,21 @@ static func is_two_handed(weapon_id: int) -> bool:
 	return FAMILIES.has(type_of(weapon_id)) and type_of(weapon_id) >= FIRST_TWO_HANDED_TYPE
 
 
-## k of the physical swing bounds (STR x k + DEX) x WATK / 100 (tier B: pre-Big-Bang formula compilation): one-handed
-## swords 4.0 for every stance, other weapons 3.2 for stabs and 4.4 for swings.
-static func swing_k(weapon_id: int, action: String) -> float:
-	return 4.0 if type_of(weapon_id) == TYPE_ONE_HANDED_SWORD else 3.2 if action.begins_with("stab") else 4.4
+## Attack kind of a canonical action; empty for a non-attack stance.
+static func attack_kind(action: String) -> String:
+	for prefix: String in ["swing", "stab"]:
+		if action.begins_with(prefix):
+			return prefix
+	if action.begins_with("shoot") or action.begins_with("throw"):
+		return "shoot"
+	return ""
+
+
+## Physical formula row for this weapon and job; Thief descendants use LUK daggers.
+static func physical_formula(weapon_id: int, job_id: int) -> Array:
+	if family(weapon_id) == "dagger" and Equipment.job_allows({"reqJob": 8}, job_id):
+		return THIEF_DAGGER_PHYSICAL
+	return PHYSICAL.get(type_of(weapon_id), BARE_PHYSICAL)
 
 
 ## The weapon's canonical afterimage name ("swordOL", "mace", ...); "" when the info has none.

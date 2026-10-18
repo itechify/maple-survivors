@@ -4,7 +4,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "f3f8998b529e68419b57ca2cc2761e241add01414bcf42a88df4f5c68576e76c"
+const WINDOWS_GOLDEN := "1a6cdb7c2a05e4a64d796da194904458887672292a6c1152cf33360be7b1b8da"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
@@ -40,6 +40,9 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# re-captured for #152 (upgrades.json cards grouped by job line, common -> beginner -> magician, the per-line file merge
 	# order): the same cards in their pre-#152 order reproduce the #63 hash 823defb0... exactly (bb6eee9), so the only
 	# change is which cards the seeded roll draws.
+	# Re-captured on Windows for #153: accuracy grants critical chance to every job/damage type, including Beginner
+	# and fixed Three Snails; basic damage and crit rolls now use stream 5. Non-critical creation-weapon bounds are
+	# unchanged (test_physical_damage). The owner explicitly permits the resulting Beginner/Magician event deltas.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
 	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
@@ -48,4 +51,4 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	if OS.get_name() != "Windows":
 		assert_eq(_event_digest(7200), _event_digest(7200), "two replays agree (the golden digest is Windows-only)")
 		return
-	assert_eq(_event_digest(72000), WINDOWS_GOLDEN, "20-minute pre-change event bytes, seed 1")
+	assert_eq(_event_digest(72000), WINDOWS_GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

@@ -2641,7 +2641,7 @@ quantities per kind.
   modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
 - **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
-  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  gloves, weapon, shield; an overall fills top and bottom; the shield, spec #151 #158, is described below). Every worn `inc*` stat counts: main stats add to the base (the
   Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
   accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
   modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
@@ -2652,6 +2652,18 @@ quantities per kind.
   moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C); with a full inventory the grant is skipped and nothing is destroyed. Without a weapon the basic
   attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
   impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
+- **Shield slot (spec #151, #158)**: `shield` is the last of `Equipment.SLOTS`, filled from Character.wz `Shield`
+  (109xxxx) with the same requirement check as any equipment (`reqJob`, `reqLevel`, `reqSTR`...), and its `inc*` stats
+  (mostly `incPDD`/`incMDD`) count like any worn item. A two-handed weapon (`WeaponInfo.is_two_handed`: every weapon
+  type from 140) never shares the hands with a shield: wearing one moves the worn shield to the Equip tab, wearing a
+  shield moves a held two-handed weapon (`Equipment.displaced_slots`; the job-weapon grant follows the same rule). When
+  the Equip tab has no room for what moves, the change is refused with `inventory_full`, the v83 notice "You can't get
+  anymore items." shows, and nothing changes. The Equip window shows the shield in its v83 SHIELD cell (right of
+  WEAPON); the avatar draws the shield layers of the worn item. The snapshot gains no key beyond a `shield` entry in
+  `equipment.worn` (format stays 2; a snapshot saved without one loads unchanged; a two-handed weapon beside a shield
+  is invalid). The autoplay bot treats the shield as a slot: it wears a shield when its score beats what the change
+  moves off (a two-handed weapon must beat the one-handed weapon plus the shield it displaces), and may scroll it last.
+  Shield drops and scrolls are #159.
 - **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
   / 100) % 100 == (item id / 10000) % 100` (tier A, the v83 id convention) and at least one upgrade slot. Roll 0-99
   below `info/success` adds every `inc*` of the scroll to the instance (`scrolls` + 1); success or not, `slots` - 1;
@@ -2696,13 +2708,30 @@ quantities per kind.
   `MAX = ((MAG²/1000 + MAG)/30 + INT/200) × spellAttack`, `MIN = ((MAG²/1000 + MAG×mastery×0.9)/30 + INT/200) ×
   spellAttack`, where `MAG = INT + magic attack`, `spellAttack` = the skill's canonical `mad`, `mastery` =
   (10 + 5×`mastery` field)%. Rolled uniformly.
-- **Critical hits:** base 0% (Beginner/Magician cannot crit in v83); upgrades may add crit (×1.5) as survivor modifiers.
-  Crits use the `NoCri` digits and the `NoCri1/effect` burst.
+- **Physical skills** use weapon bounds (tier B, SouthPerry/HS.net):
+  `MAX = (mult × primary + secondary) × W.Att / 100`,
+  `MIN = (mult × primary × 0.9 × mastery + secondary) × W.Att / 100`.
+  Mastery defaults to 10%; a canonical mastery field N means (10 + 5N)%.
+  Survivor skill and player damage multipliers scale these bounds. At impact, with
+  `D = max(0, mobLevel - playerLevel)`, apply `MAX × (1 - 0.01D) - 0.5PDD` and
+  `MIN × (1 - 0.01D) - 0.6PDD`, each at least 1; roll uniformly, multiply by the canonical
+  Skill.wz `damage` / 100, apply crit, element, then round once. Live PDD includes monster defence buffs.
+  `attackCount` gives the number of instant hit lines. Per-skill `physical_formula` overrides select primary,
+  secondary, max/min multipliers and whether to ignore mastery: Lucky Seven is
+  `{"primary":"luk","max_mult":5.0,"min_mult":2.5,"secondary":"","ignore_mastery":true}` (tier B).
+- **Critical hits (#153):** every job, including Beginner, can crit on fixed, magic, physical and basic attacks
+  (owner decision, spec #151; overrides the old Beginner-phase equivalence criterion). Chance is
+  `balance.crit.chance + ACC × balance.crit.per_acc + crit_bonus`, plus existing survivor crit modifiers.
+  The untuned tier C coefficient is 0.0005 (+0.05 percentage points per ACC); base chance stays 0, multiplier 1.5.
+  With a passive `crit_damage_bonus > 0`, its skill-percentage points add to the skill multiplier instead
+  (`150% + 100 = 250%`, tier B Critical Shot/Throw); otherwise crit multiplies the hit by `crit_mult`.
+  Skill crits use combat stream 1; basic damage/crit rolls use basic stream 5. Crits use the `NoCri` digits and
+  the `NoCri1/effect` burst. The lead records the Beginner/Magician smoke deltas in 4.2; no balance tuning here.
 - Mob defence: magic damage × (1 - MDD/(MDD+150)) (tier C, keeps early mobs readable).
-- **Player accuracy (#33 review):** worn equipment's `incACC` (and Bless) is stored in `player_state.acc` and shown in the
-  Stat window, but the player's attacks never roll a hit chance: the v83 player-versus-monster hit roll is not modelled,
-  and no hit model is invented for it (tier C). Accuracy therefore has no combat effect; only mob attacks roll a hit
-  against the player's avoid (6.2).
+- **Player accuracy:** job base (tier B) plus equipment `incACC` and active buff `acc`, stored in `player_state.acc`
+  and consumed by crit chance. The nearest listed job ancestor supplies coefficients: Beginner/Warrior/Magician
+  DEX×0.8 + LUK×0.5; Bowman/Thief/Pirate DEX×0.6 + LUK×0.3; Brawler 510 DEX×0.9 + LUK×0.3.
+  Player attacks never MISS (ADR 0005). Monster attacks still roll against player avoid (6.2).
 
 ### 6.1.1 Basic weapon attacks
 
@@ -2719,10 +2748,29 @@ that box is hit: a scheduled boss first (#83), otherwise the nearest; a moving t
 body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
 
-Physical bounds (tier B, owner-provided pre-Big-Bang formula) are `MAX=(STR*k+DEX)*WATT/100` and
-`MIN=(STR*k*0.9*0.1+DEX)*WATT/100`. Sword k=4; Wand swing k=4.4, stab k=3.2. With
-`D=max(0,mobLevel-playerLevel)`, apply `MAX*(1-0.01D)-0.5PDD` and `MIN*(1-0.01D)-0.6PDD`, clamp each to1,
-roll uniformly and round once. Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
+Basic attacks use the same physical bounds, live PDD and crit rule as physical skills (6.1), with skill multiplier 1.
+W.Att sums every worn item's `incPAD` plus active `watk` buffs; `weapon_attack(ranged)` reserves the ammo input for #155.
+The action prefix chooses swing/stab/shoot; weapon facts are `WeaponInfo.PHYSICAL` (tier B, except the preserved
+wand/staff and bare-hands fallback, tier C):
+
+| Weapon | Swing / stab multiplier | Primary / secondary |
+|---|---|---|
+| 1H sword | 4.0 / 4.0 | STR / DEX |
+| 1H axe, blunt | 4.4 / 3.2 | STR / DEX |
+| 2H sword | 4.6 / 4.6 | STR / DEX |
+| 2H axe, blunt | 4.8 / 3.4 | STR / DEX |
+| Spear | 3.0 / 5.0 | STR / DEX |
+| Polearm | 5.0 / 3.0 | STR / DEX |
+| Bow | 3.4 / 3.4 | DEX / STR |
+| Crossbow, gun | 3.6 / 3.6 | DEX / STR |
+| Claw, Thief dagger | 3.6 / 3.6 | LUK / STR+DEX |
+| Other dagger | 4.0 / 4.0 | STR / DEX |
+| Knuckle | 4.8 / 4.8 | STR / DEX |
+| Wand, staff, bare hands | 4.4 / 3.2 | STR / DEX |
+
+The three creation weapons and bare hands keep their old non-critical bounds. Bare hands still use equipment-only
+PAD (usually zero, so defence floors the hit to 1); the Pirate unarmed formula is outside this ticket.
+Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
 Sword bounds then are 2.1964..15.81, so rounding to at least the unscaled Snail's 8HP has about61% probability.
 The fixed-seed 1000-swing test checks at least50%. Variant0 for both below-Lv10 starter weapons, and normal sword/mace
 spark family1 for swings / family2 for stabs, are tier C selections. Bounds, canvases, origins, alpha and sound
@@ -3333,6 +3381,17 @@ a path the line does not have fails at startup.
 
 ## 11. Constants and provenance
 
+| Physical combat rule (#153) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Weapon formulas | `WeaponInfo.PHYSICAL`, Thief dagger row; multipliers and stats in 6.1.1 | B | SouthPerry/HS.net pre-Big-Bang compilation; Cosmic WeaponType corroborates max bounds; refs `class-specs/v83-facts.md` §5 |
+| Wand/staff and bare formula | Retain 4.4 swing / 3.2 stab, STR/DEX, equipment-only PAD for bare hands | C | Existing game behavior; no verified wand/staff physical row in §5 |
+| Physical mastery | Default 0.10; canonical N → (10+5N)% | B | SouthPerry compilation, WZ mastery/String corroboration |
+| Physical defence | Level factor 1−0.01×positive level gap, max−0.5PDD/min−0.6PDD, each at least 1 | B | AGF/Stereo formula, refs §5; existing basic-attack rule |
+| Lucky Seven override | LUK×5 max / LUK×2.5 min, no secondary/mastery | B | SouthPerry compilation; WZ String says independent of Claw Mastery |
+| Job base accuracy | `CombatMath.ACCURACY_FACTORS`: DEX/LUK .8/.5, .6/.3, Brawler .9/.3, nearest ancestor | B | SouthPerry/HS.net, refs §5 |
+| Accuracy → crit | Base 0, +0.0005 per ACC, default ×1.5; all jobs and damage types including basic | C | Owner spec #151 / ADR 0005; small placeholder, no tuning |
+| Passive crit damage | Add `crit_damage_bonus` skill-% points when positive, otherwise ×`crit_mult` | B | SouthPerry Critical Shot/Throw additive rule |
+
 | Free Market rule | Value / behavior | Tier | Source |
 |---|---|---|---|
 | Hub tick and catch-up | 1/60 s, at most 4 ticks/frame, matching RunScene | C | Existing engine scheduling rule |
@@ -3359,7 +3418,10 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Equipment rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Shield 109, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Shield and two-handed weapons | Weapon types from 140 block the shield slot; wearing either moves the other to the Equip tab (`Equipment.displaced_slots`, `WeaponInfo.FIRST_TWO_HANDED_TYPE`) | B | Cosmic `isTwoHanded` |
+| Shield swap refusal message | "You can't get anymore items." when the Equip tab cannot hold what moves (`InventoryWindow.MESSAGES.equip_full`) | B | Cosmic `InventoryManipulator.equip` (overall, shield and two-handed cases) sends the inventory-full status 0xff, the pickup notice's string; it also applies to an overall over a top and bottom |
+| Equip window SHIELD cell | (137, 134) on the 175x304 `backgrnd`, right of WEAPON (`EquipWindow.SLOT_POS`); tooltip category art `ToolTip/Equip/ItemCategory/10` (SHIELD) | C / A | measured on the v83 art / v83 UI.wz |
 | Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
 | `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
 | Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
