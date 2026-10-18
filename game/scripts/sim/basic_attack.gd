@@ -61,6 +61,9 @@ func step(dt: float, world: RunWorld) -> void:
 	var spec := _spec(weapon, info, action, world.loadout.speed_steps)
 	if spec.is_empty() or not _target_in_reach(world, weapon, info):
 		return
+	var range_bonus := _range_bonus(world)
+	spec.box = _extended_box(spec.box, range_bonus)
+	spec["range_bonus"] = range_bonus
 	_pending = spec
 	_pending["weapon_id"] = weapon
 	_pending["action"] = action
@@ -83,12 +86,12 @@ func step(dt: float, world: RunWorld) -> void:
 	_emit(world, "start")
 
 
-## Horizontal reach in px of the held weapon's swing: the farthest afterimage box edge over the five stances (the same
-## stances that gate starting a swing), or the punch's box bare-handed; 0 when the weapon cannot swing. Cached per weapon.
+## Horizontal reach in px of the held weapon's swing: its farthest box edge, or the punch's box bare-handed; 0 when the
+## weapon cannot swing. Base reach is cached per weapon; a ranged weapon adds its currently usable passive range.
 func reach(world: RunWorld) -> float:
 	var weapon := world.weapon_id()
 	if _reach.has(weapon):
-		return _reach[weapon]
+		return float(_reach[weapon]) + _range_bonus(world)
 	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
 	var far := 0.0
 	if not info.is_empty():
@@ -97,16 +100,16 @@ func reach(world: RunWorld) -> float:
 			if not spec.is_empty():
 				far = maxf(far, -(spec.box as Rect2).position.x)
 	_reach[weapon] = far
-	return far
+	return far + _range_bonus(world)
 
 
 ## The held weapon's swing envelope: the union of the afterimage boxes of the stances reach() looks at (feet-relative,
 ## facing left), the box a "weapon_reach" skill (Warrior Power Strike) strikes inside; an empty Rect2 when the weapon
-## cannot swing. Its far edge is reach(). Cached per weapon.
+## cannot swing. Its far edge is reach(). Base boxes are cached per weapon; passive range is added live.
 func envelope(world: RunWorld) -> Rect2:
 	var weapon := world.weapon_id()
 	if _envelope.has(weapon):
-		return _envelope[weapon]
+		return _extended_box(_envelope[weapon], _range_bonus(world))
 	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
 	var union := Rect2()
 	var any := false
@@ -118,7 +121,18 @@ func envelope(world: RunWorld) -> Rect2:
 			union = (spec.box as Rect2) if not any else union.merge(spec.box as Rect2)
 			any = true
 	_envelope[weapon] = union
-	return union
+	return _extended_box(union, _range_bonus(world))
+
+
+func _range_bonus(world: RunWorld) -> float:
+	return world.loadout.passive_total(Loadout.RANGE) if WeaponInfo.is_ranged(world.weapon_id()) else 0.0
+
+
+## tier C (#199): grow only the far horizontal edge, preserving the vertical and point-blank reach.
+static func _extended_box(box: Rect2, bonus: float) -> Rect2:
+	if not box.has_area() or bonus == 0.0:
+		return box
+	return Rect2(box.position - Vector2(bonus, 0.0), box.size + Vector2(bonus, 0.0))
 
 
 func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
@@ -131,7 +145,7 @@ func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 				boxes.append(spec.box)
 		_reach_boxes[weapon] = boxes
 	for box: Rect2 in _reach_boxes[weapon]:
-		if _nearest(world, box, world.player.facing) >= 0:
+		if _nearest(world, _extended_box(box, _range_bonus(world)), world.player.facing) >= 0:
 			return true
 	return false
 
@@ -283,7 +297,8 @@ static func shot_spec(swing: Dictionary, family: String, ammo: Dictionary, start
 	var speed := float(shot.speed)
 	return {
 		"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
-		"range": float(WeaponInfo.RANGED_REACH.get(family, 0.0)) + float(shot.overshoot),
+		"range": float(WeaponInfo.RANGED_REACH.get(family, 0.0)) + float(shot.overshoot)
+			+ float(swing.get("range_bonus", 0.0)),
 		"radius": float(shot.radius), "rotate": bool(shot.rotate), "visual": visual, "hit_visual": hit_visual,
 		"dmg_min": float(swing.damage_min), "dmg_max": float(swing.damage_max), "damage_type": "physical",
 		"damage_pct": float(swing.damage_pct), "player_level": int(swing.player_level), "crit": float(swing.crit),
