@@ -3,11 +3,13 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "f3f8998b529e68419b57ca2cc2761e241add01414bcf42a88df4f5c68576e76c"
+## Captured once; identical on Windows and Linux (see the test below).
+const GOLDEN := "9545f55b76f16af7631c0508b15c9ae884f7ab0142481fc48edb79df588cd551"
 
 
-## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
+## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
+## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
+## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
 	w.god = true
@@ -21,7 +23,7 @@ func _event_digest(ticks: int) -> String:
 		for event: Dictionary in events:
 			# Spec #34 (#119) added `collector` to pickup_collected; the stream is otherwise unchanged, which is the point.
 			event.erase("collector")
-		digest.update(JSON.stringify(events, "", false, true).to_utf8_buffer())
+		digest.update(var_to_bytes(events))
 	return digest.finish().hex_encode()
 
 
@@ -41,11 +43,11 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# order): the same cards in their pre-#152 order reproduce the #63 hash 823defb0... exactly (bb6eee9), so the only
 	# change is which cards the seeded roll draws.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
-	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
-	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
-	# decision on whether to keep this platform split is pending), so there the test
-	# checks what survives a platform change: two runs on the same machine agree, over two minutes of play.
-	if OS.get_name() != "Windows":
-		assert_eq(_event_digest(7200), _event_digest(7200), "two replays agree (the golden digest is Windows-only)")
-		return
-	assert_eq(_event_digest(72000), WINDOWS_GOLDEN, "20-minute pre-change event bytes, seed 1")
+	# Platform independent (#142): the digest hashes var_to_bytes of the events, not JSON text. The earlier Windows-only
+	# golden differed on Linux in 16 of 72000 ticks, all from one artifact: JSON.stringify writes Vector2 fields through
+	# float-to-text, which rounds exact decimal ties differently per platform (1090.8125 -> .813 on Windows, .812 on
+	# Linux). The simulation itself did not diverge. libm does differ across platforms (a sin in the flyer bob,
+	# integer-exponent pow calls in upgrades) but none of it reaches the event stream today.
+	# Re-captured for #142 (serializer only; the old serializer reproduced the old Windows golden f3f8998b... on the same
+	# code immediately before the change).
+	assert_eq(_event_digest(72000), GOLDEN, "20-minute pre-change event bytes, seed 1")
