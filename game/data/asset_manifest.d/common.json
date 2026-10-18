@@ -1,15 +1,9 @@
 {
 	"format": 1,
-	"_doc": "Asset manifest fragment for what every weapon line shares (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1; #154). Every weapon afterimage (Character.wz/Afterimage, variant 0 only: WeaponInfo.AFTERIMAGE_VARIANT) with the hit sparks of the sword and mace families (hit.img), the whole Sound.wz/Weapon.img (every weapon info/sfx name: swordL, swordS, mace, poleArm, spear, bow, cBow, tGlove, knuckle, gun, barehands) and one representative weapon item per family and handedness for the weapon gallery and tests (the creation weapons stay in the main file, the wands and staves in magician.json, the two-handed sword 1402000 in warrior.json). Ammo items (#155) are added here too. The swordOL, mace, hit.img and Weapon.img entries are moved here from the main file.",
+	"_doc": "Asset manifest fragment for what every weapon line shares (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1; #154). The weapon afterimages of the non-Warrior families (Character.wz/Afterimage, variant 0 only: WeaponInfo.AFTERIMAGE_VARIANT; the swordOS, swordTL, swordTS, axe, spear and poleArm ones are in warrior.json with the Warrior weapons) with the hit sparks of the sword and mace families (hit.img), the whole Sound.wz/Weapon.img (every weapon info/sfx name: swordL, swordS, mace, poleArm, spear, bow, cBow, tGlove, knuckle, gun, barehands) and one representative weapon item per non-Warrior family for the weapon gallery and tests (dagger, bow, crossbow, claw, knuckle, gun; the creation weapons stay in the main file, the wands and staves in magician.json, the Warrior weapons in warrior.json). Ammo items (#155) are added here too. The swordOL, mace, hit.img and Weapon.img entries are moved here from the main file.",
 	"imgs": [
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/swordOS.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/swordTL.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/swordTS.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/axe.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/spear.img", "paths": ["0"]},
-		{"img": "Character.wz/Afterimage/poleArm.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/bow.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/crossBow.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/gun.img", "paths": ["0"]},
@@ -17,5 +11,5 @@
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
 		{"img": "Sound.wz/Weapon.img"}
 	],
-	"character": [1332000, 1402001, 1402002, 1412000, 1422000, 1432000, 1442000, 1452000, 1462000, 1472000, 1482000, 1492000]
+	"character": [1332000, 1452000, 1462000, 1472000, 1482000, 1492000]
 }

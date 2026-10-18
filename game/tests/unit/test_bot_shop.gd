@@ -252,6 +252,36 @@ func test_the_sensible_plan_scrolls_the_weapon_overall_and_gloves_first_then_the
 	assert_eq(first_use.gloves, 2040818, "Magic Att. gloves scroll")
 
 
+func test_a_warrior_bot_scrolls_its_sword_and_shield_from_the_warrior_families() -> void:
+	var w := _warrior([], [1092009])
+	w.mesos = 5000000
+	# the shops stock the families of the listed equipment the job can wear: one sword and one shield of the list
+	w.setup.equipment_info[1302008] = {"reqJob": 1, "reqLevel": 30, "incPAD": 47, "tuc": 7}
+	w.setup.equipment_info[1092002] = {"reqJob": 1, "reqLevel": 30, "incPDD": 40, "tuc": 7}
+	for id: int in [2043000, 2043001, 2043004, 2040900, 2040929]:
+		w.setup.scroll_info[id] = {"success": 100, "price": 1}
+	w.setup.scroll_info[2043000].incPAD = 1 # sword ATT 100%
+	w.setup.scroll_info[2043001] = {"incPAD": 2, "incSTR": 1, "success": 60, "price": 1} # sword ATT 60%
+	w.setup.scroll_info[2043004] = {"incPAD": 2, "incSTR": 1, "success": 70, "cursed": 50, "price": 1} # sword ATT dark 70%
+	w.setup.scroll_info[2040900].incPDD = 1 # shield DEF 100%
+	w.setup.scroll_info[2040929].incSTR = 1 # shield STR 100%
+	var stock_ids := BotShop.stock_of(w).map(func(e: Dictionary) -> int: return int(e.id))
+	assert_true(2043001 in stock_ids and 2040929 in stock_ids, "a Warrior's shops stock the new families")
+	var plan := _plan(w, "sensible")
+	var first_use := {}
+	for step: Dictionary in _uses(plan):
+		if not first_use.has(step.slot):
+			first_use[step.slot] = int(step.scroll)
+	assert_eq(first_use.weapon, 2043001, "the 60% sword scroll (expected 15.6) beats the 100% one (10)")
+	assert_eq(first_use.shield, 2040929, "STR (6) before defence (1.5) for a Warrior")
+	assert_eq(_uses(plan).filter(func(s: Dictionary) -> bool: return s.slot == "weapon").size(), 7, "one per upgrade slot")
+	for step: Dictionary in plan.steps:
+		assert_false(int(step.scroll) == 2043004, "never the dark one")
+	assert_true(_cost(plan, w) <= 5000000)
+	var careless := _plan(w, "careless", 4)
+	assert_true(_uses(careless).any(func(s: Dictionary) -> bool: return s.slot == "shield"), "the careless bot scrolls the shield too")
+
+
 func test_the_sensible_plan_never_buys_dark_scrolls() -> void:
 	var w := _dressed(5000000)
 	var plan := _plan(w, "sensible")

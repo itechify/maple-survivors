@@ -1,0 +1,4 @@
+{
+	"_doc": "The Warrior weapon slots priced as weapons (scrolls/warrior.json slots); the shield slot is priced as armour. See ../shops.json _doc. tier B: Cosmic's shop data sells the eight 100% weapon scrolls (sword, axe, blunt weapon, their two-handed kinds, spear, polearm) at 70,000 mesos and the 100% shield scroll at 35,000.",
+	"weapon_slots": ["sword", "axe", "blunt", "two_handed_sword", "two_handed_axe", "two_handed_blunt", "spear", "polearm"]
+}
