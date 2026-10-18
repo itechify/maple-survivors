@@ -3316,6 +3316,53 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
   fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
 
+### Weapon paths and weapon grants (#157, spec #151)
+
+A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family}]`). The Job
+Advancement window lists each path of a playable job as its own entry (the label is the entry text; both Thief paths
+are job 400); a job without paths, and a locked job ("Not in this build"), keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
+snapshot key `weapon_path`, an additive optional key written only when set) and **grants** its item: the weapon is
+worn without requirement checks, so a Lv 10 Beginner whose AP is all STR still wears the Bowman's bow (DEX 25).
+A grant never fails. The previous weapon moves to the Equip inventory; when the tab is full it is dropped at the
+player's feet as a normal equipment pickup (`pickup_spawned`, then `pickup_blocked` until a slot is free). This
+replaces the earlier rule that skipped the Magician's wand grant on a full tab (the `grant_blocked` event is gone).
+
+| Path | Weapon (tier B: the v83 Beginner weapons the instructors give) | Family |
+|---|---|---|
+| Bowman | Beginner Bowman's bow 1452051 | bow |
+| Thief - Claw | Beginner Thief Wrist Guard 1472061 | claw |
+| Thief - Dagger | Beginner Thief's short sword 1332063 | dagger |
+| Pirate - Knuckle | Steel Knuckler 1482000 | knuckle |
+| Pirate - Gun | Pistol 1492000 | gun |
+
+Warrior has no grant and keeps its creation weapon (owner choice); the Magician keeps its Wooden Wand
+(`balance.player.weapon_grants`, unchanged). Bowman, Thief and Pirate stay `playable: false` ("Not in this build")
+until their class specs; only the data shape and these rows land with #157. The items of a playable job's paths and
+grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
+(and adds their imgs to the manifest).
+
+**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and optionally a
+`grant_item`. On advancing, when the held weapon's family (`RunWorld.held_weapon_family()`) is not in the list, the
+grant item is worn (tier C); a fitting weapon is kept and nothing is granted. The grant item ids are chosen by the class
+specs (basic weapons at the branch's level), so a row without one grants nothing today.
+
+| Branch | Families it can use |
+|---|---|
+| Fighter 110 | sword, axe |
+| Page 120 | sword, blunt |
+| Spearman 130 | spear, polearm |
+| Hunter 310 | bow |
+| Crossbowman 320 | crossbow |
+| Assassin 410 | claw |
+| Bandit 420 | dagger |
+| Brawler 510 | knuckle |
+| Gunslinger 520 | gun |
+
+**Bot and tools.** `BotInput.pick_choice` returns `{job_id, path}` (`pick_job` keeps returning the id). With no path
+named, the bot draws one of a first job's paths from the job stream (8); a forced second job takes the path whose weapon
+family the branch can use. `--job=<id>[:<path>]` (`--job=400:claw`; `balance.sh`, `playtest.sh`, `--run`) names the path;
+a path the line does not have fails at startup.
+
 ## 10. Presentation
 
 - 800x600 logical view (wider windows show more map at the same pixel scale), integer scaling, nearest filtering. An
@@ -3380,7 +3427,9 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
 | Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
-| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full the grant is skipped (the character keeps its weapon, a `grant_blocked` event shows the full-inventory HUD notice) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
+| Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
+| Branch weapon grant | A second job wears its `grant_item` only when the held weapon family is not in its `weapon_families` (`jobs.json`, #157; item ids come with the class specs) | C | Ticket #157 |
 | Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
@@ -3428,7 +3477,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Review-fix rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
 | Discard / sell confirmation | The non-modal YesNo box remembers the exact instance it asked about and acts only when the same Equip-tab index still holds an equal instance (id, stats, slots, scrolls); a swapped-in copy of the same id is neither destroyed nor sold | C | Review of #108 / #111 |
-| Weapon grant with a full tab | If the previous weapon has no room in the Equip tab the Magician wand grant is skipped (the character keeps its weapon, `grant_blocked` shows "You can't get anymore items."); nothing is ever destroyed | C | Lead decision, review |
+| Weapon grant with a full tab | If the previous weapon has no room in the Equip tab it is dropped at the player's feet as a normal equipment pickup (`pickup_blocked` shows "You can't get anymore items." until a slot frees); the grant itself always happens and nothing is ever destroyed (#157; before it the Magician wand grant was skipped) | C | Lead decision, review; #157 |
 | Numeric-string scroll info | `DataRepo.scroll_info` casts numeric strings (hat Accuracy 10% 2040016 stores `success` as `"10"`) | A (WZ data), C (cast) | v83 Item.wz/Consume/0204.img |
 | Hub scroll seed | The Free Market's scroll rolls are seeded by `FreeMarket.scroll_seed(snapshot)`: the saved run seed `round_seed` x 1000003 plus a hash of the character's equipment, scrolls and mesos, re-applied after every change; the same save always rolls the same, every scroll changes the next seed, quitting cannot reroll. `bot_shop(policy, seed)` rolls its scrolls from its own stream `hash("scrolls-shop-hub-<seed>")` | C | Lead decision, review |
 | Autoplay in the hub | With the `autoplay` option the Free Market runs `bot_shop("bot", round_seed)` once on entry | C | Ticket #112 text |

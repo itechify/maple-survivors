@@ -417,15 +417,15 @@ static func climb_ladder(w: RunWorld) -> int:
 
 ## Resolves an open window using a seeded available job (or the forced job, see pick_job) and the card
 ## pick_card_for() prefers (`first_card` = true: always the first card). Returns how many choices were made.
-static func auto_choose(w: RunWorld, first_card := false, forced_job := 0) -> int:
+static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, forced_path := "") -> int:
 	var guard := 0
 	var made := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		made += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := pick_job(w.pending_jobs, w.job_rng, forced_job, w.jobs)
-			if job < 0 or not w.apply_job(job):
+			var pick := pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 		else:
 			w.apply_choice(pick_card(w.pending_cards) if first_card else pick_card_for(w, w.pending_cards))
@@ -435,20 +435,48 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0) -> in
 ## Seeded available job, or the forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available
 ## option that is an ancestor of `forced` counts too, so forcing a second job takes its first job at the first window.
 ## -1 = "Not now". A single option consumes no RNG.
-static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null) -> int:
-	var available: Array[int] = []
+static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
+		forced_path := "") -> int:
+	return int(pick_choice(options, rng, forced, jobs, forced_path).job_id)
+
+
+## pick_job plus the weapon path: {job_id, path} (job_id -1 and path "" = "Not now"). A first job listed per weapon path
+## (spec #151 #157) takes `forced_path` when the window has it; with none named, a forced branch takes the path whose
+## weapon family it can use (its JobTree.weapon_families), else the job stream draws one of the paths (tier C).
+static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
+		forced_path := "") -> Dictionary:
+	var available: Array[Dictionary] = []
 	for o: Variant in options:
 		if o is Dictionary and bool((o as Dictionary).get("available", false)):
-			available.append(int(o.job_id))
+			available.append(o)
 	if available.is_empty():
-		return -1
-	if forced in available:
-		return forced
-	if forced > 0 and jobs != null:
-		for id in available:
+		return {"job_id": -1, "path": ""}
+	var ids := available.map(func(o: Dictionary) -> int: return int(o.job_id))
+	var target := -1
+	if forced in ids:
+		target = forced
+	elif forced > 0 and jobs != null:
+		for id: int in ids:
 			if jobs.is_descendant(forced, id):
-				return id
-	return available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null else available[0]
+				target = id
+				break
+	if target < 0:
+		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
+			else available[0])
+	var entries := available.filter(func(o: Dictionary) -> bool: return int(o.job_id) == target)
+	for o in entries:
+		if forced_path != "" and String(o.get("path", "")) == forced_path:
+			return _entry(o)
+	if forced_path == "" and jobs != null and entries.size() > 1:
+		var families := jobs.weapon_families(forced)
+		for o in entries:
+			if jobs.path_of(target, String(o.get("path", ""))).get("family", "") in families:
+				return _entry(o)
+	return _entry(entries[rng.randi_range(0, entries.size() - 1)] if entries.size() > 1 and rng != null else entries[0])
+
+
+static func _entry(o: Dictionary) -> Dictionary:
+	return {"job_id": int(o.job_id), "path": String(o.get("path", ""))}
 
 
 ## The card a first-card player takes ("" when there is none).

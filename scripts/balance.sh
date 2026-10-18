@@ -5,7 +5,7 @@
 #
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
 #   bash scripts/balance.sh 1 2 --job=210     # force a first or second job (a second job takes its first job at the first
-#   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias.
+#   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=400:claw also names the Thief weapon path.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
@@ -79,7 +79,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "balance.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 200, 210)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon path (e.g. 210, 400:claw)" >&2; exit 2; }
       EXTRA_JOB="--job=$JOB_ID" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;

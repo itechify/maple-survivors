@@ -37,7 +37,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "playtest.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+$ ]] || { echo "--job must be a job id (e.g. 200, 210)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon path (e.g. 210, 400:claw)" >&2; exit 2; }
       EXTRA+=("--job=$JOB_ID") ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;

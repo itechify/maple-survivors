@@ -111,7 +111,6 @@ const EVENT_FIELDS := {
 	"boss_teleported": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"equipment_changed": ["action", "slot", "item_id"],
 	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
-	"grant_blocked": ["reason", "item_id"],
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 
 }
@@ -223,6 +222,9 @@ var view_size := DEFAULT_VIEW
 var view := Rect2()
 ## WZ paths referenced by ProjectileSystem.visual (and hit visuals); append-only.
 var visual_paths: Array = []
+## The weapon path the first job was taken with (JobTree.paths_of id: "claw", "dagger", ...; "" = none). Set by
+## change_job/apply_job, carried by the snapshot's optional `weapon_path` key (spec #151 #157).
+var weapon_path := ""
 ## Options / cards of the open window.
 var pending_jobs: Array = []
 var pending_cards: Array = []
@@ -444,6 +446,8 @@ func character_snapshot() -> Dictionary:
 		"fortune": _own_fortune(), "base_fortune": _base_fortune,
 		"look": character_look.duplicate(true), "equipment": equipment.duplicate(true),
 		"scrolls": scrolls.duplicate(), "mesos": mesos}
+	if weapon_path != "":
+		snapshot["weapon_path"] = weapon_path
 	# Spec #34 optional keys: written only when set, so characters without cash items keep their exact old bytes.
 	if not _cash_carried.is_empty():
 		snapshot["cash"] = _cash_carried.duplicate()
@@ -782,18 +786,19 @@ func _end_tick() -> void:
 		_advance_queue()
 
 
-## Takes job `job_id` from the open advancement window; false when not on offer or not available.
-func apply_job(job_id: int) -> bool:
+## Takes job `job_id` (with weapon `path` when the window lists the job per path) from the open advancement window;
+## false when not on offer or not available.
+func apply_job(job_id: int, path := "") -> bool:
 	if state != CHOOSING_JOB:
 		return false
 	var ok := false
 	for o: Dictionary in pending_jobs:
-		if int(o.job_id) == job_id and bool(o.available):
+		if int(o.job_id) == job_id and String(o.get("path", "")) == path and bool(o.available):
 			ok = true
 	if not ok:
 		return false
 	pending_jobs = []
-	change_job(job_id)
+	change_job(job_id, path)
 	choice_bonus = false
 	choice_advancement = true
 	pending_cards = upgrades.roll_advancement_choices(self, card_rng)
@@ -843,16 +848,19 @@ func apply_choice(card_id: String) -> bool:
 
 ## Changes the job and its Max HP / Max MP grants, without learning skills; emits job_changed. grants.max_mp is
 ## kept apart in `_job_mp`; grants.max_hp joins `_base_hp` (the snapshot's base_hp), the same pool level growth feeds, so
-## it survives a save/Continue without a new CharacterSnapshot field.
-func change_job(job_id: int) -> void:
+## it survives a save/Continue without a new CharacterSnapshot field. A known weapon `path` of the job's line is
+## recorded in `weapon_path`; the weapon the job grants is worn by _grant_job_weapon.
+func change_job(job_id: int, path := "") -> void:
 	progression.job_id = job_id
+	if path != "" and not jobs.path_of(job_id, path).is_empty():
+		weapon_path = path
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})
 	_base_hp += float(grants.get("max_hp", 0.0))
 	_job_mp += float(grants.get("max_mp", 0.0))
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
-	_grant_job_weapon(job_id)
+	_grant_job_weapon(job_id, path)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -1294,19 +1302,32 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 	emit("equipment_changed", {"action": action, "slot": slot, "item_id": id})
 
 
-## tier C: advancing to a job in balance.player.weapon_grants (Magician 200 -> Wooden Wand) wears that weapon; the
-## previous one moves to the inventory (the last of spec #32's weapon_by_job rule). tier C: when the previous weapon has
-## no room the grant is skipped (the character keeps its weapon, nothing is destroyed) and `grant_blocked` is emitted.
-func _grant_job_weapon(job_id: int) -> void:
+## Wears the weapon an advancement grants and moves the previous one to the inventory (a grant never checks
+## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
+## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
+## -> Wooden Wand), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
+## tier C: when the previous weapon has no room in the full Equip tab it is dropped at the player's feet as a normal
+## equipment pickup (pickup_spawned; the magnet collects it once a slot is free), so advancing never fails.
+func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
+	if path != "":
+		id = int(jobs.path_of(job_id, path).get("item_id", id))
+	else:
+		var branch := jobs.branch_grant(job_id)
+		if not branch.is_empty() and held_weapon_family() not in branch.families:
+			id = int(branch.item_id)
 	if id <= 0:
 		return
-	var reason := Equipment.grant(equipment, Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id)),
-		inventory_slots())
-	if reason != "":
-		emit("grant_blocked", {"reason": reason, "item_id": id})
-		return
+	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
+	var spilled := {}
+	if Equipment.grant(equipment, instance, inventory_slots()) != "":
+		var slot := Equipment.slot_of(id)
+		spilled = equipment.worn[slot]
+		equipment.worn.erase(slot)
+		Equipment.grant(equipment, instance, inventory_slots())
 	_equipment_changed("grant", "weapon", id)
+	if not spilled.is_empty():
+		spawn_equipment(player.pos, spilled)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1519,6 +1540,7 @@ func _restore_character(source: Dictionary) -> void:
 	mesos = int(character.mesos)
 	_cash_carried = CharacterSnapshot.integers(character.get("cash", {}))
 	_pet_carried = int(character.get("pet", 0))
+	weapon_path = String(character.get("weapon_path", ""))
 
 
 ## Sets the ALERT levels from {hp, mp} (fractions of max, clamped; 0 = do not alert). The pet reads them every tick, so

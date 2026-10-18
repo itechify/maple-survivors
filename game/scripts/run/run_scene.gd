@@ -939,6 +939,11 @@ func _forced_job() -> int:
 	return int(options.get("job", 0))
 
 
+## The weapon path named after the forced job (options.job_path, `--job=400:claw`); "" = the bot's own pick.
+func _forced_job_path() -> String:
+	return String(options.get("job_path", ""))
+
+
 # --- loop ----------------------------------------------------------------------------------------------------
 
 ## The MoveInput of the next tick: BotInput with autoplay, else the input actions (jump_pressed only on the first
@@ -1060,8 +1065,8 @@ func handle_events(events: Array) -> void:
 					# tier C: capture the first equipment drop while it lies on the ground (playtest evidence, #109).
 					_equip_shot_taken = true
 					_event_shot("equip_drop_%d.png" % int(e.item_id), 0.5)
-			"pickup_blocked", "grant_blocked":
-				_frame_inventory_full = true # a skipped job-weapon grant shows the same full-inventory notice
+			"pickup_blocked":
+				_frame_inventory_full = true
 			"pickup_collected":
 				# tier A: v83 has no separate meso sound in Sound.wz/Game.img; mesos use PickUpItem too.
 				_sound(SND_PICKUP)
@@ -1213,7 +1218,7 @@ func _apply_look() -> void:
 ## events are dropped. Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world, false, _forced_job())
+		BotInput.auto_choose(world, false, _forced_job(), _forced_job_path())
 		if world.state != RunWorld.PLAYING:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
@@ -1279,14 +1284,14 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_job(req.options, world.job_rng, _forced_job(), world.jobs)
-				if j < 0 or not world.apply_job(j):
+				var j := BotInput.pick_choice(req.options, world.job_rng, _forced_job(), world.jobs, _forced_job_path())
+				if j.job_id < 0 or not world.apply_job(j.job_id, j.path):
 					world.decline_job()
 				handle_events(world.drain_events())
 				continue
 			var jw := JobAdvanceWindow.new()
 			_show_window(jw, "job", req, level)
-			jw.job_chosen.connect(_on_job_chosen)
+			jw.job_chosen.connect(func(id: int) -> void: _on_job_chosen(id, jw.picked_path))
 			jw.declined.connect(_on_job_declined)
 			jw.open(req.options, level, int(world.player_state.job_id))
 		else:
@@ -1317,11 +1322,12 @@ func _auto_resolve_window(delta: float) -> void:
 	if _window_kind == "cards":
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
-		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs)
-		if j < 0:
+		var j := BotInput.pick_choice(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs,
+			_forced_job_path())
+		if j.job_id < 0:
 			_on_job_declined()
 		else:
-			_on_job_chosen(j)
+			_on_job_chosen(j.job_id, j.path)
 
 
 func _show_window(w: Node, kind: String, req: Dictionary = {}, level: int = 0) -> void:
@@ -1363,8 +1369,8 @@ func _on_card_chosen(card_id: String) -> void:
 	_service_windows()
 
 
-func _on_job_chosen(job_id: int) -> void:
-	if _window_kind != "job" or not world.apply_job(job_id):
+func _on_job_chosen(job_id: int, path := "") -> void:
+	if _window_kind != "job" or not world.apply_job(job_id, path):
 		return
 	_close_window()
 	handle_events(world.drain_events())

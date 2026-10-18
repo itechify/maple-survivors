@@ -175,19 +175,21 @@ func test_magician_advancement_grants_and_wears_the_wooden_wand() -> void:
 	assert_eq(_ids(world.equipment.inventory), [1302000], "second job grants nothing")
 
 
-func test_a_full_inventory_skips_the_wand_grant_and_keeps_the_weapon() -> void:
+func test_a_full_inventory_wears_the_wand_and_drops_the_old_weapon_at_the_feet() -> void:
 	var world := _world([], func(c: Dictionary) -> void:
 		for i in 24:
 			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
 	world.drain_events()
 	world.change_job(200)
 	assert_eq(world.progression.job_id, 200, "the advancement itself still happens")
-	assert_eq(world.weapon_id(), 1302000, "the character keeps its weapon")
-	assert_eq(world.equipment.inventory.size(), 24, "nothing was destroyed or added")
+	assert_eq(world.weapon_id(), 1372005, "the grant is worn (spec #151 #157: advancing never fails)")
+	assert_eq(world.equipment.inventory.size(), 24, "the inventory is unchanged")
 	var events := world.drain_events()
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"), [])
-	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "grant_blocked"),
-		[{"type": "grant_blocked", "reason": "inventory_full", "item_id": 1372005}])
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "equipment_changed"),
+		[{"type": "equipment_changed", "action": "grant", "slot": "weapon", "item_id": 1372005}])
+	var spawned := events.filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
+	assert_eq(spawned.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000],
+		"the creation sword lies on the ground as a normal pickup")
 
 
 func test_format_two_round_trips_through_json_text_into_an_identical_world() -> void:
