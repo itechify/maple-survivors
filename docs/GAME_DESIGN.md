@@ -493,8 +493,8 @@ same times as before in all six Henesys runs. Tree stays 0/6 clears and record-o
 | Tree, random, 2026 | D 1:28 -> D 0:47 | never -> never | 10 -> 0 | 0 -> 0 | 0 -> 0 |
 
 Cells are before -> after. "C" is CLEARED, "D" is DEAD, and "never" means no job change to Magician before the run
-ended. Magician reach and the hit windows come from the per-minute metrics, which omit the partial last minute of each
-run. Tree rows are record only.
+ended. Magician reach is the record's `job_t`; the hit columns come from `hits_by_min`, which omits the partial last
+minute of each run (a death at 5:40 counts minutes 0-4 only). Tree rows are record only.
 
 #### Web audio fix regression smoke (2026-10-17)
 
