@@ -112,7 +112,7 @@ spends the slot, and a failed **dark** scroll destroys the item at its `cursed` 
 and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
 `Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
 destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
-scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
+scrolls exist is `game/data/survivor/scrolls.json` plus `scrolls/<line>.json` (below); they are bought in the Free Market's scroll shops (#111,
 next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
 
 Hand-testing tool (tool-only, not part of the game): `bash scripts/run.sh -- --hub [--character=<abs JSON>] [--mesos=N]`
@@ -456,12 +456,37 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
-rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
+rope to drops left on a platform above, and picks a seeded-random available branch (override with `--job=<first or second job id>`; `--branch` is the deprecated alias). Card
 policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores, each plus
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #152 job-generic prefactor regression smoke (2026-10-17)
+
+`ISOLATE=final bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, plus
+`--job=210` and `--branch=210` (Henesys bot), no PATCH or tuning. #152 first regroups `upgrades.json` cards by job line
+(common, beginner, magician: the per-line merge order; owner choice) in a data-only commit, `11664d2`. The roll walks
+the pool in array order, so that commit alone changes which cards a seed draws. The same smoke on `main` (`bb6eee9`)
+equals the web audio smoke below; on `11664d2` it gives:
+
+| | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| seeds 1 / 2 / 2026 | C 16:16 / T 30:00 / D 18:07 | D 13:09 / 6:40 / 11:18 | D 16:32 / 12:52 / 2:08 | D 8:52 / 3:10 / 2:15 |
+
+(Henesys bot seed 2 kills two bosses and is still fighting the third at the 30:00 cap; Magician 265.0–290.1 s.) Every
+later #152 commit (per-line data files, manifest fragments, job-generic plumbing, `--job`) gives per-seed records
+byte-identical to `11664d2` apart from the new `job_times` key, `job_t` equals `job_times["200"]` in every record, and
+`--job=210` equals `--branch=210`. No crashes, script errors or world warnings. Full suite 1379 tests, 0 failed,
+0 skipped; `cargo test` and the web dev tests pass.
+
+After merging `main` with spec #88 (`39276ef`), the same smoke on the merge equals `39276ef` plus the regroup commit
+record for record (again apart from `job_times`; `--job=210` equals `--branch=210`): Henesys bot D 14:10 / 15:07 / 4:48,
+random D 8:22 / 5:39 / 5:21; Tree bot D 9:34 / 1:17 / 0:48, random D 5:39 / 1:24 / 0:48. Bot seed 2026 now dies at Lv 9
+before advancing, so the #88 guard that every Henesys seed reaches Magician no longer holds. The owner chose
+(2026-10-17) to relax it to the 2/3 early-milestone majority until the balance pass. The other five Henesys runs reach
+Magician at 265.0–281.8 s.
 
 #### Spec #88 hit-window pressure regression smoke (2026-10-17)
 
@@ -1619,8 +1644,8 @@ earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacin
 #### Magician at Lv10 (#40)
 
 The only gameplay data change in this pass is Magician's survivor advancement level, 8 → 10. The sensible bot's
-actual `job_changed` time is reported as `magician_seconds` (min/median/max/count) in the balance aggregate and
-as "Magician seconds" in its console report. Missing or negative `job_t` records are excluded, with no observations
+actual `job_changed` time of every job id is reported as `job_seconds` (per job id: min/median/max/count; record key `job_times`, the Magician's also stays `job_t`) in the balance aggregate and
+as "Job <id> seconds" in its console report. Missing or negative times are excluded, with no observations
 reported as `none (n=0)`. This measures advancement rather than assuming a level milestone is a job change.
 
 Training seeds **1–6 and 2026**, both stages, `--policy=bot --cap=420`, no patches:
@@ -2595,6 +2620,7 @@ quantities per kind.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
+  Every per-job table (`ap_stat`, `ap_secondary`, `growth`, the bot's equipment weights) resolves through the job's lineage, so a new job line is data rows only. Planned rows use the v83 midpoints (tier B): Warrior +26 HP / +5 MP, Bowman and Thief +22 HP / +15 MP, Pirate +25 HP / +20.5 MP (rounded like the Magician's); rows are added only when the job becomes playable (Warrior with #163).
   Level-ups raise the maxima, then refill MP to the new maximum (`level_up_refill.mp` = 1, tier B: v83 servers
   refill both pools, Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)`) but add no HP
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
@@ -2793,7 +2819,7 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   recovery remains tier C because the cache does not prove usage. Without Blue, tinted Violet is the tier C
   fallback. RunScene draws restoration events above the player's head using the existing number pool/timing.
 
-Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
+Survivor behaviour is in `data/survivor/skills.json` (base) and `skills/<line>.json` (the skills); the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
 without skips. Learning starts at level 1 and each rank card adds one level. Energy Bolt, Magic Claw, Magic Guard
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
@@ -2904,7 +2930,7 @@ damaging attack cards. No behaviour cards are added.
 
 ## 8. Upgrades
 
-`data/survivor/upgrades.json`. Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
+`data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
 `stat`, `potion_tier`, `filler` for the separate fallback), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
@@ -3191,7 +3217,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
-  job consumes no branch roll. `balance.sh` and `playtest.sh --branch=210|220|230` force an available branch. Run records
+  job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
 - Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
   fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
@@ -3249,7 +3275,9 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full the grant is skipped (the character keeps its weapon, a `grant_blocked` event shows the full-inventory HUD notice) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage |
 | Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
-| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
+| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
+| Regen passive field | A skill with `"regen": {"pool": "hp" or "mp", "divisor": n}` adds `floor(character level x skill level / n)` to each regeneration pulse of that pool (`Loadout.regen_bonus`); Improved MP Recovery is `{"pool": "mp", "divisor": 10}`, Improved HP Recovery will be data only | B | Pre-Big-Bang Improved MP / HP Recovery rule (formula compilations, refs/research/v83-mechanics); the field shape is ours |
+| Job `grants.max_hp` | Advancing adds it to base Max HP (`_base_hp`, saved as the snapshot's `base_hp`, so no format change) alongside `grants.max_mp` (`_job_mp`); data rows only for playable jobs | C | Ours; Warrior rows come with #163 |
 
 | Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -3268,7 +3296,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Equipment drop rule (spec #33, #109) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Eligible list | `survivor/equipment_drops.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
+| Eligible list | `survivor/equipment_drops/<line>.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
 | Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
 | Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
@@ -3281,7 +3309,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Bot shopping rule (spec #33, #112; `BotShop`, bots only, never the player) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job branch `job_id / 100`, else `default`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; default (Beginner): W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
+| Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job id, `"0"` Beginner and `"200"` Magician; a job uses its nearest ancestor's entry through `JobTree.lineage`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; Beginner: W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
 | Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the v83 requirements and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
 | Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP, potion and meso drops are unchanged | C | Follow-up of #109 (lead) |
 | Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item that only fails the level requirement); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
@@ -3631,7 +3659,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
 | Cap hair cover (#108, corrected in #126) | `hairOverHead` is `Base.wz/smap.img` code H1, so it is hidden exactly by a cap whose `info/vslot` holds H1 (CpH1H5 half-cover, the full-head covers); a CpH5 headband (68 real caps) leaves it drawn over the band (the bangs fall over the headband: `zmap` puts `hairOverHead` in front of `cap`). Without a cap the `*BelowCap` hair layers are not drawn. #108 had it the other way round (CpH5 hid hairOverHead); `AvatarRenderer.hair_layers_skipped` and the smap hiding above now agree. Evidence: `hair_cap_probe.tscn` sheets on hairs 30000 / 30002 / 30020 with the CpH5 caps 1002067 and 1002317 and the CpH1H5 cap 1002001 (the old rule strips the bangs and leaves the headband on a bare forehead); the ladder stances show no difference (the hair covers the cap from behind) | A (smap codes, cap vslot, zmap order) / B (agreement) | `Base.wz/smap.img` + `zmap.img`, `Character.wz/Cap/*/info/vslot`; the v83 clients in the prior-art clones map CpH1H5 to half-cover (overhead hair not drawn) and CpH5 to headband (overhead hair drawn over the cap), re-implemented from prose |
 | Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
-| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
+| Scroll roster (#110) | `game/data/survivor/scrolls/<line>.json` (common = armour slots, magician = wand and staff): slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
 | Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
 | Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |

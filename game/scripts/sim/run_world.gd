@@ -837,11 +837,14 @@ func apply_choice(card_id: String) -> bool:
 	return true
 
 
-## Changes the job and its Max MP grant, without learning skills; emits job_changed.
+## Changes the job and its Max HP / Max MP grants, without learning skills; emits job_changed. grants.max_mp is
+## kept apart in `_job_mp`; grants.max_hp joins `_base_hp` (the snapshot's base_hp), the same pool level growth feeds, so
+## it survives a save/Continue without a new CharacterSnapshot field.
 func change_job(job_id: int) -> void:
 	progression.job_id = job_id
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})
+	_base_hp += float(grants.get("max_hp", 0.0))
 	_job_mp += float(grants.get("max_mp", 0.0))
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
@@ -897,7 +900,7 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 ## difference, while ordinary level growth passes grant_growth=false and grants nothing.
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
-	var primary := String(_job_value(pb.get("ap_stat", {"0": "str", "200": "int"}), "str"))
+	var primary := String(_job_value(pb.get("ap_stat", {}), "str"))
 	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
 	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {})
 	var secondary := String(secondary_cfg.get("stat", ""))
@@ -1613,9 +1616,8 @@ func _tick_timers(dt: float) -> void:
 	if _dead:
 		return
 	for _pulse in upkeep.regen_pulses(dt):
-		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen)
-		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen
-			+ upkeep.improved_mp_bonus(progression.level, loadout.level("improved_mp_recovery")))
+		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
+		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
 
 
 func _sync_slots() -> void:

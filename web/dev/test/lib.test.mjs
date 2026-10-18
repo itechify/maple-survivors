@@ -6,9 +6,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as lib from '../../lib.js';
+import { readMergedManifest } from '../manifest_files.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const manifestText = fs.readFileSync(path.join(here, '../../../game/data/asset_manifest.json'), 'utf8');
+// The merged manifest (main file + asset_manifest.d fragments), as the exported web page serves it.
+const manifestText = JSON.stringify(readMergedManifest(path.join(here, '../../../game/data/asset_manifest.json')));
 
 test('img path formulas match the importer (tools/wzimport/src/manifest.rs tests)', () => {
 	assert.equal(lib.mapImgPath(104040000), 'Map.wz/Map/Map1/104040000.img');

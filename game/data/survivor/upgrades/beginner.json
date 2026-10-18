@@ -1,0 +1,32 @@
+{
+	"_doc": "Beginner cards (job 0): Three Snails modifiers, Nimble Feet, Recovery. Card format and tier rules: see ../upgrades.json _doc.",
+	"cards": [
+		{"id": "three_snails_count", "power": true, "kind": "skill_mod", "skill": "three_snails", "name": "Additional Shell",
+			"desc": "Three Snails throws +{value} shell.", "value": 1, "icon": "Skill.wz/000.img/skill/0001000/icon",
+			"max_rank": 4, "weight": 12, "requires": {"jobs": [0]}, "effects": [{"stat": "count", "op": "add", "value": 1}]},
+		{"id": "three_snails_cooldown", "power": true, "kind": "skill_mod", "skill": "three_snails", "name": "Faster Snails",
+			"desc": "Three Snails cooldown -{value}%.", "value": 12, "icon": "Skill.wz/000.img/skill/0001000/icon",
+			"max_rank": 4, "weight": 8, "requires": {"jobs": [0]}, "effects": [{"stat": "cooldown", "op": "mul", "value": 0.88}]},
+		{"id": "three_snails_pierce", "kind": "skill_mod", "skill": "three_snails", "name": "Piercing Shells",
+			"desc": "Shells pass through +{value} more monster.", "value": 1, "icon": "Skill.wz/000.img/skill/0001000/icon",
+			"max_rank": 3, "weight": 8, "requires": {"jobs": [0]}, "effects": [{"stat": "pierce", "op": "add", "value": 1}]},
+		{"id": "three_snails_speed", "kind": "skill_mod", "skill": "three_snails", "name": "Rapid Snails",
+			"desc": "Shells fly {value}% faster.", "value": 25, "icon": "Skill.wz/000.img/skill/0001000/icon",
+			"max_rank": 3, "weight": 1, "requires": {"jobs": [0]}, "effects": [{"stat": "speed", "op": "mul", "value": 1.25}]},
+		{"id": "nimble_feet", "kind": "skill_new", "skill": "nimble_feet", "name": "Nimble Feet",
+			"desc": "Learn Nimble Feet: temporarily boosts your speed. Costs MP, with 1 min. between uses.",
+			"icon": "Skill.wz/000.img/skill/0001002/icon", "max_rank": 1, "weight": 1, "requires": {"jobs": [0]}, "effects": []},
+		{"id": "nimble_feet_rank", "kind": "skill_rank", "skill": "nimble_feet", "name": "Nimble Feet",
+			"desc": "+{magnitude} skill level: a stronger, longer speed boost.",
+			"icon": "Skill.wz/000.img/skill/0001002/icon", "max_rank": 3, "weight": 1,
+			"requires": {"jobs": [0], "skills": ["nimble_feet"]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "recovery", "kind": "skill_new", "skill": "recovery", "name": "Recovery",
+			"desc": "Learn Recovery: six healing pulses when below half HP, with a 120 s cooldown.",
+			"icon": "Skill.wz/000.img/skill/0001001/icon", "max_rank": 1, "weight": 2, "requires": {"jobs": [0]}, "effects": []},
+		{"id": "recovery_rank", "kind": "skill_rank", "skill": "recovery", "name": "Recovery",
+			"desc": "Recovery +{magnitude} skill level: stronger healing pulses for a little more MP.",
+			"icon": "Skill.wz/000.img/skill/0001001/icon", "max_rank": 3, "weight": 2,
+			"requires": {"jobs": [0], "skills": ["recovery"]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+
+	]
+}

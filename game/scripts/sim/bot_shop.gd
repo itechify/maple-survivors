@@ -16,11 +16,14 @@ const DEFAULT_WEIGHTS := {"incPAD": 1.0, "incMAD": 1.0}
 const EQUIP_GUARD := 32
 
 
-## The stat weights for `job_id` (balance.bot.equipment_weights by job branch `job_id / 100`, else its "default").
-@warning_ignore("integer_division")
-static func weights_for(balance: Dictionary, job_id: int) -> Dictionary:
+## The stat weights for `job_id`: balance.bot.equipment_weights keyed by job id ("0" Beginner, "200" Magician, ...),
+## the entry of the job or its nearest ancestor (JobTree.lineage), else "default", else DEFAULT_WEIGHTS.
+static func weights_for(balance: Dictionary, job_id: int, jobs: JobTree) -> Dictionary:
 	var table: Dictionary = balance.get("bot", {}).get("equipment_weights", {})
-	return table.get(str(job_id / 100), table.get("default", DEFAULT_WEIGHTS))
+	for j in jobs.lineage(job_id):
+		if table.has(str(j)):
+			return table[str(j)]
+	return table.get("default", DEFAULT_WEIGHTS)
 
 
 ## What `stats` ({"incMAD": 23, ...}) is worth under `weights`.
@@ -57,7 +60,7 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
 ## it put on. No RNG.
 static func auto_equip(w: RunWorld) -> int:
-	var weights := weights_for(w.balance, w.progression.job_id)
+	var weights := weights_for(w.balance, w.progression.job_id, w.jobs)
 	var worn_count := 0
 	for _pass in EQUIP_GUARD:
 		var candidates: Array = []
@@ -136,7 +139,7 @@ static func stock_of(w: RunWorld) -> Array:
 ## The canonical facts plan() needs: {equipment_info, scroll_info (from the setup), weights (the job's stat weights)}.
 static func facts_of(w: RunWorld) -> Dictionary:
 	return {"equipment_info": w.setup.get("equipment_info", {}), "scroll_info": w.setup.get("scroll_info", {}),
-		"weights": weights_for(w.balance, w.progression.job_id)}
+		"weights": weights_for(w.balance, w.progression.job_id, w.jobs)}
 
 
 ## The shop plan for a visit: `{"sell": [Equip-tab indices, last first], "steps": [...]}` where steps run in order,

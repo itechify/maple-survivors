@@ -48,7 +48,7 @@ func test_signature_exp_items_and_manifest_cover_the_stage() -> void:
 	var expected := {2110200: 4000015, 2230101: 4000008, 2300100: 4000042, 2230100: 4000007,
 		3230100: 4000013, 3230300: 4000067, 7130100: 4000028, 7130101: 4000046}
 	var data := DataRepo.load_all()
-	var manifest: Dictionary = DataRepo.load_json("res://data/asset_manifest.json")
+	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	assert_true(105050400 in PackedInt32Array(manifest.maps), "import the canonical map and its dependencies")
 	for id: int in expected:
 		assert_eq(int(data.mobs.mobs.get(str(id), {}).get("exp_item", 0)), expected[id], "signature item for %d" % id)

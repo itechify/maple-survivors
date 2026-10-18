@@ -1,0 +1,11 @@
+{
+	"_doc": "Scroll families of the Magician weapons (wand, staff). Rate keys and tier rules: see ../scrolls.json _doc.",
+	"families": {
+		"wand": {
+			"Magic Att.": {"100": 2043700, "60": 2043701, "10": 2043702, "dark70": 2043704, "dark30": 2043705}
+		},
+		"staff": {
+			"Magic Att.": {"100": 2043800, "60": 2043801, "10": 2043802, "dark70": 2043804, "dark30": 2043805}
+		}
+	}
+}

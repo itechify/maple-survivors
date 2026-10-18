@@ -46,9 +46,10 @@ const RUN := "res://scenes/run/run_scene.tscn"
 const FREE_MARKET := "res://scenes/run/free_market.tscn"
 const CASH_SHOP := "res://scenes/ui/cash_shop.tscn"
 ## Run option names for the command-line flags (others pass through with "-" -> "_").
-const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after"}
+const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after",
+	"branch": "job"} # --branch is the deprecated alias of --job (parse_run_args prints a note)
 const BOOL_OPTIONS := ["autoplay", "autopick"]
-const INT_OPTIONS := ["speed"]
+const INT_OPTIONS := ["speed", "job"]
 const FLOAT_OPTIONS := ["shot_every", "quit_after", "warp", "window_autopick"]
 
 ## Node whose single child is the current screen (main.tscn); null = the tree's current scene.
@@ -436,6 +437,8 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 			continue
 		var key: String = FLAG_OPTIONS.get(k, k.replace("-", "_"))
 		var v: String = flags[k]
+		if k == "branch":
+			printerr("--branch is deprecated: use --job=<id>")
 		if key in BOOL_OPTIONS:
 			options[key] = v != "0" and v.to_lower() != "false"
 		elif key in INT_OPTIONS:
@@ -447,6 +450,15 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 		else:
 			options[key] = v
 	return {"run": String(flags.run), "seed": seed_v, "options": options}
+
+
+## Why the run options' forced job (`--job=<id>`) cannot be played ("" when none is forced or it can): an unknown id, a
+## job above the second advancement, or a job (or its first job) that is not playable in this build.
+static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
+	var job_id := int(options.get("job", 0))
+	if job_id == 0:
+		return ""
+	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).forced_job_error(job_id)
 
 
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).

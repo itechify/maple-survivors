@@ -3,6 +3,8 @@ extends RefCounted
 ## Loads the survivor design data (`game/data/survivor/*.json`) and the canonical facts that are not in WZ
 ## (`game/data/canonical/*.json`) into the `data` Dictionary of a RunWorld setup (docs/ARCHITECTURE.md 4.4.1, 4.4.4),
 ## and assembles a whole setup from an img loader. Presentation/core code: it reads files; the sim never does.
+## Skills, upgrades, equipment drops, scrolls and shops are a base file plus per-job-line fragments
+## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, LINES; docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
 ##   var setup := DataRepo.build_setup(data, "henesys_hg1", 12345, Vector2(800, 600),
@@ -25,6 +27,26 @@ const FILES := {
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
 }
+## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
+## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
+## creating `<name>/<line>.json` next to the base file; the loader probes exactly these names in this order (job-line
+## order, not file-name order: it decides the order of the merged cards that the level-up roll walks), and
+## test_data_repo_lines fails on any other file in a fragment directory.
+const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
+## setup.data key -> how the entries of its line fragments (survivor/<name>/<line>.json) merge into the base file
+## (survivor/<name>.json): `entries` is the key the fragments fill, `merge` the rule (docs/ARCHITECTURE.md 4.4.4).
+##   keys:      Dictionary, entry keys concatenated (skills)
+##   ids:       Array of Dictionaries with a unique `id`, concatenated in line order (upgrade cards)
+##   sorted:    Array of unique numbers, concatenated then sorted ascending (equipment drop ids)
+##   values:    Array of unique values, concatenated in line order (shop weapon slots)
+##   families:  Dictionary slot -> Dictionary family -> rates, merged per slot (scrolls)
+const SPLIT := {
+	"skills": {"entries": "skills", "merge": "keys"},
+	"upgrades": {"entries": "cards", "merge": "ids"},
+	"equipment_drops": {"entries": "items", "merge": "sorted"},
+	"scrolls": {"entries": "families", "merge": "families"},
+	"shops": {"entries": "weapon_slots", "merge": "values"},
+}
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
 const POTION_IMG := "Item.wz/Consume/0200.img"
@@ -32,10 +54,13 @@ const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
-## `errors` (when given).
+## `errors` (when given). The keys in SPLIT are the base file plus the merged line fragments (load_split).
 static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var out := {}
 	for key: String in FILES:
+		if SPLIT.has(key):
+			out[key] = load_split(key, root, errors)
+			continue
 		var path := root.path_join(FILES[key])
 		var v: Variant = load_json(path)
 		if v is Dictionary:
@@ -44,6 +69,136 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 			out[key] = {}
 			errors.append("cannot read %s" % path)
 	return out
+
+
+## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line
+## fragment `<name>/<line>.json` merged in LINES order, per SPLIT's rule. A duplicate entry across files is listed in
+## `errors` and the first value kept; an unreadable fragment, or a key in it that is neither `_`-prefixed nor the
+## entries key, is listed too. `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged. A missing or
+## malformed base gives {} (and no fragments are read). The entries key always exists in the result.
+static func load_split(key: String, root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var base_path := root.path_join(FILES[key])
+	var base: Variant = load_json(base_path)
+	if not base is Dictionary:
+		errors.append("cannot read %s" % base_path)
+		return {}
+	var spec: Dictionary = SPLIT[key]
+	var entries_key: String = spec.entries
+	var out: Dictionary = base
+	var merge: String = spec.merge
+	if not out.has(entries_key):
+		out[entries_key] = {} if merge in ["keys", "families"] else []
+	for line in LINES:
+		var path := fragment_path(key, line, root)
+		if not FileAccess.file_exists(path):
+			continue
+		var frag: Variant = load_json(path)
+		if not frag is Dictionary:
+			errors.append("cannot read %s" % path)
+			continue
+		_merge_fragment(out, frag, spec, path, errors)
+	if merge == "sorted":
+		(out[entries_key] as Array).sort()
+	return out
+
+
+## Path of one line's fragment of a SPLIT key: `res://data/survivor/skills/magician.json` for ("skills", "magician").
+static func fragment_path(key: String, line: String, root: String = DATA_ROOT) -> String:
+	return root.path_join(String(FILES[key]).trim_suffix(".json")).path_join(line + ".json")
+
+
+## Files in the fragment directories whose name is not `<known line>.json` (e.g. "survivor/skills/rogue.json"). They
+## would be ignored by load_all, so a unit test requires this to be empty. Lists directories: tools and tests only.
+static func unknown_line_files(root: String = DATA_ROOT) -> PackedStringArray:
+	var out := PackedStringArray()
+	for key: String in SPLIT:
+		var dir_path := root.path_join(String(FILES[key]).trim_suffix(".json"))
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for file in dir.get_files():
+			if not (file.ends_with(".json") and file.trim_suffix(".json") in LINES):
+				out.append(String(FILES[key]).trim_suffix(".json").path_join(file))
+	out.sort()
+	return out
+
+
+static func _merge_fragment(out: Dictionary, frag: Dictionary, spec: Dictionary, path: String,
+		errors: PackedStringArray) -> void:
+	var entries_key: String = spec.entries
+	for k: Variant in frag:
+		var name := String(k)
+		if name.begins_with("_"):
+			continue
+		if name != entries_key:
+			errors.append("%s: unexpected key '%s' (only '%s' and _-prefixed notes)" % [path, name, entries_key])
+			continue
+		var into: Variant = out[entries_key]
+		var from: Variant = frag[k]
+		match String(spec.merge):
+			"keys":
+				if not (from is Dictionary and into is Dictionary):
+					errors.append("%s: '%s' must be an object" % [path, entries_key])
+				else:
+					_merge_keys(into, from, entries_key, path, errors)
+			"families":
+				if not (from is Dictionary and into is Dictionary):
+					errors.append("%s: '%s' must be an object" % [path, entries_key])
+				else:
+					_merge_families(into, from, path, errors)
+			_:
+				if not (from is Array and into is Array):
+					errors.append("%s: '%s' must be an array" % [path, entries_key])
+				else:
+					_merge_list(into, from, String(spec.merge) == "ids", entries_key, path, errors)
+
+
+static func _merge_keys(into: Dictionary, from: Dictionary, label: String, path: String, errors: PackedStringArray) -> void:
+	for k: Variant in from:
+		if String(k).begins_with("_"):
+			continue
+		if into.has(k):
+			errors.append("%s: duplicate %s entry '%s' (first kept)" % [path, label, k])
+		else:
+			into[k] = from[k]
+
+
+static func _merge_families(into: Dictionary, from: Dictionary, path: String, errors: PackedStringArray) -> void:
+	for slot: Variant in from:
+		if String(slot).begins_with("_"):
+			continue
+		if not from[slot] is Dictionary:
+			errors.append("%s: slot '%s' must be an object" % [path, slot])
+			continue
+		if not into.has(slot):
+			into[slot] = {}
+		for family: Variant in from[slot]:
+			if String(family).begins_with("_"):
+				continue
+			if into[slot].has(family):
+				errors.append("%s: duplicate family '%s' of slot '%s' (first kept)" % [path, family, slot])
+			else:
+				into[slot][family] = from[slot][family]
+
+
+static func _merge_list(into: Array, from: Array, by_id: bool, label: String, path: String,
+		errors: PackedStringArray) -> void:
+	var seen := {}
+	for e: Variant in into:
+		seen[_list_key(e, by_id)] = true
+	for e: Variant in from:
+		var k: Variant = _list_key(e, by_id)
+		if by_id and not (e is Dictionary and e.has("id")):
+			errors.append("%s: a %s entry has no id" % [path, label])
+		elif seen.has(k):
+			errors.append("%s: duplicate %s entry '%s' (first kept)" % [path, label, k])
+		else:
+			seen[k] = true
+			into.append(e)
+
+
+static func _list_key(entry: Variant, by_id: bool) -> Variant:
+	return entry.get("id") if by_id and entry is Dictionary else entry
 
 
 ## Parses one JSON file; null when missing or invalid.

@@ -1,0 +1,4 @@
+{
+	"_doc": "The Magician weapon slots priced as weapons (scrolls/magician.json slots). See ../shops.json _doc.",
+	"weapon_slots": ["wand", "staff"]
+}

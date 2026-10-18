@@ -81,7 +81,7 @@ func test_the_kit_holds_every_rate_of_the_main_families_within_the_use_tab() -> 
 		assert_true(int(character.scrolls[str(id)]) >= 5, "%d is stocked" % id)
 	assert_true(character.scrolls.size() <= Shop.use_stack_limit(character.potions),
 		"the stacks fit the Use tab beside the potion stacks")
-	var ids := Scrolls.ids(DataRepo.load_json("res://data/survivor/scrolls.json"))
+	var ids := Scrolls.ids(DataRepo.load_split("scrolls"))
 	for id: int in KIT_SCROLL_IDS:
 		assert_true(id in ids, "%d is a scroll of scrolls.json" % id)
 
@@ -188,7 +188,7 @@ func test_the_hub_spawn_stands_between_the_second_and_third_scroll_npc() -> void
 	assert_eq(HubTestKit.spawn_x({"npcs": [{"x": -100}, {"x": 20}, {"x": 80}, {"x": 400}]}), 50.0)
 	assert_eq(HubTestKit.spawn_x({"npcs": [{"x": 7}]}), 7.0, "a single NPC is stood beside")
 	assert_eq(HubTestKit.spawn_x({}), 0.0)
-	var shops: Dictionary = DataRepo.load_json("res://data/survivor/shops.json")
+	var shops: Dictionary = DataRepo.load_split("shops")
 	assert_eq(HubTestKit.spawn_x(shops), -230.0, "between Barun (-280) and Tulcus (-180)")
 
 
