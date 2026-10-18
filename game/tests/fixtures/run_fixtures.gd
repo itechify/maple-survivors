@@ -266,6 +266,18 @@ static func skill_imgs() -> Dictionary:
 		imgs[entry[0]].skill[entry[2]] = {"level": haste}
 	for entry: Array in [["410", "4100002"], ["420", "4200001"]]:
 		imgs[entry[0]].skill[entry[1]] = {"level": _levels(20, {"time": [29.0, 10.0], "hp": [3.0, 60.0], "mp": [1.0, 20.0]})}
+	# #214: exact v83 Savage Blow steps; synthetic art, no decoded assets.
+	var savage := {}
+	var savage_damage := [40,44,48,52,56,60,64,68,72,74,60,62,64,66,68,70,72,74,76,78,71,72,73,74,75,76,77,78,79,80]
+	for lv in range(1, 31):
+		savage[str(lv)] = {"mpCon": 15 if lv <= 10 else 18 if lv <= 20 else 27,
+			"damage": savage_damage[lv - 1], "attackCount": 4 if lv <= 10 else 5 if lv <= 20 else 6}
+	imgs["420"].skill["4201005"] = {"weapon": 33, "action": {"0": "savage"}, "level": savage}
+	# #214: exact v83 Steal values, including its rank-16 MP step; no weapon requirement.
+	var steal := {}
+	for lv in range(1, 31):
+		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
+	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
 	return imgs
 
 

@@ -377,6 +377,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
 	add_hit_listener(_final_attack_hit)
+	add_hit_listener(_steal_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -1794,6 +1795,18 @@ func add_hit_listener(listener: Callable) -> void:
 	_hit_listeners.append(listener)
 
 
+func _steal_hit(slot: int, hit: Dictionary) -> void:
+	var steal: Dictionary = book.def(String(hit.skill)).get("steal", {})
+	if steal.is_empty() or swarm.stolen[slot] != 0:
+		return
+	var chance := book.canonical(String(hit.skill), int(hit.level), String(steal.chance_field))
+	# Owner #167: only Steal success uses stream 15, once per damaging line, including lethal hits and bosses.
+	if thief_rng.randf() * 100.0 >= chance:
+		return
+	drop_mob_loot(slot, true)
+	swarm.stolen[slot] = 1
+
+
 func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
 	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
 		return
@@ -2193,13 +2206,25 @@ func _on_kill(m: int) -> void:
 			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+	drop_mob_loot(m)
+
+
+## Normal equipment/meso roll, also callable for a living mob. `single` guarantees exactly one extra Steal item.
+## tier C: single loot uses the ordinary equipment chance/pool, else a guaranteed normal meso bundle; no EXP/potions.
+## Ordinary death rolls retain their meso-then-equipment order and streams; Steal content never uses stream 15.
+func drop_mob_loot(m: int, single := false) -> void:
+	var pos := swarm.pos(m)
+	var mk := swarm.mob_kind(m)
 	var meso_cfg: Dictionary = balance.get("mesos", {})
 	var meso_chance := float(meso_cfg.get("chance", 0.0))
-	if meso_chance > 0.0 and meso_rng.randf() < meso_chance:
+	if not single and meso_chance > 0.0 and meso_rng.randf() < meso_chance:
 		spawn_meso(pos, _roll_mesos(mk))
 	var equip_chance := float(data.get("equipment_drops", {}).get("chance", 0.0))
 	if equip_chance > 0.0 and equip_rng.randf() < equip_chance:
-		_drop_equipment(pos, false)
+		if _drop_equipment(pos, false) and single:
+			return
+	if single:
+		spawn_meso(pos, _roll_mesos(mk))
 
 
 ## Rolls one meso amount for a mob kind: its listed v83 range (or the level fallback) times balance.mesos.mult.
@@ -2212,7 +2237,7 @@ func _roll_mesos(mk: MobKind) -> int:
 ## One equipment drop for the character's current job, level and held weapon family (EquipmentDrops; `boss` takes the
 ## top of the level window) with v83 random stats, from the equipment stream; nothing when no listed item has info and
 ## fits. A weapon only drops from the family held now; bare hands get none (#159).
-func _drop_equipment(pos: Vector2, boss: bool) -> void:
+func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	var cfg: Dictionary = data.get("equipment_drops", {})
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var items: Array = cfg.get("items", [])
@@ -2220,7 +2245,8 @@ func _drop_equipment(pos: Vector2, boss: bool) -> void:
 	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng, family) if boss \
 		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng, family)
 	if id > 0:
-		spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng))
+		return spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng)) >= 0
+	return false
 
 
 ## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the
