@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards stay on offer for both branches through requires.carry_jobs [510, 520] (spec #165 #180 shape): they list job 500 only in requires.jobs, so the advancement draw of a second job offers that branch's own skills, never the first-job ones. Second-job cards (#189: Improve MaxHP, Knuckler Mastery/Booster for the Brawler, Gun Mastery/Booster for the Gunslinger) require their exact branch and, through the skill, the matching held weapon family; they are not power cards; weights 2/2 and the 10/20 canonical ranks are tier A/C; magnitudes are the shared Potential table. Untuned.",
+	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards stay on offer for both branches through requires.carry_jobs [510, 520] (spec #165 #180 shape): they list job 500 only in requires.jobs, so the advancement draw of a second job offers that branch's own skills, never the first-job ones. Second-job cards (#189: Improve MaxHP, Knuckler Mastery/Booster for the Brawler, Gun Mastery/Booster for the Gunslinger) require their exact branch and, through the skill, the matching held weapon family; they are not power cards; weights 2/2 and the 10/20 canonical ranks are tier A/C; magnitudes are the shared Potential table. Dash (#188): learn weight 2, rank weight 2 (10 canonical levels), no behaviour modifier; its cards follow the same carry_jobs shape. Untuned.",
 	"cards": [
 		{"id": "flash_fist_new", "power": true, "kind": "skill_new", "skill": "flash_fist", "name": "Flash Fist",
 			"desc": "Learn Flash Fist: Punches one monster in front of you.",
@@ -84,6 +84,14 @@
 		{"id": "gun_booster_rank", "power": false, "kind": "skill_rank", "skill": "gun_booster", "name": "Gun Booster",
 			"desc": "Gun Booster +{magnitude} skill level: longer boost, cheaper recast.",
 			"icon": "Skill.wz/520.img/skill/5201003/icon", "max_rank": 20, "weight": 2,
-			"requires": {"jobs": [520]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
+			"requires": {"jobs": [520]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "dash_new", "power": false, "kind": "skill_new", "skill": "dash", "name": "Dash",
+			"desc": "Learn Dash: press its skill key to run faster and jump higher for a while.",
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "max_rank": 1, "weight": 2,
+			"requires": {"jobs": [500], "carry_jobs": [510, 520]}, "effects": []},
+		{"id": "dash_rank", "power": false, "kind": "skill_rank", "skill": "dash", "name": "Dash",
+			"desc": "Dash +{magnitude} skill level: faster, higher, and for longer.",
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "max_rank": 10, "weight": 2,
+			"requires": {"jobs": [500], "carry_jobs": [510, 520]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }

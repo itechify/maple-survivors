@@ -29,7 +29,7 @@ func test_manual_horizontal_cast_pays_once_and_emits_both_positions() -> void:
 	var w := _world()
 	var before := int(w.player_state.mp)
 	var input := MoveInput.new()
-	input.teleport_pressed = true
+	input.press_skill("teleport")
 	w.step(DT, input)
 	assert_eq(w.player.pos, Vector2(530, 0))
 	assert_eq(int(w.player_state.mp), before - 60)
@@ -57,7 +57,7 @@ func test_key_binding_and_hud_mp_wait_and_cooldown_follow_the_world() -> void:
 	scene.world.heal_fraction("mp", 1)
 	assert_false(scene.run_info().skills.back().mp_short)
 	var input := MoveInput.new()
-	input.teleport_pressed = true
+	input.press_skill("teleport")
 	scene.world.step(DT, input)
 	row = scene.run_info().skills.back()
 	assert_near(row.cooldown_left, 0.3, 1e-6, "the HUD reads Teleport's repeat timer")
@@ -121,7 +121,7 @@ func test_manual_rule_never_auto_casts_or_scores_as_an_attack() -> void:
 func test_airborne_left_blink_and_out_of_range_vertical_are_atomic() -> void:
 	var w := _world("teleport_fp", 210, -160)
 	var input := MoveInput.new()
-	input.teleport_pressed = true
+	input.press_skill("teleport")
 	input.up = true
 	var mp := int(w.player_state.mp)
 	w.step(DT, input)
@@ -152,13 +152,13 @@ func test_cost_direction_restrictions_and_repeat_delay() -> void:
 		w.loadout.set_rank(pair[0], 20)
 		var mp := int(w.player_state.mp)
 		var input := MoveInput.new()
-		input.teleport_pressed = true
+		input.press_skill("teleport")
 		input.up = true
 		w.step(DT, input)
 		assert_eq(w.player.pos, Vector2(400, -120))
 		assert_eq(int(w.player_state.mp), mp - 13)
-		input.teleport_pressed = false
-		input.teleport_held = true
+		input.skills_pressed.erase("teleport")
+		input.hold_skill("teleport")
 		input.up = false
 		for tick in 17:
 			w.step(DT, input)
@@ -168,7 +168,7 @@ func test_cost_direction_restrictions_and_repeat_delay() -> void:
 		assert_eq(int(w.player_state.mp), mp - 26)
 	var w := _world()
 	var input := MoveInput.new()
-	input.teleport_pressed = true
+	input.press_skill("teleport")
 	input.up = true
 	w.player.place(Vector2(400, -120), w.fhm)
 	var mp := int(w.player_state.mp)
@@ -196,7 +196,7 @@ func test_bot_requests_teleport_when_cornered() -> void:
 	w.player.place(Vector2(20, 0), w.fhm)
 	RF.put_mob(w, 100100, 48, 0)
 	var input := BotInput.decide(w, {})
-	assert_true(input.teleport_pressed, "nearby threat and map edge prompt an escape")
+	assert_true(input.skill_pressed("teleport"), "nearby threat and map edge prompt an escape")
 	assert_true(input.right, "escape toward map interior")
 	w.step(DT, input)
 	assert_eq(w.player.pos, Vector2(150, 0))

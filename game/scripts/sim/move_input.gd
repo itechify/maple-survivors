@@ -12,9 +12,10 @@ var jump_held := false
 ## Potion presses are consumed once by a sim tick; holding the key does not repeatedly drink.
 var drink_hp := false
 var drink_mp := false
-## Manual skill press consumed once; held intent requests repeats after the survivor delay.
-var teleport_pressed := false
-var teleport_held := false
+## Manual skill presses (skill key id -> true) consumed once, and the skill keys still held (a held key requests
+## repeats: Teleport after its survivor delay, a manual buff when it is ready again). See press_skill / hold_skill.
+var skills_pressed := {}
+var skills_held := {}
 
 
 ## Convenience constructor.
@@ -28,6 +29,31 @@ static func make(p_left := false, p_right := false, p_up := false, p_down := fal
 	m.jump_pressed = p_jump_pressed
 	m.jump_held = p_jump_held
 	return m
+
+
+## Marks the skill key `id` ("teleport", "dash") as pressed on this tick.
+func press_skill(id: String) -> void:
+	skills_pressed[id] = true
+
+
+## Marks the skill key `id` as held down on this tick.
+func hold_skill(id: String) -> void:
+	skills_held[id] = true
+
+
+## True when skill key `id` went down on this tick.
+func skill_pressed(id: String) -> bool:
+	return skills_pressed.has(id)
+
+
+## True when skill key `id` is held down on this tick.
+func skill_held(id: String) -> bool:
+	return skills_held.has(id)
+
+
+## True when skill key `id` is pressed or held.
+func skill_requested(id: String) -> bool:
+	return skills_pressed.has(id) or skills_held.has(id)
 
 
 ## Horizontal direction: -1 left, 1 right, 0 none or both.

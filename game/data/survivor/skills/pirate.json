@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash belongs to #188. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), attacks #191-#192, MP Recovery #193, Oak Barrel #194.",
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), attacks #191-#192, MP Recovery #193, Oak Barrel #194.",
 	"skills": {
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
@@ -99,6 +99,21 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "Skill.wz/520.img/skill/5201003/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/5201003/Use", "hit": ""}
+		},
+		"dash": {
+			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "active",
+			"name": "Dash", "desc": "Press its skill key to run faster and jump higher for a while.",
+			"text": {"desc": "Press the Dash key to temporarily raise your movement speed and jump."},
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "damage": "none",
+			"cast": {"rule": "manual"}, "skill_key": "dash",
+			"buff": {"stat": "speed", "field": "x", "effects": [{"stat": "jump", "field": "y"}], "duration_field": "time"},
+			"manual": {"bot_flee_hp": 0.5, "bot_surround_count": 3, "bot_surround_distance": 120.0},
+			"_buff": "Tier A: canonical mpCon, speed x, jump y and time per level 1-10, the effect art and the use sound. Tier C (owner): a manual skill on its skill key (default X) instead of v83's double-tap, usable with any weapon, recast on the key once the buff ends, no cast hold. Speed and jump follow the movement caps (140 speed, 123 jump).",
+			"_manual": "Tier C: the bot dashes when its HP is below bot_flee_hp of the maximum with a mob within the flee distance, or when at least bot_surround_count mobs on its level are within bot_surround_distance px.",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/500.img/skill/5001005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5001005/Use", "hit": ""}
 		}
 	}
 }

@@ -144,6 +144,14 @@ static func skill_imgs() -> Dictionary:
 		pirate[entry[0]] = {"level": levels}
 	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
 		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
+	# #188: Dash 5001005's real levels 1-10 as [mpCon, x (speed), y (jump), time] (Skill.wz/500.img).
+	var dash_levels := {}
+	var dash_rows := [[14, 12, 1, 4], [13, 14, 2, 4], [12, 16, 3, 8], [11, 18, 4, 8], [10, 20, 5, 12], [9, 22, 6, 12],
+		[8, 24, 7, 16], [7, 26, 8, 16], [6, 28, 9, 20], [5, 30, 10, 20]]
+	for i in dash_rows.size():
+		var row: Array = dash_rows[i]
+		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
+	pirate["5001005"] = {"level": dash_levels}
 	imgs["500"] = {"skill": pirate}
 	# #189: the Brawler's and Gunslinger's passives and boosters, original v83 values (Skill.wz/510.img, 520.img): Improve
 	# MaxHP x 3..30; masteries N = ceil(level / 2) and x = level (Gun Mastery also has y = 10 * level, unused here);
