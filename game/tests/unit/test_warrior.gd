@@ -337,6 +337,23 @@ func test_both_attacks_turn_the_standing_character_toward_the_nearest_mob() -> v
 			assert_lt_hp(w, m, key)
 
 
+func test_both_attacks_turn_toward_the_nearest_mob_in_every_movement_state() -> void:
+	for state: int in [PlayerMotion.ST_WALK, PlayerMotion.ST_AIR, PlayerMotion.ST_PRONE]:
+		for key in ["power_strike", "slash_blast"]:
+			for side in [-1, 1]:
+				var w := _world(42)
+				w.learn_skill(key)
+				w.player.state = state
+				w.player.facing = -side
+				var m := _mob(w, 50.0 * side)
+				var events := _cast(w)
+				var label := "%s, state %d, mob on side %d" % [key, state, side]
+				assert_eq(_of(events, "cast").size(), 1, "%s casts at a mob behind it" % label)
+				assert_eq(w.player.facing, side, "%s faces the mob" % label)
+				assert_eq(_of(events, "cast")[0].facing, side, "%s: the cast event carries the facing" % label)
+				assert_lt_hp(w, m, label)
+
+
 func assert_lt_hp(w: RunWorld, m: int, key: String) -> void:
 	assert_true(w.swarm.hp[m] < w.swarm.max_hp[m], "%s hit it" % key)
 

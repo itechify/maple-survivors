@@ -1202,9 +1202,11 @@ func player_low_platform() -> int:
 	return MobSwarm.low_platform(fhm, player.pos, tp, float(swarm.tuning.reach_y))
 
 
-## Turns a standing player toward x (casting at a target); a walking player keeps facing its way.
-func face_toward(tx: float) -> void:
-	if player.state == PlayerMotion.ST_STAND and absf(tx - player.pos.x) > 0.5:
+## Turns a standing player toward x (casting at a target); a walking player keeps facing its way. `any_state` turns the
+## player in every movement state for this cast (Power Strike, Slash Blast; tier C): a held direction sets the facing
+## again on the next motion step, so the turn does not fight walking.
+func face_toward(tx: float, any_state := false) -> void:
+	if (any_state or player.state == PlayerMotion.ST_STAND) and absf(tx - player.pos.x) > 0.5:
 		player.facing = 1 if tx > player.pos.x else -1
 
 

@@ -196,15 +196,14 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 
 
 ## Weapon-reach rule (Warrior Power Strike): the live mobs inside the held weapon's swing envelope (BasicAttack.envelope),
-## nearest first. A standing player may turn, so both sides are asked and the side with the nearer first target wins
-## (the current facing on a tie); a walking player keeps its way. The plan carries the side to face before casting.
+## nearest first. The player turns in every movement state, so both sides are asked and the side with the nearer first
+## target wins (the current facing on a tie). The plan carries the side to face before casting; a walking or airborne
+## player's held direction sets its facing again on the next motion step, so the turn lasts for the cast (tier C).
 func _admit_weapon_reach(world: RunWorld) -> Dictionary:
 	var box := world.basic.envelope(world)
 	if not box.has_area():
 		return {}
-	var sides: Array[int] = [world.player.facing]
-	if world.player.state == PlayerMotion.ST_STAND:
-		sides.append(-world.player.facing)
+	var sides: Array[int] = [world.player.facing, -world.player.facing]
 	var origin := world.cast_origin()
 	var best := PackedInt32Array()
 	var best_side := 0
@@ -255,7 +254,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	elif String(st.cast_rule) == "weapon_reach":
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
-		world.face_toward(world.mob_center(targets[0]).x)
+		world.face_toward(world.mob_center(targets[0]).x, true)
 	casts += 1
 	fired_this_tick = true
 	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
