@@ -112,7 +112,7 @@ spends the slot, and a failed **dark** scroll destroys the item at its `cursed` 
 and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
 `Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
 destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
-scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
+scrolls exist is `game/data/survivor/scrolls.json` plus `scrolls/<line>.json` (below); they are bought in the Free Market's scroll shops (#111,
 next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
 
 Hand-testing tool (tool-only, not part of the game): `bash scripts/run.sh -- --hub [--character=<abs JSON>] [--mesos=N]`
@@ -2757,7 +2757,7 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   recovery remains tier C because the cache does not prove usage. Without Blue, tinted Violet is the tier C
   fallback. RunScene draws restoration events above the player's head using the existing number pool/timing.
 
-Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
+Survivor behaviour is in `data/survivor/skills.json` (base) and `skills/<line>.json` (the skills); the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
 without skips. Learning starts at level 1 and each rank card adds one level. Energy Bolt, Magic Claw, Magic Guard
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
@@ -2868,7 +2868,7 @@ damaging attack cards. No behaviour cards are added.
 
 ## 8. Upgrades
 
-`data/survivor/upgrades.json`. Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
+`data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
 `stat`, `potion_tier`, `filler` for the separate fallback), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
