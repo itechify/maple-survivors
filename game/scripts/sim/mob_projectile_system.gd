@@ -84,23 +84,23 @@ func step(dt: float, world: RunWorld) -> void:
 		x[slot] = to.x
 		y[slot] = to.y
 		range_left[slot] = maxf(0.0, range_left[slot] - distance)
-		var source := {}
 		if enter >= 0.0:
-			source = {"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
+			var source := {"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
 				"dmg_mult": multiplier[slot], "boss": true, "source_kind": "projectile"}
 			if ordinary[slot] != 0:
 				source.boss = false
 				source.source_kind = "mob_attack"
 				source["elite"] = elite[slot] != 0
-		# tier C (spec #88): an ordinary ball the hit window turns away is neither a hit nor used up; it flies on and
-		# can still land once the window ends (also from inside the body box: the sweep then enters at t = 0).
-		if enter >= 0.0 and not world.hit_window_blocks(source):
-			world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
-			world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
-				"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
-				"time": world.time})
-			despawn(slot)
-		elif range_left[slot] <= 1e-6:
+			# tier C (spec #88): an ordinary ball the hit window turns away is neither a hit nor used up; it flies on
+			# and can still land once the window ends (also from inside the body box: the sweep then enters at t = 0).
+			if not world.hit_window_blocks(source):
+				world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
+				world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
+					"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
+					"time": world.time})
+				despawn(slot)
+				continue
+		if range_left[slot] <= 1e-6:
 			despawn(slot)
 
 

@@ -240,8 +240,8 @@ func test_a_ball_through_the_whole_body_in_one_tick_during_the_window_is_not_use
 
 
 func test_an_ordinary_ball_inside_the_body_when_the_window_ends_hits_then() -> void:
-	# Pins decision 5: segment_enter from a start inside the box enters at t = 0, so the ball lands on the first
-	# step after the window ends; it is not lost by having entered earlier.
+	# A ball whose start is inside the box enters at t = 0 (segment_enter), so it lands on the first step after the
+	# window ends; a blocked ball is not lost for having entered the box earlier.
 	var w := RF.quiet_world(400.0, 895)
 	w.upkeep.invincible_t = 0.5
 	w.drain_events()

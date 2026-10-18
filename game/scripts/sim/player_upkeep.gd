@@ -27,8 +27,8 @@ var _buffs: PlayerBuffs
 var _regen: Dictionary
 var _regen_elapsed := 0.0
 var _window_lengths: Array[float] = []
-var _chain_gap := 2.5
-var _reset_after := 3.0
+var _chain_gap := float(DEFAULT_HIT_WINDOW.chain_gap)
+var _reset_after := float(DEFAULT_HIT_WINDOW.reset_after)
 
 
 ## `buffs` is the run's PlayerBuffs; `regen` the balance.regen rules (DEFAULT_REGEN when absent, per key);
@@ -65,15 +65,15 @@ static func bypasses_window(source: Dictionary) -> bool:
 ## between the two -> the same step); a boss skill attack always starts the full window without stepping the chain.
 ## Either kind refreshes the time of the last landed hit.
 func land_hit(boss_skill: bool) -> float:
+	# A lapsed chain restarts for either kind; a boss hit refreshing the clock must not revive a lapsed chain.
+	var lapsed := since_hit >= _reset_after - _EPS
+	if lapsed:
+		hit_step = 0
 	var seconds: float
 	if boss_skill:
-		if since_hit >= _reset_after - _EPS:
-			hit_step = 0 # the chain had already lapsed; a boss hit refreshing the clock must not revive it
 		seconds = maxf(invincible_t, _window_lengths[0])
 	else:
-		if since_hit >= _reset_after - _EPS:
-			hit_step = 0
-		elif since_hit <= _chain_gap + _EPS:
+		if not lapsed and since_hit <= _chain_gap + _EPS:
 			hit_step = mini(hit_step + 1, _window_lengths.size() - 1)
 		seconds = _window_lengths[hit_step]
 	invincible_t = seconds
