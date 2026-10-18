@@ -653,7 +653,9 @@ What the tables above leave open; the class doc comments have the rest.
   family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and
   `_play_final_attacks` runs at the end of `_step_player_attacks`: `final_attack` event, then one `hit_mob(slot,
   loadout.stats(key), …, final_rng)` (damage, crit and the proc all on stream 12). Follow-ups never trigger follow-ups,
-  and a target the trigger killed gets none.
+  and a target the trigger killed gets none. Spread (#181): the Final Attack
+  skill's `count` (base 1, +1 per Spread card step) is the number of monsters one follow-up strikes;
+  `RunWorld._spread_targets` adds the extra ones around the struck target with no RNG (GAME_DESIGN 7.9).
 - **Shield slot (#158).** `"shield"` is the last of `Equipment.SLOTS` (Character.wz Shield, category 109). The worn map
   key is optional, so snapshots from before the slot load and save back unchanged (no format bump).
   `Equipment.displaced_slots(worn, id)` names what wearing an item moves back to the Equip tab: an overall's top and

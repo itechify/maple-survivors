@@ -132,6 +132,10 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# Warrior second job (spec #165): one block per ticket, in ticket order.
+	for book: String in ["110", "120", "130"]:
+		imgs[book] = {"skill": {}}
+	_warrior_weapon_skill_imgs(imgs) # #181
 	# Page Threaten (#183): the v83 endpoints of Skill.wz/120.img (x = y = -1..-20, time 44..120, mpCon 12/20 with the
 	# L11 step, six targets, the box widening at L11); levels between are interpolated. The node has no prop.
 	var threaten_levels := _levels(20, {"mpCon": [12.0, 20.0], "time": [44.0, 120.0], "x": [-1.0, -20.0],
@@ -159,6 +163,32 @@ static func skill_imgs() -> Dictionary:
 	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
 		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
 	return imgs
+
+
+## Spec #165 ticket #181: the Warrior second-job Masteries, Final Attacks and Boosters (books 110, 120, 130). The level
+## tables are the exact v83 formulas read from Skill.wz (mastery step ceil(level / 2) with accuracy x = level; Final
+## Attack prop 2 x level and damage 100 + 5 x level; Booster hpCon = mpCon = 30 - level, time 10 x level, x -2); only
+## the art is synthetic.
+static func _warrior_weapon_skill_imgs(imgs: Dictionary) -> void:
+	for book: String in ["110", "120", "130"]:
+		var base := int(book) * 10000
+		var skills: Dictionary = imgs[book].skill
+		for offset: int in [0, 1]:
+			var mastery := {}
+			for lv in range(1, 21):
+				mastery[str(lv)] = {"hs": "h%d" % lv, "mastery": float(ceili(lv / 2.0)), "x": float(lv)}
+			skills[str(base + offset)] = {"icon": _canvas(32, 32), "level": mastery}
+			var final := {}
+			for lv in range(1, 31):
+				final[str(lv)] = {"hs": "h%d" % lv, "prop": float(2 * lv), "damage": float(100 + 5 * lv)}
+			skills[str(base + 2 + offset)] = {"icon": _canvas(32, 32), "hit": {"0": _anim(3, 90.0, 167, 92)},
+				"level": final}
+			var booster := {}
+			for lv in range(1, 21):
+				booster[str(lv)] = {"hs": "h%d" % lv, "hpCon": float(30 - lv), "mpCon": float(30 - lv),
+					"time": float(10 * lv), "x": -2.0}
+			skills[str(base + 1004 + offset)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+				"effect": _anim(9, 90.0, 44, 12), "level": booster}
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
