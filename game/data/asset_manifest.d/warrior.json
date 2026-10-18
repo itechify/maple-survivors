@@ -1,0 +1,5 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Warrior line (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1). Spec #151 ticket #158 (shield slot): every non-cash Character.wz/Shield item a Warrior can wear, whole imgs (info, iconRaw and the stand/walk/... layers): canonical reqJob 1 (Warrior bit) 1092000-1092002, 1092004-1092007, 1092009-1092017, 1092023-1092028, 1092036-1092038, 1092041, 1092042, 1092046, 1092058, 1092060, 1092061, and reqJob 0 (any job) 1092003, 1092008, 1092022, 1092030, 1092035, 1092052. The cash shields stay with the curated cash items in the shared file. 1402000 (Two-handed Sword, reqJob 1) is here so the shield's two-handed rule has a real weapon to test and photograph.",
+	"character": [1092000, 1092001, 1092002, 1092003, 1092004, 1092005, 1092006, 1092007, 1092008, 1092009, 1092010, 1092011, 1092012, 1092013, 1092014, 1092015, 1092016, 1092017, 1092022, 1092023, 1092024, 1092025, 1092026, 1092027, 1092028, 1092030, 1092035, 1092036, 1092037, 1092038, 1092041, 1092042, 1092046, 1092052, 1092058, 1092060, 1092061, 1402000]
+}

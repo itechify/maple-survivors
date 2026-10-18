@@ -2641,7 +2641,7 @@ quantities per kind.
   modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
 - **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
-  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  gloves, weapon, shield; an overall fills top and bottom; the shield, spec #151 #158, is described below). Every worn `inc*` stat counts: main stats add to the base (the
   Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
   accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
   modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
@@ -2652,6 +2652,18 @@ quantities per kind.
   moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C); with a full inventory the grant is skipped and nothing is destroyed. Without a weapon the basic
   attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
   impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
+- **Shield slot (spec #151, #158)**: `shield` is the last of `Equipment.SLOTS`, filled from Character.wz `Shield`
+  (109xxxx) with the same requirement check as any equipment (`reqJob`, `reqLevel`, `reqSTR`...), and its `inc*` stats
+  (mostly `incPDD`/`incMDD`) count like any worn item. A two-handed weapon (`WeaponInfo.is_two_handed`: every weapon
+  type from 140) never shares the hands with a shield: wearing one moves the worn shield to the Equip tab, wearing a
+  shield moves a held two-handed weapon (`Equipment.displaced_slots`; the job-weapon grant follows the same rule). When
+  the Equip tab has no room for what moves, the change is refused with `inventory_full`, the v83 notice "You can't get
+  anymore items." shows, and nothing changes. The Equip window shows the shield in its v83 SHIELD cell (right of
+  WEAPON); the avatar draws the shield layers of the worn item. The snapshot gains no key beyond a `shield` entry in
+  `equipment.worn` (format stays 2; a snapshot saved without one loads unchanged; a two-handed weapon beside a shield
+  is invalid). The autoplay bot treats the shield as a slot: it wears a shield when its score beats what the change
+  moves off (a two-handed weapon must beat the one-handed weapon plus the shield it displaces), and may scroll it last.
+  Shield drops and scrolls are #159.
 - **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
   / 100) % 100 == (item id / 10000) % 100` (tier A, the v83 id convention) and at least one upgrade slot. Roll 0-99
   below `info/success` adds every `inc*` of the scroll to the instance (`scrolls` + 1); success or not, `slots` - 1;
@@ -3389,7 +3401,10 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Equipment rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Shield 109, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Shield and two-handed weapons | Weapon types from 140 block the shield slot; wearing either moves the other to the Equip tab (`Equipment.displaced_slots`, `WeaponInfo.FIRST_TWO_HANDED_TYPE`) | B | Cosmic `isTwoHanded` |
+| Shield swap refusal message | "You can't get anymore items." when the Equip tab cannot hold what moves (`InventoryWindow.MESSAGES.equip_full`) | B | Cosmic `InventoryManipulator.equip` (overall, shield and two-handed cases) sends the inventory-full status 0xff, the pickup notice's string; it also applies to an overall over a top and bottom |
+| Equip window SHIELD cell | (137, 134) on the 175x304 `backgrnd`, right of WEAPON (`EquipWindow.SLOT_POS`); tooltip category art `ToolTip/Equip/ItemCategory/10` (SHIELD) | C / A | measured on the v83 art / v83 UI.wz |
 | Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
 | `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
 | Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
