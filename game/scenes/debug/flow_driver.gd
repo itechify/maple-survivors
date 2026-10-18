@@ -97,7 +97,7 @@ extends Node
 ##           -> Continue again: job, weapon, shield, skills and mesos equal the snapshot before quitting. Shots:
 ##           warrior_job_window, warrior_job_confirm, warrior_advanced, warrior_playing, warrior_shield_worn,
 ##           warrior_hub, warrior_save_and_quit, warrior_character_select, warrior_continue_restored; summary.json.
-##   warrior2 the Warrior second job end to end (spec #165 QA #185; `--branch=110|120|130`, default 120): new character
+##   warrior2 the Warrior second job end to end (spec #165 QA #185; `--job=110|120|130`, default 120): new character
 ##           (invulnerable, debug) -> EXP drops through the real Lv10 job window (Warrior) and then up to Lv30, where the real
 ##           job window takes the branch; its advancement weapons (the held family's worn, the other and the displaced
 ##           sword in the Equip tab) and a branch skill from the real advancement draw; the bot's steering plays; the whole
@@ -1527,12 +1527,12 @@ func _scenario_warrior() -> void:
 
 
 ## The Warrior second job end to end (spec #165 QA #185): Lv10 and then Lv30 through the real job windows, the branch
-## (`--branch=110|120|130`, default 120) and its two advancement weapons, a real Final Attack / Booster / Mastery card
+## (`--job=110|120|130`, default 120) and its two advancement weapons, a real Final Attack / Booster / Mastery card
 ## from the advancement draw, the Skill window (the unheld family greyed), Save & quit and Continue. Debug setup: the
 ## character is invulnerable (RunWorld.god, the climb takes minutes of EXP drops), every branch skill is learned through
 ## its card after the draw (for the Skill window shots), and the round boundary is saved by hand (no multi-minute warp).
 func _scenario_warrior2() -> void:
-	var branch := int(args.get("branch", "120"))
+	var branch := int(args.get("job", "120"))
 	var key_lists := {
 		110: ["sword_mastery_fighter", "axe_mastery", "final_attack_sword_fighter", "final_attack_axe",
 			"sword_booster_fighter", "axe_booster", "rage", "power_guard_fighter"],
@@ -1542,7 +1542,7 @@ func _scenario_warrior2() -> void:
 			"spear_booster", "polearm_booster", "iron_will", "hyper_body"],
 	}
 	if not key_lists.has(branch):
-		_fail("--branch must be 110, 120 or 130")
+		_fail("--job must be 110, 120 or 130")
 		return
 	var branch_keys: Array = key_lists[branch]
 	var tag := "warrior2_%d" % branch
