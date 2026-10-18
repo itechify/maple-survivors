@@ -3070,7 +3070,8 @@ Second-job support (#58): `buff.effects` accepts multiple canonical stat/field p
 Invincible use their canonical `alert2`, effect and Use sound. Their self-only auto-cast, expiry, affordable recast
 and climbing gate follow Guard/Armor. Bless's active avoid feeds each miss roll; active PDD/MDD feed hit defence.
 Invincible scales the already-resolved whole weapon hit, rounds to nearest and keeps minimum 1 before Guard.
-No player-accuracy formula is introduced: Bless `acc` is exposed in buff effects/player state, with no combat effect.
+Bless's `acc` joins the player's ACC (`player_state.acc`), which raises the critical chance (6.1, #153; before #153 it
+had no combat effect).
 
 Slow uses the shared box query with a status-eligible, unslowed filter before charging MP. Canonical or scheduled
 bosses cannot count toward the crowd. It applies through `MobSwarm.apply_status`, deals no hit damage and does not
@@ -3083,7 +3084,7 @@ Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3
 All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
 damaging attack cards. No behaviour cards are added.
 
-### Weapon-gated skills (#156)
+### 7.5 Weapon-gated skills (#156)
 
 A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
 crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
@@ -3147,6 +3148,37 @@ encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without
 per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
 `effects` data shape.
 
+### 7.7 Attack speed and Boosters (#160)
+
+**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
+fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
+in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
+keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
+time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
+
+**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
+at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
+- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
+  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
+  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
+- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
+  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
+  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
+  cooldown modifier applies first. Buffs are timed by their duration and keep it.
+- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
+  and what changing that would move.
+
+**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
+number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
+and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
+affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
+gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
+the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
+counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
+`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
+weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
+the real ones come with the class specs.
+
 ### 7.8 Warrior first job (100, #163)
 
 Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
@@ -3193,37 +3225,6 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/ticket-163`; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
-
-### 7.7 Attack speed and Boosters (#160)
-
-**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
-fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
-in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
-keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
-time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
-
-**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
-at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
-- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
-  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
-  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
-- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
-  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
-  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
-  cooldown modifier applies first. Buffs are timed by their duration and keep it.
-- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
-  and what changing that would move.
-
-**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
-number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
-and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
-affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
-gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
-the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
-counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
-`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
-weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
-the real ones come with the class specs.
 
 ## 8. Upgrades
 
@@ -3435,7 +3436,8 @@ every constant, with its tier, is in section 11 under the tables named below):
    overall, shoes, gloves, shield or weapon that the character's current job can wear, near its level, with v83's random
    stat rolls. A weapon drops only from the family of the weapon held when the drop rolls (a sword holder gets one- and
    two-handed swords, an axe holder axes, ...; bare hands get no weapon; a Magician holding a wand or a staff gets both),
-   so a Warrior's drops are swords, axes, blunt weapons, spears, polearms and Warrior shields (#159). It goes to the
+   so a Warrior's weapon drops are of the one family it holds (sword, axe, blunt weapon, spear or polearm) and its armour
+   drops include Warrior shields (#159). It goes to the
    Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
 3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
    open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)

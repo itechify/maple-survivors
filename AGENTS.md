@@ -117,6 +117,7 @@ bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
 bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
+bash scripts/playtest.sh --job=100                                             # the Warrior at Lv10 (spec #151); --job=400:claw names a weapon path
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -145,7 +146,9 @@ input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tie
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
-`keys` (#87); see the script header. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+`keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
+greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
+through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
 character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
@@ -209,10 +212,12 @@ assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
-`--job=<id>` (any first or second job id of the canonical tree; `--branch=<id>` is the deprecated alias) forces the bot's
+`--job=<id>[:<path>]` (any first or second job id of the canonical tree; `--job=400:claw` also names a first job's weapon
+path, `JobTree.parse_forced`; `--branch=<id>` is the deprecated alias) forces the bot's
 job choice in `balance.sh`, `playtest.sh`, `--run` and `balance_run.gd`: a first job is taken at the first advancement, a
-second job takes its first job there and itself at the second. A job this build cannot offer (not playable) fails at
-startup. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
+second job takes its first job there and itself at the second. A job (or path) this build cannot offer (not playable, or a path the line lacks) fails at
+startup. Without `--job` the bot draws its first job (Warrior or Magician today) and, for a job with paths, its path on the
+job stream 8. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;
