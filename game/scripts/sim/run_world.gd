@@ -205,8 +205,6 @@ var loadout: Loadout
 var runner: SkillRunner
 var _teleport_left := 0.0
 var _teleport_total := 0.0
-## Seconds hung on a rope or ladder since Endure's last recovery (the clock only runs while climbing).
-var _climb_elapsed := 0.0
 var progression: RunProgression
 var jobs: JobTree
 var upgrades: UpgradePool
@@ -881,7 +879,8 @@ func apply_choice(card_id: String) -> bool:
 ## Changes the job and its Max HP / Max MP grants, without learning skills; emits job_changed. grants.max_mp is
 ## kept apart in `_job_mp`; grants.max_hp joins `_base_hp` (the snapshot's base_hp), the same pool level growth feeds, so
 ## it survives a save/Continue without a new CharacterSnapshot field. A known weapon `path` of the job's line is
-## recorded in `weapon_path`; the weapon the job grants is worn by _grant_job_weapon.
+## recorded in `weapon_path`; the weapon the job grants is worn by _grant_job_weapon, its `grants.items` join the Equip tab
+## by _grant_job_items.
 func change_job(job_id: int, path := "") -> void:
 	progression.job_id = job_id
 	if path != "" and not jobs.path_of(job_id, path).is_empty():
@@ -893,6 +892,7 @@ func change_job(job_id: int, path := "") -> void:
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
 	_grant_job_weapon(job_id, path)
+	_grant_job_items(job_id)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -1420,7 +1420,7 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 ## Wears the weapon an advancement grants and moves the previous one to the inventory (a grant never checks
 ## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
 ## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
-## -> Wooden Wand), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
+## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
 ## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
 ## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
 ## a slot is free), so advancing never fails.
@@ -1449,6 +1449,21 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	_equipment_changed("grant", "weapon", id)
 	for item: Dictionary in spilled:
 		spawn_equipment(player.pos, item)
+
+
+## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
+## tab, after whatever the weapon grant displaced; an item the full tab has no room for lies at the player's feet as a
+## normal equipment pickup, so advancing never fails. A grant never checks requirements.
+func _grant_job_items(job_id: int) -> void:
+	var items: Variant = jobs.job(job_id).get("grants", {}).get("items", [])
+	for raw: Variant in items if items is Array else []:
+		var id := int(raw)
+		var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
+		if equipment.inventory.size() < inventory_slots():
+			equipment.inventory.append(instance)
+			_equipment_changed("grant", "", id)
+		else:
+			spawn_equipment(player.pos, instance)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1836,13 +1851,6 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
-	# Endure (tier C): its own clock runs only while hanging on a rope or ladder and heals one base pulse each interval.
-	var climb_interval := loadout.climb_regen_interval()
-	if climb_interval > 0.0 and player.state == PlayerMotion.ST_LADDER:
-		_climb_elapsed += dt
-		while _climb_elapsed >= climb_interval - 1e-9:
-			_climb_elapsed -= climb_interval
-			restore_player("hp", roundi(upkeep.pulse_hp() + hp_regen), "endure")
 
 
 func _sync_slots() -> void:

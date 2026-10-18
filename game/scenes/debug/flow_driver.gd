@@ -1303,7 +1303,7 @@ func _scenario_skill_warrior() -> void:
 	var w := run.world
 	w.change_job(100)
 	for id: String in ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
-			"improved_max_hp_new", "endure_new", "power_strike_targets"]:
+			"improved_max_hp_new", "power_strike_targets"]:
 		w.upgrades.apply(id, w)
 	await _sleep(0.5)
 	await _key(KEY_K)

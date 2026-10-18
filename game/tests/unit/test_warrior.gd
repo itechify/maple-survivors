@@ -94,7 +94,9 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	assert_eq(w.player_state.max_mp, mp0, "no MP grant")
 	assert_eq(w.player_state.str, str0, "advancing redistributes nothing: the earned AP already sat in STR")
 	assert_eq(w.player_state.dex, 5, "DEX takes no AP: no Warrior item needs it")
-	assert_eq(w.weapon_id(), 1302000, "no weapon grant: the creation weapon stays worn")
+	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword is granted and worn")
+	assert_eq(w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000, 1432000, 1322006],
+		"the creation sword, then the spear and the Steel Pipe, wait in the Equip tab")
 	var ids := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
 	assert_has(ids, "power_strike_new", "the advancement draw offers Power Strike")
 	assert_has(ids, "slash_blast_new", "and Slash Blast")
@@ -106,6 +108,88 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	RF.auto_choose(w)
 	assert_eq(w.player_state.str, str1 + 5, "every earned AP goes to STR")
 	assert_eq(w.player_state.dex, 5)
+
+
+## A Beginner at Lv 10 with a full Equip tab but `free` slots, the window open.
+func _advancing(free: int, creation_weapon := 1302000, job := 100) -> RunWorld:
+	var data := RF.quiet_data()
+	data.upgrades.cards = []
+	var setup := RF.with_basic_attack(RF.setup("quiet", 5, data))
+	var character := RunWorld.new(setup).character_snapshot()
+	character.equipment.worn.weapon = Equipment.create(creation_weapon, setup.equipment_info.get(creation_weapon, {"incPAD": 19.0, "attackSpeed": 5.0}))
+	for i in 24 - free:
+		character.equipment.inventory.append(Equipment.create(1040002, {"incPDD": 3, "tuc": 7}))
+	setup.character = character
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.progression.level = 9
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.step(DT, MoveInput.new())
+	assert_eq(w.state, RunWorld.CHOOSING_JOB, "the advancement window is open")
+	w.drain_events()
+	assert_true(w.apply_job(job))
+	return w
+
+
+func _inventory_ids(w: RunWorld) -> Array:
+	return w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
+
+
+func test_the_warrior_advancement_gives_the_sword_and_stocks_the_spear_and_mace() -> void:
+	var w := _advancing(24)
+	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword (PAD 30) is worn")
+	assert_eq(int(w.weapon_info().incPAD), 30)
+	assert_eq(w.held_weapon_family(), "sword")
+	assert_eq(_inventory_ids(w), [1302000, 1432000, 1322006], "old sword, Spear, Steel Pipe")
+	assert_eq(_of(w.drain_events(), "pickup_spawned").size(), 0, "everything fit: nothing lies on the ground")
+	var held: Array = w.equipment.inventory.map(func(i: Dictionary) -> String: return WeaponInfo.family(int(i.id)))
+	assert_eq(held, ["sword", "spear", "blunt"])
+
+
+func test_an_axe_wielding_warrior_gets_the_same_grants_and_keeps_the_axe_in_the_tab() -> void:
+	var w := _advancing(24, 1312004)
+	assert_eq(w.weapon_id(), 1302077)
+	assert_eq(_inventory_ids(w), [1312004, 1432000, 1322006])
+
+
+func test_a_full_equip_tab_drops_the_old_weapon_and_both_extras_at_the_feet() -> void:
+	var w := _advancing(0)
+	assert_eq(w.weapon_id(), 1302077, "advancing never fails")
+	assert_eq(w.equipment.inventory.size(), 24, "the tab is unchanged")
+	var spawned := _of(w.drain_events(), "pickup_spawned")
+	var ids: Array = spawned.map(func(e: Dictionary) -> int: return int(e.item_id))
+	ids.sort()
+	assert_eq(ids, [1302000, 1322006, 1432000], "the old sword, the Spear and the Steel Pipe")
+	for e: Dictionary in spawned:
+		assert_eq(e.kind, "equip")
+		assert_eq(e.pos, w.player.pos, "at the player's feet")
+
+
+func test_one_free_slot_keeps_the_old_weapon_and_drops_the_extras() -> void:
+	var w := _advancing(1)
+	assert_eq(w.equipment.inventory.size(), 24)
+	assert_eq(_inventory_ids(w).slice(23), [1302000], "the displaced weapon has priority for the free slot")
+	var ids: Array = _of(w.drain_events(), "pickup_spawned").map(func(e: Dictionary) -> int: return int(e.item_id))
+	ids.sort()
+	assert_eq(ids, [1322006, 1432000])
+
+
+func test_the_magician_advancement_is_unchanged() -> void:
+	var w := _advancing(24, 1302000, 200)
+	assert_eq(w.weapon_id(), 1372005, "the Wooden Wand")
+	assert_eq(_inventory_ids(w), [1302000], "only the old weapon moves; no extra items")
+	assert_eq(_of(w.drain_events(), "pickup_spawned").size(), 0)
+
+
+func test_the_shipped_warrior_grant_data() -> void:
+	var data := DataRepo.load_all()
+	assert_eq(int(data.balance.player.weapon_grants["100"]), 1302077, "tier B: the Beginner Warrior's sword")
+	var grants: Dictionary = data.jobs_survivor.jobs["100"].grants
+	assert_eq(grants.items.map(func(i: Variant) -> int: return int(i)), [1432000, 1322006], "tier C: Spear and Steel Pipe, both Lv 10")
+	assert_false(data.jobs_survivor.jobs["200"].grants.has("items"), "the Magician has no extra items")
+	var ids := DataRepo.starter_equipment_ids(data)
+	for id in [1302077, 1432000, 1322006]:
+		assert_true(id in ids, "%d loads its canonical info with the setup" % id)
 
 
 func test_warrior_growth_is_26_hp_and_5_mp_per_level() -> void:
@@ -141,7 +225,7 @@ func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -
 func test_the_six_warrior_skills_are_defined_with_canonical_ids_and_level_counts() -> void:
 	var w := _world(13)
 	var want := {"power_strike": [1001004, 20], "slash_blast": [1001005, 20], "iron_body": [1001003, 20],
-		"improved_hp_recovery": [1000000, 16], "improved_max_hp": [1000001, 10], "endure": [1000002, 8]}
+		"improved_hp_recovery": [1000000, 16], "improved_max_hp": [1000001, 10]}
 	for key: String in want:
 		assert_true(w.book.has(key), key)
 		assert_eq(w.book.skill_id(key), want[key][0], key)
@@ -151,7 +235,7 @@ func test_the_six_warrior_skills_are_defined_with_canonical_ids_and_level_counts
 		assert_eq(Array(w.book.weapon_families(key)), ["sword", "axe", "blunt", "spear", "polearm"])
 		for family in ["dagger", "wand", "staff", "bow", "claw", "knuckle", "gun", ""]:
 			assert_false(w.book.usable_with(key, family), "%s is not usable with %s" % [key, family if family != "" else "bare hands"])
-	for key in ["iron_body", "improved_hp_recovery", "improved_max_hp", "endure"]:
+	for key in ["iron_body", "improved_hp_recovery", "improved_max_hp"]:
 		assert_true(w.book.usable_with(key, "") and w.book.usable_with(key, "wand"), "%s needs no weapon" % key)
 
 
@@ -166,7 +250,7 @@ func test_real_100_img_matches_the_data() -> void:
 		library.free()
 		return
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"100": img.root})
-	for key in ["power_strike", "slash_blast", "iron_body", "improved_hp_recovery", "improved_max_hp", "endure"]:
+	for key in ["power_strike", "slash_blast", "iron_body", "improved_hp_recovery", "improved_max_hp"]:
 		assert_eq(book.max_level(key), book.max_rank(key), "%s: ranks cover every canonical level" % key)
 	assert_eq(book.canonical("power_strike", 1, "damage"), 165.0)
 	assert_eq(book.canonical("power_strike", 20, "damage"), 260.0)
@@ -177,7 +261,6 @@ func test_real_100_img_matches_the_data() -> void:
 	assert_eq(book.canonical("iron_body", 20, "pdd"), 40.0)
 	assert_eq(book.canonical("improved_hp_recovery", 16, "hp"), 50.0)
 	assert_eq(book.canonical("improved_max_hp", 10, "x"), 40.0)
-	assert_eq(book.canonical("endure", 8, "time"), 10.0)
 	library.free()
 
 
@@ -410,46 +493,11 @@ func test_improved_max_hp_adds_its_hp_to_each_later_level_up_only() -> void:
 	assert_eq(w.player_state.max_hp, hp0 + 26 + 12, "26 growth + canonical x 12 at skill level 3")
 
 
-func test_endure_recovers_hp_every_canonical_interval_only_while_climbing() -> void:
-	for rank in [1, 8]:
-		var w := _world(63)
-		w.learn_skill("endure")
-		w.loadout.set_rank("endure", rank)
-		var interval := float(w.book.canonical("endure", rank, "time"))
-		assert_eq(interval, 31.0 if rank == 1 else 10.0)
-		w.god = false
-		# Standing still for a minute: only the ordinary regeneration runs.
-		_pools(w, 30.0)
-		for tick in 3600:
-			w.step(DT, MoveInput.new())
-		assert_eq(_of(w.drain_events(), "player_restored").filter(
-			func(e: Dictionary) -> bool: return e.skill == "endure").size(), 0, "no Endure on the ground")
-		var ladder := -1
-		for i in w.ladders.count():
-			if w.ladders.is_ladder[i] == 1:
-				ladder = i
-		RF.place_player(w, w.ladders.x[ladder])
-		var up := MoveInput.new()
-		up.up = true
-		w.step(DT, up)
-		assert_eq(w.player.ladder, ladder, "grabbed the ladder")
-		_pools(w, 30.0)
-		w.drain_events()
-		var seconds := 65.0
-		for tick in int(seconds / DT):
-			w.step(DT, MoveInput.new())
-		var pulses := _of(w.drain_events(), "player_restored").filter(
-			func(e: Dictionary) -> bool: return e.skill == "endure")
-		assert_eq(pulses.size(), int(seconds / interval), "one recovery every %d s on the ladder (rank %d)" % [int(interval), rank])
-		assert_eq(pulses[0].stat, "hp")
-		assert_eq(pulses[0].amount, 10, "one base regeneration pulse (tier C)")
-
-
 # --- cards ----------------------------------------------------------------------------------------------------------
 
 func test_warrior_cards_are_offered_only_to_job_100_holding_a_warrior_weapon() -> void:
 	var warrior_cards := ["power_strike_new", "slash_blast_new", "iron_body_new", "improved_hp_recovery_new",
-		"improved_max_hp_new", "endure_new"]
+		"improved_max_hp_new"]
 	var magician := _world(71, 200)
 	var beginner := _world(71, 0)
 	for id in warrior_cards:
@@ -463,7 +511,7 @@ func test_warrior_cards_are_offered_only_to_job_100_holding_a_warrior_weapon() -
 	w.equipment.worn["weapon"] = {"id": 1372005}
 	ids = w.upgrades.eligible(w)
 	assert_false("power_strike_new" in ids or "slash_blast_new" in ids, "no Power Strike or Slash Blast with a wand")
-	for id in ["iron_body_new", "improved_hp_recovery_new", "improved_max_hp_new", "endure_new"]:
+	for id in ["iron_body_new", "improved_hp_recovery_new", "improved_max_hp_new"]:
 		assert_has(ids, id)
 	w.equipment.worn.erase("weapon")
 	ids = w.upgrades.eligible(w)
@@ -555,8 +603,7 @@ func test_the_warrior_fixture_restores_as_a_living_warrior_with_both_attacks() -
 
 func test_passive_rank_cards_preview_their_own_numbers() -> void:
 	var w := _world(91)
-	var cases := [["improved_hp_recovery", UpgradePool.PASSIVE_REGEN_HP, 3, 6], ["improved_max_hp", UpgradePool.PASSIVE_MAX_HP, 4, 8],
-		["endure", UpgradePool.PASSIVE_CLIMB_INTERVAL, 31, 28]]
+	var cases := [["improved_hp_recovery", UpgradePool.PASSIVE_REGEN_HP, 3, 6], ["improved_max_hp", UpgradePool.PASSIVE_MAX_HP, 4, 8]]
 	for c: Array in cases:
 		w.upgrades.apply("%s_new" % c[0], w)
 		var card := w.upgrades.choice_card("%s_rank" % c[0], w)
@@ -565,7 +612,6 @@ func test_passive_rank_cards_preview_their_own_numbers() -> void:
 		assert_eq([int(card.skill_changes[c[1]].before), int(card.skill_changes[c[1]].after)], [c[2], c[3]])
 		var lines := LevelUpWindow.change_lines(card)
 		assert_eq(lines.size(), 1, "%s has one change line: %s" % [c[0], lines])
-	assert_eq(LevelUpWindow.change_lines(w.upgrades.choice_card("endure_rank", w))[0], "Recovery every: 31 s → 28 s")
 
 
 func test_the_tooltip_shows_an_hp_cost_only_for_a_skill_that_pays_one() -> void:
@@ -618,7 +664,7 @@ func test_a_warrior_with_a_shield_keeps_job_weapon_shield_and_skills_through_sav
 	setup.character = parsed
 	var again := RunWorld.new(setup)
 	assert_eq(again.progression.job_id, 100, "Continue keeps the Warrior")
-	assert_eq(again.weapon_id(), 1302000, "and the creation weapon")
+	assert_eq(again.weapon_id(), 1302077, "and the granted sword")
 	assert_eq(again.held_weapon_family(), "sword")
 	assert_eq(int(again.equipment.worn.shield.id), 1092003, "and the shield")
 	assert_eq(again.player_state.pdd, pdd_before, "the shield still counts")

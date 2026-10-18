@@ -252,12 +252,15 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	var ids := PackedInt32Array()
 	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
 		_add_id(ids, int(id))
-	# Weapon paths and branch grants (spec #151 #157) of the jobs this build can play; an unplayable job's items are not
-	# in the asset cache yet, so they load once its class spec makes it playable.
+	# Weapon paths, branch grants (spec #151 #157) and grants.items of the jobs this build can play; an unplayable job's
+	# items are not in the asset cache yet, so they load once its class spec makes it playable.
 	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
 	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
 		if row is Dictionary and bool(row.get("playable", false)):
 			_add_id(ids, int(row.get("grant_item", 0)))
+			var extra: Variant = row.get("grants", {}).get("items", []) if row.get("grants", {}) is Dictionary else []
+			for item: Variant in extra if extra is Array else []:
+				_add_id(ids, int(item))
 			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
 				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
 	var creation := CharacterCreation.new(creation_img)
