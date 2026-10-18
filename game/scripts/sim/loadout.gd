@@ -97,6 +97,18 @@ var crit_damage_bonus := 0.0:
 		if value != crit_damage_bonus:
 			crit_damage_bonus = value
 			version += 1
+## Attack speed (spec #151, #160): the held weapon's step (Item.wz attackSpeed; WeaponInfo.NORMAL_SPEED bare-handed) and
+## the Booster steps in effect (positive = faster, only while the Booster's weapon family is held).
+var weapon_speed := WeaponInfo.NORMAL_SPEED:
+	set(value):
+		if value != weapon_speed:
+			weapon_speed = value
+			version += 1
+var speed_steps := 0:
+	set(value):
+		if value != speed_steps:
+			speed_steps = value
+			version += 1
 ## Survivor balance.crit.per_acc; accuracy converts to crit chance for every damage type.
 var crit_per_acc := 0.0:
 	set(value):
@@ -126,7 +138,7 @@ func clone() -> Loadout:
 	c.matk = matk
 	c.char_level = char_level
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
-			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc"]:
+			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc", "weapon_speed", "speed_steps"]:
 		c.set(field, get(field))
 	c.crit_chance = crit_chance
 	c.crit_mult = crit_mult
@@ -218,7 +230,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
 ## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
 ## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count,
-## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
+## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
 ## speed, count, pierce, radius, ball, hit, effect
@@ -251,6 +263,11 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 			attack_kind, job_id, mastery, d.get("physical_formula", {}))
 		lo = bounds.x * dmg_mult
 		hi = bounds.y * dmg_mult
+	# Attack speed (#160): an attack skill's action time and cooldown shrink with the Booster steps in effect, relative
+	# to the held weapon's own speed (1.0 without a Booster, so existing timing is untouched). Buffs, passives and
+	# non-damaging casts keep their data.
+	var attacks := book.is_active(key) and book.kind(key) != "buff" and dtype != "none"
+	var speed_factor := WeaponInfo.speed_factor(weapon_speed, speed_steps) if attacks else 1.0
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
 	var heal: Dictionary = d.get("heal", {})
@@ -294,7 +311,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))),
+		"speed_factor": speed_factor,
+		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))
+			* speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)
 			if String(cast.get("rule", "")) == "range_around" else 0.0))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
@@ -305,7 +324,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"hit": book.visual(key, "hit", lv, char_level),
 		"effect": book.visual(key, "effect", lv, char_level),
 		"action": action,
-		"action_time": float(d.get("action_time", 0.0)),
+		"action_time": float(d.get("action_time", 0.0)) * speed_factor,
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
 		"passive_value": passive_value(key, lv, passive),

@@ -178,9 +178,42 @@ static func hit_spark_path(afterimage: String, action: String) -> String:
 	return "Character.wz/Afterimage/hit.img/" + spark
 
 
-## Seconds between swings from the canonical attackSpeed. tier B: v83 weapon-speed interval, quantized upward to 30 ms.
-static func attack_interval(info: Dictionary) -> float:
-	return ceilf(800.0 * (10 + int(info.get("attackSpeed", 0))) / 16.0 / 30.0) * 0.03
+## The v83 attack speed steps (Item.wz `info/attackSpeed`; lower is faster): the fastest, the normal step that bare
+## hands and the Magician's weapons use, and the slowest. tier B (emulator RE; the speed words in InventoryModel).
+const SPEED_FASTEST := 2
+const NORMAL_SPEED := 6
+const SPEED_SLOWEST := 9
+## tier B: one speed step is 50 ms on the 800 ms normal action, so speed s takes 800 x (10 + s) / 16 ms. The table that
+## action times and the swing interval are read from (docs/GAME_DESIGN.md "Constants and provenance").
+const SPEED_DELAY_MS := {2: 600.0, 3: 650.0, 4: 700.0, 5: 750.0, 6: 800.0, 7: 850.0, 8: 900.0, 9: 950.0}
+
+
+## The speed step of a weapon of step `base` under `boost` Booster steps: `boost` steps faster (lower), stopping at the
+## fastest step (or at `base` itself when that is already faster) and at the slowest.
+static func effective_speed(base: int, boost: int) -> int:
+	return clampi(base - boost, mini(SPEED_FASTEST, base), maxi(SPEED_SLOWEST, base))
+
+
+## Milliseconds of a normal action at speed step `step` (SPEED_DELAY_MS; a step off the table uses the same ratio).
+static func speed_delay_ms(step: int) -> float:
+	return float(SPEED_DELAY_MS.get(step, 800.0 * (10 + step) / 16.0))
+
+
+## The fraction of a weapon's own action time left under `boost` Booster steps: exactly 1.0 without one, so the
+## existing timing of every weapon is untouched. tier B: the ratio of the two table delays.
+static func speed_factor(base: int, boost: int) -> float:
+	if boost == 0:
+		return 1.0
+	return speed_delay_ms(effective_speed(base, boost)) / speed_delay_ms(base)
+
+
+## Seconds between swings from the canonical attackSpeed, `boost` Booster steps faster. tier B: v83 weapon-speed
+## interval, quantized upward to 30 ms.
+static func attack_interval(info: Dictionary, boost: int = 0) -> float:
+	var step := int(info.get("attackSpeed", 0))
+	if boost != 0:
+		step = effective_speed(step, boost)
+	return ceilf(800.0 * (10 + step) / 16.0 / 30.0) * 0.03
 
 
 ## WZ path of the swing sound named by the canonical info/sfx.

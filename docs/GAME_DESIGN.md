@@ -474,6 +474,22 @@ stands facing it. Below 35% HP, or while a boss attack winds up, it kites as bef
 random policy shares the movement and the camper policies still override it after their warmup. Constants:
 `bot.engage` in `balance.json`, tier C (section 11).
 
+#### #160 weapon attack speed and Boosters: timing deltas (spec #151)
+
+No smoke was run for this ticket (the lead runs the spec's smokes). The deltas follow from the design in 7.7: every
+timing is computed relative to the held weapon's own speed step, and only an active, family-matching Booster moves it.
+- **Beginner and Magician (wand, staff): none.** There is no Booster in any shipped skill, so
+  `WeaponInfo.speed_factor(base, 0)` is exactly 1.0 and the swing interval, impact time, stance length, skill cooldowns
+  and action times are byte-identical to before. The 20-minute event digest of `test_character_baseline` is unchanged.
+- **Why weapon speed does not rescale skills (decision to confirm).** Skill action times and cooldowns are not scaled by
+  the weapon's speed *relative to the normal step 6*. In the real data the Wooden Wand is 6 but the staves are mostly
+  8 (slow) and the starter Sword is 4: that reading would have slowed every Staff Magician's skills by 1.125x and sped up
+  the Beginner's Three Snails by 0.875x, deltas in every record that nothing in the spec asks the balance owner to accept.
+  The weapon's own speed still sets its swing interval (6.1.1), as before; the tier C skill numbers (0.8 s stance, the
+  cooldowns) are read as "at the held weapon's speed". If the owner wants weapon speed to matter to skills, it is a
+  small change (`Loadout.stats` and `BasicAttack._spec` take `WeaponInfo.NORMAL_SPEED` as the reference step instead of
+  the weapon's own) and the Beginner/Staff records and the baseline digest must be re-captured.
+
 #### #152 job-generic prefactor regression smoke (2026-10-17)
 
 `ISOLATE=final bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, plus
@@ -2746,7 +2762,8 @@ below; swingO1/O2/O3 and stabO1/O2 for every one-handed melee weapon, the Beginn
 seeded stream.
 The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One live monster in
 that box is hit: a scheduled boss first (#83), otherwise the nearest; a moving target may leave before impact. The interval is
-`ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
+`ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B); an active Booster lowers the
+`attackSpeed` step used (7.7). The first numbered afterimage
 body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
 
@@ -2881,7 +2898,7 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
 - Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, and the Warrior's
-  `weapon_reach` and `range_around`, 7.7) resolves to
+  `weapon_reach` and `range_around`, 7.8) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
@@ -3092,7 +3109,7 @@ encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without
 per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
 `effects` data shape.
 
-### 7.7 Warrior first job (100, #163)
+### 7.8 Warrior first job (100, #163)
 
 Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
 `skills/warrior.json`. Rank equals canonical level as everywhere (7); WZ prerequisites are ignored (tier C, #31).
@@ -3138,6 +3155,37 @@ Six v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP 
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295`; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
+
+### 7.7 Attack speed and Boosters (#160)
+
+**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
+fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
+in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
+keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
+time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
+
+**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
+at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
+- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
+  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
+  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
+- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
+  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
+  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
+  cooldown modifier applies first. Buffs are timed by their duration and keep it.
+- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
+  and what changing that would move.
+
+**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
+number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
+and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
+affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
+gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
+the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
+counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
+`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
+weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
+the real ones come with the class specs.
 
 ## 8. Upgrades
 
@@ -3875,6 +3923,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Crit passives | `crit_chance` = `prop` percent added to the crit chance; `crit_damage` = `damage` total percent, so a crit adds `damage - 100` points to the skill % instead of multiplying | B (additive rule), C (data shape) | SouthPerry Critical Shot/Throw (v83-facts section 5); #161 |
 | Improved MaxHP per level-up | `max_hp_per_level` adds the skill's `x` HP at each level-up after learning, never retroactively; persists through `base_hp` | B | v83 Cosmic level-up HP rule (v83-facts section 3); #161 |
 | Final Attack proc | canonical `prop`% chance after a damaging physical line of a matching family, follow-up at canonical `damage`% on the same mob, RNG stream 12, played at the end of the tick, none on a killed target or after a follow-up | A (prop, damage), C (per-line roll, timing, stream, no chains) | v83 Skill.wz; #161 |
+| Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
+| Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
 | Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
 | Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR, no weapon grant | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |

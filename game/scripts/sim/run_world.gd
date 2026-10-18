@@ -21,8 +21,9 @@ extends RefCounted
 ##
 ## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
 ## avoid, acc, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
-## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
-## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started. Main stats, W.DEF,
+## action_t, action_scale, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw
+## ("dead", the cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started,
+## `action_scale` the fraction of the canonical frame time an attack stance plays in (attack speed). Main stats, W.DEF,
 ## M.DEF, acc, avoid and max HP/MP are totals: worn equipment's `inc*` adds on top of the base (equipment_bonus()).
 ##
 ## Live character state (docs/ARCHITECTURE.md 4.4): RunWorld owns the character's worn equipment and inventory
@@ -1011,6 +1012,8 @@ func _refresh_caster() -> void:
 	loadout.acc = player_acc + buffs.effect_total("acc") + loadout.passive_total(Loadout.ACC)
 	loadout.job_id = progression.job_id
 	var held := weapon_info()
+	loadout.weapon_speed = attack_speed_step()
+	loadout.speed_steps = attack_speed_boost()
 	player.stand_stance = WeaponInfo.stand_stance(held)
 	player.walk_stance = WeaponInfo.walk_stance(held)
 	# Weapon-gated passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
@@ -1019,6 +1022,22 @@ func _refresh_caster() -> void:
 	loadout.mastery = CombatMath.mastery_fraction(int(mastery)) if mastery > 0.0 else Loadout.BASE_MASTERY
 	loadout.crit_bonus = loadout.passive_total(Loadout.CRIT_CHANCE) / 100.0
 	loadout.crit_damage_bonus = maxf(0.0, loadout.passive_best(Loadout.CRIT_DAMAGE) - 100.0)
+
+
+## The held weapon's attack speed step (its Item.wz attackSpeed; WeaponInfo.NORMAL_SPEED bare-handed or when the weapon's
+## info is unknown). Lower is faster.
+func attack_speed_step() -> int:
+	var info := weapon_info()
+	return int(info.get("attackSpeed", 0)) if not info.is_empty() else WeaponInfo.NORMAL_SPEED
+
+
+## Attack speed steps the active Boosters add (positive = faster). A buff counts only while the held weapon fits its
+## skill's weapon families (SkillBook.usable_with): a Sword Booster keeps running through a weapon change but does
+## nothing until a sword is held again (spec #151, #160).
+func attack_speed_boost() -> int:
+	var held := held_weapon_family()
+	return roundi(buffs.effect_total_where("attack_speed", func(skill: String) -> bool:
+		return loadout.book.usable_with(skill, held)))
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
@@ -1181,9 +1200,10 @@ func face_toward(tx: float) -> void:
 		player.facing = 1 if tx > player.pos.x else -1
 
 
-## Starts a stance for its frame time; airborne opts basic swings into the same visual without changing motion.
-func start_action(action: String, seconds: float, airborne: bool = false) -> void:
-	upkeep.start_action(action, seconds, airborne)
+## Starts a stance for its frame time; airborne opts basic swings into the same visual without changing motion; `scale`
+## is the attack-speed fraction of the frame time it plays in (WeaponInfo.speed_factor).
+func start_action(action: String, seconds: float, airborne: bool = false, scale: float = 1.0) -> void:
+	upkeep.start_action(action, seconds, airborne, scale)
 
 
 ## The worn weapon's item id; 0 when bare-handed.
@@ -1738,9 +1758,11 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
-	var caster_buffs := Vector3(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"))
+	var caster_buffs := Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
+		buffs.effect_total("attack_speed"))
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
-	if caster_buffs != Vector3(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc")):
+	if caster_buffs != Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
+			buffs.effect_total("attack_speed")):
 		_refresh_caster()
 	refresh_player_speed()
 	if _dead:
@@ -2113,5 +2135,6 @@ func _write_player_state(dt: float) -> void:
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action
 	player_state["action_t"] = _action_t
+	player_state["action_scale"] = upkeep.action_scale
 	player_state["dead"] = _dead
 	player_state["potions"] = potions.snapshot()

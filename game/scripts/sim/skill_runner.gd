@@ -262,7 +262,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 		world.start_buff(key, st)
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
 		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
-	world.start_action(String(st.action), float(st.action_time))
+	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 	match String(st.cast_rule):
 		"box", "weapon_reach", "range_around":
 			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),

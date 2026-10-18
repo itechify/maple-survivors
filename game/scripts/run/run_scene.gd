@@ -1544,7 +1544,8 @@ func _update_player(delta: float) -> void:
 	_restart_action = false
 	# Ladders and ropes animate only while climbing.
 	if not (p.state == PlayerMotion.ST_LADDER and p.vel.y == 0.0):
-		avatar.advance(delta)
+		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
+		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
 	var inv := float(world.player_state.invincible_t)
 	if inv > 0.0 and not dead:
 		_blink_t += delta

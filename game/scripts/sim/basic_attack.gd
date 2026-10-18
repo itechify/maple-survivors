@@ -8,7 +8,7 @@ extends RefCounted
 const ACTIONS := WeaponInfo.ACTIONS_ONE_HANDED
 ## The bare-handed punch when no weapon is worn (v83 lets a character fight without one). tier A: the sound is
 ## Sound.wz/Weapon.img/barehands. tier C: normal attack speed 6, the same five body actions, no afterimage.
-const BARE_HANDS := {"attackSpeed": 6, "sfx": "barehands"}
+const BARE_HANDS := {"attackSpeed": WeaponInfo.NORMAL_SPEED, "sfx": "barehands"}
 ## tier C: the punch's reach, feet-relative and facing left (shorter than the starter Sword's swing).
 const BARE_HANDS_BOX := Rect2(-55, -55, 50, 50)
 
@@ -50,7 +50,7 @@ func step(dt: float, world: RunWorld) -> void:
 		return
 	var actions := WeaponInfo.basic_actions(weapon)
 	var action: String = actions[world.basic_rng.randi_range(0, actions.size() - 1)]
-	var spec := _spec(weapon, info, action)
+	var spec := _spec(weapon, info, action, world.loadout.speed_steps)
 	if spec.is_empty() or not _target_in_reach(world, weapon, info):
 		return
 	_pending = spec
@@ -71,7 +71,7 @@ func step(dt: float, world: RunWorld) -> void:
 		"crit_mult": caster.crit_mult, "crit_damage_bonus": caster.crit_damage_bonus})
 	_pending["left"] = float(spec.hit_after)
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
-	world.start_action(action, float(spec.action_time), true)
+	world.start_action(action, float(spec.action_time), true, float(spec.scale))
 	_emit(world, "start")
 
 
@@ -124,19 +124,21 @@ func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 
 ## The timing, box and effect paths of one action of `weapon` ({} when it cannot be played); what a swing starts with.
 ## For tools and tests (the weapon gallery draws exactly this); the automatic attack calls the same code.
-func action_spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
-	return _spec(weapon, info, action)
+func action_spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dictionary:
+	return _spec(weapon, info, action, boost)
 
 
-## One action's timing, box and effect paths for the weapon, or {} when the body or the afterimage cannot play it. A
+## One action's timing, box and effect paths for the weapon, or {} when the body or the afterimage cannot play it. `boost`
+## Booster steps shorten the interval by the speed table and the body timing (hit_after, action_time) by `scale`
+## (WeaponInfo.speed_factor; 1.0 without a Booster). A
 ## melee weapon needs the afterimage's lt/rb box and lands on the afterimage's first frame. A ranged family (bow,
 ## crossbow, claw, gun) hits at WeaponInfo.ranged_box until #155's projectiles carry their own range, lands on the
 ## afterimage's first frame when it has one (the Bow's draw frame) else on the body's last frame, and shows no
 ## afterimage when the node is a melee trail with a box (a Claw's swordOL) or missing (the Gun's).
-func _spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
+func _spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dictionary:
 	var body: Dictionary = _body.get(action, {})
 	if is_same(info, BARE_HANDS):
-		return _bare_spec(body, action)
+		return _bare_spec(body, action, boost)
 	var name := WeaponInfo.afterimage_name(info)
 	var node: Dictionary = _images.get(name, {}).get(WeaponInfo.AFTERIMAGE_VARIANT, {}).get(action, {})
 	var ranged := WeaponInfo.is_ranged(weapon)
@@ -170,14 +172,15 @@ func _spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
 		var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
 		box = Rect2(lt, rb - lt).abs()
 	var trail := frame != 999 and not (ranged and boxed)
-	return {"box": box, "hit_after": before, "action_time": total,
-		"interval": WeaponInfo.attack_interval(info),
+	var scale := WeaponInfo.speed_factor(int(info.get("attackSpeed", 0)), boost)
+	return {"box": box, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+		"interval": WeaponInfo.attack_interval(info, boost),
 		"afterimage": WeaponInfo.afterimage_frame_path(name, action, frame) if trail else "",
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
 
 
 ## tier C: a punch lands when the body action's last frame starts; reach BARE_HANDS_BOX, no afterimage or spark.
-func _bare_spec(body: Dictionary, action: String) -> Dictionary:
+func _bare_spec(body: Dictionary, action: String, boost: int = 0) -> Dictionary:
 	var last := -1
 	for key: String in body:
 		if key.is_valid_int():
@@ -192,8 +195,9 @@ func _bare_spec(body: Dictionary, action: String) -> Dictionary:
 			total += delay
 			if int(key) < last:
 				before += delay
-	return {"box": BARE_HANDS_BOX, "hit_after": before, "action_time": total,
-		"interval": WeaponInfo.attack_interval(BARE_HANDS), "afterimage": "", "hit_visual": "",
+	var scale := WeaponInfo.speed_factor(int(BARE_HANDS.attackSpeed), boost)
+	return {"box": BARE_HANDS_BOX, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+		"interval": WeaponInfo.attack_interval(BARE_HANDS, boost), "afterimage": "", "hit_visual": "",
 		"sound": WeaponInfo.sound_path(BARE_HANDS)}
 
 
