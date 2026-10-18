@@ -35,6 +35,18 @@
 			"hit": "Skill.wz/400.img/skill/4001344/hit/0", "effect": "Skill.wz/400.img/skill/4001344/effect",
 			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
 			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
+		},
+		"keen_eyes": {
+			"skill_id": 4000001, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
+			"name": "Keen Eyes", "desc": "Increases claw basic attack and skill range.",
+			"icon": "Skill.wz/400.img/skill/4000001/icon", "damage": "none",
+			"_tier": "Tier A: eight canonical range levels, +25 to +200px. Tier C: claw family gate follows the v83 description; reuses #199's generic additive range passive.",
+			"weapon_families": ["claw"], "passive": {"stat":"range","field":"range"},
+			"text": {"desc":"Increases claw basic attack and skill range.","h":"Claw attack range: +{passive_value} px."},
+			"ranks": [1,2,3,4,5,6,7,8],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "",
+			"rotate": false, "sounds": {"use":"","hit":""}
 		}
 	}
 }

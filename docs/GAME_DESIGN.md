@@ -4003,7 +4003,18 @@ Double Stab uses the dagger's swing envelope, one base target, cooldown 1.2s. Bo
 Cards: `<key>_new` / `<key>_rank`, plus `lucky_seven_count` (+1 star) and `double_stab_targets` (+1 target),
 three behavior steps each. Attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 (tier C, shared Potential
 magnitudes). Attack cards require jobs [400] and carry_jobs [410,420]; Nimble Body requires jobs [400] only.
-Cards follow the held family at draw time. No parity lines, Keen Eyes, Disorder, Dark Sight or second jobs are added here.
+Cards follow the held family at draw time. Parity lines, Disorder, Dark Sight and second jobs belong to their own tickets.
+
+**Keen Eyes (#209):** `keen_eyes` 4000001 is a passive with eight canonical ranks. Skill.wz's `range` adds
++25/+50/+75/+100/+125/+150/+175/+200px (tier A), only while holding a claw (tier C family tag, following the v83
+description). It reuses #199's generic `Loadout.RANGE` passive unchanged: the ranged basic attack extends its target
+search and shot travel; weapon-gated ranged attack skills add the passive to their resolved range. Lucky Seven thus
+grows from 250px to 450px at rank 8; Drain will use the same path when added. The basic attack's cached base boxes
+remain unchanged; only the far horizontal edge grows, preserving vertical and point-blank reach (tier C, #199).
+Swapping to a dagger or any other family disables the bonus immediately, including skill range. Magic is unaffected.
+The `keen_eyes_new` / `keen_eyes_rank` cards require exact job [400], no carry, a claw held, and stop at rank 8.
+Learn/rank weights are 2/2 and `power:false` (tier C, untuned, matching Nimble Body). A learned Keen Eyes remains
+effective in either second-job branch while a claw is held. Cards and the Skill window show the canonical pixel bonus.
 
 Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
 (tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger,
@@ -4468,6 +4479,9 @@ Thief tracer (#207) additions:
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
+| Keen Eyes (#209) | 4000001; 8 ranks; +25/+50/+75/+100/+125/+150/+175/+200px | A Skill.wz/400.img range; C claw family tag follows the v83 description |
+| Generic range passive (#199, ported unchanged for #209) | `Loadout.RANGE`: additive pixels on ranged basics and weapon-gated ranged attacks; extends only the basic box's far horizontal edge | C shared consumer rule; no change to cached base boxes or unrelated ranges |
+| Keen Eyes cards (#209) | learn/rank weights 2/2; power false; exact jobs [400], no carry | C untuned, matching Nimble Body; A rank cap8 |
 
 
 Pirate tracer (#186) additions:
