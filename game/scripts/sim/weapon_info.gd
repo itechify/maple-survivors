@@ -60,8 +60,9 @@ const BASIC_ACTIONS := {
 ## Families that attack from a distance: their basic attack is a "shoot" whatever the body stance is called (a Claw
 ## throws with swingO, and the ammo W.Att of #155 rides on the kind), and they have no melee afterimage box.
 const RANGED_FAMILIES: Array[String] = ["bow", "crossbow", "claw", "gun"]
-## tier C: reach in px of a ranged basic attack until the ammo projectiles of #155 carry their own range; the hit box is
-## feet-relative and faces left like the afterimage boxes.
+## tier C: reach in px of a ranged basic attack: how far a target may be for the attack to start (the ammo projectile of
+## #155 then flies this far plus survivor/ammo.json's overshoot); the target box is feet-relative and faces left like the
+## afterimage boxes.
 const RANGED_REACH := {"bow": 300.0, "crossbow": 300.0, "claw": 250.0, "gun": 250.0}
 ## tier C: preserve the existing bare-handed/unknown-weapon formula, including equipment-only PAD.
 const BARE_PHYSICAL := [4.4, 3.2, "str", "dex"]
@@ -110,7 +111,7 @@ static func is_ranged(weapon_id: int) -> bool:
 	return family(weapon_id) in RANGED_FAMILIES
 
 
-## The hit box of a ranged family's basic attack, feet-relative and facing left (RANGED_REACH wide); an empty Rect2
+## The target box of a ranged family's basic attack, feet-relative and facing left (RANGED_REACH wide); an empty Rect2
 ## for a melee weapon, whose box is its afterimage's.
 static func ranged_box(weapon_id: int) -> Rect2:
 	var reach := float(RANGED_REACH.get(family(weapon_id), 0.0))

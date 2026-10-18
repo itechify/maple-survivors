@@ -373,7 +373,7 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
 	# being saved at once, changes the next seed.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
-		"character": character, "seed": scroll_seed(snapshot), "account": {"owned": owned}})
+		"ammo_info": DataRepo.ammo_info(data.get("ammo", {}), loader), "character": character, "seed": scroll_seed(snapshot), "account": {"owned": owned}})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"
 	layer.layer = RunScene.UI_LAYER

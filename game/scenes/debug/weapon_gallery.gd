@@ -2,7 +2,7 @@ extends Node2D
 ## Debug contact sheets of every weapon family on the avatar (spec #151 #154), for evidence screenshots. Tool-only.
 ##
 ##   bash scripts/godot.sh --path game res://scenes/debug/weapon_gallery.tscn -- --shots=C:/abs/dir [--weapons=1302000,1452000]
-##       [--mode=cash]
+##       [--mode=cash] [--mode=ammo [--branch=410 --level=37]]
 ##
 ## One PNG per weapon (<family>_<id>.png): row 1 stands and walks facing left and right in the weapon's own stances
 ## (WeaponInfo.stand_stance / walk_stance); row 2 fires every basic-attack action of the family (WeaponInfo.basic_actions)
@@ -14,6 +14,9 @@ extends Node2D
 ## One representative weapon per family and handedness: the sword, axe and blunt weapon in both handednesses.
 const WEAPONS := [1302000, 1402001, 1312004, 1412000, 1322005, 1422000, 1332000, 1372005, 1382000, 1432000, 1442000,
 	1452000, 1462000, 1472000, 1482000, 1492000]
+## --mode=ammo: the weapon each ranged family fires with and the width of one ammo-tier cell.
+const AMMO_WEAPONS := {"claw": 1472000, "bow": 1452000, "crossbow": 1462000, "gun": 1492000}
+const AMMO_CELL_W := 300.0
 const CASH_COVER := 1702083
 const CASH_OVER := [1402001, 1472000]
 const OUTFIT := [1040002, 1060002, 1072001]
@@ -37,7 +40,9 @@ func _ready() -> void:
 	_lib = AssetLibrary.get_default()
 	var body := _lib.img("Character.wz/00002000.img")
 	_body = body.root if body != null else {}
-	if String(args.get("mode", "weapons")) == "cash":
+	if String(args.get("mode", "weapons")) == "ammo":
+		await _ammo_sheets(args)
+	elif String(args.get("mode", "weapons")) == "cash":
 		for id: int in CASH_OVER:
 			await _sheet(id, {"weapon": CASH_COVER}, "cash_%d_over_%d" % [CASH_COVER, id])
 	else:
@@ -147,6 +152,116 @@ func _sheet(weapon: int, cash: Dictionary, file_name: String) -> void:
 	viewport.get_texture().get_image().save_png(_shots_dir.path_join(file_name + ".png"))
 	print("weapon_gallery: %s stand=%s walk=%s actions=%s missing=%s" % [file_name, WeaponInfo.stand_stance(info),
 		WeaponInfo.walk_stance(info), actions, missing])
+	viewport.queue_free()
+	await get_tree().process_frame
+
+
+## --mode=ammo: one sheet per ranged family (ammo_<family>.png), a cell per ammo tier: the avatar at the release frame of
+## its shoot action, the real projectile (BasicAttack.shot_spec through a ProjectileSystem, drawn by ProjectileRenderer)
+## 0.1 s after release, and the ammo's sprite at 3x with its name and W.Att. Without flags every tier of the family is shown
+## (its start ammo, then each schedule step); --branch=<job id> --level=<n> shows the one ammo that job and level would
+## fire (Ammo.item_for), e.g. --branch=410 --level=37 for Mokbi.
+func _ammo_sheets(args: Dictionary) -> void:
+	var data := DataRepo.load_all()
+	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var infos := DataRepo.ammo_info(data.ammo, func(path: String) -> Dictionary:
+		var found := _lib.img(path)
+		return found.root if found != null else {})
+	for family: String in AMMO_WEAPONS:
+		var tiers: Array = []
+		var file_name := "ammo_" + family
+		if args.has("branch") or args.has("level"):
+			var branch := int(args.get("branch", 0))
+			var level := int(args.get("level", 1))
+			tiers = [Ammo.item_for(data.ammo, family, branch, level, jobs)]
+			file_name += "_b%d_l%d" % [branch, level]
+		else:
+			tiers = [int(data.ammo.families[family].start)]
+			for schedule: Dictionary in data.ammo.schedules:
+				if String(schedule.family) == family:
+					for step: Dictionary in schedule.steps:
+						tiers.append(int(step.item))
+		await _ammo_sheet(family, int(AMMO_WEAPONS[family]), tiers, data.ammo, infos, file_name)
+
+
+func _ammo_sheet(family: String, weapon: int, tiers: Array, ammo: Dictionary, infos: Dictionary, file_name: String) -> void:
+	var item := _lib.img(AvatarRenderer.part_img_path(weapon))
+	if item == null:
+		print("weapon_gallery: %s missing item img" % file_name)
+		return
+	var info: Dictionary = item.node("info")
+	var after_name := WeaponInfo.afterimage_name(info)
+	var after := _lib.img(WeaponInfo.afterimage_img_path(after_name))
+	var attack := BasicAttack.new(_body, {after_name: after.root} if after != null else {})
+	var action: String = WeaponInfo.basic_actions(weapon)[0]
+	var spec := attack.action_spec(weapon, info, action)
+	var size := Vector2(AMMO_CELL_W * tiers.size(), ROW2_H + 90.0) * SCALE
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(size)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	add_child(viewport)
+	var root := Node2D.new()
+	viewport.add_child(root)
+	var bg := ColorRect.new()
+	bg.color = Color(0.35, 0.45, 0.55)
+	bg.size = size
+	root.add_child(bg)
+	var content := Node2D.new()
+	content.scale = Vector2(SCALE, SCALE)
+	root.add_child(content)
+	var big := Node2D.new() # the static 3x sprites
+	big.scale = Vector2(3, 3)
+	content.add_child(big)
+	var paths: Array = []
+	var flying := ProjectileSystem.new(8)
+	var still := ProjectileSystem.new(8)
+	flying.paths = paths
+	still.paths = paths
+	var swing := {"damage_min": 1.0, "damage_max": 1.0, "damage_pct": 1.0, "player_level": 1, "crit": 0.0, "crit_mult": 1.5,
+		"crit_damage_bonus": 0.0}
+	var look := {"skin": 0, "face": 20000, "hair": 30030, "equips": OUTFIT + [weapon]}
+	var missing := PackedStringArray()
+	for n in tiers.size():
+		var id: int = tiers[n]
+		var x := AMMO_CELL_W * n
+		var origin := Vector2(x, 20.0) + FEET
+		var a := _avatar(content, look, origin, 1)
+		a.play(action, true, false)
+		a.advance(float(spec.hit_after) + HIT_TIME_PAD if not spec.is_empty() else 0.2)
+		missing.append_array(a.missing)
+		var path := Ammo.bullet_path(id)
+		paths.append(path)
+		var hand := origin + Vector2(30.0, -40.0)
+		flying.spawn(BasicAttack.shot_spec(swing, family, ammo, hand, Vector2.RIGHT, paths.size() - 1, -1))
+		var still_spec := BasicAttack.shot_spec(swing, family, ammo, Vector2.ZERO, Vector2.RIGHT, paths.size() - 1, -1)
+		still_spec["vx"] = 0.0
+		still_spec["x"] = (x + 60.0) / 3.0
+		still_spec["y"] = (origin.y + 80.0) / 3.0
+		still.spawn(still_spec)
+		var name := String(_lib.find("String.wz/Consume.img/%d/name" % id))
+		_label(root, Vector2(x + 4.0, 2.0), "%s  [%s]" % [name if name != "" else str(id), family])
+		_label(root, Vector2(x + 4.0, 18.0), "%d  W.Att +%d" % [id, int(infos.get(id, {}).get("incPAD", 0))])
+		if _lib.anim(path) == null:
+			missing.append(path)
+	var empty := MobSwarm.new(4)
+	var grid := SpatialHash.new()
+	for step in 5:
+		flying.step(0.02, empty, grid, [])
+	var fly_renderer := ProjectileRenderer.new()
+	fly_renderer.library = _lib
+	content.add_child(fly_renderer)
+	fly_renderer.update_from(flying, paths, 0.0)
+	fly_renderer.update_from(flying, paths, 0.03)
+	var still_renderer := ProjectileRenderer.new()
+	still_renderer.library = _lib
+	big.add_child(still_renderer)
+	still_renderer.update_from(still, paths, 0.0)
+	still_renderer.update_from(still, paths, 0.03)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	viewport.get_texture().get_image().save_png(_shots_dir.path_join(file_name + ".png"))
+	print("weapon_gallery: %s %s action=%s tiers=%s shots_in_flight=%d missing=%s" % [file_name, family, action, tiers,
+		flying.active_count(), missing])
 	viewport.queue_free()
 	await get_tree().process_frame
 

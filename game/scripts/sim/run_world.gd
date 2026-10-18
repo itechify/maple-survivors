@@ -115,6 +115,8 @@ const EVENT_FIELDS := {
 	"equipment_changed": ["action", "slot", "item_id"],
 	"pickup_blocked": ["pickup", "item_id", "pos", "reason"],
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
+	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
+	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
 
 }
 
@@ -230,6 +232,10 @@ var visual_paths: Array = []
 ## The weapon path the first job was taken with (JobTree.paths_of id: "claw", "dagger", ...; "" = none). Set by
 ## change_job/apply_job, carried by the snapshot's optional `weapon_path` key (spec #151 #157).
 var weapon_path := ""
+## The ammo item the held ranged weapon uses (0 for a melee weapon or bare hands), derived from the weapon family, job and
+## level by _sync_ammo; never saved, never consumed (Ammo, spec #151 #155).
+var _ammo_id := 0
+var _ammo_family := ""
 ## Options / cards of the open window.
 var pending_jobs: Array = []
 var pending_cards: Array = []
@@ -386,6 +392,7 @@ func _init_mobs() -> void:
 func _init_drops_and_shots() -> void:
 	projectiles = ProjectileSystem.new(64, rng)
 	projectiles.paths = visual_paths
+	projectiles.alt_rng = basic_rng # the ranged basic attack's shots roll on stream 5, like its instant swings
 	projectiles.bounds = bounds
 	projectiles.magic_defense_k = float(balance.get("magic_defense_k", CombatMath.MAGIC_DEFENSE_K))
 	var pk: Dictionary = balance.get("pickup", {}).duplicate()
@@ -990,7 +997,8 @@ func _refresh_caster() -> void:
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)
 	loadout.luk_stat = float(_attributes.luk)
-	loadout.watk = weapon_attack()
+	_sync_ammo()
+	loadout.watk = weapon_attack(WeaponInfo.is_ranged(loadout.weapon_id))
 	loadout.acc = player_acc + buffs.effect_total("acc") + loadout.passive_total(Loadout.ACC)
 	loadout.job_id = progression.job_id
 	var held := weapon_info()
@@ -1202,10 +1210,44 @@ func weapon_info() -> Dictionary:
 	return Equipment.info_of(setup.get("equipment_info", {}), id) if id > 0 else {}
 
 
-## W.ATT: every worn incPAD plus active W.Att buffs; ranged reserves the ammo hook for #155.
-@warning_ignore("unused_parameter")
+## W.ATT: every worn incPAD plus active W.Att buffs; a ranged attack adds the current ammo's incPAD (tier A: v83 adds the
+## ammo stack's incPAD to weapon attack for ranged attacks).
 func weapon_attack(ranged: bool = false) -> float:
-	return equipment_bonus("incPAD") + buffs.effect_total("watk")
+	var attack := equipment_bonus("incPAD") + buffs.effect_total("watk")
+	return attack + ammo_attack() if ranged else attack
+
+
+## The ammo item the held weapon fires (Item.wz id); 0 when it is not a bow, crossbow, claw or gun. Endless: it is never
+## consumed, and it follows the weapon family, job and level (Ammo.item_for).
+func ammo_id() -> int:
+	return _ammo_id
+
+
+## The current ammo's incPAD (setup.ammo_info, Item.wz); 0 without ammo.
+func ammo_attack() -> float:
+	return float(setup.get("ammo_info", {}).get(_ammo_id, {}).get("incPAD", 0))
+
+
+## The ammo a tooltip of weapon `weapon` lists: {"item_id", "incPAD"} of the ammo this character would fire with it (the
+## window adds the String.wz name); {} for a melee weapon.
+func ammo_tooltip(weapon: int) -> Dictionary:
+	var id := Ammo.item_for(data.get("ammo", {}), WeaponInfo.family(weapon), progression.job_id, progression.level, jobs)
+	if id == 0:
+		return {}
+	return {"item_id": id, "incPAD": int(setup.get("ammo_info", {}).get(id, {}).get("incPAD", 0))}
+
+
+## Recomputes the current ammo; emits ammo_upgraded when the held family's ammo moved to a higher tier (a weapon swap or
+## the first computation is silent). Called by _refresh_caster, which every level-up, job change and weapon change reaches.
+func _sync_ammo() -> void:
+	var family := held_weapon_family()
+	var id := Ammo.item_for(data.get("ammo", {}), family, progression.job_id, progression.level, jobs)
+	if id != _ammo_id and _ammo_id != 0 and id != 0 and family == _ammo_family:
+		var from := _ammo_id
+		_ammo_id = id
+		emit("ammo_upgraded", {"family": family, "from_item_id": from, "item_id": id, "level": progression.level})
+	_ammo_id = id
+	_ammo_family = family
 
 
 ## What worn equipment adds to one `inc*` stat (the "bonus" of the Stat window's base + bonus).
