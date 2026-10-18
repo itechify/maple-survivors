@@ -11,6 +11,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const INFO := {
 	1040002: {"incPDD": 3, "tuc": 7}, 1060002: {"incPDD": 2, "tuc": 7}, 1072001: {"incPDD": 2, "tuc": 5},
 	1302000: {"incPAD": 17, "attackSpeed": 4, "tuc": 7},
+	1472000: {"incPAD": 10, "attackSpeed": 6, "tuc": 7}, # a claw
 	1372005: {"reqLevel": 8, "incPAD": 15, "incMAD": 23, "attackSpeed": 6, "tuc": 7},
 	1002001: {"reqLevel": 15, "incPDD": 10, "tuc": 7},
 	1092005: {"reqLevel": 10, "incPDD": 10, "incMDD": 3, "tuc": 7}, # a shield
@@ -419,3 +420,22 @@ func test_a_two_handed_weapon_takes_the_shield_off_and_a_full_inventory_refuses_
 	assert_eq(notices, [InventoryWindow.MESSAGES.equip_full], "refused with the v83 message")
 	assert_eq(InventoryWindow.MESSAGES.equip_full, "You can't get anymore items.")
 	assert_eq(full.character_snapshot(), before, "nothing changed")
+
+
+# --- ranged weapon ammo (#155) --------------------------------------------------------------------------------------
+
+func test_a_ranged_weapons_tooltip_lists_the_current_ammo() -> void:
+	var world := _world([1472000, 1302000], func(character: Dictionary) -> void:
+		character.job_id = 410
+		character.level = 52)
+	var made := _windows(world)
+	var iw: ItemWindow = made[2]
+	var claw := iw.tooltip_for(iw.cell(0))
+	assert_eq(claw.ammo.item_id, 2070005, "Lv 52 Assassin: Steely Throwing-Knives")
+	assert_eq(claw.ammo.incPAD, 25)
+	assert_true(String(claw.ammo.name) != "", "named from String.wz, or by id without the cache")
+	var lines := ItemTooltip.fact_lines(claw)
+	var ammo_line := lines.filter(func(l: Array) -> bool: return l[0] == "ammo")
+	assert_eq(ammo_line.size(), 1)
+	assert_true(String(ammo_line[0][1]).ends_with("(+25)"), String(ammo_line[0][1]))
+	assert_false(iw.tooltip_for(iw.cell(1)).has("ammo"), "a sword lists no ammo")
