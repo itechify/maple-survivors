@@ -91,7 +91,7 @@ func test_shipping_data_keeps_the_path_rows_unplayable() -> void:
 	assert_eq(window.map(func(o: Dictionary) -> int: return o.job_id), [100, 200, 300, 400, 500],
 		"locked jobs stay one entry each, so the shipped window and event stream are unchanged")
 	assert_true(window.all(func(o: Dictionary) -> bool: return not o.has("path")))
-	assert_eq(jobs.paths_of(100), [], "the Warrior keeps its creation weapon")
+	assert_eq(jobs.paths_of(100), [], "the Warrior has no weapon path: its sword is a plain grant")
 	assert_eq(jobs.paths_of(200), [], "the Magician grant is balance.player.weapon_grants")
 	var families := {110: ["sword", "axe"], 120: ["sword", "blunt"], 130: ["spear", "polearm"], 310: ["bow"],
 		320: ["crossbow"], 410: ["claw"], 420: ["dagger"], 510: ["knuckle"], 520: ["gun"]}

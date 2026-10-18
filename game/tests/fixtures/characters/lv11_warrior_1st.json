@@ -1,10 +1,10 @@
 {
 	"_doc": {
-		"branch": "spec151/ticket-163",
+		"branch": "spec151/owner-warrior",
 		"forced_branch": 100,
 		"outcome": "TIMEOUT",
 		"policy": "bot",
-		"revision": "8f911f9",
+		"revision": "52ae86f",
 		"round_seconds": 295.0,
 		"rounding": "floating character fields rounded to six decimal places",
 		"seed": 1,
@@ -36,7 +36,32 @@
 	},
 	"earned_ap": 50,
 	"equipment": {
-		"inventory": [],
+		"inventory": [
+			{
+				"id": 1302000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 17
+				}
+			},
+			{
+				"id": 1432000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 32
+				}
+			},
+			{
+				"id": 1322006,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 29
+				}
+			}
+		],
 		"worn": {
 			"bottom": {
 				"id": 1060002,
@@ -63,11 +88,11 @@
 				}
 			},
 			"weapon": {
-				"id": 1302000,
+				"id": 1302077,
 				"scrolls": 0,
 				"slots": 7,
 				"stats": {
-					"incPAD": 17
+					"incPAD": 30
 				}
 			}
 		}

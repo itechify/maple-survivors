@@ -417,6 +417,7 @@ character 1302009
 character 1302010
 character 1302011
 character 1302012
+character 1302077
 character 1312001
 character 1312003
 character 1312004
@@ -432,6 +433,7 @@ character 1322000
 character 1322002
 character 1322004
 character 1322005
+character 1322006
 character 1322014
 character 1322015
 character 1322016

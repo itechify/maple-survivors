@@ -89,7 +89,8 @@ extends Node
 ##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
 ##   warrior the Warrior first job end to end (spec #151 QA #164): title -> new character holding a spare Wooden Shield
 ##           (debug setup, a kit item in the slot) -> round; EXP drops take it to Lv10 through the real level-up cards
-##           and the real job window, where Warrior is picked (the creation sword stays: no weapon grant); the bot's
+##           and the real job window, where Warrior is picked (the Beginner Warrior's sword 1302077 is worn; the creation sword, a Spear and a Steel Pipe
+##           wait in the Equip tab); the bot's
 ##           steering plays a few seconds, E and I wear the shield by double-click (Equip window, weapon + shield
 ##           drawn); the slot moves to the Free Market (the carried snapshot is saved at the boundary, a debug
 ##           shortcut for the multi-minute warp) and Continue opens the hub; Esc -> Save & quit -> character select
@@ -1412,7 +1413,11 @@ func _scenario_warrior() -> void:
 		await _sleep(0.3)
 	_check(job_window_seen and w.progression.job_id == 100, "the real job window made the character a Warrior (job %d)" % w.progression.job_id)
 	_check(w.progression.level == 10, "at Lv 10 (%d)" % w.progression.level)
-	_check(w.weapon_id() == weapon0, "the creation weapon stays: no weapon grant (%d)" % w.weapon_id())
+	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
+	_check(w.weapon_id() == 1302077, "the Beginner Warrior's sword is worn (%d)" % w.weapon_id())
+	_check(weapon0 in inventory_ids and 1432000 in inventory_ids and 1322006 in inventory_ids,
+		"the creation sword, the Spear and the Steel Pipe wait in the Equip tab (%s)" % [inventory_ids])
+	weapon0 = w.weapon_id()
 	_check(w.loadout.rank("power_strike") + w.loadout.rank("slash_blast") > 0, "the advancement draw gave a Warrior attack")
 	# A few seconds of real play with the bot's steering.
 	var kills0 := w.kills
