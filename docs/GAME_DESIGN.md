@@ -3348,8 +3348,8 @@ here they affect the character only and the text says so (`text.desc` overrides,
   maximum, so the HUD bars and the Stat window show it while active.
 - **Cards** (`upgrades/warrior.json`): learn and rank cards per skill, `requires.jobs: [130]`, not `power`; weights 3 (learn)
   and 2 (rank), tier C. The WZ prerequisites (Hyper Body needs Iron Will Lv 3) are ignored, as for every skill (owner #31).
-  The bot scores them with the defensive buffs: `balance.bot.card_scores` 110 for the learn cards and 109 for the rank
-  cards, the Magic Guard values (tier C, not tuned).
+  The bot scores them like Iron Body (default BotInput scoring, no `card_scores` entries; the Magic Guard 110/109 values
+  are Magician-specific and not copied; lead decision, tier C, not tuned).
 - **Tests.** `tests/unit/test_hyper_body.gd`: defence on both consumers and the seeded damage difference (physical and
   magic), the percent per level, unchanged current HP/MP at cast, expiry clamping, stacking with Improved MaxHP Increase
   and worn equipment HP/MP, recast with the MP cost, the card/text rules; one test compares the real cache's 130.img with
@@ -4165,7 +4165,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
 | Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
 | Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
-| Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot learn 110 / rank 109 (Magic Guard's) | C | ours, untuned |
+| Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

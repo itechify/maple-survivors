@@ -241,7 +241,7 @@ func test_the_cards_are_job_gated_and_not_power() -> void:
 		assert_false(card.is_empty(), "%s exists" % id)
 		assert_false(bool(card.get("power", false)), "%s is not a power card" % id)
 		assert_eq(card.requires.jobs, [130.0], "%s is the Spearman's" % id)
-		assert_true(w.balance.bot.card_scores.has(id), "%s is scored with the defensive buffs" % id)
+		assert_false(w.balance.bot.card_scores.has(id), "%s keeps the default bot score (like Iron Body)" % id)
 	assert_has(w.upgrades.eligible(w), "iron_will_new")
 	assert_has(w.upgrades.eligible(w), "hyper_body_new")
 
