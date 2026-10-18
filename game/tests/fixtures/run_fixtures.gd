@@ -132,6 +132,13 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# Spearman buffs (#184): the v83 level-1 and top-level values of Iron Will and Hyper Body, levels between interpolated.
+	if not imgs.has("130"):
+		imgs["130"] = {"skill": {}}
+	imgs["130"].skill["1301006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(16, 90.0, 60, 90),
+		"level": _levels(20, {"time": [15.0, 300.0], "mpCon": [12.0, 24.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})}
+	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
+		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
 	return imgs
 
 

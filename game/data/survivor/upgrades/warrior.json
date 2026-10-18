@@ -70,6 +70,26 @@
 		{"id": "improved_max_hp_rank", "kind": "skill_rank", "skill": "improved_max_hp", "name": "Improved MaxHP Increase",
 			"desc": "Improved MaxHP Increase +{magnitude} skill level: more Max HP per level-up.",
 			"icon": "Skill.wz/100.img/skill/1000001/icon", "max_rank": 10, "weight": 2,
-			"requires": {"jobs": [100]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
+			"requires": {"jobs": [100]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "iron_will_new", "kind": "skill_new", "skill": "iron_will", "name": "Iron Will",
+			"_tier": "Tier C: offer weight 3 (the Iron Body weights); Spearman only; not a power card.",
+			"desc": "Learn Iron Will: temporarily higher weapon and magic defence, recast when it ends.",
+			"icon": "Skill.wz/130.img/skill/1301006/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs": [130]}, "effects": []},
+		{"id": "iron_will_rank", "kind": "skill_rank", "skill": "iron_will", "name": "Iron Will",
+			"_tier": "Tier C: offer weight 2; tier A cap 20.",
+			"desc": "Iron Will +{magnitude} skill level: more weapon and magic defence, for longer.",
+			"icon": "Skill.wz/130.img/skill/1301006/icon", "max_rank": 20, "weight": 2,
+			"requires": {"jobs": [130]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "hyper_body_new", "kind": "skill_new", "skill": "hyper_body", "name": "Hyper Body",
+			"_tier": "Tier C: offer weight 3; Spearman only; not a power card.",
+			"desc": "Learn Hyper Body: temporarily higher Max HP and Max MP, recast when it ends.",
+			"icon": "Skill.wz/130.img/skill/1301007/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs": [130]}, "effects": []},
+		{"id": "hyper_body_rank", "kind": "skill_rank", "skill": "hyper_body", "name": "Hyper Body",
+			"_tier": "Tier C: offer weight 2; tier A cap 30.",
+			"desc": "Hyper Body +{magnitude} skill level: a bigger Max HP and Max MP boost, for longer.",
+			"icon": "Skill.wz/130.img/skill/1301007/icon", "max_rank": 30, "weight": 2,
+			"requires": {"jobs": [130]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
 	]
 }

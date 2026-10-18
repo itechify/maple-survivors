@@ -148,6 +148,10 @@ const DEFAULT_INVENTORY_SLOTS := 24
 ## Grid candidates skill_box_count checks before it reads the whole query. Performance only, not behaviour (no
 ## tier): the count is the same for any value.
 const BOX_PROBE := 16
+## Buff effect stats of Hyper Body (percent of the whole Max HP / Max MP). Not the max_mp_percent passive: that one
+## rescales current MP on growth, a buff leaves current HP/MP alone (spec #165 ticket #184).
+const MAX_HP_PCT := "max_hp_pct"
+const MAX_MP_PCT := "max_mp_pct"
 
 var setup: Dictionary
 var data: Dictionary
@@ -286,6 +290,8 @@ var _final_keys_version := -1
 var _mp := 0.0
 var _max_hp := 1
 var _max_mp := 0
+## The Hyper Body percentages (x = Max HP, y = Max MP) already inside _max_hp/_max_mp; a change refreshes the maxima.
+var _max_buff_applied := Vector2.ZERO
 var _base_hp := 50.0
 var _base_mp := 5.0
 var _job_mp := 0.0
@@ -574,6 +580,7 @@ func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)
 	_refresh_caster()
 	refresh_player_speed()
+	_refresh_max_buffs()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
 	_write_player_state(0.0)
@@ -1002,11 +1009,14 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		_attributes[stat] += roundi(equipment_bonus("inc" + stat.to_upper()))
 	var old_hp := _max_hp
 	var old_mp := _max_mp
-	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive (v83 % buffs act on the base).
-	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP")))
+	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive. The Hyper Body buff then scales
+	# that whole total (base, growth, passives, equipment; tier B, v83), unlike the passive, which leaves equipment out.
+	_max_buff_applied = _max_buff_percents()
+	_max_hp = maxi(1, roundi((loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP"))
+		* (1.0 + _max_buff_applied.x / 100.0)))
 	var mp_percent := loadout.passive_total(Loadout.MAX_MP_PERCENT)
-	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
-		+ equipment_bonus("incMMP")))
+	_max_mp = maxi(0, roundi((loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
+		+ equipment_bonus("incMMP")) * (1.0 + _max_buff_applied.y / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
 	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
@@ -1908,11 +1918,24 @@ func _caster_buff_totals() -> Vector4:
 		buffs.effect_total("attack_speed"))
 
 
+## Active Hyper Body percentages: Vector2(Max HP %, Max MP %), integers like 2..60 straight from the buff snapshots.
+func _max_buff_percents() -> Vector2:
+	return Vector2(buffs.effect_total(MAX_HP_PCT), buffs.effect_total(MAX_MP_PCT))
+
+
+## Recomputes the maxima when the Hyper Body percentages changed (cast or expiry). Current HP/MP keep their values
+## except that the new maximum clamps them (refresh_player_stats; nothing is granted).
+func _refresh_max_buffs() -> void:
+	if _max_buff_percents() != _max_buff_applied:
+		refresh_player_stats(false)
+
+
 func _tick_timers(dt: float) -> void:
 	var caster_buffs := _caster_buff_totals()
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
 	if caster_buffs != _caster_buff_totals():
 		_refresh_caster()
+	_refresh_max_buffs()
 	refresh_player_speed()
 	if _dead:
 		return
