@@ -3,10 +3,10 @@
 <!--
 	Maple Survivors web shell (spec #130, ADR 0004). The Web export preset in game/export_presets.cfg uses this file as
 	its custom HTML shell (html/custom_html_shell = "res://../web/index.html"); Godot fills in the $GODOT_* placeholders
-	at export. Beside it ship shell.css, shell.js, lib.js, idbfs.js, import_worker.js, the wasm importer (wzimport.js and
-	wzimport_bg.wasm, built by scripts/build_wasm.sh), asset_manifest.json and the licence files linked at the bottom of
-	the plate: Godot only processes this file, `bash scripts/export.sh --web` copies or writes the others next to it
-	(docs/ARCHITECTURE.md "Web build").
+	at export. Beside it ship shell.css, shell.js, lib.js, idbfs.js, import_worker.js, title.jpg (the key art), the
+	favicons and site.webmanifest, the wasm importer (wzimport.js and wzimport_bg.wasm, built by scripts/build_wasm.sh),
+	asset_manifest.json and the licence files linked at the bottom of the plate: Godot only processes this file,
+	`bash scripts/export.sh --web` copies or writes the others next to it (docs/ARCHITECTURE.md "Web build").
 
 	What the shell does: when the asset cache in the browser's storage is missing or incomplete it shows the import
 	screen (folder, zip or web address, run by a worker); otherwise it starts the game. When the game quits it reads
@@ -22,6 +22,12 @@
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0">
 		<title>$GODOT_PROJECT_NAME</title>
+		<link rel="icon" href="favicon.ico" sizes="48x48">
+		<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+		<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+		<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+		<link rel="manifest" href="site.webmanifest">
+		<meta name="theme-color" content="#120507">
 		<link rel="stylesheet" href="shell.css">
 		<style>
 html, body, #canvas {
@@ -45,13 +51,17 @@ body {
 	outline: none;
 }
 
+/* The loading overlay shows the key art (the same image as the game's boot splash and title screen), with the
+   progress bar under the logo. */
 #status {
 	position: absolute;
 	inset: 0;
-	background-color: $GODOT_SPLASH_COLOR;
+	background: url("title.jpg") center / cover no-repeat, $GODOT_SPLASH_COLOR;
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
+	justify-content: flex-end;
+	padding-bottom: 9vh;
+	box-sizing: border-box;
 	align-items: center;
 	visibility: hidden;
 }
@@ -93,6 +103,7 @@ body {
 		<main id="shell" hidden>
 			<section id="plate" class="plate" data-screen="boot">
 				<header class="plate-top">
+					<img class="plate-logo" src="android-chrome-192x192.png" alt="" width="36" height="36">
 					<h1>Maple Survivors</h1>
 					<p id="subtitle">Import your MapleStory v83 data</p>
 				</header>

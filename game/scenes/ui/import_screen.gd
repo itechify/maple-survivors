@@ -11,7 +11,8 @@ extends Control
 ## OS.execute_with_pipe.
 ##
 ## The screen cannot rely on WZ art (there may be no cache yet), so it is drawn with plain controls in the v83 notice
-## colours (blue plate, grey strip) and the Maple system font.
+## colours (blue plate, grey strip) and the Maple system font, over the dimmed key art (KeyArt, shipped with the game)
+## with the emblem (res://icon.png) in the plate's title bar.
 ##
 ## Importer location: next to the game executable (exported builds: <exe dir>/wzimport(.exe)), else the dev build
 ## <repo>/tools/wzimport/target/release/wzimport(.exe) (resolved from res://). The manifest is copied from
@@ -28,6 +29,11 @@ const BLUE_DARK := Color8(17, 85, 153)
 const GREY := Color8(221, 221, 221)
 const OK_GREEN := Color8(120, 255, 120)
 const BAD_RED := Color8(255, 136, 120)
+## Darkening over the key art behind the panel (tier C: ours).
+const ART_DIM := Color(0.03, 0.01, 0.02, 0.55)
+const EMBLEM := "res://icon.png"
+## The emblem's box in the panel's title bar; the title text moves right of it.
+const EMBLEM_RECT := Rect2(12, 8, 48, 48)
 
 var path_edit: LineEdit
 var browse_button: Button
@@ -39,6 +45,7 @@ var log_box: RichTextLabel
 var state := "idle"
 
 var _panel: Control
+var _art: KeyArt
 var _pid := -1
 var _stdio: FileAccess
 var _stderr: FileAccess
@@ -54,10 +61,17 @@ func _ready() -> void:
 	_web = WebProfile.is_web()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var bg := ColorRect.new()
-	bg.color = Color8(12, 20, 32)
+	bg.color = Color8(18, 5, 7)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
+	_art = KeyArt.new()
+	add_child(_art)
+	var dim := ColorRect.new()
+	dim.color = ART_DIM
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(dim)
 	_panel = Control.new()
 	_panel.name = "Panel"
 	_panel.size = PANEL_SIZE
@@ -233,12 +247,22 @@ func _copy_manifest() -> String:
 
 
 func _build() -> void:
+	var emblem := TextureRect.new()
+	emblem.name = "Emblem"
+	emblem.texture = _emblem_texture()
+	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	emblem.position = EMBLEM_RECT.position
+	emblem.size = EMBLEM_RECT.size
+	emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_panel.add_child(emblem)
+	var text_x := EMBLEM_RECT.end.x + 10.0
 	var title := MapleText.new("Maple Survivors", 18, MapleText.YELLOW, true)
 	title.name = "Title"
-	title.position = Vector2(20, 12)
+	title.position = Vector2(text_x, 12)
 	_panel.add_child(title)
 	var sub := MapleText.new("Import your MapleStory v83 data", MapleText.SIZE, MapleText.WHITE, true)
-	sub.position = Vector2(22, 38)
+	sub.position = Vector2(text_x + 2, 38)
 	_panel.add_child(sub)
 	var body_text := (
 		"Maple Survivors draws every sprite, map and sound from your own copy of MapleStory v83 (GMS). Nothing is "
@@ -360,6 +384,20 @@ func _fit_view() -> void:
 
 func _layout() -> void:
 	_panel.position = ((size - PANEL_SIZE) * 0.5).floor()
+	_art.fit(size)
+
+
+## The emblem resized to its box with Lanczos (the source is 512 px and canvas textures use nearest); the source
+## texture when it cannot be read back (headless).
+func _emblem_texture() -> Texture2D:
+	var tex := load(EMBLEM) as Texture2D
+	var img := tex.get_image() if tex != null else null
+	if img == null or img.is_empty():
+		return tex
+	if img.is_compressed():
+		img.decompress()
+	img.resize(int(EMBLEM_RECT.size.x), int(EMBLEM_RECT.size.y), Image.INTERPOLATE_LANCZOS)
+	return ImageTexture.create_from_image(img)
 
 
 func _draw_panel() -> void:

@@ -15,8 +15,8 @@
 #   EXPORT_DIR=<abs dir> bash scripts/export.sh   # write the build somewhere else than game/export (game/export/web)
 #
 # --web exports the "Web" preset (single-threaded, GL Compatibility, shell web/index.html) and completes the site
-# beside index.html: the rest of the web shell (shell.css, shell.js, lib.js, idbfs.js, import_worker.js; web/dev/ is
-# never copied), asset_manifest.json, the wasm importer (wzimport.js + wzimport_bg.wasm, built by scripts/build_wasm.sh
+# beside index.html: the rest of the web shell (shell.css, shell.js, lib.js, idbfs.js, import_worker.js, and the
+# branding: title.jpg, the favicons and site.webmanifest; web/dev/ is never copied), asset_manifest.json, the wasm importer (wzimport.js + wzimport_bg.wasm, built by scripts/build_wasm.sh
 # into WASM_DIR, default _scratch/wasm) and the licence files linked from the shell: GODOT_LICENSES.txt,
 # WZIMPORT_LICENSES.txt (including the wasm-only crates), THIRD_PARTY_NOTICES.md and ARIMO_OFL.txt. It ends with
 # scripts/check_web_artifact.sh, which fails the export if any WZ data or cache-shaped file is in the folder.
@@ -100,7 +100,7 @@ write_crate_licenses() {
 if [[ "$WEB" == 1 ]]; then
   mkdir -p "$OUT_DIR"
   # A stale build must not pass for this one: clear Godot's files and everything this script copies in.
-  rm -rf "$OUT_DIR"/index.* "$OUT_DIR"/shell.* "$OUT_DIR"/lib.js "$OUT_DIR"/idbfs.js "$OUT_DIR"/import_worker.js \
+  rm -rf "$OUT_DIR"/index.* "$OUT_DIR"/shell.* "$OUT_DIR"/lib.js "$OUT_DIR"/idbfs.js "$OUT_DIR"/import_worker.js     "$OUT_DIR"/title.jpg "$OUT_DIR"/favicon* "$OUT_DIR"/apple-touch-icon.png "$OUT_DIR"/android-chrome-*     "$OUT_DIR"/site.webmanifest \
     "$OUT_DIR"/wzimport* "$OUT_DIR"/asset_manifest.json "$OUT_DIR"/*LICENSES.txt "$OUT_DIR"/ARIMO_OFL.txt \
     "$OUT_DIR"/THIRD_PARTY_NOTICES.md
   OUT_HTML="$(cygpath -m "$OUT_DIR/index.html" 2>/dev/null || echo "$OUT_DIR/index.html")"
@@ -116,7 +116,9 @@ if [[ "$WEB" == 1 ]]; then
   done
 
   # The rest of the web shell (Godot only processes index.html) and the same-origin manifest the shell checks.
-  for f in shell.css shell.js lib.js idbfs.js import_worker.js; do cp "$REPO/web/$f" "$OUT_DIR/$f"; done
+  for f in shell.css shell.js lib.js idbfs.js import_worker.js title.jpg favicon.ico favicon-16x16.png     favicon-32x32.png apple-touch-icon.png android-chrome-192x192.png android-chrome-512x512.png site.webmanifest; do
+    cp "$REPO/web/$f" "$OUT_DIR/$f"
+  done
   cp "$REPO/game/data/asset_manifest.json" "$OUT_DIR/asset_manifest.json"
 
   # The wasm importer (never committed; built here).
