@@ -26,6 +26,7 @@ const FILES := {
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
+	"ammo": "survivor/ammo.json",
 }
 ## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
 ## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
@@ -375,6 +376,25 @@ static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringA
 	return out
 
 
+## The canonical facts of every ammo item survivor/ammo.json names ({id: {incPAD}}, tier A: Item.wz/Consume 0206 arrows,
+## 0207 throwing stars, 0233 bullets; an item without incPAD, like Arrow for Bow, adds 0). Ids whose node is absent are
+## listed in `missing` and left out. `img_loader` as for build_setup.
+static func ammo_info(ammo: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := {}
+	var imgs := {}
+	for id in Ammo.item_ids(ammo):
+		var path := Ammo.img_path(id)
+		if not imgs.has(path):
+			imgs[path] = img_loader.call(path)
+		var img: Variant = imgs[path]
+		var key := "%08d" % id
+		if img is Dictionary and img.get(key) is Dictionary and img[key].get("info") is Dictionary:
+			out[id] = {"incPAD": int(img[key].info.get("incPAD", 0))}
+		else:
+			missing.append(path + "/" + key)
+	return out
+
+
 ## Every Skill.wz book named in skills.json ("000", "200", ...).
 static func skill_books(data: Dictionary) -> PackedStringArray:
 	var books := PackedStringArray()
@@ -461,6 +481,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"mob_skill_img": mob_skill,
 		"item_info": item_info,
 		"scroll_info": scroll_info(scroll_item_ids(data, character), img_loader, missing),
+		"ammo_info": ammo_info(data.get("ammo", {}), img_loader, missing),
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,

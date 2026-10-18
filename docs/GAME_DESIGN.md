@@ -2768,7 +2768,8 @@ body frame supplies impact timing, summing earlier canonical body delays (tier A
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
 
 Basic attacks use the same physical bounds, live PDD and crit rule as physical skills (6.1), with skill multiplier 1.
-W.Att sums every worn item's `incPAD` plus active `watk` buffs; `weapon_attack(ranged)` reserves the ammo input for #155.
+W.Att sums every worn item's `incPAD` plus active `watk` buffs; `weapon_attack(ranged)` adds the current ammo's `incPAD`
+for a ranged attack (6.1.2).
 The action prefix chooses swing/stab/shoot; weapon facts are `WeaponInfo.PHYSICAL` (tier B, except the preserved
 wand/staff and bare-hands fallback, tier C):
 
@@ -2819,19 +2820,56 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
 
   Which stances a family uses is tier C (the item imgs list many more). `WeaponInfo.basic_kind(weapon, action)` is what the
   damage model (#153) reads: a ranged family always `shoot` (a claw throws with a swing stance, and `weapon_attack(true)`
-  later adds the ammo W.Att), any other weapon the prefix of the action (`swing`, `stab`; `attack_kind`, which also
+  adds the ammo W.Att, 6.1.2), any other weapon the prefix of the action (`swing`, `stab`; `attack_kind`, which also
   maps the Gun's own `shot` stance to `shoot`). `BasicAttack.last_action` / `last_kind` expose the latest swing.
 - **Effects.** The afterimage name, the sound (`info/sfx`) and the impact timing come from the weapon item and its
   afterimage (tier A); the hit spark is the sword family for every `sword*` afterimage and the mace family for all the others
   (tier C: `hit.img` has only those two). A melee weapon swings into its afterimage's `lt`/`rb` box. A ranged family has no
-  such box: it hits inside `WeaponInfo.ranged_box` (bow, crossbow 300 px, claw, gun 250 px, tier C) until the ammo projectiles
-  (#155) carry their own range, lands on the afterimage's first frame when it has one (the Bow's and Crossbow's draw frame,
-  else the body's last frame) and shows that frame as its trail only when it is not a melee box (a claw's `swordOL` trail
+  such box: it starts when a target is inside `WeaponInfo.ranged_box` (bow, crossbow 300 px, claw, gun 250 px, tier C) and
+  fires an ammo projectile (6.1.2), releases it on the afterimage's first frame when it has one (the Bow's and Crossbow's
+  draw frame, else the body's last frame) and shows that frame as its trail only when it is not a melee box (a claw's `swordOL` trail
   and the Gun, which has no `shoot1` node, show none).
 
 `scenes/debug/weapon_gallery.tscn` (tool-only; `bash scripts/run.sh res://scenes/debug/weapon_gallery.tscn -- --shots=<abs dir>`,
 `--mode=cash` for a cash weapon cover over a two-handed sword and a claw) draws one sheet per family: stand and walk
 facing both ways, and every basic-attack action frozen on its impact frame with the afterimage, spark and swing box.
+`--mode=ammo` fires real ammo projectiles (6.1.2).
+
+#### 6.1.2 Ranged basic attack and endless ammo (#155)
+
+A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) starts its basic attack when a target is inside the family's
+reach (6.1.1) and, at the release frame, spawns **one** projectile through `ProjectileSystem` at the nearest target
+(a scheduled boss first, as for every basic attack). The shot carries the swing's physical damage (6.1), rolls on the
+basic-attack stream 5 (`alt_rng`), is aimed at the target's centre at release, and ends after the family's reach plus
+`overshoot` (`survivor/ammo.json`). A target that left the box before release gets no shot; the attack is not refunded
+or consumed either way.
+
+- **Ammo is endless.** It is never consumed, never an inventory stack, a card or a drop, and it is not saved: the
+  current ammo is derived from the held weapon family, the job and the character level (`Ammo.item_for`).
+- **W.Att.** The current ammo's Item.wz `incPAD` adds to W.Att for ranged attacks (`weapon_attack(true)`): Throwing Stars
+  +15..+27, Bullet +10..+14, arrows +0..+4. A melee attack never adds it.
+- **Starting ammo** (tier A ids): claw A Beginner Thief's Throwing Stars 2070015 (+15), bow Arrow for Bow 2060000 (+0),
+  crossbow Arrow for Crossbow 2061000 (+0), gun Bullet 2330000 (+10).
+- **Upgrade schedules** (the specialist branch and its advancements; a different branch, a first job, or a weapon of another
+  family keeps the starting ammo; the highest step reached applies, also when the character advances into the branch past it,
+  so Lv 37 straight into the Assassin is Mokbi):
+
+  | Branch | level -> ammo |
+  |---|---|
+  | Assassin 410 | 30 Wolbi 2070001, 35 Mokbi 2070002, 40 Kumbi 2070003, 45 Tobi 2070004, 50 Steely 2070005, 55 Ilbi 2070006 (tier C levels) |
+  | Hunter 310 | 30 Bronze 2060001, 40 Steel 2060002, 50 Red 2060003 (tier C) |
+  | Crossbowman 320 | 30 Bronze 2061001, 40 Steel 2061002, 50 Blue 2061003 (tier C) |
+  | Gunslinger 520 | 30 Split Bullet 2330001, 50 Mighty Bullet 2330002 (v83 `reqLevel`, tier A) |
+
+- **Event and notice.** Reaching a higher tier with the same weapon family emits `ammo_upgraded` (ARCHITECTURE 4.4.3); a
+  weapon swap is silent. `RunScene` shows the one-line system notice "Your throwing stars are now Ilbi Throwing-Stars"
+  (the v83 String.wz item name).
+- **Presentation.** The projectile sprite is the ammo item's own `Item.wz/Consume/<0206|0207|0233>.img/<id>/bullet`
+  animation (arrows and bullets turn to their direction, stars spin in their frames). The Equip and Item windows' weapon
+  tooltip has an `AMMO` line with the current ammo and its W.Att, e.g. "Kumbi Throwing-Stars (+21)".
+- **Tool.** `weapon_gallery.tscn --mode=ammo` draws one sheet per family with a cell per tier (the avatar at release, the
+  real projectile 0.1 s later, the sprite at 3x); `--branch=<job id> --level=<n>` shows the single ammo that job and
+  level would fire. `ui_gallery.tscn --window=ammo` shows the upgrade notice and the Equip tooltip.
 
 ### 6.2 Damage to the player
 
@@ -3835,7 +3873,12 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Basic physical damage / interval | §6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
 | Starter afterimage / sparks | variant0 for every weapon (`WeaponInfo.AFTERIMAGE_VARIANT`); sword* afterimages use the sword spark, the rest the mace spark; spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
 | Weapon stances / actions (#154) | `stand<info/stand>`, `walk<info/walk>`; `WeaponInfo.BASIC_ACTIONS` per weapon type; `basic_kind` (ranged families shoot) | A (stance numbers, stances in the items), C (which stances a family attacks with) | v83 `Character.wz/Weapon`; ours |
-| Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall, until #155 | C | placeholder |
+| Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall: when the attack starts; the shot flies this plus `overshoot` | C | ours |
+| Ammo ids, incPAD and names (#155) | starting ammo per family (2070015, 2060000, 2061000, 2330000) and every scheduled item; incPAD from Item.wz, names from String.wz | A | v83 `Item.wz/Consume` 0206/0207/0233 (refs `class-specs/v83-facts.md` 1) |
+| Ammo upgrade levels (#155) | Assassin 30/35/40/45/50/55, Hunter 30/40/50, Crossbowman 30/40/50 (`survivor/ammo.json`) | C | ours; the Gunslinger's 30/50 are the items' v83 `reqLevel` (A) |
+| Endless ammo (#155) | never consumed, never an item, derived from family/job/level; v83 consumes `bulletCount` per attack | C | owner spec #151 |
+| Ammo projectile numbers (#155) | speed 800 (claw), 900 (bow), 1000 (crossbow), 1200 (gun) px/s; radius 8/6/6/5 px; range = reach + 80 px; arrows and bullets rotate | C | ours; `survivor/ammo.json` |
+| Ammo W.Att on ranged attacks (#155) | the current ammo's incPAD adds to W.Att | B | Cosmic Character.recalcLocalStats / RangedAttackHandler (v83-facts 1) |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |

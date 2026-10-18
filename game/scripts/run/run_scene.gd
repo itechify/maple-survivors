@@ -1102,6 +1102,8 @@ func handle_events(events: Array) -> void:
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
 			"scroll_used":
 				_on_scroll_used(e)
+			"ammo_upgraded":
+				_on_ammo_upgraded(e)
 			"choice_pending":
 				_pending_window = {"kind": "cards", "cards": e.cards, "bonus": bool(e.bonus), "advancement": bool(e.get("advancement", false))}
 			"player_died":
@@ -1155,6 +1157,20 @@ func _on_scroll_used(e: Dictionary) -> void:
 	var result := String(e.result)
 	wiring.scroll_used(result, avatar.get_global_transform_with_canvas().origin)
 	_event_shot("scroll_%s.png" % result, 0.35)
+
+
+## The held ranged weapon's ammo moved up a tier (#155): the one-line system notice in the v83 item's own name, and an
+## evidence shot of the new projectile for playtests.
+func _on_ammo_upgraded(e: Dictionary) -> void:
+	if hud == null:
+		return
+	var item_name := ""
+	if library != null:
+		var found: Variant = library.find(InventoryModel.name_path(int(e.item_id)))
+		item_name = String(found) if found is String else ""
+	hud.push_message(Ammo.notice(Ammo.noun(world.data.get("ammo", {}), String(e.family)),
+		item_name if item_name != "" else "Item %d" % int(e.item_id)))
+	_event_shot("ammo_%d.png" % int(e.item_id), 0.4)
 
 
 func _on_cast(e: Dictionary) -> void:

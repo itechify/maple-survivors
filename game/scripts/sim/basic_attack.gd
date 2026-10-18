@@ -16,6 +16,8 @@ var cooldown := 0.0
 ## The action and damage kind (swing, stab, shoot) of the latest swing started; "" before the first.
 var last_action := ""
 var last_kind := ""
+## Ammo projectiles fired so far (one per ranged attack that found its target at the impact; endless ammo never runs out).
+var shots := 0
 var _body: Dictionary
 var _images: Dictionary
 var _pending := {}
@@ -132,9 +134,10 @@ func action_spec(weapon: int, info: Dictionary, action: String, boost: int = 0) 
 ## Booster steps shorten the interval by the speed table and the body timing (hit_after, action_time) by `scale`
 ## (WeaponInfo.speed_factor; 1.0 without a Booster). A
 ## melee weapon needs the afterimage's lt/rb box and lands on the afterimage's first frame. A ranged family (bow,
-## crossbow, claw, gun) hits at WeaponInfo.ranged_box until #155's projectiles carry their own range, lands on the
-## afterimage's first frame when it has one (the Bow's draw frame) else on the body's last frame, and shows no
-## afterimage when the node is a melee trail with a box (a Claw's swordOL) or missing (the Gun's).
+## crossbow, claw, gun) picks its target inside WeaponInfo.ranged_box and then fires an ammo projectile at it (#155),
+## lands (releases the shot) on the afterimage's first frame when it has one (the Bow's draw frame) else on the body's
+## last frame, and shows no afterimage when the node is a melee trail with a box (a Claw's swordOL) or missing (the Gun's).
+## The shot is released at the boosted hit_after, so a ranged attack keeps #160's attack-speed timing.
 func _spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dictionary:
 	var body: Dictionary = _body.get(action, {})
 	if is_same(info, BARE_HANDS):
@@ -229,7 +232,52 @@ func _impact(world: RunWorld) -> void:
 	var mob := _nearest(world, _pending.box, int(_pending.facing))
 	if mob < 0:
 		return
+	if String(_pending.attack_kind) == "shoot":
+		_shoot(world, mob)
+		return
 	world.hit_mob(mob, _pending, world.visual_index(String(_pending.hit_visual)), world.basic_rng)
+
+
+## A ranged weapon's attack: one projectile of the current ammo (never consumed) flies from the hand at the chosen target.
+## It carries the swing's physical damage (W.Att includes the ammo's incPAD), rolls on the basic-attack stream and ends
+## after the family's reach plus the ammo data's overshoot. Shot numbers: survivor/ammo.json (tier C).
+func _shoot(world: RunWorld, mob: int) -> void:
+	var aim := world.mob_center(mob)
+	var origin := world.cast_origin()
+	var start := world.shot_origin(aim)
+	var dir := (aim - start).normalized()
+	if dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x):
+		# A target inside the reach of the hand: fly straight at it from the body instead.
+		start = origin
+		dir = (aim - origin).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2(int(_pending.facing), 0.0)
+	var spec := shot_spec(_pending, world.held_weapon_family(), world.data.get("ammo", {}), start, dir,
+		world.visual_index(Ammo.bullet_path(world.ammo_id())), world.visual_index(String(_pending.hit_visual)))
+	if spec.is_empty():
+		return
+	world.projectiles.spawn(spec)
+	shots += 1
+
+
+## The ProjectileSystem.spawn spec of one ranged shot of `family` from `start` along `dir`: the swing's physical damage
+## (`swing`: a started swing's damage and crit fields), the ammo data's speed, radius and rotation, and a range of the
+## family's reach plus the data's overshoot. {} for a family without ammo. The weapon gallery fires the same spec.
+static func shot_spec(swing: Dictionary, family: String, ammo: Dictionary, start: Vector2, dir: Vector2, visual: int,
+		hit_visual: int) -> Dictionary:
+	var shot := Ammo.projectile(ammo, family)
+	if shot.is_empty():
+		return {}
+	var speed := float(shot.speed)
+	return {
+		"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
+		"range": float(WeaponInfo.RANGED_REACH.get(family, 0.0)) + float(shot.overshoot),
+		"radius": float(shot.radius), "rotate": bool(shot.rotate), "visual": visual, "hit_visual": hit_visual,
+		"dmg_min": float(swing.damage_min), "dmg_max": float(swing.damage_max), "damage_type": "physical",
+		"damage_pct": float(swing.damage_pct), "player_level": int(swing.player_level), "crit": float(swing.crit),
+		"crit_mult": float(swing.crit_mult), "crit_damage_bonus": float(swing.crit_damage_bonus),
+		"skill": "basic_attack", "level": 0, "alt_rng": true,
+	}
 
 
 func _emit(world: RunWorld, phase: String) -> void:

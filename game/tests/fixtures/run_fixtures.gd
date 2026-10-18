@@ -255,11 +255,24 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
 			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},
+		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
 		"seed": p_seed,
 		"view_size": Vector2(800, 600),
 	}
+
+
+## The ammo items of survivor/ammo.json as setup.ammo_info carries them ({id: {incPAD}}): the v83 Item.wz values, written
+## out so tests do not need the asset cache.
+static func ammo_info() -> Dictionary:
+	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25, 2070006: 27,
+		2060000: 0, 2060001: 1, 2060002: 2, 2060003: 4, 2061000: 0, 2061001: 1, 2061002: 2, 2061003: 4,
+		2330000: 10, 2330001: 12, 2330002: 14}
+	var out := {}
+	for id: int in pads:
+		out[id] = {"incPAD": pads[id]}
+	return out
 
 
 ## Level nodes 1..n; fields maps name -> [value at level 1, value at level n] (linear in between, rounded).

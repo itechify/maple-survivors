@@ -131,6 +131,11 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 	var tip := InventoryModel.tooltip(instance, info_of(id), character_totals(), item_name(id))
 	tip["icon"] = InventoryModel.icon_path(id)
 	tip["desc"] = InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id)))
+	# A ranged weapon lists the ammo this character fires with it (#155): the item's v83 name and its W.Att.
+	var ammo := world.ammo_tooltip(id) if world != null else {}
+	if not ammo.is_empty():
+		ammo["name"] = item_name(int(ammo.item_id))
+		tip["ammo"] = ammo
 	return tip
 
 
