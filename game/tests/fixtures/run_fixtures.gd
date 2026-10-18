@@ -144,6 +144,20 @@ static func skill_imgs() -> Dictionary:
 		imgs["120"] = {"skill": {}}
 	imgs["120"].skill["1201006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(7, 100.0, 86, 160),
 		"mob": _anim(8, 70.0, 30, 17).merged({"pos": 2.0, "repeat": 1.0}), "level": threaten_levels}
+	# Warrior second job, Rage and Power Guard (#182): the v83 level-1 and top-level values, levels between interpolated.
+	for pair: Array in [["110", "1101006", 20, {"mpCon": [12.0, 20.0], "time": [46.0, 160.0], "pad": [3.0, 12.0], "pdd": [-3.0, -12.0]}],
+			["110", "1101007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}],
+			["120", "1201007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}]]:
+		if not imgs.has(pair[0]):
+			imgs[pair[0]] = {"skill": {}}
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "level": _levels(pair[2], pair[3])}
+	# Spearman buffs (#184): the v83 level-1 and top-level values of Iron Will and Hyper Body, levels between interpolated.
+	if not imgs.has("130"):
+		imgs["130"] = {"skill": {}}
+	imgs["130"].skill["1301006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(16, 90.0, 60, 90),
+		"level": _levels(20, {"time": [15.0, 300.0], "mpCon": [12.0, 24.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})}
+	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
+		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
 	return imgs
 
 
