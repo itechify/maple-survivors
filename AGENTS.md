@@ -148,7 +148,10 @@ under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
-through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #165 (second job) adds
+`warrior2` (QA #185, `--branch=110|120|130`: an invulnerable Lv10 -> Lv30 climb through the real job windows, the branch's two
+advancement weapons, the Skill window with the unheld family greyed, Save & quit -> Continue); its branch fixtures
+`lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god=1 --seconds=600`. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
 character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
