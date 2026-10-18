@@ -94,7 +94,7 @@ func test_rank_tiers_apply_the_previewed_magnitude_through_run_choices() -> void
 
 
 func test_legendary_rank_grants_eight_or_the_remaining_ranks() -> void:
-	for example: Array in [[1, 8, 9], [14, 6, 20]]:
+	for example: Array in [[1, 8, 9, 116.0], [14, 6, 20, 104.0]]:
 		var w := _tier_world("legendary", "energy_bolt_rank")
 		RF.change_job_bare(w, 200)
 		w.learn_skill("energy_bolt")
@@ -104,7 +104,7 @@ func test_legendary_rank_grants_eight_or_the_remaining_ranks() -> void:
 		assert_eq(String(c.tier), "legendary")
 		assert_eq(int(c.magnitude), example[1])
 		assert_eq(int(c.skill_level_next), example[2])
-		assert_eq(BotInput.card_score(w, c), 116.0 if int(example[1]) == 8 else 104.0, "bot scores the granted ranks")
+		assert_eq(BotInput.card_score(w, c), example[3], "bot scores the granted ranks")
 		assert_true(String(c.desc).contains("+%d rank" % example[1]), "text shows the granted ranks")
 		assert_true(LevelUpWindow.rank_text(c).contains("%d → %d" % [example[0], example[2]]),
 			"the rank preview shows the granted level change")
@@ -138,7 +138,7 @@ func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
 
 
 func test_legendary_stacking_grants_five_clamps_and_supports_unlimited_cards() -> void:
-	for example: Array in [[8, 0, 5, "legendary"], [8, 5, 3, "epic"], [0, 0, 5, "legendary"]]:
+	for example: Array in [[8, 0, 5, "legendary", 111.0], [8, 5, 3, "epic", 99.0], [0, 0, 5, "legendary", 111.0]]:
 		var data := RF.quiet_data()
 		data.upgrades.rarity.weights = {"legendary": 1.0}
 		data.upgrades.cards = [{"id": "roomy", "kind": "skill_mod", "skill": "three_snails", "max_rank": example[0],
@@ -153,7 +153,7 @@ func test_legendary_stacking_grants_five_clamps_and_supports_unlimited_cards() -
 		assert_eq(int(c.magnitude), example[2])
 		assert_eq(String(c.tier), example[3])
 		assert_eq(c.desc, "+%d shells." % example[2])
-		assert_eq(BotInput.card_score(w, c), 111.0 if int(example[2]) == 5 else 99.0, "bot scores the granted steps")
+		assert_eq(BotInput.card_score(w, c), example[4], "bot scores the granted steps")
 		assert_eq(c.skill_mod_changes.shots, {"before": before, "after": before + int(example[2])})
 		assert_true(w.apply_choice("roomy"))
 		assert_eq(w.loadout.stats("three_snails").count, before + int(example[2]))
