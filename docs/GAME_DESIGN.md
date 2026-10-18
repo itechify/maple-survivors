@@ -4050,7 +4050,29 @@ Every skill has learn/rank cards, weight2, requiring its exact branch and held w
 Lucky Seven and Double Stab remain carried attacks for both branches, gated by held weapon and excluded from the
 advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/Ilbi at 30/35/40/45/50/55, with
 the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
-the bot selects their matching first-job path. Drain, Savage Blow and Steal belong to later tickets; no tuning here.
+the bot selects their matching first-job path. Drain is described below; Savage Blow and Steal belong to later tickets.
+
+### 7.23 Drain: the Assassin's healing star (#213)
+
+`drain` (4101005, book410) is a claw-only projectile attack with 30 canonical ranks. Skill.wz supplies damage
+102–160%, healing x=16–45%, and MP12 at ranks1–15 / MP24 at ranks16–30 (tier A). It auto-casts one star at the
+nearest target through the ordinary nearest/range path. `ammo_shot: true` draws the current Assassin star.
+The initial survivor values match Lucky Seven's delivery: range250px, cooldown1s, speed600px/s, radius8px,
+no base pierce and shoot1 held0.6s (tier C, untuned). Drain has a canonical effect and lowercase `use` sound,
+but no ball, hit animation or action node; the action choice is ours. It uses the normal claw damage formula,
+including mastery and Critical Throw, rather than Lucky Seven's special formula.
+
+The additive definition `damage_heal: {percent_field: "x", max_hp_fraction: 0.5, target_max_hp: true}` uses the
+shared resolved-hit listener. Every damaging impact restores x% of that line's post-defence/critical damage,
+capped separately at the character's MaxHP/2 and that target slot's MaxHP (tier A v83 description / owner #167).
+Healing truncates to whole points (tier C), uses the projectile's launch rank and includes lethal hits; current
+monster HP does not replace MaxHP. `restore_player` also clamps to missing HP and emits the existing
+`player_restored` event only for a positive actual gain. No new RNG, snapshot fields or event schema are needed.
+
+Only Assassin410 gets `drain_new` / `drain_rank` / `drain_pierce`, all power cards and held-weapon gated.
+Learn/rank weights4/3, pierce weight2 and +1 pierce per step up to three steps use the shared Potential magnitudes
+(tier C; owner behavior budget). A piercing star heals once for each struck monster. Keen Eyes (#209) can extend
+the skill through normal range resolution; Drain adds no special range path. No balance tuning is part of #213.
 
 ## 8. Upgrades
 
@@ -4496,6 +4518,16 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Drain (#213) additions:
+
+| Constant / choice | Value | Provenance |
+|---|---|---|
+| Drain canonical values | 30 ranks; damage102–160%, x16–45%, MP12/24 stepping at rank16, claw47, effect and lowercase use sound | A Skill.wz410.img/4101005 and Sound.wz |
+| Drain healing caps | each hit: at most character MaxHP/2 and target MaxHP | A v83 String.wz description; owner #167 |
+| Drain integer healing | truncate fractional HP after resolved damage, clamp to missing HP; launch rank applies | C integer interpretation and existing projectile/restore seams |
+| Drain cast | nearest, one star, range250px, cooldown1s, speed600px/s, radius8px, pierce0, shoot1 hold0.6s | C initial untuned Lucky Seven delivery convention; current ammo sprite via ammo_shot |
+| Drain cards | learn/rank weights4/3, exact410, power; pierce +1 ×3, weight2 | C owner #167 behavior budget and existing attack-card convention; A rank cap30 |
 
 Thief second job (#212) additions:
 

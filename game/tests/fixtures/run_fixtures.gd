@@ -266,6 +266,11 @@ static func skill_imgs() -> Dictionary:
 		imgs[entry[0]].skill[entry[2]] = {"level": haste}
 	for entry: Array in [["410", "4100002"], ["420", "4200001"]]:
 		imgs[entry[0]].skill[entry[1]] = {"level": _levels(20, {"time": [29.0, 10.0], "hp": [3.0, 60.0], "mp": [1.0, 20.0]})}
+	# #213: canonical Drain levels (tier A); no canonical ball, hit or action node.
+	var drain_levels := _levels(30, {"x": [16.0, 45.0], "damage": [102.0, 160.0]})
+	for lv in range(1, 31):
+		drain_levels[str(lv)].mpCon = 12.0 if lv <= 15 else 24.0
+	imgs["410"].skill["4101005"] = {"weapon": 47.0, "level": drain_levels}
 	return imgs
 
 

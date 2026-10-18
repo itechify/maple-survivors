@@ -104,6 +104,20 @@
 		{"id": "endure_bandit_rank", "power": false, "kind": "skill_rank", "skill": "endure_bandit", "name": "Endure",
 			"desc": "Endure +{magnitude} skill level.",
 			"icon": "Skill.wz/420.img/skill/4200001/icon", "max_rank": 20, "weight": 2,
-			"requires": {"jobs":[420]}, "effects": [{"stat":"rank","op":"add","value":1}]}
+			"requires": {"jobs":[420]}, "effects": [{"stat":"rank","op":"add","value":1}]},
+		{"id": "drain_new", "power": true, "kind": "skill_new", "skill": "drain", "name": "Drain",
+			"_tier": "Tier C: learn/rank weights 4/3, exact branch gate, power attack; shared attack-card convention.",
+			"desc": "Learn Drain: Throws a star and absorbs part of its damage as HP.",
+			"icon": "Skill.wz/410.img/skill/4101005/icon", "max_rank": 1, "weight": 4,
+			"requires": {"jobs":[410]}, "effects": []},
+		{"id": "drain_rank", "power": true, "kind": "skill_rank", "skill": "drain", "name": "Drain",
+			"desc": "Drain +{magnitude} skill level.",
+			"icon": "Skill.wz/410.img/skill/4101005/icon", "max_rank": 30, "weight": 3,
+			"requires": {"jobs":[410]}, "effects": [{"stat":"rank","op":"add","value":1}]},
+		{"id": "drain_pierce", "power": true, "kind": "skill_mod", "skill": "drain", "name": "Drain Pierce",
+			"_tier": "Tier C: +1 pierce per step, at most 3 steps, weight 2; owner #167 behavior budget.",
+			"desc": "Drain pierces +{value} more monster.", "value": 1,
+			"icon": "Skill.wz/410.img/skill/4101005/icon", "max_rank": 3, "weight": 2,
+			"requires": {"jobs":[410]}, "effects": [{"stat":"pierce","op":"add","value":1}]}
 	]
 }
