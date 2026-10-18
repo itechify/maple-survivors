@@ -283,3 +283,84 @@ func test_ordinary_type_one_strike_hits_as_a_mob_attack() -> void:
 	if not hit.is_empty():
 		assert_eq(hit.source_kind, "mob_attack")
 		assert_false(bool(hit.boss))
+
+
+## A world where a Tauro strikes the character with a type 0 (area) or type 1 (targeted) attack1, god mode off.
+func _strike_world(type: int) -> RunWorld:
+	var w := MF.world() if type == 0 else _variant_world(1)
+	w.god = false
+	RF.put_mob(w, MF.TAURO, 600)
+	return w
+
+
+## Steps `w` through the attack's impact phase and returns every event up to and including it.
+func _through_impact(w: RunWorld) -> Array:
+	var out: Array = []
+	for tick in 900:
+		w.step(DT, MoveInput.new())
+		var events := w.drain_events()
+		out.append_array(events)
+		if events.any(func(e: Dictionary) -> bool: return e.type == "mob_attack" and e.phase == "impact"):
+			break
+	return out
+
+
+func _mob_phases(events: Array) -> Array:
+	return events.filter(func(e: Dictionary) -> bool: return e.type == "mob_attack").map(
+		func(e: Dictionary) -> String: return String(e.phase))
+
+
+func test_an_ordinary_attack_the_hit_window_turns_away_shows_no_hit_art_or_damage() -> void:
+	for type in [0, 1]:
+		# A 60 s window outlasts the windup, so the attack meets it at impact.
+		var blocked := _strike_world(type)
+		blocked.upkeep.invincible_t = 60.0
+		var blocked_events := _through_impact(blocked)
+		assert_true("impact" in _mob_phases(blocked_events), "type %d: fixture: the attack reached impact" % type)
+		assert_true(blocked.upkeep.invincible_t > 0.0, "type %d: fixture: the window was still up at impact" % type)
+		assert_false(blocked_events.any(func(e: Dictionary) -> bool: return e.type == "player_hit"),
+			"type %d: a window-blocked attack emits no player_hit" % type)
+		assert_false("hit" in _mob_phases(blocked_events), "type %d: and no hit art" % type)
+		# The same attack without a window connects and shows its hit art.
+		var open_events := _through_impact(_strike_world(type))
+		assert_eq(open_events.filter(func(e: Dictionary) -> bool: return e.type == "player_hit").size(), 1,
+			"type %d: outside the window the attack lands" % type)
+		assert_true("hit" in _mob_phases(open_events), "type %d: and shows its hit art" % type)
+
+
+func test_a_rolled_miss_outside_the_window_still_shows_the_hit_art() -> void:
+	var setup := MF.setup()
+	setup.data.balance.player.stats.dex = 4000 # Avoids anything with a non-zero accuracy.
+	setup.mob_imgs[MF.TAURO].info.acc = 42.0
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.god = false
+	RF.put_mob(w, MF.TAURO, 600)
+	var events := _through_impact(w)
+	var hits := events.filter(func(e: Dictionary) -> bool: return e.type == "player_hit")
+	assert_eq(hits.size(), 1, "the rolled MISS is reported")
+	if hits.size() == 1:
+		assert_true(bool(hits[0].miss))
+		assert_eq(int(hits[0].damage), 0)
+	assert_true("hit" in _mob_phases(events), "and keeps the hit art, as balls do")
+
+
+func test_a_boss_attack_inside_the_hit_window_still_connects_with_its_hit_art() -> void:
+	var setup := BF.setup()
+	setup.data.balance.player.hp = 1.0e6
+	setup.mob_imgs[6130101].attack1.info["hit"] = {"0": {"delay": 100}}
+	var w := RunWorld.new(setup)
+	var boss_hit_art := false
+	var boss_hit := false
+	for tick in 600:
+		w.step(DT, MoveInput.new())
+		w.upkeep.invincible_t = maxf(w.upkeep.invincible_t, 5.0) # the window is up at every impact
+		for e: Dictionary in w.drain_events():
+			if e.type == "boss_attack" and e.phase == "hit":
+				boss_hit_art = true
+			elif e.type == "player_hit" and e.source_kind == "attack" and not bool(e.miss):
+				boss_hit = true
+		if boss_hit and boss_hit_art:
+			break
+	assert_true(boss_hit, "the boss attack ignores the window and damages the character")
+	assert_true(boss_hit_art, "and shows its hit art")

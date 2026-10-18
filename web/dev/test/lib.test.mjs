@@ -193,3 +193,113 @@ test('isAudioTeardownError recognises the Godot web shutdown TypeError', () => {
 	assert.ok(lib.isAudioTeardownError("TypeError: Cannot read properties of null (reading 'currentTime')"));
 	assert.ok(!lib.isAudioTeardownError('TypeError: x is not a function'));
 });
+
+// ---- Storage persistence (#148): the status line never waits on the browser's permission prompt -----------------------
+
+const never = () => new Promise(() => {});
+const tick = () => new Promise((r) => setImmediate(r));
+
+test('persistence: a persist() that never resolves still shows the best-effort line right after boot', async () => {
+	const lines = [];
+	const p = lib.createPersistence({
+		storage: { persisted: async () => false, persist: never, estimate: async () => ({ usage: 0 }) },
+		onChange: (s) => lines.push(lib.storageStatus(s)),
+	});
+	await p.request(); // resolves without the prompt being answered
+	assert.equal(p.state.persist, 'best-effort');
+	assert.match(lines.at(-1).text, /^Storage: best effort/);
+	assert.equal(lines.at(-1).good, false);
+});
+
+test('persistence: already persisted shows "kept (persistent)" at once and never asks again', async () => {
+	let asked = 0;
+	const p = lib.createPersistence({ storage: { persisted: async () => true, persist: async () => { asked++; return true; } } });
+	await p.request();
+	assert.equal(p.state.persist, 'persistent');
+	assert.equal(asked, 0);
+});
+
+test('persistence: a later grant upgrades to persistent, a later refusal keeps best-effort', async () => {
+	for (const [answer, want] of [[true, 'persistent'], [false, 'best-effort']]) {
+		let answerPrompt;
+		const seen = [];
+		const p = lib.createPersistence({
+			storage: { persisted: async () => false, persist: () => new Promise((r) => { answerPrompt = r; }) },
+			onChange: (s) => seen.push(s.persist),
+		});
+		await p.request();
+		assert.equal(p.state.persist, 'best-effort');
+		answerPrompt(answer);
+		await tick();
+		assert.equal(p.state.persist, want);
+		assert.equal(seen.at(-1), want);
+		assert.equal(lib.storageStatus(p.state).good, answer);
+	}
+});
+
+test('persistence: a missing or throwing storage API gives "not confirmed by this browser"', async () => {
+	const broken = [
+		undefined,
+		{},
+		{ persisted: async () => { throw new Error('denied'); }, persist: async () => true },
+	];
+	for (const storage of broken) {
+		const p = lib.createPersistence({ storage });
+		await p.request();
+		assert.equal(p.state.persist, 'unsupported');
+		assert.equal(lib.storageStatus(p.state).text, 'Storage: not confirmed by this browser');
+	}
+});
+
+test('persistence: a throwing persist() or estimate() keeps the best-effort line', async () => {
+	const p = lib.createPersistence({
+		storage: { persisted: async () => false, persist: async () => { throw new Error('no'); }, estimate: async () => { throw new Error('no'); } },
+	});
+	await p.request();
+	await tick();
+	assert.equal(p.state.persist, 'best-effort');
+	assert.equal(lib.storageStatus(p.state).text, 'Storage: best effort (the browser may clear it when space runs short)');
+});
+
+test('persistence: a second request while one is pending starts no new persist()', async () => {
+	let asked = 0;
+	const p = lib.createPersistence({ storage: { persisted: async () => false, persist: () => { asked++; return never(); } } });
+	const first = p.request();
+	const second = p.request(); // while the first is still reading the state
+	await Promise.all([first, second]);
+	await p.request(); // the post-import call, while the prompt is open
+	await tick();
+	assert.equal(asked, 1);
+});
+
+test('persistence: a later request (after an import) refreshes the usage figure without asking again', async () => {
+	for (const persisted of [true, false]) {
+		let usage = 1024;
+		let asked = 0;
+		const lines = [];
+		const p = lib.createPersistence({
+			storage: { persisted: async () => persisted, persist: () => { asked++; return never(); }, estimate: async () => ({ usage }) },
+			onChange: (s) => lines.push(lib.storageStatus(s).text),
+		});
+		await p.request();
+		usage = 300 * 1024 * 1024; // the import wrote the asset cache
+		await p.request();
+		assert.match(lines.at(-1), new RegExp(lib.formatBytes(usage).replace(/[.()]/g, '\\$&') + ' used'));
+		assert.equal(asked, persisted ? 0 : 1);
+	}
+});
+
+test('storageStatus: usage text appears when the estimate is known', () => {
+	assert.equal(lib.storageStatus({ persist: 'persistent', usage: 5 * 1024 * 1024 }).text, 'Storage: kept (persistent) (' + lib.formatBytes(5 * 1024 * 1024) + ' used)');
+	assert.equal(lib.storageStatus({ persist: 'persistent', usage: 0 }).text, 'Storage: kept (persistent)');
+});
+
+test('persistence: the usage estimate is reported alongside the state', async () => {
+	const lines = [];
+	const p = lib.createPersistence({
+		storage: { persisted: async () => true, persist: async () => true, estimate: async () => ({ usage: 2048 }) },
+		onChange: (s) => lines.push(lib.storageStatus(s).text),
+	});
+	await p.request();
+	assert.match(lines.at(-1), /kept \(persistent\) \(.+ used\)$/);
+});

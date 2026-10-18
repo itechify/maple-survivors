@@ -61,6 +61,25 @@ func _of(events: Array, type: String) -> Array:
 	return events.filter(func(e: Dictionary) -> bool: return e.type == type)
 
 
+func test_cheap_target_check_matches_warrior_admission_on_both_sides() -> void:
+	# The #146 MP-short scan must keep both #151 rules, including Power Strike turning while walking or airborne.
+	for key: String in ["power_strike", "slash_blast"]:
+		for facing in [-1, 1]:
+			for dx in [-1000.0, -40.0, 40.0, 1000.0]:
+				var w := _world()
+				w.learn_skill(key)
+				w.player.facing = facing
+				_mob(w, dx)
+				w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+				var st := w.runner.stats_of(w, key)
+				var origin := w.cast_origin()
+				var admitted := not w.runner._admit_cast(w, key, st, origin).is_empty()
+				assert_eq(admitted, absf(dx) < 100.0, "near targets admit; distant targets wait")
+				assert_eq(w.runner.has_target(w, key, st, origin), admitted,
+					"%s facing %d, target dx %.0f" % [key, facing, dx])
+				assert_eq(w.player.facing, facing, "admission checks do not turn the player")
+
+
 # --- the job window and its grants ----------------------------------------------------------------------------
 
 func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap() -> void:

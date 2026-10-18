@@ -339,7 +339,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
 | `boss_attack` | `boss_index`, `mob`, `mob_id`, `attack` (canonical stance, e.g. attack1), `phase` (`start` / `effect` / `impact`), `pos` (captured feet), `facing`, `area` (Rect2, captured world-space range), `time` (event tick), `impact_time` (absolute planned sim time), `effect`, `sound` (WZ paths, effect may be empty). Start holds the stance and plays sound; effect phase starts art; impact tests the current player position/grounded state. |
-| `mob_attack` | An ordinary (non-boss) mob's attack (#76): the `boss_attack` fields without `boss_index`, same phases (`start` / `effect` / `impact` / `hit`) |
+| `mob_attack` | An ordinary (non-boss) mob's attack (#76): the `boss_attack` fields without `boss_index`, same phases (`start` / `effect` / `impact` / `hit`). `hit` (the hit art) is not emitted when the hit window turns the attack away at impact (#144, tier C); no `player_hit` either. A rolled MISS still emits `hit` |
 | `mob_projectile_spawned` | `proj`, `mob`, `mob_id`, `pos` (muzzle), `velocity` (Vector2 px/s), `range`, `speed` (float), `ball`, `hit` (WZ paths), `time` |
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact that consumes the ball, also when a MISS prevents damage; not emitted (and the ball flies on) when the hit window blocks an ordinary ball, `RunWorld.hit_window_blocks(source)`; boss balls ignore the window |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
@@ -954,9 +954,12 @@ times come in 0.1 ms steps, the browser's timer resolution without cross-origin 
 
 1. **Frame time:** see the table. 60 FPS holds at 330-341 mobs: the capped run played all 7,200 ticks of its 120 s in
    7,081 recorded frames (frames right after a screenshot are not recorded, and fewer than 2% ran a catch-up tick),
-   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs can't be
-   reached: Henesys caps at 330 alive from 15:00 (`stages.json`), and in this seed the bot dies at 15:07 on both
-   platforms.
+   with p99 16.8 ms and no frame over 21.5 ms; and the uncapped p95 of 8.7 ms leaves half of the 16.7 ms budget. 400 mobs were not
+   reached because in this seed the bot dies at 15:07 on both platforms. Henesys' alive cap is not a flat 330
+   (`stages.json`, `SpawnDirector.max_alive_at`): its `max_alive` keyframe curve reaches 330 at 15:00 and, past that last
+   keyframe, keeps rising at a quarter of its previous slope (`post_duration_slope` 0.25: 0.125 mobs/s, about 345 by
+   17:00). Bursts may go past the curve up to `hard_cap` 400, and elites spawn while fewer than 400 are alive; boss
+   summons (MobSkill 200) and revives are bounded by their canonical summon limit and revive list, not by `hard_cap`.
 2. **Sim:** 1.38x desktop: 3.9 ms/tick at about 340 mobs, 1.7 ms at 200-290.
 3. **Peak wasm heap:** 178 MiB in a `--run` session with 200-341 mobs; it stops growing during the warp. The title
    screen alone takes the heap to 339 MiB, and the heap never shrinks, so a full title-to-round session peaks at 339
@@ -1020,8 +1023,16 @@ source. Nothing the engine could sync lives in `/userfs` but the cache, saves an
 
 **Storage.** The worker deletes the old cache records, writes directory records and files straight into IndexedDB
 `/userfs` (`idbfs.js`: batches of at most 50 records or 32 MiB) and `cache.json` last, so an interrupted import leaves no
-`cache.json` and reads as "no cache". `navigator.storage.persist()` runs at boot and after an import. The result shows
-in the footer of the shell screens and in a toast at the first game start ("kept (persistent)" or "best effort").
+`cache.json` and reads as "no cache". The footer never waits on the browser's permission prompt (#148): at boot
+`navigator.storage.persisted()` is read without prompting and shown at once ("kept (persistent)", else "best effort";
+"not confirmed by this browser" when the API is missing or throws), then `persist()` is asked in the background and a
+grant upgrades the line (a refusal keeps best effort). The call after an import refreshes the usage figure and starts
+no second request while one is pending. The toast at the first game start reports the immediate state. The decision
+and the dedupe state machine are `createPersistence` / `storageStatus` in `web/lib.js`, covered by the Node tests.
+
+**Console line at engine quit.** Every engine quit on the single-threaded web template logs `Pages in use exist at exit
+in PagedAllocator: N16WorkerThreadPool5GroupE` from Godot itself (#147, closed wontfix). It is harmless: no game code
+uses the thread pool, `onExit(0)` fires and the saves reach IndexedDB.
 
 **Request marker (the protocol).** `user://web_request.json`, i.e. `/userfs/MapleSurvivors/web_request.json`:
 
@@ -1072,10 +1083,15 @@ for the copy of the workflow on the default branch.
 
 CI runs on Linux with no asset cache and no Arial/Tahoma/Dotum, which found two test assumptions that Windows runs hide
 (fixed in the tests only): `test_maple_text_wrap_and_ellipsize` now accepts the bundled-Arimo `FontVariation` as well as
-a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` keeps its 20-minute golden digest for
-Windows only: on Linux the same code and data produce other event bytes for seed 1 (cause not investigated, probably
-the platform's math library), so there it checks that two replays on the same machine agree. The web build's wasm
-output was recorded as identical to Windows in 10.1; the Linux difference was not compared against wasm.
+a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` used a Windows-only 20-minute golden
+because its event digest differed on Linux for seed 1 (16 of 72000 ticks). The cause (#142) was the digest's
+serializer, not the simulation: `JSON.stringify` writes `Vector2` fields through float-to-text, which rounds exact
+decimal ties differently per platform (`1090.8125` gives `.813` on Windows and `.812` on Linux). The digest now hashes
+`var_to_bytes` of the drained events, never float text, and one golden is asserted on every platform for the full
+20 minutes (same digest on Windows and Linux Godot 4.7.2). libm does differ across platforms (one `sin` in the flyer
+bob, integer-exponent `pow` calls in upgrades), but none of it reaches the event stream today; replacing them with
+deterministic approximations is out of scope. The #131 "wasm matches Windows" result in 10.1 compared checkpoints
+(kills, levels, alive count, death time), not event bytes; the wasm build was not compared against the new golden.
 
 **One-time owner setup:** repository Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**. Until that
 is set the `deploy` job fails (the `build` job and pull requests are unaffected). The site is then at
@@ -1102,7 +1118,8 @@ Minutes 15 and 16 (342-356 mobs) on their own, uncapped: web p95 16.8 / 16.4 ms 
 p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
 
 1. **What changed since 10.1.** With B2/B3 the same seed no longer dies at 15:07: the bot is alive at 17:00 with up to
-   356 mobs (Henesys' cap of 330 no longer holds), and the desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
+   356 mobs. That is the alive cap working as designed (10.1 item 1): the curve is at about 345 by 17:00, and a burst
+   or an elite adds the rest. The desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
    measured 2849 at 292-341 mobs. The web/desktop ratio is unchanged (sim 1.36x here, 1.38x in 10.1; frame p95 1.8x,
    p99 2.3x).
 2. **Verdict against the bar (60 FPS at 330-400 mobs): marginal.** Median and mean are comfortable (p50 4.2-4.6 ms,
@@ -1119,8 +1136,37 @@ p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
    game or shell). With it the build renders and plays: folder and zip import (8-9 s), title, character creation, a
    round, Key Config, Options, fullscreen, pause, Continue after a reload, tier 2, death and history. Firefox frame
    times were not measured (one rAF probe at the title read about 35 callbacks per second; not investigated). Firefox
-   also leaves the import screen's "Storage: checking..." line unresolved until its persistence permission prompt is
-   answered.
+   also left the import screen's "Storage: checking..." line unresolved until its persistence permission prompt was
+   answered (fixed in #148, see Storage in 10.2).
+
+**#146 re-measure (2026-10-18).** The drop pool was not the cost. A per-system profile of the late round
+(`game/tools/profile_run.gd`) found 110-150 drops lying (the bot collects them) and the pickup step at 2-3% of the tick.
+More than half of the tick (51-56%) was SkillRunner rescanning targets on ticks where no ready skill could be paid for:
+every ready skill built and sorted its target list only to fail the MP check. Another 14% went to the per-tick
+projectile defense loop. Both now give the same answers with less work, and the sim output is unchanged (see
+`test_tick_cost_identity.gd`). What is left is per-mob work: swarm movement, the director's recycling and the grid
+rebuild.
+
+Seed 2026 cannot be re-measured over this window on current main: since mob attacks (#145) and the hit window (#171)
+its bot dies at 4:47, and none of seeds 1-12 is alive at 17:00 either (one clears at 15:15, the others die between 5:24
+and 15:12). The rows below use **seed 5** (Cleric, Lv38, alive at 15:00, dies at 15:12) over 13:00-15:00, so they are not
+comparable with the seed-2026 rows above. Base = b2ef00d (main before
+#146), after = b0a17c5; each tree exported with `scripts/export.sh --web` and played the same day with the same flags:
+`--run=henesys_hg1 --seed=5 --autoplay --autopick --speed=1 --warp=780 --perf --vsync=off --shot-every=30
+--quit-after=900`, Chrome 155 headed and uncapped, real v83 data imported in-page from the folder, driven by
+`web/dev/perf_run.mjs`. Desktop is `scripts/playtest.sh --seed=5 --speed=1 --warp=780 --minutes=15 --vsync=off`. The
+dev PC's main display ran at 164 Hz (3440x1440; a second display at 143 Hz). Other agents' Godot test runs were active on
+the machine at times during the session. Both trees play the same round: 2640 kills, Lv38, `missing: []`.
+
+| Window (seed 5) | Mobs (minute means / max) | Build | Web frame ms p50 / p95 / p99 / max | Desktop frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|---|
+| uncapped 13:00-15:00 | 285-338 / 339 | base b2ef00d | 4.0 / 8.8 / 11.9 / 19.1 | 2.25 / 5.41 / 6.49 / 16.2 | 3166 / 2274 |
+| uncapped 13:00-15:00 | 285-338 / 339 | after b0a17c5 | 4.0 / 6.7 / 9.7 / 20.8 | 2.26 / 3.58 / 4.39 / 15.7 | 1252 / 836 |
+
+Minute 14 alone (338 mobs): web p95 / p99 9.3 / 12.5 ms before, 6.1 / 8.1 ms after; desktop 5.55 / 6.53 ms before,
+3.42 / 4.14 ms after. Frame work p95 (RunScene's own work per frame): web 5.9 -> 3.2 ms, desktop 4.0 -> 1.9 ms. Peak wasm
+heap 286 MiB in both. With seed 2026 gone, nothing here reaches 340-400 mobs, so the bar of 60 FPS at 330-400 mobs is
+measured only up to 339 mobs: at 339 the web p99 is now 8-10 ms against the 16.7 ms budget.
 
 ### Web profile (#134)
 

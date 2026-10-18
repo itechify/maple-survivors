@@ -3,11 +3,13 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "dc53e01e27abc34ca2b99bd37d4f7e42c788240fab36bfa0d9647cc22be95506"
+## Captured on Windows after merging #142; binary event encoding is platform independent (see below).
+const GOLDEN := "b452687752046c1e218794598caff4133379f4ea98d82056166bfa659dc9a6e5"
 
 
-## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
+## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
+## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
+## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
 	w.god = true
@@ -21,7 +23,7 @@ func _event_digest(ticks: int) -> String:
 		for event: Dictionary in events:
 			# Spec #34 (#119) added `collector` to pickup_collected; the stream is otherwise unchanged, which is the point.
 			event.erase("collector")
-		digest.update(JSON.stringify(events, "", false, true).to_utf8_buffer())
+		digest.update(var_to_bytes(events))
 	return digest.finish().hex_encode()
 
 
@@ -48,11 +50,12 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# the run takes whichever job that draw gives. With jobs.json 100 locked ("Not in this build") the #153 hash 1a6cdb7c...
 	# is reproduced exactly (checked on the pre-merge head).
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
-	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
-	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
-	# decision on whether to keep this platform split is pending), so there the test
-	# checks what survives a platform change: two runs on the same machine agree, over two minutes of play.
-	if OS.get_name() != "Windows":
-		assert_eq(_event_digest(7200), _event_digest(7200), "two replays agree (the golden digest is Windows-only)")
-		return
-	assert_eq(_event_digest(72000), WINDOWS_GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")
+	# Platform independent (#142): the digest hashes var_to_bytes of the events, not JSON text. The earlier Windows-only
+	# golden differed on Linux in 16 of 72000 ticks, all from one artifact: JSON.stringify writes Vector2 fields through
+	# float-to-text, which rounds exact decimal ties differently per platform (1090.8125 -> .813 on Windows, .812 on
+	# Linux). The simulation itself did not diverge. libm does differ across platforms (a sin in the flyer bob,
+	# integer-exponent pow calls in upgrades) but none of it reaches the event stream today.
+	# Re-captured for the #142 merge onto spec #151 (serializer only). This branch retains the #153 crit rolls and
+	# #163 Warrior option / seeded first-job pick above, so its golden legitimately differs from main's 9545f55b... .
+	# The binary digest matches on the unoptimised 19ca0a8 tip and the merged code (Windows, Godot 4.7.2).
+	assert_eq(_event_digest(72000), GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

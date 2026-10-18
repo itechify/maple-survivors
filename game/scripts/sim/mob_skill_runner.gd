@@ -188,6 +188,28 @@ func move_slot(from: int, to: int) -> void:
 	reset_slot(from)
 
 
+## For every slot below `n` whose `active` entry is set, writes its live magic defense into `mdd` (`kind_mdd[kind[slot]]`,
+## the kind's canonical MDD, plus defense_bonus(slot, true, now)) and 1/0 into `physical` (physical_hit_allowed); other
+## slots keep what they held. Optional canonical PDD and output arrays include physical defense in the same pass
+## (spec #151). The same numbers as the per-slot calls in one pass (issue #146).
+func fill_live_defense(active: PackedByteArray, kind: PackedInt32Array, kind_mdd: PackedFloat64Array, n: int,
+		now: float, mdd: PackedFloat32Array, physical: PackedByteArray,
+		kind_pdd: PackedFloat64Array = PackedFloat64Array(), pdd: PackedFloat32Array = PackedFloat32Array()) -> void:
+	var buffed := _pdd.size()
+	var immune := _weapon_until.size()
+	for slot in n:
+		if active[slot] == 0:
+			continue
+		var bonus := 0.0
+		if slot < buffed:
+			bonus = _mdd[slot] if now < _mdd_until[slot] - 1e-9 else 0.0
+		mdd[slot] = kind_mdd[kind[slot]] + bonus
+		if not pdd.is_empty():
+			var physical_bonus := _pdd[slot] if slot < buffed and now < _pdd_until[slot] - 1e-9 else 0.0
+			pdd[slot] = kind_pdd[kind[slot]] + physical_bonus
+		physical[slot] = 1 if slot >= immune or now >= _weapon_until[slot] - 1e-9 else 0
+
+
 ## Live weapon immunity at this impact tick; magic damage remains allowed.
 func physical_hit_allowed(slot: int, now: float) -> bool:
 	return slot < 0 or slot >= _weapon_until.size() or now >= _weapon_until[slot] - 1e-9
