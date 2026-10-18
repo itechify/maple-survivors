@@ -104,3 +104,27 @@ func test_rebuild_reuses_and_out_grows() -> void:
 	empty.rebuild(xs, ys, act)
 	assert_eq(empty.query_radius(Vector2.ZERO, 1000.0, out), 0)
 	assert_eq(empty.size(), 0)
+
+
+func test_a_limited_query_returns_the_first_entries_of_the_full_query() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 146
+	var area := Rect2(-500, -1100, 2300, 1600)
+	var p := _points(rng, 700, area)
+	var h := SpatialHash.new(64.0)
+	h.rebuild(p[0], p[1], p[2])
+	var full := PackedInt32Array()
+	var part := PackedInt32Array()
+	for q in 60:
+		var c := Vector2(rng.randf_range(area.position.x, area.end.x), rng.randf_range(area.position.y, area.end.y))
+		var r := Rect2(c, Vector2(rng.randf_range(0, 400), rng.randf_range(0, 300)))
+		var rad := rng.randf_range(0, 250)
+		for limit: int in [1, 3, 8, 1000]:
+			var n := h.query_radius(c, rad, full)
+			var k := h.query_radius(c, rad, part, limit)
+			assert_eq(k, mini(n, limit), "circle: at most `limit` entries")
+			assert_eq(part.slice(0, k), full.slice(0, k), "circle: the first entries, in the same order")
+			n = h.query_rect(r, full)
+			k = h.query_rect(r, part, limit)
+			assert_eq(k, mini(n, limit), "rect: at most `limit` entries")
+			assert_eq(part.slice(0, k), full.slice(0, k), "rect: the first entries, in the same order")
