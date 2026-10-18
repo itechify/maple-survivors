@@ -9,7 +9,7 @@ extends RefCounted
 ## level is too low, else the survivor reason such as "Not in this build"). A first job with weapon `paths` (survivor
 ## jobs.json `paths`: [{id, label, item_id, family}], spec #151 #157) is listed once per path while it is playable (a locked one stays a single entry), each entry carrying its
 ## `path` id and the path label as its name; other entries have no `path` key. A second job may list the
-## `weapon_families` it can use and a `grant_item`: branch_grant() reads them. should_offer() decides whether a window
+## `weapon_families` it can use and one advancement weapon per family (`grant_items`): branch_grant() reads them. should_offer() decides whether a window
 ## opens at a level: whenever an option is available (so "Not now" asks again next level), and once at exactly the
 ## tier's first advancement level even when nothing is available (the Lv 30 window of GAME_DESIGN 9).
 
@@ -86,14 +86,18 @@ func weapon_families(job_id: int) -> Array:
 	return families.map(func(f: Variant) -> String: return String(f)) if families is Array else []
 
 
-## A second job's weapon grant (survivor jobs.json `weapon_families` + `grant_item`): {families: [String], item_id}.
-## {} when the job lists no families or no grant item (nothing is granted then).
+## A second job's advancement weapons (survivor jobs.json `weapon_families` + `grant_items`, one item id per family in the
+## same order): {weapons: [{family, item_id}]} in weapon_families order. A family without an item id (missing or <= 0) is
+## skipped; {} when no family has one (nothing is granted then).
 func branch_grant(job_id: int) -> Dictionary:
 	var families := weapon_families(job_id)
-	var item_id := int(_survivor.get(job_id, {}).get("grant_item", 0))
-	if families.is_empty() or item_id <= 0:
-		return {}
-	return {"families": families, "item_id": item_id}
+	var raw: Variant = _survivor.get(job_id, {}).get("grant_items", [])
+	var items: Array = raw if raw is Array else []
+	var weapons: Array = []
+	for i in mini(families.size(), items.size()):
+		if int(items[i]) > 0:
+			weapons.append({"family": families[i], "item_id": int(items[i])})
+	return {} if weapons.is_empty() else {"weapons": weapons}
 
 
 ## Display name of a job ("" when unknown).

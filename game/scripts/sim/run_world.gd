@@ -148,6 +148,16 @@ const DEFAULT_INVENTORY_SLOTS := 24
 ## Grid candidates skill_box_count checks before it reads the whole query. Performance only, not behaviour (no
 ## tier): the count is the same for any value.
 const BOX_PROBE := 16
+## Buff effect stats of Hyper Body (percent of the whole Max HP / Max MP). Not the max_mp_percent passive: that one
+## rescales current MP on growth, a buff leaves current HP/MP alone (spec #165 ticket #184).
+const MAX_HP_PCT := "max_hp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
+const MAX_MP_PCT := "max_mp_pct" # tier B: percent of the whole maximum (GAME_DESIGN 11, Hyper Body); the values are tier A.
+## The buff stat both Power Guard skills feed (percent of contact damage). tier B: the String desc of the skill, a
+## third-party v83 reimplementation.
+const POWER_GUARD_STAT := "power_guard"
+## The most one Power Guard reflect may take off a monster, as a fraction of its Max HP. tier B: only in the String desc
+## of the skill (no WZ field), a third-party v83 reimplementation.
+const POWER_GUARD_CAP := 0.10
 
 var setup: Dictionary
 var data: Dictionary
@@ -286,6 +296,8 @@ var _final_keys_version := -1
 var _mp := 0.0
 var _max_hp := 1
 var _max_mp := 0
+## The Hyper Body percentages (x = Max HP, y = Max MP) already inside _max_hp/_max_mp; a change refreshes the maxima.
+var _max_buff_applied := Vector2.ZERO
 var _base_hp := 50.0
 var _base_mp := 5.0
 var _job_mp := 0.0
@@ -574,6 +586,7 @@ func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)
 	_refresh_caster()
 	refresh_player_speed()
+	_refresh_max_buffs()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
 	_write_player_state(0.0)
@@ -772,6 +785,7 @@ func _fill_live_defense() -> void:
 		_kind_pdd[k] = float((mob_kinds[k] as MobKind).pdd)
 	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
 		_live_physical_allowed, _kind_pdd, _live_pdd)
+	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -1002,11 +1016,14 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		_attributes[stat] += roundi(equipment_bonus("inc" + stat.to_upper()))
 	var old_hp := _max_hp
 	var old_mp := _max_mp
-	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive (v83 % buffs act on the base).
-	_max_hp = maxi(1, roundi(loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP")))
+	# tier C: equipment max HP/MP adds flat after card modifiers and the MaxMP passive. The Hyper Body buff then scales
+	# that whole total (base, growth, passives, equipment; tier B, v83), unlike the passive, which leaves equipment out.
+	_max_buff_applied = _max_buff_percents()
+	_max_hp = maxi(1, roundi((loadout.player_stat("max_hp", _base_hp) + equipment_bonus("incMHP"))
+		* (1.0 + _max_buff_applied.x / 100.0)))
 	var mp_percent := loadout.passive_total(Loadout.MAX_MP_PERCENT)
-	_max_mp = maxi(0, roundi(loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
-		+ equipment_bonus("incMMP")))
+	_max_mp = maxi(0, roundi((loadout.player_stat("max_mp", _base_mp + _job_mp) * (1.0 + mp_percent)
+		+ equipment_bonus("incMMP")) * (1.0 + _max_buff_applied.y / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
 	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
@@ -1470,18 +1487,32 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 ## Wears the weapon an advancement grants and moves the previous one to the inventory (a grant never checks
 ## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
 ## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
-## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
+## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's advancement weapons
+## (JobTree.branch_grant, tier C, spec #165 #180): the one of the held weapon's family is worn, else the first family's;
+## the branch's other advancement weapons join the Equip tab after the displaced weapon (_hand_over).
 ## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
 ## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
 ## a slot is free), so advancing never fails.
 func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
+	var others: Array = []
 	if path != "":
 		id = int(jobs.path_of(job_id, path).get("item_id", id))
 	else:
-		var branch := jobs.branch_grant(job_id)
-		if not branch.is_empty() and held_weapon_family() not in branch.families:
-			id = int(branch.item_id)
+		# One pass: the first weapon of the held family is worn, the rest are `others`; with none of that family the
+		# first entry is worn (it comes back off the front of `others`).
+		var weapons: Array = jobs.branch_grant(job_id).get("weapons", [])
+		var worn := -1
+		for raw: Variant in weapons:
+			var w: Dictionary = raw
+			if worn < 0 and String(w.family) == held_weapon_family():
+				worn = int(w.item_id)
+			else:
+				others.append(int(w.item_id))
+		if worn < 0 and not others.is_empty():
+			worn = int(others.pop_front())
+		if worn >= 0:
+			id = worn
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
@@ -1499,6 +1530,8 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	_equipment_changed("grant", "weapon", id)
 	for item: Dictionary in spilled:
 		spawn_equipment(player.pos, item)
+	for other: int in others:
+		_hand_over(other)
 
 
 ## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
@@ -1507,13 +1540,17 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 func _grant_job_items(job_id: int) -> void:
 	var items: Variant = jobs.job(job_id).get("grants", {}).get("items", [])
 	for raw: Variant in items if items is Array else []:
-		var id := int(raw)
-		var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-		if equipment.inventory.size() < inventory_slots():
-			equipment.inventory.append(instance)
-			_equipment_changed("grant", "", id)
-		else:
-			spawn_equipment(player.pos, instance)
+		_hand_over(int(raw))
+
+
+## Gives a new instance of item `id` to the Equip tab, or to the player's feet when the tab is full.
+func _hand_over(id: int) -> void:
+	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
+	if equipment.inventory.size() < inventory_slots():
+		equipment.inventory.append(instance)
+		_equipment_changed("grant", "", id)
+	else:
+		spawn_equipment(player.pos, instance)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -1526,7 +1563,8 @@ func mob_action_view() -> Dictionary:
 ## defense (MobSkillRunner.fill_live_defense in _step_player_attacks) computes both cases in bulk: keep them equal.
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
-	return float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
+	var defense := float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
+	return defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
 
 
 ## Whether a physical impact may damage this slot at the current simulation time.
@@ -1680,7 +1718,41 @@ func _play_final_attacks() -> void:
 		start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
 			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
-		hit_mob(slot, st, visual_index(String(st.hit)), final_rng)
+		var hit_visual := visual_index(String(st.hit))
+		hit_mob(slot, st, hit_visual, final_rng)
+		for extra: int in _spread_targets(slot, int(st.count) - 1):
+			hit_mob(extra, st, hit_visual, final_rng)
+
+
+## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing reach
+## (BasicAttack.reach) of the target's body centre, nearest the target first (scheduled bosses first, then the slot,
+## RunWorld.targets_before). Uses no RNG. tier C: ours; reach is measured around the struck target, as a circle.
+func _spread_targets(target: int, want: int) -> Array[int]:
+	var found: Array[int] = []
+	if want <= 0:
+		return found
+	var reach := basic.reach(self)
+	if reach <= 0.0:
+		return found
+	var centre := mob_center(target)
+	var buffer := PackedInt32Array()
+	var candidates := PackedInt32Array()
+	var count := mob_grid.query_radius(centre, reach + body_pad, buffer)
+	var distance := {}
+	for i in count:
+		var m := buffer[i]
+		if m == target or swarm.active[m] == 0:
+			continue
+		var d2 := mob_center(m).distance_squared_to(centre)
+		if d2 > reach * reach:
+			continue
+		candidates.append(m)
+		distance[m] = d2
+	var ordered: Array = Array(candidates)
+	ordered.sort_custom(func(a: int, b: int) -> bool: return targets_before(a, distance[a], b, distance[b]))
+	for m: int in ordered.slice(0, want):
+		found.append(m)
+	return found
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
@@ -1891,11 +1963,24 @@ func _caster_buff_totals() -> Vector4:
 		buffs.effect_total("attack_speed"))
 
 
+## Active Hyper Body percentages: Vector2(Max HP %, Max MP %), integers like 2..60 straight from the buff snapshots.
+func _max_buff_percents() -> Vector2:
+	return Vector2(buffs.effect_total(MAX_HP_PCT), buffs.effect_total(MAX_MP_PCT))
+
+
+## Recomputes the maxima when the Hyper Body percentages changed (cast or expiry). Current HP/MP keep their values
+## except that the new maximum clamps them (refresh_player_stats; nothing is granted).
+func _refresh_max_buffs() -> void:
+	if _max_buff_percents() != _max_buff_applied:
+		refresh_player_stats(false)
+
+
 func _tick_timers(dt: float) -> void:
 	var caster_buffs := _caster_buff_totals()
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
 	if caster_buffs != _caster_buff_totals():
 		_refresh_caster()
+	_refresh_max_buffs()
 	refresh_player_speed()
 	if _dead:
 		return
@@ -2077,7 +2162,9 @@ func _player_hit(m: int, mk: MobKind) -> void:
 		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
-	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
+	# Threaten (#183): a threatened mob's contact weapon attack is lowered by the level's flat amount, floor 0.
+	var attack := swarm.threatened_pad(m, float(mk.pad))
+	take_hit(attack, false, "", Vector2(swarm.x[m], swarm.y[m]), source)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.
@@ -2125,11 +2212,16 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	if not magic:
 		# tier C: apply canonical Invincible percent to the whole weapon hit, before Magic Guard; minimum 1.
 		dmg = maxi(1, roundi(dmg * (1.0 - clampf(buffs.effect_total("weapon_damage_reduction"), 0.0, 100.0) / 100.0)))
+	# Power Guard (#182): a no-op, with no RNG and no event, unless the buff is active and this is contact damage.
+	var reflect := _power_guard_reflect(dmg, magic, source)
+	dmg -= reflect
 	var split := CombatMath.magic_guard_split(dmg, magic_guard_ratio(), floori(_mp))
 	_hp -= split.x
 	_mp -= split.y
 	_emit_player_hit(dmg, split.y, false, dir, source)
 	upkeep.land_hit(bypass)
+	if reflect > 0:
+		_apply_reflect(int(source.mob), reflect)
 	if _hp <= 0.0:
 		_hp = 0.0
 		_dead = true
@@ -2139,6 +2231,35 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		player.knockback(dir)
 	_write_player_state(0.0)
 	return dmg
+
+
+## Power Guard (#182, spec #165): the part of `damage` (the hit after defence and Invincible, before Magic Guard's split)
+## that goes back to the touching monster. Contact damage only (`source_kind` "touch"; mob attacks, boss attacks,
+## projectiles and magic are never reflected). Amount = damage x the buff's x%, halved against a boss, at most 10% of
+## that monster's Max HP; 0 when no Power Guard is active. Tier B: the rule (third-party v83 reimplementation).
+## Tier C: both amounts are floored, so a monster whose 10% floors to 0 reflects nothing and the hit is not reduced.
+func _power_guard_reflect(damage: int, magic: bool, source: Dictionary) -> int:
+	if magic or String(source.get("source_kind", "")) != "touch":
+		return 0
+	var percent := buffs.effect_total(POWER_GUARD_STAT)
+	var m := int(source.get("mob", -1))
+	if percent <= 0.0 or m < 0 or m >= swarm.capacity() or swarm.active[m] == 0:
+		return 0
+	var boss: bool = mob_boss[m] >= 0 or (mob_kinds[swarm.kind[m]] as MobKind).boss
+	var amount := floori(float(damage) * percent * (0.5 if boss else 1.0) / 100.0)
+	return clampi(amount, 0, floori(float(swarm.max_hp[m]) * POWER_GUARD_CAP))
+
+
+## Hands a Power Guard reflect to monster `m` as the character's own damage (tier C): a damage number, and a kill gives
+## EXP and drops like any other. It does not go through the hit listeners (no Final Attack, no on-hit status).
+func _apply_reflect(m: int, amount: int) -> void:
+	var mk: MobKind = mob_kinds[swarm.kind[m]]
+	var key := buffs.skill_with_effect(POWER_GUARD_STAT)
+	emit("mob_hit", {"mob": m, "mob_id": mk.id, "damage": amount, "crit": false,
+		"pos": Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y), "hit_visual": "", "skill": key})
+	_instant_dealt += amount
+	if swarm.apply_hit(m, amount, 1 if swarm.x[m] >= player.pos.x else -1):
+		_on_kill(m)
 
 
 func _emit_player_hit(damage: int, mp_absorbed: int, miss: bool, dir: int, source: Dictionary) -> void:

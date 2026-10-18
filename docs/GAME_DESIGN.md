@@ -464,6 +464,63 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #165 Warrior second job (#180-#184, QA #185): regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and with
+`--job=110`, `--job=120` and `--job=130`, real cache, no PATCH, no tuning, training seeds only, at the integration tip
+`bf6c42b` (every ticket #180-#184) plus #185's tooling. "Before" is `b6af314`, main as it stood before this spec, rerun with
+the same commands (`--job=100` for the forced rows: the first job a Warrior takes). No crash, script error, world warning
+or `missing` entry in any of the 72 records (16 smoke, 6 fixture and 2 chain configurations, three seeds each).
+
+| Deaths (m:ss, seeds 1 / 2 / 2026) | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| before, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, `--job=110` = `120` = `130` | D 5:39 / 5:31 / 5:23 | D 5:21 / 8:39 / 5:16 | D 2:08 / 1:03 / 0:51 | same |
+
+- **Nothing moved.** Every one of the 12 default-pick records and the 36 forced ones (`--job=110`, `120`, `130`) is byte-identical to the "before"
+  rerun (the forced `--job=110/120/130` records equal the `--job=100` ones once the `forced_branch` field is masked), so the
+  spec changes no Magician, Beginner or first-job Warrior seeded record, as the decisions require. The older rows of
+  4.2 (spec #151's smoke, `b3599ba`) reproduce at `b3599ba` with this cache (rerun `--job=100`: bot D 5:29 / 5:36 / 5:27,
+  random D 5:41 / 5:15 / 5:15 by truncated seconds) and differ from this "before" by the content `b6af314` gained from
+  main when #176 was squash-merged (#173 Legendary ranks, #177, #175); that was not bisected further, and this smoke's own
+  `b6af314` rerun is the comparison.
+- **The smoke cannot reach the second job.** A forced Warrior is Lv 11-12 when it dies at the first boss (Mano, 5:11-5:40;
+  the bot never kills it, as in spec #151's record); the one exception is the careless `random` policy's seed 2 (Lv 27, dies
+  at 8:39 after killing Mano). No run reaches Lv 30, so `--job=110/120/130` only forces the first job (every Warrior takes job
+  100 at 4:25-4:34) and these rows do not exercise the second-job code. Henesys: 0 clears, every run dies; Mano is killed in
+  2 of 6 default-pick runs and 1 of 6 forced ones (all unchanged from "before"). The Tree That Grew dies before the first job
+  in every run (record only, as the owner's rework is pending).
+- **`--tier=2` chain** (seeds 1 2 2026, default pick and `--job=110`): no tier-1 clear exists to feed it (0/3 and 0/3), so
+  tier 2 never starts. The chain code is covered by `test_balance_chain.gd`; there is no real clear-fed Warrior chain to record.
+- **Branch fixtures on `--stage=dark_cave`** (`--character=`, 3 seeds, bot and random). These do run second-job code:
+  the fixtures carry the Final Attack, Booster and Mastery cards the bot took in the advancement draw and later levels
+  (the other second-job skills are exercised by the playtests below, not by these records):
+
+| Fixture (Lv 34) | Dark Cave bot, deaths | Dark Cave random, deaths | first boss (6300005) killed |
+|---|---|---|---|
+| `lv34_fighter_2nd.json` (110) | D 5:27 / 5:19 / 3:51 | D 5:15 / 5:19 / 3:24 | 0 of 4 spawned fights |
+| `lv34_page_2nd.json` (120) | D 5:10 / 6:41 / 5:07 | D 5:19 / 5:28 / 3:28 | 1 of 5 |
+| `lv34_spearman_2nd.json` (130) | D 10:03 / 10:12 / 3:54 | D 5:20 / 9:27 / 3:46 | 3 of 4 (the second boss spawns, not killed) |
+
+  No clears; every run dies (seed 2026 before the first boss in five of its six runs). The two longest
+  Dark Cave runs are the bot Spearman seeds 1 and 2 (10 minutes, Lv 59-60). Recorded for the balance pass, not tuned; no
+  run clears without a death and not every run dies before the first boss, so the stop-and-ask conditions do not apply.
+- **Fixtures.** `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: real headless Henesys bot rounds,
+  seed 1, policy `bot`, `--job=<110|120|130> --god=1 --seconds=600` (`tools/character_fixture.gd`, revision in each `_doc`).
+  `--god=1` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
+  reaches the Lv 30 advancement (Mano is killed at 6:07 by the invulnerable Fighter; Lv 34 at 10:00; `_doc.invulnerable`
+  says so). Regenerating each one twice with the same revision reproduces it byte for byte.
+- **Flow driver** `--scenario=warrior2 --job=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
+  advancement weapons, a real advancement-draw skill, the Skill window with the unheld family greyed, Save & quit, Continue)
+  passes for all three branches; see its header in `flow_driver.gd`. Playtest evidence shots are
+  `<final attack key>_followup.png` and `reflect_first.png` (RunScene, `_shots_dir` only). The in-action shots (Final Attack follow-up, Rage, Power Guard, Threaten, Hyper Body)
+  come from three-minute `playtest.sh --stage=dark_cave --character=` runs of evidence-only copies of the fixtures with
+  every branch skill at rank 10 (not committed); on Henesys a Lv 34 Warrior one-shots everything, so no follow-up fires there.
+- **Full suite** (cache `spec165`): 1752 tests, 0 failed, 0 skipped, 154 files; the tests that need the cache ran, none SKIPped.
+  The three fixtures were regenerated from the committed code with their recorded revision and are byte-identical to the
+  committed files.
+
 #### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, once with the default
@@ -3212,8 +3269,8 @@ held weapon family fails the skill's `weapon_families` (7.5), and none of them c
 A skill declares them in skills.json as `passive: {"stat": "mastery", "field": "mastery", "effects": [{"stat": "acc",
 "field": "x"}]}`: the first stat as before, the rest in the optional `effects` list. **Buffs.** `watk` (Rage's `pad`) adds to
 W.Att while active, refreshing the physical bounds the tick it starts or ends; a buff `effects` entry takes an optional
-`scale` (default 1), so Rage's weapon-defence penalty is `{"stat": "pdd", "field": "pdd", "scale": -1}` (check the sign
-Skill.wz stores when the Warrior spec lands) and lowers `hit_defense().pdd` while it lasts.
+`scale` (default 1). The real Rage needs none: Skill.wz already stores its `pdd` negative (-3 to -12), so the entry is
+`{"stat": "pdd", "field": "pdd"}` and lowers `hit_defense().pdd` while it lasts (7.10).
 
 **Final Attack.** A passive skill with `final_attack: {"chance_field": "prop"}`, `damage: "physical"` (the canonical
 `damage` is the follow-up's skill percent) and an `action` (the stance whose swing/stab/shoot kind picks the bounds).
@@ -3247,15 +3304,15 @@ at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) 
   and what changing that would move.
 
 **Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
-number of steps *faster* (positive; the v83 Boosters are 2; a real Booster entry must check the sign Skill.wz stores for `x`
-and use `scale` if it is negative, as for Rage's WDEF). It is an ordinary auto-cast buff: cast when inactive, ready and
+number of steps *faster* (positive; the v83 Boosters are 2). Skill.wz stores `x` as -2 (a smaller speed number is faster),
+so the real Boosters declare `scale: -1` (7.9). It is an ordinary auto-cast buff: cast when inactive, ready and
 affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
 gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
 the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
 counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
 `Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
-weapon change refreshes them and the cached skill stats). Only synthetic Boosters exist today (`test_attack_speed.gd`);
-the real ones come with the class specs.
+weapon change refreshes them and the cached skill stats). `test_attack_speed.gd` tests the consumer with a synthetic
+Booster; the six Warrior second-job Boosters are the first real ones (7.9).
 
 ### 7.8 Warrior first job (100, #163)
 
@@ -3319,6 +3376,167 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
 
+### 7.9 Warrior second job: Masteries, Boosters and Final Attack (#181)
+
+Eighteen v83 skills from `Skill.wz/110.img`, `120.img` and `130.img` (canonical level counts and numbers, icons, effect
+and hit art, Booster sounds), all appended to `skills/warrior.json` and `upgrades/warrior.json` (spec #165). A second job
+gets no attack skill of its own (7.8, `requires.carry_jobs`): the Final Attack is the branch's *attack skill*
+(GLOSSARY), the Mastery and Booster support it, and Power Strike and Slash Blast stay on offer.
+
+| Branch | Mastery (20) | Final Attack (30) | Booster (20) |
+|---|---|---|---|
+| Fighter 110 | `sword_mastery_fighter` 1100000, `axe_mastery` 1100001 | `final_attack_sword_fighter` 1100002, `final_attack_axe` 1100003 | `sword_booster_fighter` 1101004, `axe_booster` 1101005 |
+| Page 120 | `sword_mastery_page` 1200000, `bw_mastery` 1200001 | `final_attack_sword_page` 1200002, `final_attack_bw` 1200003 | `sword_booster_page` 1201004, `bw_booster` 1201005 |
+| Spearman 130 | `spear_mastery` 1300000, `polearm_mastery` 1300001 | `final_attack_spear` 1300002, `final_attack_polearm` 1300003 | `spear_booster` 1301004, `polearm_booster` 1301005 |
+
+A name two branches share takes the branch suffix; a unique name stays plain. Each skill works only while its own family
+is held: sword, axe and blunt cover the one- and two-handed weapons, spear and polearm are separate families
+(`weapon_families`, 7.5). The WZ nodes carry no `weapon` field, so every entry lists its family (tier C, v83-facts 3).
+
+- **Mastery** (`passive: {stat: mastery, field: mastery, effects: [{stat: acc, field: x}]}`, 7.6). Skill.wz `mastery` is a
+  step 1..10 (`ceil(level / 2)`: levels 1 and 2 are both step 1), shown as (10 + 5N)% = 15% to 60%; the accuracy is `x`
+  (+1 to +20 at level N), there is no `acc` key. Raises the minimum damage of every physical line and ACC only while its
+  family is held.
+- **Booster** (kind `buff`, auto-cast, recast on expiry, `time` 10 s per level up to 200 s, 7.7). The WZ `x` is -2 at every
+  level (v83 speed steps: negative is faster), so the entry reads it with `scale: -1` and the consumer gets +2 steps.
+  It pays canonical `hpCon` and `mpCon` together (29 at level 1 down to 10 at 20), and is not cast when the HP cost would
+  leave 0 HP (7.8). A swap to another family stops the speed-up without cancelling the buff.
+- **Final Attack** (`final_attack: {chance_field: prop}`, 7.6): `prop` = 2% per level (2 to 60%), follow-up damage
+  `damage` = 100 + 5 x level percent (105 to 250%). The WZ node has no follow-up action and no sound, so the follow-up
+  plays the held weapon's attack stance (`action: "weapon"`, 7.8; 0.6 s, tier C) and uses the `hit/0` art. Only a hit
+  with its own family triggers it; the Fighter holding an axe never rolls the sword Final Attack. RNG stream 12 as in 7.6.
+- **Spread** (one `skill_mod` card per Final Attack, `<final attack key>_spread`, name "Spreading Blow"; effect
+  `count` +1, three steps, a power card, weight 2). "The follow-up also strikes +N monsters next to the target": after the
+  follow-up hits the original target, up to N other live monsters whose body centre is within the held weapon's swing
+  reach (`BasicAttack.reach`, the far edge of its afterimage envelope, tier A) of the *struck target's* body centre are hit
+  by the same follow-up (the same stats, one `mob_hit` each). Candidates are ordered like every player targeting rule
+  (`RunWorld.targets_before`): a scheduled boss first, then the nearest to the target, then the lower slot. Spread
+  uses no RNG: the proc roll stays on stream 12 and the extra hits roll their damage and crits on it as the primary
+  follow-up does. Extra hits never trigger another Final Attack. This is also the hit-more-mobs card of the Final Attack
+  (the #84 rule in `test_data_files`), which is why only these six need it; Masteries and Boosters are damage-less passives.
+
+**Cards** (`upgrades/warrior.json`; each skill has a learn and a rank card, rank cards cap at the canonical level count;
+every card lists only its own branch in `requires.jobs`; weights are tier C): Final Attack and Booster learn and rank
+cards and the Spread cards are `power: true`; Masteries are not. A card is offered only while the held weapon family is
+the skill's (7.5), so a sword-holding Fighter sees Sword Mastery, Sword Booster and Final Attack: Sword cards and never the
+axe's, and after wielding the axe the reverse. Because the Final Attack and Booster learn cards are power cards listing the
+new job, the advancement draw (7.8, section 8) offers the held family's Final Attack and Booster. A Mastery appears
+among the other new skills of that draw.
+
+**Bot.** `balance.json` `bot.card_scores` scores the new and rank cards of all eighteen skills as attack cards: learn 100
+(the `SCORE_NEW_ATTACK`), rank 74 (`SCORE_RANK_ATTACK` 62 plus the current-job bonus 12), because the generic scoring
+treats a buff or a passive as non-attack. Spread scores as a targets card (75 plus the job bonus). No cast rules: the
+Booster is an ordinary auto-cast buff.
+
+**Presentation.** Skill and level text is the v83 String.wz text (no overrides: none of these strings says "party" or
+"canonical"; the Blunt Booster says "mace", as v83 does). The rank cards preview `Accuracy` for a Mastery (its `x`) and
+`Success rate` (`prop`) beside `Damage` for a Final Attack (`UpgradePool.PREVIEW_FIELDS`, `LevelUpWindow`).
+
+**Tests.** `tests/unit/test_warrior2_weapon_skills.gd` (RF skill fixtures carry the exact v83 level formulas; one test
+reads the real Skill.wz and SKIPs without the cache): every Mastery's minimum damage and ACC only for its family,
+every Booster's cost, speed steps, family gate and recast, every Final Attack's proc rate per family, Spread's
+count, reach, order and determinism, the cards by held family, the advancement draw and the bot scores.
+
+### 7.10 Rage and Power Guard (#182)
+
+Three buffs from `Skill.wz/110.img` and `120.img` (spec #165): **Rage** 1101006 (Fighter, 20 levels, key `rage`) and
+**Power Guard** 1101007 (Fighter, `power_guard_fighter`) / 1201007 (Page, `power_guard_page`), 30 levels each. All three
+are ordinary self-only auto-cast buffs (cast when inactive and affordable, recast the tick after expiry, effects
+snapshot at the cast, 0.8 s `alert2` stance, canonical `mpCon`, `time`, effect art and `Use` sound). The cards are
+not `power`: `rage_new`/`rage_rank` (Fighter, 110), `power_guard_fighter_*` (110) and `power_guard_page_*` (Page, 120),
+weights 3 and 2.
+
+- **Rage.** W.Att +`pad` (3 to 12) and weapon defence +`pdd` (the WZ number is already negative, -3 to -12; no `scale`),
+  46 to 160 s. Any held weapon. The WZ node is a party buff: here it affects you only, and its text says so (the
+  `text.desc` override, 8.2). The WZ `affected` art (what party members see) is not used.
+- **Power Guard.** While active, **contact damage** (glossary: a monster's body touching you; `source_kind` "touch")
+  is reflected. Mob attacks, boss attacks, projectiles and magic never are. The reflect is
+  `floor(damage x x% / 100)` (x = 11 to 40, the buff's snapshot), halved against a boss (tier C: `MobKind.boss`, the canonical info/boss flag, or a scheduled boss slot,
+  so an unscheduled boss kind also gets the half rate), and at most `floor(10% of that monster's Max HP)`. The same amount comes off the damage the character
+  receives. No RNG.
+- **Where it sits.** `RunWorld.take_hit`: hit window and god/dead guard, then avoid (a miss reflects nothing), then the
+  defence formula, then the Invincible reduction, then **Power Guard** (`_power_guard_reflect`), then Magic Guard's
+  MP split on what is left, then HP/MP, the `player_hit` event (its damage is the reduced hit), the window and the
+  reflect (`_apply_reflect`). So Magic Guard's percentage applies to the already-reduced damage, and the hit window
+  still allows one touch per window, hence one reflect per window. The step is a pure no-op without the buff:
+  no RNG, no event, so every earlier record stays byte-identical.
+- **The reflect is the character's damage.** It emits a `mob_hit` (the Power Guard key as `skill`, no hit art, never a
+  crit), counts in `damage_dealt`, and a kill goes through `_on_kill` (EXP, drops, boss rewards, kill count) like
+  any player kill. It does not go through the hit listeners: no Final Attack, no on-hit status, no MP Eater.
+  Frozen or immune monsters are not special-cased (the reflect ignores physical immunity). A non-boss is staggered and
+  pushed by it like by any player hit (`MobSwarm.apply_hit`). It resolves before the player's death check, so a lethal
+  touch still reflects and its `mob_hit` / `mob_died` come before `player_died`.
+- **Not done.** Prerequisite skills in the WZ `req` nodes (Power Guard needs Rage 3 / Threaten 3) are ignored (#31).
+  Both Power Guards feed the one `power_guard` stat; branch exclusivity means a run owns one.
+- **Bot.** `balance.json` `bot.card_scores`: `rage_new` 100 and `rage_rank` 74 (what an attack card scores), so Rage is
+  picked like an attack. Power Guard has no entry: it scores as the other defensive buffs without one (Iron Body), 50
+  for the learn card and 42 plus the current-job bonus for the rank card. Tests: `test_power_guard.gd`.
+
+### 7.11 Threaten (#183)
+
+Page (120) learns Threaten 1201006 (20 levels, `skills/warrior.json` `threaten`): it puts the **threatened** status on
+the monsters around the player, lowering their weapon attack and weapon defence by flat amounts for a while. It is the
+fourth player-inflicted monster status beside slow, poison and freeze (`MobSwarm.THREATENED`, same flattened table, same
+refresh-without-stacking and boss rules) and it coexists with all three.
+
+- **Numbers (tier A, Skill.wz/120.img).** `x` is the weapon-attack change and `y` the weapon-defence change, both flat and
+  negative (-1 at level 1 to -20 at level 20, always equal); `time` 44 s to 120 s (+4 s per level); `mpCon` 12 (levels
+  1-10) or 20; `mobCount` 6; the box `lt`/`rb` (-250,-150)/(250,150), widening to (-300,-200)/(300,200) at level 11. The
+  node has **no `prop`**: every target takes it, nothing is rolled and Threaten draws no random number (RNG stream 13 stays
+  reserved for this spec and unused). The alert2 action, the cast effect, the `mob` overlay (eight frames, pos 2, repeat 1:
+  it repeats above a threatened monster's head like the poison cue) and the `Use` sound are the WZ art.
+- **Cast (tier C).** The `crowd` rule with `cast.status: "threatened"` (`SkillRunner.crowd_status`; "slow" when a crowd
+  skill names none, so Slow is unchanged): auto-cast when at least 3 monsters in the box can take it (live, not a boss, not
+  resisting statuses, not threatened yet), 1 s cooldown, pays the canonical MP once, targets the nearest `mobCount` of them.
+  Slow's "two consecutive casts per monster" history is Slow's own; a Threaten cast does not touch it, and a slowed monster
+  is still a Threaten target (and the reverse).
+- **Effect.** While threatened a monster's weapon attack falls by `-x` and its weapon defence by `-y`, each floored at 0
+  (`MobSwarm.threatened_pad` / `threatened_pdd`; a reapplication replaces the cut and restarts the clock, it never adds up).
+  Weapon attack is lowered where a monster's PAD becomes damage: contact damage (`RunWorld._player_hit`) and physical
+  ordinary attacks and their balls (`MobAttacks._impact`), before the stage's damage multipliers and the player's defence;
+  magic attack is untouched. Weapon defence is lowered in `RunWorld.mob_defense` and in the bulk projectile fill
+  (`MobSwarm.lower_threatened_pdd`), so the player's physical hits, shots and Final Attacks all see it; magic defence is
+  untouched. Death, release and relocation end the status silently, as for the other statuses.
+- **Cards and bot.** `threaten_new` / `threaten_rank` (`requires.jobs: [120]`, not power cards, weights 3 / 2); the rank
+  preview shows `x` as "Monster weapon ATT / DEF". The bot scores them by default, like Iron Body
+  (no `balance.bot.card_scores` entry: the crowd rule is not an attack, tier C) and needs no cast rule (every skill auto-casts).
+
+### 7.12 Iron Will and Hyper Body (#184)
+
+The Spearman's (130) two buffs, `skills/warrior.json` keys `iron_will` (1301006, 20 levels) and `hyper_body` (1301007, 30
+levels). Both are `buff` skills in the passive slot like Iron Body: auto-cast while inactive and affordable, recast on
+expiry, 0.8 s `alert2` stance, effect art and the `Use` sound, effects snapshot at cast. The WZ skills are party buffs;
+here they affect the character only and the text says so (`text.desc` overrides, never "party").
+
+| Skill | Effect | Source |
+|---|---|---|
+| Iron Will | WDEF `pdd` +1..+20 and MDEF `mdd` +1..+20 for 15..300 s (15 s per level), MP 12 (Lv 1-10) / 24 (Lv 11-20) | A: Skill.wz 130.img |
+| Hyper Body | Max HP `x` +2..+60 % and Max MP `y` +2..+60 % for 10..300 s (10 s per level), MP 20 (Lv 1-10) / 40 (11-20) / 60 (21-30), Lv 25 costs 50 as the WZ node says | A: Skill.wz 130.img |
+
+- **Iron Will** uses the existing buff consumers only: `pdd` and `mdd` go through `RunWorld.hit_defense()`, so contact
+  hits, ordinary mob attacks and balls lose `floor(0.75 x defence)` (`CombatMath.monster_damage`) physically and, for
+  magic attacks, by the M.DEF side.
+- **Hyper Body** adds two buff stats, `max_hp_pct` (field `x`) and `max_mp_pct` (field `y`)
+  (`RunWorld.MAX_HP_PCT`/`MAX_MP_PCT`), folded into `refresh_player_stats`: `Max HP = round((player_stat(max_hp) + worn
+  incMHP) x (1 + x/100))` and `Max MP = round((player_stat(max_mp) x (1 + MaxMP passive) + worn incMMP) x (1 + y/100))`, so
+  the percentage covers base, level growth (Improved MaxHP Increase), passives and worn equipment (tier B, v83). With no
+  buff the factor is exactly 1.0 and the formulas equal the ones before. It is deliberately not the `max_mp_percent`
+  passive: that path rescales current MP to the new maximum, Hyper Body leaves current HP and MP unchanged at cast
+  (nothing is granted, only the maximum rises), and when it ends HP and MP above the normal maximum drop to it
+  (`refresh_player_stats` clamps); HP and MP below it are untouched.
+- **Refresh.** `RunWorld._refresh_max_buffs()` compares the active percentages with the ones already inside `_max_hp`/
+  `_max_mp` (`_max_buff_applied`) on every cast (`start_buff`) and every timer tick, so a cast, an expiry (also the same
+  tick a recast follows) and any later `refresh_player_stats` agree. `player_state.max_hp/max_mp` carry the raised
+  maximum, so the HUD bars and the Stat window show it while active.
+- **Cards** (`upgrades/warrior.json`): learn and rank cards per skill, `requires.jobs: [130]`, not `power`; weights 3 (learn)
+  and 2 (rank), tier C. The WZ prerequisites (Hyper Body needs Iron Will Lv 3) are ignored, as for every skill (owner #31).
+  The bot scores them like Iron Body (default BotInput scoring, no `card_scores` entries; the Magic Guard 110/109 values
+  are Magician-specific and not copied; lead decision, tier C, not tuned).
+- **Tests.** `tests/unit/test_hyper_body.gd`: defence on both consumers and the seeded damage difference (physical and
+  magic), the percent per level, unchanged current HP/MP at cast, expiry clamping, stacking with Improved MaxHP Increase
+  and worn equipment HP/MP, recast with the MP cost, the card/text rules; one test compares the real cache's 130.img with
+  the synthetic level tables (SKIPs without the cache). The synthetic tables are in `RF.skill_imgs()` too.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -3333,6 +3551,11 @@ Draw rules:
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
+   **Exception (Warrior line only, spec #165 #180, owner decision):** the Warrior's second jobs have no attack skills, so
+   the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
+   `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
+   for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
+   passives still stop at Lv 30. Every other line keeps the rule unchanged.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -3518,6 +3741,8 @@ MP Eaters, Invincible and both Slows):
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
 | Bless (2301004) | desc | "party members", "cannot be combined": self-only; its accuracy raises the critical chance (6.1) |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
+| Rage (1101006) | desc | "everyone in the party around the area": it affects you only |
+| Power Guard (1101007, 1201007) | desc | the WZ text says "damage received" and "enemy": here only monster contact damage is returned, half against bosses (7.10) |
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
 
@@ -3611,7 +3836,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   to the Equip tab (7.8; anything the full tab cannot take lies at the feet). Earned AP go to STR (the Warrior has no
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
-  The Warrior's second jobs (Fighter, Page, Spearman) stay "Not in this build".
+  The Warrior's second jobs open at Lv 30 (spec #165, below).
 - An **unforced bot** (no `--job`) picks a seeded random available first job on the job stream (8), so with the Warrior
   and the Magician both open it takes either (spec #151, `BotInput.pick_choice` as #157 left it); `--job=100` /
   `--job=200` force one. Unforced Lv 10 runs and records therefore differ from before the Warrior existed.
@@ -3623,6 +3848,27 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   level. Each adds +475 Max MP and teaches no skill. This fixed tier C bonus is the midpoint of the 450-500 range
   in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
+- Level 30, Warrior (spec #165 #180): Fighter 110, Page 120 and Spearman 130 are selectable at their canonical level.
+  Each adds +325 Max HP (tier B: the v83 second-job +300-350, midpoint; growth stays 26 HP / 5 MP per level, all earned AP
+  still go to STR) and hands **two advancement weapons**, one per weapon family (tier C, below). The weapon of the held
+  weapon's family is worn, else the first family's; the displaced weapon and the other advancement weapon join the Equip
+  tab, and whatever the full tab cannot take lies at the player's feet, so advancing never fails. The grant checks no
+  requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
+  The Power Strike and Slash Blast cards stay on offer after the second job (section 8, rule 1 exception).
+  The advancement draw offers the held family's Final Attack and Booster (the branch's eligible power skills), topped
+  up to three with other new skills of the branch (seeded, tier C). `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
+  bot draws its branch on the job stream (8) like the Magician's.
+
+  | Branch | First family (worn when the held family is not the branch's) | Second family |
+  |---|---|---|
+  | Fighter 110 | sword: Gladius 1302008 | axe: Fireman's Axe 1312005 |
+  | Page 120 | sword: Gladius 1302008 | blunt: War Hammer 1322014 |
+  | Spearman 130 | spear: Forked Spear 1432002 | polearm: Mithril Pole Arm 1442001 |
+
+  The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
+  `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
+  `DataRepo.starter_equipment_ids` preload reads the same field. The Bowman, Thief and Pirate lines use the same shape
+  with one entry per branch when their class specs land.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -3655,10 +3901,12 @@ until their class specs; only the data shape and these rows land with #157. The 
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
 
-**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and optionally a
-`grant_item`. On advancing, when the held weapon's family (`RunWorld.held_weapon_family()`) is not in the list, the
-grant item is worn (tier C); a fitting weapon is kept and nothing is granted. The grant item ids are chosen by the class
-specs (basic weapons at the branch's level), so a row without one grants nothing today.
+**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and one advancement weapon
+per family (`grant_items`, same order; #165 #180 replaced the single `grant_item` of #157, ADR 0005 amendment). On
+advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
+(tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
+are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today only
+the Warrior's three branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
@@ -3760,12 +4008,20 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
 | Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
 | Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none: its sword is `balance.player.weapon_grants` (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
-| Branch weapon grant | A second job wears its `grant_item` only when the held weapon family is not in its `weapon_families` (`jobs.json`, #157; item ids come with the class specs) | C | Ticket #157 |
-| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Branch weapon grant | A second job hands one advancement weapon per family (`jobs.json` `weapon_families` + `grant_items`, `JobTree.branch_grant`): the held family's is worn, else the first family's; the displaced weapon and the others go to the Equip tab (#157, reshaped by #165 #180) | C | Ticket #157, spec #165 |
+| Warrior advancement weapons | Fighter 110: Gladius 1302008 (sword), Fireman's Axe 1312005 (axe); Page 120: Gladius, War Hammer 1322014 (blunt); Spearman 130: Forked Spear 1432002 (spear), Mithril Pole Arm 1442001 (polearm); plain Lv 30 weapons, stat needs STR 95-100 (#180) | C | Ours |
+| Warrior second-job advancement | Fighter, Page and Spearman at the canonical Lv 30, +325 Max HP (`jobs.json` `grants.max_hp`), growth 26 HP / 5 MP per level unchanged (#180) | B (HP midpoint of +300-350), A (Lv 30) | Cosmic changeJob, v83-facts 4 |
+| Power Strike / Slash Blast after second job | Their ten cards list `requires.carry_jobs` [110, 120, 130]: eligible, still `power`, never in the advancement draw; Iron Body and the HP passives stop at Lv 30 (#180) | C | Owner decision, spec #165 |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive (an active Hyper Body then scales the whole total, 7.12) | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
 | Regen passive field | A skill with `"regen": {"pool": "hp" or "mp", "divisor": n}` adds `floor(character level x skill level / n)` to each regeneration pulse of that pool (`Loadout.regen_bonus`); Improved MP Recovery is `{"pool": "mp", "divisor": 10}`, Improved HP Recovery will be data only | B | Pre-Big-Bang Improved MP / HP Recovery rule (formula compilations, refs/research/v83-mechanics); the field shape is ours |
 | Job `grants.max_hp` | Advancing adds it to base Max HP (`_base_hp`, saved as the snapshot's `base_hp`, so no format change) alongside `grants.max_mp` (`_job_mp`); data rows only for playable jobs | C | Ours; Warrior rows come with #163 |
+| Rage (#182) | W.Att +`pad` 3-12, weapon defence +`pdd` -3 to -12 (negative in the WZ, no `scale`), 46-160 s, `mpCon` 12/20; self only; auto-cast, recast on expiry, any weapon | A (values); C (self only, auto-cast) | Skill.wz/110.img/skill/1101006 |
+| Power Guard values (#182) | reflect `x` 11-40 %, `time` 3-90 s, `mpCon` 15/30; the Page node is the same table | A | Skill.wz/110.img 1101007, 120.img 1201007 |
+| Power Guard rule (#182) | contact damage only, half the rate against a boss, capped at 10 % of the monster's Max HP, the same amount subtracted from the damage taken | B | third-party v83 server reimplementation; the cap is only in the String desc (no WZ field) |
+| Power Guard details (#182) | amounts floored (a cap that floors to 0 reflects nothing and does not reduce the hit); applied after Invincible and before Magic Guard's split; boss = canonical boss kind or scheduled slot; the reflect is the character's own damage (damage number, a kill gives EXP and drops, `damage_dealt`), never a crit, no Final Attack or on-hit status; ignores physical immunity; one reflect per hit window; no RNG | C | ours |
+| Rage / Power Guard cards and bot (#182) | `rage_*`, `power_guard_fighter_*`, `power_guard_page_*` learn/rank cards, not power, weights 3/2; `bot.card_scores` `rage_new` 100, `rage_rank` 74 (attack-like), Power Guard unscored (defensive-buff default) | C | ours, untuned |
 
 | Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -4084,7 +4340,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Final Attack proc | canonical `prop`% chance after a damaging physical line of a matching family, follow-up at canonical `damage`% on the same mob, RNG stream 12, played at the end of the tick, none on a killed target or after a follow-up | A (prop, damage), C (per-line roll, timing, stream, no chains) | v83 Skill.wz; #161 |
 | Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
-| Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
+| Buff `scale` | a buff effect entry may multiply its canonical number (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none) | C | data shape; #161 |
 | Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
 | Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot's planner wears the Spear | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule) | v83-facts 4; owner request 2026-10-18 |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
@@ -4096,6 +4352,18 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Second-job weapon skill families (#181) | each of the 18 Masteries, Boosters and Final Attacks lists its one family in `weapon_families` (sword, axe, blunt, spear, polearm; sword/axe/blunt cover one- and two-handed) | C | the Skill.wz nodes have no `weapon` field; String text and v83-facts 3 |
+| Second-job Mastery (#181) | `mastery` step 1..10 (15-60%, levels 1 and 2 both 15%) and ACC `x` 1..20, only while the family is held | A (numbers), B (the (10 + 5N)% encoding) | Skill.wz 110/120/130; v83-facts 3 |
+| Second-job Booster (#181) | WZ `x` -2 read with `scale: -1` as +2 speed steps; `hpCon` = `mpCon` 29 down to 10, `time` 10 s per level (10-200 s); auto-cast, recast on expiry, 0.8 s stance | A (numbers), C (the sign convention, auto-cast, stance) | Skill.wz; ours |
+| Second-job Final Attack (#181) | `prop` 2 x level percent, `damage` 100 + 5 x level percent, follow-up in the held weapon's attack stance for 0.6 s, no sound, `hit/0` art | A (prop, damage, art), C (stance and action time: the node has no action) | Skill.wz; ours |
+| Spread (#181) | `skill_mod` `count` +1 per step, 3 steps: the follow-up also hits up to N other live monsters whose body centre is within `BasicAttack.reach` (a circle) of the struck target's, bosses first, then nearest to the target, then slot; no RNG | C | ours (owner decision 1 of spec #165) |
+| Weapon-skill cards (#181) | learn weights Mastery 3 / Final Attack 4 / Booster 3, rank weights 2 / 3 / 2, Spread 2; Final Attack, Booster and Spread are `power`, Masteries are not | C | ours, untuned |
+| Weapon-skill bot scores (#181) | `bot.card_scores`: learn 100, rank 74 for the 18 skills (attack-card values); Spread scores through `SCORE_MOD.count` | C | ours, untuned |
+| Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
+| Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
+| Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
+| Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god=1 --seconds=600 --label=spec165/ticket-185`; `--god=1` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
+| Playtest evidence shots (#185) | `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
@@ -4196,6 +4464,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot engage kite_reach (#162) | `balance.bot.engage.kite_reach` 220 px: a build whose longest attack reaches less walks up to mobs instead of kiting; below every Magician attack (shortest Magic Claw 260) and above one-handed swings | C | ours |
 | Bot engage distance (#162) | `reach_fraction` 0.8 of the longest ready attack's reach (`SkillRunner.reach_of`, `BasicAttack.reach`), `chase_range` 300 px on the bot's level; stands facing the mob; `deadzone` 6 px (keeps its facing when closer) | C | ours |
 | Bot engage retreat (#162) | `retreat_hp` 0.35 of max HP, or a boss attack winding up (`BossAttacks.telegraph_up`): the melee bot kites like any other | C | ours |
+| Threaten numbers (#183) | canonical `x`/`y` (-1..-20 flat weapon attack / weapon defence), `time` 44..120 s, `mpCon`, `mobCount` 6, `lt`/`rb`, action, effect, `mob` overlay, sound | A | Skill.wz/120.img/skill/1201006 and Sound.wz/Skill.img/1201006 |
+| Threaten success chance (#183) | the node has no `prop`: always succeeds, no roll, no RNG (RNG stream 13 stays reserved for this spec, never drawn); a run without Threaten is byte-identical | A (absence) | Skill.wz/120.img level nodes; owner decision 5 of spec #165 |
+| Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
+| Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
+| Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
 
 ## 12. Later phases
 

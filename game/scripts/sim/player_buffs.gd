@@ -52,6 +52,14 @@ func effect_total(stat: String) -> float:
 	return total
 
 
+## The first active skill (in cast order) whose effect `stat` is above 0; "" when none is.
+func skill_with_effect(stat: String) -> String:
+	for skill: String in active:
+		if float(active[skill].effects.get(stat, 0.0)) > 0.0:
+			return skill
+	return ""
+
+
 ## effect_total over the buffs whose skill key `keep` (a Callable(skill: String) -> bool) accepts.
 func effect_total_where(stat: String, keep: Callable) -> float:
 	var total := 0.0

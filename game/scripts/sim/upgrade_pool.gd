@@ -3,7 +3,8 @@ extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
 ##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id),
+## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id, or one of
+## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
 ## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
@@ -21,7 +22,7 @@ extends RefCounted
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
-	"damage", "hpCon"]
+	"damage", "hpCon", "prop"]
 ## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
 ## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
 ## Recovery (field hp, which is a percent for Heal).
@@ -106,7 +107,8 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var jobs: Array = req.get("jobs", [])
 	if not jobs.is_empty():
 		var ok := false
-		for j: Variant in jobs:
+		# carry_jobs (spec #165 #180): later jobs that keep offering the card; the advancement draw reads `jobs` only.
+		for j: Variant in jobs + req.get("carry_jobs", []):
 			if state.progression.job_id == int(j):
 				ok = true
 				break
@@ -254,8 +256,13 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		var buff_effects: Array = lo.book.def(skill).get("buff", {}).get("effects", [])
 		if effect_stat == "" and not buff_effects.is_empty():
 			effect_stat = String(buff_effects[0].stat)
+		if effect_stat == "":
+			# A Mastery's accuracy is its canonical `x` (#181): the card names that stat, not a buff's.
+			for passive_effect: Variant in lo.book.def(skill).get("passive", {}).get("effects", []):
+				if passive_effect is Dictionary and String(passive_effect.get("field", "")) == "x":
+					effect_stat = String(passive_effect.get("stat", ""))
 		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
-			effect_stat = "slow"
+			effect_stat = String(lo.book.def(skill).cast.get("status", "slow")) # the status the crowd cast inflicts
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":
@@ -265,6 +272,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
 			for field: String in PREVIEW_FIELDS:
+				# `prop` is previewed for Final Attack only (#181): other skills' cards (Poison Breath) keep their events.
+				if field == "prop" and not lo.book.def(skill).has("final_attack"):
+					continue
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))

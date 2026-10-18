@@ -52,11 +52,12 @@ const SLOW_CONSECUTIVE_LIMIT := 2
 const SLOW := 0
 const POISON := 1
 const FREEZE := 2
-const STATUS_COUNT := 3
+const THREATENED := 3
+const STATUS_COUNT := 4
 ## Status names used by apply_status and the mob_status_* events, in table order.
-const STATUS_NAMES := ["slow", "poison", "freeze"]
+const STATUS_NAMES := ["slow", "poison", "freeze", "threatened"]
 ## tier A: the element a status shares with its applying v83 skill (Slow none, Poison Breath elemAttr s, Cold Beam i).
-const STATUS_ELEMENTS := ["", "S", "I"]
+const STATUS_ELEMENTS := ["", "S", "I", ""]
 
 ## Tunables (keys of the `tuning` Dictionary given to _init).
 const TUNING_DEFAULTS := {
@@ -108,6 +109,10 @@ var status_left := PackedFloat64Array()
 var status_elapsed := PackedFloat32Array()
 ## Canonical signed Slow x scales pursuit speed by (100 + x) / 100; 1 when not slowed.
 var slow_factor := PackedFloat32Array()
+## Threatened (Page Threaten, spec #165 #183): the flat weapon attack and weapon defence the mob loses while it lasts, as
+## positive amounts (the canonical x and y are negative); 0 when the mob is not threatened.
+var threat_pad := PackedFloat32Array()
+var threat_pdd := PackedFloat32Array()
 ## tier C: consecutive successful Slow auto-casts on this logical mob; expiry does not reset the sequence.
 var _slow_cast_serial := PackedInt32Array()
 var _slow_cast_streak := PackedByteArray()
@@ -250,6 +255,8 @@ func spawn(k: int, px: float, py: float, f: int, p_hp: int = 0) -> int:
 	steady[i] = 0
 	active[i] = 1
 	slow_factor[i] = 1.0
+	threat_pad[i] = 0.0
+	threat_pdd[i] = 0.0
 	_slow_cast_serial[i] = -1
 	_slow_cast_streak[i] = 0
 	_stop_x[i] = INF
@@ -313,6 +320,41 @@ func apply_slow_cast(i: int, serial: int, params: Dictionary, events: Array) -> 
 	return true
 
 
+## Whether a crowd cast of `status` (the skill's cast.status, "slow" when it names none) may include slot i: Slow keeps its
+## consecutive-use rule (can_slow_cast); any other status needs a mob that accepts it and does not carry it yet.
+func can_crowd_cast(i: int, status: String, serial: int) -> bool:
+	if status == "slow":
+		return can_slow_cast(i, serial)
+	var s := STATUS_NAMES.find(status)
+	return s >= 0 and accepts_status(i, status) and status_time(i, s) <= 0.0
+
+
+## `weapon_attack` of the mob in slot i after a Threaten cut: lowered by the flat amount (never below 0) while it is
+## threatened, `weapon_attack` itself otherwise. Contact damage and weapon attacks (MobAttacks) read it.
+func threatened_pad(i: int, weapon_attack: float) -> float:
+	return _threat_cut(i, weapon_attack, threat_pad)
+
+
+## `weapon_defense` of the mob in slot i after a Threaten cut (never below 0) while it is threatened, else unchanged.
+func threatened_pdd(i: int, weapon_defense: float) -> float:
+	return _threat_cut(i, weapon_defense, threat_pdd)
+
+
+## Applies the Threaten cut to `pdd` (per-slot weapon defence already filled for the live slots) of every threatened slot.
+func lower_threatened_pdd(pdd: PackedFloat32Array) -> void:
+	for k in _status_slots.size():
+		var i := _status_slots[k]
+		if i < pdd.size():
+			pdd[i] = _threat_cut(i, pdd[i], threat_pdd)
+
+
+## `value` less the Threaten cut `cuts[i]` (never below 0) while slot i is threatened, else `value` unchanged.
+func _threat_cut(i: int, value: float, cuts: PackedFloat32Array) -> float:
+	if i < 0 or i >= capacity() or status_left[i * STATUS_COUNT + THREATENED] <= 0.0:
+		return value
+	return maxf(0.0, value - cuts[i])
+
+
 ## Applies "slow" (canonical signed x/time), "freeze" (time) or "poison" (canonical level/time, optional skill key);
 ## `params.element` overrides the status's own element (STATUS_ELEMENTS). Refreshes without stacking (tier C, issue
 ## #54); poison snapshots the slot's max HP at application. Bosses and kinds immune, strong or neutral (Mob.wz
@@ -333,6 +375,10 @@ func apply_status(i: int, status: String, params: Dictionary, events: Array) -> 
 	elif s == SLOW:
 		# tier C: a canonical positive x would speed the monster up; only slowing is applied.
 		slow_factor[i] = clampf(1.0 + float(params.get("x", 0.0)) / 100.0, 0.0, 1.0)
+	elif s == THREATENED:
+		# tier A: the canonical signed x (weapon attack) and y (weapon defence) are flat; only lowering is applied.
+		threat_pad[i] = maxf(0.0, -float(params.get("x", 0.0)))
+		threat_pdd[i] = maxf(0.0, -float(params.get("y", 0.0)))
 	var j := i * STATUS_COUNT + s
 	if _status_at[i] < 0:
 		_status_at[i] = _status_slots.size()
@@ -685,13 +731,17 @@ func _poison_tick(i: int, events: Array) -> void:
 func _end_status(i: int, s: int) -> void:
 	if s == SLOW:
 		slow_factor[i] = 1.0
+	elif s == THREATENED:
+		threat_pad[i] = 0.0
+		threat_pdd[i] = 0.0
 	elif s == POISON:
 		_poison_pulse[i] = 0.0
 		_poison_damage[i] = 0
 		_poison_skill[i] = ""
 	var base := i * STATUS_COUNT
-	if status_left[base + SLOW] > 0.0 or status_left[base + POISON] > 0.0 or status_left[base + FREEZE] > 0.0:
-		return
+	for other in STATUS_COUNT:
+		if status_left[base + other] > 0.0:
+			return
 	var at := _status_at[i]
 	var last := _status_slots[_status_slots.size() - 1]
 	_status_slots[at] = last
@@ -897,6 +947,8 @@ func _grow(n: int) -> void:
 	status_left.resize(n * STATUS_COUNT)
 	status_elapsed.resize(n * STATUS_COUNT)
 	slow_factor.resize(n)
+	threat_pad.resize(n)
+	threat_pdd.resize(n)
 	_slow_cast_serial.resize(n)
 	_slow_cast_streak.resize(n)
 	_poison_pulse.resize(n)

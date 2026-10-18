@@ -193,7 +193,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `PlayerBuffs` | Timed player effects, periodic healing and detached HUD snapshots | `has(skill)`, `start(skill, stats)`, `step(dt, events) -> int` (HP healing due), `effect_total(stat)`, `snapshot()` |
 | `PlayerUpkeep` | The player's per-tick timers, owned as `RunWorld.upkeep`: buffs (steps `PlayerBuffs`), hit invincibility, the cast-stance hold and the `balance.regen` pulse clock; the world owns the pools and applies what it reports | `tick(dt, events) -> float` (buff healing due), `regen_pulses(dt) -> int`, `pulse_hp()`, `pulse_mp()`, `start_action`, `land_hit(boss_skill) -> float` (starts the hit window a landed hit earns and steps the #88 shrinking chain), static `bypasses_window(source) -> bool` (boss skill attack/ball), fields `invincible_t hit_step since_hit cast_action cast_left action_airborne` (`hit_step`/`since_hit` are per-round chain state, not saved with the character), `DEFAULT_REGEN`, `DEFAULT_HIT_WINDOW` (balance.hit_window: `lengths`, `chain_gap`, `reset_after`) |
 | `ExpCurve`, `RunProgression` | Survivor EXP curve, level, job, pending level-ups | `exp_to_next(level)`, `add_exp(n) -> int` levels gained |
-| `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array` (one entry per weapon path of a first job), `job(id) -> Dictionary`, `paths_of(id)`, `path_of(job, path)`, `weapon_families(job)`, `branch_grant(job)` (the second-job weapon grant, #157), `lineage(job)`, `parse_forced("400:claw") -> {job_id, path}`, `forced_job_error(job, path)` |
+| `JobTree` | Data-driven job advancement (canonical ids) | `advancements(job_id, level) -> Array` (one entry per weapon path of a first job), `job(id) -> Dictionary`, `paths_of(id)`, `path_of(job, path)`, `weapon_families(job)`, `branch_grant(job) -> {weapons: [{family, item_id}]}` (the second-job advancement weapons, one per family in `weapon_families` order, #157 / #165 #180), `lineage(job)`, `parse_forced("400:claw") -> {job_id, path}`, `forced_job_error(job, path)` |
 | `UpgradePool` | Data-driven upgrade eligibility, normal and advancement draws | `eligible(state) -> Array`, `roll_choices(state, rng, n) -> Array`, `roll_advancement_choices(state, rng, n) -> Array`, `apply(id, state)` |
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
@@ -312,7 +312,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
-| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`), `duration` (float canonical seconds); reapplication emits again and refreshes |
+| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
@@ -467,18 +467,22 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
-and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, plus
-`slow_factor` and private poison pulse/damage/source arrays. `status_time(slot, status)` reads a timer. The shared entry
+and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, `THREATENED`
+(Page Threaten, #183), plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`threatened_pad`/`threatened_pdd`, applied in `RunWorld._player_hit`, `MobAttacks._impact`, `RunWorld.mob_defense` and the
+bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
+the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
+`prop`, so it draws no random number and RNG stream 13, reserved for spec #165, stays unused. `status_time(slot, status)` reads a timer. The shared entry
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
-`time`, signed Slow `x`, or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
-the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`). Bosses, and kinds whose Mob.wz digit for
+`time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Bosses, and kinds whose Mob.wz digit for
 the element is 1, 2 or 4 (`MobKind.resists_status`), reject it. `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
 `has_statuses()` lets presentation skip status work. `can_act(slot)` (settled and not frozen) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+Slow/Poison/Threaten art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
 falls and a fading-in one keeps fading in.
 
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
@@ -498,7 +502,7 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 | `stages.json` | stage key -> map id, duration, pacing keyframes, pools, bursts, elites, per-stage `spawn` overrides, `exp_mult`, stage-card `note`, scheduled `bosses` with time/mob_id/hp_mult/dmg_mult and `post_duration_slope`; summon/revive mob ids are never listed (StageRoster derives them from the boss imgs and MobSkill.img) |
 | `balance.json` | EXP curve, player base attributes, automatic AP and job primary-stat rules, worn equipment ids and job weapons, cast origin / `cast_forward`, HP/MP growth and INT MP divisor per job, the shrinking `hit_window`, knockback, magnet, drops (incl. `lifetime`), spawning (incl. `band_y`, `prefer_route`, `stall_time`, `trail_margin`), mob speed factor, `mob_motion` flyer bob amplitude/period passed to MobSwarm |
 | `mobs.json` | per-mob survivor overrides (EXP drop item id, HP/speed multipliers, `can_jump` override) |
-| `jobs.json` | which canonical jobs are playable and what advancing grants (Max HP and MP bonuses; no skill grants, extra advancement draw); first jobs may list weapon `paths` (the item each grants and wears, #157), second jobs their `weapon_families` and an optional `grant_item` |
+| `jobs.json` | which canonical jobs are playable and what advancing grants (Max HP and MP bonuses; no skill grants, extra advancement draw); first jobs may list weapon `paths` (the item each grants and wears, #157), second jobs their `weapon_families` and one advancement weapon per family in `grant_items` (#165 #180) |
 | `ammo.json` | endless ammo (#155): per ranged weapon family the starting ammo item, its notice noun and projectile numbers, and the specialist branches' level schedules (`Ammo`; the setup key `ammo_info` carries the Item.wz incPAD of every ammo item, `DataRepo.ammo_info`) |
 | `cash_items.json` | the Cash Shop catalog (id, kind equip / pet / pet_upgrade, NX price, Commodity SN, prerequisites) and the tier C Fortune each cash slot adds (`CashCatalog`, spec #34); the account and the worn items reach a round as setup keys `account` / `alert` and the CharacterSnapshot `cash` / `pet` keys |
 
@@ -587,7 +591,10 @@ What the tables above leave open; the class doc comments have the rest.
   not a boss skill attack or ball; god and death are take_hit's own guards). A landed hit starts the window through
   `PlayerUpkeep.land_hit` (spec #88). Balls ask `hit_window_blocks` before calling take_hit, because take_hit returns 0
   for both a blocked hit and a miss. Only explicit elite/source multipliers scale damage; time keyframes
-  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool.
+  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool. Power Guard
+  (spec #165 #182) is one step inside `take_hit` for `source_kind` "touch" with a `power_guard` buff total: the reflect
+  comes off the damage before Magic Guard's split and is dealt to `source.mob` as a `mob_hit` plus `_on_kill`
+  (GAME_DESIGN 7.10); it is a no-op, with no RNG, when the buff is off.
   `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
@@ -640,13 +647,15 @@ What the tables above leave open; the class doc comments have the rest.
   (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
   `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
   (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
-  carry `scale` (Rage's WDEF penalty is `-1`); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
+  carry `scale` (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
   passive skill with `final_attack: {chance_field}`, `damage: "physical"` and an `action`: the hit listener
   `RunWorld._final_attack_hit` rolls `prop` on RNG stream 12 (`final_rng`) after a damaging physical line of a matching
   family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and
   `_play_final_attacks` runs at the end of `_step_player_attacks`: `final_attack` event, then one `hit_mob(slot,
   loadout.stats(key), …, final_rng)` (damage, crit and the proc all on stream 12). Follow-ups never trigger follow-ups,
-  and a target the trigger killed gets none.
+  and a target the trigger killed gets none. Spread (#181): the Final Attack
+  skill's `count` (base 1, +1 per Spread card step) is the number of monsters one follow-up strikes;
+  `RunWorld._spread_targets` adds the extra ones around the struck target with no RNG (GAME_DESIGN 7.9).
 - **Shield slot (#158).** `"shield"` is the last of `Equipment.SLOTS` (Character.wz Shield, category 109). The worn map
   key is optional, so snapshots from before the slot load and save back unchanged (no format bump).
   `Equipment.displaced_slots(worn, id)` names what wearing an item moves back to the Equip tab: an overall's top and
@@ -667,7 +676,7 @@ What the tables above leave open; the class doc comments have the rest.
   `RunWorld.spend_hp` pays it.
 - **Weapon paths and grants (#157).** `RunWorld.apply_job(id, path)` / `change_job(id, path)` record `weapon_path`
   (snapshot key, written only when set) and `_grant_job_weapon` wears the weapon the path, the Magician's
-  `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names; the previous weapon goes to the Equip
+  `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names (the weapon of the held family, else the first family's; the branch's other advancement weapons are handed over like `grants.items`, #165 #180); the previous weapon goes to the Equip
   tab or, when full, to the ground at the player's feet. `_grant_job_items` then hands over the job's `jobs.json`
   `grants.items` (the Warrior's Spear and Steel Pipe) the same way; `BotShop.auto_equip` treats them like any other Equip item. Drops follow the held family
   (`EquipmentDrops.family_allows`, `equipment_drops.shared_families`; stream 10).
