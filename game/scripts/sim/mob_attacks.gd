@@ -134,7 +134,8 @@ func step(world: RunWorld, dt: float) -> void:
 		if active[slot] == 0 or _kind_attacks[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
 		# MobSwarm.can_act and Rect2.has_point(swarm.pos(slot)), inlined: this loop runs for every attacker on screen.
-		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0:
+		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0 \
+				or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.STUN] > 0.0:
 			continue
 		if xs[slot] < view_pos.x or ys[slot] < view_pos.y or xs[slot] >= view_end.x or ys[slot] >= view_end.y:
 			continue

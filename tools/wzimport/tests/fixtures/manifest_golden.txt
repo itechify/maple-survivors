@@ -687,6 +687,7 @@ img Npc.wz/9201133.img *
 img Npc.wz/9250025.img *
 img Skill.wz/000.img *
 img Skill.wz/100.img *
+img Skill.wz/111.img skill/1111008/mob
 img Skill.wz/200.img *
 img Skill.wz/210.img *
 img Skill.wz/220.img *
