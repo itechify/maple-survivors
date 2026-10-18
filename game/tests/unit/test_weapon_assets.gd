@@ -3,7 +3,7 @@ extends TestCase
 ## Needs an asset cache imported with asset_manifest.d/common.json; a SKIP proves nothing.
 
 ## One representative weapon per family and handedness (all imported by asset_manifest.d/common.json or the creation set).
-const WEAPONS := [1302000, 1312004, 1322005, 1332000, 1372005, 1402001, 1412000, 1422000, 1432000, 1442000, 1452000,
+const WEAPONS := [1302000, 1312004, 1322005, 1332000, 1372005, 1402000, 1402001, 1412000, 1422000, 1432000, 1442000, 1452000,
 	1462000, 1472000, 1482000, 1492000]
 const BODY := "Character.wz/00002000.img"
 
