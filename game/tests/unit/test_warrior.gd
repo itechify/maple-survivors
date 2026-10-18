@@ -165,6 +165,13 @@ func test_a_full_equip_tab_drops_the_old_weapon_and_both_extras_at_the_feet() ->
 		assert_eq(e.pos, w.player.pos, "at the player's feet")
 
 
+func test_the_bot_keeps_the_granted_sword_and_never_wears_the_handed_over_items() -> void:
+	var w := _advancing(24)
+	assert_eq(BotShop.auto_equip(w), 0, "the Spear (PAD 32) outscores the sword (PAD 30) by W.ATT alone, yet stays in the tab")
+	assert_eq(w.weapon_id(), 1302077)
+	assert_eq(_inventory_ids(w), [1302000, 1432000, 1322006])
+
+
 func test_one_free_slot_keeps_the_old_weapon_and_drops_the_extras() -> void:
 	var w := _advancing(1)
 	assert_eq(w.equipment.inventory.size(), 24)
