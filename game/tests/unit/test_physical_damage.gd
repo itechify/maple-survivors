@@ -143,12 +143,16 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	var data := RF.quiet_data()
 	data.balance.crit = {"chance": 0.05, "per_acc": 0.001, "mult": 1.5}
 	data.balance.player.stats.luk = 5
+	# A 20% crit passive (#161: RunWorld._refresh_caster assembles crit_bonus from owned passives, so it is learned).
+	data.skills.skills["crit_fixture"] = {"skill_id": 9991001, "book": "999", "kind": "passive", "slot": "passive",
+		"damage": "none", "ranks": [1], "passive": {"stat": "crit_chance", "per_level": 20.0}}
 	var setup := RF.setup("quiet", 153, data)
 	setup.equipment_info[1302000].incACC = 7
 	var world := RunWorld.new(setup)
 	assert_near(world.player_state.acc, 13.5, 0.00001, "DEX5 LUK5 base6.5 plus equipment7")
 	assert_near(world.loadout.acc, 13.5, 0.00001)
-	world.loadout.crit_bonus = 0.2
+	world.learn_skill("crit_fixture")
+	assert_near(world.loadout.crit_bonus, 0.2, 0.00001)
 	for key: String in ["three_snails", "energy_bolt"]:
 		assert_near(world.loadout.stats(key).crit, 0.2635, 0.00001, "base + ACC coefficient + passive, " + key)
 	world.start_buff("fixture", {"duration": 0.05, "buff_effects": {"acc": 8, "watk": 10}, "skill_id": 0, "level": 1,

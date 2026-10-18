@@ -298,6 +298,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per eligible ready skill's waiting episode, including targetless buffs |
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
+| `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; once when an active timer expires; a run ending first need not emit expiry |
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
@@ -621,6 +622,20 @@ What the tables above leave open; the class doc comments have the rest.
   but precede defence and skill%; fixed/magic bounds retain their existing meaning. Optional survivor
   `physical_formula: {primary, secondary, max_mult, min_mult, ignore_mastery}` overrides the weapon row
   (Lucky Seven; 6.1 of GAME_DESIGN). #161 feeds mastery and crit passive inputs here.
+- **Shared passives, buffs and Final Attack (#161):** `RunWorld._refresh_caster` is the one place that turns owned
+  passives into caster fields. `Loadout.passive_total(stat)` / `passive_best(stat)` read every effect of a skill's
+  `passive` (the legacy `stat` + `field`/`per_level`, plus an optional `effects: [{stat, field | per_level}]` list) and skip
+  skills the held weapon family cannot use (`SkillBook.usable_with`). Stats: `mastery` (canonical N, fraction
+  (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
+  `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
+  (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
+  carry `scale` (Rage's WDEF penalty is `-1`); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
+  passive skill with `final_attack: {chance_field}`, `damage: "physical"` and an `action`: the hit listener
+  `RunWorld._final_attack_hit` rolls `prop` on RNG stream 12 (`final_rng`) after a damaging physical line of a matching
+  family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and
+  `_play_final_attacks` runs at the end of `_step_player_attacks`: `final_attack` event, then one `hit_mob(slot,
+  loadout.stats(key), …, final_rng)` (damage, crit and the proc all on stream 12). Follow-ups never trigger follow-ups,
+  and a target the trigger killed gets none.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently

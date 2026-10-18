@@ -1051,6 +1051,10 @@ func handle_events(events: Array) -> void:
 				if library.find(sound) is Dictionary:
 					_sound(sound)
 				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
+			"final_attack":
+				# The follow-up's own player effect where Skill.wz has one (finalAttack dirs); its hit is a mob_hit.
+				if String(e.effect) != "":
+					fx.play(String(e.effect), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"player_jump":
 				_sound(SND_JUMP)
 			"portal_used":

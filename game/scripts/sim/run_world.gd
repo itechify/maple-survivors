@@ -52,7 +52,8 @@ extends RefCounted
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
-## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls.
+## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
+## 12 Final Attack proc and follow-up damage/crit rolls.
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -69,6 +70,7 @@ const EVENT_FIELDS := {
 	"mp_short": ["skill", "skill_id", "required_mp", "mp"],
 	"player_restored": ["stat", "amount", "skill", "pos"],
 	"mp_eater_absorbed": ["mob", "amount", "skill", "pos"],
+	"final_attack": ["skill", "skill_id", "level", "mob", "pos", "facing", "action", "effect"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
@@ -157,6 +159,8 @@ var scroll_rng: RandomNumberGenerator
 var reward_rng: RandomNumberGenerator
 ## Independent seeded branch choices do not perturb card, combat or careless-card streams.
 var job_rng: RandomNumberGenerator
+## Final Attack's proc and damage/crit rolls only (stream 12, #161).
+var final_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -256,6 +260,11 @@ var god := false
 
 var _hp := 0.0
 var _hit_listeners: Array[Callable] = []
+## Final Attack follow-ups won by _final_attack_hit, played after the tick's attacks: {slot, identity, skill}.
+var _final_queue: Array[Dictionary] = []
+## Owned Final Attack skill keys, rebuilt when the loadout's version changes.
+var _final_keys: Array[String] = []
+var _final_keys_version := -1
 var _mp := 0.0
 var _max_hp := 1
 var _max_mp := 0
@@ -324,6 +333,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	_init_player()
 	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
+	add_hit_listener(_final_attack_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -341,6 +351,7 @@ func _init_rng_streams() -> void:
 	meso_rng = _stream(9) # tier C: meso rolls never shift another stream, #107.
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
+	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -727,6 +738,7 @@ func _step_player_attacks(dt: float) -> void:
 	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
 	for m in projectiles.kills:
 		_on_kill(m)
+	_play_final_attacks()
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -971,15 +983,21 @@ func player_speed_stat() -> float:
 
 
 func _refresh_caster() -> void:
+	loadout.weapon_id = weapon_id()
+	loadout.weapon_family = held_weapon_family() # first: the weapon-gated passives below read it
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
 	loadout.str_stat = float(_attributes.str)
 	loadout.dex_stat = float(_attributes.dex)
 	loadout.luk_stat = float(_attributes.luk)
 	loadout.watk = weapon_attack()
-	loadout.acc = player_acc + buffs.effect_total("acc")
-	loadout.weapon_id = weapon_id()
-	loadout.weapon_family = held_weapon_family()
+	loadout.acc = player_acc + buffs.effect_total("acc") + loadout.passive_total(Loadout.ACC)
 	loadout.job_id = progression.job_id
+	# Weapon-gated passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
+	# critical hit's total percent, so its additive bonus is the part above 100.
+	var mastery := loadout.passive_best(Loadout.MASTERY)
+	loadout.mastery = CombatMath.mastery_fraction(int(mastery)) if mastery > 0.0 else Loadout.BASE_MASTERY
+	loadout.crit_bonus = loadout.passive_total(Loadout.CRIT_CHANCE) / 100.0
+	loadout.crit_damage_bonus = maxf(0.0, loadout.passive_best(Loadout.CRIT_DAMAGE) - 100.0)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
@@ -1415,7 +1433,7 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 	_instant_dealt += roll.x
 	if roll.x > 0:
 		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
-			"damage": roll.x, "element": String(st.get("element", ""))})
+			"damage": roll.x, "element": String(st.get("element", "")), "damage_type": dtype})
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
 
@@ -1448,6 +1466,50 @@ func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
 		restore_player("mp", amount, key)
 		# tier C: absorb art also plays at full player MP; gain numbers use player_restored's actual capped gain.
 		emit("mp_eater_absorbed", {"mob": slot, "amount": amount, "skill": key, "pos": player.pos})
+
+
+## Final Attack (#161): after a damaging physical line of a held matching family, an owned Final Attack skill
+## (`final_attack: {chance_field}` in skills.json, damage "physical") rolls its canonical `prop` percent on stream 12
+## and queues one follow-up on the same target. The follow-up plays after the tick's attacks (_play_final_attacks), so
+## it never resolves inside the line that triggered it. Its own lines never trigger another (no chains).
+## tier C: one roll per damaging line, not per attack (a multi-line skill rolls once per line).
+func _final_attack_hit(slot: int, hit: Dictionary) -> void:
+	if _final_keys_version != loadout.version:
+		_final_keys.clear()
+		for key: String in loadout.order:
+			if book.def(key).has("final_attack"):
+				_final_keys.append(key)
+		_final_keys_version = loadout.version
+	if _final_keys.is_empty() or int(hit.damage) <= 0 or String(hit.get("damage_type", "")) != "physical" \
+			or book.def(String(hit.skill)).has("final_attack"):
+		return
+	var held := held_weapon_family()
+	for key: String in _final_keys:
+		if not book.usable_with(key, held):
+			continue
+		var chance := book.canonical(key, loadout.level(key), String(book.def(key).final_attack.chance_field))
+		if chance <= 0.0 or (chance < 100.0 and final_rng.randf() * 100.0 >= chance):
+			continue
+		_final_queue.append({"slot": slot, "identity": swarm.identity[slot], "skill": key})
+
+
+## Plays the queued follow-ups at their still-living original targets (tier C: a target the trigger killed gets none).
+func _play_final_attacks() -> void:
+	if _final_queue.is_empty():
+		return
+	var queue := _final_queue
+	_final_queue = []
+	for entry: Dictionary in queue:
+		var slot := int(entry.slot)
+		if swarm.active[slot] == 0 or swarm.identity[slot] != entry.identity:
+			continue
+		var key := String(entry.skill)
+		if not book.usable_with(key, held_weapon_family()):
+			continue
+		var st := loadout.stats(key)
+		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
+			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
+		hit_mob(slot, st, visual_index(String(st.hit)), final_rng)
 
 
 func _on_player_hit(slot: int, hit: Dictionary) -> void:
@@ -1921,6 +1983,8 @@ func _gain_exp(n: int) -> void:
 func _on_level_up(level: int) -> void:
 	var g: Dictionary = _job_value(balance.get("growth", {}), {})
 	_base_hp += float(g.get("hp", 0.0))
+	# Improved MaxHP Increase: the skill's HP per level-up at its rank now, never retroactive (tier B, v83 Cosmic).
+	_base_hp += loadout.passive_total(Loadout.MAX_HP_PER_LEVEL)
 	_base_mp += float(g.get("mp", 0.0))
 	var divisor := float(g.get("int_mp_divisor", 0.0))
 	if divisor > 0.0:
