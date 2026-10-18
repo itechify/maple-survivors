@@ -3319,6 +3319,42 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
 
+### 7.12 Iron Will and Hyper Body (#184)
+
+The Spearman's (130) two buffs, `skills/warrior.json` keys `iron_will` (1301006, 20 levels) and `hyper_body` (1301007, 30
+levels). Both are `buff` skills in the passive slot like Iron Body: auto-cast while inactive and affordable, recast on
+expiry, 0.8 s `alert2` stance, effect art and the `Use` sound, effects snapshot at cast. The WZ skills are party buffs;
+here they affect the character only and the text says so (`text.desc` overrides, never "party").
+
+| Skill | Effect | Source |
+|---|---|---|
+| Iron Will | WDEF `pdd` +1..+20 and MDEF `mdd` +1..+20 for 15..300 s (15 s per level), MP 12 (Lv 1-10) / 24 (Lv 11-20) | A: Skill.wz 130.img |
+| Hyper Body | Max HP `x` +2..+60 % and Max MP `y` +2..+60 % for 10..300 s (10 s per level), MP 20 (Lv 1-10) / 40 (11-20) / 60 (21-30), Lv 25 costs 50 as the WZ node says | A: Skill.wz 130.img |
+
+- **Iron Will** uses the existing buff consumers only: `pdd` and `mdd` go through `RunWorld.hit_defense()`, so contact
+  hits, ordinary mob attacks and balls lose `floor(0.75 x defence)` (`CombatMath.monster_damage`) physically and, for
+  magic attacks, by the M.DEF side.
+- **Hyper Body** adds two buff stats, `max_hp_pct` (field `x`) and `max_mp_pct` (field `y`)
+  (`RunWorld.MAX_HP_PCT`/`MAX_MP_PCT`), folded into `refresh_player_stats`: `Max HP = round((player_stat(max_hp) + worn
+  incMHP) x (1 + x/100))` and `Max MP = round((player_stat(max_mp) x (1 + MaxMP passive) + worn incMMP) x (1 + y/100))`, so
+  the percentage covers base, level growth (Improved MaxHP Increase), passives and worn equipment (tier B, v83). With no
+  buff the factor is exactly 1.0 and the formulas equal the ones before. It is deliberately not the `max_mp_percent`
+  passive: that path rescales current MP to the new maximum, Hyper Body leaves current HP and MP unchanged at cast
+  (nothing is granted, only the maximum rises), and when it ends HP and MP above the normal maximum drop to it
+  (`refresh_player_stats` clamps); HP and MP below it are untouched.
+- **Refresh.** `RunWorld._refresh_max_buffs()` compares the active percentages with the ones already inside `_max_hp`/
+  `_max_mp` (`_max_buff_applied`) on every cast (`start_buff`) and every timer tick, so a cast, an expiry (also the same
+  tick a recast follows) and any later `refresh_player_stats` agree. `player_state.max_hp/max_mp` carry the raised
+  maximum, so the HUD bars and the Stat window show it while active.
+- **Cards** (`upgrades/warrior.json`): learn and rank cards per skill, `requires.jobs: [130]`, not `power`; weights 3 (learn)
+  and 2 (rank), tier C. The WZ prerequisites (Hyper Body needs Iron Will Lv 3) are ignored, as for every skill (owner #31).
+  The bot scores them with the defensive buffs: `balance.bot.card_scores` 110 for the learn cards and 109 for the rank
+  cards, the Magic Guard values (tier C, not tuned).
+- **Tests.** `tests/unit/test_hyper_body.gd`: defence on both consumers and the seeded damage difference (physical and
+  magic), the percent per level, unchanged current HP/MP at cast, expiry clamping, stacking with Improved MaxHP Increase
+  and worn equipment HP/MP, recast with the MP cost, the card/text rules; one test compares the real cache's 130.img with
+  the synthetic level tables (SKIPs without the cache). The synthetic tables are in `RF.skill_imgs()` too.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -3792,7 +3828,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Warrior advancement weapons | Fighter 110: Gladius 1302008 (sword), Fireman's Axe 1312005 (axe); Page 120: Gladius, War Hammer 1322014 (blunt); Spearman 130: Forked Spear 1432002 (spear), Mithril Pole Arm 1442001 (polearm); plain Lv 30 weapons, stat needs STR 95-100 (#180) | C | Ours |
 | Warrior second-job advancement | Fighter, Page and Spearman at the canonical Lv 30, +325 Max HP (`jobs.json` `grants.max_hp`), growth 26 HP / 5 MP per level unchanged (#180) | B (HP midpoint of +300-350), A (Lv 30) | Cosmic changeJob, v83-facts 4 |
 | Power Strike / Slash Blast after second job | Their ten cards list `requires.carry_jobs` [110, 120, 130]: eligible, still `power`, never in the advancement draw; Iron Body and the HP passives stop at Lv 30 (#180) | C | Owner decision, spec #165 |
-| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive (an active Hyper Body then scales the whole total, 7.12) | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
 | Regen passive field | A skill with `"regen": {"pool": "hp" or "mp", "divisor": n}` adds `floor(character level x skill level / n)` to each regeneration pulse of that pool (`Loadout.regen_bonus`); Improved MP Recovery is `{"pool": "mp", "divisor": 10}`, Improved HP Recovery will be data only | B | Pre-Big-Bang Improved MP / HP Recovery rule (formula compilations, refs/research/v83-mechanics); the field shape is ours |
@@ -4127,6 +4163,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
+| Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
+| Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot learn 110 / rank 109 (Magic Guard's) | C | ours, untuned |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
