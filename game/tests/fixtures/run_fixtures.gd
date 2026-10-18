@@ -166,6 +166,8 @@ static func skill_imgs() -> Dictionary:
 	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
 		"x": [-2.0, -2.0]})
 	imgs["510"] = {"skill": {
+		# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+		"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0], "cooltime": [70.0, 25.0]})},
 		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
 		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
 		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},

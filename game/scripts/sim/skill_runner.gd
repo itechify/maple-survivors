@@ -12,6 +12,8 @@ extends RefCounted
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.12) needs no monster: it casts when its survivor conditions
+## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
@@ -219,6 +221,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
 			return _any_target(world, origin, float(st.range), strike_count(st))
+		"self":
+			return world.self_cast_ready(st)
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -250,6 +254,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_range_around(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
+		"self":
+			return {"go": true}
 		"manual":
 			return {}
 	return {}
@@ -362,6 +368,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				_resolve_crowd(world, key, st, targets)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
+			"self":
+				world.convert_hp_to_mp(key, st)
 			"", "nearest":
 				if String(st.kind) != "buff":
 					_resolve_nearest(world, key, st, origin, targets)
