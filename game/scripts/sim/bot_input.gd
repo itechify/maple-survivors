@@ -25,10 +25,11 @@ const EDGE_DANGER := 4.0
 const FLEE_DIST := 160.0
 ## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
 const DUEL_DY := 40.0
-## tier C: keep a quarter of the pool for Magic Guard, or two most-expensive learned auto attacks, whichever is larger.
-const TELEPORT_MP_RESERVE_FRACTION := 0.25
+## tier C: a manual skill (Teleport, Dash) leaves a quarter of the pool for Magic Guard, or two most-expensive learned auto
+## attacks, whichever is larger.
+const MANUAL_SKILL_MP_RESERVE_FRACTION := 0.25
 ## tier C: one attack plus an equal combat margin, even for a small MP pool or costly learned attack.
-const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
+const MANUAL_SKILL_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
 ## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
@@ -350,13 +351,13 @@ static func _flee_buff(w: RunWorld) -> Dictionary:
 
 ## Whether paying manual skill `manual_key` (Teleport, Dash) still leaves the attack/Magic Guard MP reserve.
 static func _keeps_mp_reserve(w: RunWorld, manual_key: String) -> bool:
-	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
+	var reserve := float(w.player_state.max_mp) * MANUAL_SKILL_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
 		if not w.book.is_active(key) or not _usable(w, key):
 			continue
 		var stats := w.runner.stats_of(w, key)
 		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
-			reserve = maxf(reserve, float(stats.mp_cost) * TELEPORT_ATTACK_RESERVE_CASTS)
+			reserve = maxf(reserve, float(stats.mp_cost) * MANUAL_SKILL_ATTACK_RESERVE_CASTS)
 	return float(w.player_state.mp) - float(w.runner.stats_of(w, manual_key).mp_cost) >= reserve
 
 
