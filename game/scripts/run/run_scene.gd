@@ -696,7 +696,8 @@ func _build_ui_windows() -> void:
 	use_window_stack(stack)
 	ui_windows.register("stat", func() -> UiWindow: return StatWindow.new(stat_info()))
 	ui_windows.register("skill", func() -> UiWindow: return SkillWindow.new(SkillWindowModel.new(world.book,
-		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text)))
+		world.upgrades, world.loadout, world.jobs, int(world.player_state.job_id), skill_text,
+		world.held_weapon_family)))
 	wiring = InventoryWiring.install(stack, world, self, library, _on_item_action,
 		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
 	enchant = wiring.enchant

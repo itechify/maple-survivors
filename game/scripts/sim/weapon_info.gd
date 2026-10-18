@@ -18,6 +18,12 @@ const FAMILIES := {
 	140: "sword", 141: "axe", 142: "blunt", 143: "spear", 144: "polearm",
 	145: "bow", 146: "crossbow", 147: "claw", 148: "knuckle", 149: "gun",
 }
+## What the Skill window calls each family when a skill needs it ("Weapon : Pole Arm"). tier C: ours, v83 item names.
+const FAMILY_LABELS := {
+	"sword": "Sword", "axe": "Axe", "blunt": "Blunt weapon", "dagger": "Dagger", "wand": "Wand", "staff": "Staff",
+	"spear": "Spear", "polearm": "Pole Arm", "bow": "Bow", "crossbow": "Crossbow", "claw": "Claw",
+	"knuckle": "Knuckle", "gun": "Gun",
+}
 ## tier B: Cosmic `isTwoHanded` (server reimplementation): every weapon type from 140 (two-handed swords, axes and
 ## blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) takes both hands, so no shield.
 const FIRST_TWO_HANDED_TYPE := 140
@@ -37,6 +43,11 @@ static func family(weapon_id: int) -> String:
 ## Weapon family of a Skill.wz `weapon` code (type - 100: 30 one-handed sword, 47 claw, ...); "" when unknown.
 static func family_of_skill_code(code: int) -> String:
 	return String(FAMILIES.get(code + 100, ""))
+
+
+## Display name of a weapon family ("Claw", "Pole Arm"); "Bare hands" for "".
+static func family_label(family: String) -> String:
+	return String(FAMILY_LABELS.get(family, family)) if family != "" else "Bare hands"
 
 
 ## True for a two-handed weapon (it blocks the shield slot); false bare-handed or for a non-weapon id.

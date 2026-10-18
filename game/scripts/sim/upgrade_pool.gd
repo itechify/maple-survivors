@@ -7,6 +7,8 @@ extends RefCounted
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
 ## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
+## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
+## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
 ## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
 ## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
@@ -115,6 +117,9 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 		if int(state.potions.stock.get(potion_kind, {}).get("item_id", 0)) != int(req.potions[potion_kind]):
 			return false
 	var skill := String(c.get("skill", ""))
+	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
+	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
+		return false
 	match String(c.get("kind", "")):
 		"skill_new":
 			if not lo.book.has(skill) or lo.has(skill):
