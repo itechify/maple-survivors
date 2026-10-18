@@ -132,6 +132,13 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# Warrior second job, Rage and Power Guard (#182): the v83 level-1 and top-level values, levels between interpolated.
+	for pair: Array in [["110", "1101006", 20, {"mpCon": [12.0, 20.0], "time": [46.0, 160.0], "pad": [3.0, 12.0], "pdd": [-3.0, -12.0]}],
+			["110", "1101007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}],
+			["120", "1201007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}]]:
+		if not imgs.has(pair[0]):
+			imgs[pair[0]] = {"skill": {}}
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "level": _levels(pair[2], pair[3])}
 	return imgs
 
 

@@ -3212,8 +3212,8 @@ held weapon family fails the skill's `weapon_families` (7.5), and none of them c
 A skill declares them in skills.json as `passive: {"stat": "mastery", "field": "mastery", "effects": [{"stat": "acc",
 "field": "x"}]}`: the first stat as before, the rest in the optional `effects` list. **Buffs.** `watk` (Rage's `pad`) adds to
 W.Att while active, refreshing the physical bounds the tick it starts or ends; a buff `effects` entry takes an optional
-`scale` (default 1), so Rage's weapon-defence penalty is `{"stat": "pdd", "field": "pdd", "scale": -1}` (check the sign
-Skill.wz stores when the Warrior spec lands) and lowers `hit_defense().pdd` while it lasts.
+`scale` (default 1). The real Rage needs none: Skill.wz already stores its `pdd` negative (-3 to -12), so the entry is
+`{"stat": "pdd", "field": "pdd"}` and lowers `hit_defense().pdd` while it lasts (7.10).
 
 **Final Attack.** A passive skill with `final_attack: {"chance_field": "prop"}`, `damage: "physical"` (the canonical
 `damage` is the follow-up's skill percent) and an `action` (the stance whose swing/stab/shoot kind picks the bounds).
@@ -3318,6 +3318,39 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
+
+### 7.10 Rage and Power Guard (#182)
+
+Three buffs from `Skill.wz/110.img` and `120.img` (spec #165): **Rage** 1101006 (Fighter, 20 levels, key `rage`) and
+**Power Guard** 1101007 (Fighter, `power_guard_fighter`) / 1201007 (Page, `power_guard_page`), 30 levels each. All three
+are ordinary self-only auto-cast buffs (cast when inactive and affordable, recast the tick after expiry, effects
+snapshot at the cast, 0.8 s `alert2` stance, canonical `mpCon`, `time`, effect art and `Use` sound). The cards are
+not `power`: `rage_new`/`rage_rank` (Fighter, 110), `power_guard_fighter_*` (110) and `power_guard_page_*` (Page, 120),
+weights 3 and 2.
+
+- **Rage.** W.Att +`pad` (3 to 12) and weapon defence +`pdd` (the WZ number is already negative, -3 to -12; no `scale`),
+  46 to 160 s. Any held weapon. The WZ node is a party buff: here it affects you only, and its text says so (the
+  `text.desc` override, 8.2). The WZ `affected` art (what party members see) is not used.
+- **Power Guard.** While active, **contact damage** (glossary: a monster's body touching you; `source_kind` "touch")
+  is reflected. Mob attacks, boss attacks, projectiles and magic never are. The reflect is
+  `floor(damage x x% / 100)` (x = 11 to 40, the buff's snapshot), halved against a boss (`MobKind.boss` or a scheduled
+  boss slot), and at most `floor(10% of that monster's Max HP)`. The same amount comes off the damage the character
+  receives. No RNG.
+- **Where it sits.** `RunWorld.take_hit`: hit window and god/dead guard, then avoid (a miss reflects nothing), then the
+  defence formula, then the Invincible reduction, then **Power Guard** (`_power_guard_reflect`), then Magic Guard's
+  MP split on what is left, then HP/MP, the `player_hit` event (its damage is the reduced hit), the window and the
+  reflect (`_apply_reflect`). So Magic Guard's percentage applies to the already-reduced damage, and the hit window
+  still allows one touch per window, hence one reflect per window. The step is a pure no-op without the buff:
+  no RNG, no event, so every earlier record stays byte-identical.
+- **The reflect is the character's damage.** It emits a `mob_hit` (the Power Guard key as `skill`, no hit art, never a
+  crit), counts in `damage_dealt`, and a kill goes through `_on_kill` (EXP, drops, boss rewards, kill count) like
+  any player kill. It does not go through the hit listeners: no Final Attack, no on-hit status, no MP Eater.
+  Frozen or immune monsters are not special-cased (the reflect ignores physical immunity).
+- **Not done.** Prerequisite skills in the WZ `req` nodes (Power Guard needs Rage 3 / Threaten 3) are ignored (#31).
+  Both Power Guards feed the one `power_guard` stat; branch exclusivity means a run owns one.
+- **Bot.** `balance.json` `bot.card_scores`: `rage_new` 100 and `rage_rank` 74 (what an attack card scores), so Rage is
+  picked like an attack. Power Guard has no entry: it scores as the other defensive buffs without one (Iron Body), 50
+  for the learn card and 42 plus the current-job bonus for the rank card. Tests: `test_power_guard.gd`.
 
 ## 8. Upgrades
 
@@ -3523,6 +3556,8 @@ MP Eaters, Invincible and both Slows):
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
 | Bless (2301004) | desc | "party members", "cannot be combined": self-only; its accuracy raises the critical chance (6.1) |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
+| Rage (1101006) | desc | "everyone in the party around the area": it affects you only |
+| Power Guard (1101007, 1201007) | desc | the WZ text says "damage received" and "enemy": here only monster contact damage is returned, half against bosses (7.10) |
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
 
@@ -3797,6 +3832,11 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
 | Regen passive field | A skill with `"regen": {"pool": "hp" or "mp", "divisor": n}` adds `floor(character level x skill level / n)` to each regeneration pulse of that pool (`Loadout.regen_bonus`); Improved MP Recovery is `{"pool": "mp", "divisor": 10}`, Improved HP Recovery will be data only | B | Pre-Big-Bang Improved MP / HP Recovery rule (formula compilations, refs/research/v83-mechanics); the field shape is ours |
 | Job `grants.max_hp` | Advancing adds it to base Max HP (`_base_hp`, saved as the snapshot's `base_hp`, so no format change) alongside `grants.max_mp` (`_job_mp`); data rows only for playable jobs | C | Ours; Warrior rows come with #163 |
+| Rage (#182) | W.Att +`pad` 3-12, weapon defence +`pdd` -3 to -12 (negative in the WZ, no `scale`), 46-160 s, `mpCon` 12/20; self only; auto-cast, recast on expiry, any weapon | A (values); C (self only, auto-cast) | Skill.wz/110.img/skill/1101006 |
+| Power Guard values (#182) | reflect `x` 11-40 %, `time` 3-90 s, `mpCon` 15/30; the Page node is the same table | A | Skill.wz/110.img 1101007, 120.img 1201007 |
+| Power Guard rule (#182) | contact damage only, half the rate against a boss, capped at 10 % of the monster's Max HP, the same amount subtracted from the damage taken | B | third-party v83 server reimplementation; the cap is only in the String desc (no WZ field) |
+| Power Guard details (#182) | amounts floored (a cap that floors to 0 reflects nothing and does not reduce the hit); applied after Invincible and before Magic Guard's split; the reflect is the character's own damage (damage number, a kill gives EXP and drops, `damage_dealt`), never a crit, no Final Attack or on-hit status; ignores physical immunity; one reflect per hit window; no RNG | C | ours |
+| Rage / Power Guard cards and bot (#182) | `rage_*`, `power_guard_fighter_*`, `power_guard_page_*` learn/rank cards, not power, weights 3/2; `bot.card_scores` `rage_new` 100, `rage_rank` 74 (attack-like), Power Guard unscored (defensive-buff default) | C | ours, untuned |
 
 | Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -4115,7 +4155,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Final Attack proc | canonical `prop`% chance after a damaging physical line of a matching family, follow-up at canonical `damage`% on the same mob, RNG stream 12, played at the end of the tick, none on a killed target or after a follow-up | A (prop, damage), C (per-line roll, timing, stream, no chains) | v83 Skill.wz; #161 |
 | Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
-| Buff `scale` | a buff effect entry may multiply its canonical number (Rage's WDEF penalty is `-1`) | C | data shape; #161 |
+| Buff `scale` | a buff effect entry may multiply its canonical number (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none) | C | data shape; #161 |
 | Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
 | Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot's planner wears the Spear | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule) | v83-facts 4; owner request 2026-10-18 |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
