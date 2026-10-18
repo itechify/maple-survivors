@@ -244,6 +244,18 @@ func passive_total(passive_stat: String) -> float:
 	return t
 
 
+## Extra HP or MP (`pool` "hp" / "mp") that the owned skills with a `regen` field add to one regeneration pulse at
+## `char_level`. A skill declares `"regen": {"pool": "mp", "divisor": 10}`; its bonus is floor(character level x skill
+## level / divisor), whole points. tier B: the pre-Big-Bang Improved MP Recovery / Improved HP Recovery rule.
+func regen_bonus(pool: String, char_level: int) -> float:
+	var t := 0.0
+	for k: String in order:
+		var r: Variant = book.def(k).get("regen")
+		if r is Dictionary and String(r.get("pool", "")) == pool:
+			t += floorf(float(char_level * level(k)) / maxf(1.0, float(r.get("divisor", 1.0))))
+	return t
+
+
 ## Effect of skill `key`'s `passive` at canonical `skill_level`: its survivor `per_level` value times the level, else
 ## the canonical `field` of that level (0 without a passive).
 func passive_value(key: String, skill_level: int, passive: Dictionary) -> float:

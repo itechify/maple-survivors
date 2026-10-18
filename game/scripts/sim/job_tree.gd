@@ -129,3 +129,36 @@ func lineage(job_id: int) -> PackedInt32Array:
 		j = int(_jobs[j].parent)
 		guard += 1
 	return out
+
+
+## The survivor-data field `key` of `job_id`, else of its nearest ancestor that has it; `fallback` when no job in the
+## line does (the same lineage walk as RunWorld's per-job balance tables).
+func lineage_value(job_id: int, key: String, fallback: Variant = null) -> Variant:
+	for j in lineage(job_id):
+		var s: Dictionary = _survivor.get(j, {})
+		if s.has(key):
+			return s[key]
+	return fallback
+
+
+## The second job (tier 2) on `job_id`'s line, else 0: 210 -> 210, 230 -> 230, 200 and 0 -> 0.
+func second_job(job_id: int) -> int:
+	for j in lineage(job_id):
+		if int(_jobs[j].tier) == 2:
+			return j
+	return 0
+
+
+## Why the tools cannot force `job_id` ("" when they can): it must be a first or second job of the canonical tree
+## (tier 1 or 2) and every job on its line below the Beginner must be playable in this build.
+func forced_job_error(job_id: int) -> String:
+	if not _jobs.has(job_id):
+		return "job %d is not in the canonical job tree" % job_id
+	var tier := int(_jobs[job_id].tier)
+	if tier < 1 or tier > 2:
+		return "job %d (%s) is not a first or second job" % [job_id, name_of(job_id)]
+	for j in lineage(job_id):
+		var rec := job(j)
+		if int(rec.tier) > 0 and not bool(rec.playable):
+			return "job %d (%s) is not playable in this build (%s)" % [j, name_of(j), rec.reason]
+	return ""

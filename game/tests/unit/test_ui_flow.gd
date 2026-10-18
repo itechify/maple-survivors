@@ -137,7 +137,7 @@ func test_save_data_broken_file_and_describe() -> void:
 func test_parse_run_args() -> void:
 	assert_true(SceneFlow.parse_run_args(PackedStringArray(["--window=title"])).is_empty(), "no --run")
 	var r := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--seed=42", "--autoplay", "--autopick",
-		"--branch=220", "--speed=4", "--shots=C:/tmp/shots", "--shot-every=5", "--quit-after=60.5", "--perf", "--fill"]))
+		"--job=220", "--speed=4", "--shots=C:/tmp/shots", "--shot-every=5", "--quit-after=60.5", "--perf", "--fill"]))
 	assert_eq(String(r.run), "henesys_hg1")
 	assert_eq(int(r.seed), 42)
 	var o: Dictionary = r.options
@@ -145,7 +145,9 @@ func test_parse_run_args() -> void:
 	assert_eq(o.autopick, true)
 	assert_eq(typeof(o.speed), TYPE_INT)
 	assert_eq(o.speed, 4)
-	assert_eq(int(o.branch), 220, "branch flag reaches RunScene options")
+	assert_eq(int(o.job), 220, "job flag reaches RunScene options")
+	assert_eq(int(SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--branch=230"])).options.job), 230,
+		"the deprecated --branch is the same option")
 	assert_eq(o.shots_dir, "C:/tmp/shots")
 	assert_eq(typeof(o.shot_every), TYPE_FLOAT)
 	assert_near(float(o.shot_every), 5.0)
