@@ -103,6 +103,8 @@ const EVENT_FIELDS := {
 	"boss_spawned": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_died": ["boss_index", "mob", "mob_id", "pos", "time"],
 	"boss_attack": ["boss_index", "mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
+	# #76 ordinary (non-boss) mobs: a mob attack's phases (as boss_attack). Ordinary mobs cast no mob skills.
+	"mob_attack": ["mob", "mob_id", "attack", "phase", "pos", "facing", "area", "time", "impact_time", "effect", "sound"],
 	"mob_projectile_spawned": ["proj", "mob", "mob_id", "pos", "velocity", "range", "speed", "ball", "hit", "time"],
 	"mob_projectile_hit": ["proj", "mob", "mob_id", "pos", "hit", "facing", "time"],
 	"mob_healed": ["mob", "mob_id", "skill_id", "level", "amount", "pos", "time"],
@@ -198,6 +200,9 @@ var director: SpawnDirector
 var mob_skills: MobSkillRunner
 var bosses: BossDirector
 var boss_attacks := BossAttacks.new()
+## Ordinary mobs' canonical attacks and their per-slot stances (#76).
+var mob_attacks: MobAttacks
+var mob_actions := MobActions.new()
 var mob_projectiles := MobProjectileSystem.new()
 
 var events: Array = []
@@ -394,6 +399,8 @@ func _init_directors() -> void:
 	director = SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	bosses = BossDirector.new(stage.get("bosses", []), balance.get("bosses", {}))
 	mob_skills = MobSkillRunner.new(setup, balance.get("mob_skills", {}))
+	mob_attacks = MobAttacks.new(self)
+	_sync_slots()
 
 
 ## The player's movement model (with the survivor knockback) and per-tick timers.
@@ -684,12 +691,13 @@ func _step_monsters(dt: float) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
-	_ctx["boss_actions"] = bosses.prepare_actions(self)
+	_ctx["boss_actions"] = mob_actions.view(bosses.prepare_actions(self), bosses, swarm, time)
 	_ctx["events"] = events
 	swarm.step(dt, _ctx)
 	bosses.step(self, dt)
 	mob_skills.step(self)
 	boss_attacks.step(self)
+	mob_attacks.step(self, dt)
 	mob_projectiles.step(dt, self)
 	director.step(dt, self)
 	_sync_slots()
@@ -1277,6 +1285,12 @@ func _grant_job_weapon(job_id: int) -> void:
 	_equipment_changed("grant", "weapon", id)
 
 
+## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
+## borrowed, read it at once (MobActions.view).
+func mob_action_view() -> Dictionary:
+	return mob_actions.view(bosses.action_snapshot(swarm), bosses, swarm, time)
+
+
 ## Live defense at a mob slot; later timed boss buffs can override this shared hit seam.
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
@@ -1299,6 +1313,8 @@ func spawn_mob(k: int, pos: Vector2, fh: int, hp_mult: float, elite: bool) -> in
 	mob_boss[i] = -1
 	mob_summon_owner[i] = -1
 	mob_skills.reset_slot(i)
+	mob_attacks.reset_slot(i)
+	mob_actions.reset_slot(i)
 	emit("mob_spawned", {"mob": i, "mob_id": mk.id, "pos": Vector2(swarm.x[i], swarm.y[i]), "elite": elite,
 		"relocated_from": -1})
 	return i
@@ -1321,6 +1337,9 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	swarm.steady[j] = 1 if boss_index >= 0 else 0
 	mob_summon_owner[j] = summon_owner
 	mob_skills.move_slot(i,j)
+	mob_attacks.move_slot(i, j)
+	mob_actions.reset_slot(i)
+	mob_actions.reset_slot(j)
 	if boss_index >= 0:
 		bosses.records[boss_index].slot = j
 	emit("mob_spawned", {"mob": j, "mob_id": mob_kinds[k].id, "pos": Vector2(swarm.x[j], swarm.y[j]), "elite": elite,
@@ -1600,6 +1619,9 @@ func _tick_timers(dt: float) -> void:
 func _sync_slots() -> void:
 	if mob_skills != null:
 		mob_skills.resize(swarm.capacity())
+	if mob_attacks != null:
+		mob_attacks.resize(swarm.capacity())
+	mob_actions.resize(swarm.capacity())
 	if mob_summon_owner.size() < swarm.capacity():
 		var old := mob_summon_owner.size()
 		mob_summon_owner.resize(swarm.capacity())

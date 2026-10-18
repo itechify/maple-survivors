@@ -22,6 +22,9 @@ var magic := PackedByteArray()
 var element := PackedStringArray()
 var hit_visual := PackedStringArray()
 var source_pos := PackedVector2Array()
+## 1 for an ordinary (non-boss) mob's ball: its hit is a "mob_attack" (elite-scaled like contact), not a boss "projectile".
+var ordinary := PackedByteArray()
+var elite := PackedByteArray()
 var _free := PackedInt32Array()
 var _hi := 0
 var _count := 0
@@ -59,6 +62,8 @@ func spawn(spec: Dictionary) -> int:
 	element[slot] = String(spec.element)
 	hit_visual[slot] = String(spec.hit)
 	source_pos[slot] = spec.source_pos
+	ordinary[slot] = 1 if bool(spec.get("ordinary", false)) else 0
+	elite[slot] = 1 if bool(spec.get("elite", false)) else 0
 	_count += 1
 	_hi = maxi(_hi, slot + 1)
 	return slot
@@ -79,9 +84,13 @@ func step(dt: float, world: RunWorld) -> void:
 		y[slot] = to.y
 		range_left[slot] = maxf(0.0, range_left[slot] - distance)
 		if enter >= 0.0:
-			world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot],
-				{"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
-					"dmg_mult": multiplier[slot], "boss": true, "source_kind": "projectile"})
+			var source := {"mob": mob[slot], "mob_id": mob_id[slot], "accuracy": accuracy[slot],
+				"dmg_mult": multiplier[slot], "boss": true, "source_kind": "projectile"}
+			if ordinary[slot] != 0:
+				source.boss = false
+				source.source_kind = "mob_attack"
+				source["elite"] = elite[slot] != 0
+			world.take_hit(damage[slot], magic[slot] != 0, element[slot], source_pos[slot], source)
 			world.emit("mob_projectile_hit", {"proj": slot, "mob": mob[slot], "mob_id": mob_id[slot],
 				"pos": from.lerp(to, enter), "hit": hit_visual[slot], "facing": 1 if vx[slot] > 0.0 else -1,
 				"time": world.time})
@@ -102,7 +111,8 @@ func despawn(slot: int) -> void:
 func _grow(size: int) -> void:
 	var old := active.size()
 	for property: String in ["active", "x", "y", "vx", "vy", "visual", "rotate", "range_left", "radius",
-		"mob", "mob_id", "damage", "multiplier", "accuracy", "magic", "element", "hit_visual", "source_pos"]:
+		"mob", "mob_id", "damage", "multiplier", "accuracy", "magic", "element", "hit_visual", "source_pos",
+		"ordinary", "elite"]:
 		var array: Variant = get(property)
 		array.resize(size)
 		set(property, array)

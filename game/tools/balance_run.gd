@@ -329,6 +329,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	rng.seed = hash("careless-%d" % seed_value)
 	var cards_taken: Array = []
 	var boss_hits: Array = []
+	# #76: landed ordinary mob attack hits (recorded only when nonzero).
+	var mob_attack_hits := 0
 	var buff_casts: Array = []
 	var potion_uses: Array = []
 	var mp_short_seconds := 0.0
@@ -435,6 +437,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 					if not bool(e.miss):
 						hits += 1
 						taken += int(e.damage)
+						if String(e.get("source_kind", "")) == "mob_attack":
+							mob_attack_hits += 1
 						if bool(e.boss):
 							boss_hits.append({"mob_id": int(e.mob_id), "time": w.time, "damage": int(e.damage),
 								"max_hp": int(e.max_hp), "fraction": float(e.damage) / maxi(1, int(e.max_hp)),
@@ -525,6 +529,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"nx_awarded": w.nx_awarded(), "bosses_killed": w.bosses_killed(), "levels_gained": w.levels_gained(),
 		"card_tiers_offered": w.card_tiers_offered.duplicate(), "card_tiers_picked": w.card_tiers_picked.duplicate(),
 	}
+	if mob_attack_hits > 0:
+		# #76: only rounds where an ordinary mob's attack landed record this, so other rounds keep their exact bytes.
+		record["mob_attack_hits"] = mob_attack_hits
 	if w.pet_system != null:
 		# #119: only a round with a pet out records one, so rounds without keep their exact bytes. Its drinks and pickups
 		# are counted apart from the player's (potions_used stays the player's).

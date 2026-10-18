@@ -189,7 +189,9 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpawnDirector` | Stage pacing, spawn positions, relocation | `step(dt, world)`, `pick_spawn(world, k, side := 0) -> Vector3` (x, y, foothold: -1 for flyer air points, -2 when no point is found), `screen_rect(world) -> Rect2` (what spawns stay out of: the view + `margin`, + `trail_margin` behind a moving player); ground spawns prefer short reachable routes; flyers sample off-screen air within map bounds; moves off-screen mobs that stall, are far or cannot reach the player to a point ahead of the player (`relocated`) |
 | `StageRoster` | Which mob ids a stage needs | `static named_ids(stage)` (keyframe pools + boss ids), `static boss_extra_ids(boss_img, mob_skill_img)` (MobSkill 200 summons at each level the boss lists in `info/skill`, plus `info/revive`), `static mob_ids(stage, mob_imgs, mob_skill_img)` (both, ascending), `static list_ids(node)` (a WZ list node's ids in key order: summon levels, revive lists); used by `RunWorld` (mob kinds) and `DataRepo.build_setup` (two passes: named imgs, then derived ids) |
 | `BossDirector` | Scheduled warnings, arrivals, pursuit teleports, shared action timing, deaths and completion | `step(world, dt := 0)`, `live_count()`, `all_dead()`, `normal_spawn_multiplier()`, `damage_multiplier(index)`, `can_act`, `begin_action`, `prepare_actions`, `action_snapshot`; public `entries` and lifecycle `records`, owned as `RunWorld.bosses` |
-| `BossAttacks` | Selected canonical type-0 area and type-2 ball windups, effect timing and delayed impact | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate |
+| `BossAttacks` | Scheduled bosses' selected canonical attacks (`stage.bosses[].attacks`), cadence and scaling | `step(world)`, `area_at(range_data, pos, facing)`; owned as `RunWorld.boss_attacks`, shares `BossDirector` action gate; the windup/impact code is `MobAttacks`' static half |
+| `MobAttacks` | The shared canonical type 0/1/2 attack code (`plan`, `service`, `emit`, `area_at`) and ordinary mobs' attacks (#76) | `step(world, dt)`, `reset_slot`, `move_slot`, `resize`, `wait_left(slot)`, static `attack_names(img)`, `first_wait(interval, identity)`; owned as `RunWorld.mob_attacks`; per-slot waits in a packed array, pending windups keyed by slot and checked against the swarm identity |
+| `MobActions` | Ordinary mobs' authored attack stances per slot in packed arrays, and the composed per-slot action view | `begin`, `busy`, `reset_slot`, `resize`, `view(boss_view, bosses, swarm, now)`; owned as `RunWorld.mob_actions`; `RunWorld.mob_action_view()` is what MobSwarm and MobRenderer read |
 | `MobProjectileSystem` | Monster type-2 balls as pooled packed arrays, separate from player shots | `spawn(spec)`, `step(dt, world)`, `active_count()`; captured source/damage metadata, swept player collision through take_hit; same ProjectileRenderer drawing interface |
 | `RunWorld` | Owns a run | `_init(setup)`, `step(dt, input)`, `events`, `time`, `kills`, `state` (PLAYING / CHOOSING_JOB / CHOOSING_UPGRADE / DEAD / CLEARED); TIMEOUT is a harness outcome while the sim remains PLAYING; `skill_readiness(key) -> {left, total, mp_short}` is the HUD's per-skill cooldown sweep and blue waiting-for-MP data (Teleport: its repeat timer); `read_skill_cooldowns(left, total, mp_short)` writes the same for every owned skill into the caller's reused Packed arrays (the HUD's allocation-free per-frame feed) |
 | `BotInput` | The autoplay bot (RunScene `autoplay`/`autopick`, the full-run tests, `scripts/balance.sh`, the benchmarks): kites, collects drops, climbs or uses same-map portals, picks jobs and cards | `decide(world, memo) -> MoveInput`, `auto_choose(world, first_card := false)`, `pick_card_for(world, cards)`, `pick_job(options)` |
@@ -326,6 +328,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
 | `boss_attack` | `boss_index`, `mob`, `mob_id`, `attack` (canonical stance, e.g. attack1), `phase` (`start` / `effect` / `impact`), `pos` (captured feet), `facing`, `area` (Rect2, captured world-space range), `time` (event tick), `impact_time` (absolute planned sim time), `effect`, `sound` (WZ paths, effect may be empty). Start holds the stance and plays sound; effect phase starts art; impact tests the current player position/grounded state. |
+| `mob_attack` | An ordinary (non-boss) mob's attack (#76): the `boss_attack` fields without `boss_index`, same phases (`start` / `effect` / `impact` / `hit`) |
 | `mob_projectile_spawned` | `proj`, `mob`, `mob_id`, `pos` (muzzle), `velocity` (Vector2 px/s), `range`, `speed` (float), `ball`, `hit` (WZ paths), `time` |
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact even when invincibility/MISS prevents damage |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
@@ -379,6 +382,23 @@ the tier-C airborne-at-impact dodge. Dead bosses cancel pending impacts. Attack 
 An explicit `magic=1` also selects magic damage, falling back to mob MADamage when no local attack value exists.
 Effects and impacts have separate completion flags: an effectAfter later than attackAfter is preserved once.
 The `boss_attack` hit phase carries the canonical hit path in `effect` at the character's current feet.
+
+**Shared mob attack path (#76).** The windup/impact code above lives in `MobAttacks` as static functions
+(`plan`, `service`, `emit`, `area_at`); `BossAttacks` keeps only the boss loop (which attacks, `attack_interval`,
+`attack_dmg_mult`, the BossDirector action gate). `MobAttacks.step` runs the same code for ordinary mobs: every kind
+whose Mob.wz img lists `attackN` with type 0, 1 or 2 (scheduled-boss kinds and slots with `mob_boss >= 0` excluded)
+tries its attacks in canonical order and starts the first whose range admits the character. A slot's wait (packed
+`_wait`) counts down only while the mob can act (fully faded in, not frozen) with its feet inside `RunWorld.view`;
+the first wait is 50-100% of the interval by the golden-ratio fraction of the swarm identity (`first_wait`, tier C),
+later waits the full `balance.mob_attacks` interval. A start also needs the mob grounded and not busy. Pending
+windups are keyed by slot and carry the swarm identity; a dead, reused or relocated slot drops its windup. Hits use
+`source_kind = mob_attack` (balls from ordinary mobs too, through MobProjectileSystem's `ordinary` flag), `boss =
+false`, the elite flag, and `dmg_mult` from `balance.mob_attacks.mobs[id]`; events are `mob_attack`. Ordinary
+stances live in `MobActions` (packed per-slot arrays); `RunWorld.mob_action_view()` composes them with
+`BossDirector.action_snapshot` for MobSwarm (hold ground/facing) and MobRenderer, and returns the boss snapshot
+itself while no ordinary stance is live. Ordinary mobs cast no mob skills: character statuses come only from bosses
+(owner, #76), so `MobSkillRunner` runs scheduled bosses only. Per-slot waits and stances reset in `spawn_mob` and move
+(waits) or reset (stances, windups) in `relocate_mob`.
 
 Type 1 is a targeted direct strike (tier C, not verified v83 RE): acquisition checks the character body centre
 within `range/r` of the mirrored `range/sp`. Once admitted, the single character is locked; `attackAfter`

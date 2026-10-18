@@ -213,6 +213,19 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
 - **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Mob attacks (#76):** an ordinary mob whose Mob.wz img lists `attackN` (Tauromacis 7130100 `attack1`, Taurospear
+  7130101 `attack1`/`attack2`: type 0 magic) uses them exactly like a boss attack (4.3): the canonical windup stance,
+  the hit at `attackAfter` in the canonical range box mirrored by facing, magic attacks with MADamage against M.DEF
+  and `elemAttr` as for bosses, the `hit` art and the `Sound.wz/Mob.img/<id>/AttackN` sound. Damage is unscaled like
+  contact damage, times `balance.mob_attacks.mobs[id].dmg_mult` (1.0) and, for an elite, `elites.damage_mult`. A mob
+  attacks only grounded, fully faded in, not frozen, with its feet on screen and the character in a range; it tries its
+  attacks in canonical order. Its wait counts only that on-screen time: the first is 50-100% of its interval (by spawn
+  identity, so a wave spawned together does not attack in unison), the next the full interval (5 s for both Tauros).
+  Hits are `source_kind` `mob_attack` with today's single 1.5 s invincibility; #88 will route them separately from boss
+  `attack`/`projectile` hits. All cadence values are tier C.
+- **Mob skills (#76):** ordinary mobs cast none. Character statuses (Slow and the like) come only from bosses (owner,
+  #76); Jr. Boogie 3230300 lists Seal (120) and Curse (124) in Mob.wz but deals contact damage only, and both are skipped
+  like any other unsupported mob skill.
 - **Hit reaction:** only a hit reaching the monster's canonical `pushed` value plays `hit1`, stuns for 0.24 s and
   pushes it 12 px away from the source (tier C timings/distance, tier A threshold). Weaker hits leave its movement
   and animation state unchanged.
@@ -276,8 +289,9 @@ Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run 
 `[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
 the 30–40% clear / Lv60–69 targets are deferred to #77. Canonical mob HP, defence, EXP, levels and elements remain
-unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Ordinary mobs use contact
-damage only; Tauro magic attacks and Jr. Boogie statuses belong to #76. Cross-map exits west00/east00 and NPC
+unchanged in the cache. Stage EXP is 1x; no new per-mob stat multipliers are applied. Tauromacis and Taurospear use
+their canonical magic attacks (#76, section 4 "Mob attacks"); Jr. Boogie deals contact damage only and no ordinary mob
+casts a mob skill. Cross-map exits west00/east00 and NPC
 9201133 use the existing drawn, inert handling. The original spawn list is 9 Horny Mushrooms, 7 Zombie Mushrooms
 and 35 Stirges (tier A, original Map.wz).
 
@@ -2194,6 +2208,85 @@ seconds Henesys bot 1214.7 / 880.3 / 1336.6, random 988.8 / 462.0 / 659.3; Tree 
 1223.9 / 158.3 / 88.4), no world warnings. The merge makes a full Equip tab stop the pet too: it neither picks up,
 VAC-pulls nor fetches equipment it has no room for (`test_pet_pickup`).
 
+#### #76 ordinary mob attacks regression smoke (2026-10-17)
+
+Feature smoke only, no tuning (AGENTS.md): `ISOLATE=t76*`, seeds **1/2/2026**, Henesys and Tree one-off rounds (bot,
+random), the `--tier=2` chain (bot, random) and the Dark Cave Lv38 F/P fixture (`lv35_magician_2nd.json`, bot,
+random); baseline = `6519b73` (a detached worktree), after = this branch. The only balance data added is the
+`mob_attacks` block (tier C, section 11). Owner decision (2026-10-17): statuses on the character come only from bosses,
+so ordinary mobs cast nothing and Jr. Boogie deals contact damage only; the earlier Seal implementation is gone, which
+leaves the Tauromacis/Taurospear attacks as the only behaviour change. **Every Henesys, Tree and chain-tier-1 record and
+summary is byte-identical (sha256) to the baseline, and so is every Dark Cave record in which no Tauro attack landed**
+(fixture bot seed 1, fixture random seeds 1 and 2, chain bot, chain random seeds 2 and 2026). Records that differ all
+have `mob_attack_hits` > 0 and first diverge in the 10:00 engagement window (`eng_by_min[9]`, centred on 10:00); the
+first Tauro attack starts at 606-612 s in each of them (Tauros enter the pool at 10:00). No crashes, script errors,
+world warnings or `missing` entries. Records gain `mob_attack_hits` only when nonzero (other rounds keep their bytes).
+
+| Round group | End seconds before → after (seed 1 / 2 / 2026) | Zombie Mushmom (6300005) killed before → after | End level before → after | Landed Tauro hits after |
+|---|---|---|---|---|
+| Henesys, Tree (bot, random) | identical bytes | identical | identical | none |
+| Chain tier 2 bot | no tier-1 clear, identical | — | identical | 0 |
+| Chain tier 2 random (seed 1 only tier-1 clear) | 1259.9 → 1325.0 (seeds 2, 2026 identical) | 1/1 (388.9 s) → 1/1 (388.9 s) | 61 → 62 | 91 |
+| Dark Cave fixture bot | 464.8 / 777.4 / 768.8 → 464.8 / 704.7 / 747.4 | 2/3 → 2/3 (405.5 s, 422.5 s) | 46 / 56 / 54 → 46 / 55 / 54 | 0 / 12 / 7 |
+| Dark Cave fixture random | 343.5 / 430.2 / 895.4 → 343.5 / 430.2 / 859.4 | 1/3 → 1/3 (365.2 s) | 44 / 45 / 55 → 44 / 45 / 55 | 0 / 0 / 25 |
+
+Every fixture round still dies, as before this ticket. Same fixture, bot, the other training seeds 3..14 (evidence only):
+Zombie Mushmom killed **7/15 before and 7/15 after** over all 15 seeds (1, 2, 2026, 3..14); the eight runs that die before
+the Tauros arrive are byte-identical, and the seven that meet them end 73 s earlier to 16 s later (seed 2 -72.7, 11 -52.4,
+2026 -21.4, 12 -15.4, 3 -7.1, 7 +6.9, 10 +16.4) with 6-15 landed Tauro hits each. The two Tauros are a small difficulty
+step for the Lv38 F/P fixture, well inside the noise of the 10:00+ phase; `mob_attacks` intervals and `dmg_mult` are the
+levers for #77. Raw records: ignored `_scratch/t76/{baseline,rm,rm2,seedsearch_base,seedsearch_rm}/`.
+
+**Playtest evidence** (ignored `evidence/t76/playtest_rm/`: `scripts/playtest.sh --stage=dark_cave --character=<the chain
+seed-1 tier-2 start character> --seed=2260174940 --speed=1 --warp=590 --minutes=13.5 --shot-every=20`; the Lv38 fixture
+bot reaches the Tauros in only some rounds, so the stronger chain character is used): the character
+survives to 13:30 (Lv58) with up to 292 mobs alive. `mob_attack_windup.png` (10:07) shows Tauromacis with its crescent staff
+raised (attack1) beside the character, `mob_attack_hit.png` the canonical lightning hit art over the character,
+`t620.png` Jr. Boogies standing among Evil Eyes and Tauros with no cast animation, and the buff row shows only the
+character's own Cleric buff icons in `t620.png`/`t780.png`: no status icon, no padlock anywhere. `summary.json` `missing`
+is `[]`. A pre-existing tool issue: when the character dies during `--warp`, the warp drops the death event and
+`--quit-after` counts run time, so the window never quits (use a character that survives, or no warp past its death).
+
+**Performance** under load: Dark Cave, the chain tier-2 character (Lv41 Cleric), seed 2260174940, god mode so both
+versions reach 13:00 with 200+ mobs, **Tauros included** (HEAD: 142 Tauromacis/Taurospears alive at 13:50, 771 attack
+starts in the measured window). Old = `6519b73`, HEAD = this branch, runs interleaved on the same machine with other
+agents' Godot processes running (so ±20% run-to-run noise). Headless probe: the sim warped to 13:00 with BotInput, then
+3000 ticks (50 s) timed. "HEAD, attacks off" sets `MobAttacks._any = false`, which leaves the game state identical to
+the old code (296 mean / 312 max alive, Lv58, same kills), so it isolates code overhead from game-state differences.
+
+| Whole `RunWorld.step`, µs per tick (mean of 3000 ticks) | Run 1 | Run 2 | Run 3 | Run 4 |
+|---|---|---|---|---|
+| Old `6519b73` (296 alive) | 3139 | 3193 | 3812 | 2921 |
+| Old, second batch (interleaved with the inlined HEAD) | 3457 | 3581 | 3619 | |
+| HEAD, attacks off (same state as old) | 3623 | 4359 | 3599 | |
+| HEAD, before the inlining (290 alive, 142 Tauros) | 2470 | 2685 | 2383 | 3055 |
+| HEAD (290 alive, 142 Tauros; `MobAttacks.step` inlined) | 2596 | 2742 | 2945 | |
+
+| `MobAttacks.step` alone, µs per tick | Run 1 | Run 2 | Run 3 | Run 4 |
+|---|---|---|---|---|
+| HEAD before inlining `can_act` and the view test | 200 | 219 | 190 | 246 |
+| HEAD after (`perf(sim): inline ...`) | 121 | 132 | 139 | |
+
+Reading: same-state HEAD costs the old code's step within noise (3.6-4.4 ms against 3.5-3.6 ms; the loop returns
+at once when no mob has an attack). With the attacks on, the world differs (HEAD ends with 142 Tauros alive against 103; the cheaper
+2.6-2.9 ms step is probably mobs held in their attack stance, not measured) and the attack loop itself costs **121-139 µs per tick, 4-5% of the step** at 142
+attackers on screen (it was 190-246 µs, about 8%, before `can_act`, `is_live` and `Rect2.has_point` were inlined; the loop
+output is unchanged, all 12 Dark Cave and chain-random records are byte-identical before and after). The same-state
+HEAD readings (3599-4359) sit within the spread of the old code across batches (2921-3812) plus one slow reading, so
+the code overhead is not distinguishable from run-to-run noise; no measurement shows the attack feature costing more
+than the attack loop's own 4-5%. Windowed (`--vsync=off`, `--warp=720 --minutes=15`, so 720-900 s drawn, a
+scratch-worktree-only `world.god` switch), same seed and character:
+
+| Windowed, 12:00-15:00 (max alive 331 in all four) | `frame_work_us` avg / p95 | `sim_us_per_tick` | `frame_ms_200plus` p95 (frames) |
+|---|---|---|---|
+| Old, run 1 | 1966 / 5152 | 2618 | 7.03 ms (48315) |
+| Old, run 2 | 1616 / 4216 | 2183 | 5.59 ms (57586) |
+| HEAD, run 1 | 1872 / 4623 | 2226 | 6.20 ms (51481) |
+| HEAD, run 2 | 1844 / 4600 | 2179 | 6.15 ms (51921) |
+
+The two versions overlap (old 1616-1966 µs against HEAD 1844-1872 µs average frame work); `missing` is `[]` in all four.
+Raw: ignored `evidence/t76/perf3/`, `_scratch/t76/perf_probe_runs*.txt`, probe `_scratch/t76/probe/perf_load.gd`.
+
 ### 4.3 Boss encounter lifecycle (difficulty overhaul)
 
 Henesys Hunting Ground I schedules Mano (2220000) at 5:00, Mushmom (6130101) at 10:00 and Blue Mushmom (9400205) at
@@ -2528,6 +2621,8 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
   the source monster's PAD (MAD for magic attacks), then subtract `floor(0.75 × player defense)` (W.DEF for physical,
   M.DEF for magic). Apply `(1 − elemental resistance/100)`, then explicit elite/boss damage multipliers, round once
   to the nearest integer and enforce minimum 1. There is no hidden scale or time-based damage multiplier.
+  Ordinary mob attacks (#76) use this formula with the attack's canonical PADamage/MADamage (Tauromacis 320,
+  Taurospear 390 MADamage) and `source_kind` `mob_attack`; contact is `touch`, boss attacks `attack`/`projectile`.
   Orange Mushroom PAD 42 versus W.DEF 7 yields 31–37; Green Mushroom PAD 82 yields 65–77, or 35–47 at W.DEF 47.
 - **Avoid** (tier B, weakly sourced: a single owner-provided private-server wiki page, not corroborated): miss
   probability is `clamp(21.6 × player avoid / monster accuracy / 100, 0, 1)`; zero/missing accuracy disables the
@@ -3220,10 +3315,21 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|---|
 | Run tier list | `[[henesys_hg1, tree_that_grew_1], [dark_cave]]`, index 0 = tier 1 | C | Owner #32 decision; binding spec32 decisions section 3 |
 | Map and original spawns | 105050400; Horny 2110200 ×9, Zombie 2230101 ×7, Stirge 2300100 ×35; 14 ladders; NPC 9201133; exits 105050300/105060000 | A | Original v83 Map.wz/Map/Map1/105050400.img; loaded through the normal cache |
-| Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; contact only until #76 |
+| Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; Tauro attacks from #76 (table below); Jr. Boogie contact only |
 | First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
 | Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle |
 | Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
+
+| Ordinary mob attacks (#76) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Tauro attacks | Tauromacis `attack1` type 0 magic L, MADamage 320, lt(-320,-240) rb(84,-1), attackAfter 480 ms; Taurospear `attack1` lt(-209,-225) rb(0,0) and `attack2` lt(-250,-60) rb(0,0), type 0 magic, attackAfter 420 ms, MADamage 390; `hit` art (Taurospear's are 1x1 placeholders), `Sound.wz/Mob.img/<id>/Attack1/2` | A | v83 Mob.wz / Sound.wz, read from the cache |
+| Which mobs attack | every non-boss mob whose img lists `attackN` with type 0/1/2 uses the shared boss attack code; scheduled-boss kinds and boss slots never take this path; attacks tried in canonical order, the first admitted fires | C | ours; owner #76 decision 5 |
+| Attack interval | `balance.mob_attacks`: 5 s for 7130100 and 7130101, `default_interval` 5 s (code fallback `MobAttacks.DEFAULT_INTERVAL`); per mob slot, start to start | C | ours; first pass before measurement, not tuned (#77) |
+| Attack damage scale | canonical attack damage unscaled, times per-mob `dmg_mult` 1.0; elites also take `elites.damage_mult` (as for contact) | C | owner #76 decision 4; ours (elite) |
+| Attack gate | grounded, fully faded in and not frozen (`MobSwarm.can_act`), feet inside the player-centred view, not inside another stance; the wait counts only while faded in, unfrozen and on screen | C | ours ("the boss rule" plus on screen) |
+| First readiness | first wait = interval x (0.5 + 0.5 x frac(identity x 0.618034)), identity = the swarm's monotonic spawn identity (kept through relocation); same-tick spawns spread evenly over half the interval (distinct values; a burst of more than ~interval x 30 mobs shares fixed ticks) | C | ours; `MobAttacks.first_wait` |
+| Slot lifecycle | a new mob in a slot starts unset (no wait, windup or stance); a relocation keeps waits, cancels a windup and clears the stance | C | ours |
+| Mob skills of ordinary mobs | none cast: Jr. Boogie's Seal (120) and Curse (124) are skipped like any unsupported mob skill; character statuses come only from bosses, and no current boss lists MobSkill 120 | C | owner #76 decision (2026-10-17), replacing the brief's Seal |
 
 | Constant | Value | Tier | Source |
 |---|---|---|---|
