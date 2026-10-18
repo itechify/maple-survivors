@@ -30,6 +30,24 @@ const ACCURACY_FACTORS := {
 }
 
 
+## Damage kinds of a hit line, as the byte a pooled array stores (DAMAGE_TYPE_NAMES is the string a hit dictionary carries).
+const DAMAGE_FIXED := 0
+const DAMAGE_MAGIC := 1
+const DAMAGE_PHYSICAL := 2
+const DAMAGE_TYPE_NAMES := ["fixed", "magic", "physical"]
+
+
+## The damage type of a hit line: the explicit `damage_type` when set, else the legacy `magic` flag picks magic or fixed
+## (the one place that default lives; callers with a spec dictionary pass its two keys).
+static func damage_type_of(damage_type: String, is_magic: bool) -> String:
+	return damage_type if damage_type != "" else "magic" if is_magic else "fixed"
+
+
+## The DAMAGE_* byte of a damage type name (an unknown name, e.g. "none", counts as fixed).
+static func damage_type_code(damage_type: String) -> int:
+	return maxi(DAMAGE_FIXED, DAMAGE_TYPE_NAMES.find(damage_type))
+
+
 ## Mastery fraction for a canonical `mastery` field value: (10 + 5 x m) / 100 (Energy Bolt L1 m=1 -> 0.15).
 static func mastery_fraction(mastery_field: int) -> float:
 	return (10.0 + 5.0 * mastery_field) / 100.0

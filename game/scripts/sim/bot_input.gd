@@ -104,7 +104,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 				and int(memo.climb_t) > 2):
 			memo.erase("climb_x")
 	# Engage mode (#162): a build whose attacks all reach less than kite_reach closes to its ready attack's reach.
-	var engage := _engage_config(w)
+	if not memo.has("engage"): # built once per run: balance.json does not change under a bot
+		memo["engage"] = _engage_config(w)
+	var engage: Dictionary = memo.engage
 	var profile := _reach_profile(w)
 	var melee: bool = profile.x > 0.0 and profile.x < float(engage.kite_reach)
 	var engage_target := -1

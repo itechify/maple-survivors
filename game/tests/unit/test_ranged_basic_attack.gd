@@ -143,7 +143,7 @@ func test_the_shot_flies_after_the_impact_tick_carrying_the_ammos_sprite() -> vo
 	if slot < 0:
 		return
 	assert_eq(world.visual_paths[world.projectiles.visual[slot]], "Item.wz/Consume/0207.img/02070015/bullet")
-	assert_eq(world.projectiles.damage_type[slot], "physical")
+	assert_eq(world.projectiles.damage_kind[slot], CombatMath.DAMAGE_PHYSICAL)
 	assert_eq(world.projectiles.rotate[slot], 0, "stars spin in their own animation")
 	assert_true(absf(world.projectiles.vx[slot]) > 700.0)
 

@@ -84,3 +84,18 @@ func test_shared_hit_roll() -> void:
 		assert_eq(m.y, 0)
 	var crit := ProjectileSystem.roll_damage(20.0, 20.0, false, 0.0, 150.0, 1.0, 1.5, rng)
 	assert_eq(crit, Vector2i(30, 1), "crit x 1.5")
+
+
+func test_damage_type_default_and_byte_codes() -> void:
+	assert_eq(CombatMath.damage_type_of("", true), "magic", "the legacy magic flag")
+	assert_eq(CombatMath.damage_type_of("", false), "fixed")
+	assert_eq(CombatMath.damage_type_of("physical", true), "physical", "an explicit type wins")
+	for name: String in CombatMath.DAMAGE_TYPE_NAMES:
+		assert_eq(CombatMath.DAMAGE_TYPE_NAMES[CombatMath.damage_type_code(name)], name)
+	assert_eq(CombatMath.damage_type_code("none"), CombatMath.DAMAGE_FIXED, "an unknown name behaves as fixed")
+	var shots := ProjectileSystem.new()
+	var slots: Array[int] = []
+	for spec: Dictionary in [{}, {"magic": true}, {"damage_type": "physical"}, {"damage_type": "physical", "magic": true}]:
+		slots.append(shots.spawn(spec))
+	assert_eq(slots.map(func(s: int) -> int: return shots.damage_kind[s]),
+		[CombatMath.DAMAGE_FIXED, CombatMath.DAMAGE_MAGIC, CombatMath.DAMAGE_PHYSICAL, CombatMath.DAMAGE_PHYSICAL])

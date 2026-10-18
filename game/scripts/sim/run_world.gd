@@ -1517,7 +1517,7 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
 	if swarm.active[m] == 0:
 		return
-	var dtype := String(st.get("damage_type", "magic" if bool(st.get("magic", false)) else "fixed"))
+	var dtype := CombatMath.damage_type_of(String(st.get("damage_type", "")), bool(st.get("magic", false)))
 	var magic := dtype == "magic"
 	if not magic and not physical_hit_allowed(m):
 		return
