@@ -511,11 +511,10 @@ or `missing` entry in any of the 72 records (16 smoke, 6 fixture and 2 chain con
   `--god=1` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
   reaches the Lv 30 advancement (Mano is killed at 6:07 by the invulnerable Fighter; Lv 34 at 10:00; `_doc.invulnerable`
   says so). Regenerating each one twice with the same revision reproduces it byte for byte.
-- **Flow driver** `--scenario=warrior2 --branch=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
+- **Flow driver** `--scenario=warrior2 --job=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
   advancement weapons, a real advancement-draw skill, the Skill window with the unheld family greyed, Save & quit, Continue)
-  passes for all three branches; see its header in `flow_driver.gd`. Playtest evidence shots are `cast_<skill>_after.png`,
-  `<final attack key>_followup.png` and `reflect_first.png` (RunScene, `_shots_dir` only; the `_after` shot doubles the
-  shot count of every playtest). The in-action shots (Final Attack follow-up, Rage, Power Guard, Threaten, Hyper Body)
+  passes for all three branches; see its header in `flow_driver.gd`. Playtest evidence shots are
+  `<final attack key>_followup.png` and `reflect_first.png` (RunScene, `_shots_dir` only). The in-action shots (Final Attack follow-up, Rage, Power Guard, Threaten, Hyper Body)
   come from three-minute `playtest.sh --stage=dark_cave --character=` runs of evidence-only copies of the fixtures with
   every branch skill at rank 10 (not committed); on Henesys a Lv 34 Warrior one-shots everything, so no follow-up fires there.
 - **Full suite** (cache `spec165`): 1752 tests, 0 failed, 0 skipped, 154 files; the tests that need the cache ran, none SKIPped.
@@ -3856,8 +3855,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   tab, and whatever the full tab cannot take lies at the player's feet, so advancing never fails. The grant checks no
   requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
   The Power Strike and Slash Blast cards stay on offer after the second job (section 8, rule 1 exception).
-  The Warrior's second-job skills come with #181-#184; until they land the advancement draw offers no Warrior skill
-  and the job only changes Max HP and weapons. `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
+  The advancement draw offers the held family's Final Attack and Booster (the branch's eligible power skills), topped
+  up to three with other new skills of the branch (seeded, tier C). `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
   bot draws its branch on the job stream (8) like the Magician's.
 
   | Branch | First family (worn when the held family is not the branch's) | Second family |
@@ -4364,7 +4363,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
 | Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
 | Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god=1 --seconds=600 --label=spec165/ticket-185`; `--god=1` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
-| Playtest evidence shots (#185) | `cast_<skill>_after.png` 0.7 s after a skill's first cast, `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
+| Playtest evidence shots (#185) | `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |

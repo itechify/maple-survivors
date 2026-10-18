@@ -127,7 +127,7 @@ so without `--vsync=off` the `frame_ms` numbers show the cap (16.7 ms on a 60 Hz
 `frame_ms_by_minute` (percentiles plus mean/max alive mobs per run minute), `frame_ms_100plus` / `frame_ms_200plus`
 (frames drawn with at least that many mobs), `frame_work_us` (RunScene's own work per frame), `sim_us_per_tick`,
 `max_alive`, `level_by_minute`, `counters` and `missing` (asset lookups that failed; should be empty). Screenshots:
-`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
+`t<s>.png`, `levelup_N`, `job_N`, `cast_<skill>` (each skill's first cast), `<fa key>_followup` (each Final Attack's first follow-up), `reflect_first` (the first Power Guard reflect), `hit_first`, `death_*`, `clear`, `final.png`. An occluded or minimized window draws
 no frames, so screenshots are not saved; the run still quits at `--quit-after` (or its end), logging
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
@@ -149,7 +149,7 @@ Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windo
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
 through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #165 (second job) adds
-`warrior2` (QA #185, `--branch=110|120|130`: an invulnerable Lv10 -> Lv30 climb through the real job windows, the branch's two
+`warrior2` (QA #185, `--job=110|120|130`: an invulnerable Lv10 -> Lv30 climb through the real job windows, the branch's two
 advancement weapons, the Skill window with the unheld family greyed, Save & quit -> Continue); its branch fixtures
 `lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god=1 --seconds=600`. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
