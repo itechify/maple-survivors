@@ -587,7 +587,10 @@ What the tables above leave open; the class doc comments have the rest.
   not a boss skill attack or ball; god and death are take_hit's own guards). A landed hit starts the window through
   `PlayerUpkeep.land_hit` (spec #88). Balls ask `hit_window_blocks` before calling take_hit, because take_hit returns 0
   for both a blocked hit and a miss. Only explicit elite/source multipliers scale damage; time keyframes
-  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool.
+  never do. `player_hit.max_hp` is captured before any later level-up in that tick changes the pool. Power Guard
+  (spec #165 #182) is one step inside `take_hit` for `source_kind` "touch" with a `power_guard` buff total: the reflect
+  comes off the damage before Magic Guard's split and is dealt to `source.mob` as a `mob_hit` plus `_on_kill`
+  (GAME_DESIGN 7.10); it is a no-op, with no RNG, when the buff is off.
   `choice_pending` card `rank` is the rank the card gives when taken (1 = new); `max_rank` 0 = unlimited;
   `skill_name` is the card's skill's name ("" without a skill), `skill_level` its canonical level now (0 = not owned)
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
@@ -640,7 +643,7 @@ What the tables above leave open; the class doc comments have the rest.
   (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
   `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
   (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
-  carry `scale` (Rage's WDEF penalty is `-1`); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
+  carry `scale` (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
   passive skill with `final_attack: {chance_field}`, `damage: "physical"` and an `action`: the hit listener
   `RunWorld._final_attack_hit` rolls `prop` on RNG stream 12 (`final_rng`) after a damaging physical line of a matching
   family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and

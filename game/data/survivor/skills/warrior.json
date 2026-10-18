@@ -303,6 +303,71 @@
 			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
 			"effect": "Skill.wz/130.img/skill/1301005/effect", "rotate": false,
 			"sounds": {"use": "Sound.wz/Skill.img/1301005/Use", "hit": ""}
+		},
+		"rage": {
+			"skill_id": 1101006, "book": "110", "job": 110, "kind": "buff", "slot": "passive",
+			"name": "Rage", "desc": "Raises your weapon attack, at the cost of weapon defence.",
+			"text": {"desc": "Raises your weapon attack and lowers your weapon defence for a while."},
+			"icon": "Skill.wz/110.img/skill/1101006/icon", "damage": "none",
+			"_buff": "Tier A: canonical pad (W.Att +3 to +12), pdd (already negative in the WZ: -3 to -12, so it is taken as is, never scaled), time (46 to 160 s), mpCon, the alert2 action, effect art and sound. The WZ node is a party buff; here it affects you only (tier C). Tier C: any held weapon, auto-cast while inactive and affordable, recast on expiry; canonical effects snapshot until expiry; 0.8 s cast hold. The WZ affected art (the party members' side) is not used.",
+			"buff": {"duration_field": "time", "effects": [{"stat": "watk", "field": "pad"}, {"stat": "pdd", "field": "pdd"}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
+			"effect": "Skill.wz/110.img/skill/1101006/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1101006/Use", "hit": ""}
+		},
+		"power_guard_fighter": {
+			"skill_id": 1101007, "book": "110", "job": 110, "kind": "buff", "slot": "passive",
+			"name": "Power Guard", "desc": "Returns part of the touch damage you take to the monster that touched you.",
+			"text": {"desc": "While it lasts, part of the damage a monster deals by touching you is returned to it and taken off the damage you receive. Half the rate against bosses, and never more than 10% of the monster's Max HP at once. Attacks and projectiles are not returned."},
+			"icon": "Skill.wz/110.img/skill/1101007/icon", "damage": "none",
+			"_buff": "Tier A: canonical x (11 to 40 %), time (3 to 90 s), mpCon, the alert2 action, effect art and sound. Tier B (third-party v83 reimplementation): only monster contact damage is returned, half the rate against a boss, at most 10% of that monster's Max HP (the cap exists only in the String desc, not as a WZ field), and the same amount comes off the damage taken. Tier C: amounts are floored; the returned damage is the character's own, so it shows a damage number and a kill gives EXP and drops as usual; it does not trigger Final Attack or on-hit statuses. Auto-cast while inactive and affordable, recast on expiry; effects snapshot until expiry; 0.8 s cast hold. RunWorld.take_hit applies it after weapon-damage reduction and before Magic Guard's split.",
+			"buff": {"stat": "power_guard", "field": "x", "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
+			"effect": "Skill.wz/110.img/skill/1101007/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1101007/Use", "hit": ""}
+		},
+		"power_guard_page": {
+			"skill_id": 1201007, "book": "120", "job": 120, "kind": "buff", "slot": "passive",
+			"name": "Power Guard", "desc": "Returns part of the touch damage you take to the monster that touched you.",
+			"text": {"desc": "While it lasts, part of the damage a monster deals by touching you is returned to it and taken off the damage you receive. Half the rate against bosses, and never more than 10% of the monster's Max HP at once. Attacks and projectiles are not returned."},
+			"icon": "Skill.wz/120.img/skill/1201007/icon", "damage": "none",
+			"_buff": "The Page's Power Guard: the same numbers and rules as power_guard_fighter (the WZ level tables are identical; its Sound.wz node is a UOL to 1101007, so the sound path names the target). Both keys feed the one power_guard stat; branch exclusivity means a run owns only one.",
+			"buff": {"stat": "power_guard", "field": "x", "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
+			"effect": "Skill.wz/120.img/skill/1201007/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1101007/Use", "hit": ""}
+		},
+		"iron_will": {
+			"skill_id": 1301006, "book": "130", "job": 130, "kind": "buff", "slot": "passive",
+			"name": "Iron Will", "desc": "Temporarily increases your weapon and magic defence.",
+			"text": {"desc": "Temporarily increases your weapon and magic defence.", "h": "MP -{mp_cost}; weapon def. +{pdd}, magic def. +{mdd} for {time} sec."},
+			"icon": "Skill.wz/130.img/skill/1301006/icon", "damage": "none",
+			"_buff": "Tier A: canonical pdd and mdd (1 to 20), time (15 to 300 s), mpCon, the alert2 action, effect art and sound. Tier C: the WZ skill is a party buff; here it is self only, auto-cast while inactive and affordable, recast on expiry; canonical effects snapshot until expiry; 0.8 s cast hold. Both defences go through the shared pdd/mdd buff consumers (RunWorld.hit_defense).",
+			"buff": {"effects": [{"stat": "pdd", "field": "pdd"}, {"stat": "mdd", "field": "mdd"}], "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
+			"effect": "Skill.wz/130.img/skill/1301006/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1301006/Use", "hit": ""}
+		},
+		"hyper_body": {
+			"skill_id": 1301007, "book": "130", "job": 130, "kind": "buff", "slot": "passive",
+			"name": "Hyper Body", "desc": "Temporarily increases your Max HP and Max MP.",
+			"text": {"desc": "Temporarily increases your Max HP and Max MP.", "h": "MP -{mp_cost}; Max HP +{x}%, Max MP +{y}% for {time} sec."},
+			"icon": "Skill.wz/130.img/skill/1301007/icon", "damage": "none",
+			"_buff": "Tier A: canonical x (Max HP %) and y (Max MP %) 2 to 60, time (10 to 300 s), mpCon (Lv 25 costs 50 in the data; kept), the alert2 action, effect art and sound. Tier C: the WZ skill is a party buff; here it is self only, auto-cast while inactive and affordable, recast on expiry; canonical effects snapshot until expiry; 0.8 s cast hold. Tier B (v83): the percentages apply to the whole maximum (base, level growth, passives and worn equipment); current HP and MP are unchanged at cast, and when it ends HP and MP above the normal maximum drop to it. It is a buff stat of its own (max_hp_pct, max_mp_pct), not the max_mp_percent passive (that one rescales current MP).",
+			"buff": {"effects": [{"stat": "max_hp_pct", "field": "x"}, {"stat": "max_mp_pct", "field": "y"}], "duration_field": "time"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "",
+			"effect": "Skill.wz/130.img/skill/1301007/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/1301007/Use", "hit": ""}
 		}
 	}
 }
