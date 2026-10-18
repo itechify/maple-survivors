@@ -1047,19 +1047,23 @@ func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32
 	return PackedInt32Array(matches)
 
 
-## How many bodies skill_box_targets(box, filter) would return, counting no further than `limit` (> 0). It first looks
-## at only the first BOX_PROBE grid candidates (often enough) and reads the whole query only when they fall short.
-func skill_box_count(box: Rect2, limit: int, filter: Callable = Callable()) -> int:
+## How many bodies skill_box_targets(box, filter) would return, counting no further than `limit` (> 0); with `kinds_ok`
+## (per mob kind index, 1 = allowed) only bodies of those kinds count, a filter on the kind without a Callable. It looks
+## first at only the first BOX_PROBE grid candidates (often enough) and reads the whole query only when they fall short.
+func skill_box_count(box: Rect2, limit: int, filter: Callable = Callable(),
+		kinds_ok: PackedByteArray = PackedByteArray()) -> int:
 	var probe := maxi(BOX_PROBE, limit)
-	var found := _skill_box_matches(box, filter, limit, probe)
+	var found := _skill_box_matches(box, filter, limit, probe, kinds_ok)
 	if found.size() >= limit or _box_candidates < probe:
 		return found.size()
-	return _skill_box_matches(box, filter, limit).size()
+	return _skill_box_matches(box, filter, limit, 0, kinds_ok).size()
 
 
 ## The live bodies of skill_box_targets in candidate order (unsorted), stopping at `limit` matches (0 = all), among
-## the first `probe` grid candidates (0 = all; _box_candidates says how many the query gave).
-func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0) -> Array[int]:
+## the first `probe` grid candidates (0 = all; _box_candidates says how many the query gave), of the kinds `kinds_ok`
+## allows (empty = any).
+func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0,
+		kinds_ok: PackedByteArray = PackedByteArray()) -> Array[int]:
 	var matches: Array[int] = []
 	_box_candidates = 0
 	if not box.has_area():
@@ -1073,6 +1077,8 @@ func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0
 	for i in n:
 		var m := candidates[i]
 		if not swarm.is_live(m):
+			continue
+		if not kinds_ok.is_empty() and kinds_ok[swarm.kind[m]] == 0:
 			continue
 		var mk: MobKind = mob_kinds[swarm.kind[m]]
 		var body_box := mk.hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])

@@ -1,10 +1,11 @@
 extends SceneTree
 ## Headless per-system profile of RunWorld.step in a real round (issue #146): plays a stage with the sensible autoplay
-## bot (BotInput.decide, BotInput.pick_card_for) untimed up to --from, then times every part of the tick separately
-## until --to (or the end of the round) and prints each part's share of the step, with the alive mobs and the drop pool
-## (by kind and state) per minute. Needs the asset cache (the real map and mob/skill imgs).
+## bot (BotInput.decide, BotInput.pick_card_for, BotShop.equip_after: the round RunScene's autoplay and balance_run
+## play) untimed up to --from, then times every part of the tick separately until --to (or the end of the round) and
+## prints each part's share of the step, with the alive mobs and the drop pool (by kind and state) per minute. Needs
+## the asset cache (the real map and mob/skill imgs).
 ##
-##   bash scripts/godot.sh --headless --path game --script res://tools/profile_run.gd -- --seed=2026 --from=780 --to=1020
+##   bash scripts/godot.sh --headless --path game --script res://tools/profile_run.gd -- --seed=5 --from=780 --to=900
 ##       [--stage=henesys_hg1] [--account=<abs AccountFile JSON>] [--job=<id>] [--mortal]
 ##
 ## The player is in god mode (RunWorld.god: no damage) so the bot reaches the late, crowded minutes; --mortal turns it
@@ -86,7 +87,7 @@ func _init() -> void:
 		var b1 := Time.get_ticks_usec()
 		if w.time < from:
 			w.step(DT, input)
-			w.drain_events()
+			BotShop.equip_after(w, w.drain_events())
 			continue
 		bot_us += b1 - b0
 		var s0 := Time.get_ticks_usec()
@@ -96,7 +97,7 @@ func _init() -> void:
 			wait_ticks += 1
 			wait_us += acc[10] - runner0
 		step_us += Time.get_ticks_usec() - s0
-		w.drain_events()
+		BotShop.equip_after(w, w.drain_events())  # the bot wears its best drops, as RunScene and balance_run do
 		ticks += 1
 		var m := int(w.time / 60.0)
 		var row: Dictionary = minute.get(m, {"n": 0, "alive": 0, "drops": 0, "exp": 0, "meso": 0, "equip": 0,

@@ -38,6 +38,7 @@ var _buf := PackedInt32Array()
 var _tgt := PackedInt32Array()
 var _tgt_d := PackedFloat64Array()
 var _shortages := {}
+var _undead := PackedByteArray()
 var _slow_serial := 0
 
 
@@ -112,12 +113,15 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		var st := stats_of(world, key)
 		var origin := world.cast_origin()
 		var is_buff := String(st.kind) == "buff"
-		# Short of MP the cast fails whatever its targets are, so only whether it has one matters: has_target gives
-		# admission's answer without building and sorting the target list (issue #146).
+		# has_target gives admission's answer without building and sorting the target list (issue #146): a ready skill
+		# without a target, or short of MP, never needs the list. Only a skill about to cast is admitted in full.
+		if not has_target(world, key, st, origin):
+			_shortages.erase(key)
+			continue
 		var affordable := world.mp_affordable(int(st.mp_cost))
 		var plan := _admit_cast(world, key, st, origin) if affordable else {}
-		if not (not plan.is_empty() if affordable else has_target(world, key, st, origin)):
-			_shortages.erase(key)
+		if affordable and plan.is_empty():
+			_shortages.erase(key)  # not reached: has_target agrees with admission
 			continue
 		if not affordable or not world.spend_mp(int(st.mp_cost)):
 			waiting_mp = true
@@ -156,8 +160,16 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
 				return true
-			return bool(st.has_box) and world.skill_box_count(st.box, 1,
-				func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead) >= 1
+			if not bool(st.has_box):
+				return false
+			# The undead filter of _admit_hp_or_undead as a mask over mob kinds (no Callable per body).
+			var kinds: Array = world.swarm.kinds
+			_undead.resize(kinds.size())
+			var any := false
+			for k in kinds.size():
+				_undead[k] = 1 if (kinds[k] as MobKind).undead else 0
+				any = any or _undead[k] != 0
+			return any and world.skill_box_count(st.box, 1, Callable(), _undead) >= 1
 	return false
 
 
