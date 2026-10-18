@@ -60,6 +60,10 @@ var _hair: WzImg
 ## Worn items in draw order: {"id": int, "img": WzImg, "vslot": {code: true}, "cash": bool}.
 var _sources: Array[Dictionary] = []
 var _weapon_type := 0
+## The worn real weapon's info node ({} bare-handed): its stand/walk numbers pick the generic stances.
+var _weapon_info: Dictionary = {}
+## The stance last asked of play(), before the weapon's variant replaced it (a new look replays it).
+var _requested := "stand1"
 var _smap: Dictionary = {}
 var _has_cap := false
 var _cap_vslot := ""
@@ -97,6 +101,7 @@ func set_look(d: Dictionary) -> void:
 	_has_cap = false
 	_cap_vslot = ""
 	_weapon_type = 0
+	_weapon_info = {}
 	var cash := _cash_slots()
 	for id: Variant in look.get("equips", []):
 		if AvatarLayers.suppressed_by_cash(int(id), cash):
@@ -104,6 +109,9 @@ func set_look(d: Dictionary) -> void:
 		_add_source(int(id), false)
 		if _weapon_type == 0:
 			_weapon_type = AvatarLayers.weapon_type(int(id))
+			if _weapon_type > 0 and not _sources.is_empty() and int(_sources.back().id) == int(id):
+				var weapon_node: Variant = (_sources.back().img as WzImg).root.get("info")
+				_weapon_info = weapon_node if weapon_node is Dictionary else {}
 	var worn_cash: Array[int] = []
 	for slot: String in CashCatalog.SLOTS:
 		var cash_id: int = cash.get(slot, 0)
@@ -118,19 +126,23 @@ func set_look(d: Dictionary) -> void:
 			_cap_vslot = String(info.get("vslot", "")) if info is Dictionary else ""
 	_zorder = zmap_order(lib)
 	_smap = AvatarLayers.smap_codes(lib)
-	play(stance, true, looping)
+	play(_requested, true, looping)
 
 
 ## Plays a stance ("stand1", "walk1", "jump", "alert", "prone", "ladder", "rope", "swingO1", "shoot1", "dead", ...).
-## Unknown stances fall back to stand1. `restart` rewinds an already playing stance; `loop` = false holds the last frame.
+## The generic "stand1" / "walk1" play the held weapon's own standing / walking stance (a two-handed weapon has no
+## stand1 art: WeaponInfo.stand_stance). Unknown stances fall back to that standing stance. `restart` rewinds an
+## already playing stance; `loop` = false holds the last frame.
 func play(p_stance: String, restart: bool = false, loop: bool = true) -> void:
+	_requested = p_stance
+	p_stance = weapon_stance(p_stance)
 	if p_stance == stance and not restart and not _delays.is_empty():
 		looping = loop
 		return
 	if not has_stance(p_stance):
 		if not (p_stance in missing):
 			missing.append(p_stance)
-		p_stance = "stand1"
+		p_stance = weapon_stance("stand1")
 	stance = p_stance
 	looping = loop
 	stance_time = 0.0
@@ -191,6 +203,15 @@ func advance(dt: float) -> void:
 			_dirty = true
 	if _dirty:
 		queue_redraw()
+
+
+## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
+func weapon_stance(s: String) -> String:
+	if s == "stand1":
+		return WeaponInfo.stand_stance(_weapon_info)
+	if s == "walk1":
+		return WeaponInfo.walk_stance(_weapon_info)
+	return s
 
 
 ## True when the body image has the stance.

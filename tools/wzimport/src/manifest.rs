@@ -604,7 +604,7 @@ mod tests {
         let frags = fragment_dir(&main);
         let mut names: Vec<String> = std::fs::read_dir(&frags).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
         names.sort();
-        for line in ["beginner.json", "magician.json"] {
+        for line in ["common.json", "beginner.json", "magician.json"] {
             assert!(names.iter().any(|n| n == line), "missing fragment {line}");
         }
         for n in &names {

@@ -992,6 +992,9 @@ func _refresh_caster() -> void:
 	loadout.watk = weapon_attack()
 	loadout.acc = player_acc + buffs.effect_total("acc") + loadout.passive_total(Loadout.ACC)
 	loadout.job_id = progression.job_id
+	var held := weapon_info()
+	player.stand_stance = WeaponInfo.stand_stance(held)
+	player.walk_stance = WeaponInfo.walk_stance(held)
 	# Weapon-gated passives (#161): mastery replaces the untrained 10%; crit chance is a percent; crit damage is the
 	# critical hit's total percent, so its additive bonus is the part above 100.
 	var mastery := loadout.passive_best(Loadout.MASTERY)

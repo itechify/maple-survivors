@@ -3,8 +3,9 @@ extends RefCounted
 ## One player's automatic physical swing: canonical weapon interval, body-frame impact timing and afterimage box.
 ## Starts only in a skill-free standing/airborne tick; pending swings complete without locking player movement.
 
-## tier B: the five standard one-handed swing/stab actions (pre-Big-Bang client descriptions).
-const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
+## The five one-handed swing/stab actions (WeaponInfo.ACTIONS_ONE_HANDED, tier B): the bare-handed punch and the
+## Beginner/Magician weapons use them in this order. Other weapons ask WeaponInfo.basic_actions.
+const ACTIONS := WeaponInfo.ACTIONS_ONE_HANDED
 ## The bare-handed punch when no weapon is worn (v83 lets a character fight without one). tier A: the sound is
 ## Sound.wz/Weapon.img/barehands. tier C: normal attack speed 6, the same five body actions, no afterimage.
 const BARE_HANDS := {"attackSpeed": 6, "sfx": "barehands"}
@@ -12,6 +13,9 @@ const BARE_HANDS := {"attackSpeed": 6, "sfx": "barehands"}
 const BARE_HANDS_BOX := Rect2(-55, -55, 50, 50)
 
 var cooldown := 0.0
+## The action and damage kind (swing, stab, shoot) of the latest swing started; "" before the first.
+var last_action := ""
+var last_kind := ""
 var _body: Dictionary
 var _images: Dictionary
 var _pending := {}
@@ -42,16 +46,19 @@ func step(dt: float, world: RunWorld) -> void:
 	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
 	if info.is_empty():
 		return
-	var action: String = ACTIONS[world.basic_rng.randi_range(0, ACTIONS.size() - 1)]
-	var spec := _spec(info, action)
-	if spec.is_empty() or not _target_in_reach(world, info):
+	var actions := WeaponInfo.basic_actions(weapon)
+	var action: String = actions[world.basic_rng.randi_range(0, actions.size() - 1)]
+	var spec := _spec(weapon, info, action)
+	if spec.is_empty() or not _target_in_reach(world, weapon, info):
 		return
 	_pending = spec
 	_pending["weapon_id"] = weapon
 	_pending["action"] = action
 	_pending["facing"] = world.player.facing
 	var caster := world.loadout
-	var kind := WeaponInfo.attack_kind(action)
+	var kind := WeaponInfo.basic_kind(weapon, action)
+	last_action = action
+	last_kind = kind
 	var damage := CombatMath.physical_damage_range(caster.str_stat, caster.dex_stat, caster.luk_stat,
 		world.weapon_attack(kind == "shoot"), weapon, kind, caster.job_id, caster.mastery)
 	var mult := caster.player_stat("damage", 1.0)
@@ -75,49 +82,74 @@ func reach(world: RunWorld) -> float:
 	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
 	var far := 0.0
 	if not info.is_empty():
-		for action: String in ACTIONS:
-			var spec := _spec(info, action)
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
 			if not spec.is_empty():
 				far = maxf(far, -(spec.box as Rect2).position.x)
 	_reach[weapon] = far
 	return far
 
 
-func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
+func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 	# Reach gates the opportunity, not its uniformly selected stance. Shorter stances may miss at impact.
-	for action: String in ACTIONS:
-		var spec := _spec(info, action)
+	for action: String in WeaponInfo.basic_actions(weapon):
+		var spec := _spec(weapon, info, action)
 		if not spec.is_empty() and _nearest(world, spec.box, world.player.facing) >= 0:
 			return true
 	return false
 
 
-func _spec(info: Dictionary, action: String) -> Dictionary:
+## The timing, box and effect paths of one action of `weapon` ({} when it cannot be played); what a swing starts with.
+## For tools and tests (the weapon gallery draws exactly this); the automatic attack calls the same code.
+func action_spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
+	return _spec(weapon, info, action)
+
+
+## One action's timing, box and effect paths for the weapon, or {} when the body or the afterimage cannot play it. A
+## melee weapon needs the afterimage's lt/rb box and lands on the afterimage's first frame. A ranged family (bow,
+## crossbow, claw, gun) hits at WeaponInfo.ranged_box until #155's projectiles carry their own range, lands on the
+## afterimage's first frame when it has one (the Bow's draw frame) else on the body's last frame, and shows no
+## afterimage when the node is a melee trail with a box (a Claw's swordOL) or missing (the Gun's).
+func _spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
 	var body: Dictionary = _body.get(action, {})
 	if is_same(info, BARE_HANDS):
 		return _bare_spec(body, action)
 	var name := WeaponInfo.afterimage_name(info)
 	var node: Dictionary = _images.get(name, {}).get(WeaponInfo.AFTERIMAGE_VARIANT, {}).get(action, {})
-	if node.is_empty() or body.is_empty() or not node.has("lt") or not node.has("rb"):
+	var ranged := WeaponInfo.is_ranged(weapon)
+	var boxed := node.has("lt") and node.has("rb")
+	if body.is_empty() or (not ranged and (node.is_empty() or not boxed)):
 		return {}
 	var frame := 999
 	for key: String in node:
 		if key.is_valid_int():
 			frame = mini(frame, int(key))
-	if frame == 999:
+	if frame == 999 and not ranged:
 		return {}
+	var last := -1
+	for key: String in body:
+		if key.is_valid_int():
+			last = maxi(last, int(key))
+	if last < 0:
+		return {}
+	var impact := frame if frame != 999 else last
 	var before := 0.0
 	var total := 0.0
 	for key: String in body:
 		if key.is_valid_int():
 			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
 			total += delay
-			if int(key) < frame:
+			if int(key) < impact:
 				before += delay
-	var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
-	var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
-	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total,
-		"interval": WeaponInfo.attack_interval(info), "afterimage": WeaponInfo.afterimage_frame_path(name, action, frame),
+	var box := WeaponInfo.ranged_box(weapon)
+	if not ranged:
+		var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
+		var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
+		box = Rect2(lt, rb - lt).abs()
+	var trail := frame != 999 and not (ranged and boxed)
+	return {"box": box, "hit_after": before, "action_time": total,
+		"interval": WeaponInfo.attack_interval(info),
+		"afterimage": WeaponInfo.afterimage_frame_path(name, action, frame) if trail else "",
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
 
 

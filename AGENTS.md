@@ -163,7 +163,7 @@ prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round
 "+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
 items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
 account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
-`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon) and `hair_cap_probe.tscn` (cap vs hair layers)
+`scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw) and `hair_cap_probe.tscn` (cap vs hair layers)
 are the avatar contact-sheet tools.
 
 Normal play keeps three living character slots. A non-final clear autosaves the carried character in the Free Market;

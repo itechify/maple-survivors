@@ -8,7 +8,9 @@ extends RefCounted
 
 ## Weapon type (item id / 10000) of one-handed swords (Character.wz/Weapon/0130xxxx).
 const TYPE_ONE_HANDED_SWORD := 130
-## tier C: starter Sword/Wand use afterimage variant 0 (both are below required level 10).
+## tier C: every weapon uses afterimage variant 0. Character.wz/Afterimage holds 11 (one-handed) to 17 (swordTS) variants,
+## probably chosen by weapon level; the higher ones draw larger trails and boxes, and changing the boxes would change
+## every swing's reach and timing, so level-scaled variants are left for a later ticket.
 const AFTERIMAGE_VARIANT := "0"
 ## Weapon family of each v83 weapon type (item id / 10000; docs/adr/0005, GLOSSARY "Weapon family"). tier A: the
 ## type codes are Character.wz/Weapon's id blocks and the Skill.wz `weapon` field (type - 100). One- and two-handed
@@ -39,6 +41,28 @@ const PHYSICAL := {
 	# tier C: preserve the existing wand/staff melee formula; §5 has no verified wand/staff physical row.
 	137: [4.4, 3.2, "str", "dex"], 138: [4.4, 3.2, "str", "dex"],
 }
+## tier B (pre-Big-Bang client descriptions): the five one-handed swing/stab stances of the swords, axes, blunt weapons,
+## daggers, wands and staves, in the order the basic-attack stream indexes them (a change reshuffles every seeded run).
+const ACTIONS_ONE_HANDED: Array[String] = ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
+## tier A/C: two-handed swords, axes and blunt weapons carry swingT1-3 beside stabO1/2 in their item img (A); using all
+## five as the basic-attack set is ours (C).
+const ACTIONS_TWO_HANDED: Array[String] = ["swingT1", "swingT2", "swingT3", "stabO1", "stabO2"]
+## Basic-attack stances by weapon type (item id / 10000). tier A: every action below exists in the representative
+## weapon item of its type (Character.wz/Weapon), in the body (00002000.img) and, for melee, in its afterimage.
+## tier C: which of those stances a family uses for the automatic attack is our choice (a Spear mostly stabs, a Pole
+## Arm swings, a Brawler punches, a Claw throws with an overhand swing, a Bow and a Crossbow draw with shoot1 / shoot2,
+## a Gun fires shoot1). A type not listed (and bare hands) uses ACTIONS_ONE_HANDED.
+const BASIC_ACTIONS := {
+	140: ACTIONS_TWO_HANDED, 141: ACTIONS_TWO_HANDED, 142: ACTIONS_TWO_HANDED,
+	143: ["stabT1", "stabT2", "swingP1"], 144: ["swingP1", "swingP2", "swingT2"],
+	145: ["shoot1"], 146: ["shoot2"], 147: ["swingO1", "swingO2", "swingO3"], 148: ["stabO1", "stabO2"], 149: ["shoot1"],
+}
+## Families that attack from a distance: their basic attack is a "shoot" whatever the body stance is called (a Claw
+## throws with swingO, and the ammo W.Att of #155 rides on the kind), and they have no melee afterimage box.
+const RANGED_FAMILIES: Array[String] = ["bow", "crossbow", "claw", "gun"]
+## tier C: reach in px of a ranged basic attack until the ammo projectiles of #155 carry their own range; the hit box is
+## feet-relative and faces left like the afterimage boxes.
+const RANGED_REACH := {"bow": 300.0, "crossbow": 300.0, "claw": 250.0, "gun": 250.0}
 ## tier C: preserve the existing bare-handed/unknown-weapon formula, including equipment-only PAD.
 const BARE_PHYSICAL := [4.4, 3.2, "str", "dex"]
 ## tier B: Thief dagger uses the same LUK and STR+DEX formula as a claw (SouthPerry/Cosmic).
@@ -71,14 +95,50 @@ static func is_two_handed(weapon_id: int) -> bool:
 	return FAMILIES.has(type_of(weapon_id)) and type_of(weapon_id) >= FIRST_TWO_HANDED_TYPE
 
 
-## Attack kind of a canonical action; empty for a non-attack stance.
+## Attack kind of a canonical action; empty for a non-attack stance. "shot" is the Gun's own body stance.
 static func attack_kind(action: String) -> String:
 	for prefix: String in ["swing", "stab"]:
 		if action.begins_with(prefix):
 			return prefix
-	if action.begins_with("shoot") or action.begins_with("throw"):
+	if action.begins_with("shoot") or action.begins_with("shot") or action.begins_with("throw"):
 		return "shoot"
 	return ""
+
+
+## True for a bow, crossbow, claw or gun (and nothing else, bare hands included).
+static func is_ranged(weapon_id: int) -> bool:
+	return family(weapon_id) in RANGED_FAMILIES
+
+
+## The hit box of a ranged family's basic attack, feet-relative and facing left (RANGED_REACH wide); an empty Rect2
+## for a melee weapon, whose box is its afterimage's.
+static func ranged_box(weapon_id: int) -> Rect2:
+	var reach := float(RANGED_REACH.get(family(weapon_id), 0.0))
+	return Rect2(-reach, -70.0, reach - 5.0, 65.0) if reach > 0.0 else Rect2()
+
+
+## The body stance a character holding this weapon stands in ("stand1", or "stand2" for most two-handed weapons), from
+## the weapon item's info/stand. tier A: Character.wz/Weapon info/stand and info/walk (1 or 2, independent: the
+## two-handed swords stand with stand2 and walk with walk1). Bare hands and synthetic infos use 1.
+static func stand_stance(info: Dictionary) -> String:
+	return "stand%d" % int(info.get("stand", 1))
+
+
+## The walking body stance of this weapon ("walk1" or "walk2"); see stand_stance().
+static func walk_stance(info: Dictionary) -> String:
+	return "walk%d" % int(info.get("walk", 1))
+
+
+## The body stances the automatic attack picks from, in index order: the weapon's family and handedness decide the
+## row of BASIC_ACTIONS. Bare hands and unknown weapon ids get ACTIONS_ONE_HANDED.
+static func basic_actions(weapon_id: int) -> PackedStringArray:
+	return PackedStringArray(BASIC_ACTIONS.get(type_of(weapon_id), ACTIONS_ONE_HANDED))
+
+
+## What the damage model sees for one swing of `action` with this weapon: "swing", "stab" or "shoot". A ranged family
+## always shoots; everything else follows the stance name (attack_kind). tier B for the multipliers' swing/stab split.
+static func basic_kind(weapon_id: int, action: String) -> String:
+	return "shoot" if is_ranged(weapon_id) else attack_kind(action)
 
 
 ## Physical formula row for this weapon and job; Thief descendants use LUK daggers.
@@ -103,10 +163,11 @@ static func afterimage_frame_path(afterimage: String, action: String, frame: int
 	return "%s/%s/%s/%d" % [afterimage_img_path(afterimage), AFTERIMAGE_VARIANT, action, frame]
 
 
-## WZ path of the hit spark for a swing of this afterimage. tier C: the normal swing/stab spark families matching the
-## imported afterimage names (sword for swordOL, else mace; family 1 for swings, 2 for stabs).
+## WZ path of the hit spark for a swing of this afterimage. tier C: hit.img only has two normal spark families, so
+## every sword afterimage (swordOL, swordOS, swordTL, swordTS) uses the sword spark and every other weapon the mace
+## spark; family 1 for swings and shots, 2 for stabs.
 static func hit_spark_path(afterimage: String, action: String) -> String:
-	var spark := ("sword" if afterimage == "swordOL" else "mace") + ("2" if action.begins_with("stab") else "1")
+	var spark := ("sword" if afterimage.begins_with("sword") else "mace") + ("2" if action.begins_with("stab") else "1")
 	return "Character.wz/Afterimage/hit.img/" + spark
 
 

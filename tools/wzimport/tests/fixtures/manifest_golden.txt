@@ -439,6 +439,7 @@ character 1322017
 character 1322018
 character 1322019
 character 1322054
+character 1332000
 character 1372000
 character 1372001
 character 1372002
@@ -524,6 +525,11 @@ character 1442009
 character 1442010
 character 1442024
 character 1442051
+character 1452000
+character 1462000
+character 1472000
+character 1482000
+character 1492000
 character 1702004
 character 1702012
 character 1702018
@@ -571,10 +577,14 @@ character 31057
 img Base.wz/smap.img *
 img Base.wz/zmap.img *
 img Character.wz/Afterimage/axe.img 0
+img Character.wz/Afterimage/bow.img 0
+img Character.wz/Afterimage/crossBow.img 0
+img Character.wz/Afterimage/gun.img 0
 img Character.wz/Afterimage/hit.img mace1
 img Character.wz/Afterimage/hit.img mace2
 img Character.wz/Afterimage/hit.img sword1
 img Character.wz/Afterimage/hit.img sword2
+img Character.wz/Afterimage/knuckle.img 0
 img Character.wz/Afterimage/mace.img 0
 img Character.wz/Afterimage/poleArm.img 0
 img Character.wz/Afterimage/spear.img 0
@@ -695,9 +705,7 @@ img Sound.wz/Skill.img 2301003
 img Sound.wz/Skill.img 2301004
 img Sound.wz/Skill.img 2301005
 img Sound.wz/UI.img *
-img Sound.wz/Weapon.img barehands
-img Sound.wz/Weapon.img mace
-img Sound.wz/Weapon.img swordL
+img Sound.wz/Weapon.img *
 img String.wz/Consume.img *
 img String.wz/Eqp.img *
 img String.wz/Etc.img *
