@@ -212,7 +212,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   (at a wall) keeps counting and is moved as soon as it leaves the screen. The player can still climb away for a
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
-- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing).
 - **Mob attacks (#76):** an ordinary mob whose Mob.wz img lists `attackN` (Tauromacis 7130100 `attack1`, Taurospear
   7130101 `attack1`/`attack2`: type 0 magic) uses them exactly like a boss attack (4.3): the canonical windup stance,
   the hit at `attackAfter` in the canonical range box mirrored by facing, magic attacks with MADamage against M.DEF
@@ -221,8 +221,8 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   attacks only grounded, fully faded in, not frozen, with its feet on screen and the character in a range; it tries its
   attacks in canonical order. Its wait counts only that on-screen time: the first is 50-100% of its interval (by spawn
   identity, so a wave spawned together does not attack in unison), the next the full interval (5 s for both Tauros).
-  Hits are `source_kind` `mob_attack` with today's single 1.5 s invincibility; #88 will route them separately from boss
-  `attack`/`projectile` hits. All cadence values are tier C.
+  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); boss
+  `attack`/`projectile` hits ignore it. All cadence values are tier C.
 - **Mob skills (#76):** ordinary mobs cast none. Character statuses (Slow and the like) come only from bosses (owner,
   #76); Jr. Boogie 3230300 lists Seal (120) and Curse (124) in Mob.wz but deals contact damage only, and both are skipped
   like any other unsupported mob skill.
@@ -2670,7 +2670,8 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
   roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
   MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
-  1.5 s invincibility with blinking (tier C).
+  invincibility with blinking for the current hit window, 1.5 s for a lone hit and shrinking to 0.4 s in a swarm
+  (#88, tier C; section 11).
 - **Active Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
   maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
@@ -3423,7 +3424,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Background scroll | rx × 5 px/s | B | 3 reimplementations agree |
 | Damage number timing | 400 ms hold + 600 ms fade, 30 px rise | B | v95 RE (Harepacker docs) |
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
-| Invincibility after hit | 1.5 s | C | ours |
+| Hit window lengths (#88) | `balance.hit_window.lengths` 1.5 / 1.0 / 0.6 / 0.4 s: the grace after the 1st, 2nd, 3rd, 4th+ chained landed hit from contact damage or an ordinary mob attack (a lone mob always gives the full 1.5 s) | C | ours; replaces the old fixed `invincible_time` 1.5 |
+| Hit window chain gap (#88) | `balance.hit_window.chain_gap` 2.5 s: a landed hit this soon after the previous landed hit steps to the next shorter window; between 2.5 s and the reset the step holds | C | ours |
+| Hit window reset (#88) | `balance.hit_window.reset_after` 3.0 s without a landed hit restores the full window (and starts the chain over) | C | ours |
+| Boss skill attacks ignore the hit window (#88) | A boss skill attack (`source_kind` `attack`, `projectile` from a scheduled boss) lands during the window, hits at most once per attack instance (a ball is used up only when it hits), starts the full `lengths[0]` window without advancing the chain and counts as a landed hit for the reset. Boss body touch and every ordinary mob attack respect the window; an ordinary ball that the window turns away flies on, with no hit and no hit art, and can land once the window ends (also from inside the body box). Misses give no window and do not touch the chain; god and death still block everything | C | ours |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
 | Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
