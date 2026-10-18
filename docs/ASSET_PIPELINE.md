@@ -302,6 +302,11 @@ The manifest says what to import. The importer expands convenience entries into 
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
 
+Bowman equipment (#201): `bowman.json` adds every drop-list item as a whole `character` img (including `info/icon`
+and `info/iconRaw`): regular bows/crossbows and reqJob-4 armour through Lv70. Its ten scrolls already use the shared
+whole `Item.wz/Consume/0204.img`, including UOL icon targets. No extra `items` selections are necessary for scrolls.
+Both export presets already ship all Bowman survivor line files via `data/survivor/*/*.json`.
+
 Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active-skill Sound.wz nodes, Kyrin
 1090000 and her String.wz name, regular knuckles/guns 1482000-9 / 1492000-9, and bullets 2330000-2. Kyrin moved
 from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img

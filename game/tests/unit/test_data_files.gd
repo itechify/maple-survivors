@@ -241,7 +241,8 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
-	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 4, "listed items are added once (creation coat/pants/shoes and Wooden Wand overlap; Warrior sword/Steel Pipe and Bowman bow/crossbow gifts are outside the drop roster)")
+	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 3,
+		"listed items are added once (creation coat/pants/shoes, Wooden Wand and spare Bowman crossbow overlap; Warrior sword/Steel Pipe and Beginner Bowman's bow are outside the drop roster)")
 
 
 func test_build_setup_and_paths() -> void:

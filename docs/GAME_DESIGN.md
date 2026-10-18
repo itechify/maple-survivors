@@ -4286,6 +4286,15 @@ MP Eaters, Invincible and both Slows):
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
 
+Bowman equipment (#166/#201) lives in its own `equipment_drops`, `scrolls` and `shops` line files. The curated
+regular progression has 12 bows (1452000-1452011), 10 crossbows (1462000-1462009) and 202 reqJob-4 armour items
+through Lv70: hats, tops, bottoms, overalls, shoes and gloves, with no shields. Selection is tier C; each item's
+canonical requirements, stats, icons and animation remain tier A. Cash, restricted, event/Maple and instructor-only
+variants are excluded. Only the held weapon's family drops; bow and crossbow never share a drop group.
+Both ATT scroll families stock ordinary 100/60/10 and dark 70/30 at the existing rate NPCs for the existing
+70,000-meso weapon price. The shop's job filter admits both families for Bowmen; applying a scroll still requires
+its matching held family. This adds no drop-rate, level-window, meso or price tuning. #204 owns the regression smoke.
+
 The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
 every constant, with its tier, is in section 11 under the tables named below):
 
@@ -4514,6 +4523,13 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Bowman (#166), equipment #201:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Drop roster | `equipment_drops/bowman.json`: regular bows 1452000-11, crossbows 1462000-9, and 202 reqJob-4 armour items, Lv10-70; no cash, restricted/event variants or shields | C (curated selection), A (ids, requirements, stats) | Original v83 Character.wz and String.wz; regular progression selected like the Pirate line |
+| Scroll roster and shops | Bow ATT 2044500/01/02/04/05; crossbow ATT 2044600/01/02/04/05, ordinary 100/60/10 and dark 70/30; slots `bow`/`crossbow` use the existing weapon price and rate NPCs | C (roster), A (ids, rates, effects) | Original v83 Item.wz/Consume/0204.img; no separate ACC family; strong 100%, event and item-specific variants excluded |
 
 Bowman (#166), generic mechanics (#200):
 
