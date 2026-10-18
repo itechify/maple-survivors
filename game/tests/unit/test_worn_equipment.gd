@@ -67,7 +67,7 @@ func test_equipping_and_unequipping_changes_every_derived_stat() -> void:
 	for stat: String in ["str", "dex", "int", "luk"]:
 		assert_eq(int(ps[stat]) - int(before[stat]), int(INFO[1002001]["inc" + stat.to_upper()]), stat)
 	assert_eq(world.equipment_bonus("incLUK"), 5.0)
-	assert_eq(int(ps.acc) - int(before.acc), 7)
+	assert_near(float(ps.acc) - float(before.acc), 11.1, 1e-6, "incACC7 plus DEX2 x0.8 and LUK5 x0.5")
 	assert_near(float(ps.avoid) - float(before.avoid), 6.0 + 2 * RunWorld.AVOID_DEX_FACTOR + 5 * RunWorld.AVOID_LUK_FACTOR,
 		1e-6, "avoid gains incEVA and the DEX/LUK it adds")
 	assert_eq(int(ps.max_hp) - int(before.max_hp), 40)

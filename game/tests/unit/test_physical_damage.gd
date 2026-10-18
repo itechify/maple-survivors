@@ -151,13 +151,17 @@ func test_job_accuracy_equipment_and_buffs_feed_crit_for_every_damage_type() -> 
 	world.loadout.crit_bonus = 0.2
 	for key: String in ["three_snails", "energy_bolt"]:
 		assert_near(world.loadout.stats(key).crit, 0.2635, 0.00001, "base + ACC coefficient + passive, " + key)
-	world.start_buff("fixture", {"duration": 0.05, "buff_effects": {"acc": 8}, "skill_id": 0, "level": 1,
+	world.start_buff("fixture", {"duration": 0.05, "buff_effects": {"acc": 8, "watk": 10}, "skill_id": 0, "level": 1,
 		"icon": "", "buff_stat": "acc", "buff_value": 8.0, "pulse_interval": 0.0})
 	assert_near(world.player_state.acc, 21.5, 0.00001)
 	assert_near(world.loadout.stats("three_snails").crit, 0.2715, 0.00001, "Bless accuracy raises crit immediately")
+	assert_eq(world.weapon_attack(), 27.0, "equipment PAD17 plus buff10")
+	assert_eq(world.weapon_attack(true), 27.0, "ranged hook returns the same PAD until #155 adds ammo")
+	assert_eq(world.loadout.watk, 27.0)
 	for tick in 4:
 		world.step(DT, MoveInput.new())
 	assert_near(world.loadout.acc, 13.5, 0.00001, "buff expiry removes its crit contribution before casting")
+	assert_eq(world.loadout.watk, 17.0, "W.Att buff expiry refreshes physical bounds too")
 
 
 func test_basic_attack_can_crit_on_stream_five_without_consuming_combat_rng() -> void:
@@ -230,7 +234,7 @@ func test_live_defence_buff_reduces_instant_and_airborne_physical_hits() -> void
 		var world := RunWorld.new(setup)
 		world.god = true
 		RF.place_player(world, 400)
-		for tick in 8:
+		for tick in 120: # Let the spawned boss finish fading in before its defence skill can act.
 			world.step(DT, MoveInput.new())
 		var mob := int(world.bosses.records[0].slot)
 		assert_eq(world.mob_defense(mob, false), 105.0, "canonical20 plus live85")
