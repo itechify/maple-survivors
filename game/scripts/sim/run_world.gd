@@ -21,8 +21,9 @@ extends RefCounted
 ##
 ## Player stats live in `player_state` (hp, mp, max_hp, max_mp, exp, level, job_id, str, dex, int, luk, pdd, mdd,
 ## avoid, acc, fortune (survivor card-tier stat, separate from LUK), invincible_t, action,
-## action_t, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw ("dead", the
-## cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started. Main stats, W.DEF,
+## action_t, action_scale, dead, plus exp_next = EXP needed for the next level); `action` is the body stance to draw
+## ("dead", the cast stance while standing, else PlayerMotion.stance()), `action_t` seconds since it started,
+## `action_scale` the fraction of the canonical frame time an attack stance plays in (attack speed). Main stats, W.DEF,
 ## M.DEF, acc, avoid and max HP/MP are totals: worn equipment's `inc*` adds on top of the base (equipment_bonus()).
 ##
 ## Live character state (docs/ARCHITECTURE.md 4.4): RunWorld owns the character's worn equipment and inventory
