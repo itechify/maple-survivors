@@ -5,7 +5,9 @@ extends Node
 ## barrel_walk.png and avatar_back.png, and summary.json (hidden/morph/HP at each step, HP losses while Hidden).
 ## Needs a cache whose manifest has Morph.wz/1002.img. Tool only; the rank is forced and the character is not a Brawler.
 ## MAPLE_SURVIVORS_CACHE=<cache> ISOLATE=<name> bash scripts/run.sh \
-##   res://scenes/debug/morph_driver.tscn -- --shots=<abs evidence dir> [--seed=60] [--rank=10]
+##   res://scenes/debug/morph_driver.tscn -- --shots=<abs evidence dir> [--seed=60] [--rank=10] [--job=510]
+## `--job=510` makes the character a real Brawler first (Pirate at Lv 10 on the knuckle path, Lv 30, advanced to 510 with
+## its Prime Hands) and takes Oak Barrel through its learn card instead of forcing the skill.
 
 var run: RunScene
 var shots := ""
@@ -29,7 +31,17 @@ func _drive() -> void:
 	add_child(run)
 	run.set_process(false)
 	var w := run.world
-	w.learn_skill("oak_barrel")
+	if int(args.get("job", 0)) == 510:
+		w.progression.level = 10
+		w.change_job(500, "knuckle")
+		w.progression.level = 30
+		w.change_job(510)
+		w.pending_cards = []
+		w.state = RunWorld.PLAYING
+		w.upgrades.apply("oak_barrel_new", w)
+		run.handle_events(w.drain_events())
+	else:
+		w.learn_skill("oak_barrel")
 	w.loadout.set_rank("oak_barrel", int(args.get("rank", 10)))
 	# A level-1 Beginner has 50 HP and 5 MP; give it a Brawler-sized pool so the cast is affordable and survivable.
 	w.loadout.add_player_mod("max_hp", "add", 950.0)

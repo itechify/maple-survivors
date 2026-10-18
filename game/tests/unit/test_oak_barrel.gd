@@ -299,6 +299,57 @@ func test_cards_are_offered_to_brawlers_only() -> void:
 	assert_false("oak_barrel_rank" in w.upgrades.eligible(w), "none at the top rank")
 
 
+## A real Brawler (#189): a knuckle Pirate advanced to 510 at Lv 30 through change_job, as the advancement window does.
+func _brawler(p_seed := 194) -> RunWorld:
+	var data := RF.quiet_data()
+	data.balance.player.hp = 1000
+	data.balance.player.mp = 500
+	data.balance.player.skills = []
+	data.balance.regen.hp = 0
+	data.balance.regen.mp = 0
+	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
+	setup.equipment_info.merge({1482000: {"incPAD": 18, "attackSpeed": 5, "tuc": 7},
+		1482004: {"incPAD": 36, "attackSpeed": 5, "tuc": 7, "reqLevel": 30}}, true)
+	var w := RunWorld.new(setup)
+	RF.place_player(w, 400)
+	w.change_job(500, "knuckle")
+	w.progression.level = 30
+	w.change_job(510)
+	w.pending_cards = []
+	w.state = RunWorld.PLAYING
+	w.drain_events()
+	return w
+
+
+func test_a_real_brawler_is_offered_the_cards_and_the_barrel_works() -> void:
+	var w := _brawler()
+	assert_eq(w.progression.job_id, 510)
+	assert_true("oak_barrel_new" in w.upgrades.eligible(w), "the learn card reaches a Brawler")
+	var gunner := _brawler()
+	gunner.progression.job_id = 520
+	assert_false("oak_barrel_new" in gunner.upgrades.eligible(gunner), "not a Gunslinger")
+	var pirate := _brawler()
+	pirate.progression.job_id = 500
+	assert_false("oak_barrel_new" in pirate.upgrades.eligible(pirate), "not the first-job Pirate")
+	var card: Dictionary = w.upgrades.choice_card("oak_barrel_new", w)
+	assert_eq(card.skill_name, "Oak Barrel")
+	assert_eq(w.upgrades.apply("oak_barrel_new", w), 1)
+	assert_true(w.loadout.has(KEY))
+	assert_true("oak_barrel_rank" in w.upgrades.eligible(w))
+	# Learned: below 30% HP with a snail by it, the Brawler turns into the barrel (a seed whose roll succeeds).
+	var seed_value := _seed_whose_first_roll(false)
+	var b := _brawler(seed_value)
+	b.learn_skill(KEY)
+	b.heal_fraction("hp", -1.0)
+	b.heal_fraction("hp", 0.2)
+	_mob(b, 500.0)
+	var events := _run(b, 5)
+	assert_eq(_casts(events).size(), 1)
+	assert_true(b.is_hidden(), "the Brawler is Hidden")
+	assert_eq(int(b.player_state.morph), 1002)
+	assert_eq(_of(events, "player_hit").size(), 0)
+
+
 func test_the_rank_card_raises_the_skill_level() -> void:
 	var w := _world()
 	w.progression.job_id = 510
