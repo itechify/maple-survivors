@@ -180,7 +180,8 @@ func test_jobs_and_balance() -> void:
 	for id: int in [100, 300, 400, 500]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
-	assert_eq(float(b.invincible_time), 1.5)
+	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
+	assert_eq(b.hit_window, {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0})
 	assert_eq(float(b.magnet_radius), 90.0)
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
