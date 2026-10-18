@@ -2729,7 +2729,9 @@ info supplies Sword W.ATT17/speed4 and Wand W.ATT15/M.ATT23/speed6. Magic attack
 
 After skill priority, a standing or airborne player automatically attacks when a monster intersects any of its
 five facing stance afterimage boxes. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
-There is no movement lock. Each swing chooses uniformly among swingO1/O2/O3 and stabO1/O2 on its own seeded stream.
+There is no movement lock. Each swing chooses uniformly among the held weapon family's actions (`WeaponInfo.basic_actions`,
+below; swingO1/O2/O3 and stabO1/O2 for every one-handed melee weapon, the Beginner's and Magician's included) on its own
+seeded stream.
 The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One live monster in
 that box is hit: a scheduled boss first (#83), otherwise the nearest; a moving target may leave before impact. The interval is
 `ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
@@ -2760,9 +2762,47 @@ The three creation weapons and bare hands keep their old non-critical bounds. Ba
 PAD (usually zero, so defence floors the hit to 1); the Pirate unarmed formula is outside this ticket.
 Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
 Sword bounds then are 2.1964..15.81, so rounding to at least the unscaled Snail's 8HP has about61% probability.
-The fixed-seed 1000-swing test checks at least50%. Variant0 for both below-Lv10 starter weapons, and normal sword/mace
+The fixed-seed 1000-swing test checks at least50%. Variant0 for every weapon, and normal sword/mace
 spark family1 for swings / family2 for stabs, are tier C selections. Bounds, canvases, origins, alpha and sound
 come directly from the imported v83 afterimage and Weapon images (tier A). Effects use the existing pooled renderer.
+
+**Weapons on the avatar (#154).** The held weapon decides three things, all from `WeaponInfo`:
+
+- **Stances.** The character stands in `stand<info/stand>` and walks in `walk<info/walk>` of the weapon item
+  (`stand_stance`, `walk_stance`; tier A). Most two-handed weapons have `stand2`/`walk2`; the two-handed swords stand with
+  `stand2` but walk with `walk1`, so the two numbers are read separately. `PlayerMotion.stand_stance`/`walk_stance` hold
+  them (`RunWorld._refresh_caster` refreshes them whenever the weapon changes), and `AvatarRenderer.play` turns the generic
+  `stand1`/`walk1` into the worn weapon's variant for every screen that has no `PlayerMotion` (slots, shop, Free Market).
+  Alert, jump, prone and the ladders are shared by every weapon.
+- **Actions.** `WeaponInfo.BASIC_ACTIONS` lists the stances of each weapon type, in selection order; each action must also
+  exist in the weapon item, the body and (melee) the afterimage, which `test_weapon_assets` checks against the real cache:
+
+  | Family | Actions | Kind |
+  |---|---|---|
+  | one-handed sword, axe, blunt, dagger, wand, staff | swingO1/O2/O3, stabO1/O2 | swing / stab |
+  | two-handed sword, axe, blunt | swingT1/T2/T3, stabO1/O2 | swing / stab |
+  | spear | stabT1, stabT2, swingP1 | stab / swing |
+  | polearm | swingP1, swingP2, swingT2 | swing |
+  | knuckle | stabO1, stabO2 | stab |
+  | bow / crossbow | shoot1 / shoot2 | shoot |
+  | claw | swingO1/O2/O3 | shoot |
+  | gun | shoot1 | shoot |
+
+  Which stances a family uses is tier C (the item imgs list many more). `WeaponInfo.basic_kind(weapon, action)` is what the
+  damage model (#153) reads: a ranged family always `shoot` (a claw throws with a swing stance, and `weapon_attack(true)`
+  later adds the ammo W.Att), any other weapon the prefix of the action (`swing`, `stab`; `attack_kind`, which also
+  maps the Gun's own `shot` stance to `shoot`). `BasicAttack.last_action` / `last_kind` expose the latest swing.
+- **Effects.** The afterimage name, the sound (`info/sfx`) and the impact timing come from the weapon item and its
+  afterimage (tier A); the hit spark is the sword family for every `sword*` afterimage and the mace family for all the others
+  (tier C: `hit.img` has only those two). A melee weapon swings into its afterimage's `lt`/`rb` box. A ranged family has no
+  such box: it hits inside `WeaponInfo.ranged_box` (bow, crossbow 300 px, claw, gun 250 px, tier C) until the ammo projectiles
+  (#155) carry their own range, lands on the afterimage's first frame when it has one (the Bow's and Crossbow's draw frame,
+  else the body's last frame) and shows that frame as its trail only when it is not a melee box (a claw's `swordOL` trail
+  and the Gun, which has no `shoot1` node, show none).
+
+`scenes/debug/weapon_gallery.tscn` (tool-only; `bash scripts/run.sh res://scenes/debug/weapon_gallery.tscn -- --shots=<abs dir>`,
+`--mode=cash` for a cash weapon cover over a two-handed sword and a claw) draws one sheet per family: stand and walk
+facing both ways, and every basic-attack action frozen on its impact frame with the afterimage, spark and swing box.
 
 ### 6.2 Damage to the player
 
@@ -3590,7 +3630,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Mano skill scheduling / summons | first use after interval, one canonical stance at a time; omitted hp100%; 24 px symmetric spawn spacing | C (policy/spacing), A (intervals/list/limit/art) | ours; original v83 WZ |
 | MobSkill effect anchors / summon family | affected pos1 at body top, effect pos3 at mob center; summonEffect1 selects Effect.wz/Summon.img/1 | C (mapping/placement), A (art/origins/delays) | ours; original v83 WZ |
 | Basic physical damage / interval | §6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
-| Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
+| Starter afterimage / sparks | variant0 for every weapon (`WeaponInfo.AFTERIMAGE_VARIANT`); sword* afterimages use the sword spark, the rest the mace spark; spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
+| Weapon stances / actions (#154) | `stand<info/stand>`, `walk<info/walk>`; `WeaponInfo.BASIC_ACTIONS` per weapon type; `basic_kind` (ranged families shoot) | A (stance numbers, stances in the items), C (which stances a family attacks with) | v83 `Character.wz/Weapon`; ours |
+| Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall, until #155 | C | placeholder |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |

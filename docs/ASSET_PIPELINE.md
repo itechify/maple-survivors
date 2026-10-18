@@ -298,7 +298,7 @@ The manifest says what to import. The importer expands convenience entries into 
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
 
-`asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, shared weapon afterimages and sounds,
+`asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, the creation weapons,
 items, the shared equipment). Everything that belongs to one job line lives in a fragment beside it, so parallel class
 specs each add their own file and do not conflict on the main manifest. A fragment has the same shape as the main file,
 plus a `_doc` saying what it holds; `format` may be left out (when present it must be 1) and unknown keys are errors.
@@ -306,11 +306,11 @@ plus a `_doc` saying what it holds; `format` may be left out (when present it mu
 | File | Holds |
 |---|---|
 | `asset_manifest.json` | shared: everything not listed below |
+| `asset_manifest.d/common.json` | what every weapon line shares (#154): every `Character.wz/Afterimage/*.img` (variant `0` only; `hit.img` sword1/2 and mace1/2), the whole `Sound.wz/Weapon.img`, and one representative weapon item per family and handedness (`character[]` 1332000, 1402001, 1402002, 1412000, 1422000, 1432000, 1442000, 1452000, 1462000, 1472000, 1482000, 1492000); ammo items (#155) are added here |
 | `asset_manifest.d/beginner.json` | `Skill.wz/000.img`; `Sound.wz/Skill.img` `0001000`/`0001001`/`0001002` and `1001004` (Three Snails' UOL target) |
 | `asset_manifest.d/magician.json` | `Skill.wz/200.img`, `210`, `220`, `230`; their `Sound.wz/Skill.img` paths (`2001002`-`2301005`); instructor Grendel (`String.wz/Npc.img` `1032001`, `Npc.wz/1032001.img`); the Teleport effect (`Effect.wz/BasicEff.img` `Teleport`); the 212 `character[]` equipment ids whose canonical `reqJob` is the Magician bit (wands, staves, robes, hats, gloves, shoes; all in `survivor/equipment_drops/magician.json`) |
 
-Why some Beginner-ish entries stay shared: the sword/mace afterimages and `Sound.wz/Weapon.img` are used by every weapon
-line, the other instructors (Warrior `1022000`, Bowman `1012100`, Thief `1052001`, Pirate `1090000`) are not yet owned by
+Why some Beginner-ish entries stay shared: the creation weapons are used by every weapon line, the other instructors (Warrior `1022000`, Bowman `1012100`, Thief `1052001`, Pirate `1090000`) are not yet owned by
 a playable line, and equipment with `reqJob` 0 (any job) is shared. Move an entry to its line's fragment when that line
 becomes playable.
 

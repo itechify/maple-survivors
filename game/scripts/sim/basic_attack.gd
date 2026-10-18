@@ -99,6 +99,12 @@ func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 	return false
 
 
+## The timing, box and effect paths of one action of `weapon` ({} when it cannot be played); what a swing starts with.
+## For tools and tests (the weapon gallery draws exactly this); the automatic attack calls the same code.
+func action_spec(weapon: int, info: Dictionary, action: String) -> Dictionary:
+	return _spec(weapon, info, action)
+
+
 ## One action's timing, box and effect paths for the weapon, or {} when the body or the afterimage cannot play it. A
 ## melee weapon needs the afterimage's lt/rb box and lands on the afterimage's first frame. A ranged family (bow,
 ## crossbow, claw, gun) hits at WeaponInfo.ranged_box until #155's projectiles carry their own range, lands on the
