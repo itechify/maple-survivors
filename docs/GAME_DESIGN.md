@@ -463,6 +463,39 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #88 hit-window pressure regression smoke (2026-10-17)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning. "Before" is `main` at `bb6eee9`; "after" is `7d1d2c9` (Spec #88, the shrinking hit
+window). The owner decided on 2026-10-17 to ship #88 as specced despite this smoke; the Henesys pacing regression is
+recorded here for the dedicated balance pass to tune, not fixed by this ticket. All 12 runs finish with no crashes,
+script errors or world warnings, and every record has `missing: []` and `warnings: []`.
+
+Henesys clears fall from 2/6 to 0/6 (bot and random seed 1 cleared before). All six Henesys runs now die between 5:12
+and 9:24; three of them die while the first boss, Mano (spawned at 5:00), is still alive. Every recorded boss hit is a
+body touch, so the shrinking contact window drives these deaths, not the boss-attack bypass. Magician is reached at the
+same times as before in all six Henesys runs. Tree stays 0/6 clears and record-only: five of six runs die before 2:30
+(baseline two).
+
+| Stage, policy, seed | Outcome, end | Magician reach | Hits before 6:00 | Hits after 8:00 | Boss hits |
+|---|---|---|---|---|---|
+| Henesys, bot, 1 | C 15:29 -> D 8:31 | 4:41 -> 4:41 | 2 -> 2 | 202 -> 0 | 10 -> 2 |
+| Henesys, bot, 2 | D 23:44 -> D 5:40 | 4:31 -> 4:31 | 31 -> 1 | 449 -> 0 | 37 -> 10 |
+| Henesys, bot, 2026 | D 21:08 -> D 9:24 | 4:25 -> 4:25 | 4 -> 4 | 387 -> 141 | 20 -> 1 |
+| Henesys, random, 1 | C 16:28 -> D 8:31 | 4:34 -> 4:34 | 0 -> 0 | 243 -> 0 | 8 -> 0 |
+| Henesys, random, 2 | D 7:42 -> D 5:12 | 4:28 -> 4:28 | 31 -> 1 | 0 -> 0 | 9 -> 18 |
+| Henesys, random, 2026 | D 10:59 -> D 5:36 | 4:20 -> 4:20 | 16 -> 3 | 58 -> 0 | 5 -> 4 |
+| Tree, bot, 1 | D 11:18 -> D 2:24 | 3:39 -> never | 28 -> 23 | 74 -> 0 | 11 -> 0 |
+| Tree, bot, 2 | D 2:36 -> D 1:17 | never -> never | 21 -> 17 | 0 -> 0 | 0 -> 0 |
+| Tree, bot, 2026 | D 2:08 -> D 0:47 | never -> never | 27 -> 0 | 0 -> 0 | 0 -> 0 |
+| Tree, random, 1 | D 20:23 -> D 9:05 | 3:34 -> 3:27 | 18 -> 28 | 273 -> 125 | 28 -> 1 |
+| Tree, random, 2 | D 2:38 -> D 1:17 | never -> never | 21 -> 17 | 0 -> 0 | 0 -> 0 |
+| Tree, random, 2026 | D 1:28 -> D 0:47 | never -> never | 10 -> 0 | 0 -> 0 | 0 -> 0 |
+
+Cells are before -> after. "C" is CLEARED, "D" is DEAD, and "never" means no job change to Magician before the run
+ended. Magician reach and the hit windows come from the per-minute metrics, which omit the partial last minute of each
+run. Tree rows are record only.
+
 #### Web audio fix regression smoke (2026-10-17)
 
 `ISOLATE=webaudio_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,

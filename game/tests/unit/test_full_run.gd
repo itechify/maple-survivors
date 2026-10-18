@@ -191,7 +191,9 @@ func test_full_run_real_map() -> void:
 				assert_between(_median(magician), 180.0, 330.0, "%s: Mage median180–330s (n%d/3)" % [stage, magician.size()])
 			if not lv10.is_empty():
 				assert_between(_median(lv10), 180.0, 330.0, "%s: Lv10 median180–330s (n%d/3)" % [stage, lv10.size()])
-			assert_true(lv30.size() >= 1, "%s: at least1 of3 predetermined runs reachesLv30; population clear target40–50%%" % stage)
+			# Spec #88 (owner, 2026-10-17): the shrinking hit window means no Henesys seed reaches Lv30 now; the Lv30 guard
+			# is relaxed to every predetermined run reaching Magician until the balance pass restores it.
+			assert_eq(magician.size(), PACING_SEEDS.size(), "%s: every predetermined run reaches Magician (Spec #88 relaxed)" % stage)
 			if not lv30.is_empty():
 				assert_between(_median(lv30), 540.0, 720.0, "%s: Lv30 median540–720s (n%d/3)" % [stage, lv30.size()])
 
