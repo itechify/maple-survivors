@@ -187,12 +187,7 @@ static func _timed_step(w: RunWorld, dt: float, input: MoveInput, acc: PackedInt
 	t = _lap(acc, 10, t)
 	w.basic.step(dt, w)
 	t = _lap(acc, 11, t)
-	w._live_mdd.resize(w.swarm.capacity())
-	w._live_physical_allowed.resize(w.swarm.capacity())
-	for slot in w.swarm.capacity():
-		if w.swarm.active[slot] != 0:
-			w._live_mdd[slot] = w.mob_defense(slot, true)
-			w._live_physical_allowed[slot] = 1 if w.physical_hit_allowed(slot) else 0
+	w._fill_live_defense()
 	t = _lap(acc, 12, t)
 	w.projectiles.step(dt, w.swarm, w.mob_grid, w.events, w._live_mdd, w._live_physical_allowed, w._on_player_hit)
 	t = _lap(acc, 13, t)

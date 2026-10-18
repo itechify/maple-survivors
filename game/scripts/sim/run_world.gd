@@ -138,6 +138,8 @@ const DEFAULT_LEVEL_UP_REFILL := {"hp": 0.0, "mp": 1.0}
 const DEFAULT_SUMMON_SPACING := 24.0
 ## balance.player.inventory_slots fallback. tier A: a new v83 character's Equip tab has 24 slots.
 const DEFAULT_INVENTORY_SLOTS := 24
+## Grid candidates skill_box_count checks before it reads the whole query (a speed setting; the count is the same).
+const BOX_PROBE := 16
 
 var setup: Dictionary
 var data: Dictionary
@@ -183,6 +185,10 @@ var mob_boss := PackedInt32Array()
 var mob_summon_owner := PackedInt32Array()
 var _live_mdd := PackedFloat32Array()
 var _live_physical_allowed := PackedByteArray()
+## Canonical MDD per mob kind index (refreshed every tick for the live defense fill).
+var _kind_mdd := PackedFloat64Array()
+## Grid candidates of the latest _skill_box_matches query.
+var _box_candidates := 0
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
 var pickups: PickupSystem
@@ -710,15 +716,21 @@ func _step_monsters(dt: float) -> void:
 func _step_player_attacks(dt: float) -> void:
 	runner.step(dt, self)
 	basic.step(dt, self)
-	_live_mdd.resize(swarm.capacity())
-	_live_physical_allowed.resize(swarm.capacity())
-	for slot in swarm.capacity():
-		if swarm.active[slot] != 0:
-			_live_mdd[slot] = mob_defense(slot,true)
-			_live_physical_allowed[slot] = 1 if physical_hit_allowed(slot) else 0
+	_fill_live_defense()
 	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit)
 	for m in projectiles.kills:
 		_on_kill(m)
+
+
+## mob_defense(slot, true) and physical_hit_allowed(slot) of every live slot, for the shots, in one pass (#146).
+func _fill_live_defense() -> void:
+	_live_mdd.resize(swarm.capacity())
+	_live_physical_allowed.resize(swarm.capacity())
+	_kind_mdd.resize(mob_kinds.size())
+	for k in mob_kinds.size():
+		_kind_mdd[k] = float((mob_kinds[k] as MobKind).mdd)
+	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
+		_live_physical_allowed)
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -869,10 +881,15 @@ func heal_fraction(stat: String, fraction: float) -> void:
 	_write_player_state(0.0)
 
 
+## Whether spend_mp(amount) would succeed now (nothing is paid).
+func mp_affordable(amount: int) -> bool:
+	return not (_mp < maxi(0, amount))
+
+
 ## Pays an action's MP cost; unaffordable actions leave the pool unchanged.
 func spend_mp(amount: int) -> bool:
 	var cost := maxi(0, amount)
-	if _mp < cost:
+	if not mp_affordable(cost):
 		return false
 	_mp -= cost
 	_write_player_state(0.0)
@@ -1019,14 +1036,40 @@ func targets_before(a: int, da: float, b: int, db: float) -> bool:
 ## centre, then slot (targets_before).
 ## Minimum edges include touching bodies; maximum edges exclude them, matching SpatialHash.query_rect.
 func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32Array:
+	var matches := _skill_box_matches(box, filter, 0)
+	# Each match's distance is computed once, not in every comparison (#146). targets_before is a strict total order
+	# (the slot breaks every tie), so any sort of the same keys gives the same list.
+	var origin := cast_origin()
+	var d2 := {}
+	for m: int in matches:
+		d2[m] = mob_center(m).distance_squared_to(origin)
+	matches.sort_custom(func(a: int, b: int) -> bool: return targets_before(a, d2[a], b, d2[b]))
+	return PackedInt32Array(matches)
+
+
+## How many bodies skill_box_targets(box, filter) would return, counting no further than `limit` (> 0). It first looks
+## at only the first BOX_PROBE grid candidates (often enough) and reads the whole query only when they fall short.
+func skill_box_count(box: Rect2, limit: int, filter: Callable = Callable()) -> int:
+	var probe := maxi(BOX_PROBE, limit)
+	var found := _skill_box_matches(box, filter, limit, probe)
+	if found.size() >= limit or _box_candidates < probe:
+		return found.size()
+	return _skill_box_matches(box, filter, limit).size()
+
+
+## The live bodies of skill_box_targets in candidate order (unsorted), stopping at `limit` matches (0 = all), among
+## the first `probe` grid candidates (0 = all; _box_candidates says how many the query gave).
+func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0) -> Array[int]:
+	var matches: Array[int] = []
+	_box_candidates = 0
 	if not box.has_area():
-		return PackedInt32Array()
+		return matches
 	if player.facing > 0:
 		box.position.x = -box.end.x
 	box.position += player.pos
 	var candidates := PackedInt32Array()
-	var n := mob_grid.query_rect(box.grow(body_pad), candidates)
-	var matches: Array[int] = []
+	var n := mob_grid.query_rect(box.grow(body_pad), candidates, probe)
+	_box_candidates = n
 	for i in n:
 		var m := candidates[i]
 		if not swarm.is_live(m):
@@ -1039,10 +1082,9 @@ func skill_box_targets(box: Rect2, filter: Callable = Callable()) -> PackedInt32
 		if filter.is_valid() and not bool(filter.call(m)):
 			continue
 		matches.append(m)
-	var origin := cast_origin()
-	matches.sort_custom(func(a: int, b: int) -> bool:
-		return targets_before(a, mob_center(a).distance_squared_to(origin), b, mob_center(b).distance_squared_to(origin)))
-	return PackedInt32Array(matches)
+		if limit > 0 and matches.size() >= limit:
+			break
+	return matches
 
 
 ## The setup's Mob.wz img root of mob `id` (int or String keys); {} when absent.
@@ -1296,7 +1338,8 @@ func mob_action_view() -> Dictionary:
 	return mob_actions.view(bosses.action_snapshot(swarm), bosses, swarm, time)
 
 
-## Live defense at a mob slot; later timed boss buffs can override this shared hit seam.
+## Live defense at a mob slot; later timed boss buffs can override this shared hit seam. The per-tick projectile
+## defense (MobSkillRunner.fill_live_defense in _step_player_attacks) computes the magic case in bulk: keep them equal.
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
 	return float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
