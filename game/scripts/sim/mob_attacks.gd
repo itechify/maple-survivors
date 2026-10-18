@@ -246,8 +246,12 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 	# tier C: a locked type-1 strike follows the character, including airborne/escaped targets, at attackAfter.
 	if can_hit and (targeted or (pending.area as Rect2).intersects(world.player_box(), true)):
 		var kind := world.swarm.mob_kind(int(pending.mob))
-		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos,
-			_source(pending, kind.acc))
+		var source := _source(pending, kind.acc)
+		# tier C: the hit window turns an ordinary attack away before it lands, as it turns away an ordinary ball
+		# (spec #144): no damage, no player_hit and no hit art. A rolled MISS is not blocked and keeps its art.
+		if world.hit_window_blocks(source):
+			return
+		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos, source)
 		if String(pending.hit) != "":
 			emit(pending, "hit", world)
 
