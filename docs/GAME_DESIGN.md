@@ -3625,7 +3625,8 @@ fires when any mob is within 140 px, faces the nearest and backs off from it, an
 Corkscrew Blow's charge distance has no scalar Skill.wz field (the reach is the box's `lt.x`), so
 `displacement.distances` copies -`lt.x` per level and a private-cache test checks all 20 against Skill.wz. The charge is
 the full distance at once (no `prepare`/`keydown` wind-up, no Loop sound, the `dash` prepare action is not played), and
-its sweep ignores walls for the hit box: a mob just past a wall that the end-of-charge box still overlaps is struck.
+its sweep never passes a wall: when a wall stops the charge, the swept hit box ends at that wall, so a mob just past it
+is not struck even where the end-of-charge box would reach it.
 Cooldowns 1.5 s (Backspin), 1.2 s (Double Uppercut), 2.0 s (Corkscrew); cast stance holds 0.8 s, 1.0 s, 0.8 s.
 Presentation: the skills' `effect`, `hit/0`, Use and Hit sounds and the body actions `backspin`, `doubleupper`,
 `screw` (Character.wz/00002000.img) play as for Flash Fist; the second effect layer `effect0` of Backspin Blow, the
@@ -4127,11 +4128,11 @@ Pirate tracer (#186) additions:
 | Double Shot flight | 600 px/s, radius 8 px, base pierce 0 | C initial untuned survivor values |
 | Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
-| Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
+| Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; drawn by Oak Barrel's failure roll (#194, `buff.fail_field`); a future non-Pirate failure chance needs its own stream |
 | Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
 | Backspin Blow (#191, 7.15) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
 | Double Uppercut (#191, 7.15) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
-| Corkscrew Blow (#191, 7.15) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the sweep ignores walls for its hit box | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
+| Corkscrew Blow (#191, 7.15) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the swept hit box ends at the wall that stops the charge (nothing past it is struck) | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
 | Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.10) |
 | Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
 | Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
@@ -4144,6 +4145,8 @@ Pirate tracer (#186) additions:
 | Invisible Shot both sides | `cast.around` mirrors the box's far edge (250 px) across the player; no bullet drawn | C owner behaviour |
 | Gunslinger timing | cooldowns Invisible 1 s, Blank 1.4 s, Grenade 2 s, Recoil 1.8 s; each 0.6 s action hold; Invisible Shot plays the WZ Hit sound as its cast sound | C initial untuned survivor values |
 | Grenade throw (`cluster`) | thrown with no wind-up; range 400 px; ball 600 px/s, flight at least 0.1 s; blast on arrival at the target's feet; target = the first of the 12 nearest mobs in range (bosses first) with the largest blast, a scheduled boss outright | C owner (no wind-up, nearest cluster) + ours (range, speed, candidates) |
+| Minimum grenade flight | `SkillRunner.MIN_FLIGHT` 0.1 s: the shortest time a thrown grenade is in the air, so a point-blank throw still shows the ball before the blast | C ours (#192) |
+| Stun tint | `MobRenderer.STUN_TINT` (1.0, 0.95, 0.55), a pale yellow modulate on a stunned mob when the cached stun stars (`Skill.wz/111.img/skill/1111008/mob`) are absent; presentation only | C ours (#187) |
 | Grenade arc | presentation only: 40 px mid-flight arc, ball art loops | C ours |
 | Recoil Shot shot | current ammo bullet sprite, 1000 px/s, radius 6, rotating, reach 300 px, no base pierce | C ours; A ammo ids (6.1.2) |
 | Recoil Shot hop | the canonical `range` 115 to 250 px away from the faced mob after the shot; edge/wall stops and no air hop per 7.9 | A distance; C owner rule |

@@ -343,6 +343,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 		"hidden": bool(buff.get("hidden", false)),
 		"morph": int(book.canonical(key, lv, String(buff.morph_field), 0.0)) if buff.has("morph_field") else 0,
+		# The roll draws the Pirate stream 16 (RunWorld.start_buff): a future non-Pirate failure chance needs its own stream.
 		"fail_chance": clampf(book.canonical(key, lv, String(buff.fail_field), 0.0) / 100.0, 0.0, 1.0)
 			if buff.has("fail_field") else 0.0,
 		"end_hp_above": float(buff.get("end_hp_above", 0.0)),

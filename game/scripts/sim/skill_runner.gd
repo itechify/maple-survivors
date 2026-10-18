@@ -400,7 +400,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	if when == "before" or when == "during":
 		world.displace_player(side, float(disp.distance))
 	if charge:
-		_resolve_charge(world, st, start)
+		_resolve_charge(world, st, start, side)
 	else:
 		match String(st.cast_rule):
 			"box", "weapon_reach", "range_around":
@@ -425,14 +425,24 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 ## strikes up to the skill's mob count among the live mobs inside the swept path, bosses first then nearest to where
 ## the charge began. The path is the skill's attack box (the player's body without one) at the start and at the end,
 ## and everything between: a mob that triggered the cast is still struck when the charge stops short of it, and a
-## cast whose admitted mobs lie outside the path strikes nothing (tier C).
-func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2) -> void:
+## cast whose admitted mobs lie outside the path strikes nothing (tier C). A wall that stopped the charge (`side` is the
+## direction it moved in) also ends the path: nothing on its far side is struck, however far the box reaches (tier C).
+func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int) -> void:
 	var local: Rect2 = st.box if bool(st.has_box) else world.body
 	if bool(st.has_box) and world.player.facing > 0:
 		local.position.x = -local.end.x  # canonical boxes face left
 	var at_start := Rect2(local.position + start, local.size)
 	var at_end := Rect2(local.position + world.player.pos, local.size)
-	var swept := world.skill_rect_targets(at_start.merge(at_end), start - Vector2(0.0, world.cast_height),
+	var path := at_start.merge(at_end)
+	var stop := world.fhm.wall_hit(world.player.pos.x, world.player.pos.y, path.end.x if side > 0 else path.position.x,
+		world.player.pos.y)
+	if stop != FootholdMap.NONE:
+		var wall_x := world.fhm.x1[stop]
+		if side > 0:
+			path.end.x = minf(path.end.x, wall_x)
+		else:
+			path.position.x = maxf(path.position.x, wall_x)
+	var swept := world.skill_rect_targets(path, start - Vector2(0.0, world.cast_height),
 		int(st.mob_count))
 	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
 		world.visual_index(String(st.hit)))

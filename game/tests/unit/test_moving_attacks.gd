@@ -294,6 +294,36 @@ func test_a_charge_that_stops_at_a_wall_only_sweeps_what_it_covered() -> void:
 	assert_eq(_hit_slots(events), [close])
 
 
+## "Never passes a wall" (#190): the box at the end of the charge reaches a full reach past the character, so a mob
+## just beyond the wall that stopped it must not be struck, in either direction; one on the near side still is.
+func test_a_charge_never_hits_a_mob_just_past_the_wall_that_stopped_it() -> void:
+	var right := _world({"direction": "toward", "when": "during", "distance": 300.0}, 400.0, "instant",
+		[GROUND, {"x1": 520, "y1": 0, "x2": 520, "y2": -80}])
+	var near_r := _mob(right, 510.0)  # on the near side, inside the end box
+	var past_r := _mob(right, 540.0)  # just beyond the wall, inside the end box (the box reaches 60 px ahead)
+	var events := _cast(right)
+	assert_near(right.player.pos.x, 520.0 - FootholdMap.EPS, 1e-4, "stopped at the wall")
+	assert_true(near_r in _hit_slots(events), "the mob on the near side is struck")
+	assert_false(past_r in _hit_slots(events), "the mob past the wall is not")
+	var left := _world({"direction": "toward", "when": "during", "distance": 300.0}, 600.0, "instant",
+		[GROUND, {"x1": 480, "y1": 0, "x2": 480, "y2": -80}])
+	left.player.facing = -1
+	var near_l := _mob(left, 490.0)
+	var past_l := _mob(left, 470.0)
+	events = _cast(left)
+	assert_near(left.player.pos.x, 480.0 + FootholdMap.EPS, 1e-4, "stopped at the wall, leftward")
+	assert_true(near_l in _hit_slots(events), "the mob on the near side is struck")
+	assert_false(past_l in _hit_slots(events), "the mob past the wall is not")
+
+
+func test_a_charge_blocked_at_once_by_a_wall_strikes_nothing_beyond_it() -> void:
+	var w := _world({"direction": "toward", "when": "during", "distance": 300.0}, 519.0, "instant",
+		[GROUND, {"x1": 520, "y1": 0, "x2": 520, "y2": -80}])
+	var past := _mob(w, 540.0)
+	var events := _cast(w)
+	assert_false(past in _hit_slots(events), "the wall is between the character and the mob")
+
+
 func test_a_charge_boxes_the_sweep_by_the_players_body_without_a_skill_box() -> void:
 	var w := _world({"direction": "toward", "when": "during", "distance": 200.0})
 	for level in ["1", "2", "3"]:
