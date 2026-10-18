@@ -145,6 +145,27 @@ static func skill_imgs() -> Dictionary:
 	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
 		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
 	imgs["500"] = {"skill": pirate}
+	# #189: the Brawler's and Gunslinger's passives and boosters, original v83 values (Skill.wz/510.img, 520.img): Improve
+	# MaxHP x 3..30; masteries N = ceil(level / 2) and x = level (Gun Mastery also has y = 10 * level, unused here);
+	# boosters x -2, time 10..200 s, hpCon and mpCon 29..10.
+	var mastery := func(with_y: bool) -> Dictionary:
+		var levels := _levels(20, {"x": [1.0, 20.0]})
+		for lv in range(1, 21):
+			levels[str(lv)].mastery = float(ceili(lv / 2.0))
+			if with_y:
+				levels[str(lv)].y = float(10 * lv)
+		return levels
+	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
+		"x": [-2.0, -2.0]})
+	imgs["510"] = {"skill": {
+		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
+		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
+		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	imgs["520"] = {"skill": {
+		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
+		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
 	return imgs
 
 

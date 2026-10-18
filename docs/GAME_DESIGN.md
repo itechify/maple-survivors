@@ -3187,6 +3187,9 @@ Shipping Pirate first job (#186):
 | Flash Fist 5001001 | knuckle | C: survivor override |
 | Somersault Kick 5001002 | any, including bare hands | C: explicit survivor override |
 | Double Shot 5001003 | gun | A: canonical `"weapon "` = 49 |
+| Improve MaxHP 5100000 | any | A: no canonical restriction |
+| Knuckler Mastery 5100001, Knuckler Booster 5101006 | knuckle | C: survivor tag (String.wz text names the Knuckler) |
+| Gun Mastery 5200000, Gun Booster 5201003 | gun | C: survivor tag (String.wz text names the Gun) |
 
 A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
 crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
@@ -3396,8 +3399,8 @@ kind):
 
 All four skills have their 20 original Skill.wz levels; the runtime reads canonical numbers rather than copying
 them into survivor balance. The Pirate owns `skills/pirate.json`, `upgrades/pirate.json`,
-`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash is deferred to #188; second jobs
-remain locked until #189. Wings is never offered.
+`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash is deferred to #188; the second
+jobs open in 7.11 (#189). Wings is never offered.
 
 | Skill | Cast / effect | Canonical L1 → L20 | Survivor behavior (tier C) |
 |---|---|---|---|
@@ -3424,6 +3427,44 @@ The 18 Pirate tests also pass after freeing their temporary asset-library node. 
 pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds. No balance smoke or tuning here;
 #195 owns that pass.
 
+### 7.11 Brawler and Gunslinger: advancement, passives and boosters (#189)
+
+Brawler 510 and Gunslinger 520 are playable at the canonical Lv 30, from either first-job path (the window lists both
+for a knuckle-path and a gun-path Pirate alike). Advancing adds +325 Max HP and +175 Max MP (tier B: fixed midpoints of
+the v83 second-job ranges +300-350 and +150-200; the Magician second jobs keep +475 Max MP). Growth stays the Pirate's
+25 HP / 20.5 MP per level. Each branch hands **one** advancement weapon (section 9, "Second-job grants"; tier C
+choices): Brawler Prime Hands 1482004 (Lv 30 knuckle, PAD 34, STR 60 / DEX 30) and Gunslinger Cold Mind 1492004 (Lv 30
+gun, PAD 31, DEX 70 / STR 30). A branch has one family, so the grant is always worn, even when the other family was
+held; the previous weapon goes to the Equip tab or to the feet when it is full. As for every grant, the advancement does
+not check the weapon's requirements; the auto-AP rows below meet them at Lv 30.
+
+**Auto-AP.** `balance.json` `ap_stat` / `ap_secondary` carry plain `510` and `520` rows that copy the first-job
+path rows of their weapon (Brawler = `500:knuckle`: STR primary, DEX secondary at the level; Gunslinger = `500:gun`: DEX
+primary, STR secondary at the level), and a branch row wins over a path row. The AP therefore follows the branch, not the
+recorded path: a knuckle-path Gunslinger switches to DEX with an STR secondary when it advances (tier C; only earned
+AP move).
+
+**Ammo.** The Gunslinger's schedule (6.1.2: Split Bullet 2330001 at Lv 30, Mighty Bullet 2330002 at Lv 50) applies to job
+520 once it is playable: advancing at Lv 30 shows the one `ammo_upgraded` notice, advancing past Lv 50 goes straight to
+Mighty Bullet. A Brawler holding a gun keeps the basic Bullet 2330000.
+
+| Skill | Kind | Weapon | Canonical L1 → top | Survivor behaviour |
+|---|---|---|---|---|
+| Improve MaxHP 5100000 | passive `max_hp_per_level` | any | 10 levels; x +3 → +30 Max HP per level-up | the shared 7.6 consumer: the rank at the level-up counts, never retroactive; the AP half (`y`) has no meaning |
+| Knuckler Mastery 5100001 | passive `mastery` + ACC | knuckle | 20 levels; mastery N 1 → 10 = 15% → 60%; x ACC +1 → +20 | the shared 7.6 consumer, only while a knuckle is held |
+| Gun Mastery 5200000 | passive `mastery` + ACC | gun | same; `y` (bullets per recharge, +10 → +200) is not used: ammo is endless | only while a gun is held; its level text omits the bullet count |
+| Knuckler Booster 5101006 | buff `attack_speed` | knuckle | 20 levels; x = -2 (two steps faster, `scale` -1); time 10 → 200 s; hpCon and mpCon 29 → 10 | the 7.7 Booster: auto-cast when inactive, ready and affordable (it pays **both** HP and MP, tier A, and never casts if the HP would leave 0), counted only while a knuckle is held |
+| Gun Booster 5201003 | buff `attack_speed` | gun | same | the same, gun |
+
+The v83 prerequisites (the Booster needs Mastery level 5) are ignored as everywhere (tier C, owner choice #31). Each skill
+has learn and rank cards that require the exact branch (Improve MaxHP and the knuckle cards the Brawler, the gun cards
+the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP is weapon-free). They are not power
+cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
+`requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
+branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
+Double Shot. The branch attacks come with #191 (Brawler) and #192 (Gunslinger), MP Recovery with #193 and Oak Barrel with
+#194.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -3442,7 +3483,9 @@ Draw rules:
    the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
    `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
    for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
-   passives still stop at Lv 30. Every other line keeps the rule unchanged.
+   passives still stop at Lv 30. **Pirate first-job cards** (spec #168 #189) use the same shape with `carry_jobs: [510, 520]`
+   (their `requires.jobs` is [500]): on offer to both Pirate branches, never in a branch's advancement draw. Every other
+   line keeps the rule unchanged.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -3726,7 +3769,17 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
   before rounding). Tier-C auto-AP uses STR with level-target DEX for knuckle, DEX with level-target STR for gun.
-  At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30). Brawler and Gunslinger remain locked.
+  At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30).
+- Level 30, Pirate (spec #168 #189): Brawler 510 and Gunslinger 520 are selectable at their canonical level from either
+  path. Each adds +325 Max HP and +175 Max MP (tier B midpoints), keeps the Pirate's growth, hands its one advancement
+  weapon (below; always worn) and switches the auto-AP to its own weapon's rows. `--job=510`, `--job=520` (and
+  `--job=520:knuckle` for a knuckle-path Gunslinger) work in the tools; unforced, the bot draws its branch on the job
+  stream (8). Skills and cards: 7.11.
+
+  | Branch | Family | Advancement weapon |
+  |---|---|---|
+  | Brawler 510 | knuckle | Prime Hands 1482004 (Lv 30, PAD 34, STR 60 / DEX 30) |
+  | Gunslinger 520 | gun | Cold Mind 1492004 (Lv 30, PAD 31, DEX 70 / STR 30) |
 - An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
   stream. Adding Pirate intentionally changes that pool, without changing any stream's initialization.
   `--job=100`, `--job=200`, `--job=500:knuckle` and `--job=500:gun` force a choice.
@@ -3757,8 +3810,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
   The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
   `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
-  `DataRepo.starter_equipment_ids` preload reads the same field. The Bowman, Thief and Pirate lines use the same shape
-  with one entry per branch when their class specs land.
+  `DataRepo.starter_equipment_ids` preload reads the same field. The Pirate branches use the same shape with one entry
+  each (#189); the Bowman and Thief lines follow when their class specs land.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -3796,8 +3849,8 @@ grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once
 per family (`grant_items`, same order; #165 #180 replaced the single `grant_item` of #157, ADR 0005 amendment). On
 advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
 (tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
-are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today only
-the Warrior's three branches have them (section 9, Level 30).
+are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
+the Warrior's three branches and the two Pirate branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
@@ -3861,6 +3914,12 @@ Pirate tracer (#186) additions:
 | Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
 | Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
+| Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
+| Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
+| Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
+| Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
+| Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
+| Second-job cards | learn/rank weights 2/2, not power, exact branch job; first-job cards `requires.jobs` [500] + `carry_jobs` [510, 520] | C initial untuned choices |
 | Path bot equipment | auto-equip upgrades only the held family (shared drop families allowed) when a weapon path is recorded | C owner rule: bot never swaps paths; prevents Kyrin's spare knuckle replacing the gun; no RNG |
 
 | Physical combat rule (#153) | Value / behavior | Tier | Source |

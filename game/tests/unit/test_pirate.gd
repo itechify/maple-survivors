@@ -26,13 +26,13 @@ func _world(free := 24) -> RunWorld:
 	return w
 
 
-func _level(w: RunWorld, target: int, path := "knuckle") -> void:
+func _level(w: RunWorld, target: int, path := "knuckle", forced := 500) -> void:
 	var needed := w.progression.curve.total_to(target) - w.progression.curve.total_to(w.progression.level) - w.progression.exp
 	w.pickups.spawn(w.player.pos, needed, 4000019)
 	for tick in 120:
 		w.step(DT, MoveInput.new())
 		if w.state != RunWorld.PLAYING:
-			BotInput.auto_choose(w, false, 500, path)
+			BotInput.auto_choose(w, false, forced, path)
 		if w.progression.level == target:
 			break
 	assert_eq(w.progression.level, target)
@@ -88,18 +88,20 @@ func test_seeded_bot_meets_level_thirty_weapon_requirements_on_both_paths() -> v
 	for path: String in WEAPONS:
 		var w := _world()
 		w.god = true
-		for level in range(2, 31):
+		for level in range(2, 30):
 			_level(w, level, path)
-		assert_eq(w.progression.job_id, 500, "second jobs stay locked until #189")
+		assert_eq(w.progression.job_id, 500, "still a first-job Pirate at Lv 29")
 		assert_eq(w.weapon_path, path)
-		var requirements := {"reqLevel": 30, "reqJob": 16, "reqSTR": 60, "reqDEX": 30} if path == "knuckle" \
-			else {"reqLevel": 30, "reqJob": 16, "reqSTR": 30, "reqDEX": 70}
+		var branch := 510 if path == "knuckle" else 520
+		_level(w, 30, path, branch)
+		assert_eq(w.progression.job_id, branch, "the second job opens at Lv 30 (#189)")
+		var requirements := {"reqLevel": 30, "reqJob": 16, "reqSTR": 60, "reqDEX": 30} if path == "knuckle" 			else {"reqLevel": 30, "reqJob": 16, "reqSTR": 30, "reqDEX": 70}
 		assert_eq(Equipment.requirement_error(requirements, w.player_state), "", "Prime Hands / Cold Mind")
 		assert_eq(w.player_state.dex if path == "knuckle" else w.player_state.str, 30)
 		var hp: int = w.player_state.max_hp
 		var mp: int = w.player_state.max_mp
-		_level(w, 31, path)
-		assert_eq(w.player_state.max_hp, hp + 25)
+		_level(w, 31, path, branch)
+		assert_true(w.player_state.max_hp - hp >= 25, "25 HP growth, plus Improve MaxHP when a draw took it")
 		assert_between(w.player_state.max_mp - mp, 20, 21, "20.5 MP accumulates before rounding")
 
 
@@ -296,7 +298,7 @@ func test_attacks_wait_without_spending_when_mp_is_short() -> void:
 func test_path_ap_survives_swaps_and_a_branch_row_takes_precedence() -> void:
 	var w := _world()
 	w.god = true
-	for level in range(2, 31):
+	for level in range(2, 30):
 		_level(w, level, "gun")
 	var str_before: int = w.player_state.str
 	var dex_before: int = w.player_state.dex
@@ -304,13 +306,11 @@ func test_path_ap_survives_swaps_and_a_branch_row_takes_precedence() -> void:
 	assert_eq(w.weapon_path, "gun")
 	assert_eq(w.player_state.str, str_before)
 	assert_eq(w.player_state.dex, dex_before)
-	# Synthetic branch rows model #189's additive plain-job override; not shipping second-job gameplay.
-	w.balance.player.ap_stat["520"] = "luk"
-	w.balance.player.ap_secondary["520"] = {"stat": "str", "keyframes": [{"level": 30, "target": 40}]}
-	w.change_job(520)
-	assert_eq(w.player_state.str, 40)
-	assert_eq(w.player_state.dex, 5)
-	assert_true(w.player_state.luk > 100)
+	# The shipping branch rows (#189) win over the path rows: a gun-path Brawler is a DEX-secondary knuckle user.
+	w.change_job(510)
+	assert_eq(w.weapon_path, "gun", "the recorded first-job path is unchanged")
+	assert_true(w.player_state.dex < dex_before, "the Brawler's secondary DEX target is the level (STR primary)")
+	assert_true(w.player_state.str > str_before)
 
 
 func test_extra_path_items_load_their_info_even_when_no_other_roster_names_them() -> void:
