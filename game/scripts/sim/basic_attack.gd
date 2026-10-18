@@ -15,6 +15,8 @@ var cooldown := 0.0
 var _body: Dictionary
 var _images: Dictionary
 var _pending := {}
+## weapon id -> reach(); the afterimage and body data never change during a run.
+var _reach := {}
 var _buffer := PackedInt32Array()
 
 
@@ -56,6 +58,23 @@ func step(dt: float, world: RunWorld) -> void:
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
 	world.start_action(action, float(spec.action_time), true)
 	_emit(world, "start")
+
+
+## Horizontal reach in px of the held weapon's swing: the farthest afterimage box edge over the five stances (the same
+## stances that gate starting a swing), or the punch's box bare-handed; 0 when the weapon cannot swing. Cached per weapon.
+func reach(world: RunWorld) -> float:
+	var weapon := world.weapon_id()
+	if _reach.has(weapon):
+		return _reach[weapon]
+	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
+	var far := 0.0
+	if not info.is_empty():
+		for action: String in ACTIONS:
+			var spec := _spec(info, action)
+			if not spec.is_empty():
+				far = maxf(far, -(spec.box as Rect2).position.x)
+	_reach[weapon] = far
+	return far
 
 
 func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
