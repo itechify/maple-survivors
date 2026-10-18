@@ -444,10 +444,7 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 		elif key in INT_OPTIONS:
 			options[key] = int(v)
 		elif key == "job":
-			var forced := JobTree.parse_forced(v) # --job=<id>[:<weapon path>], spec #151 #157
-			options.job = int(forced.job)
-			if String(forced.path) != "":
-				options.job_path = String(forced.path)
+			JobTree.put_forced(options, v) # --job=<id>[:<weapon path>], spec #151 #157
 		elif key in FLOAT_OPTIONS:
 			options[key] = float(v)
 		elif key == "perf":

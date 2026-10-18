@@ -301,7 +301,7 @@ func test_pick_choice_takes_the_forced_path() -> void:
 	var options := jobs.advancements(0, 10)
 	var pick := BotInput.pick_choice(options, rng, 400, jobs, "dagger")
 	assert_eq(pick, {"job_id": 400, "path": "dagger"})
-	assert_eq(BotInput.pick_job(options, rng, 400, jobs, "claw"), 400)
+	assert_eq(RF.pick_job(options, rng, 400, jobs, "claw"), 400)
 	assert_eq(BotInput.pick_choice(options, rng, 410, jobs, "claw"), {"job_id": 400, "path": "claw"},
 		"a forced branch takes its first job with the named path")
 	assert_eq(BotInput.pick_choice(options, rng, 420, jobs, ""), {"job_id": 400, "path": "dagger"},

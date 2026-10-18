@@ -125,15 +125,15 @@ func test_an_unforced_bot_picks_a_seeded_random_first_job_and_job_forces_one() -
 		a.seed = seed_value
 		var b := RandomNumberGenerator.new()
 		b.seed = seed_value
-		var pick := BotInput.pick_job(options, a)
-		assert_eq(pick, BotInput.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
+		var pick := RF.pick_job(options, a)
+		assert_eq(pick, RF.pick_job(options, b), "seed %d picks the same job twice" % seed_value)
 		seen[pick] = true
 	assert_eq(seen.keys().size(), 2, "over 30 seeds the job stream picks both the Warrior and the Magician")
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9
-	assert_eq(BotInput.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
-	assert_eq(BotInput.pick_job(options, rng, 200), 200, "--job=200 the Magician")
-	assert_eq(BotInput.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
+	assert_eq(RF.pick_job(options, rng, 100), 100, "--job=100 takes the Warrior")
+	assert_eq(RF.pick_job(options, rng, 200), 200, "--job=200 the Magician")
+	assert_eq(RF.pick_job([{"job_id": 100, "available": true}], rng), 100, "the only open job is taken")
 
 
 # --- data -----------------------------------------------------------------------------------------------------

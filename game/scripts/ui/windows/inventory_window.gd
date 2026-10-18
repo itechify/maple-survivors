@@ -161,7 +161,8 @@ func apply(action: String, reason: String) -> String:
 		queue_redraw()
 		item_action.emit(action)
 	else:
-		var text := String(MESSAGES.equip_full) if action == "equip" and reason == "inventory_full" else message_for(reason)
+		# Wearing an item over others (overall, shield / two-handed weapon) into a full Equip tab has its own v83 text.
+		var text := message_for("equip_full" if action == "equip" and reason == "inventory_full" else reason)
 		if text != "":
 			notice.emit(text)
 	return reason

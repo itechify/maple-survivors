@@ -1819,12 +1819,16 @@ func update_view() -> void:
 	view = r
 
 
-func _tick_timers(dt: float) -> void:
-	var caster_buffs := Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
+## The active buffs' totals that feed the caster (matk, watk, acc, attack_speed); a change refreshes _refresh_caster.
+func _caster_buff_totals() -> Vector4:
+	return Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
 		buffs.effect_total("attack_speed"))
+
+
+func _tick_timers(dt: float) -> void:
+	var caster_buffs := _caster_buff_totals()
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
-	if caster_buffs != Vector4(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"),
-			buffs.effect_total("attack_speed")):
+	if caster_buffs != _caster_buff_totals():
 		_refresh_caster()
 	refresh_player_speed()
 	if _dead:

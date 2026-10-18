@@ -113,13 +113,6 @@ static func physical_defense(bounds: Vector2, player_level: int, mob_level: int,
 	return Vector2(minf(lo, hi), hi)
 
 
-## Legacy basic-attack bounds; new hit paths defer defence until impact and use physical_damage_range directly.
-static func basic_damage_range(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
-	return physical_defense(physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
-		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
-
-
 ## One uniform roll in [range.x, range.y].
 static func roll_range(r: Vector2, rng: RandomNumberGenerator) -> float:
 	return rng.randf_range(r.x, r.y) if r.y > r.x else r.x
