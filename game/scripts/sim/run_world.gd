@@ -1536,7 +1536,8 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 
 
 ## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
-## tab, after whatever the weapon grant displaced; an item the full tab has no room for lies at the player's feet as a
+## tab, followed by the chosen path's optional extra_items (#186), after whatever the weapon grant displaced;
+## an item the full tab has no room for lies at the player's feet as a
 ## normal equipment pickup, so advancing never fails. A grant never checks requirements.
 func _grant_job_items(job_id: int, path := "") -> void:
 	var items: Array = jobs.job(job_id).get("grants", {}).get("items", []).duplicate()
