@@ -178,7 +178,8 @@ func test_jobs_and_balance() -> void:
 	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
 	for id: int in [210, 220, 230]:
 		assert_true(tree.job(id).playable, "%d playable" % id)
-	for id: int in [300, 400, 500]:
+	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
+	for id: int in [300, 400]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")

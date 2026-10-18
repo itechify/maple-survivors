@@ -16,6 +16,7 @@ extends Node2D
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
 ##   job_paths       Lv. 10 with the shipped Thief weapon paths made playable by a test-only override (spec #151 #157)
+##   job_pirate      shipping Pirate paths at Lv. 10 with Kyrin (#186)
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
@@ -204,7 +205,7 @@ func _show_window(which: String) -> void:
 			window = w
 			if args.has("focus"):
 				w.set_focus(int(args.focus))
-		"job", "job10", "job_none", "job_confirm", "job_paths":
+		"job", "job10", "job_none", "job_confirm", "job_paths", "job_pirate":
 			var w := JobAdvanceWindow.new()
 			layer.add_child(w)
 			match which:
@@ -212,6 +213,10 @@ func _show_window(which: String) -> void:
 					w.open(JOB10, 10, 0)
 				"job_paths":
 					w.open(_playable_thief_options(), 10, 0)
+				"job_pirate":
+					var data := DataRepo.load_all()
+					var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+					w.open(jobs.advancements(0, 10).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500), 10, 0)
 				"job_none":
 					w.open(JOB30, 30, 200)
 				_:

@@ -298,6 +298,11 @@ The manifest says what to import. The importer expands convenience entries into 
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
 
+Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active-skill Sound.wz nodes, Kyrin
+1090000 and her String.wz name, regular knuckles/guns 1482000-9 / 1492000-9, and bullets 2330000-2. Kyrin moved
+from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img
+sounds remain in `common`. The five survivor `pirate.json` line files ship through the existing export filter.
+
 `asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, the creation weapons,
 items, the shared equipment). Everything that belongs to one job line lives in a fragment beside it, so parallel class
 specs each add their own file and do not conflict on the main manifest. A fragment has the same shape as the main file,

@@ -281,6 +281,10 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		var rb: Array = node.rb.get("$v", [0.0, 0.0])
 		var start := Vector2(float(lt[0]), float(lt[1])) * area
 		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
+		if bool(cast.get("around", false)):
+			# tier C: surround attacks retain canonical reach/height on both sides of the player (Pirate kick).
+			var extent := maxf(absf(box.position.x), absf(box.end.x))
+			box = Rect2(-extent, box.position.y, extent * 2.0, box.size.y)
 	return {
 		"skill": key,
 		"skill_id": book.skill_id(key),
@@ -314,10 +318,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed_factor": speed_factor,
 		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))
 			* speed_factor),
-		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)
-			if String(cast.get("rule", "")) == "range_around" else 0.0))),
+		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
-		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", 1))))),
+		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),

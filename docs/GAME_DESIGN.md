@@ -20,7 +20,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
-5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
+5. **Advance** to Warrior, Magician or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
@@ -3164,6 +3164,15 @@ damaging attack cards. No behaviour cards are added.
 
 ### 7.5 Weapon-gated skills (#156)
 
+Shipping Pirate first job (#186):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Bullet Time 5000000 | any, including bare hands | A: no canonical restriction |
+| Flash Fist 5001001 | knuckle | C: survivor override |
+| Somersault Kick 5001002 | any, including bare hands | C: explicit survivor override |
+| Double Shot 5001003 | gun | A: canonical `"weapon "` = 49 |
+
 A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
 crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
 (empty = any weapon, bare hands included) and `SkillBook.usable_with(key, family)` answers for the held family
@@ -3318,6 +3327,31 @@ Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the
   stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
   seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
   pass, not tuned).
+
+### 7.9 Pirate first job (#186)
+
+All four skills have their 20 original Skill.wz levels; the runtime reads canonical numbers rather than copying
+them into survivor balance. The Pirate owns `skills/pirate.json`, `upgrades/pirate.json`,
+`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash is deferred to #188; second jobs
+remain locked until #189. Wings is never offered.
+
+| Skill | Cast / effect | Canonical L1 → L20 | Survivor behavior (tier C) |
+|---|---|---|---|
+| Bullet Time 5000000 | passive ACC / avoid | +1 → +20 each | ACC feeds the shared crit coefficient |
+| Flash Fist 5001001 | front box, one mob | damage 156→270%; MP 6→14; box (-74,-30)..(-20,10) | knuckle only; 0.9 s cooldown; 0.6 s action hold |
+| Somersault Kick 5001002 | surrounding box, 3→6 mobs | damage 114→190%; MP 8→16; box (-81,-71)..(-5,0) | any weapon; `cast.around` mirrors far reach to ±81; 1.6 s cooldown; 0.6 s hold |
+| Double Shot 5001003 | nearest targets, two bullets | damage 61→80%; MP 4→7; range 215→350 | 1 s cooldown; 0.6 s hold; 600 px/s; radius 8; no base pierce |
+
+Actions (`straight`, `somersault`, `doublefire`), CharLevel art at levels 10/15/20/25 and use sounds come from WZ
+(tier A). Box reach/height, target caps, costs and shot range retain canonical values. `cast.around` fills the
+horizontal span between the mirrored far edges to meet the surrounding-kick behavior. Cards follow the weapon held
+at the draw: each skill has learn/rank cards; Flash Fist and Somersault Kick have +1 target, Double Shot +1 pierce.
+Modifier cards allow three steps. Attack learn/rank weights are 4/3, Bullet Time 2/2, behavior 2; shared Potential
+magnitudes apply. These are initial tier-C choices, with no balance tuning in #186.
+
+Equipment drops use the regular Lv10–70 knuckle/gun progression (1482000–9 / 1492000–9), only in the held family.
+Scroll rosters use ordinary 100/60/10 and dark 70/30: knuckle ATT and ACC, gun ATT (tier A ids/rates/stats;
+tier C selection). Free Market uses existing weapon pricing for both slots.
 
 ## 8. Upgrades
 
@@ -3604,7 +3638,7 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician and Warrior (Dances with Balrog, #163) are playable; Bowman, Thief and Pirate are shown as "not in this build".
+- Level 10: Magician, Warrior (Dances with Balrog, #163) and Pirate's two paths (Kyrin, #186) are playable; Bowman and Thief are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
   teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
@@ -3612,9 +3646,14 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs (Fighter, Page, Spearman) stay "Not in this build".
-- An **unforced bot** (no `--job`) picks a seeded random available first job on the job stream (8), so with the Warrior
-  and the Magician both open it takes either (spec #151, `BotInput.pick_choice` as #157 left it); `--job=100` /
-  `--job=200` force one. Unforced Lv 10 runs and records therefore differ from before the Warrior existed.
+- Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
+  (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
+  before rounding). Tier-C auto-AP uses STR with level-target DEX for knuckle, DEX with level-target STR for gun.
+  At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30). Brawler and Gunslinger remain locked.
+- An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
+  stream. Adding Pirate intentionally changes that pool, without changing any stream's initialization.
+  `--job=100`, `--job=200`, `--job=500:knuckle` and `--job=500:gun` force a choice.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -3631,7 +3670,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ### Weapon paths and weapon grants (#157, spec #151)
 
-A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family}]`). The Job
+A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family, extra_items?}]`). The Job
 Advancement window lists each path of a playable job as its own entry (the label is the entry text; both Thief paths
 are job 400); a job without paths, and a locked job ("Not in this build"), keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
 snapshot key `weapon_path`, an additive optional key written only when set) and **grants** its item: the weapon is
@@ -3650,8 +3689,9 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 
 Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
 and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman, Thief and Pirate stay `playable: false` ("Not in this build")
-until their class specs; only the data shape and these rows land with #157. The items of a playable job's paths and
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman and Thief stay `playable: false` ("Not in this build")
+until their class specs. Pirate is playable (#186): optional per-path `extra_items` ([item ids]) grants the opposite
+weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
 
@@ -3705,6 +3745,23 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Pirate tracer (#186) additions:
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| First-job level / grants | Lv10; +125 HP, +37 MP | C level override; B v83-facts §4 reward midpoints (MP truncated) |
+| Pirate growth | 25 HP / 20.5 MP per level | B v83-facts §4 midpoints; existing accumulated-total rounding |
+| Per-path AP | knuckle STR + DEX target level; gun DEX + STR target level | C owner choice; `ap_stat` / `ap_secondary` keys `500:knuckle`, `500:gun`; nearer branch wins |
+| Pirate weapon gifts | chosen 1482000/1492000 worn, opposite in Equip | B v83-facts §4 Kyrin; C optional `extra_items` shape and overflow pickup rule |
+| First-job skill values | 20 levels, original costs / damage / counts / boxes / range / ACC / avoid | A Skill.wz 500.img; canonical `bulletCount`/`range` fallback |
+| Flash Fist / kick weapon overrides | knuckle / any | C owner choice |
+| Kick surrounding box | ±canonical far edge, original vertical bounds | C `cast.around`, owner surrounding-kick behavior |
+| Attack timing | fist 0.9 s, kick 1.6 s, shot 1 s cooldown; each 0.6 s action hold | C initial untuned survivor values |
+| Double Shot flight | 600 px/s, radius 8 px, base pierce 0 | C initial untuned survivor values |
+| Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
+| Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
+| Pirate RNG | stream 16, `pirate_rng`; 13–15 reserved | C independent owner; no draws until a Pirate skill needs one |
 
 | Physical combat rule (#153) | Value / behavior | Tier | Source |
 |---|---|---|---|

@@ -488,6 +488,16 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
 
+Pirate tracer (#186) additive fields: first-job `jobs.paths[].extra_items` is an optional array of item ids, appended
+after `grants.items` to the Equip tab after the worn weapon grant; overflow becomes ordinary ground pickups.
+`balance.player.ap_stat` and `ap_secondary` accept `"<job>:<weapon_path>"` keys. At each lineage step the path key is
+checked before the plain job key, so a branch's own AP row wins over its first-job ancestor's path row. The path is
+the recorded advancement choice, independent of later weapon swaps. Other per-job tables retain plain-job lookup.
+`Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
+survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
+player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; streams
+13-15 remain reserved for Warrior, Bowman and Thief. Existing stream initialization and draws are unchanged.
+
 | File | Contents |
 |---|---|
 | `skills.json` + `skills/<line>.json` | survivor behaviour per skill key (line fragments, see below): canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, optional `weapon_families` (family names or `["any"]`; overrides the Skill.wz `weapon` requirement, GAME_DESIGN section 7), visuals and sounds |

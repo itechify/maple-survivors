@@ -1,0 +1,12 @@
+{
+	"_doc": "Pirate scrolls (#186). Tier A: original v83 Item.wz/Consume/0204.img ids, success/curse rates and stats. Tier C: same roster policy as other lines: ordinary 100/60/10 and dark 70/30, excluding event, strong 100%, and item-specific scrolls. Knuckles have ATT and ACC; guns only ATT in v83.",
+	"families": {
+		"knuckle": {
+			"ATT": {"100": 2044800, "60": 2044801, "10": 2044802, "dark70": 2044803, "dark30": 2044804},
+			"ACC": {"100": 2044805, "60": 2044807, "10": 2044809, "dark70": 2044806, "dark30": 2044808}
+		},
+		"gun": {
+			"ATT": {"100": 2044900, "60": 2044901, "10": 2044902, "dark70": 2044903, "dark30": 2044904}
+		}
+	}
+}

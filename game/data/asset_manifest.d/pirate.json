@@ -1,0 +1,14 @@
+{
+	"format": 1,
+	"_doc": "Pirate line (#168/#186). Whole Skill.wz books 500/510/520 include canonical tables, actions, icons and art for later tickets. Sound.wz skill nodes cover every active skill in those books (Wings is exported with its book but never offered). Kyrin moved from the main manifest; regular Lv10-70 knuckles/guns and Bullet/Split/Mighty Bullet moved from common and extended for the drop roster. Character afterimages and shared Weapon.img sounds stay in common. No proprietary data is stored in the repo.",
+	"imgs": [
+		{"img": "Skill.wz/500.img"},
+		{"img": "Skill.wz/510.img"},
+		{"img": "Skill.wz/520.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["5001001", "5001002", "5001003", "5001005", "5101002", "5101003", "5101004", "5101005", "5101006", "5101007", "5201001", "5201002", "5201003", "5201004", "5201005", "5201006"]},
+		{"img": "Npc.wz/1090000.img"},
+		{"img": "String.wz/Npc.img", "paths": ["1090000"]}
+	],
+	"character": [1482000, 1482001, 1482002, 1482003, 1482004, 1482005, 1482006, 1482007, 1482008, 1482009, 1492000, 1492001, 1492002, 1492003, 1492004, 1492005, 1492006, 1492007, 1492008, 1492009],
+	"items": [2330000, 2330001, 2330002]
+}

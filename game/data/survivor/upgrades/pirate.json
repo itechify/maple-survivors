@@ -1,0 +1,259 @@
+{
+	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards remain available to both Pirate branches (exact requires.jobs). Untuned.",
+	"cards": [
+		{
+			"id": "flash_fist_new",
+			"kind": "skill_new",
+			"skill": "flash_fist",
+			"name": "Flash Fist",
+			"icon": "Skill.wz/500.img/skill/5001001/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Learn Flash Fist: Punches one monster in front of you.",
+			"max_rank": 1,
+			"weight": 4,
+			"effects": []
+		},
+		{
+			"id": "flash_fist_rank",
+			"kind": "skill_rank",
+			"skill": "flash_fist",
+			"name": "Flash Fist",
+			"icon": "Skill.wz/500.img/skill/5001001/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Flash Fist +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 3,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "flash_fist_targets",
+			"kind": "skill_mod",
+			"skill": "flash_fist",
+			"name": "Flash Fist",
+			"icon": "Skill.wz/500.img/skill/5001001/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Flash Fist hits +{value} more monster.",
+			"value": 1,
+			"max_rank": 3,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "somersault_kick_new",
+			"kind": "skill_new",
+			"skill": "somersault_kick",
+			"name": "Somersault Kick",
+			"icon": "Skill.wz/500.img/skill/5001002/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Learn Somersault Kick: Kicks several monsters around you.",
+			"max_rank": 1,
+			"weight": 4,
+			"effects": []
+		},
+		{
+			"id": "somersault_kick_rank",
+			"kind": "skill_rank",
+			"skill": "somersault_kick",
+			"name": "Somersault Kick",
+			"icon": "Skill.wz/500.img/skill/5001002/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Somersault Kick +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 3,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "somersault_kick_targets",
+			"kind": "skill_mod",
+			"skill": "somersault_kick",
+			"name": "Somersault Kick",
+			"icon": "Skill.wz/500.img/skill/5001002/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Somersault Kick hits +{value} more monster.",
+			"value": 1,
+			"max_rank": 3,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "double_shot_new",
+			"kind": "skill_new",
+			"skill": "double_shot",
+			"name": "Double Shot",
+			"icon": "Skill.wz/500.img/skill/5001003/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Learn Double Shot: Fires two bullets at nearby monsters.",
+			"max_rank": 1,
+			"weight": 4,
+			"effects": []
+		},
+		{
+			"id": "double_shot_rank",
+			"kind": "skill_rank",
+			"skill": "double_shot",
+			"name": "Double Shot",
+			"icon": "Skill.wz/500.img/skill/5001003/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Double Shot +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 3,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "double_shot_pierce",
+			"kind": "skill_mod",
+			"skill": "double_shot",
+			"name": "Double Shot",
+			"icon": "Skill.wz/500.img/skill/5001003/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": true,
+			"desc": "Double Shot bullets pierce +{value} more monster.",
+			"value": 1,
+			"max_rank": 3,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "pierce",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "bullet_time_new",
+			"kind": "skill_new",
+			"skill": "bullet_time",
+			"name": "Bullet Time",
+			"icon": "Skill.wz/500.img/skill/5000000/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": false,
+			"desc": "Learn Bullet Time: Increases accuracy and avoidability. Accuracy also raises critical chance.",
+			"max_rank": 1,
+			"weight": 2,
+			"effects": []
+		},
+		{
+			"id": "bullet_time_rank",
+			"kind": "skill_rank",
+			"skill": "bullet_time",
+			"name": "Bullet Time",
+			"icon": "Skill.wz/500.img/skill/5000000/icon",
+			"requires": {
+				"jobs": [
+					500,
+					510,
+					520
+				]
+			},
+			"power": false,
+			"desc": "Bullet Time +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		}
+	]
+}

@@ -59,7 +59,8 @@ func job(id: int) -> Dictionary:
 	return d
 
 
-## The weapon paths of first job `id` (survivor jobs.json `paths`): [{id, label, item_id, family}], [] when it has none.
+## The weapon paths of first job `id`: [{id, label, item_id, family, extra_items}], [] when it has none.
+## Optional extra_items are item ids handed to the Equip tab after the worn grant (overflow becomes pickups).
 func paths_of(id: int) -> Array:
 	var raw: Variant = _survivor.get(id, {}).get("paths", [])
 	var out: Array = []
@@ -67,7 +68,8 @@ func paths_of(id: int) -> Array:
 		for p: Variant in raw:
 			if p is Dictionary and String(p.get("id", "")) != "":
 				out.append({"id": String(p.id), "label": String(p.get("label", p.id)),
-					"item_id": int(p.get("item_id", 0)), "family": String(p.get("family", ""))})
+					"item_id": int(p.get("item_id", 0)), "family": String(p.get("family", "")),
+					"extra_items": (p.get("extra_items", []) as Array).map(func(id: Variant) -> int: return int(id))})
 	return out
 
 

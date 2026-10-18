@@ -132,6 +132,19 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# #186: original v83 endpoints, synthetic linear interpolation between them. No proprietary art.
+	var pirate := {"5000000": {"level": _levels(20, {"acc": [1.0, 20.0], "eva": [1.0, 20.0]})}}
+	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
+			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:
+		var levels := _levels(20, {"mpCon": [float(entry[1]), float(entry[2])],
+			"damage": [float(entry[3]), float(entry[4])], "mobCount": [float(entry[5]), float(entry[6])]})
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": entry[7]}
+			node.rb = {"$v": entry[8]}
+		pirate[entry[0]] = {"level": levels}
+	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
+		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
+	imgs["500"] = {"skill": pirate}
 	return imgs
 
 

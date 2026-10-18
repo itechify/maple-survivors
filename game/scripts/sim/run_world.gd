@@ -54,7 +54,8 @@ extends RefCounted
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
-## 12 Final Attack proc and follow-up damage/crit rolls.
+## 12 Final Attack proc and follow-up damage/crit rolls; 13-15 reserved (Warrior/Bowman/Thief specs),
+## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -170,6 +171,8 @@ var reward_rng: RandomNumberGenerator
 var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
+## Pirate-only rolls (stream 16, #186); unused until a Pirate skill needs a roll.
+var pirate_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -370,6 +373,7 @@ func _init_rng_streams() -> void:
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
+	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 13-15 reserved, #186.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -907,7 +911,7 @@ func change_job(job_id: int, path := "") -> void:
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
 	_grant_job_weapon(job_id, path)
-	_grant_job_items(job_id)
+	_grant_job_items(job_id, path)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -980,9 +984,9 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 ## difference, while ordinary level growth passes grant_growth=false and grants nothing.
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
-	var primary := String(_job_value(pb.get("ap_stat", {}), "str"))
+	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
 	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
-	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {})
+	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {}, true)
 	var secondary := String(secondary_cfg.get("stat", ""))
 	if secondary == primary or not _base_stats.has(secondary):
 		secondary = ""
@@ -1026,7 +1030,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	player_pdd = loadout.player_stat("pdd", equipment_bonus("incPDD")) + loadout.passive_total("pdd")
 	player_mdd = loadout.player_stat("mdd", equipment_bonus("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
-		+ float(_attributes.luk) * AVOID_LUK_FACTOR + equipment_bonus("incEVA"))
+		+ float(_attributes.luk) * AVOID_LUK_FACTOR + equipment_bonus("incEVA")) + loadout.passive_total("avoid")
 	_refresh_caster()
 	_write_player_state(0.0)
 
@@ -1504,8 +1508,10 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 ## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
 ## tab, after whatever the weapon grant displaced; an item the full tab has no room for lies at the player's feet as a
 ## normal equipment pickup, so advancing never fails. A grant never checks requirements.
-func _grant_job_items(job_id: int) -> void:
-	var items: Variant = jobs.job(job_id).get("grants", {}).get("items", [])
+func _grant_job_items(job_id: int, path := "") -> void:
+	var items: Array = jobs.job(job_id).get("grants", {}).get("items", []).duplicate()
+	# tier B: Kyrin gives both Pirate weapons. Path extras follow the same overflow rule as grants.items.
+	items.append_array(jobs.path_of(job_id, path).get("extra_items", []))
 	for raw: Variant in items if items is Array else []:
 		var id := int(raw)
 		var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
@@ -2192,11 +2198,15 @@ func _level_ranks(level: int) -> void:
 			loadout.set_rank(key, want)
 
 
-## The entry of a per-job table (keys = job ids as strings) for the current job, else its nearest ancestor's.
-func _job_value(table: Variant, fallback: Variant) -> Variant:
+## The current job's table entry, else its nearest ancestor's. AP tables optionally check "<job>:<weapon_path>"
+## before that job's plain key; a branch's own row therefore wins over its first-job path's row.
+func _job_value(table: Variant, fallback: Variant, by_path := false) -> Variant:
 	if not (table is Dictionary):
 		return fallback
 	for j in jobs.lineage(progression.job_id):
+		var path_key := "%d:%s" % [j, weapon_path]
+		if by_path and weapon_path != "" and table.has(path_key):
+			return table[path_key]
 		if table.has(str(j)):
 			return table[str(j)]
 	return table.get("0", fallback)

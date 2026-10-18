@@ -1,0 +1,50 @@
+{
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash belongs to #188; second jobs to #189-194.",
+	"skills": {
+		"flash_fist": {
+			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Flash Fist", "desc": "Punches one monster in front of you.",
+			"icon": "Skill.wz/500.img/skill/5001001/icon", "damage": "physical", "weapon_families": ["knuckle"],
+			"_tier": "Tier A: canonical box, damage, mpCon, mobCount, straight action and CharLevel art. Tier C: knuckle requirement, auto-cast at one front target, cooldown 0.9s and action hold 0.6s; untuned.",
+			"cast": {"rule": "box"}, "cooldown": 0.9,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "straight", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001001/hit/0", "effect": "Skill.wz/500.img/skill/5001001/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001001/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001001/Use", "hit": ""}
+		},
+		"somersault_kick": {
+			"skill_id": 5001002, "book": "500", "job": 500, "kind": "instant", "slot": "active",
+			"name": "Somersault Kick", "desc": "Kicks several monsters around you.",
+			"icon": "Skill.wz/500.img/skill/5001002/icon", "damage": "physical", "weapon_families": ["any"],
+			"_tier": "Tier A: canonical box reach and height, damage, mpCon, mobCount, somersault action and CharLevel art. Tier C: any weapon, auto-cast on one target, cast.around mirrors the box's far edge across the player to strike around, cooldown 1.6s and action hold 0.6s; untuned.",
+			"cast": {"rule": "box", "around": true}, "cooldown": 1.6,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "somersault", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/500.img/skill/5001002/hit/0", "effect": "Skill.wz/500.img/skill/5001002/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "hit": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001002/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001002/Use", "hit": ""}
+		},
+		"double_shot": {
+			"skill_id": 5001003, "book": "500", "job": 500, "kind": "projectile", "slot": "active",
+			"name": "Double Shot", "desc": "Fires two bullets at nearby monsters.",
+			"icon": "Skill.wz/500.img/skill/5001003/icon", "damage": "physical",
+			"_tier": "Tier A: gun requirement (WZ weapon-space key), bulletCount, range, damage, mpCon, doublefire action and CharLevel art. Tier C: auto-cast at nearest targets, cooldown 1s, action hold 0.6s, speed 600 px/s, radius 8px and no base pierce; untuned. Range and shot count come from WZ rather than survivor copies.",
+			"cast": {"rule": "nearest"}, "cooldown": 1.0, "speed": 600, "radius": 8, "pierce": 0,
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "doublefire", "action_time": 0.6, "ball": "Skill.wz/500.img/skill/5001003/ball",
+			"hit": "Skill.wz/500.img/skill/5001003/hit/0", "effect": "Skill.wz/500.img/skill/5001003/effect",
+			"char_level": {"thresholds": [10, 15, 20, 25], "ball": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/ball", "hit": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/hit/0", "effect": "Skill.wz/500.img/skill/5001003/CharLevel/{cl}/effect"},
+			"rotate": false, "sounds": {"use": "Sound.wz/Skill.img/5001003/Use", "hit": ""}
+		},
+		"bullet_time": {
+			"skill_id": 5000000, "book": "500", "job": 500, "kind": "passive", "slot": "passive",
+			"name": "Bullet Time", "desc": "Increases accuracy and avoidability. Accuracy also raises critical chance.",
+			"icon": "Skill.wz/500.img/skill/5000000/icon", "damage": "none",
+			"passive": {"stat": "acc", "field": "acc", "effects": [{"stat": "avoid", "field": "eva"}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		}
+	}
+}
