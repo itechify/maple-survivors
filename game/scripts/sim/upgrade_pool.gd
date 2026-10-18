@@ -22,7 +22,7 @@ extends RefCounted
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
 const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
-	"damage", "hpCon"]
+	"damage", "hpCon", "prop"]
 ## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
 ## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
 ## Recovery (field hp, which is a percent for Heal).
@@ -256,6 +256,11 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		var buff_effects: Array = lo.book.def(skill).get("buff", {}).get("effects", [])
 		if effect_stat == "" and not buff_effects.is_empty():
 			effect_stat = String(buff_effects[0].stat)
+		if effect_stat == "":
+			# A Mastery's accuracy is its canonical `x` (#181): the card names that stat, not a buff's.
+			for passive_effect: Variant in lo.book.def(skill).get("passive", {}).get("effects", []):
+				if passive_effect is Dictionary and String(passive_effect.get("field", "")) == "x":
+					effect_stat = String(passive_effect.get("stat", ""))
 		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
 			effect_stat = "slow"
 		var r := lo.rank(skill) if lo.has(skill) else 0

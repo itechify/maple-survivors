@@ -339,8 +339,189 @@ func test_spread_is_deterministic_and_the_follow_up_does_not_chain() -> void:
 	assert_eq(announced, 0, "the extra hits did not trigger another Final Attack")
 
 
+func test_spread_hits_a_boss_before_nearer_monsters() -> void:
+	var d := _spread_world(1, [20.0, 40.0])
+	var w: RunWorld = d.w
+	w.mob_boss[d.others[40.0]] = 0 # a scheduled boss (RunWorld.targets_before: bosses first)
+	var struck := _struck(_follow_up(w, d.primary))
+	assert_has(struck, d.others[40.0], "the boss takes the one extra hit")
+	assert_false(d.others[20.0] in struck, "ahead of the nearer monster")
+
+
 func test_spread_with_one_candidate_strikes_it_once_and_the_target_once() -> void:
 	var d := _spread_world(3, [20.0])
 	var struck := _struck(_follow_up(d.w, d.primary))
 	assert_eq(struck.size(), 2, "the target and the only candidate, each once")
 	assert_eq(struck.count(d.primary), 1)
+
+
+# --- Cards and the advancement draw ---------------------------------------------------------------------------------
+
+## The cards of the six weapon skills of `key` that a held weapon of the wrong family must hide.
+func _cards_of(w: RunWorld, skills: Array) -> Array:
+	return w.upgrades.eligible(w).filter(func(id: String) -> bool: return String(w.upgrades.card(id).skill) in skills)
+
+
+func test_a_fighter_holding_a_sword_is_offered_no_axe_card_until_it_swings_an_axe() -> void:
+	var w := _world(110, SWORD)
+	for key: String in ["axe_mastery", "final_attack_axe", "axe_booster", "sword_mastery_fighter",
+			"final_attack_sword_fighter", "sword_booster_fighter"]:
+		_learn(w, key, 1)
+	var axe := ["axe_mastery", "final_attack_axe", "axe_booster"]
+	var sword := ["sword_mastery_fighter", "final_attack_sword_fighter", "sword_booster_fighter"]
+	assert_eq(_cards_of(w, axe), [], "no axe rank or Spread card while a sword is held")
+	var offered := _cards_of(w, sword)
+	for id in ["sword_mastery_fighter_rank", "final_attack_sword_fighter_rank", "final_attack_sword_fighter_spread",
+			"sword_booster_fighter_rank"]:
+		assert_has(offered, id, "%s is on offer with the sword" % id)
+	_wear(w, AXE)
+	assert_eq(_cards_of(w, sword), [], "swapped to the axe, the sword cards go")
+	for id in ["axe_mastery_rank", "final_attack_axe_rank", "final_attack_axe_spread", "axe_booster_rank"]:
+		assert_has(_cards_of(w, axe), id, "%s is on offer with the axe" % id)
+
+
+func test_learn_cards_are_offered_for_the_held_family_only() -> void:
+	var w := _world(110, SWORD)
+	var ids := w.upgrades.eligible(w)
+	for id in ["sword_mastery_fighter_new", "final_attack_sword_fighter_new", "sword_booster_fighter_new"]:
+		assert_has(ids, id)
+	for id in ["axe_mastery_new", "final_attack_axe_new", "axe_booster_new", "sword_mastery_page_new",
+			"bw_mastery_new", "spear_mastery_new"]:
+		assert_false(id in ids, "%s is not on offer to a sword-holding Fighter" % id)
+
+
+func test_the_advancement_draw_of_a_sword_warrior_offers_the_sword_final_attack_and_booster() -> void:
+	for job in [110, 120]:
+		var w := _world(100, 1302077)
+		w.progression.level = 29
+		w.progression.add_exp(w.progression.exp_to_next())
+		w.step(DT, MoveInput.new())
+		assert_eq(w.state, RunWorld.CHOOSING_JOB, "the Lv 30 window opened")
+		assert_true(w.apply_job(job))
+		var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
+		var suffix := "fighter" if job == 110 else "page"
+		assert_has(ids, "final_attack_sword_%s_new" % suffix, "job %d: the held family's Final Attack" % job)
+		assert_has(ids, "sword_booster_%s_new" % suffix, "job %d: and its Booster" % job)
+		for id: String in ids:
+			assert_false(id.begins_with("axe_") or id.begins_with("bw_") or id.contains("_axe") or id.contains("_bw"),
+				"%s is another family's card" % id)
+
+
+func test_the_advancement_draw_of_a_polearm_spearman_offers_the_polearm_cards() -> void:
+	var w := _world(100, 1302077)
+	w.progression.level = 29
+	w.progression.add_exp(w.progression.exp_to_next())
+	w.step(DT, MoveInput.new())
+	assert_true(w.apply_job(130))
+	# A sword is no Spearman family: the first family's weapon (the spear) is worn.
+	assert_eq(w.held_weapon_family(), "spear")
+	var ids: Array = w.pending_cards.map(func(c: Dictionary) -> String: return String(c.id))
+	assert_has(ids, "final_attack_spear_new")
+	assert_has(ids, "spear_booster_new")
+	assert_false("final_attack_polearm_new" in ids)
+
+
+func test_power_flags_and_requirements_of_the_new_cards() -> void:
+	var w := _world()
+	for row: Array in ROWS:
+		var branch := int(row[0])
+		for key: String in [row[2], row[3], row[4]]:
+			var power := key != String(row[2])
+			for suffix in ["_new", "_rank"]:
+				var c: Dictionary = w.upgrades.card(key + suffix)
+				assert_false(c.is_empty(), key + suffix)
+				assert_eq(UpgradePool.is_power(c), power, "%s: power only for Final Attack and Booster" % c.id)
+				assert_eq(c.requires.jobs, [float(branch)], "%s requires its own branch" % c.id)
+		var spread: Dictionary = w.upgrades.card(String(row[3]) + "_spread")
+		assert_true(UpgradePool.is_power(spread), "the Spread card is a power card")
+		assert_eq(spread.kind, "skill_mod")
+		assert_eq(spread.effects, [{"stat": "count", "op": "add", "value": 1.0}], "+1 target per step")
+
+
+func test_the_bot_scores_the_weapon_skills_and_spread_as_attack_cards() -> void:
+	for row: Array in ROWS:
+		var w := _world(int(row[0]), int(row[5]))
+		_learn(w, String(row[3]), 1)
+		for i in [2, 3, 4]:
+			var key := String(row[i])
+			assert_eq(BotInput.card_score(w, {"id": key + "_new"}), BotInput.SCORE_NEW_ATTACK, key + " learn")
+			assert_eq(BotInput.card_score(w, {"id": key + "_rank"}), BotInput.SCORE_RANK_ATTACK + BotInput.SCORE_JOB_BONUS,
+				key + " rank")
+		assert_eq(BotInput.card_score(w, {"id": String(row[3]) + "_spread"}),
+			float(BotInput.SCORE_MOD.count) + BotInput.SCORE_JOB_BONUS, "Spread scores as a targets card")
+		var picks := BotInput.pick_card_for(w, [{"id": "improved_hp_recovery_new"}, {"id": String(row[2]) + "_new"}])
+		assert_eq(picks, String(row[2]) + "_new", "a Mastery beats a plain passive")
+
+
+func test_rank_cards_preview_what_each_skill_changes_in_the_right_words() -> void:
+	var w := _world(110, SWORD)
+	_learn(w, "sword_mastery_fighter", 2)
+	_learn(w, "final_attack_sword_fighter", 1)
+	var mastery := LevelUpWindow.change_lines(w.upgrades.choice_card("sword_mastery_fighter_rank", w))
+	assert_eq(Array(mastery), ["Mastery: 15% → 20%", "Accuracy: 2 → 3"], "level 2 -> 3")
+	var final := LevelUpWindow.change_lines(w.upgrades.choice_card("final_attack_sword_fighter_rank", w))
+	assert_eq(Array(final), ["Damage: 105% → 110%", "Success rate: 2% → 4%"], "level 1 -> 2")
+
+
+func test_every_final_attack_has_a_hit_more_mobs_card() -> void:
+	var data := DataRepo.load_all()
+	for row: Array in ROWS:
+		var found := false
+		for c: Dictionary in data.upgrades.cards:
+			if String(c.skill) == String(row[3]) and String(c.kind) == "skill_mod":
+				for effect: Dictionary in c.effects:
+					found = found or (effect.stat in ["count", "pierce"] and float(effect.value) > 0.0)
+		assert_true(found, "%s has a card that hits more monsters" % row[3])
+
+
+func test_the_weapon_skills_are_bound_to_their_families_and_levels() -> void:
+	var data := DataRepo.load_all()
+	var book := SkillBook.from_data(data.skills, RF.skill_imgs())
+	for row: Array in ROWS:
+		for i in [2, 3, 4]:
+			var key := String(row[i])
+			assert_eq(Array(book.weapon_families(key)), [String(row[1])], "%s works with the %s only" % [key, row[1]])
+			assert_eq(book.max_rank(key), 30 if i == 3 else 20, "%s: canonical level count" % key)
+			assert_eq(int(book.def(key).job), int(row[0]))
+		assert_eq(book.def(row[2]).kind, "passive")
+		assert_eq(book.def(row[3]).kind, "passive")
+		assert_eq(book.def(row[4]).kind, "buff")
+		assert_eq(book.def(row[3]).final_attack.chance_field, "prop")
+
+
+# --- The real Skill.wz ----------------------------------------------------------------------------------------------
+
+func test_the_real_skill_wz_supplies_every_number_art_and_sound() -> void:
+	if not require_cache():
+		return
+	var data := DataRepo.load_all()
+	var lib := AssetLibrary.new()
+	lib.open()
+	var imgs := {}
+	for book in ["110", "120", "130"]:
+		imgs[book] = lib.img("Skill.wz/%s.img" % book).root
+	var book := SkillBook.from_data(data.skills, imgs)
+	for row: Array in ROWS:
+		var mastery := String(row[2])
+		var final := String(row[3])
+		var booster := String(row[4])
+		assert_eq(book.max_rank(mastery), 20)
+		assert_eq(int(book.canonical(mastery, 20, "mastery")), 10, "%s level 20: step 10 (60%%)" % mastery)
+		assert_eq(int(book.canonical(mastery, 20, "x")), 20, "and +20 accuracy")
+		assert_eq(int(book.canonical(mastery, 1, "mastery")), 1)
+		assert_eq(book.max_rank(final), 30)
+		assert_eq(int(book.canonical(final, 30, "prop")), 60, "%s level 30: 60%%" % final)
+		assert_eq(int(book.canonical(final, 30, "damage")), 250)
+		assert_eq(int(book.canonical(final, 1, "prop")), 2)
+		assert_eq(int(book.canonical(final, 1, "damage")), 105)
+		assert_eq(book.max_rank(booster), 20)
+		assert_eq(int(book.canonical(booster, 1, "x")), -2, "%s: v83 speed steps are negative" % booster)
+		assert_eq(int(book.canonical(booster, 1, "hpCon")), 29)
+		assert_eq(int(book.canonical(booster, 20, "hpCon")), 10)
+		assert_eq(int(book.canonical(booster, 20, "time")), 200)
+		for key: String in [mastery, final, booster]:
+			assert_true(lib.find(String(book.def(key).icon)) != null, "%s icon" % key)
+		assert_true(lib.find_anim(String(book.def(final).hit)) != null, "%s hit art" % final)
+		assert_true(lib.find_anim(String(book.def(booster).effect)) != null, "%s effect art" % booster)
+		assert_true(lib.find(String(book.def(booster).sounds.use)) != null, "%s use sound" % booster)
+	lib.free()
