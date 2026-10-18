@@ -97,6 +97,15 @@ extends Node
 ##           -> Continue again: job, weapon, shield, skills and mesos equal the snapshot before quitting. Shots:
 ##           warrior_job_window, warrior_job_confirm, warrior_advanced, warrior_playing, warrior_shield_worn,
 ##           warrior_hub, warrior_save_and_quit, warrior_character_select, warrior_continue_restored; summary.json.
+##   pirate  the Pirate line end to end (spec #168 QA #195; `--path=knuckle|gun`, `--branch=510|520`): title -> new character
+##           -> round; EXP drops (debug warp, invulnerable meanwhile) take it through the real level-up cards to Lv10 and the
+##           real job window (both paths offered, one taken; its weapon worn, the other path's weapon and the creation
+##           weapon in the Equip tab, the Equip and Item windows shown), Dash learned (debug setup, card applied) and on to
+##           Lv30 and the real Lv 30 window (Brawler / Gunslinger; the Lv 30 weapon worn), a few seconds of the bot's
+##           steering, Dash on its real key X; the slot moves to the Free Market (debug boundary), Save & quit, Continue:
+##           job, path, weapons, skills and mesos equal the snapshot before quitting. Shots: pirate_equip_both_weapons,
+##           pirate_lv10_job_window/_job_confirm/_advanced, pirate_lv30_job_window/_job_confirm/_advanced, pirate_playing,
+##           pirate_dash, pirate_hub, pirate_save_and_quit, pirate_character_select, pirate_continue_restored; summary.json.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
@@ -176,6 +185,8 @@ func _ready() -> void:
 			_scenario_skill_warrior()
 		"warrior":
 			_scenario_warrior()
+		"pirate":
+			_scenario_pirate()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1513,6 +1524,210 @@ func _scenario_warrior() -> void:
 	print("flow_driver: warrior scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
+
+
+## The Pirate line end to end (spec #168 QA #195): Lv10 through the real job window with both weapon paths (`--path=knuckle|gun`,
+## default knuckle), both weapons checked (worn and in the Equip tab), EXP drops (a debug warp, invulnerable meanwhile) to Lv30
+## through the real level-up cards and the real Lv 30 window (`--branch=510|520`, default the path's own), the Lv 30 weapon
+## worn, Dash on its real skill key (X; its card is applied as debug setup, not drawn), then the Free Market boundary, Save &
+## quit and Continue keeping job, path, weapons and skills.
+func _scenario_pirate() -> void:
+	var path_id := String(args.get("path", "knuckle"))
+	var other_path := "gun" if path_id == "knuckle" else "knuckle"
+	var first_weapon := {"knuckle": 1482000, "gun": 1492000}
+	var branch := int(args.get("branch", 510 if path_id == "knuckle" else 520))
+	var lv30_weapon := 1482004 if branch == 510 else 1492004 # Prime Hands / Cold Mind (jobs.json grant_items)
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Pirate195"):
+		return
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(2.0)
+	var w := run.world
+	var sword := w.weapon_id()
+	_check(sword != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % sword)
+	# Lv10: the real job window offers Pirate - Knuckle and Pirate - Gun.
+	w.god = true # debug: the idle character must not be killed while EXP drops carry it up
+	var first := await _pirate_climb(run, 10, 500, path_id, "pirate_lv10")
+	if first.is_empty():
+		return
+	var labels: Array = first.entries
+	_check(labels.any(func(t: String) -> bool: return t.begins_with("Pirate - Knuckle")) \
+		and labels.any(func(t: String) -> bool: return t.begins_with("Pirate - Gun")),
+		"the Lv10 window offers both Pirate paths (%s)" % [labels])
+	_check(w.progression.job_id == 500 and w.progression.level == 10 and w.weapon_path == path_id,
+		"a Lv10 %s Pirate (job %d, path %s)" % [path_id, w.progression.job_id, w.weapon_path])
+	_check(w.weapon_id() == first_weapon[path_id], "the %s path's weapon is worn (%d)" % [path_id, w.weapon_id()])
+	var inventory_ids: Array = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
+	_check(first_weapon[other_path] in inventory_ids and sword in inventory_ids,
+		"the other path's weapon and the creation weapon wait in the Equip tab (%s)" % [inventory_ids])
+	await _key(KEY_E)
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
+			and run.ui_windows.find_window("equip") != null, 3.0, "Equip and Item windows"):
+		return
+	await _sleep(0.5)
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	var cell_ids: Array = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	_check(ew.worn_id("weapon") == first_weapon[path_id] and first_weapon[other_path] in cell_ids and sword in cell_ids,
+		"the Equip window wears the %s weapon, the Item window's Equip tab holds the %s weapon and the sword (%s)" % [
+			path_id, other_path, cell_ids])
+	await _shot("pirate_equip_both_weapons")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	# Dash (#188): its card is applied as debug setup; the skill is then cast on its own key.
+	w.upgrades.apply("dash_new", w)
+	w.heal_fraction("mp", 1.0)
+	run.handle_events(w.drain_events())
+	_check(w.loadout.rank("dash") == 1, "Dash is learned (rank %d)" % w.loadout.rank("dash"))
+	# Lv30 by a debug warp (EXP drops, invulnerable), then the real Lv 30 window.
+	var second := await _pirate_climb(run, 30, branch, "", "pirate_lv30")
+	if second.is_empty():
+		return
+	_check(w.progression.job_id == branch and w.progression.level == 30, "a Lv30 job %d (level %d)" % [w.progression.job_id, w.progression.level])
+	_check(second.entries.size() >= 2, "the Lv30 window offers the Brawler and the Gunslinger (%s)" % [second.entries])
+	_check(w.weapon_id() == lv30_weapon, "the Lv30 weapon %d is worn (%d)" % [lv30_weapon, w.weapon_id()])
+	_check(w.weapon_path == path_id, "the recorded weapon path is still %s" % w.weapon_path)
+	_check(w.loadout.rank("dash") == 1, "Dash survived the second advancement")
+	w.god = false
+	w.heal_fraction("mp", 1.0)
+	w.heal_fraction("hp", 1.0)
+	# A few seconds of real play with the bot's steering, then Dash on its real key.
+	var kills0 := w.kills
+	_steer = true
+	await _until(func() -> bool: return w.kills > kills0, 25.0, "the second-job Pirate kills something")
+	await _sleep(2.0)
+	_steer = false
+	_release_all()
+	await _shot("pirate_playing")
+	w.heal_fraction("mp", 1.0)
+	var speed0 := w.player.speed_stat
+	var mp0 := int(w.player_state.mp)
+	await _key(KEY_X)
+	await _sleep(0.4)
+	_check(w.buffs.active.has("dash") and w.player.speed_stat > speed0 and int(w.player_state.mp) < mp0,
+		"Dash on X: buff active, speed %s -> %s, MP %d -> %d" % [speed0, w.player.speed_stat, mp0, int(w.player_state.mp)])
+	await _hold(KEY_RIGHT, 0.5)
+	await _shot("pirate_dash")
+	_collect_missing(run)
+	# The round boundary (debug shortcut for the multi-minute warp-clear): the carried snapshot is saved at the Free Market.
+	var carried := run.world.character_snapshot()
+	var slot := flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Pirate was saved at the Free Market boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	_check(int(expected.job_id) == branch and String(expected.get("weapon_path", "")) == path_id \
+		and int(expected.equipment.worn.weapon.id) == lv30_weapon, "the hub holds the job %d %s Pirate with its Lv30 weapon" % [branch, path_id])
+	await _shot("pirate_hub")
+	_collect_missing(hub)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	await _shot("pirate_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("pirate_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
+		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
+		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
+	_check(int(restored.skills.get("dash", {}).get("rank", 0)) == 1, "and Dash (%s)" % [restored.skills.get("dash")])
+	await _key(KEY_E)
+	await _sleep(0.5)
+	var aew := again.ui_windows.find_window("equip") as EquipWindow
+	_check(aew != null and aew.worn_id("weapon") == lv30_weapon, "the Equip window shows the restored Lv30 weapon")
+	await _shot("pirate_continue_restored")
+	_collect_missing(again)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	var report := {"scenario": "pirate", "path": path_id, "branch": branch, "job_id": int(restored.job_id),
+		"level": int(restored.level), "weapons": [first_weapon[path_id], lv30_weapon], "skills": restored.skills,
+		"lv10_entries": first.entries, "lv30_entries": second.entries, "missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	file.close()
+	print("flow_driver: pirate scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+## Takes the run to `target` level with EXP drops through the real level-up cards, answering the job window with the entry for
+## `want_job` (and `want_path` when given). Returns {entries: ["text", ...]} once the window was answered and the next
+## stretch of play started, or {} after a failed check.
+func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
+	var w := run.world
+	var spawned_level := 0
+	var spawned_at := -100.0
+	var seen := false
+	var advanced_shot := false
+	var texts: Array = []
+	for guard in 1500:
+		if w.state == RunWorld.DEAD:
+			_fail("the character died on the way to Lv%d" % target)
+			return {}
+		if run.window is JobAdvanceWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.6)
+			var jw := run.window as JobAdvanceWindow
+			texts = jw.entries.map(func(e: Dictionary) -> String: return String(e.text))
+			var idx := -1
+			for i in jw.entries.size():
+				var e: Dictionary = jw.entries[i]
+				if e.kind == "job" and int(e.job_id) == want_job and e.available and (want_path == "" or e.path == want_path):
+					idx = i
+			_check(idx >= 0, "the job window offers job %d %s (entries %s)" % [want_job, want_path, texts])
+			if idx < 0:
+				return {}
+			seen = true
+			await _shot(shot_prefix + "_job_window")
+			await _key((KEY_1 + idx) as Key)
+			await _sleep(0.4)
+			await _shot(shot_prefix + "_job_confirm")
+			await _key(KEY_ENTER)
+			await _sleep(0.9)
+		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
+			await _sleep(0.5)
+			if is_instance_valid(run.window) and run.window is LevelUpWindow:
+				var lw := run.window as LevelUpWindow
+				var pick := _card_index(run, lw.cards)
+				if seen and not advanced_shot:
+					advanced_shot = true
+					await _shot(shot_prefix + "_advanced")
+				await _key((KEY_1 + pick) as Key)
+				await _sleep(0.4)
+		elif seen and run.window == null and w.state == RunWorld.PLAYING:
+			return {"entries": texts}
+		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < target \
+				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
+			spawned_level = w.progression.level
+			spawned_at = w.time
+			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+		await _sleep(0.3)
+	_fail("the job window for job %d never opened (level %d)" % [want_job, w.progression.level])
+	return {}
 
 
 func _scenario_skill_weapon() -> void:

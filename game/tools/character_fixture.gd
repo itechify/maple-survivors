@@ -7,6 +7,12 @@ extends SceneTree
 ## spec151/ticket-163), `--job=<id>` (default 210), `--seed=<n>` (default 1) and `--seconds=<s>` pick the forced job, the seed and a time cap:
 ## with a cap the round stops there (a low-level fixture such as lv20_warrior_1st.json: `--job=100 --seconds=600`) and only
 ## has to be alive and warning-free; without one the round must clear.
+## `--job=<id>[:<path>]` also names a weapon path (`--job=520:gun`, as for balance.sh). `--god` is a documented diagnostic
+## aid (spec #168 #195): RunWorld.god makes the character invulnerable, so the bot can reach a level its play does not
+## survive to (the Pirate second-job fixtures: the bot dies at Lv 21-24 as a Pirate). Use it with `--seconds`, and the
+## fixture's _doc records it (`diagnostic`). `--exp-mult=<k>` is a second aid: it multiplies the round's EXP (balance
+## `exp_mult`) for a line the bot cannot level at its natural pace (the knuckle Pirate: its damage cannot beat the second
+## boss), and is recorded in the _doc as well.
 ## Only numeric character state/IDs/skill keys and provenance are written; never cache trees or decoded assets.
 ## The snapshot written is the current CharacterSnapshot format (2: worn equipment, inventory, scrolls, mesos).
 ##
@@ -23,6 +29,8 @@ func _init() -> void:
 	var revision := ""
 	var migrate := ""
 	var job := 210
+	var god := false
+	var exp_mult := 1.0
 	var seconds := 0.0
 	var seed_value := 1
 	var label := "spec32/ticket-67"
@@ -34,7 +42,13 @@ func _init() -> void:
 		elif arg.begins_with("--migrate="):
 			migrate = arg.substr(10)
 		elif arg.begins_with("--job="):
-			job = int(arg.substr(6))
+			var forced := JobTree.parse_forced(arg.substr(6))
+			job = int(forced.job)
+			HARNESS.forced_path = String(forced.path)
+		elif arg == "--god":
+			god = true
+		elif arg.begins_with("--exp-mult="):
+			exp_mult = float(arg.substr(11))
 		elif arg.begins_with("--seconds="):
 			seconds = float(arg.substr(10))
 		elif arg.begins_with("--label="):
@@ -62,6 +76,8 @@ func _init() -> void:
 		quit(1)
 		return
 	var world := RunWorld.new(setup)
+	world.god = god
+	world.balance["exp_mult"] = float(world.balance.get("exp_mult", 1.0)) * exp_mult
 	if seconds > 0.0:
 		# A capped fixture (--seconds): the round stops at the cap, so the character is still low level.
 		world.balance["run_time_cap"] = seconds
@@ -80,6 +96,13 @@ func _init() -> void:
 		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
+	if HARNESS.forced_path != "":
+		character._doc["forced_path"] = HARNESS.forced_path
+	if god:
+		character._doc["diagnostic"] = "invulnerable (RunWorld.god = true; fixture tool --god): the kiting bot dies at Lv 21-24 as a Pirate, so the round played to its cap with damage ignored"
+	if exp_mult != 1.0:
+		character._doc["exp_mult"] = exp_mult
+		character._doc["diagnostic_exp"] = "balance exp_mult x%s (fixture tool --exp-mult): the knuckle bot cannot beat the second boss, so it levels too slowly to reach Lv 30 by itself" % str(exp_mult)
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)
