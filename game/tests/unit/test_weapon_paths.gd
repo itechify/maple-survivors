@@ -11,6 +11,7 @@ const DT := 1.0 / 60.0
 const INFO := {
 	1302000: {"incPAD": 17, "attackSpeed": 4, "tuc": 7},
 	1040002: {"incPDD": 3, "tuc": 7},
+	1092000: {"incPDD": 5, "tuc": 7},
 	1452051: {"reqLevel": 10, "reqDEX": 25, "incPAD": 15, "attackSpeed": 6, "tuc": 7},
 	1472061: {"reqLevel": 10, "reqDEX": 25, "reqLUK": 25, "incPAD": 15, "attackSpeed": 4, "tuc": 7},
 	1332063: {"reqLevel": 10, "reqDEX": 25, "incPAD": 15, "attackSpeed": 4, "tuc": 7},
@@ -161,6 +162,44 @@ func test_a_full_inventory_drops_the_old_weapon_at_the_players_feet() -> void:
 	for tick in 60:
 		w.step(DT, MoveInput.new())
 	assert_true(1302000 in _inventory_ids(w), "freeing a slot lets the magnet collect the old weapon")
+
+
+func test_a_full_inventory_drops_the_shield_too_when_a_two_handed_grant_displaces_it() -> void:
+	var w := _world(7, func(c: Dictionary) -> void:
+		c.equipment.worn["shield"] = Equipment.create(1092000, INFO[1092000])
+		for i in 24:
+			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
+	_open_window(w, 10)
+	w.drain_events()
+	assert_true(w.apply_job(400, "claw"))
+	assert_eq(w.weapon_id(), 1472061, "the two-handed grant is worn")
+	assert_false(w.equipment.worn.has("shield"), "the shield it displaces is off")
+	assert_eq(w.equipment.inventory.size(), 24, "the inventory is unchanged")
+	var dropped: Array = _events(w, "pickup_spawned").map(func(e: Dictionary) -> int: return int(e.item_id))
+	dropped.sort()
+	assert_eq(dropped, [1092000, 1302000], "the old weapon and the shield both lie at the player's feet")
+
+
+func test_a_two_handed_grant_sends_both_displaced_items_to_the_inventory_when_there_is_room() -> void:
+	var w := _world(7, func(c: Dictionary) -> void:
+		c.equipment.worn["shield"] = Equipment.create(1092000, INFO[1092000]))
+	_open_window(w, 10)
+	w.drain_events()
+	assert_true(w.apply_job(400, "claw"))
+	assert_eq(_inventory_ids(w), [1302000, 1092000], "weapon then shield")
+	assert_eq(_events(w, "pickup_spawned").size(), 0)
+
+
+func test_one_free_slot_keeps_one_displaced_item_and_drops_the_other() -> void:
+	var w := _world(7, func(c: Dictionary) -> void:
+		c.equipment.worn["shield"] = Equipment.create(1092000, INFO[1092000])
+		for i in 23:
+			c.equipment.inventory.append(Equipment.create(1040002, INFO[1040002])))
+	_open_window(w, 10)
+	w.drain_events()
+	assert_true(w.apply_job(400, "claw"))
+	assert_eq(w.equipment.inventory.size(), 24, "the one free slot is used")
+	assert_eq(_events(w, "pickup_spawned").size(), 1, "the other lies on the ground")
 
 
 # --- second-job branch grants ----------------------------------------------------------------------------------------

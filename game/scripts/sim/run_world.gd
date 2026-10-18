@@ -1409,8 +1409,9 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 ## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
 ## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
 ## -> Wooden Wand), or a second job's grant_item when the held weapon's family is not among its weapon_families (tier C).
-## tier C: when the previous weapon has no room in the full Equip tab it is dropped at the player's feet as a normal
-## equipment pickup (pickup_spawned; the magnet collects it once a slot is free), so advancing never fails.
+## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
+## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
+## a slot is free), so advancing never fails.
 func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
 	if path != "":
@@ -1422,15 +1423,20 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-	var spilled := {}
-	if Equipment.grant(equipment, instance, inventory_slots()) != "":
-		var slot := Equipment.slot_of(id)
-		spilled = equipment.worn[slot]
+	# Every slot the grant displaces (the weapon, and the shield of a two-handed grant) goes to the Equip tab while it
+	# has room; the rest, last slot first (the shield), is taken off here and dropped after the grant is worn.
+	var displaced := Equipment.displaced_slots(equipment.worn, id)
+	var room := maxi(0, inventory_slots() - equipment.inventory.size())
+	var spilled: Array = []
+	while displaced.size() > room:
+		var slot: String = displaced.pop_back()
+		spilled.append(equipment.worn[slot])
 		equipment.worn.erase(slot)
-		Equipment.grant(equipment, instance, inventory_slots())
+	var error := Equipment.grant(equipment, instance, inventory_slots())
+	assert(error == "", "a job grant always fits once the displaced items are spilled")
 	_equipment_changed("grant", "weapon", id)
-	if not spilled.is_empty():
-		spawn_equipment(player.pos, spilled)
+	for item: Dictionary in spilled:
+		spawn_equipment(player.pos, item)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
