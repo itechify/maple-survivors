@@ -3975,6 +3975,49 @@ cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails,
 `recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
 Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
 
+### 7.21 Opt-in combat mechanics (#200, spec #166)
+
+These additive skill-definition keys are generic; this ticket adds no Bowman skill data. Skills without the keys keep
+their existing damage, RNG draws and seeded records. Tests use synthetic skill tables, seeded worlds and fixed 1/60 s ticks.
+
+- **`knockback: {"chance_field": "prop", "distance": <px>}`.** Every damaging line on a non-boss rolls once on
+  stream 1, including at 0% and 100%; the named canonical level field is a percent. Success slides the mob `distance`
+  horizontal px away from the character, following its current foothold chain over slopes and stopping at platform
+  edges, walls and map bounds through `FootholdMap.slide_along` (7.13). This is separate from ordinary threshold hit
+  push. Statuses survive. Canonical and scheduled bosses neither roll nor move. Airborne mobs and flyers have no
+  supporting foothold, so the roll has no displacement (tier C). The distance is survivor tuning (tier C); this ticket
+  ships no default distance. A synthetic fixture uses 120 px, not a balance choice for Power Knock-Back.
+- **`impact_blast: {"damage_field": "damage", "visual": "hit"}`.** A projectile explodes at its first mob contact,
+  consuming the projectile even if it has pierce. The struck mob takes one slot of the canonical `mobCount` cap;
+  remaining slots hit live mobs whose bodies intersect the canonical `lt`/`rb` box translated to the primary's feet.
+  The geometry is Grenade's shared `SkillRunner.blast_rect`, without facing mirroring. Splash is nearest to the
+  primary's body, then slot; selection and the anchor are captured before damage, deaths or knock-back. Each hit
+  independently resolves live defence, damage, crit, element, `on_hit` and knock-back through the ordinary callback.
+  Immunity still consumes the primary's cap slot. Blasts never recursively create blasts. `damage_field` selects the
+  canonical physical skill percent for primary and splash alike; Arrow Bomb must use `"x"` (72 to 130), as it has
+  no `damage`. `visual` selects a SkillBook visual (`hit` by default, `effect` also supported), resolved at cast time.
+  `skill_impact` plays this art once at the captured impact feet; ordinary per-target hit art also plays. The choice
+  of art/anchor, first-contact consumption and target order are tier C; box, cap and selected level values are tier A.
+- **`pierce_falloff: <fraction>`.** The n-th direct contact deals `max(0.1, 1 - fraction * (n - 1))` of its fully
+  resolved damage, including crit bonuses, before final rounding. The schedule and 10% floor are tier C: WZ has no
+  fall-off number. A fraction of 0.1 gives 100/90/80/70/60/50% across six mobs. An immune contact consumes a contact
+  index, as it already consumes pierce. Missing or zero means full damage on every mob. The value is captured at
+  launch; slot reuse resets it. Impact blasts consume the shot before piercing, so their splash has no fall-off.
+- **Ranged Final Attack.** With bow, crossbow, claw or gun held, every follow-up also emits `ammo_shot`, a visual
+  flight of the current ammo's `bullet` art from the hand to the same mob's captured body centre. It uses that
+  family's existing ammo speed and rotation and a straight line; it draws no RNG and causes no delayed damage.
+  The original hit timing, stream-12 rolls, crit and damage are unchanged (tier C presentation). If Spread is
+  available, it uses the greater of `BasicAttack.reach` and the family's ranged base reach around the primary.
+  Each extra target gets its own visual. This ticket offers no ranged Spread card.
+
+**Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`
+and `pierce_falloff` (fraction). SkillText automatically appends these mechanics to rank/learn cards and current/next
+Skill-window lines. Rank previews include changing knock-back chance and blast targets. A `skill_mod` effect with
+`stat: "blast_targets"` adds splash targets without adding projectiles; projectile `count` still means shots.
+`pierce_falloff` modifiers preview percentage points per later mob, and `blast_targets` modifiers preview targets.
+Existing `pierce` cards still increase contacts, independently of the fall-off fraction. No shipped skill uses any
+new key yet, so no baseline golden is intentionally re-captured and no feature balance smoke is run here (#204 owns it).
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4409,6 +4452,16 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Bowman (#166), generic mechanics (#200):
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
+| Pierce fall-off schedule | Linear `max(0.1, 1 - fraction * (n - 1))`; 0.1 per mob means the sixth takes 50%; floor 10%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value |
+| Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
+| Ranged Final Attack visual | Current ammo's art/speed/rotation, straight hand-to-target flight; no delayed damage, no RNG; ranged Spread uses at least the family's existing ranged reach | A (ammo art), C (presentation, Spread) | Current ammo data; #200 |
 
 Pirate tracer (#186) additions:
 

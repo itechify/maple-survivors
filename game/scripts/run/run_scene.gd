@@ -1053,6 +1053,10 @@ func handle_events(events: Array) -> void:
 				_on_cast(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
+			"skill_impact":
+				fx.play(String(e.effect), e.pos)
+			"ammo_shot":
+				_on_ammo_shot(e)
 			"teleport":
 				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
 				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
@@ -1239,6 +1243,16 @@ func _on_skill_thrown(e: Dictionary) -> void:
 	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0, "burst": String(e.burst)})
 
 
+## Final Attack's ammo flies straight to its original target; damage has already landed in the sim.
+func _on_ammo_shot(e: Dictionary) -> void:
+	var direction: Vector2 = e.to - e.from
+	var slot := fx.play_repeating(String(e.ball), e.from, float(e.seconds) + 0.5, direction.x > 0)
+	var angle := ProjectileRenderer.rotation_for(direction) if bool(e.rotate) else 0.0
+	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": float(e.seconds),
+		"t": 0.0, "burst": "", "arc": 0.0, "angle": angle})
+	fx.place(slot, e.from, angle)
+
+
 func _update_throws(delta: float) -> void:
 	var i := 0
 	while i < _throws.size():
@@ -1246,8 +1260,8 @@ func _update_throws(delta: float) -> void:
 		t.t = float(t.t) + delta
 		var f := minf(float(t.t) / maxf(float(t.seconds), 0.001), 1.0)
 		if f < 1.0:
-			var at: Vector2 = (t.from as Vector2).lerp(t.to, f) - Vector2(0.0, sin(f * PI) * THROW_ARC)
-			fx.place(int(t.slot), at.round())
+			var at: Vector2 = (t.from as Vector2).lerp(t.to, f) - Vector2(0.0, sin(f * PI) * float(t.get("arc", THROW_ARC)))
+			fx.place(int(t.slot), at.round(), float(t.get("angle", 0.0)))
 			i += 1
 			continue
 		fx.stop(int(t.slot))

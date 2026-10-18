@@ -236,6 +236,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
+## impact_blast ({} or a cast-time box/count/visual), blast_targets, knockback_chance/distance and pierce_falloff,
 ## and for a Hidden buff (docs/GAME_DESIGN.md 7.18): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
@@ -274,6 +275,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
 	var heal: Dictionary = d.get("heal", {})
+	var blast: Dictionary = d.get("impact_blast", {})
 	var cast: Dictionary = d.get("cast", {})
 	var node := book.level_node(key, lv)
 	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
@@ -308,7 +310,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_type": dtype,
 		"attack_kind": attack_kind,
 		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
-		"damage_pct": book.canonical(key, lv, "damage", 100.0) / 100.0 if dtype == "physical" else 1.0,
+		"damage_pct": book.canonical(key, lv, String(blast.get("damage_field", "damage")), 100.0) / 100.0
+			if dtype == "physical" else 1.0,
 		"player_level": char_level,
 		"damage_min": lo,
 		"damage_max": hi,
@@ -324,6 +327,16 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
+		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
+		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
+			if d.has("knockback") else 0.0,
+		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),
+		"blast_targets": maxi(1, roundi(skill_stat(key, "blast_targets", book.canonical(key, lv, "mobCount", 1.0))))
+			if d.has("impact_blast") and has_box else 0,
+		"impact_blast": {"box": box, "count": maxi(1, roundi(skill_stat(key, "blast_targets",
+			book.canonical(key, lv, "mobCount", 1.0)))),
+			"visual": book.visual(key, String(blast.get("visual", "hit")), lv, char_level)}
+			if d.has("impact_blast") and has_box else {},
 		"radius": float(d.get("radius", 10.0)),
 		"ball": book.visual(key, "ball", lv, char_level),
 		"hit": book.visual(key, "hit", lv, char_level),

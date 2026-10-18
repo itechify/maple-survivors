@@ -5,12 +5,13 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
-const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
+const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
 const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
 
 
@@ -367,6 +368,21 @@ func test_every_event_matches_the_schema() -> void:
 	for event: Dictionary in failing.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "ammo_shot":
+			var archer := CF.ranged_final(1452000, 310)
+			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
+			archer.hit_mob(dummy, {"skill": "fixture", "damage_type": "physical", "damage_min": 1,
+				"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
+			archer.step(DT, MoveInput.new())
+			for event: Dictionary in archer.drain_events():
+				_check(event, seen)
+		if type == "skill_impact":
+			var blaster := CF.world({"kind": "projectile", "impact_blast": {}})
+			RF.put_mob(blaster, 1110100, 350, 190, 100)
+			for tick in 30:
+				blaster.step(DT, MoveInput.new())
+			for event: Dictionary in blaster.drain_events():
+				_check(event, seen)
 		if type == "mp_short":
 			var short_world := RF.quiet_world()
 			short_world.change_job(200)
