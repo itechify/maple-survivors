@@ -121,6 +121,9 @@ const EVENT_FIELDS := {
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
 	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
+	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
+	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
+	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 
 }
 

@@ -12,6 +12,8 @@ extends RefCounted
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.14) throws at once at the nearest cluster of mobs within its throw range; the blast
+## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
 ## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.12) needs no monster: it casts when its survivor conditions
 ## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
@@ -26,6 +28,10 @@ const REUSE_SPREAD := 8.0
 ## Grid candidates _any_target checks before it reads the whole query. Performance only, not behaviour (no tier):
 ## the answer is the same for any value.
 const ANY_PROBE := 8
+## Candidate targets the cluster rule weighs (the nearest within the throw range, bosses first). tier C: ours (#192).
+const CLUSTER_CANDIDATES := 12
+## Shortest flight of a thrown grenade in seconds, so a point-blank throw still lands after the ball is seen. tier C: ours (#192).
+const MIN_FLIGHT := 0.1
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
 const SHOTS := "shots"
@@ -49,6 +55,8 @@ var _tgt_d := PackedFloat64Array()
 var _shortages := {}
 var _undead := PackedByteArray()
 var _slow_serial := 0
+## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
+var _flights: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -63,7 +71,8 @@ static func count_meaning(kind: String) -> String:
 ## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
 ## their mob_count (canonical mobCount plus count cards), the others `count`.
 static func strike_count(st: Dictionary) -> int:
-	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around"] else int(st.count)
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around", "cluster"] \
+		else int(st.count)
 
 
 ## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
@@ -83,7 +92,7 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
 	match String(st.cast_rule):
-		"", "nearest", "range_around":
+		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
 		"weapon_reach":
 			return maxf(world.basic.reach(world), 0.0)
@@ -120,6 +129,8 @@ func step(dt: float, world: RunWorld) -> void:
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
 	waiting_mp = false
+	if not _flights.is_empty():
+		_land_flights(dt, world)
 	for key: String in world.loadout.order:
 		if world.loadout.book.is_active(key):
 			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
@@ -221,6 +232,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
 			return _any_target(world, origin, float(st.range), strike_count(st))
+		"cluster":
+			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
 		"self":
 			return world.self_cast_ready(st)
 		"hp_or_undead":
@@ -252,6 +265,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_weapon_reach(world)
 		"range_around":
 			return _admit_range_around(world, st, origin)
+		"cluster":
+			return _admit_cluster(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
 		"self":
@@ -326,7 +341,7 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
-	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
+	if String(st.cast_rule) in ["", "nearest", "cluster"] and not targets.is_empty() and String(st.kind) != "buff":
 		world.face_toward(world.mob_center(targets[0]).x)
 	elif String(st.cast_rule) == "weapon_reach":
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
@@ -366,6 +381,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 					world.visual_index(String(st.hit)))
 			"crowd":
 				_resolve_crowd(world, key, st, targets)
+			"cluster":
+				_throw(world, key, st, plan)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
 			"self":
@@ -392,6 +409,66 @@ func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2) -> void:
 		int(st.mob_count))
 	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
 		world.visual_index(String(st.hit)))
+
+
+## Cluster rule (Gunslinger Grenade): among the CLUSTER_CANDIDATES nearest live mobs within the throw `range` (bosses
+## first), the target is the first whose blast box (the level's canonical box around the mob's feet) would strike the most
+## mobs, up to mob_count; a scheduled boss in reach is the target outright. The plan carries the landing point (the
+## target's feet) and the aim (its body centre, where the grenade flies).
+func _admit_cluster(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
+	if not bool(st.has_box) or _find_targets(world, origin, float(st.range), CLUSTER_CANDIDATES) == 0:
+		return {}
+	var candidates := _tgt.duplicate()
+	var best := candidates[0]
+	if not world.is_scheduled_boss(best):
+		var best_count := -1
+		for m in candidates:
+			var count := world.skill_rect_targets(_blast_rect(st, _feet(world, m)), world.mob_center(m),
+				int(st.mob_count)).size()
+			if count > best_count:
+				best = m
+				best_count = count
+	return {"targets": PackedInt32Array([best]), "landing": _feet(world, best), "aim": world.mob_center(best)}
+
+
+## The grenade blast box of resolved stats `st` around the point `at` (the canonical box is symmetric, so it is not
+## mirrored by facing).
+static func _blast_rect(st: Dictionary, at: Vector2) -> Rect2:
+	var box: Rect2 = st.box
+	return Rect2(box.position + at, box.size)
+
+
+static func _feet(world: RunWorld, m: int) -> Vector2:
+	return Vector2(world.swarm.x[m], world.swarm.y[m])
+
+
+## Throws the grenade of a cluster cast: no wind-up, the ball leaves the hand at once for the planned aim point and the
+## blast strikes (`_land`) when it arrives, `seconds` later: the distance at the skill's `speed`, at least MIN_FLIGHT.
+## The `skill_thrown` event carries the flight and the blast art for the presentation. The stats are kept as cast.
+func _throw(world: RunWorld, key: String, st: Dictionary, plan: Dictionary) -> void:
+	var aim: Vector2 = plan.aim
+	var from := world.shot_origin(aim)
+	var seconds := maxf(MIN_FLIGHT, from.distance_to(aim) / maxf(float(st.speed), 1.0))
+	_flights.append({"left": seconds, "st": st.duplicate(), "landing": plan.landing, "aim": aim})
+	world.emit("skill_thrown", {"skill": key, "skill_id": int(st.skill_id), "from": from, "to": aim, "seconds": seconds,
+		"ball": String(st.ball), "burst": String(world.book.def(key).get("burst", ""))})
+
+
+## Counts the flights down and lands the ones that arrived: the blast strikes up to mob_count mobs inside its box around
+## the landing point, bosses first, then nearest to the aim point.
+func _land_flights(dt: float, world: RunWorld) -> void:
+	var i := 0
+	while i < _flights.size():
+		var flight: Dictionary = _flights[i]
+		flight.left = float(flight.left) - dt
+		if float(flight.left) > 1e-6:
+			i += 1
+			continue
+		_flights.remove_at(i)
+		var st: Dictionary = flight.st
+		var hit := world.skill_rect_targets(_blast_rect(st, flight.landing), flight.aim, int(st.mob_count))
+		_resolve_instant_targets(world, st, hit, int(st.mob_count), int(st.attack_count),
+			world.visual_index(String(st.hit)))
 
 
 func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
@@ -500,6 +577,9 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 	var hv := world.visual_index(String(st.hit))
 	if String(st.kind) == "projectile":
 		var vis := world.visual_index(String(st.ball))
+		if bool(world.book.def(key).get("ammo_shot", false)):
+			# The shot is the current ammo's own bullet (Recoil Shot): Split and Mighty Bullets look different.
+			vis = world.visual_index(Ammo.bullet_path(world.ammo_id()))
 		var count := int(st.count)
 		var speed := float(st.speed)
 		for k in count:

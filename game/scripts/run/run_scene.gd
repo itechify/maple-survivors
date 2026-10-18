@@ -61,6 +61,8 @@ var exit_hook := Callable()
 const DT := 1.0 / 60.0
 ## docs/ARCHITECTURE.md section 6: at most 4 catch-up ticks per frame (times the speed option).
 const MAX_TICKS_PER_FRAME := 4
+## Height in px of the arc a thrown grenade draws at mid-flight. tier C: ours (#192), presentation only.
+const THROW_ARC := 40.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
@@ -244,6 +246,8 @@ var _quit_after_capture := false
 var _timed_shots: Array = []
 ## Skill keys whose first cast already queued its cast_<key>.png playtest shot.
 var _cast_shot_taken := {}
+## Grenades in flight (#192): {slot (fx), from, to, seconds, t, burst art}; the sim strikes when they land.
+var _throws: Array = []
 var _hit_shot_taken := false
 var _miss_shot_taken := false
 ## #76: the one-off evidence shots of ordinary mob attacks.
@@ -867,6 +871,9 @@ func _warm_ui() -> void:
 		var cl: Variant = world.book.def(key).get("char_level")
 		if cl is Dictionary:
 			char_levels.append_array(cl.get("thresholds", []))
+		var burst := String(world.book.def(key).get("burst", ""))
+		if burst != "":
+			library.find_anim(burst)
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -1050,6 +1057,8 @@ func handle_events(events: Array) -> void:
 				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
+			"skill_thrown":
+				_on_skill_thrown(e)
 			"teleport":
 				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
 				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
@@ -1230,6 +1239,31 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A thrown grenade (#192): the ball art loops along a short arc from the hand to the target for the flight's seconds,
+## then the blast art plays there (the sim strikes the mobs at the same moment).
+func _on_skill_thrown(e: Dictionary) -> void:
+	var seconds := float(e.seconds)
+	var slot := fx.play_repeating(String(e.ball), e.from, seconds + 0.5)
+	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0, "burst": String(e.burst)})
+
+
+func _update_throws(delta: float) -> void:
+	var i := 0
+	while i < _throws.size():
+		var t: Dictionary = _throws[i]
+		t.t = float(t.t) + delta
+		var f := minf(float(t.t) / maxf(float(t.seconds), 0.001), 1.0)
+		if f < 1.0:
+			var at: Vector2 = (t.from as Vector2).lerp(t.to, f) - Vector2(0.0, sin(f * PI) * THROW_ARC)
+			fx.place(int(t.slot), at.round())
+			i += 1
+			continue
+		fx.stop(int(t.slot))
+		if String(t.burst) != "":
+			fx.play(String(t.burst), (t.to as Vector2).round(), false)
+		_throws.remove_at(i)
 
 
 func _on_mob_hit(e: Dictionary) -> void:
@@ -1526,6 +1560,7 @@ func _present(delta: float) -> void:
 		fx.stop(_slow_fx)
 		_slow_fx = -1
 	_update_mob_status_effects()
+	_update_throws(delta)
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)

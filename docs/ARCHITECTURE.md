@@ -327,6 +327,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
+| `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. The sim strikes the mobs when it lands (`mob_hit` events then); `RunScene` loops the ball along a short arc and plays `burst` at `to` on arrival |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]`, plus `path` on a first job listed per weapon path (#157) |
 | `job_changed` | `job_id`, `name` |

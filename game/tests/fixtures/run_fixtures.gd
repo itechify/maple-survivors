@@ -176,6 +176,29 @@ static func skill_imgs() -> Dictionary:
 		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
 		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
 			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	# #192: the Gunslinger attacks, original v83 endpoints (Skill.wz/520.img), linear between: Invisible Shot 5201001 (mpCon
+	# 10-25, damage 75-170, 3 mobs, box (-250,-80)..(-10,40)), Grenade 5201002 (mpCon 15-27, damage 45-140, mobCount 3-6,
+	# blast box (-50,-50)..(50,20)), Blank Shot 5201004 (mpCon 10-25, damage 63-120, prop 43-100, time 1-4, box
+	# (-250,-80)..(-20,30)) and Recoil Shot 5201006 (mpCon 14-26, damage 70-260, recoil range 115-250). The gun ones carry
+	# the WZ weapon code 49.
+	var boxed := func(fields: Dictionary, lt: Array, rb: Array) -> Dictionary:
+		var levels := _levels(20, fields)
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": lt}
+			node.rb = {"$v": rb}
+		return levels
+	imgs["520"].skill["5201001"] = {"weapon": 49, "icon": _canvas(32, 32), "hit": {"0": _anim(4, 60.0, 50, 50)},
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [75.0, 170.0], "mobCount": [3.0, 3.0]}, [-250, -80], [-10, 40])}
+	imgs["520"].skill["5201002"] = {"icon": _canvas(32, 32), "ball": _anim(8, 30.0, 31, 31), "special": _anim(4, 120.0, 100, 80),
+		"hit": {"0": _anim(4, 120.0, 50, 50)},
+		"level": boxed.call({"mpCon": [15.0, 27.0], "damage": [45.0, 140.0], "mobCount": [3.0, 6.0]}, [-50, -50], [50, 20])}
+	imgs["520"].skill["5201004"] = {"weapon": 49, "action": {"0": "fake"}, "icon": _canvas(32, 32),
+		"hit": {"0": _anim(4, 120.0, 50, 50)}, "effect": _anim(4, 90.0, 60, 40),
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [63.0, 120.0], "prop": [43.0, 100.0], "time": [1.0, 4.0],
+			"mobCount": [3.0, 3.0]}, [-250, -80], [-20, 30])}
+	imgs["520"].skill["5201006"] = {"weapon": 49, "action": {"0": "backstep"}, "icon": _canvas(32, 32),
+		"effect": _anim(4, 120.0, 100, 100),
+		"level": _levels(20, {"mpCon": [14.0, 26.0], "damage": [70.0, 260.0], "range": [115.0, 250.0]})}
 	return imgs
 
 

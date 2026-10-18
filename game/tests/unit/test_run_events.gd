@@ -334,6 +334,16 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.change_job(410)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
+	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
+	var grenadier := RF.quiet_world()
+	grenadier.change_job(520)
+	grenadier.loadout.order.clear()
+	assert_true(grenadier.learn_skill("grenade"))
+	RF.put_mob(grenadier, 1110100, grenadier.player.pos.x + 200, 190, 1000)
+	for tick in 90:
+		grenadier.step(DT, MoveInput.new())
+	for event: Dictionary in grenadier.drain_events():
+		_check(event, seen)
 	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
 	var blocked := RF.quiet_world()
 	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
