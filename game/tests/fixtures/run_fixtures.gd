@@ -136,6 +136,18 @@ static func skill_imgs() -> Dictionary:
 	for book: String in ["110", "120", "130"]:
 		imgs[book] = {"skill": {}}
 	_warrior_weapon_skill_imgs(imgs) # #181
+	# Page Threaten (#183): the v83 endpoints of Skill.wz/120.img (x = y = -1..-20, time 44..120, mpCon 12/20 with the
+	# L11 step, six targets, the box widening at L11); levels between are interpolated. The node has no prop.
+	var threaten_levels := _levels(20, {"mpCon": [12.0, 20.0], "time": [44.0, 120.0], "x": [-1.0, -20.0],
+		"y": [-1.0, -20.0], "mobCount": [6.0, 6.0]})
+	for level: String in threaten_levels:
+		var wide := int(level) > 10
+		threaten_levels[level].lt = {"$v": [-300.0 if wide else -250.0, -200.0 if wide else -150.0]}
+		threaten_levels[level].rb = {"$v": [300.0 if wide else 250.0, 200.0 if wide else 150.0]}
+	if not imgs.has("120"):
+		imgs["120"] = {"skill": {}}
+	imgs["120"].skill["1201006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(7, 100.0, 86, 160),
+		"mob": _anim(8, 70.0, 30, 17).merged({"pos": 2.0, "repeat": 1.0}), "level": threaten_levels}
 	# Warrior second job, Rage and Power Guard (#182): the v83 level-1 and top-level values, levels between interpolated.
 	for pair: Array in [["110", "1101006", 20, {"mpCon": [12.0, 20.0], "time": [46.0, 160.0], "pad": [3.0, 12.0], "pdd": [-3.0, -12.0]}],
 			["110", "1101007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}],

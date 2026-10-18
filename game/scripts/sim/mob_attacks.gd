@@ -236,6 +236,9 @@ static func service(pending: Dictionary, world: RunWorld) -> bool:
 
 
 static func _impact(pending: Dictionary, world: RunWorld) -> void:
+	if not bool(pending.magic):
+		# Threaten (#183): a threatened attacker's weapon attack is lowered at impact, for strikes and balls alike.
+		pending.damage = world.swarm.threatened_pad(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
 	if int(pending.type) == 2:
 		_launch_ball(pending, world)

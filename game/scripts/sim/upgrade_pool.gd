@@ -262,7 +262,7 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 				if passive_effect is Dictionary and String(passive_effect.get("field", "")) == "x":
 					effect_stat = String(passive_effect.get("stat", ""))
 		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
-			effect_stat = "slow"
+			effect_stat = String(lo.book.def(skill).cast.get("status", "slow")) # the status the crowd cast inflicts
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":

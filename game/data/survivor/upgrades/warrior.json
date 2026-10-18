@@ -288,6 +288,16 @@
 			"_tier": "Tier C: offer weight 2; tier A cap 30.",
 			"desc": "Hyper Body +{magnitude} skill level: a bigger Max HP and Max MP boost, for longer.",
 			"icon": "Skill.wz/130.img/skill/1301007/icon", "max_rank": 30, "weight": 2,
-			"requires": {"jobs": [130]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
+			"requires": {"jobs": [130]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]},
+		{"id": "threaten_new", "kind": "skill_new", "skill": "threaten", "name": "Threaten",
+			"_tier": "Tier C: offer weight 3 like the other first learn cards of a line; not a power card.",
+			"desc": "Learn Threaten: monsters around you hit softer and guard worse for a while.",
+			"icon": "Skill.wz/120.img/skill/1201006/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs": [120]}, "effects": []},
+		{"id": "threaten_rank", "kind": "skill_rank", "skill": "threaten", "name": "Threaten",
+			"_tier": "Tier C: offer weight 2.",
+			"desc": "Threaten +{magnitude} skill level: a bigger attack and defence cut, for longer.",
+			"icon": "Skill.wz/120.img/skill/1201006/icon", "max_rank": 20, "weight": 2,
+			"requires": {"jobs": [120]}, "effects": [{"stat": "rank", "op": "add", "value": 1}]}
 	]
 }

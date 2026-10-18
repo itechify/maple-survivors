@@ -3415,6 +3415,35 @@ weights 3 and 2.
   picked like an attack. Power Guard has no entry: it scores as the other defensive buffs without one (Iron Body), 50
   for the learn card and 42 plus the current-job bonus for the rank card. Tests: `test_power_guard.gd`.
 
+### 7.11 Threaten (#183)
+
+Page (120) learns Threaten 1201006 (20 levels, `skills/warrior.json` `threaten`): it puts the **threatened** status on
+the monsters around the player, lowering their weapon attack and weapon defence by flat amounts for a while. It is the
+fourth player-inflicted monster status beside slow, poison and freeze (`MobSwarm.THREATENED`, same flattened table, same
+refresh-without-stacking and boss rules) and it coexists with all three.
+
+- **Numbers (tier A, Skill.wz/120.img).** `x` is the weapon-attack change and `y` the weapon-defence change, both flat and
+  negative (-1 at level 1 to -20 at level 20, always equal); `time` 44 s to 120 s (+4 s per level); `mpCon` 12 (levels
+  1-10) or 20; `mobCount` 6; the box `lt`/`rb` (-250,-150)/(250,150), widening to (-300,-200)/(300,200) at level 11. The
+  node has **no `prop`**: every target takes it, nothing is rolled and Threaten draws no random number (RNG stream 13 stays
+  reserved for this spec and unused). The alert2 action, the cast effect, the `mob` overlay (eight frames, pos 2, repeat 1:
+  it repeats above a threatened monster's head like the poison cue) and the `Use` sound are the WZ art.
+- **Cast (tier C).** The `crowd` rule with `cast.status: "threatened"` (`SkillRunner.crowd_status`; "slow" when a crowd
+  skill names none, so Slow is unchanged): auto-cast when at least 3 monsters in the box can take it (live, not a boss, not
+  resisting statuses, not threatened yet), 1 s cooldown, pays the canonical MP once, targets the nearest `mobCount` of them.
+  Slow's "two consecutive casts per monster" history is Slow's own; a Threaten cast does not touch it, and a slowed monster
+  is still a Threaten target (and the reverse).
+- **Effect.** While threatened a monster's weapon attack falls by `-x` and its weapon defence by `-y`, each floored at 0
+  (`MobSwarm.threatened_pad` / `threatened_pdd`; a reapplication replaces the cut and restarts the clock, it never adds up).
+  Weapon attack is lowered where a monster's PAD becomes damage: contact damage (`RunWorld._player_hit`) and physical
+  ordinary attacks and their balls (`MobAttacks._impact`), before the stage's damage multipliers and the player's defence;
+  magic attack is untouched. Weapon defence is lowered in `RunWorld.mob_defense` and in the bulk projectile fill
+  (`MobSwarm.lower_threatened_pdd`), so the player's physical hits, shots and Final Attacks all see it; magic defence is
+  untouched. Death, release and relocation end the status silently, as for the other statuses.
+- **Cards and bot.** `threaten_new` / `threaten_rank` (`requires.jobs: [120]`, not power cards, weights 3 / 2); the rank
+  preview shows `x` as "Monster weapon ATT / DEF". The bot scores them by default, like Iron Body
+  (no `balance.bot.card_scores` entry: the crowd rule is not an attack, tier C) and needs no cast rule (every skill auto-casts).
+
 ### 7.12 Iron Will and Hyper Body (#184)
 
 The Spearman's (130) two buffs, `skills/warrior.json` keys `iron_will` (1301006, 20 levels) and `hyper_body` (1301007, 30
@@ -4376,6 +4405,11 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot engage kite_reach (#162) | `balance.bot.engage.kite_reach` 220 px: a build whose longest attack reaches less walks up to mobs instead of kiting; below every Magician attack (shortest Magic Claw 260) and above one-handed swings | C | ours |
 | Bot engage distance (#162) | `reach_fraction` 0.8 of the longest ready attack's reach (`SkillRunner.reach_of`, `BasicAttack.reach`), `chase_range` 300 px on the bot's level; stands facing the mob; `deadzone` 6 px (keeps its facing when closer) | C | ours |
 | Bot engage retreat (#162) | `retreat_hp` 0.35 of max HP, or a boss attack winding up (`BossAttacks.telegraph_up`): the melee bot kites like any other | C | ours |
+| Threaten numbers (#183) | canonical `x`/`y` (-1..-20 flat weapon attack / weapon defence), `time` 44..120 s, `mpCon`, `mobCount` 6, `lt`/`rb`, action, effect, `mob` overlay, sound | A | Skill.wz/120.img/skill/1201006 and Sound.wz/Skill.img/1201006 |
+| Threaten success chance (#183) | the node has no `prop`: always succeeds, no roll, no RNG (RNG stream 13 stays reserved for this spec, never drawn); a run without Threaten is byte-identical | A (absence) | Skill.wz/120.img level nodes; owner decision 5 of spec #165 |
+| Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
+| Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
+| Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
 
 ## 12. Later phases
 
