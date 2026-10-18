@@ -972,6 +972,9 @@ func _refresh_caster() -> void:
 	loadout.weapon_id = weapon_id()
 	loadout.weapon_family = held_weapon_family()
 	loadout.job_id = progression.job_id
+	var held := weapon_info()
+	player.stand_stance = WeaponInfo.stand_stance(held)
+	player.walk_stance = WeaponInfo.walk_stance(held)
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,

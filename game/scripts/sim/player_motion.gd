@@ -70,6 +70,11 @@ var state := ST_AIR
 var speed_stat := 100
 var jump_stat := 100
 
+## Body stances played while standing and walking: the held weapon's (WeaponInfo.stand_stance / walk_stance); a
+## two-handed weapon stands with "stand2". Set by whoever owns the weapon (RunWorld, the Free Market).
+var stand_stance := "stand1"
+var walk_stance := "walk1"
+
 var constants: PhysicsConstants
 var tuning: Dictionary
 ## Seconds left of the post-hit input lock / alert stance / ladder re-grab cooldown.
@@ -170,8 +175,8 @@ func stance() -> String:
 		ST_PRONE:
 			return "prone"
 		ST_WALK:
-			return "walk1"
-	return "alert" if alert_t > 0.0 else "stand1"
+			return walk_stance
+	return "alert" if alert_t > 0.0 else stand_stance
 
 
 ## Current maximum walk speed in px/s (walkSpeed x speed%).
