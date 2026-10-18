@@ -223,7 +223,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
 				return true
-			if not bool(st.has_box):
+			# Hidden (#194): the undead strike is an attack, so only the healing admits the cast.
+			if not bool(st.has_box) or world.is_hidden():
 				return false
 			# The undead filter of _admit_hp_or_undead as a mask over mob kinds (no Callable per body).
 			var kinds: Array = world.swarm.kinds
@@ -314,7 +315,7 @@ func _admit_box(world: RunWorld, st: Dictionary) -> Dictionary:
 
 func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
 	var targets := PackedInt32Array()
-	if bool(st.has_box):
+	if bool(st.has_box) and not world.is_hidden():
 		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
 	var heal: Dictionary = world.book.def(key).get("heal", {})
 	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))

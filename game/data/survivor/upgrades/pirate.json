@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards remain available to both Pirate branches (exact requires.jobs). Untuned.",
+	"_doc": "Pirate first-job cards (#186). Tier A: 20 canonical skill levels. Tier C: learn/rank weights 4/3 for attacks and 2/2 for Bullet Time; behaviour weight 2, +1 target or pierce per step, at most 3 steps. Shared Potential magnitudes apply; every card follows the weapon held at draw time. First-job cards remain available to both Pirate branches (exact requires.jobs). Untuned. Oak Barrel (#194, Brawler 510 only, requires exact job 510): learn weight 3, rank weight 2, max rank 10, neither a power card; tier C, untuned.",
 	"cards": [
 		{"id": "flash_fist_new", "power": true, "kind": "skill_new", "skill": "flash_fist", "name": "Flash Fist",
 			"desc": "Learn Flash Fist: Punches one monster in front of you.",

@@ -264,6 +264,44 @@ func test_a_swing_in_its_windup_when_hidden_begins_never_lands() -> void:
 	assert_true(_types(_run(w, 120), "mob_hit").is_empty())
 
 
+func test_heal_still_heals_but_never_strikes_undead_while_hidden() -> void:
+	var make := func() -> RunWorld:
+		var data := RF.quiet_data()
+		data.balance.player.hp = 1000
+		data.balance.player.mp = 1000
+		data.balance.regen.hp = 0
+		var setup := RF.setup("quiet", 57, data)
+		setup.skill_imgs["230"] = {"skill": {"2301002": {"level": {
+			"1": {"hp": 10.0, "mpCon": 12.0, "mobCount": 6.0,
+				"lt": {"$v": [-250.0, -150.0]}, "rb": {"$v": [250.0, 150.0]}}}}}}
+		var cleric := RunWorld.new(setup)
+		RF.place_player(cleric, 400)
+		cleric.change_job(200)
+		cleric.change_job(230)
+		cleric.loadout.order.clear()
+		cleric.learn_skill("heal")
+		cleric.loadout.set_caster(100.0, 23.0, 30)
+		var m := _stand_mob(cleric, BODY_MOB, 500.0)
+		cleric.swarm.hp[m] = 100000
+		cleric.swarm.max_hp[m] = 100000
+		cleric.swarm.mob_kind(m).undead = true
+		cleric.drain_events()
+		return cleric
+	var control: RunWorld = make.call()
+	var events := _run(control, 30)
+	assert_false(_types(events, "mob_hit").is_empty(), "control: Heal strikes the undead in its box at full HP")
+	var w: RunWorld = make.call()
+	_hide(w, 20.0)
+	events = _run(w, 60)
+	assert_true(_types(events, "cast").is_empty(), "Hidden: no undead strike is cast at full HP")
+	assert_true(_types(events, "mob_hit").is_empty())
+	w.take_hit(800.0, false, "", w.player.pos + Vector2(10, 0)) # no-op while Hidden
+	w.heal_fraction("hp", -0.7)
+	events = _run(w, 30)
+	assert_eq(_types(events, "cast").size(), 1, "below half HP the Heal is still cast")
+	assert_true(_types(events, "mob_hit").is_empty(), "and still strikes nobody")
+
+
 func test_buffs_potions_and_movement_still_work_while_hidden() -> void:
 	var w := _world()
 	assert_true(w.learn_skill("recovery"))

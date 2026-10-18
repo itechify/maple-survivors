@@ -3443,6 +3443,9 @@ Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (own
   windup. Buffs, potions, pickups, movement and manual movement skills (Teleport, Dash) still work. Shots already in
   flight keep flying.
 - **Presentation:** `player_state.hidden` and `player_state.morph`.
+- **Edge cases (tier C):** a boss already fading out for a pursuit teleport when Hidden begins still finishes that teleport;
+  Cleric Heal still heals below its HP threshold but never strikes undead (it is an attack in this rule even though its
+  `damage` is `none`).
 
 **The buff block.** `buff`: `hidden` (bool), `morph_field` (the level number holding the Morph.wz id), `fail_field` (the
 level number holding the failure chance in percent), `end_hp_above` (an HP fraction above which the buff ends early),
