@@ -334,7 +334,8 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 	return {"targets": _tgt.duplicate()}
 
 
-## Weapon-reach rule (Warrior Power Strike): the live mobs inside the held weapon's swing envelope (BasicAttack.envelope),
+## Weapon-reach rule (Warrior Power Strike, Double Stab): live mobs inside the held weapon's swing envelope scaled by
+## the skill's area modifier,
 ## nearest first. The player turns in every movement state, so both sides are asked and the side with the nearer first
 ## target wins (the current facing on a tie). The plan carries the side to face before casting; a walking or airborne
 ## player's held direction sets its facing again on the next motion step, so the turn lasts for the cast (tier C).

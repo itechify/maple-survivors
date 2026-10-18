@@ -4096,6 +4096,8 @@ nor exempt.
 | Cold Beam | Spreading Frost (`cold_beam_targets`) |
 | Thunder Bolt | Forking Storm (`thunder_bolt_targets`): +2 targets per step, 3 steps (canonical `mobCount` 6 → 8 → 10 → 12), weight 2; tier C placeholder until the balance pass |
 | Holy Arrow | `holy_arrow_count`, `holy_arrow_pierce` |
+| Lucky Seven | `lucky_seven_count`, `lucky_seven_pierce` |
+| Double Stab | `double_stab_targets` (extra hits per target use the separate `double_stab_hits` line) |
 
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 

@@ -232,7 +232,7 @@ static func is_power(c: Dictionary) -> bool:
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
 ## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
-## are taken, keys as MOD_PREVIEW names them: shots / targets / pierce / speed / range (whole numbers), cooldown
+## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
 ## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
 ## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
