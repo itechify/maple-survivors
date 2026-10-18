@@ -274,6 +274,21 @@
 			]
 		},
 		{
+			"id": "final_attack_bow_spread",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "final_attack_bow",
+			"name": "Spreading Arrow",
+			"desc": "Final Attack: Bow also strikes +{value} monster next to the target.",
+			"_tier": "Tier C: shared Final Attack Spread; +1 nearby target per step, max3, weight2, current-ammo follow-up arrows. Untuned.",
+			"value": 1,
+			"icon": "Skill.wz/310.img/skill/3100001/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [310]},
+			"effects": [{"stat": "count", "op": "add", "value": 1}]
+		},
+		{
 			"id": "bow_booster_new",
 			"power": false,
 			"kind": "skill_new",

@@ -4115,7 +4115,8 @@ Untuned tier-C defaults match first-job arrows: 1s cooldown, 300px base reach, 6
 The Hunter cards require exact job 310 and a bow, with learn/rank cards for all five skills and no survivor rank compression.
 Only the two attacks are power cards, so choosing Hunter guarantees Power Knock-Back and Arrow Bomb in its advancement
 draw (plus one seeded passive/Booster). Attack learn/rank weights 4/3; passives/Booster 2/2. Behaviour cards add +1 target
-to PKB (`count`), +1 arrow to Bomb (`count`) or +1 blast target (`blast_targets`), each max 3, weight 2, power.
+to PKB (`count`), +1 arrow to Bomb (`count`), +1 blast target (`blast_targets`), or +1 nearby Final Attack target
+(`final_attack_bow_spread`, `count`), each max 3, weight 2, power. Spread uses the shared ranged Final Attack reach.
 Standard Potential rarity magnitudes apply; no vanilla extra counts are added outside cards. First-job Bowman carry
 cards remain eligible after advancement per binding #199/#180, outside the branch's advancement draw; this supersedes
 #202's stale first-job-card sentence. Crossbow held: all five Hunter skills grey in Skill window, passives/Booster

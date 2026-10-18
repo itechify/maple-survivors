@@ -206,6 +206,8 @@ func test_format_one_weapon_comes_from_the_job_lineage_data() -> void:
 
 func test_forced_job_must_be_a_playable_first_or_second_job() -> void:
 	var data := RF.quiet_data()
+	# Explicit locked fixture: shipped Hunter is playable since #202.
+	data.jobs_survivor.jobs["310"] = {"playable": false}
 	var jobs := _tree(data)
 	for id in [200, 210, 220, 230]:
 		assert_eq(jobs.forced_job_error(id), "", "Magician line %d is playable" % id)

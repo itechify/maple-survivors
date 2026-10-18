@@ -233,6 +233,17 @@ func test_behavior_cards_add_targets_and_arrows_using_shared_rarity_magnitudes()
 	var first := _world()
 	for key: String in KEYS:
 		assert_false(key + "_new" in first.upgrades.eligible(first))
+	var follow := _hunter("final_attack_bow", 30)
+	assert_true(follow.upgrades.apply("final_attack_bow_spread", follow))
+	assert_eq(follow.loadout.stats("final_attack_bow").count, 2)
+	var primary := _mob(follow, 80)
+	var extra := _mob(follow, 180)
+	for hit in 20:
+		follow.hit_mob(primary, follow.loadout.stats("arrow_blow"), -1)
+	follow.step(DT, MoveInput.new())
+	var hits := follow.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "final_attack_bow")
+	assert_true(hits.any(func(e: Dictionary) -> bool: return int(e.mob) == primary))
+	assert_true(hits.any(func(e: Dictionary) -> bool: return int(e.mob) == extra))
 
 
 func test_arrow_schedule_changes_at_30_40_50_announces_and_catches_up_on_advancement() -> void:
