@@ -155,10 +155,7 @@ func start_import() -> bool:
 
 ## Web: writes the re-import marker and quits so the shell can take over; false (with the reason shown) on failure.
 func _hand_over_to_shell() -> bool:
-	if web_request.is_valid():
-		web_request.call(WebHandoff.REIMPORT)
-		return true
-	var err := WebHandoff.quit_to_shell(get_tree(), WebHandoff.REIMPORT)
+	var err := WebHandoff.hand_over(get_tree(), WebHandoff.REIMPORT, web_request)
 	if err != OK:
 		_status("Could not hand over to the importer (%s)." % error_string(err), BAD_RED)
 		return false

@@ -137,6 +137,17 @@ func test_fullscreen_toggle_target() -> void:
 	assert_false(GameSettings.is_fullscreen(), "headless test window is windowed")
 
 
+func test_fullscreen_modes_share_one_definition() -> void:
+	assert_true(GameSettings.is_fullscreen_mode(DisplayServer.WINDOW_MODE_FULLSCREEN))
+	assert_true(GameSettings.is_fullscreen_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN))
+	assert_false(GameSettings.is_fullscreen_mode(DisplayServer.WINDOW_MODE_WINDOWED))
+	assert_false(GameSettings.is_fullscreen_mode(DisplayServer.WINDOW_MODE_MINIMIZED))
+	for mode: int in [DisplayServer.WINDOW_MODE_WINDOWED, DisplayServer.WINDOW_MODE_FULLSCREEN,
+			DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN, DisplayServer.WINDOW_MODE_MAXIMIZED]:
+		assert_eq(GameSettings.is_fullscreen_mode(GameSettings.toggled_window_mode(mode)),
+			not GameSettings.is_fullscreen_mode(mode), "toggling flips fullscreen-ness of mode %d" % mode)
+
+
 # --- Options window --------------------------------------------------------------------------------------------------
 
 func _options(web: bool) -> OptionsWindow:

@@ -183,12 +183,9 @@ func _on_quit() -> void:
 
 ## Web: hands `kind` (a WebHandoff kind) to the shell: marker, audio off, quit; the shell restarts the engine.
 func _request_shell(kind: String) -> void:
-	if web_request.is_valid():
-		web_request.call(kind)
-	else:
-		var err := WebHandoff.quit_to_shell(get_tree(), kind)
-		if err != OK:
-			push_warning("title: could not write the web request marker (%s)" % error_string(err))
+	var err := WebHandoff.hand_over(get_tree(), kind, web_request)
+	if err != OK:
+		push_warning("title: could not write the web request marker (%s)" % error_string(err))
 
 
 func _on_reimport() -> void:
