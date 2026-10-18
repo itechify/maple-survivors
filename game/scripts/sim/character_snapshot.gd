@@ -17,6 +17,9 @@ extends RefCounted
 ##     top, bottom, shoes, gloves, cape, weapon, shield). An overall's id is stored under both top and bottom, a
 ##     two-handed weapon cover's under both weapon and shield.
 ##   pet: species id of the owned pet that is out (0 or absent = none).
+## Optional spec #151 key (#157), also without a FORMAT bump:
+##   weapon_path: the first-job weapon path id taken at the Lv 10 advancement ("claw", "dagger", ...; JobTree.paths_of);
+##     written only when set, so Warrior, Magician and older characters keep their exact bytes.
 ## Both are only what the character wears and takes out; whether the account owns them is decided each round
 ## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
 ## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
@@ -119,6 +122,8 @@ static func validation_error(value: Variant) -> String:
 	var cash_message := cash_error(value)
 	if cash_message != "":
 		return cash_message
+	if value.has("weapon_path") and not value.weapon_path is String:
+		return "invalid weapon_path"
 	if format == 1:
 		return ""
 	var equipment_error := Equipment.validation_error(value.get("equipment"))

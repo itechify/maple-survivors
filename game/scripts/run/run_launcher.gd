@@ -57,7 +57,10 @@ static func options_from_args(args: Dictionary) -> Dictionary:
 	if args.has("warp"):
 		o["warp"] = float(args.warp)
 	if args.has("job"):
-		o["job"] = int(args.job)
+		var forced := JobTree.parse_forced(str(args.job)) # --job=<id>[:<weapon path>]
+		o["job"] = int(forced.job)
+		if String(forced.path) != "":
+			o["job_path"] = String(forced.path)
 	return o
 
 

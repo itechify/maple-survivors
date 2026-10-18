@@ -50,12 +50,15 @@ var level := 0
 var current_job_id := 0
 ## The instructor NPC shown.
 var npc_id := ADMIN
-## Entries in display order: {"kind": "job"|"decline", "job_id", "text", "available", "reason"}.
+## Entries in display order: {"kind": "job"|"decline", "job_id", "path", "text", "available", "reason"}; a first job
+## with weapon paths has one entry per path (JobTree.advancements), its text the path label.
 var entries: Array[Dictionary] = []
 ## Focused entry index (-1 = none).
 var focus := -1
 ## "choose" (list shown) or "confirm" (a job was picked, waiting to close).
 var state := "choose"
+## The weapon path of the picked entry ("" for a job without paths); read it when job_chosen fires.
+var picked_path := ""
 ## The dialog text (wrapped lines are computed from it).
 var body := ""
 
@@ -101,10 +104,11 @@ func open(p_options: Array, p_level: int, p_current_job_id: int) -> void:
 		if not (o is Dictionary):
 			continue
 		var d: Dictionary = o
-		entries.append({"kind": "job", "job_id": int(d.get("job_id", 0)), "text": String(d.get("name", "")),
-			"available": bool(d.get("available", false)), "reason": String(d.get("reason", ""))})
+		entries.append({"kind": "job", "job_id": int(d.get("job_id", 0)), "path": String(d.get("path", "")),
+			"text": String(d.get("name", "")), "available": bool(d.get("available", false)),
+			"reason": String(d.get("reason", ""))})
 	if any_available():
-		entries.append({"kind": "decline", "job_id": -1, "text": "Not now.", "available": true, "reason": ""})
+		entries.append({"kind": "decline", "job_id": -1, "path": "", "text": "Not now.", "available": true, "reason": ""})
 	focus = _next_selectable(-1, 1)
 	body = intro_text(npc_id, options, level)
 	_npc.path = "Npc.wz/%07d.img/stand" % npc_id
@@ -129,6 +133,7 @@ func select(i: int) -> bool:
 		decline()
 		return true
 	_picked = int(entries[i].job_id)
+	picked_path = String(entries[i].path)
 	focus = i
 	state = "confirm"
 	_confirm_t = 0.0
