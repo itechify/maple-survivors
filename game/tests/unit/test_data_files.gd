@@ -406,6 +406,7 @@ const HIT_MORE_EXEMPT := {
 	"dash": "movement buff: deals no damage",
 	"mp_recovery": "support: turns HP into MP, deals no damage",
 	"threaten": "support: threatens, deals no damage",
+	"disorder": "support: threatens and interrupts, deals no damage",
 }
 
 
