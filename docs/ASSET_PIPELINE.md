@@ -307,7 +307,7 @@ plus a `_doc` saying what it holds; `format` may be left out (when present it mu
 |---|---|
 | `asset_manifest.json` | shared: everything not listed below |
 | `asset_manifest.d/beginner.json` | `Skill.wz/000.img`; `Sound.wz/Skill.img` `0001000`/`0001001`/`0001002` and `1001004` (Three Snails' UOL target) |
-| `asset_manifest.d/magician.json` | `Skill.wz/200.img`, `210`, `220`, `230`; their `Sound.wz/Skill.img` paths (`2001002`-`2301005`); instructor Grendel (`String.wz/Npc.img` `1032001`, `Npc.wz/1032001.img`); the 212 `character[]` equipment ids whose canonical `reqJob` is the Magician bit (wands, staves, robes, hats, gloves, shoes; all in `survivor/equipment_drops.json`) |
+| `asset_manifest.d/magician.json` | `Skill.wz/200.img`, `210`, `220`, `230`; their `Sound.wz/Skill.img` paths (`2001002`-`2301005`); instructor Grendel (`String.wz/Npc.img` `1032001`, `Npc.wz/1032001.img`); the Teleport effect (`Effect.wz/BasicEff.img` `Teleport`); the 212 `character[]` equipment ids whose canonical `reqJob` is the Magician bit (wands, staves, robes, hats, gloves, shoes; all in `survivor/equipment_drops.json`) |
 
 Why some Beginner-ish entries stay shared: the sword/mace afterimages and `Sound.wz/Weapon.img` are used by every weapon
 line, the other instructors (Warrior `1022000`, Bowman `1012100`, Thief `1052001`, Pirate `1090000`) are not yet owned by
@@ -338,7 +338,7 @@ becomes playable.
   it must contain only the added lines.
 - **Where fragments must travel:** the Windows build merges them inside the pck (`import_screen.gd` writes the merged
   `user://import/asset_manifest.json` for the child importer), so `game/export_presets.cfg` must include
-  `data/asset_manifest.d/*.json` (`scripts/export.sh` stops when it does not). The web build ships ONE file: `export.sh --web`
+  `data/asset_manifest.d/*.json` (`scripts/export.sh` warns when it does not mention `asset_manifest.d`). The web build ships ONE file: `export.sh --web`
   writes the merged manifest with `wzimport manifest --manifest game/data/asset_manifest.json --out <dir>/asset_manifest.json`
   because the page cannot list a folder; `web/shell.js` is unchanged.
 
