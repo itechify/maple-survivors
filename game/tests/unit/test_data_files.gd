@@ -232,8 +232,9 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 		"AvatarRenderer.DEFAULT_LOOK.equips is the default creation outfit without its weapon")
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
-	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006]),
-		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, and the Warrior's handed-over Spear and Steel Pipe")
+	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
+		1302008, 1312005, 1322014, 1432002, 1442001]),
+		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, and the five Warrior advancement weapons")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
