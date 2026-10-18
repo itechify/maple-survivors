@@ -503,7 +503,8 @@ the recorded advancement choice, independent of later weapon swaps. Other per-jo
 `Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
 survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
 player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
-13 belongs to Threaten (no v83 prop, so unused); 14-15 remain reserved for Bowman and Thief. Existing stream initialization and draws are unchanged.
+13 belongs to Threaten (no v83 prop, so unused); 14 remains reserved for Bowman; stream 15 is `RunWorld.thief_rng`
+(#207), reserved for Steal success (#214). Existing stream initialization and draws are unchanged.
 
 | File | Contents |
 |---|---|

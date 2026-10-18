@@ -61,6 +61,7 @@ func test_beginner_attributes_are_unchanged_at_every_level() -> void:
 	# Keep the line at Beginner past Lv10 so that only the Beginner rules are exercised.
 	data.jobs_survivor.jobs["200"].playable = false
 	data.jobs_survivor.jobs["100"].playable = false
+	data.jobs_survivor.jobs["400"].playable = false
 	data.jobs_survivor.jobs["500"].playable = false
 	var w := RunWorld.new(RF.setup("quiet", 602, data))
 	RF.place_player(w, 400.0)

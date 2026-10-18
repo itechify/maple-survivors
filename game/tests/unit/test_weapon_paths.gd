@@ -79,18 +79,18 @@ func test_the_window_lists_each_thief_path_as_its_own_entry() -> void:
 	assert_false(magician[0].has("path"), "a job without paths has the old entry shape")
 
 
-func test_shipping_data_keeps_unimplemented_lines_locked_and_offers_the_pirate_paths() -> void:
+func test_shipping_data_keeps_unimplemented_lines_locked_and_offers_the_thief_and_pirate_paths() -> void:
 	var jobs := JobTree.from_data(DataRepo.load_all().jobs, DataRepo.load_all().jobs_survivor)
-	for id in [300, 400]:
+	for id in [300]:
 		assert_false(bool(jobs.job(id).playable), "%d stays 'Not in this build' until its class spec" % id)
 	assert_eq(jobs.paths_of(300).map(func(p: Dictionary) -> int: return p.item_id), [1452051])
 	assert_eq(jobs.paths_of(400).map(func(p: Dictionary) -> int: return p.item_id), [1472061, 1332063])
 	assert_eq(jobs.paths_of(500).map(func(p: Dictionary) -> int: return p.item_id), [1482000, 1492000])
 	assert_eq(jobs.paths_of(400).map(func(p: Dictionary) -> String: return p.family), ["claw", "dagger"])
 	var window := jobs.advancements(0, 10)
-	assert_eq(window.map(func(o: Dictionary) -> int: return o.job_id), [100, 200, 300, 400, 500, 500],
-		"locked jobs stay one entry each; playable Pirate offers both paths")
-	assert_true(window.slice(0, 4).all(func(o: Dictionary) -> bool: return not o.has("path")))
+	assert_eq(window.map(func(o: Dictionary) -> int: return o.job_id), [100, 200, 300, 400, 400, 500, 500],
+		"locked jobs stay one entry each; playable Thief and Pirate offer both paths")
+	assert_true(window.slice(0, 3).all(func(o: Dictionary) -> bool: return not o.has("path")))
 	assert_eq(jobs.paths_of(100), [], "the Warrior has no weapon path: its sword is a plain grant")
 	assert_eq(jobs.paths_of(200), [], "the Magician grant is balance.player.weapon_grants")
 	var families := {110: ["sword", "axe"], 120: ["sword", "blunt"], 130: ["spear", "polearm"], 310: ["bow"],
@@ -235,10 +235,10 @@ func test_a_bare_handed_character_gets_the_branch_weapon_and_a_branch_without_da
 
 func test_a_playable_jobs_grant_items_load_their_info_and_an_unplayable_jobs_do_not() -> void:
 	var shipped := DataRepo.starter_equipment_ids(DataRepo.load_all())
-	for id in [1452051, 1472061, 1332063]:
+	for id in [1452051]:
 		assert_false(id in shipped, "%d is not in the cache until its class spec" % id)
-	for id in [1482000, 1492000]:
-		assert_true(id in shipped, "Pirate grants load since #186")
+	for id in [1472061, 1332063, 1482000, 1492000]:
+		assert_true(id in shipped, "Thief/Pirate grants load since #207/#186")
 	var playable := DataRepo.starter_equipment_ids(_data())
 	for id in [1452051, 1472061, 1332063, 1482000, 1492000]:
 		assert_true(id in playable, str(id))

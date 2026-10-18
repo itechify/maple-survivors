@@ -80,15 +80,15 @@ func test_job_tree_options() -> void:
 	var ids: Array = []
 	for o: Dictionary in at8:
 		ids.append(int(o.job_id))
-		assert_eq(_sorted_keys(o), _sorted(JOB_OPTION_KEYS + (["path"] if int(o.job_id) == 500 else [])))
+		assert_eq(_sorted_keys(o), _sorted(JOB_OPTION_KEYS + (["path"] if int(o.job_id) in [400, 500] else [])))
 		if int(o.job_id) == 200:
 			assert_eq(o.name, "Magician")
 		assert_false(o.available)
 		assert_eq(o.reason, "Lv. 10", "%d shows its requirement" % o.job_id)
-	assert_eq(_sorted(ids), [100, 200, 300, 400, 500, 500])
+	assert_eq(_sorted(ids), [100, 200, 300, 400, 400, 500, 500])
 	for o: Dictionary in t.advancements(0, 10):
-		if int(o.job_id) in [100, 200, 500]:
-			assert_true(o.available, "Warrior, Magician and both Pirate paths at 10")
+		if int(o.job_id) in [100, 200, 400, 500]:
+			assert_true(o.available, "Warrior, Magician and both Thief/Pirate paths at 10")
 			assert_eq(o.reason, "")
 		else:
 			assert_eq(o.reason, "Not in this build")
@@ -224,9 +224,9 @@ func test_job_advancement_decline_then_accept() -> void:
 	assert_eq(pend.size(), 1)
 	if pend.size() == 1:
 		var opts: Array = pend[0].options
-		assert_eq(opts.size(), 6)
+		assert_eq(opts.size(), 7)
 		for o: Dictionary in opts:
-			assert_eq(bool(o.available), int(o.job_id) in [100, 200, 500], "Warrior, Magician and Pirate are available")
+			assert_eq(bool(o.available), int(o.job_id) in [100, 200, 400, 500], "Warrior, Magician, Thief and Pirate are available")
 	assert_false(w.apply_job(300), "Bowman is not available")
 	assert_true(w.decline_job())
 	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "then the level-10 upgrade")

@@ -1,0 +1,40 @@
+{
+	"_doc": "Thief first job (#167/#207). Rank equals canonical Skill.wz level; canonical requirements, counts, costs, damage and art are tier A. Survivor casting choices are labelled per entry. Canonical prerequisites are ignored (tier C owner choice #31). Binding skill keys: nimble_body, double_stab, lucky_seven; later tickets append their own entries.",
+	"skills": {
+		"nimble_body": {
+			"skill_id": 4000000, "book": "400", "job": 400, "kind": "passive", "slot": "passive",
+			"name": "Nimble Body", "desc": "Increases accuracy and avoidability. Accuracy also raises critical chance.",
+			"icon": "Skill.wz/400.img/skill/4000000/icon", "damage": "none",
+			"passive": {"stat":"acc","field":"x","effects":[{"stat":"avoid","field":"y"}]},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "", "action_time": 0, "ball": "",
+			"hit": "", "effect": "",
+			"rotate": false, "sounds": {"use":"","hit":""}
+		},
+		"double_stab": {
+			"skill_id": 4001334, "book": "400", "job": 400, "kind": "instant", "slot": "active",
+			"name": "Double Stab", "desc": "Stabs one monster twice within your dagger's reach.",
+			"icon": "Skill.wz/400.img/skill/4001334/icon", "damage": "physical",
+			"_tier": "Tier A: WZ weapon 33, damage, attackCount 2, mpCon, stabO1 action and CharLevel hit art. Tier C: weapon_reach auto-cast, one base target, cooldown 1.2s, action hold 0.6s; untuned.",
+			"cast": {"rule":"weapon_reach"}, "cooldown": 1.2,
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "stabO1", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/400.img/skill/4001334/hit/0", "effect": "",
+			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001334/CharLevel/{cl}/hit/0"},
+			"rotate": false, "sounds": {"use":"Sound.wz/Skill.img/4001334/Use","hit":""}
+		},
+		"lucky_seven": {
+			"skill_id": 4001344, "book": "400", "job": 400, "kind": "projectile", "slot": "active",
+			"name": "Lucky Seven", "desc": "Throws two stars at nearby monsters, using LUK regardless of Claw Mastery.",
+			"icon": "Skill.wz/400.img/skill/4001344/icon", "damage": "physical",
+			"_tier": "Tier A: WZ weapon 47, bulletCount 2, damage, mpCon, effect and CharLevel hit art; no ball node, so ammo_shot uses the current star. Tier B: LUK x5.0/x2.5 formula ignoring mastery (v83-facts 5). Tier C: nearest auto-cast, 250px base claw reach, cooldown 1s, shoot1 held 0.6s, speed 600px/s, radius 8px, no base pierce; untuned.",
+			"cast": {"rule":"nearest"}, "cooldown": 1, "range": 250, "speed": 600, "radius": 8, "pierce": 0, "ammo_shot": true,
+			"physical_formula": {"primary":"luk","max_mult":5,"min_mult":2.5,"secondary":"","ignore_mastery":true},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "shoot1", "action_time": 0.6, "ball": "",
+			"hit": "Skill.wz/400.img/skill/4001344/hit/0", "effect": "Skill.wz/400.img/skill/4001344/effect",
+			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
+			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
+		}
+	}
+}

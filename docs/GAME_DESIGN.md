@@ -20,7 +20,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
-5. **Advance** to Warrior, Magician or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
+5. **Advance** to Warrior, Magician, Thief or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
@@ -3314,6 +3314,14 @@ damaging attack cards. No behaviour cards are added.
 
 ### 7.5 Weapon-gated skills (#156)
 
+Shipping Thief first job (#207):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Nimble Body 4000000 | any, including bare hands | A: no canonical restriction |
+| Double Stab 4001334 | dagger | A: canonical weapon 33 |
+| Lucky Seven 4001344 | claw | A: canonical weapon 47 |
+
 Shipping Pirate first job (#186):
 
 | Skill | Held weapon | Source |
@@ -3975,6 +3983,37 @@ cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails,
 `recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
 Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
 
+### 7.21 Thief first job (#207)
+
+The Thief owns the five `thief.json` survivor line files (skills, upgrades, equipment drops, scrolls, shops).
+Canonical costs and damage come from Skill.wz, with one survivor rank per canonical level:
+
+| Key / skill | Kind / cast | Levels | Canonical effect and cost (L1 → L20) |
+|---|---|---|---|
+| `nimble_body` 4000000 | passive, any weapon | 20 | ACC/avoid +1 → +20; ACC feeds existing crit chance |
+| `double_stab` 4001334 | instant, weapon_reach; dagger | 20 | 2 hits, 98 → 140%, MP 8 → 14 |
+| `lucky_seven` 4001344 | projectile, nearest; claw | 20 | 2 stars, 58 → 150%, MP 8 → 16 |
+
+Lucky Seven uses LUK×5.0/2.5×PAD/100, ignoring mastery (tier B, v83-facts §5). It has no canonical ball;
+`ammo_shot: true` selects the current star's Item.wz bullet, including the Assassin schedule after a later advancement.
+Its initial survivor reach is the basic claw's 250px, cooldown 1s, speed 600px/s, radius 8px, no pierce;
+Double Stab uses the dagger's swing envelope, one base target, cooldown 1.2s. Both hold their action for 0.6s
+(tier C untuned; Double Stab's stabO1 is canonical, Lucky Seven's shoot1 is our choice). Only Use sounds exist.
+
+Cards: `<key>_new` / `<key>_rank`, plus `lucky_seven_count` (+1 star) and `double_stab_targets` (+1 target),
+three behavior steps each. Attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 (tier C, shared Potential
+magnitudes). Attack cards require jobs [400] and carry_jobs [410,420]; Nimble Body requires jobs [400] only.
+Cards follow the held family at draw time. No parity lines, Keen Eyes, Disorder, Dark Sight or second jobs are added here.
+
+Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
+(tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger,
+including the boss fallback. Claw/dagger ordinary and dark ATT scrolls and Free Market weapon slots use existing pricing.
+The export's existing `data/survivor/*/*.json` include filter covers these files.
+
+`RunWorld.thief_rng` registers stream 15 without drawing from it; only Steal's success roll (#214) will use it.
+Adding the two Thief window entries intentionally changes unforced bot records. The inherited event/pacing tests freeze
+their old job pool; existing combat and player-state goldens are retained. Full smoke belongs to #215; no balance tuning.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -3989,13 +4028,14 @@ Draw rules:
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
-   **Exception (Warrior line only, spec #165 #180, owner decision):** the Warrior's second jobs have no attack skills, so
+   **Carried physical attacks (ADR 0005, spec #165 #180 and #167):** the Warrior's second jobs have no attack skills, so
    the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
    `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
    for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
    passives still stop at Lv 30. **Pirate first-job cards** (spec #168 #189) use the same shape with `carry_jobs: [510, 520]`
-   (their `requires.jobs` is [500]): on offer to both Pirate branches, never in a branch's advancement draw. Every other
-   line keeps the rule unchanged.
+   (their `requires.jobs` is [500]): on offer to both Pirate branches, never in a branch's advancement draw.
+   **Thief attacks** (#207) use jobs [400] plus carry_jobs [410,420]; Nimble Body has no carry.
+   Magician cards retain the exact-job rule.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -4269,7 +4309,7 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician, Warrior (Dances with Balrog, #163) and Pirate's two paths (Kyrin, #186) are playable; Bowman and Thief are shown as "not in this build".
+- Level 10: Magician, Warrior (Dances with Balrog, #163), Thief's two paths (Dark Lord, #207) and Pirate's two paths (Kyrin, #186) are playable; Bowman is shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
   teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
@@ -4277,6 +4317,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs open at Lv 30 (spec #165, below).
+- Advancing to Thief changes job to 400, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063 and puts the other in Equip (overflow at feet).
+  Both paths use starting stars 2070015 when holding a claw. Growth is 22 HP / 15 MP per level; auto-AP uses LUK
+  primary and DEX target max(25, level), meeting LUK ≥80 / DEX ≥25 at Lv30 through the existing earned-AP calculation.
+  No new stat reset is added. Assassin/Bandit stay locked until #212. Skills and cards: 7.21.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -4293,8 +4338,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   | Brawler 510 | knuckle | Prime Hands 1482004 (Lv 30, PAD 34, STR 60 / DEX 30) |
   | Gunslinger 520 | gun | Cold Mind 1492004 (Lv 30, PAD 31, DEX 70 / STR 30) |
 - An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
-  stream. Adding Pirate intentionally changes that pool, without changing any stream's initialization.
-  `--job=100`, `--job=200`, `--job=500:knuckle` and `--job=500:gun` force a choice.
+  stream. Adding Pirate and Thief intentionally changes that pool, without changing any stream's initialization.
+  `--job=100`, `--job=200`, `--job=400:claw`, `--job=400:dagger`, `--job=500:knuckle` and `--job=500:gun` force a choice.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -4351,8 +4396,8 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 
 Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
 and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman and Thief stay `playable: false` ("Not in this build")
-until their class specs. Pirate is playable (#186): optional per-path `extra_items` ([item ids]) grants the opposite
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman stays `playable: false` ("Not in this build")
+until its class spec. Thief (#207) and Pirate (#186) are playable: optional per-path `extra_items` ([item ids]) grants the opposite
 weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
@@ -4410,6 +4455,21 @@ random policy shares the movement and the camper policies still override it afte
 
 ## 11. Constants and provenance
 
+Thief tracer (#207) additions:
+
+| Constant / choice | Value | Tier / source |
+|---|---|---|
+| First-job Thief | Lv10; +125 MaxHP / +37 MaxMP | C survivor level; B v83-facts section 4 midpoints, MP truncated |
+| Thief growth | 22 HP / 15 MP per level | B v83-facts section 4 midpoints; existing total rounding |
+| Thief AP | LUK primary, DEX target max(25, level) | C survivor policy; existing earned-AP redistribution, no new stat reset |
+| Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
+| Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
+| Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
+| Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
+| Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
+| Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
+
+
 Pirate tracer (#186) additions:
 
 | Constant / rule | Value | Tier / source |
@@ -4425,7 +4485,7 @@ Pirate tracer (#186) additions:
 | Double Shot flight | 600 px/s, radius 8 px, base pierce 0 | C initial untuned survivor values |
 | Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
 | Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
-| Pirate RNG | stream 16, `pirate_rng`; 13 Threaten (unused without prop), 14–15 reserved | C independent owner; drawn by Oak Barrel's failure roll (#194, `buff.fail_field`); a future non-Pirate failure chance needs its own stream |
+| Pirate RNG | stream 16, `pirate_rng`; 13 Threaten (unused without prop), 14 reserved, 15 Thief | C independent owner; drawn by Oak Barrel's failure roll (#194, `buff.fail_field`); a future non-Pirate failure chance needs its own stream |
 | Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
 | Backspin Blow (#191, 7.19) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
 | Double Uppercut (#191, 7.19) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
