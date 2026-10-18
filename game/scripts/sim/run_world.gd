@@ -1814,13 +1814,19 @@ func hit_source_multiplier(source: Dictionary) -> float:
 ## ignore it (spec #88, tier C); this is the window only: god and death are take_hit's own guards. Balls ask this before
 ## take_hit, since take_hit returns 0 for a blocked hit and a miss alike.
 func hit_window_blocks(source: Dictionary) -> bool:
-	return upkeep.invincible_t > 0.0 and not PlayerUpkeep.bypasses_window(source)
+	return _window_blocks(PlayerUpkeep.bypasses_window(source))
+
+
+## The window check for a source already classified by PlayerUpkeep.bypasses_window (take_hit classifies once).
+func _window_blocks(bypass: bool) -> bool:
+	return upkeep.invincible_t > 0.0 and not bypass
 
 
 ## Applies one monster hit through avoid, defense, Magic Guard and hit reaction; returns whole damage (0 on miss).
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
-	if _dead or god or hit_window_blocks(source):
+	var bypass := PlayerUpkeep.bypasses_window(source)
+	if _dead or god or _window_blocks(bypass):
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -1835,7 +1841,7 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 	_hp -= split.x
 	_mp -= split.y
 	_emit_player_hit(dmg, split.y, false, dir, source)
-	upkeep.land_hit(PlayerUpkeep.bypasses_window(source))
+	upkeep.land_hit(bypass)
 	if _hp <= 0.0:
 		_hp = 0.0
 		_dead = true
