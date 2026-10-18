@@ -11,7 +11,7 @@ const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
 const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
 
 
 
@@ -320,6 +320,15 @@ func test_every_event_matches_the_schema() -> void:
 	scroller.grant_scrolls(2040400, 1)
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
+		_check(event, seen)
+	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	var thrower := RF.quiet_world()
+	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
+	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
+	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
+	thrower.progression.level = 37
+	thrower.change_job(410)
+	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
 	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
 	var blocked := RF.quiet_world()

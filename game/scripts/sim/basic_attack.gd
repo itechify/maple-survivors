@@ -16,6 +16,8 @@ var cooldown := 0.0
 ## The action and damage kind (swing, stab, shoot) of the latest swing started; "" before the first.
 var last_action := ""
 var last_kind := ""
+## Ammo projectiles fired so far (one per ranged attack that found its target at the impact; endless ammo never runs out).
+var shots := 0
 var _body: Dictionary
 var _images: Dictionary
 var _pending := {}
@@ -202,7 +204,41 @@ func _impact(world: RunWorld) -> void:
 	var mob := _nearest(world, _pending.box, int(_pending.facing))
 	if mob < 0:
 		return
+	if String(_pending.attack_kind) == "shoot":
+		_shoot(world, mob)
+		return
 	world.hit_mob(mob, _pending, world.visual_index(String(_pending.hit_visual)), world.basic_rng)
+
+
+## A ranged weapon's attack: one projectile of the current ammo (never consumed) flies from the hand at the chosen target.
+## It carries the swing's physical damage (W.Att includes the ammo's incPAD), rolls on the basic-attack stream and ends
+## after the family's reach plus the ammo data's overshoot. Shot numbers: survivor/ammo.json (tier C).
+func _shoot(world: RunWorld, mob: int) -> void:
+	var shot := Ammo.projectile(world.data.get("ammo", {}), world.held_weapon_family())
+	if shot.is_empty():
+		return
+	var aim := world.mob_center(mob)
+	var origin := world.cast_origin()
+	var start := world.shot_origin(aim)
+	var dir := (aim - start).normalized()
+	if dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x):
+		# A target inside the reach of the hand: fly straight at it from the body instead.
+		start = origin
+		dir = (aim - origin).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2(int(_pending.facing), 0.0)
+	var speed := float(shot.speed)
+	var p := _pending
+	world.projectiles.spawn({
+		"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
+		"range": float(WeaponInfo.RANGED_REACH.get(world.held_weapon_family(), 0.0)) + float(shot.overshoot),
+		"radius": float(shot.radius), "rotate": bool(shot.rotate),
+		"visual": world.visual_index(Ammo.bullet_path(world.ammo_id())), "hit_visual": world.visual_index(String(p.hit_visual)),
+		"dmg_min": float(p.damage_min), "dmg_max": float(p.damage_max), "damage_type": "physical", "damage_pct": float(p.damage_pct),
+		"player_level": int(p.player_level), "crit": float(p.crit), "crit_mult": float(p.crit_mult),
+		"crit_damage_bonus": float(p.crit_damage_bonus), "skill": "basic_attack", "level": 0, "alt_rng": true,
+	})
+	shots += 1
 
 
 func _emit(world: RunWorld, phase: String) -> void:
