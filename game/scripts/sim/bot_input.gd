@@ -25,10 +25,11 @@ const EDGE_DANGER := 4.0
 const FLEE_DIST := 160.0
 ## tier C: a mob within this height of the feet (px) is on the bot's level for a sword duel.
 const DUEL_DY := 40.0
-## tier C: keep a quarter of the pool for Magic Guard, or two most-expensive learned auto attacks, whichever is larger.
-const TELEPORT_MP_RESERVE_FRACTION := 0.25
+## tier C: a manual skill (Teleport, Dash) leaves a quarter of the pool for Magic Guard, or two most-expensive learned auto
+## attacks, whichever is larger.
+const MANUAL_SKILL_MP_RESERVE_FRACTION := 0.25
 ## tier C: one attack plus an equal combat margin, even for a small MP pool or costly learned attack.
-const TELEPORT_ATTACK_RESERVE_CASTS := 2.0
+const MANUAL_SKILL_ATTACK_RESERVE_CASTS := 2.0
 ## tier C: five seconds leaves several auto-cast cycles and ordinary kiting between emergency blink requests.
 const TELEPORT_MIN_INTERVAL := 5.0
 ## Engage mode (balance.json bot.engage overrides these). tier C: a build whose longest attack reaches less than this (px)
@@ -116,6 +117,9 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	var threat_nearest := [INF, INF]
 	var close := 0
 	var duel := -1
+	var flee_buff := _flee_buff(w)
+	var surround_distance := float(flee_buff.get("distance", 0.0))
+	var surrounding := 0
 	for i in s.capacity():
 		if s.active[i] == 0:
 			continue
@@ -129,6 +133,8 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		# tier C: emergency blinks use the existing duel-height band, not mobs on remote platforms.
 		if absf(dy) <= DUEL_DY:
 			threat_nearest[side] = minf(threat_nearest[side], absf(dx))
+			if absf(dx) <= surround_distance:
+				surrounding += 1
 		if melee and absf(dy) <= DUEL_DY and absf(dx) <= float(engage.chase_range) and absf(dx) < engage_gap:
 			engage_gap = absf(dx)
 			engage_target = i
@@ -139,7 +145,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 	danger[0] += EDGE_DANGER / (room[0] + 10.0)
 	danger[1] += EDGE_DANGER / (room[1] + 10.0)
 	var teleport := w.teleport_skill()
-	if teleport != "" and w.can_cast() and w.teleport_affordable() and _teleport_keeps_reserve(w, teleport) \
+	if teleport != "" and w.can_cast() and w.teleport_affordable() and _keeps_mp_reserve(w, teleport) \
 			and w.time - float(memo.get("teleport_at", -INF)) >= TELEPORT_MIN_INTERVAL - 1e-6:
 		var reach := float(w.runner.stats_of(w, teleport).teleport_range)
 		var threat_distance := float(w.book.def(teleport).teleport.bot_threat_distance)
@@ -152,9 +158,15 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 			if not w.player.teleport_destination(Vector2(escape, 0), reach, w.fhm, w.bounds).is_empty():
 				mi.left = escape < 0
 				mi.right = escape > 0
-				mi.teleport_pressed = true
+				mi.press_skill("teleport")
 				memo["teleport_at"] = w.time
 				return mi
+	# tier C (#188): a manual flee buff (Dash) is pressed when HP is low with a mob close, or when mobs surround the bot.
+	if not flee_buff.is_empty():
+		var low_hp: bool = float(w.player_state.hp) < float(w.player_state.max_hp) * float(flee_buff.hp) \
+				and minf(nearest[0], nearest[1]) < FLEE_DIST
+		if low_hp or surrounding >= int(flee_buff.count):
+			mi.press_skill(String(flee_buff.id))
 	var dir := 0
 	var down := false
 	var portal := _useful_portal(w, minf(nearest[0], nearest[1]) < 160.0)
@@ -317,15 +329,36 @@ static func _affordable(w: RunWorld, st: Dictionary) -> bool:
 	return float(w.player_state.mp) >= int(st.mp_cost) and w.can_pay_hp(int(st.hp_cost))
 
 
-static func _teleport_keeps_reserve(w: RunWorld, teleport: String) -> bool:
-	var reserve := float(w.player_state.max_mp) * TELEPORT_MP_RESERVE_FRACTION
+## The manual flee buff the bot can press now ({} when it owns none, or it is running, cooling down, blocked by the
+## weapon, unaffordable or would eat the MP reserve): {id (skill key), hp (flee below this HP fraction), count (mobs
+## on its level that surround it), distance (px)}, read from the skill's `manual` block (survivor data, tier C).
+static func _flee_buff(w: RunWorld) -> Dictionary:
+	for key: String in w.loadout.order:
+		var id := w.skill_key_of(key)
+		var def := w.book.def(key)
+		if id == "" or def.has("teleport") or w.book.kind(key) != "buff" or not def.has("manual") \
+				or not _usable(w, key) or w.buffs.has(key) or float(w.runner.cooldowns.get(key, 0.0)) > 1e-6 \
+				or not w.can_cast():
+			continue
+		var st := w.runner.stats_of(w, key)
+		if not _affordable(w, st) or not _keeps_mp_reserve(w, key):
+			continue
+		var manual: Dictionary = def.manual
+		return {"id": id, "hp": float(manual.get("bot_flee_hp", 0.0)), "count": int(manual.get("bot_surround_count", 99)),
+			"distance": float(manual.get("bot_surround_distance", 0.0))}
+	return {}
+
+
+## Whether paying manual skill `manual_key` (Teleport, Dash) still leaves the attack/Magic Guard MP reserve.
+static func _keeps_mp_reserve(w: RunWorld, manual_key: String) -> bool:
+	var reserve := float(w.player_state.max_mp) * MANUAL_SKILL_MP_RESERVE_FRACTION
 	for key: String in w.loadout.order:
 		if not w.book.is_active(key) or not _usable(w, key):
 			continue
 		var stats := w.runner.stats_of(w, key)
 		if String(stats.kind) != "buff" and String(stats.cast_rule) != "manual" and String(stats.damage_type) != "none":
-			reserve = maxf(reserve, float(stats.mp_cost) * TELEPORT_ATTACK_RESERVE_CASTS)
-	return float(w.player_state.mp) - float(w.runner.stats_of(w, teleport).mp_cost) >= reserve
+			reserve = maxf(reserve, float(stats.mp_cost) * MANUAL_SKILL_ATTACK_RESERVE_CASTS)
+	return float(w.player_state.mp) - float(w.runner.stats_of(w, manual_key).mp_cost) >= reserve
 
 
 ## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical

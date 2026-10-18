@@ -265,6 +265,9 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 				_add_id(ids, int(item))
 			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
 				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
+				if path is Dictionary:
+					for item: Variant in path.get("extra_items", []):
+						_add_id(ids, int(item))
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
 		for field: String in ["top", "bottom", "shoes", "weapon"]:

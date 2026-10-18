@@ -207,7 +207,7 @@ func test_the_roster_lists_every_family_the_ticket_names() -> void:
 	var wanted := {"hat": ["DEF", "HP", "INT", "ACC", "DEX"], "top": ["DEF", "STR", "HP", "LUK"],
 		"bottom": ["DEF", "Jump", "HP", "DEX"], "overall": ["INT", "DEX", "DEF", "LUK", "STR"],
 		"shoes": ["DEX", "Jump", "Speed", "ATT"], "gloves": ["DEX", "ATT", "HP", "Magic Att."],
-		"wand": ["Magic Att."], "staff": ["Magic Att."]}
+		"wand": ["Magic Att."], "staff": ["Magic Att."], "knuckle": ["ATT", "ACC"], "gun": ["ATT"]}
 	for slot: String in wanted:
 		for family: String in wanted[slot]:
 			assert_true(table.families[slot].has(family), "%s %s" % [slot, family])
@@ -225,6 +225,9 @@ func test_the_roster_has_the_ticket_examples_by_rate() -> void:
 	assert_eq(_family(table, "wand", "Magic Att."), [2043700, 2043701, 2043702, 2043704, 2043705])
 	assert_eq(_family(table, "overall", "INT"), [2040512, 2040513, 2040514, 2040518, 2040519])
 	assert_eq(_family(table, "gloves", "Magic Att."), [2040818, 2040817, 2040816, 2040814, 2040815])
+	assert_eq(_family(table, "knuckle", "ATT"), [2044800, 2044801, 2044802, 2044803, 2044804])
+	assert_eq(_family(table, "knuckle", "ACC"), [2044805, 2044807, 2044809, 2044806, 2044808])
+	assert_eq(_family(table, "gun", "ATT"), [2044900, 2044901, 2044902, 2044903, 2044904])
 	assert_true(2043700 in ids and 2040818 in ids)
 	assert_true(2040016 in ids and table.families.hat.ACC["10"] == 2040016, "hat ACC 10%: its WZ success is the string \"10\"")
 	assert_false(2040006 in ids, "the strong 100% is out")
@@ -239,7 +242,7 @@ func test_every_roster_scroll_fits_the_item_slot_it_is_listed_under() -> void:
 	var table: Dictionary = DataRepo.load_all().scrolls
 	var categories := {"hat": 0, "top": 4, "bottom": 6, "overall": 5, "shoes": 7, "gloves": 8, "wand": 37, "staff": 38,
 		"sword": 30, "axe": 31, "blunt": 32, "two_handed_sword": 40, "two_handed_axe": 41, "two_handed_blunt": 42,
-		"spear": 43, "polearm": 44, "shield": 9}
+		"spear": 43, "polearm": 44, "shield": 9, "knuckle": 48, "gun": 49}
 	for slot: String in table.families:
 		for family: String in table.families[slot]:
 			for rate: String in table.families[slot][family]:

@@ -3,6 +3,9 @@
 Tree boss manifest additions: Mob9300003 and6220000 automatically include their original Sound.wz/Mob.img
 entries; Effect.wz/Summon.img/3 accompanies King Slime's canonical skill200/2. The existing whole MobSkill.img
 and UIWindow.img include Dyle's repeat-marked immunity icon and both MobGage icons. No decoded art is committed.
+The stunned-mob stars (#187): `Skill.wz/111.img` with `paths: ["skill/1111008/mob"]` in the main manifest (Hero's Shout;
+the same three frames are the `mob` node of every v83 stunning skill, e.g. 510.img 5101002, so a later Pirate fragment
+that imports a whole stunning-skill book need not repeat it).
 
 The game renders the player's own MapleStory v83 data. Nothing proprietary is in this repository. A local, offline
 importer (`tools/wzimport`, Rust) reads the original `.wz` archives and writes an **asset cache** that the Godot runtime
@@ -12,7 +15,8 @@ loads. This document is the contract between the two.
 
 A GMS v83 install, i.e. the `.wz` files from the official v83 installer `MapleGlobal-v83-setup.exe`
 (Feb 2010, `Wizet` PKG1 archives, encrypted version `0x00AC`). These files are needed:
-`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz`.
+`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Morph.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz` (`Morph.wz` since
+#194: Oak Barrel's barrel).
 
 **How to get them.** Install with the official installer, or extract them without running it: the installer is a
 Nexon Game Manager stub followed by a two-volume CAB set. On the dev machine this worked:
@@ -217,7 +221,7 @@ address, and the page requests nothing from any address the player has not enter
 
 The archives an import needs are derived from the manifest (`requiredArchives` in `web/lib.js`): the archive of every
 named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, music), `Mob.wz` and `Sound.wz` for mobs,
-`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
+`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 13 archives the desktop
 import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
 records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
 until the write phase, and an interrupted write leaves no `cache.json`. Scratch storage for deflated zips was measured
@@ -297,6 +301,20 @@ The manifest says what to import. The importer expands convenience entries into 
 | `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash, 9 Special: the meso coins) |
 
 ### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
+
+Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active-skill Sound.wz nodes, Kyrin
+1090000 and her String.wz name, regular knuckles/guns 1482000-9 / 1492000-9, and bullets 2330000-2. Kyrin moved
+from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img
+sounds remain in `common`. The five survivor `pirate.json` line files ship through the existing export filter.
+
+Morph.wz (#194): Oak Barrel's barrel is `{"img": "Morph.wz/1002.img"}` in `pirate.json`, exported whole by the
+generic img export (no importer change; the Rust `real_import_of_the_oak_barrel_morph` test checks it against real
+data). A Morph img has `info` (`hide`, `speed`, `jump`, `morphEffect`) and the actions `stand` (14 frames), `walk` (6),
+`prone` (6), `sit` (6), `ladder` (2), `rope` (2), `fly` (2) and `jump` (1), each frame one canvas with `origin` on the
+feet (55 x ~70 px for 1002), `lt`/`rb`/`head` and an optional `delay`; there are no attack actions and no `map`
+anchors. `Morph.wz` is a thirteenth archive an import needs (it was already in the owner's v83 install; the web
+import screen and `requiredArchives` derive it from the manifest, so a cache or source without it is reported
+incomplete or missing it). `AvatarRenderer.set_morph(id)` reads `Morph.wz/<id>.img` through the asset library.
 
 `asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, the creation weapons,
 items, the shared equipment). Everything that belongs to one job line lives in a fragment beside it, so parallel class

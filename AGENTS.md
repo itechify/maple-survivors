@@ -151,7 +151,11 @@ greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window a
 through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #165 (second job) adds
 `warrior2` (QA #185, `--job=110|120|130`: an invulnerable Lv10 -> Lv30 climb through the real job windows, the branch's two
 advancement weapons, the Skill window with the unheld family greyed, Save & quit -> Continue); its branch fixtures
-`lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god=1 --seconds=600`. Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+`lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god --seconds=600`. Spec #168 (the Pirate line) adds
+`pirate` (QA #195, `--path=knuckle|gun [--branch=510|520]`: Lv10 window with both paths, both weapons, an invulnerable EXP-drop warp to the
+Lv30 window, Dash on its key, Save & quit -> Continue keeps job, path, weapons and skills; the second-job fixtures
+`lv37_brawler_2nd.json` / `lv36_gunslinger_2nd.json` come from `tools/character_fixture.gd --god [--exp-mult=<k>]`, see
+GAME_DESIGN 4.2). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
 character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,

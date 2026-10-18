@@ -1,0 +1,4 @@
+{
+	"_doc": "Pirate scroll weapon slots (#186), using the existing Free Market NPC rates and weapon pricing (tier C selection). The export include_filter data/survivor/*/*.json ships all five Pirate line files.",
+	"weapon_slots": ["knuckle", "gun"]
+}

@@ -24,7 +24,9 @@ const MP_DRAIN := 60
 ## Re-captured on Windows on the unoptimised spec #151 tip (19ca0a8), then matched against the #177 merge.
 ## Spec #151 changes crit RNG, physical combat and player-state fields (including attack speed and accuracy), so
 ## its events and totals legitimately differ from main's 4e51522e... baseline. The #146 optimisation changes neither.
-const GOLDEN := "cb554e313bffb3d58175fcb3070671f86464c7ec806b658a05aa65929c1b1546"
+## Re-captured for #194 (spec #168): player_state gains `hidden` and `morph` and every buff snapshot `hidden`, `morph` and
+## `end_hp_above`; the events and TOTALS are unchanged, only those bytes differ (previous digest cb554e31...).
+const GOLDEN := "ad5c2bc1c6db7cb8ffd92a8d5909296941900219b6873e57de5ddd7aebbe48db"
 const TOTALS := {"exp": 5133, "mesos": 97368, "pickup_mesos": 97368, "equips_collected": 24,
 	"equips_dropped": 30, "inventory": 24, "hp_potions": 15, "mp_potions": 0, "kills": 276, "casts": 249, "level": 14,
 	"pool": 6, "time": 59.999999999997875}

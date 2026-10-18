@@ -61,6 +61,8 @@ var exit_hook := Callable()
 const DT := 1.0 / 60.0
 ## docs/ARCHITECTURE.md section 6: at most 4 catch-up ticks per frame (times the speed option).
 const MAX_TICKS_PER_FRAME := 4
+## Height in px of the arc a thrown grenade draws at mid-flight. tier C: ours (#192), presentation only.
+const THROW_ARC := 40.0
 const SCENE_PATH := "res://scenes/run/run_scene.tscn"
 
 const FX_LEVEL_UP := "Effect.wz/BasicEff.img/LevelUp"
@@ -185,7 +187,8 @@ var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
 var _drink_mp_latch := false
-var _teleport_latch := false
+## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
+var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -214,9 +217,9 @@ var _frame_inventory_full := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
-## Cached caption of the Teleport icon (_on_settings_changed; null until first read) and the reused per-frame
-## cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
-var _teleport_label: Variant = null
+## Cached captions of the manual skills' icons (skill key id -> first bound key; emptied by _on_settings_changed, read
+## lazily) and the reused per-frame cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
+var _skill_labels := {}
 var _cd_left := PackedFloat32Array()
 var _cd_total := PackedFloat32Array()
 var _cd_short := PackedByteArray()
@@ -242,6 +245,8 @@ var _timed_shots: Array = []
 ## Keys of the one-off playtest evidence shots already queued by _first_event_shot (a skill key, a shot file name or an
 ## event name).
 var _first_shots := {}
+## Grenades in flight (#192): {slot (fx), from, to, seconds, t, burst art}; the sim strikes when they land.
+var _throws: Array = []
 var _last_delta := 0.0
 var _skip_perf_frames := 0
 var _last_frame_us := 0
@@ -402,8 +407,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
 	if not _autoplay and not event.is_echo():
-		if event.is_action_pressed("teleport"):
-			_teleport_latch = true
+		var skill_id := _pressed_skill_key(event)
+		if skill_id != "":
+			_skill_latches[skill_id] = true
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
@@ -537,7 +543,7 @@ func advance_frame(delta: float) -> void:
 		_jump_latch = false
 		_drink_hp_latch = false
 		_drink_mp_latch = false
-		_teleport_latch = false
+		_skill_latches.clear()
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	if not held:
@@ -715,7 +721,8 @@ func _build_ui_windows() -> void:
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
-	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings))
+	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings,
+		world.manual_skill_keys()))
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 	if settings != null:
 		watch_settings(settings)
@@ -772,12 +779,30 @@ func _on_settings_changed() -> void:
 	# A persistent round follows the ALERT levels live (tool rounds never read the settings).
 	if world != null and settings != null and options.get("settings_alert") is Dictionary:
 		world.set_alert(settings.alert_levels())
-	_teleport_label = _first_key_label("teleport")
+	_skill_labels.clear()
 	if hud == null or world == null:
 		return
 	hud.potion_slot.refresh_key_labels()
 	_hud_sig = PackedInt32Array()
 	_update_hud()
+
+
+## The learned manual skill whose skill key `event` pressed ("" when none): the skill key's id.
+func _pressed_skill_key(event: InputEvent) -> String:
+	for key: String in world.loadout.order:
+		var id := world.skill_key_of(key)
+		if id != "" and event.is_action_pressed(id):
+			return id
+	return ""
+
+
+## The caption of skill key `id`'s first bound key, cached until Settings.changed ("" for no skill key or no key).
+func _skill_key_label(id: String) -> String:
+	if id == "":
+		return ""
+	if not _skill_labels.has(id):
+		_skill_labels[id] = _first_key_label(id)
+	return String(_skill_labels[id])
 
 
 ## The caption of the first key bound to `action` ("" when unbound): a skill icon has room for one.
@@ -840,6 +865,9 @@ func _warm_ui() -> void:
 		var cl: Variant = world.book.def(key).get("char_level")
 		if cl is Dictionary:
 			char_levels.append_array(cl.get("thresholds", []))
+		var burst := String(world.book.def(key).get("burst", ""))
+		if burst != "":
+			library.find_anim(burst)
 		for rank in range(1, world.book.max_rank(key) + 1):
 			var level := world.book.canonical_level(key, rank)
 			for field: String in ["ball", "hit", "effect"]:
@@ -968,13 +996,17 @@ func _read_input(first_tick: bool) -> MoveInput:
 	mi.up = Input.is_action_pressed("move_up")
 	mi.down = Input.is_action_pressed("move_down")
 	mi.jump_held = Input.is_action_pressed("jump")
-	mi.teleport_held = Input.is_action_pressed("teleport")
+	for key: String in world.loadout.order:
+		var skill_id := world.skill_key_of(key)
+		if skill_id != "" and Input.is_action_pressed(skill_id):
+			mi.hold_skill(skill_id)
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
 	if first_tick:
-		mi.teleport_pressed = _teleport_latch
-		_teleport_latch = false
+		for skill_id: String in _skill_latches:
+			mi.press_skill(skill_id)
+		_skill_latches.clear()
 		mi.drink_hp = _drink_hp_latch
 		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
@@ -1019,6 +1051,8 @@ func handle_events(events: Array) -> void:
 				_on_mob_attack(e)
 			"cast":
 				_on_cast(e)
+			"skill_thrown":
+				_on_skill_thrown(e)
 			"teleport":
 				fx.play(String(e.effect), e.pos, int(e.facing) > 0)
 				_sound(String(world.book.def(String(e.skill)).sounds.use), String(e.phase))
@@ -1195,6 +1229,31 @@ func _on_cast(e: Dictionary) -> void:
 	if use == "":
 		use = SND_SKILL_USE % int(e.skill_id)
 	_sound(use)
+
+
+## A thrown grenade (#192): the ball art loops along a short arc from the hand to the target for the flight's seconds,
+## then the blast art plays there (the sim strikes the mobs at the same moment).
+func _on_skill_thrown(e: Dictionary) -> void:
+	var seconds := float(e.seconds)
+	var slot := fx.play_repeating(String(e.ball), e.from, seconds + 0.5)
+	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0, "burst": String(e.burst)})
+
+
+func _update_throws(delta: float) -> void:
+	var i := 0
+	while i < _throws.size():
+		var t: Dictionary = _throws[i]
+		t.t = float(t.t) + delta
+		var f := minf(float(t.t) / maxf(float(t.seconds), 0.001), 1.0)
+		if f < 1.0:
+			var at: Vector2 = (t.from as Vector2).lerp(t.to, f) - Vector2(0.0, sin(f * PI) * THROW_ARC)
+			fx.place(int(t.slot), at.round())
+			i += 1
+			continue
+		fx.stop(int(t.slot))
+		if String(t.burst) != "":
+			fx.play(String(t.burst), (t.to as Vector2).round(), false)
+		_throws.remove_at(i)
 
 
 func _on_mob_hit(e: Dictionary) -> void:
@@ -1489,6 +1548,7 @@ func _present(delta: float) -> void:
 		fx.stop(_slow_fx)
 		_slow_fx = -1
 	_update_mob_status_effects()
+	_update_throws(delta)
 	_update_player(delta)
 	_update_pet(delta)
 	_slot_layers = MobRenderer.update_slot_layers(world.swarm, world.fhm.layer, _slot_layers, _base_layer)
@@ -1546,6 +1606,8 @@ func _update_player(delta: float) -> void:
 	var p := world.player
 	player_group.position = p.pos.round()
 	var dead := bool(world.player_state.dead)
+	# A morphing buff (Oak Barrel) draws the character as its Morph.wz art; the avatar returns when it ends or on death.
+	avatar.set_morph(0 if dead else int(world.player_state.get("morph", 0)))
 	if not dead:
 		avatar.set_facing(p.facing)
 	var layer := _player_layer
@@ -1701,11 +1763,9 @@ func run_time() -> float:
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
 ## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
 func run_info() -> Dictionary:
-	if _teleport_label == null:
-		_teleport_label = _first_key_label("teleport")
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		var label: String = _teleport_label if world.book.def(key).has("teleport") else ""
+		var label := _skill_key_label(world.skill_key_of(key))
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),

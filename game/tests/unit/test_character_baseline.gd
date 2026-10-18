@@ -11,7 +11,12 @@ const GOLDEN := "b452687752046c1e218794598caff4133379f4ea98d82056166bfa659dc9a6e
 ## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
 ## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
+	# #186 adds Pirate to the unforced first-job pool intentionally. Keep this pre-Pirate baseline's job pool fixed
+	# to prove stream 16 and the additive data consumers do not perturb any existing seeded event bytes.
+	var data := DataRepo.load_all()
+	data.jobs_survivor.jobs["500"].playable = false
+	data.jobs_survivor.jobs["500"].reason = "Not in this build"
+	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1, data)))
 	w.god = true
 	var memo := {}
 	var digest := HashingContext.new()

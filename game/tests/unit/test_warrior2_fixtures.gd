@@ -1,9 +1,9 @@
 extends TestCase
 ## The three second-job Warrior character fixtures (spec #165 ticket #185): Fighter, Page and Spearman at Lv 34, each from a
-## real headless Henesys bot round with the character invulnerable (`character_fixture.gd --god=1 --seconds=600`; a Warrior
+## real headless Henesys bot round with the character invulnerable (`character_fixture.gd --god --seconds=600`; a Warrior
 ## bot dies at the first boss near Lv 12 and never advances otherwise). Reproduce one byte for byte with
 ##   ISOLATE=<name> MAPLE_SURVIVORS_CACHE=<cache> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game
-##   --script res://tools/character_fixture.gd -- --out=<abs json> --revision=<_doc.revision> --job=<110|120|130> --god=1
+##   --script res://tools/character_fixture.gd -- --out=<abs json> --revision=<_doc.revision> --job=<110|120|130> --god
 ##   --seconds=600 --label=spec165/ticket-185
 ## (regenerating is a one-minute round, so the suite only checks what the files hold and that a one-off round restores them).
 

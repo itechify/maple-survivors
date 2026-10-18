@@ -62,9 +62,13 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for o: Dictionary in e.options:
 				var ok: Array = o.keys()
 				ok.sort()
-				if ok != ["available", "job_id", "name", "reason"]:
+				var fields := ["available", "job_id", "name", "reason"]
+				if o.has("path"):
+					fields.insert(3, "path")
+				if ok != fields:
 					fail("job option fields %s" % [ok])
-				elif typeof(o.job_id) != TYPE_INT or typeof(o.available) != TYPE_BOOL:
+				elif typeof(o.job_id) != TYPE_INT or typeof(o.available) != TYPE_BOOL \
+						or (o.has("path") and typeof(o.path) != TYPE_STRING):
 					fail("job option types %s" % [o])
 		"choice_pending":
 			for c: Dictionary in e.cards:
@@ -267,7 +271,7 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.heal_fraction("mp", 1.0)
 	teleporter.learn_skill("teleport_fp")
 	var blink := MoveInput.new()
-	blink.teleport_pressed = true
+	blink.press_skill("teleport")
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
@@ -330,6 +334,16 @@ func test_every_event_matches_the_schema() -> void:
 	thrower.change_job(410)
 	for event: Dictionary in thrower.drain_events():
 		_check(event, seen)
+	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
+	var grenadier := RF.quiet_world()
+	grenadier.change_job(520)
+	grenadier.loadout.order.clear()
+	assert_true(grenadier.learn_skill("grenade"))
+	RF.put_mob(grenadier, 1110100, grenadier.player.pos.x + 200, 190, 1000)
+	for tick in 90:
+		grenadier.step(DT, MoveInput.new())
+	for event: Dictionary in grenadier.drain_events():
+		_check(event, seen)
 	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
 	var blocked := RF.quiet_world()
 	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
@@ -345,6 +359,12 @@ func test_every_event_matches_the_schema() -> void:
 	PF.put_pet(pet_world, Vector2(30.0, 0.0))
 	PF.put_player(pet_world, 1100.0, 0.0)
 	for event: Dictionary in PF.run(pet_world, 3):
+		_check(event, seen)
+	# #194: a buff cast whose failure chance rolls true (Oak Barrel) emits buff_failed and starts nothing.
+	var failing := RF.quiet_world()
+	assert_false(failing.start_buff("failing", {"skill_id": 5101007, "level": 1, "icon": "", "duration": 4.0,
+		"fail_chance": 1.0}))
+	for event: Dictionary in failing.drain_events():
 		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":

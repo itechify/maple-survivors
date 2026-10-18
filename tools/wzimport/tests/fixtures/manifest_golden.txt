@@ -531,7 +531,25 @@ character 1452000
 character 1462000
 character 1472000
 character 1482000
+character 1482001
+character 1482002
+character 1482003
+character 1482004
+character 1482005
+character 1482006
+character 1482007
+character 1482008
+character 1482009
 character 1492000
+character 1492001
+character 1492002
+character 1492003
+character 1492004
+character 1492005
+character 1492006
+character 1492007
+character 1492008
+character 1492009
 character 1702004
 character 1702012
 character 1702018
@@ -652,6 +670,7 @@ img Item.wz/Pet/5000002.img stand1
 img Map.wz/Effect.img quest/party/clear
 img Map.wz/MapHelper.img mark
 img Map.wz/Physics.img *
+img Morph.wz/1002.img *
 img Npc.wz/1012100.img *
 img Npc.wz/1022000.img *
 img Npc.wz/1032001.img *
@@ -670,12 +689,16 @@ img Npc.wz/9250025.img *
 img Skill.wz/000.img *
 img Skill.wz/100.img *
 img Skill.wz/110.img *
+img Skill.wz/111.img skill/1111008/mob
 img Skill.wz/120.img *
 img Skill.wz/130.img *
 img Skill.wz/200.img *
 img Skill.wz/210.img *
 img Skill.wz/220.img *
 img Skill.wz/230.img *
+img Skill.wz/500.img *
+img Skill.wz/510.img *
+img Skill.wz/520.img *
 img Skill.wz/MobSkill.img *
 img Sound.wz/BgmUI.img *
 img Sound.wz/Field.img Party1
@@ -724,6 +747,21 @@ img Sound.wz/Skill.img 2301002
 img Sound.wz/Skill.img 2301003
 img Sound.wz/Skill.img 2301004
 img Sound.wz/Skill.img 2301005
+img Sound.wz/Skill.img 5001001
+img Sound.wz/Skill.img 5001002
+img Sound.wz/Skill.img 5001003
+img Sound.wz/Skill.img 5001005
+img Sound.wz/Skill.img 5101002
+img Sound.wz/Skill.img 5101003
+img Sound.wz/Skill.img 5101004
+img Sound.wz/Skill.img 5101005
+img Sound.wz/Skill.img 5101006
+img Sound.wz/Skill.img 5101007
+img Sound.wz/Skill.img 5201001
+img Sound.wz/Skill.img 5201002
+img Sound.wz/Skill.img 5201003
+img Sound.wz/Skill.img 5201004
+img Sound.wz/Skill.img 5201006
 img Sound.wz/UI.img *
 img Sound.wz/Weapon.img *
 img String.wz/Consume.img *

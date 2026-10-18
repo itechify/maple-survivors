@@ -4,15 +4,20 @@ extends RefCounted
 ## action sits on. A key holds one action; an action may sit on several keys. key_name() is the caption of one key;
 ## the live bindings' captions are GameSettings.action_label().
 ##
-##   var kb := KeyBindings.from_settings(Settings)   # the saved bindings (or the project defaults) and movement set
+##   var kb := KeyBindings.from_settings(Settings, ["dash"])   # the saved bindings (or the project defaults), the movement
+##                                                            # set and the skill keys of the manual skills learned
 ##   kb.bind("jump", KEY_F)       # F now jumps (whatever F did before loses it); false for a fixed or unknown key
 ##   kb.unbind(KEY_F)             # F does nothing (returns the action it held)
 ##   kb.reset_defaults()          # the Default button
 ##   kb.apply_to(Settings)        # OK: saved and applied at once; Cancel just drops the draft
 
-## The actions the player may rebind, in tray order.
-const BINDABLE := ["jump", "drink_hp", "drink_mp", "teleport", "equip_window", "item_window", "stat_window",
-	"skill_window", "npc_chat"]
+## The actions every character may rebind, in tray order. The skill keys of learned manual skills follow them (below).
+const BINDABLE := ["jump", "drink_hp", "drink_mp", "equip_window", "item_window", "stat_window", "skill_window",
+	"npc_chat"]
+## Every skill key there is: the id a manual skill names in its `skill_key` field is also its input action, with the
+## project defaults in project.godot (Teleport and Dash both X: a character never learns both). Key Config only lists
+## the ones the character has learned. A new manual skill adds its id here and an action in project.godot.
+const SKILL_KEYS := ["teleport", "dash"]
 ## Fixed actions (shown on their keys, never rebound) -> the label the window shows: Esc and the card keys keep their
 ## project keys; movement uses the movement set (see fixed_keys()).
 const FIXED_LABELS := {"pause": "Menu", "choice_1": "Card 1", "choice_2": "Card 2", "choice_3": "Card 3"}
@@ -29,12 +34,28 @@ const WEB_LABEL := "Web"
 var keys: Dictionary = {}
 ## The movement set ("arrows" / "wasd", GameSettings.MOVEMENT_SETS) whose keys are fixed.
 var movement := GameSettings.DEFAULT_MOVEMENT
+## The skill keys (SKILL_KEYS ids) of the manual skills the character has learned: the draft binds only these.
+var skill_keys: Array[String] = []
 
 
-func _init(p_keys: Dictionary = {}, p_movement: String = GameSettings.DEFAULT_MOVEMENT) -> void:
+func _init(p_keys: Dictionary = {}, p_movement: String = GameSettings.DEFAULT_MOVEMENT,
+		p_skill_keys: Array = []) -> void:
 	movement = p_movement
-	for a: String in BINDABLE:
+	for id: Variant in p_skill_keys:
+		if String(id) in SKILL_KEYS and not (String(id) in skill_keys):
+			skill_keys.append(String(id))
+	for a: String in actions():
 		keys[a] = PackedInt32Array(p_keys.get(a, PackedInt32Array()))
+
+
+## The actions this draft binds, in tray order: BINDABLE, then the learned skill keys.
+func actions() -> Array[String]:
+	var out: Array[String] = []
+	for a: String in BINDABLE:
+		out.append(a)
+	for a: String in skill_keys:
+		out.append(a)
+	return out
 
 
 ## Short key names for HUD labels (the v83 keyboard's captions); other keys use OS.get_keycode_string.
@@ -57,7 +78,7 @@ func keys_of(action: String) -> PackedInt32Array:
 
 ## The bindable action on `key`, or "".
 func action_on(key: int) -> String:
-	for a: String in BINDABLE:
+	for a: String in keys:
 		if key in (keys[a] as PackedInt32Array):
 			return a
 	return ""
@@ -85,13 +106,13 @@ func unbind(key: int) -> String:
 	return a
 
 
-## The draft of `settings`: its saved bindings (the project defaults for actions it never rebound) and movement set.
-## Fixed keys are left out.
-static func from_settings(settings: GameSettings) -> KeyBindings:
-	var saved := {}
-	for a: String in BINDABLE:
-		saved[a] = settings.bindings.get(a, GameSettings.default_keys(a))
-	var kb := KeyBindings.new(saved, settings.movement_keys)
+## The draft of `settings`: its saved bindings (the project defaults for actions it never rebound) and movement set,
+## for the actions every character has and the skill keys of `skill_keys` (the ids of the learned manual skills; a
+## saved "teleport" binding is Teleport's skill key). Fixed keys are left out.
+static func from_settings(settings: GameSettings, p_skill_keys: Array = []) -> KeyBindings:
+	var kb := KeyBindings.new({}, settings.movement_keys, p_skill_keys)
+	for a: String in kb.actions():
+		kb.keys[a] = PackedInt32Array(settings.bindings.get(a, GameSettings.default_keys(a)))
 	kb._drop_fixed()
 	return kb
 
@@ -99,7 +120,7 @@ static func from_settings(settings: GameSettings) -> KeyBindings:
 ## The Default button: every bindable action back on its project keys, less the keys the movement set fixes (with
 ## WASD, S is movement, so Stat has no default key there; on Arrows Default puts S back on Stat).
 func reset_defaults() -> void:
-	for a: String in BINDABLE:
+	for a: String in keys:
 		keys[a] = GameSettings.default_keys(a)
 	_drop_fixed()
 
@@ -121,7 +142,7 @@ func set_movement(scheme: String) -> void:
 
 func _drop_fixed() -> void:
 	var fixed := fixed_keys()
-	for a: String in BINDABLE:
+	for a: String in keys:
 		var kept := PackedInt32Array()
 		for k in (keys[a] as PackedInt32Array):
 			if not fixed.has(k):

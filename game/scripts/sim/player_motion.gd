@@ -121,6 +121,23 @@ func teleport_destination(direction: Vector2, distance: float, fhm: FootholdMap,
 	return fhm.teleport_destination(pos, direction, distance, bounds)
 
 
+## Moves a grounded player up to `distance` horizontal px toward `side` (-1 / 1) along its platform, for a moving attack
+## (FootholdMap.slide_along: follows slopes, stops at the platform's edge and at walls, stays inside the map limits).
+## Facing, timers and the foothold-bound state are kept; the player ends at rest on the foothold. An airborne or
+## climbing player does not move (tier C). Returns the horizontal px actually covered (0 when nothing moved).
+func displace(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> float:
+	if fh < 0 or ladder >= 0 or state == ST_LADDER or side == 0 or distance <= 0.0:
+		return 0.0
+	var lim := _x_limits(fhm, bounds)
+	var slid := fhm.slide_along(fh, pos.x, side, distance, lim.x, lim.y)
+	if float(slid.moved) <= 0.0:
+		return 0.0
+	fh = int(slid.fh)
+	pos = Vector2(float(slid.x), float(slid.y))
+	vel = Vector2.ZERO
+	return float(slid.moved)
+
+
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
 ## rect (an empty Rect2 means only the foothold extent limits x). Returns EV_* flags of what happened.
 func step(dt: float, input: MoveInput, fhm: FootholdMap, ladders: LadderSet, bounds: Rect2) -> int:

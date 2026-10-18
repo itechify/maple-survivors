@@ -54,7 +54,9 @@ extends RefCounted
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
 ## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
-## 12 Final Attack proc and follow-up damage/crit rolls.
+## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
+## 14-15 reserved for Bowman/Thief,
+## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194).
 ## Each stream has exactly one owner.
 
 const PLAYING := 0
@@ -78,6 +80,8 @@ const EVENT_FIELDS := {
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
+	# #194: a buff cast with a failure chance (Oak Barrel) that failed; nothing started.
+	"buff_failed": ["skill", "skill_id", "level"],
 	"buff_pulse": ["skill", "skill_id", "amount"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
@@ -120,6 +124,9 @@ const EVENT_FIELDS := {
 	"scroll_used": ["result", "scroll_id", "slot", "item_id"],
 	# #155: the held ranged weapon's endless ammo moved to a higher tier (family, previous and new Item.wz id, character level).
 	"ammo_upgraded": ["family", "from_item_id", "item_id", "level"],
+	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
+	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
+	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
 
 }
 
@@ -180,6 +187,9 @@ var reward_rng: RandomNumberGenerator
 var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
+## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
+## needs its own stream.
+var pirate_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
 var choice_bonus := false
@@ -382,6 +392,7 @@ func _init_rng_streams() -> void:
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
+	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14-15 reserved, #186.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -581,8 +592,54 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 	return not buffs.has(skill) and (threshold <= 0 or _hp < float(_max_hp) * threshold)
 
 
-## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
-func start_buff(skill: String, stats: Dictionary) -> void:
+## The whole HP paid by one HP-to-MP conversion of resolved stats `st`: its `pay` share of MaxHP rounded to whole points,
+## at least 1 (tier C: the rounding; the shares are canonical, docs/GAME_DESIGN.md 7.16).
+func conversion_hp(st: Dictionary) -> int:
+	return maxi(1, roundi(float(_max_hp) * float(st.conversion.get("pay", 0.0))))
+
+
+## Whether a `self` cast (SkillRunner) of resolved stats `st` is admitted now: the cast block's survivor conditions hold
+## (`mp_below`: MP under that fraction of MaxMP; `hp_at_least`: HP at least that fraction of MaxHP, both before paying;
+## an absent or zero key is not checked) and a conversion's HP payment would leave the character alive.
+func self_cast_ready(st: Dictionary) -> bool:
+	var params: Dictionary = st.cast_params
+	var mp_below := float(params.get("mp_below", 0.0))
+	if mp_below > 0.0 and not _mp < float(_max_mp) * mp_below:
+		return false
+	var hp_at_least := float(params.get("hp_at_least", 0.0))
+	if hp_at_least > 0.0 and _hp < float(_max_hp) * hp_at_least - 1e-6:
+		return false
+	return (st.conversion as Dictionary).is_empty() or can_pay_hp(conversion_hp(st))
+
+
+## Pays a conversion's HP and returns the MP it gives (`gain` of the HP paid, whole points down), as player_restored
+## reports it; the MP is clamped to MaxMP. Returns 0 and changes nothing when the payment would leave 0 HP.
+func convert_hp_to_mp(key: String, st: Dictionary) -> int:
+	var paid := conversion_hp(st)
+	if not spend_hp(paid):
+		return 0
+	return restore_player("mp", floori(float(paid) * float(st.conversion.get("gain", 0.0)) + 1e-6), key)
+
+
+## Whether the character is Hidden (docs/GAME_DESIGN.md 7.18): an active buff makes monsters, bosses included, ignore
+## the character and stops its attacks. Oak Barrel (#194) and Thief Dark Sight (#167) use it.
+func is_hidden() -> bool:
+	return buffs.hidden()
+
+
+## The Morph.wz id the character is drawn as while a morphing buff is active, 0 for the plain avatar.
+func morph_id() -> int:
+	return buffs.morph()
+
+
+## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call. A buff with a
+## `fail_chance` (Oak Barrel: Skill.wz `prop`, tier A) rolls it once on the Pirate stream 16 first (every `fail_field`
+## buff draws it, so a future non-Pirate failure chance needs its own stream) and, when the cast fails, starts nothing and
+## emits `buff_failed`. Returns whether the buff started.
+func start_buff(skill: String, stats: Dictionary) -> bool:
+	if float(stats.get("fail_chance", 0.0)) > 0.0 and pirate_rng.randf() < float(stats.fail_chance):
+		emit("buff_failed", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level)})
+		return false
 	buffs.start(skill, stats)
 	_refresh_caster()
 	refresh_player_speed()
@@ -590,6 +647,7 @@ func start_buff(skill: String, stats: Dictionary) -> void:
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
 	_write_player_state(0.0)
+	return true
 
 
 ## Returns the pending events and clears the list (what the presentation does every frame).
@@ -632,12 +690,44 @@ func _step_player(dt: float, input: MoveInput) -> void:
 		drink_potion("hp")
 	if input.drink_mp:
 		drink_potion("mp")
+	_try_manual_buffs(input)
 	if not _try_teleport(input) and not _take_portal(dt, input):
 		var flags := player.step(dt, input, fhm, ladders, bounds)
 		if flags & PlayerMotion.EV_JUMP:
 			emit("player_jump", {"pos": player.pos})
 	update_view()
 	_tick_timers(dt)
+
+
+## The skill keys of the manual skills the character has learned (Key Config lists exactly these): one
+## {action, name, icon, skill} per skill key id in learning order, whatever weapon is held. The id is the skill's
+## `skill_key` and the name of its input action ("teleport", "dash"); Teleport's three job-line variants share one.
+func manual_skill_keys() -> Array:
+	var out: Array = []
+	var seen := {}
+	for key: String in loadout.order:
+		var id := skill_key_of(key)
+		if id == "" or seen.has(id):
+			continue
+		seen[id] = true
+		var d := book.def(key)
+		out.append({"action": id, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")), "skill": key})
+	return out
+
+
+## The skill key id of skill `key` ("" when it is not a manual skill).
+func skill_key_of(key: String) -> String:
+	var d: Variant = book.defs.get(key)
+	return String((d as Dictionary).get("skill_key", "")) if d is Dictionary else ""
+
+
+## Owned manual skill of skill key `id` that the held weapon can use (SkillBook.usable_with), or "".
+func manual_skill(id: String) -> String:
+	var held := held_weapon_family()
+	for key: String in loadout.order:
+		if skill_key_of(key) == id and book.usable_with(key, held):
+			return key
+	return ""
 
 
 ## Owned branch Teleport key the held weapon can use (SkillBook.usable_with), or empty before learning it or while the
@@ -682,6 +772,18 @@ func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, s
 			else SKILL_STATE_MP_WAIT if _mp_short(key) else 0
 
 
+## Pressing (or holding) the skill key of a manual buff such as Dash casts it: it needs no cooldown left, no active
+## copy, a free casting state and the MP; otherwise the press does nothing (no event, no MP spent). Teleport has
+## its own handler (_try_teleport).
+func _try_manual_buffs(input: MoveInput) -> void:
+	if input.skills_pressed.is_empty() and input.skills_held.is_empty():
+		return
+	for id: String in input.skills_pressed.keys() + input.skills_held.keys():
+		var key := manual_skill(id)
+		if key != "" and not _is_teleport(key) and book.kind(key) == "buff" and can_cast():
+			runner.cast_manual_buff(self, key)
+
+
 func _is_teleport(key: String) -> bool:
 	var d: Variant = book.defs.get(key)
 	return d is Dictionary and (d as Dictionary).has("teleport")
@@ -702,12 +804,15 @@ func _cooldown_total(key: String) -> float:
 func _mp_short(key: String) -> bool:
 	if _is_teleport(key):
 		return _teleport_left <= 1e-6 and key == teleport_skill() and not teleport_affordable()
+	if String(book.def(key).get("skill_key", "")) != "":
+		# A manual buff waits for MP whenever its key could be pressed but could not pay.
+		return _cooldown_left(key) <= 1e-6 and not buffs.has(key) and _mp < float(runner.stats_of(self, key).mp_cost)
 	return _cooldown_left(key) <= 1e-6 and runner.is_waiting_mp(key) \
 		and _mp < float(runner.stats_of(self, key).mp_cost)
 
 
 func _try_teleport(input: MoveInput) -> bool:
-	if not (input.teleport_pressed or input.teleport_held) or _teleport_left > 1e-6 or not can_cast():
+	if not input.skill_requested("teleport") or _teleport_left > 1e-6 or not can_cast():
 		return false
 	var key := teleport_skill()
 	if key == "":
@@ -749,6 +854,8 @@ func _step_monsters(dt: float) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
+	# Hidden (#194): the swarm gets no target to chase, so ground mobs patrol and flyers hover.
+	_ctx["hidden"] = is_hidden()
 	_ctx["boss_actions"] = mob_actions.view(bosses.prepare_actions(self), bosses, swarm, time)
 	_ctx["events"] = events
 	swarm.step(dt, _ctx)
@@ -921,7 +1028,7 @@ func change_job(job_id: int, path := "") -> void:
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
 	_grant_job_weapon(job_id, path)
-	_grant_job_items(job_id)
+	_grant_job_items(job_id, path)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -994,9 +1101,9 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 ## difference, while ordinary level growth passes grant_growth=false and grants nothing.
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
-	var primary := String(_job_value(pb.get("ap_stat", {}), "str"))
+	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
 	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
-	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {})
+	var secondary_cfg: Dictionary = _job_value(pb.get("ap_secondary", {}), {}, true)
 	var secondary := String(secondary_cfg.get("stat", ""))
 	if secondary == primary or not _base_stats.has(secondary):
 		secondary = ""
@@ -1043,7 +1150,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	player_pdd = loadout.player_stat("pdd", equipment_bonus("incPDD")) + loadout.passive_total("pdd")
 	player_mdd = loadout.player_stat("mdd", equipment_bonus("incMDD")) + loadout.passive_total("mdd")
 	player_avoid = loadout.player_stat("avoid", float(_attributes.dex) * AVOID_DEX_FACTOR
-		+ float(_attributes.luk) * AVOID_LUK_FACTOR + equipment_bonus("incEVA"))
+		+ float(_attributes.luk) * AVOID_LUK_FACTOR + equipment_bonus("incEVA")) + loadout.passive_total("avoid")
 	_refresh_caster()
 	_write_player_state(0.0)
 
@@ -1099,7 +1206,7 @@ func attack_speed_boost() -> int:
 ## capped at the v83 123, Equipment.JUMP_CAP).
 func refresh_player_speed() -> void:
 	player.speed_stat = roundi(player_speed_stat())
-	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump))
+	player.jump_stat = mini(Equipment.JUMP_CAP, 100 + roundi(_equipment_jump + buffs.effect_total("jump")))
 
 
 ## Index of a WZ path in visual_paths (registered on first use); -1 for "".
@@ -1177,18 +1284,48 @@ func skill_box_count(box: Rect2, limit: int, filter: Callable = Callable(),
 	return _skill_box_matches(box, filter, limit, 0, kinds_ok, facing).size()
 
 
+## Up to `limit` live bodies intersecting `rect` (world coordinates, skill_box_targets' edge rules), scheduled bosses
+## first, then nearest to `from`, then slot (targets_before). A charge's swept path (7.13).
+func skill_rect_targets(rect: Rect2, from: Vector2, limit: int) -> PackedInt32Array:
+	var matches := _world_rect_matches(rect, Callable(), 0)
+	var d2 := {}
+	for m: int in matches:
+		d2[m] = mob_center(m).distance_squared_to(from)
+	matches.sort_custom(func(a: int, b: int) -> bool: return targets_before(a, d2[a], b, d2[b]))
+	if limit > 0 and matches.size() > limit:
+		matches.resize(limit)
+	return PackedInt32Array(matches)
+
+
+## Moves the grounded player up to `distance` px toward `side` (-1 / 1) along its platform for a moving attack, stopping
+## at the platform's edge and at walls (PlayerMotion.displace). Never fails: returns the px actually covered (0 while
+## airborne or climbing, or when blocked), and the spent cast stands either way. The view follows on the next tick.
+func displace_player(side: int, distance: float) -> float:
+	return player.displace(side, distance, fhm, bounds)
+
+
 ## The live bodies of skill_box_targets in candidate order (unsorted), stopping at `limit` matches (0 = all), among
 ## the first `probe` grid candidates (0 = all; _box_candidates says how many the query gave), of the kinds `kinds_ok`
 ## allows (empty = any).
 func _skill_box_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0,
 		kinds_ok: PackedByteArray = PackedByteArray(), facing := 0) -> Array[int]:
+	if not box.has_area():
+		_box_candidates = 0
+		return []
+	if (facing if facing != 0 else player.facing) > 0:
+		box.position.x = -box.end.x
+	box.position += player.pos
+	return _world_rect_matches(box, filter, limit, probe, kinds_ok)
+
+
+## The live bodies intersecting a rect in world coordinates, with _skill_box_matches' edge rules, filter, limit, probe
+## and kinds_ok (candidate order, unsorted).
+func _world_rect_matches(box: Rect2, filter: Callable, limit: int, probe: int = 0,
+		kinds_ok: PackedByteArray = PackedByteArray()) -> Array[int]:
 	var matches: Array[int] = []
 	_box_candidates = 0
 	if not box.has_area():
 		return matches
-	if (facing if facing != 0 else player.facing) > 0:
-		box.position.x = -box.end.x
-	box.position += player.pos
 	var candidates := PackedInt32Array()
 	var n := mob_grid.query_rect(box.grow(body_pad), candidates, probe)
 	_box_candidates = n
@@ -1535,10 +1672,13 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 
 
 ## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
-## tab, after whatever the weapon grant displaced; an item the full tab has no room for lies at the player's feet as a
+## tab, followed by the chosen path's optional extra_items (#186), after whatever the weapon grant displaced;
+## an item the full tab has no room for lies at the player's feet as a
 ## normal equipment pickup, so advancing never fails. A grant never checks requirements.
-func _grant_job_items(job_id: int) -> void:
-	var items: Variant = jobs.job(job_id).get("grants", {}).get("items", [])
+func _grant_job_items(job_id: int, path := "") -> void:
+	var items: Array = jobs.job(job_id).get("grants", {}).get("items", []).duplicate()
+	# tier B: Kyrin gives both Pirate weapons. Path extras follow the same overflow rule as grants.items.
+	items.append_array(jobs.path_of(job_id, path).get("extra_items", []))
 	for raw: Variant in items if items is Array else []:
 		_hand_over(int(raw))
 
@@ -1987,6 +2127,18 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
+	_end_buffs_above_hp()
+
+
+## Ends the buffs whose `end_hp_above` fraction the character's HP has passed (Oak Barrel's barrel once HP is back above
+## 60%, #194). Runs after every HP change of the tick (potions, buff pulses, regeneration).
+func _end_buffs_above_hp() -> void:
+	if not buffs.ends_on_hp():
+		return
+	for skill: String in buffs.active.keys():
+		var above := float(buffs.active[skill].get("end_hp_above", 0.0))
+		if above > 0.0 and _hp > float(_max_hp) * above:
+			buffs.end(skill, events)
 
 
 func _sync_slots() -> void:
@@ -2137,7 +2289,8 @@ func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictiona
 
 
 func _touch() -> void:
-	if _dead or god or upkeep.invincible_t > 0.0:
+	# Hidden (#194): walking into a monster deals no contact damage.
+	if _dead or god or upkeep.invincible_t > 0.0 or is_hidden():
 		return
 	var box := player_box()
 	var c := box.get_center()
@@ -2201,7 +2354,8 @@ func _window_blocks(bypass: bool) -> bool:
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
-	if _dead or god or _window_blocks(bypass):
+	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
+	if _dead or god or _window_blocks(bypass) or is_hidden():
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2313,11 +2467,15 @@ func _level_ranks(level: int) -> void:
 			loadout.set_rank(key, want)
 
 
-## The entry of a per-job table (keys = job ids as strings) for the current job, else its nearest ancestor's.
-func _job_value(table: Variant, fallback: Variant) -> Variant:
+## The current job's table entry, else its nearest ancestor's. AP tables optionally check "<job>:<weapon_path>"
+## before that job's plain key; a branch's own row therefore wins over its first-job path's row.
+func _job_value(table: Variant, fallback: Variant, by_path := false) -> Variant:
 	if not (table is Dictionary):
 		return fallback
 	for j in jobs.lineage(progression.job_id):
+		var path_key := "%d:%s" % [j, weapon_path]
+		if by_path and weapon_path != "" and table.has(path_key):
+			return table[path_key]
 		if table.has(str(j)):
 			return table[str(j)]
 	return table.get("0", fallback)
@@ -2363,6 +2521,8 @@ func _write_player_state(dt: float) -> void:
 	player_state["mp"] = floori(_mp)
 	player_state["mp_short"] = runner.waiting_mp
 	player_state["buffs"] = buffs.snapshot()
+	player_state["hidden"] = is_hidden()
+	player_state["morph"] = 0 if _dead else morph_id()
 	player_state["max_hp"] = _max_hp
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp

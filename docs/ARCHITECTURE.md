@@ -174,7 +174,7 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `MapBounds` | Camera/world limits | `static from_map(map_img, fhm) -> Rect2`: `info/VR*` if present, else `miniMap` rect, else foothold bbox (top -300, bottom +100) |
 | `LadderSet` | Ladders and ropes | `static from_wz(map_img)`, `static from_list(list)`, `find_grab(x, y, reach) -> int`, arrays `x y1 y2 is_ladder uf page` |
 | `PortalSet` | Same-map portal links and activation | `static from_wz(map_img, map_id, tuning)`, `step(dt, feet, up) -> Dictionary` (warp or `{}`), `static start_point(map_img, fhm, bounds, rng)` (a random `sp` portal dropped to the floor, else the widest platform's middle); `links` rows `{name, target, pos, target_pos}` use canonical portal points |
-| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp teleport_pressed teleport_held` (drink/teleport_pressed flags are presses; teleport_held requests delayed repeats) |
+| `MoveInput` | One tick of player intent | `left right up down jump_pressed jump_held drink_hp drink_mp skills_pressed skills_held` (drink flags and `skills_pressed` are presses; `skills_held` requests repeats; both are skill-key id -> true maps, set with `press_skill(id)` / `hold_skill(id)`, read with `skill_pressed(id)` / `skill_held(id)` / `skill_requested(id)`; ids are the manual skills' `skill_key`, "teleport" and "dash") |
 | `PlayerMotion` | Player movement per Physics.img | `_init(constants)`, `place(pos, fhm)`, `teleport_destination(direction, distance, fhm, bounds) -> Dictionary`, `step(dt, input, fhm, ladders, bounds) -> int` (event flags), `knockback(dir)`, fields `pos vel fh ladder facing state speed_stat jump_stat`, `stance() -> String` |
 | `NavGraph` | Platform graph for mob pathing | `static build(fhm, opts)`, `route(from_p, to_p) -> int` (edge index, fewest edges), `edge(e) -> Dictionary` (`kind` drop/jump, `from_p`, `to_p`, `x_from`, `x_to`), `reachable(a, b)`; travel-cost field toward a point: `prepare_target(to_p, tx, also_p := -1)`, then `route_cost(p, x) -> float` (px, INF = no way), `best_edge(p, x) -> int`, arrays `cost`, `take` (per edge) |
 | `MobKind` | One mob type: canonical WZ stats + survivor overrides + animation timing needed by the sim | `static from_wz(mob_img, id, overrides)`, fields `id name level max_hp exp pad pdd mad mdd speed_stat fly_speed_stat move_speed can_jump flies hitbox die_time hit_time pushed body_attack boss elem_attr` |
@@ -308,11 +308,12 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
-| `buff_expired` | `skill`, `skill_id`; once when an active timer expires; a run ending first need not emit expiry |
+| `buff_expired` | `skill`, `skill_id`; once when an active timer expires (or a buff ends early: Oak Barrel above its `end_hp_above`); a run ending first need not emit expiry |
+| `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, MP and cooldown were paid, the accompanying `cast` event has `effect` `""` |
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
-| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`), `duration` (float canonical seconds); reapplication emits again and refreshes |
+| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`, `stun`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
@@ -327,6 +328,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
+| `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. The sim strikes the mobs when it lands (`mob_hit` events then); `RunScene` loops the ball along a short arc and plays `burst` at `to` on arrival |
 | `level_up` | `level` |
 | `job_advance_pending` | `options`: `[{job_id, name, available, reason}]`, plus `path` on a first job listed per weapon path (#157) |
 | `job_changed` | `job_id`, `name` |
@@ -467,23 +469,24 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
-and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, `THREATENED`
-(Page Threaten, #183), plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
+`THREATENED = 3` (Page Threaten, #183) and `STUN = 4` (#187), `STATUS_COUNT = 5`, plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
 `threatened_pad`/`threatened_pdd`, applied in `RunWorld._player_hit`, `MobAttacks._impact`, `RunWorld.mob_defense` and the
 bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
 the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
 `prop`, so it draws no random number and RNG stream 13, reserved for spec #165, stays unused. `status_time(slot, status)` reads a timer. The shared entry
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
 `time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
-the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Bosses, and kinds whose Mob.wz digit for
-the element is 1, 2 or 4 (`MobKind.resists_status`), reject it. `step` receives the current event list in
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Stun ignores even a supplied element;
+bosses reject every status. Other statuses fail when the Mob.wz element digit is 1, 2 or 4 (`MobKind.resists_status`). `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
-`has_statuses()` lets presentation skip status work. `can_act(slot)` (settled and not frozen) gates monster touch
+`has_statuses()` lets presentation skip status work. `can_act(slot)` (settled, not frozen or stunned) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison/Threaten art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
-falls and a fading-in one keeps fading in.
+Slow/Poison/Threaten/Stun art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
+and fall straight down when airborne; a refresh keeps the longer remaining duration.
 
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
 for absent elements. `undead` exposes the canonical flag. `Loadout.stats().element` comes from Skill.wz `elemAttr`;
@@ -491,6 +494,16 @@ shots retain it in a packed string array. Instant and projectile hits share `Pro
 element multiplier, including zero immunity before the normal minimum-one clamp.
 
 ### 4.4.4 Survivor data files (`game/data/survivor/`)
+
+Pirate tracer (#186) additive fields: first-job `jobs.paths[].extra_items` is an optional array of item ids, appended
+after `grants.items` to the Equip tab after the worn weapon grant; overflow becomes ordinary ground pickups.
+`balance.player.ap_stat` and `ap_secondary` accept `"<job>:<weapon_path>"` keys. At each lineage step the path key is
+checked before the plain job key, so a branch's own AP row wins over its first-job ancestor's path row. The path is
+the recorded advancement choice, independent of later weapon swaps. Other per-job tables retain plain-job lookup.
+`Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
+survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
+player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
+13 belongs to Threaten (no v83 prop, so unused); 14-15 remain reserved for Bowman and Thief. Existing stream initialization and draws are unchanged.
 
 | File | Contents |
 |---|---|
@@ -600,8 +613,14 @@ What the tables above leave open; the class doc comments have the rest.
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
   level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
   The run's starting skill emits `skill_learned` before the first `step()`.
+- **Hidden and morph (#194, GAME_DESIGN 7.18):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
+  `RunWorld.is_hidden()` true; `player_state.hidden` and `player_state.morph` (the Morph.wz id of the first morphing
+  buff, 0 for the plain avatar, always 0 once dead) feed the presentation. Mobs, bosses, mob skills and balls read
+  `is_hidden()` (MobSwarm `ctx.hidden`, MobAttacks, MobProjectileSystem, MobSkillRunner, BossDirector, SpawnDirector,
+  `take_hit`, `_touch`), the player's attacks read it too (SkillRunner, BasicAttack). `RunScene` passes `morph` to
+  `AvatarRenderer.set_morph`.
 - **Player buffs:** `player_state.buffs` is an array of `{skill, skill_id, level, icon, remaining, duration,
-  effect_stat, value}`. Duration/effect are snapshotted from canonical `time` and `x`/`pdd` at cast level; upgrading a
+  effect_stat, value}` (plus `hidden`, `morph`, `end_hp_above` since #194). Duration/effect are snapshotted from canonical `time` and `x`/`pdd` at cast level; upgrading a
   rank affects the next cast. `skills.json` kind `buff` keeps its passive slot but joins SkillRunner's oldest-ready
   cast ordering, pays canonical `mpCon`, and casts without a target only while inactive. Buff timers advance before
   casting each tick, including on ropes. `fired_this_tick` covers buffs and keeps basic attacks out of that tick.
@@ -674,6 +693,10 @@ What the tables above leave open; the class doc comments have the rest.
   (the first basic-attack stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
   `hpCon`) is paid with the MP: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
   `RunWorld.spend_hp` pays it.
+- **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
+  `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
+  cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
+  `player_restored`. `cooldown_field` reads a skill's cooldown from a canonical level field. GAME_DESIGN 7.16.
 - **Weapon paths and grants (#157).** `RunWorld.apply_job(id, path)` / `change_job(id, path)` record `weapon_path`
   (snapshot key, written only when set) and `_grant_job_weapon` wears the weapon the path, the Magician's
   `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names (the weapon of the held family, else the first family's; the branch's other advancement weapons are handed over like `grants.items`, #165 #180); the previous weapon goes to the Equip
@@ -786,7 +809,7 @@ score setting. Both knobs are tier C survivor tuning.
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
-| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. |
+| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img` for the matching action. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. |
 | `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |

@@ -360,7 +360,7 @@ func _teleporter(families: Array) -> RunWorld:
 func _blink(w: RunWorld) -> bool:
 	var x0 := w.player.pos.x
 	var press := MoveInput.new()
-	press.teleport_pressed = true
+	press.press_skill("teleport")
 	press.right = true
 	w.step(DT, press)
 	return absf(w.player.pos.x - x0) > 100.0

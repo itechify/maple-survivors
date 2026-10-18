@@ -3,13 +3,16 @@ extends SceneTree
 ## ISOLATE=t67 bash scripts/test.sh character_snapshot # prepares the isolated project, then:
 ## ISOLATE=t67 bash scripts/godot.sh --headless --path _scratch/godot_runs/t67/game
 ##   --script res://tools/character_fixture.gd -- --out=<absolute JSON path> --revision=<git SHA>
-## `--god=1` (spec #165 #185, the second-job Warrior fixtures) keeps the character alive by setting RunWorld.god: a Warrior bot
-## dies at the first boss around Lv 12 and never reaches the Lv 30 advancement on its own. The round is otherwise the same real
-## bot round (cards, jobs, drops, equipment) and `_doc.invulnerable` records it. Use it with `--seconds=<s>`.
 ## `--label=<ticket>` (the _doc.branch provenance; default spec32/ticket-67, the Lv38 F/P fixture; lv11_warrior_1st.json says
 ## spec151/ticket-163), `--job=<id>` (default 210), `--seed=<n>` (default 1) and `--seconds=<s>` pick the forced job, the seed and a time cap:
 ## with a cap the round stops there (a low-level fixture such as lv20_warrior_1st.json: `--job=100 --seconds=600`) and only
 ## has to be alive and warning-free; without one the round must clear.
+## `--job=<id>[:<path>]` also names a weapon path (`--job=520:gun`, as for balance.sh). `--god` is a documented diagnostic
+## aid (spec #165 #185 and spec #168 #195): RunWorld.god makes the character invulnerable, so the bot can reach a level its play does not
+## survive to (Warrior and Pirate second-job fixtures). Use it with `--seconds`, and the
+## fixture's _doc records it (`invulnerable` and `diagnostic`). `--exp-mult=<k>` is a second aid: it multiplies the round's EXP (balance
+## `exp_mult`) for a line the bot cannot level at its natural pace (the knuckle Pirate: its damage cannot beat the second
+## boss), and is recorded in the _doc as well.
 ## Only numeric character state/IDs/skill keys and provenance are written; never cache trees or decoded assets.
 ## The snapshot written is the current CharacterSnapshot format (2: worn equipment, inventory, scrolls, mesos).
 ##
@@ -26,9 +29,10 @@ func _init() -> void:
 	var revision := ""
 	var migrate := ""
 	var job := 210
+	var god := false
+	var exp_mult := 1.0
 	var seconds := 0.0
 	var seed_value := 1
-	var god := false
 	var label := "spec32/ticket-67"
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
@@ -38,15 +42,19 @@ func _init() -> void:
 		elif arg.begins_with("--migrate="):
 			migrate = arg.substr(10)
 		elif arg.begins_with("--job="):
-			job = int(arg.substr(6))
+			var forced := JobTree.parse_forced(arg.substr(6))
+			job = int(forced.job)
+			HARNESS.forced_path = String(forced.path)
+		elif arg == "--god":
+			god = true
+		elif arg.begins_with("--exp-mult="):
+			exp_mult = float(arg.substr(11))
 		elif arg.begins_with("--seconds="):
 			seconds = float(arg.substr(10))
 		elif arg.begins_with("--label="):
 			label = arg.substr(8)
 		elif arg.begins_with("--seed="):
 			seed_value = int(arg.substr(7))
-		elif arg == "--god=1":
-			god = true
 	if output != "" and migrate != "":
 		_migrate(migrate, output)
 		return
@@ -68,10 +76,11 @@ func _init() -> void:
 		quit(1)
 		return
 	var world := RunWorld.new(setup)
+	world.god = god
+	world.balance["exp_mult"] = float(world.balance.get("exp_mult", 1.0)) * exp_mult
 	if seconds > 0.0:
 		# A capped fixture (--seconds): the round stops at the cap, so the character is still low level.
 		world.balance["run_time_cap"] = seconds
-	world.god = god
 	var record := HARNESS.run_one(world, "bot", seed_value, -1.0, 60.0, job)
 	print("FIXTURE_RUN " + JSON.stringify(record))
 	var finished := world.state == RunWorld.CLEARED if seconds <= 0.0 else world.state != RunWorld.DEAD
@@ -87,10 +96,15 @@ func _init() -> void:
 		"branch": label, "revision": revision,
 		"outcome": record.state, "round_seconds": record.time,
 		"rounding": "floating character fields rounded to six decimal places"}
+	if HARNESS.forced_path != "":
+		character._doc["forced_path"] = HARNESS.forced_path
 	if god:
-		# RunWorld.god for the whole round (see the header)
 		character._doc["invulnerable"] = true
-		character._doc["source"] = "real headless Henesys bot round with the character invulnerable (RunWorld.god), stopped at the %d s cap" % int(seconds)
+		character._doc["source"] = "real headless Henesys bot round with the character invulnerable (RunWorld.god)" + (", stopped at the %d s cap" % int(seconds) if seconds > 0.0 else ", all bosses/reward choices completed")
+		character._doc["diagnostic"] = "invulnerable (RunWorld.god = true; fixture tool --god): the bot plays with damage ignored to reach second job for diagnostic fixtures"
+	if exp_mult != 1.0:
+		character._doc["exp_mult"] = exp_mult
+		character._doc["diagnostic_exp"] = "balance exp_mult x%s (fixture tool --exp-mult): the knuckle bot cannot beat the second boss, so it levels too slowly to reach Lv 30 by itself" % str(exp_mult)
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)

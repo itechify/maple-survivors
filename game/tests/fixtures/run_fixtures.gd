@@ -132,6 +132,96 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# #186: original v83 endpoints, synthetic linear interpolation between them. No proprietary art.
+	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
+	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
+			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:
+		var levels := _levels(20, {"mpCon": [float(entry[1]), float(entry[2])],
+			"damage": [float(entry[3]), float(entry[4])], "mobCount": [float(entry[5]), float(entry[6])]})
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": entry[7]}
+			node.rb = {"$v": entry[8]}
+		pirate[entry[0]] = {"level": levels}
+	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
+		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
+	# #188: Dash 5001005's real levels 1-10 as [mpCon, x (speed), y (jump), time] (Skill.wz/500.img).
+	var dash_levels := {}
+	var dash_rows := [[14, 12, 1, 4], [13, 14, 2, 4], [12, 16, 3, 8], [11, 18, 4, 8], [10, 20, 5, 12], [9, 22, 6, 12],
+		[8, 24, 7, 16], [7, 26, 8, 16], [6, 28, 9, 20], [5, 30, 10, 20]]
+	for i in dash_rows.size():
+		var row: Array = dash_rows[i]
+		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
+	pirate["5001005"] = {"level": dash_levels}
+	imgs["500"] = {"skill": pirate}
+	# #189: the Brawler's and Gunslinger's passives and boosters, original v83 values (Skill.wz/510.img, 520.img): Improve
+	# MaxHP x 3..30; masteries N = ceil(level / 2) and x = level (Gun Mastery also has y = 10 * level, unused here);
+	# boosters x -2, time 10..200 s, hpCon and mpCon 29..10.
+	var mastery := func(with_y: bool) -> Dictionary:
+		var levels := _levels(20, {"x": [1.0, 20.0]})
+		for lv in range(1, 21):
+			levels[str(lv)].mastery = float(ceili(lv / 2.0))
+			if with_y:
+				levels[str(lv)].y = float(10 * lv)
+		return levels
+	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
+		"x": [-2.0, -2.0]})
+	# #191: the Brawler's attacks, original v83 tables (Skill.wz/510.img 5101002-5101004): the stepwise mpCon pairs/fives/fours,
+	# Backspin's box (0,-50)..(140,0) behind the facing, Double Uppercut's string-typed attackCount/time without a box, and
+	# Corkscrew's reach lt.x -100..-200 (two levels per 10 px, then 190 and 200).
+	var backspin_levels := {}
+	var uppercut_levels := {}
+	var corkscrew_levels := {}
+	for lv in range(1, 21):
+		backspin_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 12.0 + 2.0 * floorf((lv - 1) / 2.0), "damage": 80.0 + 8.0 * lv,
+			"time": 1.0, "lt": {"$v": [0.0, -50.0]}, "rb": {"$v": [140.0, 0.0]}, "mobCount": 3.0}
+		uppercut_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 15.0 + 5.0 * floorf((lv - 1) / 5.0), "damage": 90.0 + 10.0 * lv,
+			"attackCount": "2", "time": "1"}
+		var reach := 200.0 if lv == 20 else 100.0 + 10.0 * floorf((lv - 1) / 2.0)
+		corkscrew_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 20.0 + 4.0 * floorf((lv - 1) / 4.0), "damage": 120.0 + 15.0 * lv,
+			"mobCount": 3.0, "lt": {"$v": [-reach, -50.0]}, "rb": {"$v": [0.0, 0.0]}}
+	imgs["510"] = {"skill": {
+		# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+		"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0], "cooltime": [70.0, 25.0]})},
+		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
+		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
+		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)},
+		"5101002": {"icon": _canvas(32, 32), "action": {"0": "backspin"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18), "level": backspin_levels},
+		"5101003": {"icon": _canvas(32, 32), "action": {"0": "doubleupper"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40), "1": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18),
+			"level": uppercut_levels},
+		"5101004": {"icon": _canvas(32, 32), "action": {"0": "screw"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "level": corkscrew_levels}}}
+	imgs["520"] = {"skill": {
+		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
+		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	# #192: the Gunslinger attacks, original v83 endpoints (Skill.wz/520.img), linear between: Invisible Shot 5201001 (mpCon
+	# 10-25, damage 75-170, 3 mobs, box (-250,-80)..(-10,40)), Grenade 5201002 (mpCon 15-27, damage 45-140, mobCount 3-6,
+	# blast box (-50,-50)..(50,20)), Blank Shot 5201004 (mpCon 10-25, damage 63-120, prop 43-100, time 1-4, box
+	# (-250,-80)..(-20,30)) and Recoil Shot 5201006 (mpCon 14-26, damage 70-260, recoil range 115-250). The gun ones carry
+	# the WZ weapon code 49.
+	var boxed := func(fields: Dictionary, lt: Array, rb: Array) -> Dictionary:
+		var levels := _levels(20, fields)
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": lt}
+			node.rb = {"$v": rb}
+		return levels
+	imgs["520"].skill["5201001"] = {"weapon": 49, "icon": _canvas(32, 32), "hit": {"0": _anim(4, 60.0, 50, 50)},
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [75.0, 170.0], "mobCount": [3.0, 3.0]}, [-250, -80], [-10, 40])}
+	imgs["520"].skill["5201002"] = {"icon": _canvas(32, 32), "ball": _anim(8, 30.0, 31, 31), "special": _anim(4, 120.0, 100, 80),
+		"hit": {"0": _anim(4, 120.0, 50, 50)},
+		"level": boxed.call({"mpCon": [15.0, 27.0], "damage": [45.0, 140.0], "mobCount": [3.0, 6.0]}, [-50, -50], [50, 20])}
+	imgs["520"].skill["5201004"] = {"weapon": 49, "action": {"0": "fake"}, "icon": _canvas(32, 32),
+		"hit": {"0": _anim(4, 120.0, 50, 50)}, "effect": _anim(4, 90.0, 60, 40),
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [63.0, 120.0], "prop": [43.0, 100.0], "time": [1.0, 4.0],
+			"mobCount": [3.0, 3.0]}, [-250, -80], [-20, 30])}
+	imgs["520"].skill["5201006"] = {"weapon": 49, "action": {"0": "backstep"}, "icon": _canvas(32, 32),
+		"effect": _anim(4, 120.0, 100, 100),
+		"level": _levels(20, {"mpCon": [14.0, 26.0], "damage": [70.0, 260.0], "range": [115.0, 250.0]})}
+	# #194: Oak Barrel 5101007, the v83 level values; the other second-job skills of the line add their own entries.
+	imgs["510"].skill["5101007"] = oak_barrel_skill()
 	# Warrior second job (spec #165): one block per ticket, in ticket order.
 	for book: String in ["110", "120", "130"]:
 		imgs[book] = {"skill": {}}
@@ -157,6 +247,20 @@ static func skill_imgs() -> Dictionary:
 	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
 		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
 	return imgs
+
+
+## Skill.wz/510.img/skill/5101007 (Oak Barrel): the v83 level values (tier A, read from the owner's files), synthetic art.
+static func oak_barrel_skill() -> Dictionary:
+	var mp := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+	var time := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+	var prop := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
+	var cooltime := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
+	var levels := {}
+	for i in 10:
+		levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": float(mp[i]), "time": float(time[i]),
+			"prop": float(prop[i]), "cooltime": float(cooltime[i]), "morph": 1002.0}
+	return {"icon": _canvas(32, 32), "effect": _anim(10, 90.0, 60, 80), "affected": _anim(5, 150.0, 100, 90),
+		"level": levels}
 
 
 ## Spec #165 ticket #181: the Warrior second-job Masteries, Final Attacks and Boosters (books 110, 120, 130). The level

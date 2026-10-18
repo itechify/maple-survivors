@@ -198,6 +198,7 @@ func load_settings() -> void:
 					keys.append(int(k))
 				bindings[action] = keys
 	_yield_defaults()
+	_yield_skill_keys()
 
 
 ## A key held by a rebound action leaves every action that was never rebound (a key holds one action), so a settings
@@ -221,6 +222,35 @@ func _yield_defaults() -> void:
 				kept.append(k)
 		if kept.size() != defaults.size():
 			bindings[a] = kept
+
+
+## A skill key (KeyBindings.SKILL_KEYS) yields to every other rebound action that holds the same key, so a file with one
+## key on Dash and on jump loads with it on jump only.
+func _yield_skill_keys() -> void:
+	var held := PackedInt32Array()
+	for action: String in bindings:
+		if not (action in KeyBindings.SKILL_KEYS):
+			held.append_array(bindings[action])
+	_free_skill_keys(held, [])
+
+
+## Takes the keys in `held` (those of non-skill actions) off every skill key (KeyBindings.SKILL_KEYS, learned or not:
+## Key Config lists only the learned ones) except those named in `except`; a stripped skill key is stored as a binding.
+## This keeps "a key holds one action" for the skill keys the Key Config window never shows. Skill keys do not take keys
+## from each other: Teleport and Dash both default to X because a character learns only one of them.
+func _free_skill_keys(held: PackedInt32Array, except: Array) -> void:
+	if held.is_empty():
+		return
+	for id: String in KeyBindings.SKILL_KEYS:
+		if id in except:
+			continue
+		var keys := PackedInt32Array(bindings.get(id, default_keys(id)))
+		var kept := PackedInt32Array()
+		for k in keys:
+			if not (k in held):
+				kept.append(k)
+		if kept.size() != keys.size():
+			bindings[id] = kept
 
 
 ## Writes only the keys that differ from the defaults, merged into the existing file (other sections are kept).
@@ -362,6 +392,11 @@ func set_bindings(map: Dictionary) -> void:
 			_restore_default(action)
 		else:
 			bindings[action] = keys
+	var held := PackedInt32Array()
+	for action: String in map:
+		if not (action in KeyBindings.SKILL_KEYS): # skill keys may share a key: a character learns one of them only
+			held.append_array(PackedInt32Array(map[action]))
+	_free_skill_keys(held, map.keys()) # the skill keys this call does not list lose any key it binds
 	apply_bindings()
 	save_settings()
 	changed.emit()

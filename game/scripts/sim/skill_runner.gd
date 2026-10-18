@@ -10,8 +10,16 @@ extends RefCounted
 ##   `box`, `weapon_reach` (the held weapon's swing envelope, Warrior Power Strike) and `range_around` (the level's
 ##   `range` around the body, Slash Blast) rules strike `mob_count` targets instead, and the last two turn a standing
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
+## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.13) also moves the grounded character away
+## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.20) throws at once at the nearest cluster of mobs within its throw range; the blast
+## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
+## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.16) needs no monster: it casts when its survivor conditions
+## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
-## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
+## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
+## Hidden (docs/GAME_DESIGN.md 7.18) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
 ## stay out of the ready list while active, and use their canonical duration as the next readiness time.
@@ -22,6 +30,14 @@ const REUSE_SPREAD := 8.0
 ## Grid candidates _any_target checks before it reads the whole query. Performance only, not behaviour (no tier):
 ## the answer is the same for any value.
 const ANY_PROBE := 8
+## Candidate targets the cluster rule weighs (the nearest within the throw range, bosses first). tier C: ours (#192).
+const CLUSTER_CANDIDATES := 12
+## _buff_admission verdicts.
+const BUFF_REFUSED := 0
+const BUFF_ADMITTED := 1
+const BUFF_FALLS_THROUGH := -1
+## Shortest flight of a thrown grenade in seconds, so a point-blank throw still lands after the ball is seen. tier C: ours (#192).
+const MIN_FLIGHT := 0.1
 ## What a skill's `count` is, by its kind (count_meaning): SHOTS (projectiles fired per cast) for a projectile, else
 ## TARGETS (mobs struck). Card previews, Skill window tooltips and the level-up window name `count` effects by this.
 const SHOTS := "shots"
@@ -45,6 +61,8 @@ var _tgt_d := PackedFloat64Array()
 var _shortages := {}
 var _undead := PackedByteArray()
 var _slow_serial := 0
+## Grenades in flight: {left seconds, st (resolved stats at the cast), landing (blast anchor), aim}.
+var _flights: Array[Dictionary] = []
 
 
 func _init() -> void:
@@ -59,13 +77,18 @@ static func count_meaning(kind: String) -> String:
 ## How many shots or targets one cast of resolved stats `st` (Loadout.stats) reaches: box and crowd skills strike
 ## their mob_count (canonical mobCount plus count cards), the others `count`.
 static func strike_count(st: Dictionary) -> int:
-	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around"] else int(st.count)
+	return int(st.mob_count) if String(st.cast_rule) in ["box", "crowd", "weapon_reach", "range_around", "cluster"] \
+		else int(st.count)
 
 
 ## Seconds a cast of resolved stats `st` waits before the skill is ready again: a buff its duration or its canonical
-## buff cooldown, whichever is longer; any other skill its cooldown (cast_ready adds the tick's overshoot to it).
+## buff cooldown, whichever is longer (a `cooldown_from_cast` buff, Oak Barrel, exactly its canonical cooldown: it can
+## end early, and the active buff alone blocks a recast); any other skill its cooldown (cast_ready adds the tick's
+## overshoot to it).
 static func restart_cooldown(st: Dictionary) -> float:
 	if String(st.kind) == "buff":
+		if bool(st.get("cooldown_from_cast", false)):
+			return float(st.buff_cooldown)
 		return maxf(float(st.duration), float(st.buff_cooldown))
 	return float(st.cooldown)
 
@@ -79,7 +102,7 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
 	match String(st.cast_rule):
-		"", "nearest", "range_around":
+		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
 		"weapon_reach":
 			return maxf(world.basic.reach(world), 0.0)
@@ -117,10 +140,18 @@ func step(dt: float, world: RunWorld) -> void:
 		cast_ready(dt, world)
 
 
+## Whether resolved stats `st` are an attack the Hidden state pauses: an active skill that is not a buff, not manual and
+## deals damage.
+static func is_attack(st: Dictionary) -> bool:
+	return String(st.kind) != "buff" and String(st.cast_rule) != "manual" and String(st.damage_type) != "none"
+
+
 ## Counts down every active skill, including while casting is blocked.
 func tick_cooldowns(dt: float, world: RunWorld) -> void:
 	fired_this_tick = false
 	waiting_mp = false
+	if not _flights.is_empty():
+		_land_flights(dt, world)
 	for key: String in world.loadout.order:
 		if world.loadout.book.is_active(key):
 			cooldowns[key] = float(cooldowns.get(key, 0.0)) - dt
@@ -131,8 +162,13 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
 	var held := world.held_weapon_family()
+	var hidden := world.is_hidden()
 	for key: String in lo.order:
 		if not lo.book.is_active(key):
+			continue
+		if hidden and is_attack(stats_of(world, key)):
+			# Hidden (#194): the character cannot attack; the skill keeps its cooldown and resumes when Hidden ends.
+			_shortages.erase(key)
 			continue
 		if not lo.book.usable_with(key, held):
 			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
@@ -177,6 +213,26 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		break
 
 
+## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
+## the buff is not already running, its cooldown is over and its MP and HP can be paid. Same cast as an auto-cast buff
+## (cooldown = its duration, `buff_cast` then `cast` events), minus the target scan.
+func cast_manual_buff(world: RunWorld, key: String) -> bool:
+	if not world.can_cast() or not world.loadout.book.is_active(key) or not world.loadout.book.usable_with(key,
+			world.held_weapon_family()):
+		return false
+	var st := stats_of(world, key)
+	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
+			or not world.mp_affordable(int(st.mp_cost)) or not world.can_pay_hp(int(st.hp_cost)):
+		return false
+	world.spend_mp(int(st.mp_cost))
+	world.spend_hp(int(st.hp_cost))
+	_shortages.erase(key)
+	cooldowns[key] = restart_cooldown(st)
+	cooldown_totals[key] = cooldowns[key]
+	_resolve_cast(world, key, st, world.cast_origin(), {})
+	return true
+
+
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
 ## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them. cast_ready uses it while the skill is short of MP, when the targets themselves are never used.
@@ -186,8 +242,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			if String(st.kind) == "buff":
 				if not world.can_start_buff(key, st):
 					return false
-				if float(st.duration) > 0.0:
-					return true
+				var admitted := _buff_admission(world, st, origin)
+				if admitted != BUFF_FALLS_THROUGH:
+					return admitted == BUFF_ADMITTED
 			return _any_target(world, origin, float(st.range), int(st.count))
 		"box":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
@@ -203,11 +260,16 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
 			return _any_target(world, origin, float(st.range), strike_count(st))
+		"cluster":
+			return bool(st.has_box) and _any_target(world, origin, float(st.range), 1)
+		"self":
+			return world.self_cast_ready(st)
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
 				return true
-			if not bool(st.has_box):
+			# Hidden (#194): the undead strike is an attack, so only the healing admits the cast.
+			if not bool(st.has_box) or world.is_hidden():
 				return false
 			# The undead filter of _admit_hp_or_undead as a mask over mob kinds (no Callable per body).
 			var kinds: Array = world.swarm.kinds
@@ -232,19 +294,33 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_weapon_reach(world)
 		"range_around":
 			return _admit_range_around(world, st, origin)
+		"cluster":
+			return _admit_cluster(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
+		"self":
+			return {"go": true}
 		"manual":
 			return {}
 	return {}
+
+
+## The nearest rule's verdict on a buff that can start: BUFF_ADMITTED or BUFF_REFUSED when the cast block names `mob_within`
+## (a living mob in reach is needed) or the buff is timed (no mob needed), else BUFF_FALLS_THROUGH to the target scan.
+func _buff_admission(world: RunWorld, st: Dictionary, origin: Vector2) -> int:
+	var near := float(st.cast_params.get("mob_within", 0.0))
+	if near > 0.0:
+		return BUFF_ADMITTED if _any_target(world, origin, near, 1) else BUFF_REFUSED
+	return BUFF_ADMITTED if float(st.duration) > 0.0 else BUFF_FALLS_THROUGH
 
 
 func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -> Dictionary:
 	if String(st.kind) == "buff":
 		if not world.can_start_buff(key, st):
 			return {}
-		if float(st.duration) > 0.0:
-			return {"go": true}
+		var admitted := _buff_admission(world, st, origin)
+		if admitted != BUFF_FALLS_THROUGH:
+			return {"go": true} if admitted == BUFF_ADMITTED else {}
 	if _find_targets(world, origin, float(st.range), int(st.count)) == 0:
 		return {}
 	return {"targets": _tgt.duplicate()}
@@ -295,7 +371,7 @@ func _admit_box(world: RunWorld, st: Dictionary) -> Dictionary:
 
 func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictionary:
 	var targets := PackedInt32Array()
-	if bool(st.has_box):
+	if bool(st.has_box) and not world.is_hidden():
 		targets = world.skill_box_targets(st.box, func(slot: int) -> bool: return world.swarm.mob_kind(slot).undead)
 	var heal: Dictionary = world.book.def(key).get("heal", {})
 	var injured := float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0))
@@ -304,30 +380,148 @@ func _admit_hp_or_undead(world: RunWorld, key: String, st: Dictionary) -> Dictio
 
 func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2, plan: Dictionary) -> void:
 	var targets: PackedInt32Array = plan.get("targets", PackedInt32Array())
-	if String(st.cast_rule) in ["", "nearest"] and not targets.is_empty() and String(st.kind) != "buff":
-		world.face_toward(world.mob_center(targets[0]).x)
+	var first_x := world.mob_center(targets[0]).x if not targets.is_empty() else 0.0
+	if String(st.cast_rule) in ["", "nearest", "cluster"] and not targets.is_empty() and String(st.kind) != "buff":
+		world.face_toward(first_x)
 	elif String(st.cast_rule) == "weapon_reach":
 		world.player.facing = int(plan.facing) # admitted on that side, so it is the nearest mob's side
 	elif String(st.cast_rule) == "range_around" and not targets.is_empty():
-		world.face_toward(world.mob_center(targets[0]).x, true)
+		world.face_toward(first_x, true)
+	# A moving attack (7.13) faces the mob it is aimed at in every movement state, then moves away from it or toward it.
+	var disp: Dictionary = st.displacement
+	var moves := not disp.is_empty() and String(st.kind) != "buff" and float(disp.distance) > 0.0
+	var side := 0
+	if moves:
+		if not targets.is_empty():
+			world.face_toward(first_x, true)
+		var toward := world.player.facing
+		if not targets.is_empty() and absf(first_x - world.player.pos.x) > 0.5:
+			toward = 1 if first_x > world.player.pos.x else -1
+		side = toward if String(disp.direction) == "toward" else -toward
+	var when := String(disp.get("when", "")) if moves else ""
 	casts += 1
 	fired_this_tick = true
-	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
-		world.start_buff(key, st)
+	var effect := String(st.effect)
+	if String(st.cast_rule) in ["", "nearest", "manual"] and String(st.kind) == "buff":
+		# A failed cast (Oak Barrel's chance, #194) pays MP and starts the cooldown but plays no effect.
+		if not world.start_buff(key, st):
+			effect = ""
+	# The cast event's pos is where the cast begins, before any displacement.
 	world.emit("cast", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level),
-		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": String(st.effect)})
+		"pos": world.player.pos, "facing": world.player.facing, "action": String(st.action), "effect": effect})
 	world.start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
-	match String(st.cast_rule):
-		"box", "weapon_reach", "range_around":
-			_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
-				world.visual_index(String(st.hit)))
-		"crowd":
-			_resolve_crowd(world, key, st, targets)
-		"hp_or_undead":
-			_resolve_hp_or_undead(world, key, st, targets)
-		"", "nearest":
-			if String(st.kind) != "buff":
-				_resolve_nearest(world, key, st, origin, targets)
+	var start := world.player.pos
+	# `during` on a projectile skill has no sweep to resolve: the shots fly after the move, like `before`.
+	var charge := when == "during" and String(st.kind) != "projectile"
+	if when == "before" or when == "during":
+		world.displace_player(side, float(disp.distance))
+	if charge:
+		_resolve_charge(world, st, start, side)
+	else:
+		match String(st.cast_rule):
+			"box", "weapon_reach", "range_around":
+				_resolve_instant_targets(world, st, targets, strike_count(st), int(st.attack_count),
+					world.visual_index(String(st.hit)))
+			"crowd":
+				_resolve_crowd(world, key, st, targets)
+			"cluster":
+				_throw(world, key, st, plan)
+			"hp_or_undead":
+				_resolve_hp_or_undead(world, key, st, targets)
+			"self":
+				world.convert_hp_to_mp(key, st)
+			"", "nearest":
+				if String(st.kind) != "buff":
+					_resolve_nearest(world, key, st, origin, targets)
+	if when == "after":
+		world.displace_player(side, float(disp.distance))
+
+
+## A charge (displacement `during`): the character has already moved from `start` to where the terrain let it stop; it
+## strikes up to the skill's mob count among the live mobs inside the swept path, bosses first then nearest to where
+## the charge began. The path is the skill's attack box (the player's body without one) at the start and at the end,
+## and everything between: a mob that triggered the cast is still struck when the charge stops short of it, and a
+## cast whose admitted mobs lie outside the path strikes nothing (tier C). A wall that stopped the charge (`side` is the
+## direction it moved in) also ends the path: nothing on its far side is struck, however far the box reaches (tier C).
+func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int) -> void:
+	var local: Rect2 = st.box if bool(st.has_box) else world.body
+	if bool(st.has_box) and world.player.facing > 0:
+		local.position.x = -local.end.x  # canonical boxes face left
+	var at_start := Rect2(local.position + start, local.size)
+	var at_end := Rect2(local.position + world.player.pos, local.size)
+	var path := at_start.merge(at_end)
+	var stop := world.fhm.wall_hit(world.player.pos.x, world.player.pos.y, path.end.x if side > 0 else path.position.x,
+		world.player.pos.y)
+	if stop != FootholdMap.NONE:
+		var wall_x := world.fhm.x1[stop]
+		if side > 0:
+			path.end.x = minf(path.end.x, wall_x)
+		else:
+			path.position.x = maxf(path.position.x, wall_x)
+	var swept := world.skill_rect_targets(path, start - Vector2(0.0, world.cast_height),
+		int(st.mob_count))
+	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
+		world.visual_index(String(st.hit)))
+
+
+## Cluster rule (Gunslinger Grenade): among the CLUSTER_CANDIDATES nearest live mobs within the throw `range` (bosses
+## first), the target is the first whose blast box (the level's canonical box around the mob's feet) would strike the most
+## mobs, up to mob_count; a scheduled boss in reach is the target outright. The plan carries the landing point (the
+## target's feet) and the aim (its body centre, where the grenade flies).
+func _admit_cluster(world: RunWorld, st: Dictionary, origin: Vector2) -> Dictionary:
+	if not bool(st.has_box) or _find_targets(world, origin, float(st.range), CLUSTER_CANDIDATES) == 0:
+		return {}
+	var candidates := _tgt.duplicate()
+	var best := candidates[0]
+	if not world.is_scheduled_boss(best):
+		var best_count := -1
+		for m in candidates:
+			var count := world.skill_rect_targets(_blast_rect(st, _feet(world, m)), world.mob_center(m),
+				int(st.mob_count)).size()
+			if count > best_count:
+				best = m
+				best_count = count
+	return {"targets": PackedInt32Array([best]), "landing": _feet(world, best), "aim": world.mob_center(best)}
+
+
+## The grenade blast box of resolved stats `st` around the point `at` (the canonical box is symmetric, so it is not
+## mirrored by facing).
+static func _blast_rect(st: Dictionary, at: Vector2) -> Rect2:
+	var box: Rect2 = st.box
+	return Rect2(box.position + at, box.size)
+
+
+static func _feet(world: RunWorld, m: int) -> Vector2:
+	return Vector2(world.swarm.x[m], world.swarm.y[m])
+
+
+## Throws the grenade of a cluster cast: no wind-up, the ball leaves the hand at once for the planned aim point and the
+## blast strikes (`_land`) when it arrives, `seconds` later: the distance at the skill's `speed`, at least MIN_FLIGHT.
+## The `skill_thrown` event carries the flight and the blast art for the presentation. The stats are kept as cast.
+func _throw(world: RunWorld, key: String, st: Dictionary, plan: Dictionary) -> void:
+	var aim: Vector2 = plan.aim
+	var from := world.shot_origin(aim)
+	var seconds := maxf(MIN_FLIGHT, from.distance_to(aim) / maxf(float(st.speed), 1.0))
+	_flights.append({"left": seconds, "st": st.duplicate(), "landing": plan.landing, "aim": aim})
+	world.emit("skill_thrown", {"skill": key, "skill_id": int(st.skill_id), "from": from, "to": aim, "seconds": seconds,
+		"ball": String(st.ball), "burst": String(world.book.def(key).get("burst", ""))})
+
+
+## Counts the flights down and lands the ones that arrived: the blast strikes up to mob_count mobs inside its box around
+## the landing point, bosses first, then nearest to the aim point.
+func _land_flights(dt: float, world: RunWorld) -> void:
+	var i := 0
+	while i < _flights.size():
+		var flight: Dictionary = _flights[i]
+		flight.left = float(flight.left) - dt
+		if float(flight.left) > 1e-6:
+			i += 1
+			continue
+		_flights.remove_at(i)
+		var st: Dictionary = flight.st
+		var hit := world.skill_rect_targets(_blast_rect(st, flight.landing), flight.aim, int(st.mob_count))
+		_resolve_instant_targets(world, st, hit, int(st.mob_count), int(st.attack_count),
+			world.visual_index(String(st.hit)))
 
 
 func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
@@ -445,6 +639,9 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 	var hv := world.visual_index(String(st.hit))
 	if String(st.kind) == "projectile":
 		var vis := world.visual_index(String(st.ball))
+		if bool(world.book.def(key).get("ammo_shot", false)):
+			# The shot is the current ammo's own bullet (Recoil Shot): Split and Mighty Bullets look different.
+			vis = world.visual_index(Ammo.bullet_path(world.ammo_id()))
 		var count := int(st.count)
 		var speed := float(st.speed)
 		for k in count:

@@ -178,7 +178,10 @@ func test_jobs_and_balance() -> void:
 	assert_true(tree.job(100).playable, "the Warrior is playable since #163")
 	for id: int in [210, 220, 230]:
 		assert_true(tree.job(id).playable, "%d playable" % id)
-	for id: int in [300, 400, 500]:
+	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
+	for id: int in [510, 520]:
+		assert_true(tree.job(id).playable, "%d is playable since #189" % id)
+	for id: int in [300, 400]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
@@ -199,7 +202,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int"})
+	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
@@ -233,8 +236,8 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
 	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
-		1302008, 1312005, 1322014, 1432002, 1442001]),
-		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, and the five Warrior advancement weapons")
+		1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1482004, 1492004]),
+		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, both Pirate weapons, the five Warrior advancement weapons and the two Pirate advancement weapons")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
@@ -399,8 +402,28 @@ const HIT_MORE_EXEMPT := {
 	"teleport_fp": "movement: deals no damage",
 	"teleport_il": "movement: deals no damage",
 	"teleport_cleric": "movement: deals no damage",
+	"dash": "movement buff: deals no damage",
+	"mp_recovery": "support: turns HP into MP, deals no damage",
 	"threaten": "support: threatens, deals no damage",
 }
+
+
+## Manual skills and skill keys (#188): every manual skill names a known skill key with an input action, and only
+## manual skills have one.
+func test_manual_skills_name_a_skill_key_with_an_input_action() -> void:
+	var skills: Dictionary = data.skills.skills
+	for key: String in skills:
+		var s: Dictionary = skills[key]
+		var manual := String(s.get("cast", {}).get("rule", "")) == "manual"
+		assert_eq(s.has("skill_key"), manual, "%s: a skill key exactly when the cast rule is manual" % key)
+		if manual:
+			var id := String(s.skill_key)
+			assert_true(id in KeyBindings.SKILL_KEYS, "%s: skill key %s is listed in KeyBindings.SKILL_KEYS" % [key, id])
+			assert_true(InputMap.has_action(id), "%s: project.godot has an input action %s" % [key, id])
+			assert_false(GameSettings.default_keys(id).is_empty(), "%s: %s has a default key" % [key, id])
+	for id: String in KeyBindings.SKILL_KEYS:
+		assert_true(skills.values().any(func(s: Dictionary) -> bool: return s.get("skill_key", "") == id),
+			"skill key %s belongs to a skill" % id)
 
 
 func test_every_attack_skill_has_a_hit_more_mobs_card() -> void:

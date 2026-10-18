@@ -7,7 +7,7 @@ extends RefCounted
 ## advancements(job, level) lists every child job of `job` as `{job_id, name, available, reason}`: available when it
 ## is playable and `level` reached its effective advancement level; otherwise `reason` says why ("Lv. 10" while the
 ## level is too low, else the survivor reason such as "Not in this build"). A first job with weapon `paths` (survivor
-## jobs.json `paths`: [{id, label, item_id, family}], spec #151 #157) is listed once per path while it is playable (a locked one stays a single entry), each entry carrying its
+## jobs.json `paths`: [{id, label, item_id, family, extra_items?}], spec #151 #157 / #186) is listed once per path while it is playable (a locked one stays a single entry), each entry carrying its
 ## `path` id and the path label as its name; other entries have no `path` key. A second job may list the
 ## `weapon_families` it can use and one advancement weapon per family (`grant_items`): branch_grant() reads them. should_offer() decides whether a window
 ## opens at a level: whenever an option is available (so "Not now" asks again next level), and once at exactly the
@@ -59,7 +59,8 @@ func job(id: int) -> Dictionary:
 	return d
 
 
-## The weapon paths of first job `id` (survivor jobs.json `paths`): [{id, label, item_id, family}], [] when it has none.
+## The weapon paths of first job `id`: [{id, label, item_id, family, extra_items}], [] when it has none.
+## Optional extra_items are item ids handed to the Equip tab after the worn grant (overflow becomes pickups).
 func paths_of(id: int) -> Array:
 	var raw: Variant = _survivor.get(id, {}).get("paths", [])
 	var out: Array = []
@@ -67,7 +68,8 @@ func paths_of(id: int) -> Array:
 		for p: Variant in raw:
 			if p is Dictionary and String(p.get("id", "")) != "":
 				out.append({"id": String(p.id), "label": String(p.get("label", p.id)),
-					"item_id": int(p.get("item_id", 0)), "family": String(p.get("family", ""))})
+					"item_id": int(p.get("item_id", 0)), "family": String(p.get("family", "")),
+					"extra_items": (p.get("extra_items", []) as Array).map(func(id: Variant) -> int: return int(id))})
 	return out
 
 

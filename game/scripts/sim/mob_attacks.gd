@@ -116,7 +116,9 @@ func step(world: RunWorld, dt: float) -> void:
 			continue
 		if service(pending, world):
 			_pending.erase(slot)
-	if world.state != RunWorld.PLAYING:
+	# Hidden (#194): no ordinary mob starts an attack (waits do not run down either); windups already begun still play
+	# out their phases but land nothing (_impact).
+	if world.state != RunWorld.PLAYING or world.is_hidden():
 		return
 	var now := world.time
 	var view := world.view
@@ -134,7 +136,8 @@ func step(world: RunWorld, dt: float) -> void:
 		if active[slot] == 0 or _kind_attacks[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
 		# MobSwarm.can_act and Rect2.has_point(swarm.pos(slot)), inlined: this loop runs for every attacker on screen.
-		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0:
+		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0 \
+				or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.STUN] > 0.0:
 			continue
 		if xs[slot] < view_pos.x or ys[slot] < view_pos.y or xs[slot] >= view_end.x or ys[slot] >= view_end.y:
 			continue
@@ -171,7 +174,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 	var stance: Dictionary = img.get(attack, {})
 	var info: Dictionary = stance.get("info", {})
 	var type := int(info.get("type", -1))
-	if type not in [0, 1, 2]:
+	if type not in [0, 1, 2] or world.is_hidden():
 		return {}
 	var id := swarm.mob_kind(slot).id
 	var pos := swarm.pos(slot)
@@ -240,6 +243,9 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 		# Threaten (#183): a threatened attacker's weapon attack is lowered at impact, for strikes and balls alike.
 		pending.damage = world.swarm.threatened_pad(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
+	# Hidden (#194): an attack winding up when the character vanished lands nothing and launches no ball.
+	if world.is_hidden():
+		return
 	if int(pending.type) == 2:
 		_launch_ball(pending, world)
 		return

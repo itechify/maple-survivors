@@ -20,7 +20,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
-5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
+5. **Advance** to Warrior, Magician or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
@@ -49,7 +49,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -61,7 +61,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Teleport is manual on X.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -69,12 +69,13 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
-Teleport, Equip, Item, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+Equip, Item, Stat, Skill, NPC Chat and the **skill key** of each manual skill the character has learned (#188: Teleport
+or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
-key label (potion quickslots, Teleport) shows the current binding.
+key label (potion quickslots, the manual skills' icons) shows the current binding.
 
 Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
 second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
@@ -247,7 +248,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### Monster statuses and elements (#54)
 
 `MobSwarm.apply_status(slot, status, params, events)` is the shared sim entry point for sibling skills. `status`
-is `slow`, `poison` or `freeze` (`MobSwarm.STATUS_NAMES`); parameters contain the canonical `time` in seconds, signed
+is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5`); parameters contain the canonical `time` in seconds, signed
 `x` for Slow, or the applying canonical skill `level` for poison (plus an optional survivor `skill` key for damage
 events), and optionally the applying skill's canonical `element`. Each status is a row of one packed per-slot status
 table, refreshes without stacking, and clears on death, release or relocation. Application and natural expiry emit
@@ -265,8 +266,21 @@ table, refreshes without stacking, and clears on death, release or relocation. A
   new-skill suppression has **tier B evidence from a later v95 client reconstruction**, extrapolated to v83. Owner
   choices (**tier C**): a frozen monster deals **no touch damage**, a monster frozen mid-air still falls straight down
   and lands, and a fading-in monster keeps fading in.
-- **Bosses reject every status**: scheduled bosses (`steady`) and canonical `info/boss` monsters refuse Slow, Poison
-  and Freeze, matching the inspected v83 server reference (**tier C**, Cosmic `Monster.applyStatus` boss gate; owner
+- **Stun** (#187, spec #168) is a generic status for player skills (Pirate Backspin Blow, Double Uppercut, Blank Shot;
+  later Bowman's Arrow Bomb). A stunned monster stands where it is (a flyer hovers without its bob), starts no
+  attack or mob skill and deals **no touch damage** (the frozen rule: `MobSwarm.can_act` also reads it, and
+  `MobAttacks` skips it), but still takes damage, can be killed and keeps its animation clocks. It does not flinch or
+  slide from hits while stunned, and one stunned mid-air or mid-jump falls straight down and lands. A new stun on a
+  stunned monster keeps the **longer** of the remaining and the new time (the shorter one changes nothing, the art
+  clock included). Stun has no element: elemental resistance never rejects it, whatever element the applying skill
+  passes. A skill requests it through `on_hit: {"status": "stun", "chance_field": "prop", "duration_field": "time"}`
+  (Skill.wz `prop` and `time`, tier A; a missing `chance_field` always lands, e.g. a 1 s Backspin Blow); the roll is
+  the same combat stream as the other `on_hit` statuses. The movement hold, the no-flinch rule, the longer-duration
+  refresh and the elementless rule are **tier C** choices; stun on the player is out of scope.
+- **Threatened** (#183, spec #165) lowers weapon attack and weapon defence by the flat signed canonical `x` / `y`
+  (floored at zero), refreshes without stacking and coexists with every other status (7.11).
+- **Bosses reject every status**: scheduled bosses (`steady`) and canonical `info/boss` monsters refuse Slow, Poison,
+  Freeze, Threaten and Stun, matching the inspected v83 server reference (**tier C**, Cosmic `Monster.applyStatus` boss gate; owner
   decision replacing #54's boss-poison permission).
 - **Elemental status immunity**: a status fails on a monster whose Mob.wz digit for its element is 1 (immune), 2
   (strong) or 4 (neutral), as in the same reference (**tier C**; digit 4 still takes ×1 hit damage). Poison
@@ -278,7 +292,10 @@ table, refreshes without stacking, and clears on death, release or relocation. A
   exposes the original flag for skill code; it does not imply an automatic element weakness.
 
 Presentation reads the status table. Slow plays its cached 2101003/mob animation once and retains an amber tint;
-Poison loops cached 2101005/mob. Cold Beam has no persistent mob overlay, so Freeze uses a cyan tint. A violet
+Poison loops cached 2101005/mob. Threaten loops cached 1201006/mob at the body top (7.11).
+Stun loops the three-frame stars every v83 stunning skill shares as its `mob` node
+(cached from Hero's Shout 1111008, `Skill.wz/111.img/skill/1111008/mob`, anchored at the body top like Poison; a
+yellow tint stands in when it is absent). Cold Beam has no persistent mob overlay, so Freeze uses a cyan tint. A violet
 poison tint is the fallback when its cached cue is absent. Anchors and tints are tier C; original art/timings are A.
 The formulas, source limitations, pinned citations and the performance/visual validation record are in
 [the status research](research/monster-status-effects.md). The applying Slow/Poison Breath/Cold Beam skill
@@ -464,6 +481,80 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #168 integration with main's spec #165 (2026-10-18)
+
+Merged main `4ec2f0d` (PR #197) into Pirate tip `0352877`: Threaten retains status index 3, stun moves to 4,
+and both use the five-status table. Warrior sections retain 7.9-7.12; Pirate sections are 7.13-7.20.
+The fixture tool uses `--god` for both lines, with `--job=<id>[:<path>]` and `--exp-mult` retained; fixture state was not regenerated.
+Private cache `s168-mainmerge`: 731 imgs, 22 unresolved original-data UOL warnings, zero import errors.
+Full Godot suite: **1,974 passed / 0 failed / 0 skipped** (166 files, real private cache), including a new seeded
+stun/Threaten coexistence and independent-expiry regression across slots. Rust: **64 passed / 0 failed / 0 ignored**
+with `MAPLE_WZ_ROOT`; manifest golden regenerated and plain `cargo test` also passed. Web shell: **51 passed / 0 failed / 0 skipped**.
+`flow_driver --scenario=pirate` (knuckle -> Brawler) and `--scenario=keys` passed; Pirate missing assets `[]`, both restored settings.
+Screenshots of the job windows, weapons, Dash, Continue, keys/options and stun expiry were checked by eye under
+`evidence/s168/mainmerge/`. The full suite still reports the previously recorded DummyTexture RID leak at shutdown (exit 0).
+No balance tuning, new balance smoke or fixture-data changes; both historical smoke records below are retained.
+
+#### Spec #168 Pirate (#186-#194): QA regression smoke and fixtures (#195, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` with the default job
+pick and with `--job=500:knuckle`, `--job=500:gun`, `--job=510` and `--job=520` (20 invocations, 60 runs), a private real
+cache built from the integration manifest, on `24183ee` (every #168 ticket) plus #195's tool changes, no PATCH or tuning.
+No crashes, script errors or world warnings: all 60 records have `warnings: []` and `missing: []`. "Before" is the
+spec #151 physical-combat foundation smoke below (`b3599ba`, default pick), the historical comparison used by this Pirate smoke.
+D = death time, then level at the end; Lv 30 = the Lv 30 advancement was reached.
+
+| Henesys (seeds 1 / 2 / 2026) | bot | random |
+|---|---|---|
+| before, default pick | D 5:40 / 5:36 / 5:11 | D 7:31 / 5:16 / 5:44 |
+| now, default pick | D 5:40 Lv11 / 5:32 Lv12 / 7:54 Lv21 | D 7:31 Lv19 / 8:40 Lv27 / 5:43 Lv13 |
+| `--job=500:knuckle` and `--job=510` (identical) | D 5:28 Lv11 / 5:35 Lv12 / 5:14 Lv11 | D 7:16 Lv21 / 5:14 Lv10 / 5:05 Lv11 |
+| `--job=500:gun` | D 8:15 Lv24 / 10:15 Lv32 (Brawler at Lv 30) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+| `--job=520` | D 8:15 Lv24 / 10:05 Lv31 (Gunslinger) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+
+- **Non-Pirate runs are not worse.** Default-pick seed 1 is a Magician (200) and seed 2 a Warrior (100) in both policies,
+  and they match "before" or beat it (Magician bot 5:40 and random 7:31 unchanged; Warrior bot 5:32 against 5:36, random
+  8:40 against 5:16, the Warrior second-job work being in this branch). Default seed 2026 now draws a Gun Pirate
+  (the unforced pool includes Pirate), which is why it moved. Tree is byte-identical to before in every cell
+  (D 2:09 / 1:04 / 0:52, Lv 2-3, no job reached, both policies): it dies before Lv 10, so the Pirate never exists
+  there. Tree stays record-only.
+- **How far Pirates get.** The first job always arrives at 4:25-4:34. The knuckle bot never reaches Lv 30
+  (0 of the 6 distinct runs; best D 7:16 at Lv 21, Mano killed in 1 of 6). The gun bot reaches it in 1 of 6 distinct runs:
+  bot seed 2 (a Brawler in `--job=500:gun`, because a forced first job takes a seeded branch at Lv 30, a Gunslinger in
+  `--job=520`). Gun runs kill Mano in 4 of 6 and always die between 5:29 and 10:15. `--job=510` with no path names
+  the knuckle path, so it repeats `--job=500:knuckle` exactly; `--job=520` repeats `--job=500:gun` apart from the
+  Lv 30 choice. The two known early deaths reproduce: `--job=510` D 5:14 at Lv 11 (seed 2026), `--job=520` D 7:54 at Lv 21
+  (seed 2026) and D 8:15 at Lv 24 (seed 1).
+- **Likely cause, recorded not fixed.** The deaths read like the Warrior's: damage is too low for what the swarm becomes
+  and the pool is small (326 HP at Lv 11). Knuckle runs die to Mano's touch (about 26 % of max HP per hit, 3 to 4
+  hits) before enough levels; the gun runs that pass Mano die at 7:54-8:15 (seeds 2026 and 1) under 40-110 live mobs, taking 500-850
+  damage a minute while the bot kites a short-ranged character (mp-short 65-120 s per run; Flash Fist and Double Shot starve the pool). The bot
+  does take and rank the Pirate attacks (Double Shot 4-6, Somersault Kick 9-12 in the gun runs) and no skill walks it
+  into mobs, so no bot change was made. It never takes Dash or Bullet Time under the `bot` card policy (only
+  `random` does). Pirate tuning and bot work belong to the balance pass.
+- **A god-mode probe shows the knuckle line is slow, not broken.** The same bot made invulnerable on knuckles (the
+  fixture tool's `--god`, 45 sim minutes) is still Lv 18: Mano takes 392 s to kill and the second boss is never
+  killed, so it never levels again; the Gunslinger kills all three bosses by 1412 s and is Lv 42.
+- Death times are of single seeds: the 3-seed smoke is bimodal per seed (see the Warrior record) and cannot judge pacing.
+- **Fixtures.** `tests/fixtures/characters/lv37_brawler_2nd.json` and `lv36_gunslinger_2nd.json` come from the character
+  fixture tool (`ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game --script
+  res://tools/character_fixture.gd -- --out=<abs> --revision=<sha> --label=spec168/ticket-195 --job=510:knuckle
+  --god --exp-mult=3 --seconds=480` and `--job=520:gun --god --seconds=780`; seed 1, bot, `henesys_hg1`). Because the
+  bot cannot reach Lv 30 by itself, the tool got two documented aids (tier C, diagnostic only): `--god` (invulnerable)
+  and `--exp-mult` (EXP multiplier, used only for the knuckle line). Both are written into each `_doc`
+  (`diagnostic`, `exp_mult`, `forced_path`). The Brawler is Lv 37 (Brawler from 412.9 s), the Gunslinger Lv 36 (520
+  from 636.8 s, natural EXP).
+- `flow_driver --scenario=pirate [--path=knuckle|gun] [--branch=510|520]` (injected input; debug setup: invulnerable EXP-drop warp
+  to Lv 30, the Dash card applied) passes for both paths: the Lv 10 window offers both Pirate paths, the chosen path's
+  weapon is worn and the other path's weapon and the creation weapon are in the Equip tab, the Lv 30 window offers
+  both second jobs and the Lv 30 weapon (Prime Hands / Cold Mind) is worn, Dash on X raises speed and spends MP, and
+  Save & quit then Continue keeps job, path, equipment, skills and mesos.
+- Screenshots (evidence, not committed) were taken with `flow_driver --scenario=pirate` (job windows, Equip tab with both weapons, Dash,
+  Save & quit / Continue), the new `scenes/debug/pirate_combat_driver.tscn` (both first-job paths, Brawler attacks, basic /
+  Split / Mighty bullets: summary.json records ammo 2330000 / 2330001 / 2330002) and the earlier drivers `dash_driver`,
+  `morph_driver --job=510` (Oak Barrel), `stun_driver` and `gunslinger_driver`; each was looked at.
+- Full suite 1891 tests, 0 failed, 0 skipped (real private cache, merged tip `65992b4`); `cargo test` 64 passed with the real-data tests on (`MAPLE_WZ_ROOT`). The feature-ticket rule held: no balance data changed.
+
 #### Spec #165 Warrior second job (#180-#184, QA #185): regression smoke (2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and with
@@ -507,8 +598,8 @@ or `missing` entry in any of the 72 records (16 smoke, 6 fixture and 2 chain con
   Dark Cave runs are the bot Spearman seeds 1 and 2 (10 minutes, Lv 59-60). Recorded for the balance pass, not tuned; no
   run clears without a death and not every run dies before the first boss, so the stop-and-ask conditions do not apply.
 - **Fixtures.** `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: real headless Henesys bot rounds,
-  seed 1, policy `bot`, `--job=<110|120|130> --god=1 --seconds=600` (`tools/character_fixture.gd`, revision in each `_doc`).
-  `--god=1` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
+  seed 1, policy `bot`, `--job=<110|120|130> --god --seconds=600` (`tools/character_fixture.gd`, revision in each `_doc`).
+  `--god` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
   reaches the Lv 30 advancement (Mano is killed at 6:07 by the invulnerable Fighter; Lv 34 at 10:00; `_doc.invulnerable`
   says so). Regenerating each one twice with the same revision reproduces it byte for byte.
 - **Flow driver** `--scenario=warrior2 --job=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
@@ -3070,13 +3161,15 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
-- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, and the Warrior's
-  `weapon_reach` and `range_around`, 7.8) resolves to
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, the Warrior's
+  `weapon_reach` and `range_around`, 7.8, and `self`, 7.16) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
   Admission prepares targets before the existing single MP payment/cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+- Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
+  (7.13); it resolves to `Loadout.stats().displacement` (`{}` when absent).
 - Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
   `skill_mod` effects with `stat: "area", op: "mul"` multiply that scale (the planned ×1.2 card step is tier C).
   `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
@@ -3085,7 +3178,7 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   matches with scheduled bosses first (#83), then by body-centre distance from the cast origin, then slot. Minimum
   edges include touching bodies;
   maximum edges exclude them. Optional `filter(slot) -> bool` runs before sorting/capping.
-- Optional `on_hit: {"status": "poison"|"freeze"|"slow", "chance_field": "prop", "duration_field": "time"}`
+- Optional `on_hit: {"status": "poison"|"freeze"|"slow"|"stun", "chance_field": "prop", "duration_field": "time"}`
   reads canonical fields at the cast level (missing `chance_field`: guaranteed attempt; signed Slow `x` stays
   canonical). Projectiles retain that level in a packed array. Both impact paths call `RunWorld._on_player_hit`
   once per damaging line, apply the status through `MobSwarm.apply_status`, then invoke registered
@@ -3220,6 +3313,18 @@ All six skills retain the existing support bot scores (learn 50, rank 42 + curre
 damaging attack cards. No behaviour cards are added.
 
 ### 7.5 Weapon-gated skills (#156)
+
+Shipping Pirate first job (#186):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Bullet Time 5000000 | any, including bare hands | A: no canonical restriction |
+| Flash Fist 5001001 | knuckle | C: survivor override |
+| Somersault Kick 5001002 | any, including bare hands | C: explicit survivor override |
+| Double Shot 5001003 | gun | A: canonical `"weapon "` = 49 |
+| Improve MaxHP 5100000 | any | A: no canonical restriction |
+| Knuckler Mastery 5100001, Knuckler Booster 5101006 | knuckle | C: survivor tag (String.wz text names the Knuckler) |
+| Gun Mastery 5200000, Gun Booster 5201003 | gun | C: survivor tag (String.wz text names the Gun) |
 
 A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
 crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
@@ -3476,7 +3581,7 @@ weights 3 and 2.
 
 Page (120) learns Threaten 1201006 (20 levels, `skills/warrior.json` `threaten`): it puts the **threatened** status on
 the monsters around the player, lowering their weapon attack and weapon defence by flat amounts for a while. It is the
-fourth player-inflicted monster status beside slow, poison and freeze (`MobSwarm.THREATENED`, same flattened table, same
+player-inflicted monster status beside slow, poison, freeze and stun (`MobSwarm.THREATENED = 3`, same flattened table, same
 refresh-without-stacking and boss rules) and it coexists with all three.
 
 - **Numbers (tier A, Skill.wz/120.img).** `x` is the weapon-attack change and `y` the weapon-defence change, both flat and
@@ -3537,6 +3642,339 @@ here they affect the character only and the text says so (`text.desc` overrides,
   and worn equipment HP/MP, recast with the MP cost, the card/text rules; one test compares the real cache's 130.img with
   the synthetic level tables (SKIPs without the cache). The synthetic tables are in `RF.skill_imgs()` too.
 
+### 7.13 Moving attacks (generic, #190, spec #168)
+
+An auto-cast attack may move the character: away from the mob it faces (Backspin Blow, Recoil Shot) or toward it (a
+Corkscrew Blow charge). The mechanism is generic and data-driven; Backspin Blow and Corkscrew Blow (7.19, #191) use it, and
+#192 adds the Gunslinger's Recoil Shot. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
+stops at the platform's edge or at a wall, never walks off and never passes a wall; the cast never fails because of
+terrain, it only moves less; while airborne (and on a rope, where nothing casts) the attack casts without moving.
+
+**The `displacement` block** (optional, in the skill's definition in `skills/<line>.json`, any cast rule, any non-buff
+kind):
+
+```json
+"displacement": {
+  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "when": "before" | "after" | "during",   // default "after"
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
+  // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
+}
+```
+
+`Loadout.stats(key)` resolves it to `displacement`: `{}` for a skill without the block, otherwise
+`{"direction", "when", "distance"}` with `distance` in px, never negative. A distance of 0 means no move.
+
+- **Direction.** The reference mob is the first admitted target (bosses first, then nearest: the order every rule
+  uses); with no target, or one within 0.5 px of the character's x, the character's facing stands in for it. `toward` is
+  the side of that mob, `away` the opposite side. A moving attack turns the character toward its reference mob in every
+  movement state (like Power Strike), so `away` backs off while still facing the mob and `toward` charges at it.
+- **Distance** is horizontal px (the way ground walking integrates), not path length along a slope.
+- **Terrain** (`FootholdMap.slide_along`, called through `PlayerMotion.displace` and `RunWorld.displace_player`): follows
+  the platform's chain of floors, so slopes carry the feet up and down; stops at the end of the chain (the platform
+  edge), 0.01 px (`FootholdMap.EPS`) short of a wall standing across the surface on the way (a wall hanging below the
+  surface is walked past, as on foot), and inside the map's horizontal limits. A blocked move is simply shorter or zero.
+- **Result.** The move is instant (the character is placed, at rest on its foothold); input, knockback, the hit window and
+  the pet follow as after any attack, from the next tick. Presentation that wants a glide reads the `cast` event's `pos`
+  (where the cast began, before any displacement, for every `when`) and the player's position afterwards; no extra event.
+- **`when`.** MP, HP and the cooldown are paid first, and the targets are chosen at the start position. `after`: the
+  hits (or shots) resolve, then the character moves. `before`: the character moves, then the hits resolve on the same
+  targets (they are not re-chosen after the move, so a `before` melee hit does not miss because it moved), and shots leave
+  from the moved position. `during` (a charge): the character moves, then strikes up to the skill's `mob_count` mobs
+  inside the swept path instead of the admitted targets. On a projectile skill `during` acts as `before`.
+- **The swept path** of a charge is the skill's attack box (the canonical `lt`/`rb` scaled by `area`, mirrored for the
+  facing; the player's body box when the level has none) at the start and at the end of the move, and everything between,
+  so a mob that triggered the cast is still struck when the charge stops short of it. Hits go to the mobs in it ordered
+  scheduled bosses first, then nearest to where the charge began; each takes `attackCount` lines. A cast admitted by a
+  mob outside the path strikes nothing (tier C: the admission rule and the path belong to the skill's data).
+- **Determinism.** No new RNG stream and no new events; the same seed gives the same run
+  (`tests/unit/test_moving_attacks.gd`: slides on synthetic footholds, then whole casts with a synthetic skill).
+
+### 7.14 Pirate first job (#186)
+
+All four skills have their 20 original Skill.wz levels; the runtime reads canonical numbers rather than copying
+them into survivor balance. The Pirate owns `skills/pirate.json`, `upgrades/pirate.json`,
+`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash arrived with #188 (7.15); the second
+jobs open in 7.17 (#189). Wings is never offered.
+
+| Skill | Cast / effect | Canonical L1 → L20 | Survivor behavior (tier C) |
+|---|---|---|---|
+| Bullet Time 5000000 | passive ACC / avoid | +1 → +20 each | ACC feeds the shared crit coefficient |
+| Flash Fist 5001001 | front box, one mob | damage 156→270%; MP 6→14; box (-74,-30)..(-20,10) | knuckle only; 0.9 s cooldown; 0.6 s action hold |
+| Somersault Kick 5001002 | surrounding box, 3→6 mobs | damage 114→190%; MP 8→16; box (-81,-71)..(-5,0) | any weapon; `cast.around` mirrors far reach to ±81; 1.6 s cooldown; 0.6 s hold |
+| Double Shot 5001003 | nearest targets, two bullets | damage 61→80%; MP 4→7; range 215→350 | 1 s cooldown; 0.6 s hold; 600 px/s; radius 8; no base pierce |
+
+Actions (`straight`, `somersault`, `doublefire`), CharLevel art at levels 10/15/20/25 and use sounds come from WZ
+(tier A). Box reach/height, target caps, costs and shot range retain canonical values. `cast.around` fills the
+horizontal span between the mirrored far edges to meet the surrounding-kick behavior. Cards follow the weapon held
+at the draw: each skill has learn/rank cards; Flash Fist and Somersault Kick have +1 target, Double Shot +1 pierce.
+Modifier cards allow three steps. Attack learn/rank weights are 4/3, Bullet Time 2/2, behavior 2; shared Potential
+magnitudes apply. These are initial tier-C choices, with no balance tuning in #186.
+
+Equipment drops use the regular Lv10–70 knuckle/gun progression (1482000–9 / 1492000–9), only in the held family.
+Scroll rosters use ordinary 100/60/10 and dark 70/30: knuckle ATT and ACC, gun ATT (tier A ids/rates/stats;
+tier C selection). Free Market uses existing weapon pricing for both slots.
+
+Verification (#186, 2026-10-18, private cache, integration #187/#190 included): full Godot suite 1,699 passed,
+0 failed, 0 skipped; Rust 63 passed, 0 failed, 0 ignored, including the real-data importer checks and manifest golden.
+The 18 Pirate tests also pass after freeing their temporary asset-library node. Both forced-path playtests report
+`missing: []`; the real Lv10 job window and both paths fighting were checked by eye. Existing event and Magician
+pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds. No balance smoke or tuning here;
+#195 owns that pass.
+
+### 7.15 Skill keys and Dash (#188, spec #168)
+
+**Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
+(`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
+input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
+share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
+Teleport behaves exactly as before.
+
+- **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
+  `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
+  those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
+  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+- **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
+  `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
+  `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
+  (`_try_teleport`); a manual buff goes through `_try_manual_buffs` -> `SkillRunner.cast_manual_buff`, which casts only
+  when casting is free, the buff is not running, its cooldown (the buff's duration, as for an auto-cast buff) is over and
+  MP (and HP) can be paid; otherwise the press does nothing: no event, no MP spent. The HUD icon shows the key caption,
+  the buff countdown as its cooldown sweep, and the blue waiting-for-MP tint while the key could be pressed but MP is short.
+- **Dash 5001005** (Pirate first job, ranks 1-10 = Skill.wz levels 1-10): pressing its key starts a buff with canonical
+  speed `x` +12 -> +30 and jump `y` +1 -> +10 for `time` 4 -> 20 s, costing canonical `mpCon` 14 -> 5 (tier A). It replaces
+  v83's double-tap (tier C, owner), works with any weapon, has no cast hold (the character keeps moving) and plays the
+  canonical cast effect and Use sound. Speed is added to the speed stat before the existing cap (140); jump is added to
+  the jump stat (`100 + incJump + buff`) before the existing cap (123), so Dash obeys the same movement limits as
+  equipment. Cards: `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+- **Bot.** Dash's `manual` block holds the flee rule (survivor data, tier C): `bot_flee_hp` 0.5, `bot_surround_count` 3,
+  `bot_surround_distance` 120 px. `BotInput` presses the key when HP is below that fraction of its maximum with a mob
+  inside the existing 160 px flee distance, or when that many mobs on its level (the duel band, feet +/-40 px) are within
+  the surround distance, and the skill is ready, usable, affordable and keeps the attack/Magic Guard MP reserve of
+  Teleport (`BotInput._keeps_mp_reserve`). It never presses while the buff runs.
+
+Evidence (#188): `dash_driver.tscn` (`scenes/debug`) on the real Henesys map, rank 10: `key_config_dash.png` (Dash on X
+and at the end of the tray), `dash_cast.png` (the buff icon with its countdown, MP 42 -> 37, speed 100 -> 130, jump
+100 -> 110) and `dash_run.png`; the real X key and arrow key drive it.
+
+### 7.16 HP-to-MP conversion and pool conditions (generic, #193, spec #168)
+
+A skill may cast on the character's own pools instead of a monster, and turn HP into MP. It is data-driven and generic;
+the Brawler's MP Recovery 5101005 (`skills/pirate.json`, `mp_recovery`, book 510) is its only user, learned from
+`mp_recovery_new` / `mp_recovery_rank` cards (`upgrades/pirate.json`, `requires.jobs: [510]`, `"power": false`,
+weight 2/2, 10 ranks, tier C) that Brawlers are offered once #189 makes job 510 playable.
+
+**The `self` cast rule.** `cast: {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75}`. No monster is needed. The
+skill is admitted when every condition that is present and above 0 holds (an absent key is not checked):
+
+- `mp_below`: MP is strictly below this fraction of MaxMP (30% means 299 of 1000 casts, 300 does not);
+- `hp_at_least`: HP is at least this fraction of MaxHP *before* paying (750 of 1000 casts, 749 does not; about 65% is
+  left after the 10% payment);
+- the conversion's HP payment would leave the character alive (`RunWorld.can_pay_hp`, HP must stay above 0);
+- the usual gates: cooldown ready, held weapon allowed (none required for MP Recovery), not on a rope, MP for `mpCon`
+  (none for this skill). Both thresholds live in the skill's survivor data (`RunWorld.self_cast_ready`).
+
+**The `convert` block** (optional, `"convert": {"pay_field": "x", "gain_field": "y"}`) names two canonical level
+fields, percent numbers. `Loadout.stats(key).conversion` is `{}` or `{pay, gain}` as fractions: `pay` of MaxHP is paid
+as HP, `gain` of the HP paid comes back as MP. A cast pays `max(1, round(MaxHP x pay))` HP (`RunWorld.conversion_hp`) and
+restores `floor(paid x gain)` MP, clamped to MaxMP; `player_restored` (stat `mp`, the skill key) reports the MP actually
+gained. The cooldown is the level's canonical `cooltime`, named by the definition's optional `cooldown_field`
+(`Loadout.stats().cooldown`; cards that change cooldown still scale it).
+
+| Rank | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| HP paid (x, % of MaxHP) | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| MP gained (y, % of HP paid) | 55 | 60 | 65 | 70 | 75 | 80 | 85 | 90 | 95 | 100 |
+| Cooldown (cooltime, s) | 70 | 65 | 60 | 55 | 50 | 45 | 40 | 35 | 30 | 25 |
+
+Action `recovery` and the effect come from WZ; the action holds 0.6 s (tier C). The cast fires through the ordinary
+`cast` event (effect and sound as any skill), so no new event type exists. Recovery's HP-threshold buff
+(`buff.hp_threshold`, `can_start_buff`) is untouched, and no RNG stream is drawn. Skill-window text names the shares
+and the cooldown (`text.h`); the rank-card preview shows the cooldown change. The bot needs no handling: the condition
+admits the cast by itself, and its card scores like any other active skill's. Not in scope: any other pool-threshold
+skill, potions. Tests: `tests/unit/test_mp_recovery.gd` (a synthetic 510 book at Skill.wz's ten levels, seeded ticks;
+the real-cache test checks the original numbers).
+
+### 7.17 Brawler and Gunslinger: advancement, passives and boosters (#189)
+
+Brawler 510 and Gunslinger 520 are playable at the canonical Lv 30, from either first-job path (the window lists both
+for a knuckle-path and a gun-path Pirate alike). Advancing adds +325 Max HP and +175 Max MP (tier B: fixed midpoints of
+the v83 second-job ranges +300-350 and +150-200; the Magician second jobs keep +475 Max MP). Growth stays the Pirate's
+25 HP / 20.5 MP per level. Each branch hands **one** advancement weapon (section 9, "Second-job grants"; tier C
+choices): Brawler Prime Hands 1482004 (Lv 30 knuckle, PAD 34, STR 60 / DEX 30) and Gunslinger Cold Mind 1492004 (Lv 30
+gun, PAD 31, DEX 70 / STR 30). A branch has one family, so the grant is always worn, even when the other family was
+held; the previous weapon goes to the Equip tab or to the feet when it is full. As for every grant, the advancement does
+not check the weapon's requirements; the auto-AP rows below meet them at Lv 30.
+
+**Auto-AP.** `balance.json` `ap_stat` / `ap_secondary` carry plain `510` and `520` rows that copy the first-job
+path rows of their weapon (Brawler = `500:knuckle`: STR primary, DEX secondary at the level; Gunslinger = `500:gun`: DEX
+primary, STR secondary at the level), and a branch row wins over a path row. The AP therefore follows the branch, not the
+recorded path: a knuckle-path Gunslinger switches to DEX with an STR secondary when it advances (tier C; only earned
+AP move).
+
+**Ammo.** The Gunslinger's schedule (6.1.2: Split Bullet 2330001 at Lv 30, Mighty Bullet 2330002 at Lv 50) applies to job
+520 once it is playable: advancing at Lv 30 shows the one `ammo_upgraded` notice, advancing past Lv 50 goes straight to
+Mighty Bullet. A Brawler holding a gun keeps the basic Bullet 2330000.
+
+| Skill | Kind | Weapon | Canonical L1 → top | Survivor behaviour |
+|---|---|---|---|---|
+| Improve MaxHP 5100000 | passive `max_hp_per_level` | any | 10 levels; x +3 → +30 Max HP per level-up | the shared 7.6 consumer: the rank at the level-up counts, never retroactive; the AP half (`y`) has no meaning |
+| Knuckler Mastery 5100001 | passive `mastery` + ACC | knuckle | 20 levels; mastery N 1 → 10 = 15% → 60%; x ACC +1 → +20 | the shared 7.6 consumer, only while a knuckle is held |
+| Gun Mastery 5200000 | passive `mastery` + ACC | gun | same; `y` (bullets per recharge, +10 → +200) is not used: ammo is endless | only while a gun is held; its level text omits the bullet count |
+| Knuckler Booster 5101006 | buff `attack_speed` | knuckle | 20 levels; x = -2 (two steps faster, `scale` -1); time 10 → 200 s; hpCon and mpCon 29 → 10 | the 7.7 Booster: auto-cast when inactive, ready and affordable (it pays **both** HP and MP, tier A, and never casts if the HP would leave 0), counted only while a knuckle is held |
+| Gun Booster 5201003 | buff `attack_speed` | gun | same | the same, gun |
+
+The v83 prerequisites (the Booster needs Mastery level 5) are ignored as everywhere (tier C, owner choice #31). Each skill
+has learn and rank cards that require the exact branch (Improve MaxHP and the knuckle cards the Brawler, the gun cards
+the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP is weapon-free). They are not power
+cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
+`requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
+branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
+Double Shot. The Brawler's attacks are 7.19 (#191); the Gunslinger's are 7.20 (#192), MP Recovery with #193 and Oak Barrel with
+#194.
+
+### 7.18 Hidden state and Oak Barrel (#194, spec #168)
+
+**Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
+block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
+Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (owner rules, #168 grilling):
+
+- **Monsters, bosses included, ignore the character.** `MobSwarm.step` gets `ctx.hidden` and no target: ground mobs
+  patrol their platform the way a mob with no route does (they walk the way they face and turn at walls and platform
+  ends), flyers hover where they are (tier C). Scheduled bosses neither stall nor teleport to the character
+  (`BossDirector`), and `SpawnDirector` does not recycle mobs as "gone" or "stalled".
+- **No hit of any kind lands:** contact damage (`_touch`), ordinary and boss attacks (`MobAttacks.plan` starts nothing;
+  a windup already under way plays its phases but lands nothing and launches no ball), mob skills aimed at the character
+  (Slow), and balls (they pass through; the ball is not used up and ends at its range). `take_hit` also returns 0 for
+  any source as the safety net.
+- **The character cannot attack:** `SkillRunner.cast_ready` skips every attack skill (active, not a buff, not manual,
+  damage type other than none; the cooldown keeps running), and `BasicAttack` starts no swing and drops one in its
+  windup. Buffs, potions, pickups, movement and manual movement skills (Teleport, Dash) still work. Shots already in
+  flight keep flying.
+- **Presentation:** `player_state.hidden` and `player_state.morph`.
+- **Edge cases (tier C):** a boss already fading out for a pursuit teleport when Hidden begins still finishes that teleport;
+  Cleric Heal still heals below its HP threshold but never strikes undead (it is an attack in this rule even though its
+  `damage` is `none`).
+
+**The buff block.** `buff`: `hidden` (bool), `morph_field` (the level number holding the Morph.wz id), `fail_field` (the
+level number holding the failure chance in percent), `end_hp_above` (an HP fraction above which the buff ends early),
+`cooldown_from_cast` (the cooldown is exactly the cooldown field from the cast, instead of at least the duration; the
+active buff alone blocks a recast). A cast with a failure chance rolls once on the Pirate stream 16 (`pirate_rng`,
+`randf() < fail_chance`); a failed cast pays MP, starts the cooldown, plays no effect and emits `buff_failed` instead
+of `buff_cast`. A skill's `cast` block may set `mob_within` (px): a buff with it needs a living mob within that distance of
+the cast origin (the same reach test as nearest-rule attacks).
+
+**Oak Barrel 5101007** (Brawler 510, ranks 1–10 = Skill.wz levels, no weapon requirement, `skills/pirate.json` entry
+`oak_barrel`, slot "passive" like the other buffs):
+
+| | rank 1 | rank 10 | source |
+|---|---|---|---|
+| MP | 11 | 20 | tier A `mpCon` |
+| Barrel time | 12 s | 30 s | tier A `time` |
+| Failure chance | 37% | 10% | tier A `prop` (read as the failure chance, as the #194 brief states) |
+| Cooldown | 35 s | 15 s | tier A `cooltime` |
+| Morph | 1002 | 1002 | tier A `morph` |
+
+It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), a mob is within 250 px
+(`cast.mob_within`, tier C) and the cooldown is ready; the barrel ends early once HP is above 60% (`end_hp_above` 0.6,
+tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
+(weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
+
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
+`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
+their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
+keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
+`test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
+`test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
+`scenes/debug/morph_driver.tscn`.
+
+### 7.19 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
+
+Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
+with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
+steps) in `upgrades/pirate.json`: `<skill>_new`, `<skill>_rank`, `<skill>_targets`. The cards are `"power": true`
+(the advancement draw offers power cards first, so a new Brawler is offered all three attacks) and `requires.jobs: [510]`
+(exact branch); through the skill's `weapon_families: ["knuckle"]` they are offered, and the skills cast, only while a
+knuckle is held (a Brawler wielding a gun casts none of them and sees none of their cards). Learn weight 4, rank weight 3,
+targets weight 2: tier C, untuned like every Pirate card.
+
+| Skill | Canonical L1 -> L20 (Skill.wz 510.img) | Survivor behaviour |
+|---|---|---|
+| Backspin Blow 5101002 | damage 88 -> 240% (+8 per level), mpCon 12 -> 30 (+2 every 2 levels), mobCount 3, stun `time` 1 s, box (0,-50)..(140,0), `backspin` action | cast rule `box` with `cast.around`: any mobs within 140 px on either side admit it, the 3 nearest (bosses first) are struck once each; the character turns to the nearest one and slides 100 px **away** from it after the hits (7.13, `when: after`, tier C distance), stopping at platform edges and walls; every landed hit stuns for 1 s |
+| Double Uppercut 5101003 | damage 100 -> 290% (+10 per level), `attackCount` 2, mpCon 15 -> 30 (+5 every 5 levels), stun `time` 1 s, no box, no mobCount, `doubleupper` action | cast rule `weapon_reach` (the Power Strike rule, 7.8): one mob inside the held knuckle's swing envelope is struck twice; more mobs only from cards; no movement; every landed line stuns for 1 s (two stuns keep the one second) |
+| Corkscrew Blow 5101004 | damage 135 -> 420% (+15 per level), mpCon 20 -> 36 (+4 every 4 levels), mobCount 3, box (-100..-200, -50)..(0,0), `screw` action | cast rule `box` (the facing side only, canonical): a mob within the reach starts a full charge **toward** it (`when: during`, 7.13) of the same 100 -> 200 px as the box reach, striking up to 3 mobs along the swept path; stops at platform edges and walls; no stun |
+
+**Stun.** Skill.wz gives Backspin Blow and Double Uppercut no `prop`, so `on_hit: {"status": "stun", "duration_field": "time"}`
+has no `chance_field` and every damaging line stuns (the ticket's "at its Skill.wz chance" is therefore 100%, tier A by
+absence). The status is the generic stun of "Monster statuses and elements" (bosses and steady bosses resist; the mob
+`mob` stars play over stunned mobs). A hit that does 0 damage does not stun.
+
+**Choices that are ours (tier C).** All three need a knuckle (the WZ nodes name no weapon). Backspin Blow's canonical box
+(0..140 on the positive side) lies **behind** the facing in the left-facing convention, while the owner's rule is that it
+slides away from "the faced mob": `cast.around` mirrors the reach to both sides (the Somersault Kick approach), so it
+fires when any mob is within 140 px, faces the nearest and backs off from it, and its hits include mobs on both sides.
+Corkscrew Blow's charge distance has no scalar Skill.wz field (the reach is the box's `lt.x`), so
+`displacement.distances` copies -`lt.x` per level and a private-cache test checks all 20 against Skill.wz. The charge is
+the full distance at once (no `prepare`/`keydown` wind-up, no Loop sound, the `dash` prepare action is not played), and
+its sweep never passes a wall: when a wall stops the charge, the swept hit box ends at that wall, so a mob just past it
+is not struck even where the end-of-charge box would reach it.
+Cooldowns 1.5 s (Backspin), 1.2 s (Double Uppercut), 2.0 s (Corkscrew); cast stance holds 0.8 s, 1.0 s, 0.8 s.
+Presentation: the skills' `effect`, `hit/0`, Use and Hit sounds and the body actions `backspin`, `doubleupper`,
+`screw` (Character.wz/00002000.img) play as for Flash Fist; the second effect layer `effect0` of Backspin Blow, the
+second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP Recovery is 7.16 and Oak Barrel 7.18.
+with #194.
+
+### 7.20 Gunslinger attacks (#192, spec #168)
+
+Four auto-cast attacks join the Gunslinger's book (`skills/pirate.json`, book 520, job 520, 20 canonical levels each; ranks equal
+levels). Owner rules (#168 grilling): Grenade is thrown as if fully charged with no wind-up; Wings is dropped. Costs, damage %,
+mob counts, boxes, stun chance and time and the hop distance are tier A Skill.wz 520.img values (WZ wins over String text where
+they disagree: Invisible Shot's MP is 10 to 25, Grenade's 15 to 27). Damage is the ordinary physical formula of the held
+weapon (gun formula with a gun, the weapon's own with anything else for Grenade); ammo is endless, so `bulletConsume` is unused.
+
+| Skill | Weapon | Cast | Canonical L1 → L20 | Survivor behaviour (tier C unless stated) |
+|---|---|---|---|---|
+| Invisible Shot 5201001 | gun (A) | `box`, `around` | damage 75 → 170%; MP 10 → 25; up to 3 mobs; box (-250,-80)..(-10,40) mirrored to both sides | strikes in front **and** behind; no bullet is drawn (the WZ has no ball); 1 s cooldown; held gun's first stance, 0.6 s; WZ Hit sound as its cast sound (it has no Use) |
+| Blank Shot 5201004 | gun (A) | `box` (front only) | damage 63 → 120%; MP 10 → 25; 3 mobs; box (-250,-80)..(-20,30); stun `prop` 43 → 100% for `time` 1 → 4 s | `on_hit` stun (#187: scheduled and canonical bosses resist; one roll per struck mob on the main stream, none when `prop` is 100); `fake` action (A); 1.4 s cooldown; 0.6 s |
+| Grenade 5201002 | any (C) | `cluster` | damage 45 → 140%; MP 15 → 27; 3 → 6 mobs; blast box (-50,-50)..(50,20) | see below; 2 s cooldown; the held weapon's first stance, 0.6 s |
+| Recoil Shot 5201006 | gun (A) | `nearest`, projectile | damage 70 → 260%; MP 14 → 26; `range` (recoil) 115 → 250 px | one bullet at the nearest mob, then `displacement` `away` / `after` with `field: "range"` (7.13): an instant hop away from the mob, cut short at platform edges and walls, none in the air; the bullet is the current ammo's own sprite (`ammo_shot`: `Ammo.bullet_path(ammo_id())`, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; `backstep` action (A); 1.8 s cooldown; 0.6 s |
+
+**The `cluster` cast rule** (new, generic; Grenade is its only user). `cast: {"rule": "cluster"}` plus the skill's `range`
+(the throw range, 400 px) and `speed` (the ball, 600 px/s); the level needs a canonical `lt`/`rb` box, the blast.
+
+- *Admission and target.* The skill casts when any live mob is within `range` of the cast origin (`has_target` is the cheap
+  `_any_target`). Among the `CLUSTER_CANDIDATES` (12) nearest mobs in range, scheduled bosses first, the target is the first
+  whose blast box, centred on its feet, would strike the most mobs (up to `mob_count`); a scheduled boss in reach is the target
+  outright. A lone mob therefore draws the throw only when nothing better is in reach, and ties go to the nearest.
+- *No wind-up.* The cast tick pays MP, starts the cooldown, turns a standing character to the target, plays the stance and emits
+  `cast` and `skill_thrown` (ARCHITECTURE 4.4.3: `from` the hand, `to` the target's body centre, `seconds`, `ball`, `burst`).
+  The WZ `prepare` (`dash`) and `keydown` nodes are not used.
+- *Landing.* The ball flies `max(0.1 s, distance / speed)`; when it arrives the blast strikes up to `mob_count` live mobs whose
+  bodies intersect the blast box around the landing point (the target's feet at the cast), scheduled bosses first, then nearest to
+  the aim point, `attackCount` lines each, through the ordinary `hit_mob` path (listeners, Final Attack and `on_hit` apply). The
+  stats are the cast's snapshot; the blast ignores where the target moved to. Flights are `SkillRunner` state and count down
+  with the tick (also while casting is blocked, e.g. on a rope); they do not survive a restart of the round.
+- *Presentation.* `RunScene` loops the ball art along a short arc (`THROW_ARC` 40 px) for the flight, then plays the WZ `special`
+  blast art at `to`; each struck mob plays `hit/0` as usual. Sounds: the WZ `Use2` on the throw.
+- *Cards and reach.* `count` cards add targets to `mob_count`; the bot's approach/kiting reads `range` (`SkillRunner.reach_of`).
+
+**Cards** (`upgrades/pirate.json`; all `power`, `requires.jobs [520]` exactly, so the Lv 30 advancement draw, which offers every
+eligible new power skill of the job, shows all four): `<skill>_new` weight 4, `<skill>_rank` weight 3 (max rank 20), and one
+hit-more-mobs card with weight 2, three steps: `invisible_shot_targets`, `blank_shot_targets`, `grenade_targets` (+1 target) and
+`recoil_shot_pierce` (+1 pierce). Cards follow the weapon held at the draw (the skill's gun tag): with a knuckle in hand the three
+gun skills' cards are not offered, Grenade's are. Tests: `tests/unit/test_gunslinger_attacks.gd` (seeded, fixed ticks; the numbers
+by rank, behind and in front, stun chance and time, throw without wind-up and landing, cluster choice, knuckle, hop distance and
+edge/wall/air stops, the cards and the draw, and the original v83 tables, boxes, art and sounds in the private cache).
+
+Evidence (#192): `scenes/debug/gunslinger_driver.tscn -- --shots=<dir>` casts each attack once on the flat part of the real Henesys map with the real
+cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails, `grenade_a/b.png` the ball in flight then the blast on the cluster,
+`recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
+Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -3555,7 +3993,9 @@ Draw rules:
    the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
    `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
    for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
-   passives still stop at Lv 30. Every other line keeps the rule unchanged.
+   passives still stop at Lv 30. **Pirate first-job cards** (spec #168 #189) use the same shape with `carry_jobs: [510, 520]`
+   (their `requires.jobs` is [500]): on offer to both Pirate branches, never in a branch's advancement draw. Every other
+   line keeps the rule unchanged.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -3829,7 +4269,7 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician and Warrior (Dances with Balrog, #163) are playable; Bowman, Thief and Pirate are shown as "not in this build".
+- Level 10: Magician, Warrior (Dances with Balrog, #163) and Pirate's two paths (Kyrin, #186) are playable; Bowman and Thief are shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
   teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
@@ -3837,9 +4277,24 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs open at Lv 30 (spec #165, below).
-- An **unforced bot** (no `--job`) picks a seeded random available first job on the job stream (8), so with the Warrior
-  and the Magician both open it takes either (spec #151, `BotInput.pick_choice` as #157 left it); `--job=100` /
-  `--job=200` force one. Unforced Lv 10 runs and records therefore differ from before the Warrior existed.
+- Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
+  (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
+  before rounding). Tier-C auto-AP uses STR with level-target DEX for knuckle, DEX with level-target STR for gun.
+  At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30).
+- Level 30, Pirate (spec #168 #189): Brawler 510 and Gunslinger 520 are selectable at their canonical level from either
+  path. Each adds +325 Max HP and +175 Max MP (tier B midpoints), keeps the Pirate's growth, hands its one advancement
+  weapon (below; always worn) and switches the auto-AP to its own weapon's rows. `--job=510`, `--job=520` (and
+  `--job=520:knuckle` for a knuckle-path Gunslinger) work in the tools; unforced, the bot draws its branch on the job
+  stream (8). Skills and cards: 7.17.
+
+  | Branch | Family | Advancement weapon |
+  |---|---|---|
+  | Brawler 510 | knuckle | Prime Hands 1482004 (Lv 30, PAD 34, STR 60 / DEX 30) |
+  | Gunslinger 520 | gun | Cold Mind 1492004 (Lv 30, PAD 31, DEX 70 / STR 30) |
+- An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
+  stream. Adding Pirate intentionally changes that pool, without changing any stream's initialization.
+  `--job=100`, `--job=200`, `--job=500:knuckle` and `--job=500:gun` force a choice.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -3867,8 +4322,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
   The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
   `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
-  `DataRepo.starter_equipment_ids` preload reads the same field. The Bowman, Thief and Pirate lines use the same shape
-  with one entry per branch when their class specs land.
+  `DataRepo.starter_equipment_ids` preload reads the same field. The Pirate branches use the same shape with one entry
+  each (#189); the Bowman and Thief lines follow when their class specs land.
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -3877,7 +4332,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 
 ### Weapon paths and weapon grants (#157, spec #151)
 
-A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family}]`). The Job
+A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family, extra_items?}]`). The Job
 Advancement window lists each path of a playable job as its own entry (the label is the entry text; both Thief paths
 are job 400); a job without paths, and a locked job ("Not in this build"), keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
 snapshot key `weapon_path`, an additive optional key written only when set) and **grants** its item: the weapon is
@@ -3896,8 +4351,9 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 
 Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
 and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman, Thief and Pirate stay `playable: false` ("Not in this build")
-until their class specs; only the data shape and these rows land with #157. The items of a playable job's paths and
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman and Thief stay `playable: false` ("Not in this build")
+until their class specs. Pirate is playable (#186): optional per-path `extra_items` ([item ids]) grants the opposite
+weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
 
@@ -3905,8 +4361,8 @@ grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once
 per family (`grant_items`, same order; #165 #180 replaced the single `grant_item` of #157, ADR 0005 amendment). On
 advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
 (tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
-are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today only
-the Warrior's three branches have them (section 9, Level 30).
+are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
+the Warrior's three branches and the two Pirate branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
@@ -3953,6 +4409,45 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Pirate tracer (#186) additions:
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| First-job level / grants | Lv10; +125 HP, +37 MP | C level override; B v83-facts §4 reward midpoints (MP truncated) |
+| Pirate growth | 25 HP / 20.5 MP per level | B v83-facts §4 midpoints; existing accumulated-total rounding |
+| Per-path AP | knuckle STR + DEX target level; gun DEX + STR target level | C owner choice; `ap_stat` / `ap_secondary` keys `500:knuckle`, `500:gun`; nearer branch wins |
+| Pirate weapon gifts | chosen 1482000/1492000 worn, opposite in Equip | B v83-facts §4 Kyrin; C optional `extra_items` shape and overflow pickup rule |
+| First-job skill values | 20 levels, original costs / damage / counts / boxes / range / ACC / avoid | A Skill.wz 500.img; canonical `bulletCount`/`range` fallback |
+| Flash Fist / kick weapon overrides | knuckle / any | C owner choice |
+| Kick surrounding box | ±canonical far edge, original vertical bounds | C `cast.around`, owner surrounding-kick behavior |
+| Attack timing | fist 0.9 s, kick 1.6 s, shot 1 s cooldown; each 0.6 s action hold | C initial untuned survivor values |
+| Double Shot flight | 600 px/s, radius 8 px, base pierce 0 | C initial untuned survivor values |
+| Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
+| Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
+| Pirate RNG | stream 16, `pirate_rng`; 13 Threaten (unused without prop), 14–15 reserved | C independent owner; drawn by Oak Barrel's failure roll (#194, `buff.fail_field`); a future non-Pirate failure chance needs its own stream |
+| Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
+| Backspin Blow (#191, 7.19) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
+| Double Uppercut (#191, 7.19) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
+| Corkscrew Blow (#191, 7.19) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the swept hit box ends at the wall that stops the charge (nothing past it is struck) | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
+| Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.14) |
+| Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
+| Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
+| Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
+| Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
+| Second-job cards | learn/rank weights 2/2, not power, exact branch job; first-job cards `requires.jobs` [500] + `carry_jobs` [510, 520] | C initial untuned choices |
+| Path bot equipment | auto-equip upgrades only the held family (shared drop families allowed) when a weapon path is recorded | C owner rule: bot never swaps paths; prevents Kyrin's spare knuckle replacing the gun; no RNG |
+| Gunslinger attack numbers (#192, 7.20) | costs, damage %, mob counts, boxes, stun prop/time, recoil range per level 1-20 | A Skill.wz 520.img (WZ over String text) |
+| Gunslinger attack weapons | Invisible Shot, Blank Shot, Recoil Shot: gun; Grenade: any | A WZ weapon 49 for the three; C Grenade (owner) |
+| Invisible Shot both sides | `cast.around` mirrors the box's far edge (250 px) across the player; no bullet drawn | C owner behaviour |
+| Gunslinger timing | cooldowns Invisible 1 s, Blank 1.4 s, Grenade 2 s, Recoil 1.8 s; each 0.6 s action hold; Invisible Shot plays the WZ Hit sound as its cast sound | C initial untuned survivor values |
+| Grenade throw (`cluster`) | thrown with no wind-up; range 400 px; ball 600 px/s, flight at least 0.1 s; blast on arrival at the target's feet; target = the first of the 12 nearest mobs in range (bosses first) with the largest blast, a scheduled boss outright | C owner (no wind-up, nearest cluster) + ours (range, speed, candidates) |
+| Minimum grenade flight | `SkillRunner.MIN_FLIGHT` 0.1 s: the shortest time a thrown grenade is in the air, so a point-blank throw still shows the ball before the blast | C ours (#192) |
+| Stun tint | `MobRenderer.STUN_TINT` (1.0, 0.95, 0.55), a pale yellow modulate on a stunned mob when the cached stun stars (`Skill.wz/111.img/skill/1111008/mob`) are absent; presentation only | C ours (#187) |
+| Grenade arc | presentation only: 40 px mid-flight arc, ball art loops | C ours |
+| Recoil Shot shot | current ammo bullet sprite, 1000 px/s, radius 6, rotating, reach 300 px, no base pierce | C ours; A ammo ids (6.1.2) |
+| Recoil Shot hop | the canonical `range` 115 to 250 px away from the faced mob after the shot; edge/wall stops and no air hop per 7.13 | A distance; C owner rule |
+| Gunslinger attack cards | learn weight 4, rank weight 3 (max 20), hit-more weight 2 (+1 target or pierce, 3 steps); power cards, job 520 exactly | C initial untuned choices |
 
 | Physical combat rule (#153) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -4185,11 +4680,18 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|---|
 | Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
 | Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
+| Moving attacks (#190, 7.13) | A skill's `displacement` block (`direction` away/toward the faced mob, `when` before/after/during, `field`/`distances`/`distance` in horizontal px) moves the grounded character along its platform: instant placement, stops at the platform edge, 0.01 px (`FootholdMap.EPS`) short of a wall, inside the map limits; the cast never fails for terrain; no move while airborne; `during` (a charge) strikes up to `mob_count` bosses-first/nearest mobs in the swept attack box (start to end; the body box without a skill box); `before`/`after` keep the targets admitted at the start; the character turns to the mob first; `cast` event `pos` is the pre-move position | C | owner decisions (#168 grilling) + ours; `FootholdMap.slide_along`, `PlayerMotion.displace`, `SkillRunner._resolve_cast` |
+| MP Recovery numbers (#193, 7.16) | pays `x` = 10% of MaxHP, returns `y` = 55 → 100% of it as MP (5% per rank), cooldown `cooltime` 70 → 25 s (5 s per rank), 10 ranks, no MP cost, no weapon requirement, action `recovery` and its effect | A | Skill.wz 510.img skill 5101005; Sound.wz/Skill.img/5101005 |
+| MP Recovery auto-cast condition (#193, 7.16) | casts only while MP < 30% of MaxMP (`cast.mp_below` 0.30) and HP >= 75% of MaxHP before paying (`cast.hp_at_least` 0.75, about 65% after); no monster needed; never leaves 0 HP | C | owner decisions (#168 grilling); both thresholds in `skills/pirate.json` |
+| MP Recovery rounding and timing (#193, 7.16) | HP paid = max(1, round(MaxHP x 10%)); MP gained = floor(paid x y%), clamped to MaxMP; 0.6 s action hold; cards `mp_recovery_new`/`_rank` weight 2/2, `power` false, Brawler (510) only | C | ours; untuned |
 | Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD: the shared blue waiting-for-MP tint (#82; was 0.35 grey); 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
 | HUD skill cooldown sweep and MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82); HudSkills (SWEEP_STEPS), RunWorld.skill_readiness / read_skill_cooldowns |
-| Bot Teleport MP reserve | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.TELEPORT_MP_RESERVE_FRACTION` / `TELEPORT_ATTACK_RESERVE_CASTS` |
+| Bot manual-skill MP reserve (Teleport, Dash) | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.MANUAL_SKILL_MP_RESERVE_FRACTION` / `MANUAL_SKILL_ATTACK_RESERVE_CASTS` |
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
+| Skill keys (#188) | a manual skill's `skill_key` is its input action; Key Config lists only learned ones after the fixed actions; Teleport and Dash both default to X (a character never learns both); the three Teleports share `teleport`, so a saved `teleport` binding is Teleport's skill key; a press that cannot pay (MP) does nothing | C | ours (owner); `KeyBindings.SKILL_KEYS`, `RunWorld.manual_skill_keys`, `project.godot` |
+| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
+| Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable, affordable and the Teleport MP reserve | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
@@ -4224,9 +4726,15 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Mob poison cadence | 1 s; first after 1 s, final pulse at expiry when due | B v95 display / C sim boundary policy | native-derived v95 CMob::Update; Cosmic schedules 1 s; [status research](research/monster-status-effects.md) |
 | Mob Freeze behavior | no walking, facing changes, attacks, skills, stun/push or animation advance; lethal hits still die; an airborne monster still falls straight down and a fading-in one keeps fading in | B v95 extrapolation / C animation-hit integration and owner fall/fade choice | native-derived IsImmovable, TryDoingSkill, DoAttack; [status research](research/monster-status-effects.md) |
 | Frozen touch damage | a frozen monster deals no touch damage (MobSwarm.can_act gates touch) | C | owner decision; no native v83 contact gate verified either way; [status research](research/monster-status-effects.md) |
-| Boss status immunity | scheduled steady or canonical boss: reject Slow, Poison and Freeze | C | v83 server reference (Cosmic Monster.applyStatus boss gate), owner decision replacing #54's boss-poison permission |
+| Boss status immunity | scheduled steady or canonical boss: reject Slow, Poison, Freeze and Stun | C | v83 server reference (Cosmic Monster.applyStatus boss gate), owner decision replacing #54's boss-poison permission |
 | Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
 | Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
+| Mob Stun behavior | no walking, route/jump/flyer pursuit, new attacks or mob skills, touch damage or hit flinch/push while stunned; animation clocks and damage continue; an airborne mob still falls straight down; a new stun keeps the longer remaining time; elementless (never rejected by an element); `on_hit` `prop`/`time` from Skill.wz | C | #187 owner brief; the stunned look and the `prop`/`time` fields are Skill.wz (tier A) |
+| Hidden state (#194, 7.18) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
+| Oak Barrel values (#194) | MP 11-20, time 12-30 s, failure chance 37-10% (`prop`), cooldown 35-15 s, morph 1002; the cooldown counts from the cast even when the barrel outlasts it | A | Skill.wz/510.img/skill/5101007 (`prop` read as the failure chance per the #194 brief) |
+| Oak Barrel conditions (#194) | casts below 30% HP with a mob within 250 px and the cooldown ready; the barrel ends early above 60% HP; a failed cast still pays MP and the cooldown, rolled once per cast on stream 16; cards: learn weight 3, rank weight 2, max rank 10, Brawlers only | C | owner decisions (30%, 60%, mob near, stream 16) + ours (250 px, card weights) |
+| Morph rendering (#194) | the avatar is replaced by one `Morph.wz` canvas per frame, feet on the origin; attack and cast stances show `stand`; the morph's `info` speed/jump are not applied | A art / C mapping | Morph.wz/1002.img; stance-to-action mapping is ours |
+| Mob Stun cue | the v83 stun stars (`mob` node of Backspin Blow, Shout, Blank Shot ...: 3 frames, 100 ms, repeat), looped over the body top (pos2); yellow (1,.95,.55) tint fallback | A art / C anchor and fallback tint | Skill.wz 111.img skill 1111008 mob (identical to 5101002/5101003/5201004); manifest entry in asset_manifest.json |
 | Mob status cues | Slow one-shot cached mob art, Poison repeat art; pos3 centre/pos2 top; Slow amber (1,.72,.40), Freeze cyan (.45,.80,1), fallback Poison violet (.72,.45,.90) | A art / C anchors and tint choices | original Skill.wz/210.img, Cold Beam has no mob overlay; [status research](research/monster-status-effects.md) |
 | Default frame delay | 100 ms | C | HeavenClient |
 | Background scroll | rx × 5 px/s | B | 3 reimplementations agree |
@@ -4352,6 +4860,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
 | Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
 | Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Pirate second-job fixtures (#195) | `lv37_brawler_2nd.json` (510 knuckle, seed 1, 480 s cap, `--god --exp-mult=3`) and `lv36_gunslinger_2nd.json` (520 gun, seed 1, 780 s cap, `--god`); the aids are diagnostic and recorded in each `_doc` | C | `tools/character_fixture.gd --label=spec168/ticket-195` (GAME_DESIGN 4.2) |
 | Second-job weapon skill families (#181) | each of the 18 Masteries, Boosters and Final Attacks lists its one family in `weapon_families` (sword, axe, blunt, spear, polearm; sword/axe/blunt cover one- and two-handed) | C | the Skill.wz nodes have no `weapon` field; String text and v83-facts 3 |
 | Second-job Mastery (#181) | `mastery` step 1..10 (15-60%, levels 1 and 2 both 15%) and ACC `x` 1..20, only while the family is held | A (numbers), B (the (10 + 5N)% encoding) | Skill.wz 110/120/130; v83-facts 3 |
 | Second-job Booster (#181) | WZ `x` -2 read with `scale: -1` as +2 speed steps; `hpCon` = `mpCon` 29 down to 10, `time` 10 s per level (10-200 s); auto-cast, recast on expiry, 0.8 s stance | A (numbers), C (the sign convention, auto-cast, stance) | Skill.wz; ours |
@@ -4362,7 +4871,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
 | Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
 | Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
-| Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god=1 --seconds=600 --label=spec165/ticket-185`; `--god=1` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
+| Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god --seconds=600 --label=spec165/ticket-185`; `--god` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
 | Playtest evidence shots (#185) | `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
@@ -4424,7 +4933,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
-| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Stat, Skill, plus (#188) one skill key per learned manual skill at the end of the tray, with the skill's own icon (Teleport, Dash) (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, the learned skill's icon | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
