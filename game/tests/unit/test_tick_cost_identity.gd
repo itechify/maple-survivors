@@ -21,9 +21,10 @@ const PET_BACK := 2700
 ## bursts between long MP-short stretches (level-ups refill it too).
 const MP_CYCLE := 300
 const MP_DRAIN := 60
-## Captured on Windows on the unoptimised code (b2ef00d); see the test for the platform split (#142).
-const WINDOWS_GOLDEN := "4e51522e3f417470880615c9df9a3c33a95279b2156fc6eb40fb2530f8b33087"
-const WINDOWS_TOTALS := {"exp": 4321, "mesos": 88576, "pickup_mesos": 88576, "equips_collected": 24,
+## Captured on Windows on the unoptimised code (b2ef00d); Linux (WSL, Godot 4.7.2) gives the same bytes. Do not
+## regenerate to bless a change: this ticket's work must not change them.
+const GOLDEN := "4e51522e3f417470880615c9df9a3c33a95279b2156fc6eb40fb2530f8b33087"
+const TOTALS := {"exp": 4321, "mesos": 88576, "pickup_mesos": 88576, "equips_collected": 24,
 	"equips_dropped": 45, "inventory": 24, "hp_potions": 12, "mp_potions": 0, "kills": 214, "casts": 214, "level": 13,
 	"pool": 21, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
@@ -42,14 +43,8 @@ func test_busy_round_with_a_big_drop_pool_and_mp_short_casts_is_unchanged() -> v
 	for rule: String in ["nearest", "box", "crowd", "buff"]:
 		assert_true(int(c.casts.get(rule, 0)) > 0, "a %s skill casts (%s)" % [rule, c.casts])
 	assert_true(int(c.kills) >= 200, "kills keep adding drops (%d)" % int(c.kills))
-	print("  #146 replay: digest %s, totals %s, coverage %s" % [r.digest, r.totals, c])
-	if OS.get_name() != "Windows":
-		# The golden digest is a Windows capture: on Linux the same seed gives other event bytes (#142), so there the
-		# test checks what survives a platform change: two replays on the same machine agree.
-		assert_eq(_replay(1200).digest, _replay(1200).digest, "two replays agree (the golden digest is Windows-only)")
-		return
-	assert_eq(r.totals, WINDOWS_TOTALS, "collected totals, seed 146")
-	assert_eq(r.digest, WINDOWS_GOLDEN, "event, player-state and drop-pool bytes, seed 146")
+	assert_eq(r.totals, TOTALS, "collected totals, seed 146")
+	assert_eq(r.digest, GOLDEN, "event, player-state and drop-pool bytes, seed 146")
 
 
 func test_mp_short_target_check_agrees_with_full_admission_for_every_cast_rule() -> void:
