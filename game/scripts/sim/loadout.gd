@@ -314,7 +314,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(book.skill_node(key).get("elemAttr", "")),
-		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
+		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
