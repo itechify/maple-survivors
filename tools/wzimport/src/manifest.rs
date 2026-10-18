@@ -6,16 +6,21 @@
 //! requested path as a prefix is absorbed by it. Missing imgs named directly by the manifest are errors;
 //! missing derived dependencies (a back, a mob sound, a link target) are warnings.
 //!
+//! The manifest is one main file plus optional include fragments: every `*.json` in the sibling folder named after the
+//! main file (`asset_manifest.json` -> `asset_manifest.d/`) is merged in, sorted by file name; a key listed in two
+//! files is an error (`Manifest::merge`, docs/ASSET_PIPELINE.md 4.1).
+//!
 //! `mapimgs` names map-structured imgs outside `Map.wz/Map` (the login scene `UI.wz/MapLogin.img`): they
 //! are exported whole and their backs, tiles, objs, BGM, map mark and life are expanded exactly like a map's.
 
 use crate::property::Node;
 use crate::wzroot::WzRoot;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 /// The manifest file.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Manifest {
     pub format: u32,
@@ -29,12 +34,16 @@ pub struct Manifest {
 }
 
 /// One `imgs[]` entry.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImgSpec {
     pub img: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub paths: Option<Vec<String>>,
 }
+
+/// Keys a manifest file may hold (`_doc` is free text). A fragment with any other key is rejected, so a typo such as
+/// `mob` cannot silently drop entries.
+const MANIFEST_KEYS: [&str; 8] = ["format", "_doc", "imgs", "maps", "mapimgs", "mobs", "character", "items"];
 
 impl Manifest {
     /// Parse manifest JSON.
@@ -44,6 +53,154 @@ impl Manifest {
             return Err(format!("manifest: unsupported format {}", m.format));
         }
         Ok(m)
+    }
+
+    /// Parse an include fragment: the same shape as the main file, but `format` is optional (when present it must
+    /// be 1) and unknown keys are errors.
+    pub fn parse_fragment(text: &str) -> Result<Manifest, String> {
+        let v: serde_json::Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+        let obj = v.as_object().ok_or("not a JSON object")?;
+        if let Some(k) = obj.keys().find(|k| !MANIFEST_KEYS.contains(&k.as_str())) {
+            return Err(format!("unknown key {k:?} (allowed: {})", MANIFEST_KEYS.join(", ")));
+        }
+        if let Some(f) = obj.get("format") {
+            if f.as_u64() != Some(1) {
+                return Err(format!("unsupported format {f}"));
+            }
+        }
+        let mut m: Manifest = serde_json::from_value(v).map_err(|e| e.to_string())?;
+        m.format = 1;
+        Ok(m)
+    }
+
+    /// Merge the main manifest with its include fragments. `main` and each fragment are `(display name, JSON text)`;
+    /// fragments are merged in the order given (callers pass them sorted by file name), appended after the main file's
+    /// entries. A key named by two different files is an error that names both files: an `imgs[]` entry is keyed by
+    /// (img, sub-path), or by img when it exports the whole img (a whole-img entry in one file conflicts with any entry
+    /// for that img in another); a `maps`/`mobs`/`character`/`items` id by its id; a `mapimgs` entry by its path.
+    /// Repeats inside one file are tolerated, as before.
+    pub fn merge(main: (&str, &str), fragments: &[(String, String)]) -> Result<Manifest, String> {
+        let mut out = Manifest::parse(main.1).map_err(|e| format!("{}: {e}", main.0))?;
+        let mut keys = KeyOwners::default();
+        keys.claim(&out, main.0)?;
+        for (name, text) in fragments {
+            let frag = Manifest::parse_fragment(text).map_err(|e| format!("manifest fragment {name}: {e}"))?;
+            keys.claim(&frag, name)?;
+            out.imgs.extend(frag.imgs);
+            out.maps.extend(frag.maps);
+            out.mapimgs.extend(frag.mapimgs);
+            out.mobs.extend(frag.mobs);
+            out.character.extend(frag.character);
+            out.items.extend(frag.items);
+        }
+        Ok(out)
+    }
+
+    /// Load a manifest file plus the `*.json` fragments in `fragment_dir(path)` (sorted by file name; the folder may be
+    /// absent). Errors are readable strings naming the file.
+    pub fn load(path: &Path) -> Result<Manifest, String> {
+        let main = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        let dir = fragment_dir(path);
+        let mut fragments = Vec::new();
+        if dir.is_dir() {
+            let mut files: Vec<PathBuf> = std::fs::read_dir(&dir)
+                .map_err(|e| format!("{}: {e}", dir.display()))?
+                .filter_map(|e| e.ok().map(|e| e.path()))
+                .filter(|p| p.is_file() && p.extension().is_some_and(|x| x == "json"))
+                .collect();
+            files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+            for f in files {
+                let text = std::fs::read_to_string(&f).map_err(|e| format!("{}: {e}", f.display()))?;
+                let name = f.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                fragments.push((name, text));
+            }
+        }
+        let main_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        Manifest::merge((&main_name, &main), &fragments)
+    }
+
+    /// Every selection as one sorted line, the form of `tests/fixtures/manifest_golden.txt`: `img <img> *` (whole img),
+    /// `img <img> <path>` per sub-path, `map|mapimg|mob|character|item <id or path>`. Independent of which file an
+    /// entry lives in, so moving an entry between files leaves it unchanged.
+    pub fn canonical_lines(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        for e in &self.imgs {
+            match &e.paths {
+                None => lines.push(format!("img {} *", e.img)),
+                Some(paths) => lines.extend(paths.iter().map(|p| format!("img {} {p}", e.img))),
+            }
+        }
+        lines.extend(self.maps.iter().map(|id| format!("map {id}")));
+        lines.extend(self.mapimgs.iter().map(|p| format!("mapimg {p}")));
+        lines.extend(self.mobs.iter().map(|id| format!("mob {id}")));
+        lines.extend(self.character.iter().map(|id| format!("character {id}")));
+        lines.extend(self.items.iter().map(|id| format!("item {id}")));
+        lines.sort();
+        lines
+    }
+}
+
+/// The include-fragment folder of a manifest file: `<dir>/asset_manifest.json` -> `<dir>/asset_manifest.d`.
+pub fn fragment_dir(manifest: &Path) -> PathBuf {
+    let stem = manifest.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    manifest.with_file_name(format!("{stem}.d"))
+}
+
+/// Which file first claimed each manifest key, for the duplicate check of `Manifest::merge`.
+#[derive(Default)]
+struct KeyOwners {
+    ids: BTreeMap<String, String>,
+    whole: BTreeMap<String, String>,
+    paths: BTreeMap<(String, String), String>,
+    partial: BTreeMap<String, String>,
+}
+
+impl KeyOwners {
+    /// Check `m` (from file `file`) against the earlier files, then record its keys.
+    fn claim(&mut self, m: &Manifest, file: &str) -> Result<(), String> {
+        let dup = |what: String, other: &String| format!("manifest entry {what} is listed in both {other} and {file}");
+        let mut ids = Vec::new();
+        ids.extend(m.maps.iter().map(|id| format!("map {id}")));
+        ids.extend(m.mapimgs.iter().map(|p| format!("mapimg {p}")));
+        ids.extend(m.mobs.iter().map(|id| format!("mob {id}")));
+        ids.extend(m.character.iter().map(|id| format!("character {id}")));
+        ids.extend(m.items.iter().map(|id| format!("item {id}")));
+        for k in &ids {
+            if let Some(o) = self.ids.get(k) {
+                return Err(dup(format!("`{k}`"), o));
+            }
+        }
+        let (mut whole, mut paths) = (Vec::new(), Vec::new());
+        for e in &m.imgs {
+            match &e.paths {
+                None => whole.push(e.img.clone()),
+                Some(ps) => paths.extend(ps.iter().map(|p| (e.img.clone(), p.clone()))),
+            }
+        }
+        for img in &whole {
+            if let Some(o) = self.whole.get(img).or_else(|| self.partial.get(img)) {
+                return Err(dup(format!("`img {img}`"), o));
+            }
+        }
+        for (img, p) in &paths {
+            if let Some(o) = self.whole.get(img) {
+                return Err(dup(format!("`img {img}` (path {p:?})"), o));
+            }
+            if let Some(o) = self.paths.get(&(img.clone(), p.clone())) {
+                return Err(dup(format!("`img {img}` path {p:?}"), o));
+            }
+        }
+        for k in ids {
+            self.ids.insert(k, file.to_string());
+        }
+        for img in whole {
+            self.whole.insert(img, file.to_string());
+        }
+        for (img, p) in paths {
+            self.partial.insert(img.clone(), file.to_string());
+            self.paths.insert((img, p), file.to_string());
+        }
+        Ok(())
     }
 }
 
@@ -317,6 +474,144 @@ mod tests {
         assert_eq!(item_path(2000000).unwrap().0, "Item.wz/Consume/0200.img");
         assert_eq!(item_path(9000003).unwrap(), ("Item.wz/Special/0900.img".to_string(), "09000003".to_string()));
         assert!(item_path(1000000).is_none());
+    }
+
+    const MAIN: &str = r#"{"format":1,"_doc":"x","imgs":[{"img":"A.wz/a.img"},{"img":"S.wz/s.img","paths":["1","2"]}],"maps":[1],"mobs":[7],"character":[2000],"items":[4000000]}"#;
+
+    fn frag(name: &str, text: &str) -> (String, String) {
+        (name.to_string(), text.to_string())
+    }
+
+    #[test]
+    fn fragments_merge_after_the_main_file() {
+        let m = Manifest::merge(
+            ("asset_manifest.json", MAIN),
+            &[
+                frag("a.json", r#"{"_doc":"line a","imgs":[{"img":"S.wz/s.img","paths":["3"]},{"img":"B.wz/b.img"}],"mobs":[8]}"#),
+                frag("b.json", r#"{"format":1,"maps":[2],"mapimgs":["U.wz/m.img"],"character":[1372000],"items":[4000001]}"#),
+            ],
+        )
+        .unwrap();
+        assert_eq!(m.format, 1);
+        assert_eq!(m.imgs.len(), 4);
+        assert_eq!((m.maps.clone(), m.mobs.clone()), (vec![1, 2], vec![7, 8]));
+        assert_eq!((m.character.clone(), m.items.clone()), (vec![2000, 1372000], vec![4000000, 4000001]));
+        assert_eq!(m.mapimgs, vec!["U.wz/m.img"]);
+        // A second entry for the same img with other paths is not a duplicate; the plan unions the paths.
+        let lines = m.canonical_lines();
+        assert!(lines.contains(&"img S.wz/s.img 3".to_string()) && lines.contains(&"img S.wz/s.img 1".to_string()));
+        assert!(lines.windows(2).all(|w| w[0] <= w[1]), "sorted");
+    }
+
+    #[test]
+    fn a_key_in_two_files_is_an_error_naming_both() {
+        let dup = |frag_text: &str| {
+            Manifest::merge(("asset_manifest.json", MAIN), &[frag("wizard.json", frag_text)]).unwrap_err()
+        };
+        for (text, what) in [
+            (r#"{"maps":[1]}"#, "`map 1`"),
+            (r#"{"mobs":[7]}"#, "`mob 7`"),
+            (r#"{"character":[2000]}"#, "`character 2000`"),
+            (r#"{"items":[4000000]}"#, "`item 4000000`"),
+            (r#"{"imgs":[{"img":"A.wz/a.img"}]}"#, "`img A.wz/a.img`"),
+            (r#"{"imgs":[{"img":"S.wz/s.img","paths":["2","9"]}]}"#, "`img S.wz/s.img` path \"2\""),
+            // whole img in one file, sub-paths of it in another (and the other way round)
+            (r#"{"imgs":[{"img":"A.wz/a.img","paths":["x"]}]}"#, "`img A.wz/a.img`"),
+            (r#"{"imgs":[{"img":"S.wz/s.img"}]}"#, "`img S.wz/s.img`"),
+        ] {
+            let e = dup(text);
+            assert!(e.contains(what), "{e}");
+            assert!(e.contains("asset_manifest.json") && e.contains("wizard.json"), "{e}");
+        }
+        // Two fragments clash too, and a repeat inside one file is tolerated.
+        let e = Manifest::merge(
+            ("asset_manifest.json", MAIN),
+            &[frag("a.json", r#"{"mobs":[9]}"#), frag("b.json", r#"{"mobs":[9]}"#)],
+        )
+        .unwrap_err();
+        assert!(e.contains("a.json") && e.contains("b.json") && e.contains("mob 9"), "{e}");
+        assert!(Manifest::merge(("m.json", MAIN), &[frag("a.json", r#"{"mobs":[9,9]}"#)]).is_ok());
+    }
+
+    #[test]
+    fn bad_fragments_are_rejected() {
+        for (text, what) in [
+            (r#"{"mob":[1]}"#, "unknown key"),
+            (r#"{"format":2}"#, "unsupported format"),
+            (r#"[1]"#, "not a JSON object"),
+            (r#"{"mobs":"7"}"#, "invalid type"),
+            ("{", "EOF"),
+        ] {
+            let e = Manifest::merge(("m.json", MAIN), &[frag("bad.json", text)]).unwrap_err();
+            assert!(e.contains("bad.json") && e.contains(what), "{e}");
+        }
+    }
+
+    #[test]
+    fn load_merges_the_sibling_folder_sorted_by_name() {
+        let dir = crate::testutil::TempDir::new("manifest_load");
+        let main = dir.path().join("asset_manifest.json");
+        std::fs::write(&main, MAIN).unwrap();
+        // No fragment folder: just the main file.
+        assert_eq!(Manifest::load(&main).unwrap().mobs, vec![7]);
+        let d = dir.path().join("asset_manifest.d");
+        std::fs::create_dir(&d).unwrap();
+        std::fs::write(d.join("b.json"), r#"{"mobs":[2]}"#).unwrap();
+        std::fs::write(d.join("a.json"), r#"{"mobs":[1]}"#).unwrap();
+        std::fs::write(d.join("notes.txt"), "not json at all").unwrap();
+        std::fs::create_dir(d.join("sub.json")).unwrap();
+        assert_eq!(Manifest::load(&main).unwrap().mobs, vec![7, 1, 2]);
+        // A duplicate across files fails the load, naming the files; so does an unreadable main file.
+        std::fs::write(d.join("c.json"), r#"{"mobs":[7]}"#).unwrap();
+        let e = Manifest::load(&main).unwrap_err();
+        assert!(e.contains("asset_manifest.json") && e.contains("c.json"), "{e}");
+        assert!(Manifest::load(&dir.path().join("nope.json")).is_err());
+        // run_import goes through the same loader.
+        let opts = crate::import::ImportOptions {
+            wz: dir.path().to_path_buf(),
+            manifest: main,
+            out: dir.path().join("out"),
+            force: false,
+        };
+        assert!(crate::import::run_import(&opts).unwrap_err().to_string().contains("c.json"));
+    }
+
+    /// The shipping manifest plus `asset_manifest.d/*.json` selects exactly what the single-file manifest selected before
+    /// it was split (docs/ASSET_PIPELINE.md 4.1). UPDATE_MANIFEST_GOLDEN=1 rewrites the golden after an intended change.
+    #[test]
+    fn shipping_manifest_with_fragments_matches_the_golden() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let golden_path = root.join("tests/fixtures/manifest_golden.txt");
+        let main = root.join("../../game/data/asset_manifest.json");
+        let merged = Manifest::load(&main).unwrap();
+        let got = merged.canonical_lines();
+        let old = std::fs::read_to_string(&golden_path).unwrap();
+        if std::env::var_os("UPDATE_MANIFEST_GOLDEN").is_some() {
+            let mut text: String = old.lines().filter(|l| l.starts_with('#')).map(|l| format!("{l}\n")).collect();
+            text.push_str(&got.join("\n"));
+            text.push('\n');
+            std::fs::write(&golden_path, text).unwrap();
+            return;
+        }
+        let want: Vec<String> = old.lines().filter(|l| !l.starts_with('#') && !l.is_empty()).map(String::from).collect();
+        let missing: Vec<_> = want.iter().filter(|l| !got.contains(l)).collect();
+        let extra: Vec<_> = got.iter().filter(|l| !want.contains(l)).collect();
+        assert!(missing.is_empty() && extra.is_empty(), "manifest drifted from the golden (UPDATE_MANIFEST_GOLDEN=1 to accept): missing {missing:?}, extra {extra:?}");
+        assert_eq!(got, want);
+        assert!(got.windows(2).all(|w| w[0] != w[1]), "no repeated selection");
+
+        // Every fragment is a documented, parseable file of its own.
+        let frags = fragment_dir(&main);
+        let mut names: Vec<String> = std::fs::read_dir(&frags).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        for line in ["beginner.json", "magician.json"] {
+            assert!(names.iter().any(|n| n == line), "missing fragment {line}");
+        }
+        for n in &names {
+            let v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(frags.join(n)).unwrap()).unwrap();
+            assert!(v["_doc"].as_str().is_some_and(|d| !d.is_empty()), "{n} needs a _doc");
+            Manifest::parse_fragment(&v.to_string()).unwrap();
+        }
     }
 
     #[test]

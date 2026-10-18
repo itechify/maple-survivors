@@ -19,6 +19,12 @@ fn wz_root() -> Option<PathBuf> {
     }
 }
 
+/// The shipping manifest with its include fragments (`game/data/asset_manifest.d/*.json`) merged, as JSON.
+fn shipping_manifest() -> serde_json::Value {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../game/data/asset_manifest.json");
+    serde_json::to_value(wzimport::manifest::Manifest::load(&path).unwrap()).unwrap()
+}
+
 fn node<'a>(root: &'a Node, path: &str) -> &'a Node {
     root.at(path).unwrap_or_else(|| panic!("{path} not found"))
 }
@@ -223,7 +229,7 @@ fn real_import_of_a_small_manifest() {
 #[test]
 fn real_import_of_henesys_flyers_and_sounds() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     let flyers = [9300063_u32, 9300062, 9300064, 2300100];
     for id in flyers {
         assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
@@ -264,7 +270,7 @@ fn real_import_of_henesys_flyers_and_sounds() {
 #[test]
 fn real_import_of_basic_weapon_afterimages_and_sounds() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     let names = ["Character.wz/Afterimage/swordOL.img", "Character.wz/Afterimage/mace.img", "Character.wz/Afterimage/hit.img", "Sound.wz/Weapon.img"];
     let imgs: Vec<_> = source["imgs"].as_array().unwrap().iter().filter(|e| names.contains(&e["img"].as_str().unwrap())).cloned().collect();
     assert_eq!(imgs.len(), 4, "all basic-attack manifest entries");
@@ -306,7 +312,7 @@ fn real_import_of_basic_weapon_afterimages_and_sounds() {
 #[test]
 fn real_import_of_henesys_bosses_and_sounds() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     let bosses = [2220000_u32, 6130101, 9400205];
     for id in bosses {
         assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
@@ -339,7 +345,7 @@ fn real_import_of_henesys_bosses_and_sounds() {
 #[test]
 fn real_import_of_potion_icons_and_restore_specs() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     let items: Vec<u32> = (2000000..=2000006).collect();
     for id in &items {
         assert!(source["items"].as_array().unwrap().contains(&serde_json::json!(id)), "manifest omits {id}");
@@ -370,9 +376,9 @@ fn real_import_of_potion_icons_and_restore_specs() {
 #[test]
 fn real_import_of_recovery_values_effect_and_use_sound() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
-    let entry = source["imgs"].as_array().unwrap().iter().find(|v| v["img"] == "Sound.wz/Skill.img").unwrap();
-    assert!(entry["paths"].as_array().unwrap().contains(&serde_json::json!("0001001")));
+    let source: serde_json::Value = shipping_manifest();
+    assert!(source["imgs"].as_array().unwrap().iter()
+        .any(|v| v["img"] == "Sound.wz/Skill.img" && v["paths"].as_array().unwrap().contains(&serde_json::json!("0001001"))));
     let tmp = std::env::temp_dir().join(format!("wzimport-real-recovery-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).unwrap();
     let manifest = tmp.join("manifest.json");
@@ -407,7 +413,7 @@ fn real_import_of_recovery_values_effect_and_use_sound() {
 #[test]
 fn real_import_of_mano_skill_tables_and_summon_effect() {
     let Some(root) = wz_root() else { return };
-    let manifest: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let manifest: serde_json::Value = shipping_manifest();
     assert!(manifest["imgs"].as_array().unwrap().iter().any(|v| v["img"] == "Effect.wz/Summon.img" && v["paths"].as_array().unwrap().contains(&serde_json::json!("1"))));
     let tmp = std::env::temp_dir().join(format!("wzimport-real-mano-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).unwrap();
@@ -445,7 +451,7 @@ fn real_import_of_mano_skill_tables_and_summon_effect() {
 #[test]
 fn real_import_of_stumpy_projectile_heal_and_sounds() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(3220000)), "manifest omits Stumpy");
     let tmp = std::env::temp_dir().join(format!("wzimport-real-stumpy-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).unwrap();
@@ -485,7 +491,7 @@ fn real_import_of_stumpy_projectile_heal_and_sounds() {
 #[test]
 fn real_import_of_king_slime_dyle_kits_bars_and_sounds() {
     let Some(root) = wz_root() else { return };
-    let source: serde_json::Value = serde_json::from_str(include_str!("../../../game/data/asset_manifest.json")).unwrap();
+    let source: serde_json::Value = shipping_manifest();
     for id in [9300003, 6220000] {
         assert!(source["mobs"].as_array().unwrap().contains(&serde_json::json!(id)));
     }

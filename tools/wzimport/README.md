@@ -10,7 +10,8 @@ asset cache (JSON trees, RGBA8 PNG atlas pages, MP3/WAV audio). The cache format
 ```bash
 bash scripts/import.sh "C:/Nexon/MapleStory"            # build + import into %APPDATA%/MapleSurvivors/asset_cache/v83
 cargo build --release                                    # in tools/wzimport
-wzimport import --wz <wz folder> --manifest game/data/asset_manifest.json --out <cache root> [--force]
+wzimport import --wz <wz folder> --manifest game/data/asset_manifest.json --out <cache root> [--force]   # also reads game/data/asset_manifest.d/*.json
+wzimport manifest --manifest game/data/asset_manifest.json [--out merged.json]   # the merged manifest as one JSON file (web export)
 wzimport dump   --wz <wz folder> Mob.wz/0100100.img/move 2     # tree listing (dir, img or node), optional depth
 wzimport dump   --wz <wz folder> Map.wz/Back --imgs            # every img below a directory
 wzimport ls     --wz <wz folder> Map.wz/Back                   # directory entries: kind, name, size, offset
@@ -32,7 +33,7 @@ and the img's exported path set are unchanged and its files still exist; `--forc
 | `sound` | Sound_DX8 headers: MP3 (82-byte header), PCM (70-byte header, written as RIFF WAV), media types without WAVEFORMATEX (sniffed: ID3/MPEG sync = MP3), anything else = skipped with a warning |
 | `canvas` | zlib or block-encrypted data; formats 1, 2, 513, 517 to straight RGBA8 (nibbles `* 17`, RGB565 bit replication) |
 | `uol` | fixed-point UOL resolution with deep-copy semantics, `..` relative to the UOL's parent, targets in sibling imgs, cycle guard; unresolved UOLs stay `{"$uol": path}` |
-| `manifest` | manifest parsing and expansion (maps, mobs + `info/link`, character ids, items); requests for one img are merged |
+| `manifest` | manifest parsing, include-fragment merge (`asset_manifest.d/*.json`, duplicates are errors) and expansion (maps, mobs + `info/link`, character ids, items); requests for one img are merged |
 | `atlas` | shelf packing into pages <= 2048x2048 with a 1 px gap; oversize canvases get their own page |
 | `export` | one img: resolve, select `paths`, dedupe canvases by source offset, decode + pack + PNG in parallel, write sounds and JSON (keys in WZ order) |
 | `cache`, `import` | `cache.json`, incremental stamps, the parallel run over all imgs |
@@ -65,6 +66,10 @@ MAPLE_WZ_ROOT="C:/path/to/v83" cargo test                # + real-data integrati
 - `src/tests.rs` checks decoded values, exact pixel bytes, origins, UOL copies and guards, atlas regions (inside
   the page, no overlap, 1 px gap, oversize pages), the exact JSON text, `paths` selection, manifest expansion on a
   synthetic map, a full import with incremental skips and `--force`.
+- `src/manifest.rs` tests cover the include fragments (`game/data/asset_manifest.d/*.json`, merged in file-name order,
+  a key in two files is an error, a missing folder is fine) and check that the shipping manifest plus its fragments
+  selects exactly `tests/fixtures/manifest_golden.txt`; regenerate it after an intended change with
+  `UPDATE_MANIFEST_GOLDEN=1 cargo test shipping_manifest` (docs/ASSET_PIPELINE.md 4.1).
 - `tests/real_data.rs` runs only with `MAPLE_WZ_ROOT` (it prints SKIP otherwise, which proves nothing): all 16
   archives are v83, Physics.img values, Snail and Slime (block-encrypted) frames, 104040000 footholds/bgm, String.wz
   names, CavaBien MP3, PCM sounds, and a real import whose page regions are compared with direct canvas decodes.
