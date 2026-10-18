@@ -18,11 +18,12 @@ extends SceneTree
 ##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
-##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>]
+##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
 ##
 ## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
-## job at the first window and itself at the second; a job this build cannot offer fails at startup. --branch=<id> is
-## the deprecated alias):
+## job at the first window and itself at the second; a job this build cannot offer fails at startup; a first job with
+## weapon paths takes the one named after a colon, `--job=400:claw`, else the one its branch can use, else a seeded one.
+## --branch=<id> is the deprecated alias):
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the
 ##           same as with any other policy until the choices differ). This is the "careless player" of the tuning
@@ -47,6 +48,8 @@ extends SceneTree
 ## Chain BALANCE records contain rounds[]; only CLEARED (including all rewards) feeds the next tier.
 
 const DT := 1.0 / 60.0
+## The weapon path named by `--job=<id>:<path>` ("" = none); the bot's job choice reads it (spec #151 #157).
+static var forced_path := ""
 const MILESTONES := [8, 10, 20, 30, 40, 50]
 ## "Near the player" box for the engagement metric (px from the player's feet).
 const NEAR_X := 300.0
@@ -132,7 +135,9 @@ func _init() -> void:
 			stage = a.substr(8)
 			stage_explicit = true
 		elif a.begins_with("--job="):
-			forced_job = int(a.substr(6))
+			var forced := JobTree.parse_forced(a.substr(6))
+			forced_job = int(forced.job)
+			forced_path = String(forced.path)
 		elif a.begins_with("--branch="):
 			printerr("balance_run: --branch is deprecated: use --job=<id>")
 			forced_job = int(a.substr(9))
@@ -182,7 +187,7 @@ func _init() -> void:
 			return
 		deep_merge(data, patch)
 	if forced_job != 0:
-		var job_error := JobTree.from_data(data.jobs, data.jobs_survivor).forced_job_error(forced_job)
+		var job_error := JobTree.from_data(data.jobs, data.jobs_survivor).forced_job_error(forced_job, forced_path)
 		if job_error != "":
 			print("balance_run: --job: " + job_error)
 			quit(2)
@@ -312,8 +317,8 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := BotInput.pick_job(w.pending_jobs, w.job_rng, forced_job, w.jobs)
-			if job < 0 or not w.apply_job(job):
+			var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, forced_job, w.jobs, forced_path)
+			if pick.job_id < 0 or not w.apply_job(pick.job_id, pick.path):
 				w.decline_job()
 			continue
 		var id := ""

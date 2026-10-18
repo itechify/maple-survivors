@@ -302,6 +302,23 @@ func test_job_window_pick_magician_after_confirmation() -> void:
 	assert_false(w.is_open())
 
 
+func test_job_window_lists_a_first_job_once_per_weapon_path() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	var options := [
+		{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
+		{"job_id": 400, "path": "claw", "name": "Thief - Claw", "available": true, "reason": ""},
+		{"job_id": 400, "path": "dagger", "name": "Thief - Dagger", "available": true, "reason": ""}]
+	w.open(options, 10, 0)
+	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.text),
+		["Magician", "Thief - Claw", "Thief - Dagger", "Not now."])
+	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.path), ["", "claw", "dagger", ""])
+	w.handle_input(key(KEY_3))
+	assert_eq(_got, [400], "the second Thief entry is chosen")
+	assert_eq(w.picked_path, "dagger", "and tells which path it was")
+
+
 func test_job_window_confirmation_times_out_and_mouse() -> void:
 	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
 	w.confirm_seconds = 1.0

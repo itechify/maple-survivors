@@ -274,7 +274,7 @@ The presentation layer shows the windows and calls back:
 
 | Call | Effect |
 |---|---|
-| `apply_job(job_id)` | advance (emits `job_changed`), open an extra advancement draw, then the normal upgrade choice for that level |
+| `apply_job(job_id, path := "")` | advance (emits `job_changed`; a path records `weapon_path`, #157; the job grant is worn), open an extra advancement draw, then the normal upgrade choice for that level |
 | `decline_job()` | stay, then continue to the upgrade choice |
 | `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else back to `PLAYING` |
 
@@ -298,6 +298,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `basic_attack` | `phase` (String: `start` / `impact`), `weapon_id` (int), `action`, `facing` (int), `pos` (Vector2 feet), `afterimage`, `sound` (WZ paths), `hit_after`, `interval` (float seconds); start plays stance/sound, impact plays afterimage; a landed hit also emits `mob_hit` with `skill = "basic_attack"` |
 | `mp_short` | `skill`, `skill_id`, `required_mp` (int), `mp` (available whole MP, int); once per eligible ready skill's waiting episode, including targetless buffs |
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
+| `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
 | `buff_expired` | `skill`, `skill_id`; once when an active timer expires; a run ending first need not emit expiry |
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
@@ -318,7 +319,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
 | `level_up` | `level` |
-| `job_advance_pending` | `options`: `[{job_id, name, available, reason}]` |
+| `job_advance_pending` | `options`: `[{job_id, name, available, reason}]`, plus `path` on a first job listed per weapon path (#157) |
 | `job_changed` | `job_id`, `name` |
 | `choice_pending` | `bonus` (bool), `advancement` (bool; extra new-job draw, preserving the queued level), `cards`: `[{id, kind, name, desc, icon, tier, magnitude, rank_before, rank, max_rank, skill, skill_name, skill_level, skill_level_next, skill_level_max, skill_changes, skill_effect_stat, skill_mod_changes}]`; `skill_mod_changes` (skill_mod cards on an owned skill, `{}` otherwise) maps the effective values the card's steps change (`shots`/`targets`/`pierce`/`speed`/`range` whole numbers, `cooldown` seconds to two decimals, `area`/`damage`/`crit` percent) to `{before, after}`; the level-up window shows them and dresses skill cards with SkillText (GAME_DESIGN 8.2); `skill_level_max` is the skill's canonical level cap (0 without a skill; the window marks a learn at the cap MAX); `tier` is lowercase `normal/rare/epic/unique/legendary` after the headroom clamp; `magnitude` is granted ranks, modifier steps or starting skill rank. `rank_before/rank` are consumed card steps before/after (learn/potion cards consume one). `skill_effect_stat` is the skill's skills.json `buff.stat` (`hp` Recovery, `mp_guard` Magic Guard, `pdd` Armor, `speed` Nimble Feet, `""` otherwise; the level-up window labels `x` from it); `skill_changes` maps canonical fields (`mad`, `mastery`, `mpCon`, `fixdamage`, `time`, `x`, `pdd`, `cooltime`, `speed`) to `{before: int, after: int}` for rank cards, `{}` otherwise; mastery is the displayed percent. Improved MaxMP Increase instead exposes `max_mp_percent`, the survivor per-level percentage, never canonical MP growth |
 | `upgrade_applied` | `id`, `rank`, `tier` (displayed Potential tier), `magnitude` (actual ranks/steps/starting rank) |
@@ -621,6 +622,20 @@ What the tables above leave open; the class doc comments have the rest.
   but precede defence and skill%; fixed/magic bounds retain their existing meaning. Optional survivor
   `physical_formula: {primary, secondary, max_mult, min_mult, ignore_mastery}` overrides the weapon row
   (Lucky Seven; 6.1 of GAME_DESIGN). #161 feeds mastery and crit passive inputs here.
+- **Shared passives, buffs and Final Attack (#161):** `RunWorld._refresh_caster` is the one place that turns owned
+  passives into caster fields. `Loadout.passive_total(stat)` / `passive_best(stat)` read every effect of a skill's
+  `passive` (the legacy `stat` + `field`/`per_level`, plus an optional `effects: [{stat, field | per_level}]` list) and skip
+  skills the held weapon family cannot use (`SkillBook.usable_with`). Stats: `mastery` (canonical N, fraction
+  (10 + 5N)%, best wins), `acc` (summed into `Loadout.acc`), `crit_chance` (percent, summed into `crit_bonus`),
+  `crit_damage` (total crit percent; `crit_damage_bonus` is the part above 100, best wins) and `max_hp_per_level`
+  (added to the base HP at each `_on_level_up`, so it persists in the snapshot's `base_hp`). A buff `effects` entry may
+  carry `scale` (Rage's WDEF penalty is `-1`); `watk` buff totals already feed `weapon_attack()`. Final Attack is a
+  passive skill with `final_attack: {chance_field}`, `damage: "physical"` and an `action`: the hit listener
+  `RunWorld._final_attack_hit` rolls `prop` on RNG stream 12 (`final_rng`) after a damaging physical line of a matching
+  family (hit dicts now carry `damage_type`, from `hit_mob` and ProjectileSystem), queues the target, and
+  `_play_final_attacks` runs at the end of `_step_player_attacks`: `final_attack` event, then one `hit_mob(slot,
+  loadout.stats(key), …, final_rng)` (damage, crit and the proc all on stream 12). Follow-ups never trigger follow-ups,
+  and a target the trigger killed gets none.
 - **`PickupSystem`:** `step()` returns the EXP collected this tick; at `max_active`, `spawn()` absorbs the drop farthest
   from the supplied player position and reuses its slot at the new death position, restarting the pop and age with
   the combined EXP. `merged` reports absorption, and `RunWorld` still emits `pickup_spawned`. With `lifetime` > 0 a drop expires silently
