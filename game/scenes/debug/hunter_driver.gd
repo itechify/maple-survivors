@@ -25,7 +25,10 @@ func _drive() -> void:
 	var mobs: Array[int] = []
 	for dx in [-90, 70, 110]:
 		mobs.append(_mob(dx))
+	w.loadout.order.clear()
+	await _frames(1.0 / 60.0)
 	await _shot("power_knockback_before.png")
+	w.loadout.order.append("power_knockback_bow")
 	await _frames(0.05)
 	await _shot("power_knockback.png")
 	summary["knockback"] = mobs.map(func(m: int) -> float: return w.swarm.x[m] - w.player.pos.x)
@@ -37,12 +40,14 @@ func _drive() -> void:
 	mobs.clear()
 	for dx in [100, 130, 160, 190, 220, 245]:
 		mobs.append(_mob(dx))
-	await _frames(0.10)
+	await _frames(0.05)
 	await _shot("arrow_bomb_flight.png")
-	await _frames(0.18)
+	await _frames(0.23)
 	await _shot("arrow_bomb_blast.png")
 	summary["bomb_stunned"] = mobs.map(func(m: int) -> float: return w.swarm.status_time(m, MobSwarm.STUN))
-	await _frames(0.40)
+	# Let the canonical blast finish without another cast hiding the stun stars.
+	w.loadout.order.clear()
+	await _frames(1.60)
 	await _shot("arrow_bomb_stun.png")
 	for row: Array in [[30,2060001,"bronze"],[40,2060002,"steel"],[50,2060003,"red"]]:
 		await _new_run(int(row[0]))
