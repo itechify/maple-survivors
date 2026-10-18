@@ -463,6 +463,44 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, once with the default
+job pick and once with `--job=100`, real cache, no PATCH or tuning. "Before" is `82cf212` (the #152 tip plus the
+WeaponInfo family prefactor; identical to the #152 record above); "after" is the integration tip `b3599ba` (every ticket,
+the review fixes and #164). No crashes, script errors, world warnings or `missing` entries in any record.
+
+| | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| before, seeds 1 / 2 / 2026 | D 14:10 / 15:07 / 4:48 | D 8:22 / 5:39 / 5:21 | D 9:34 / 1:17 / 0:48 | D 5:39 / 1:24 / 0:48 |
+| after, default pick | D 5:40 / 5:36 / 5:11 | D 7:31 / 5:16 / 5:44 | D 2:09 / 1:04 / 0:52 | D 2:09 / 1:04 / 0:52 |
+| after, `--job=100` | D 5:30 / 5:36 / 5:27 | D 5:42 / 5:16 / 5:16 | D 2:09 / 1:04 / 0:52 | D 2:09 / 1:04 / 0:52 |
+
+- **First job.** The unforced bot now draws Warrior or Magician on the job stream (8): seed 2 takes Warrior (100) in
+  both Henesys policies, the others Magician (200). Every Henesys run reaches its first job at 4:26-4:34 (Magician
+  265.7-274.0 s); Mano (5:00) is killed in 1 of 6 default runs (before: 3 of 6) and no run reaches the second boss.
+- **Why the Magician seeds moved: random-stream reshuffles, not a damage change.** The whole shift arrives with #153
+  (a per-merge bisect: every earlier merge is byte-identical to "before", every later one to #153, apart from #163's
+  seeded first-job draw). Two intended changes consume random numbers differently: hits now roll a crit once the chance
+  is above 0 (ACC x `crit.per_acc`, every job and damage type, owner decision), and basic-attack damage and crits roll
+  on the basic-attack stream (5), which also picks the swing stance. Reverting only those two on `92307b7` gives runs
+  bit-identical to before (Tree seed 1 for 120 s; Henesys seeds 1, 2 and 4 for 600 s, including the Magician
+  advancement), so the damage formulas are unchanged. Over Henesys bot seeds 1..24 to 600 s the old and new builds
+  are equal (10 vs 9 alive at 600 s, mean end 477 vs 476 s): seeds 1 and 2 were two of the long survivors before and
+  land on a short branch now. The 3-seed smoke is bimodal per seed and cannot judge pacing on its own.
+- **Beginner deltas (expected).** Crit rolls (above) and #159's drop rule: a Beginner holding the creation sword no
+  longer draws the any-job Wooden Wand (only the held family drops).
+- **Warrior (`--job=100`, untuned tracer).** Every forced Henesys run takes Warrior at 4:26-4:34 and dies at the first
+  boss (5:16-5:42). Over Henesys bot seeds 1..24: 24 of 24 die (4:38-10:05), Mano is killed in 6 of 22 spawned
+  fights, the second boss spawns once. The playtests show the bot MP-starved (0-4 of 100 MP at 5:14), never ranking a
+  Warrior skill and never learning Iron Body; ACC is about 6 (all AP in STR), so crits add about 0.3%. Recorded for
+  the balance pass and the Warrior second-job spec, not tuned.
+- **The Tree That Grew:** recorded only (seed 1 now dies at 2:09 before the first job).
+- `--job=210` (Henesys bot): D 5:40 / 7:35 / 5:11, Magician at 4:26-4:29, matching the default-pick Magician seeds.
+- Full suite 1623 tests, 0 failed, 0 skipped; `cargo test` and the web dev tests pass. `test_character_baseline`'s
+  Windows golden was re-captured twice (#153 crits and stream 5; #163 the Warrior option in the Lv 10 window and the
+  seeded first-job draw).
+
 #### #160 weapon attack speed and Boosters: timing deltas (spec #151)
 
 No smoke was run for this ticket (the lead runs the spec's smokes). The deltas follow from the design in 7.7: every
