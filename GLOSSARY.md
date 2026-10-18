@@ -131,8 +131,8 @@ _Avoid_: path (on its own; a weapon path is the first-job weapon choice), specia
 **Weapon path**:
 A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
 Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
-offers each path as its own entry and hands the character that weapon (a Pirate also gets the other path's weapon in
-the Equip tab, as the v83 instructor gives both, and a Bowman gets a crossbow there). It is not a job: both Thief paths are job 400.
+offers each path as its own entry and hands the character that weapon (a Thief or Pirate also gets the other path's weapon
+in the Equip tab, as the v83 instructor gives both, and a Bowman gets a crossbow there). It is not a job: both Thief paths are job 400.
 The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
 _Avoid_: branch (that is the second-job choice), build, stance
 
@@ -185,6 +185,11 @@ A card that changes how one owned skill behaves (more projectiles, pierce, targe
 without adding a rank.
 _Avoid_: stacking card, mod card, upgrade card (that means any card)
 
+**Carried attack**:
+A first-job attack skill of a physical class (Warrior, Bowman, Thief, Pirate) whose cards stay on offer after the
+second job, though never in the advancement draw. A Magician's earlier-job cards stop at each advancement.
+_Avoid_: legacy skill, kept skill
+
 **Advancement draw**:
 The extra card draw a job advancement opens before that level's normal draw: every new attack skill of the new job,
 topped up with its other new skills.
@@ -205,6 +210,11 @@ _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
 A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatened (weaker attacks and defence) or
 stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
+
+**Stolen**:
+A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
+status effect, so a boss can be stolen from.
+_Avoid_: robbed, looted
 
 **Element attribute**:
 A monster's canonical weakness (x1.5), resistance (x0.5) or immunity (x0) to an attack element: fire, ice,

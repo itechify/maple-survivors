@@ -8,8 +8,8 @@ v83". The owner decided them in the 2026-10-17 grilling:
   matching weapon is held. Survivor overrides cover the skills v83 leaves untagged (tier C). Level-up cards are offered
   for the weapon held when the draw rolls. A weapon swapped in the Equip window turns the mismatched skills off.
   - Thief and Pirate pick a **weapon path** at first job: Thief Claw/Dagger, Pirate Knuckle/Gun. The path hands the
-    character that weapon. The Pirate also gets the other path's weapon in the Equip tab, as v83's Kyrin gives both
-    (tier B; owner, #168 grilling 2026-10-18).
+    character that weapon. The Thief and the Pirate also get the other path's weapon in the Equip tab, as v83's Dark Lord and
+    Kyrin give both (tier B; owner, #168 and #167 grillings 2026-10-18).
   - Second job hands one advancement weapon for each of the branch's weapon families. The one of the held family is
     worn, or the branch's first family when the held one can't be used by the branch; the other goes to the Equip tab.
     *Amended 2026-10-18 (#165):* originally "only when the held one can't be used". Drops stay in the wielded family
@@ -43,7 +43,15 @@ v83". The owner decided them in the 2026-10-17 grilling:
 ## Consequences
 
 - **Thief paths:** a first-job Thief has one attack per weapon path (Lucky Seven or Double Stab). Its class spec adds
-  behaviour cards for parity with Magician first job's two attacks.
+  behaviour cards for parity with Magician first job's two attacks. *Settled 2026-10-18 (#167):* parity means the
+  Magician's behaviour budget, 13 steps across 5 lines per path, not its total card count (that would put about 33
+  near-duplicate behaviour steps on one skill).
+- **Carried attacks** (*amended 2026-10-18, #167*; GLOSSARY): a physical class's first-job attack cards stay on offer
+  after the second job, though never in the advancement draw; the weapon gate still decides which of them a character
+  sees. It began as a Warrior-only exception (#165: Warrior branches have no attack skill of their own), the Pirate
+  took the same shape (#168), and the Thief made it the rule: an Assassin's only second-job attack is Drain, and v83
+  Assassins kept attacking with Lucky Seven until third job. Magicians keep the old rule (earlier-job cards stop at
+  each advancement), because every Magician branch has attack skills of its own.
 - **Free swapping:** a character carrying a spare weapon can learn both paths' skills by swapping between draws, but
   only the held weapon's skills cast. The bot never swaps by hand.
 - **Masteries:** they apply only while their family is held. Drops stay in the wielded family, so they never switch a
