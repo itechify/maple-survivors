@@ -1,0 +1,43 @@
+{
+	"_doc": "Beginner skills (book 000, job 0): Three Snails, Nimble Feet, Recovery. Entry format and tier rules: see ../skills.json _doc.",
+	"skills": {
+		"nimble_feet": {
+			"skill_id": 1002, "book": "000", "job": 0, "kind": "buff", "slot": "passive",
+			"name": "Nimble Feet", "desc": "Temporarily increases movement speed, with a 60 second cooldown.",
+			"icon": "Skill.wz/000.img/skill/0001002/icon", "damage": "none", "ranks": [1, 2, 3],
+			"_buff": "Tier A: canonical speed/time/mpCon/cooltime. Tier C: automatically cast when inactive, off cooldown and affordable, never while climbing; no cast stance because the canonical skill has no action node.",
+			"buff": {"stat": "speed", "field": "speed", "duration_field": "time", "cooldown_field": "cooltime"},
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/000.img/skill/0001002/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/0001002/Use", "hit": ""}
+		},
+		"recovery": {
+			"skill_id": 1001, "book": "000", "job": 0, "kind": "buff", "slot": "passive",
+			"name": "Recovery", "desc": "Heals HP every 5 seconds for 30 seconds when hurt.",
+			"text": {"desc": "Recovers HP over time when your HP falls below half.", "h": "MP -{mp_cost}; recover {x} HP every 5 sec. for {duration} sec.; {buff_cooldown} sec. between uses"},
+			"icon": "Skill.wz/000.img/skill/0001001/icon", "damage": "none", "ranks": [1, 2, 3],
+			"_buff": "Tier C: cast below 50% HP; interpret canonical x as HP every 5 s, six pulses including the final pulse at 30 s. Values, duration, MP cost and cooldown stay canonical.",
+			"buff": {"stat": "hp", "field": "x", "duration_field": "time", "cooldown_field": "cooltime",
+				"pulse_interval": 5, "hp_threshold": 0.5},
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/000.img/skill/0001001/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/0001001/Use", "hit": ""}
+		},
+		"three_snails": {
+			"skill_id": 1000, "book": "000", "job": 0, "kind": "projectile", "slot": "active",
+			"name": "Three Snails", "desc": "Hurls snail shells at the nearest monster.",
+			"text": {"h": "MP -{mp_cost}; Damage {fixdamage}, {count|shell|shells} per throw"},
+			"icon": "Skill.wz/000.img/skill/0001000/icon",
+			"damage": "fixed",
+			"cooldown": 1.1, "range": 420, "speed": 400, "count": 1, "pierce": 0, "radius": 12,
+			"ranks": [1, 2, 3],
+			"level_ranks": {"3": 2, "6": 3},
+			"action": "swingO1", "action_time": 0.8,
+			"ball": "Skill.wz/000.img/skill/0001000/level/{level}/ball",
+			"hit": "Skill.wz/000.img/skill/0001000/level/{level}/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/0001000/Use", "hit": ""}
+		}
+	}
+}
