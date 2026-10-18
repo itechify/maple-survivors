@@ -49,7 +49,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.11) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -61,7 +61,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Teleport is manual on X.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -69,12 +69,13 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
-Teleport, Equip, Item, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+Equip, Item, Stat, Skill, NPC Chat and the **skill key** of each manual skill the character has learned (#188: Teleport
+or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
-key label (potion quickslots, Teleport) shows the current binding.
+key label (potion quickslots, the manual skills' icons) shows the current binding.
 
 Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
 second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
@@ -3026,8 +3027,8 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
-- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, and the Warrior's
-  `weapon_reach` and `range_around`, 7.8) resolves to
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, the Warrior's
+  `weapon_reach` and `range_around`, 7.8, and `self`, 7.12) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
@@ -3396,7 +3397,7 @@ kind):
 
 All four skills have their 20 original Skill.wz levels; the runtime reads canonical numbers rather than copying
 them into survivor balance. The Pirate owns `skills/pirate.json`, `upgrades/pirate.json`,
-`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash is deferred to #188; second jobs
+`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash arrived with #188 (7.11); second jobs
 remain locked until #189. Wings is never offered.
 
 | Skill | Cast / effect | Canonical L1 → L20 | Survivor behavior (tier C) |
@@ -3424,7 +3425,82 @@ The 18 Pirate tests also pass after freeing their temporary asset-library node. 
 pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds. No balance smoke or tuning here;
 #195 owns that pass.
 
-### 7.11 Hidden state and Oak Barrel (#194, spec #168)
+### 7.11 Skill keys and Dash (#188, spec #168)
+
+**Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
+(`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
+input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
+share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
+Teleport behaves exactly as before.
+
+- **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
+  `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
+  those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
+  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+- **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
+  `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
+  `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
+  (`_try_teleport`); a manual buff goes through `_try_manual_buffs` -> `SkillRunner.cast_manual_buff`, which casts only
+  when casting is free, the buff is not running, its cooldown (the buff's duration, as for an auto-cast buff) is over and
+  MP (and HP) can be paid; otherwise the press does nothing: no event, no MP spent. The HUD icon shows the key caption,
+  the buff countdown as its cooldown sweep, and the blue waiting-for-MP tint while the key could be pressed but MP is short.
+- **Dash 5001005** (Pirate first job, ranks 1-10 = Skill.wz levels 1-10): pressing its key starts a buff with canonical
+  speed `x` +12 -> +30 and jump `y` +1 -> +10 for `time` 4 -> 20 s, costing canonical `mpCon` 14 -> 5 (tier A). It replaces
+  v83's double-tap (tier C, owner), works with any weapon, has no cast hold (the character keeps moving) and plays the
+  canonical cast effect and Use sound. Speed is added to the speed stat before the existing cap (140); jump is added to
+  the jump stat (`100 + incJump + buff`) before the existing cap (123), so Dash obeys the same movement limits as
+  equipment. Cards: `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+- **Bot.** Dash's `manual` block holds the flee rule (survivor data, tier C): `bot_flee_hp` 0.5, `bot_surround_count` 3,
+  `bot_surround_distance` 120 px. `BotInput` presses the key when HP is below that fraction of its maximum with a mob
+  inside the existing 160 px flee distance, or when that many mobs on its level (the duel band, feet +/-40 px) are within
+  the surround distance, and the skill is ready, usable, affordable and keeps the attack/Magic Guard MP reserve of
+  Teleport (`BotInput._keeps_mp_reserve`). It never presses while the buff runs.
+
+Evidence (#188): `dash_driver.tscn` (`scenes/debug`) on the real Henesys map, rank 10: `key_config_dash.png` (Dash on X
+and at the end of the tray), `dash_cast.png` (the buff icon with its countdown, MP 42 -> 37, speed 100 -> 130, jump
+100 -> 110) and `dash_run.png`; the real X key and arrow key drive it.
+
+### 7.12 HP-to-MP conversion and pool conditions (generic, #193, spec #168)
+
+A skill may cast on the character's own pools instead of a monster, and turn HP into MP. It is data-driven and generic;
+the Brawler's MP Recovery 5101005 (`skills/pirate.json`, `mp_recovery`, book 510) is its only user, learned from
+`mp_recovery_new` / `mp_recovery_rank` cards (`upgrades/pirate.json`, `requires.jobs: [510]`, `"power": false`,
+weight 2/2, 10 ranks, tier C) that Brawlers are offered once #189 makes job 510 playable.
+
+**The `self` cast rule.** `cast: {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75}`. No monster is needed. The
+skill is admitted when every condition that is present and above 0 holds (an absent key is not checked):
+
+- `mp_below`: MP is strictly below this fraction of MaxMP (30% means 299 of 1000 casts, 300 does not);
+- `hp_at_least`: HP is at least this fraction of MaxHP *before* paying (750 of 1000 casts, 749 does not; about 65% is
+  left after the 10% payment);
+- the conversion's HP payment would leave the character alive (`RunWorld.can_pay_hp`, HP must stay above 0);
+- the usual gates: cooldown ready, held weapon allowed (none required for MP Recovery), not on a rope, MP for `mpCon`
+  (none for this skill). Both thresholds live in the skill's survivor data (`RunWorld.self_cast_ready`).
+
+**The `convert` block** (optional, `"convert": {"pay_field": "x", "gain_field": "y"}`) names two canonical level
+fields, percent numbers. `Loadout.stats(key).conversion` is `{}` or `{pay, gain}` as fractions: `pay` of MaxHP is paid
+as HP, `gain` of the HP paid comes back as MP. A cast pays `max(1, round(MaxHP x pay))` HP (`RunWorld.conversion_hp`) and
+restores `floor(paid x gain)` MP, clamped to MaxMP; `player_restored` (stat `mp`, the skill key) reports the MP actually
+gained. The cooldown is the level's canonical `cooltime`, named by the definition's optional `cooldown_field`
+(`Loadout.stats().cooldown`; cards that change cooldown still scale it).
+
+| Rank | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| HP paid (x, % of MaxHP) | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| MP gained (y, % of HP paid) | 55 | 60 | 65 | 70 | 75 | 80 | 85 | 90 | 95 | 100 |
+| Cooldown (cooltime, s) | 70 | 65 | 60 | 55 | 50 | 45 | 40 | 35 | 30 | 25 |
+
+Action `recovery` and the effect come from WZ; the action holds 0.6 s (tier C). The cast fires through the ordinary
+`cast` event (effect and sound as any skill), so no new event type exists. Recovery's HP-threshold buff
+(`buff.hp_threshold`, `can_start_buff`) is untouched, and no RNG stream is drawn. Skill-window text names the shares
+and the cooldown (`text.h`); the rank-card preview shows the cooldown change. The bot needs no handling: the condition
+admits the cast by itself, and its card scores like any other active skill's. Not in scope: any other pool-threshold
+skill, potions. Tests: `tests/unit/test_mp_recovery.gd` (a synthetic 510 book at Skill.wz's ten levels, seeded ticks;
+the real-cache test checks the original numbers).
+
+### 7.13 Hidden state and Oak Barrel (#194, spec #168)
 
 **Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
 block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
@@ -4146,11 +4222,17 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
 | Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
 | Moving attacks (#190, 7.9) | A skill's `displacement` block (`direction` away/toward the faced mob, `when` before/after/during, `field`/`distances`/`distance` in horizontal px) moves the grounded character along its platform: instant placement, stops at the platform edge, 0.01 px (`FootholdMap.EPS`) short of a wall, inside the map limits; the cast never fails for terrain; no move while airborne; `during` (a charge) strikes up to `mob_count` bosses-first/nearest mobs in the swept attack box (start to end; the body box without a skill box); `before`/`after` keep the targets admitted at the start; the character turns to the mob first; `cast` event `pos` is the pre-move position | C | owner decisions (#168 grilling) + ours; `FootholdMap.slide_along`, `PlayerMotion.displace`, `SkillRunner._resolve_cast` |
+| MP Recovery numbers (#193, 7.12) | pays `x` = 10% of MaxHP, returns `y` = 55 → 100% of it as MP (5% per rank), cooldown `cooltime` 70 → 25 s (5 s per rank), 10 ranks, no MP cost, no weapon requirement, action `recovery` and its effect | A | Skill.wz 510.img skill 5101005; Sound.wz/Skill.img/5101005 |
+| MP Recovery auto-cast condition (#193, 7.12) | casts only while MP < 30% of MaxMP (`cast.mp_below` 0.30) and HP >= 75% of MaxHP before paying (`cast.hp_at_least` 0.75, about 65% after); no monster needed; never leaves 0 HP | C | owner decisions (#168 grilling); both thresholds in `skills/pirate.json` |
+| MP Recovery rounding and timing (#193, 7.12) | HP paid = max(1, round(MaxHP x 10%)); MP gained = floor(paid x y%), clamped to MaxMP; 0.6 s action hold; cards `mp_recovery_new`/`_rank` weight 2/2, `power` false, Brawler (510) only | C | ours; untuned |
 | Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD: the shared blue waiting-for-MP tint (#82; was 0.35 grey); 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
 | HUD skill cooldown sweep and MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82); HudSkills (SWEEP_STEPS), RunWorld.skill_readiness / read_skill_cooldowns |
 | Bot Teleport MP reserve | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.TELEPORT_MP_RESERVE_FRACTION` / `TELEPORT_ATTACK_RESERVE_CASTS` |
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
+| Skill keys (#188) | a manual skill's `skill_key` is its input action; Key Config lists only learned ones after the fixed actions; Teleport and Dash both default to X (a character never learns both); the three Teleports share `teleport`, so a saved `teleport` binding is Teleport's skill key; a press that cannot pay (MP) does nothing | C | ours (owner); `KeyBindings.SKILL_KEYS`, `RunWorld.manual_skill_keys`, `project.godot` |
+| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
+| Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable, affordable and the Teleport MP reserve | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
@@ -4189,7 +4271,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
 | Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
 | Mob Stun behavior | no walking, route/jump/flyer pursuit, new attacks or mob skills, touch damage or hit flinch/push while stunned; animation clocks and damage continue; an airborne mob still falls straight down; a new stun keeps the longer remaining time; elementless (never rejected by an element); `on_hit` `prop`/`time` from Skill.wz | C | #187 owner brief; the stunned look and the `prop`/`time` fields are Skill.wz (tier A) |
-| Hidden state (#194, 7.11) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
+| Hidden state (#194, 7.13) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
 | Oak Barrel values (#194) | MP 11-20, time 12-30 s, failure chance 37-10% (`prop`), cooldown 35-15 s, morph 1002; the cooldown counts from the cast even when the barrel outlasts it | A | Skill.wz/510.img/skill/5101007 (`prop` read as the failure chance per the #194 brief) |
 | Oak Barrel conditions (#194) | casts below 30% HP with a mob within 250 px and the cooldown ready; the barrel ends early above 60% HP; a failed cast still pays MP and the cooldown, rolled once per cast on stream 16; cards: learn weight 3, rank weight 2, max rank 10, Brawlers only | C | owner decisions (30%, 60%, mob near, stream 16) + ours (250 px, card weights) |
 | Morph rendering (#194) | the avatar is replaced by one `Morph.wz` canvas per frame, feet on the origin; attack and cast stances show `stand`; the morph's `info` speed/jump are not applied | A art / C mapping | Morph.wz/1002.img; stance-to-action mapping is ours |
@@ -4379,7 +4461,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
-| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Stat, Skill, plus (#188) one skill key per learned manual skill at the end of the tray, with the skill's own icon (Teleport, Dash) (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, the learned skill's icon | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
 | UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
 | Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |

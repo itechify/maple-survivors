@@ -144,9 +144,20 @@ static func skill_imgs() -> Dictionary:
 		pirate[entry[0]] = {"level": levels}
 	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
 		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
+	# #188: Dash 5001005's real levels 1-10 as [mpCon, x (speed), y (jump), time] (Skill.wz/500.img).
+	var dash_levels := {}
+	var dash_rows := [[14, 12, 1, 4], [13, 14, 2, 4], [12, 16, 3, 8], [11, 18, 4, 8], [10, 20, 5, 12], [9, 22, 6, 12],
+		[8, 24, 7, 16], [7, 26, 8, 16], [6, 28, 9, 20], [5, 30, 10, 20]]
+	for i in dash_rows.size():
+		var row: Array = dash_rows[i]
+		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
+	pirate["5001005"] = {"level": dash_levels}
 	imgs["500"] = {"skill": pirate}
-	# #194: Oak Barrel 5101007 (the Brawler book 510); the other second-job skills of the line are not in the fixtures.
-	imgs["510"] = {"skill": {"5101007": oak_barrel_skill()}}
+	# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+	imgs["510"] = {"skill": {"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0],
+		"cooltime": [70.0, 25.0]})}}}
+	# #194: Oak Barrel 5101007, the v83 level values; the other second-job skills of the line add their own entries.
+	imgs["510"].skill["5101007"] = oak_barrel_skill()
 	return imgs
 
 

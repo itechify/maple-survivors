@@ -12,9 +12,11 @@ extends RefCounted
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
+## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.12) needs no monster: it casts when its survivor conditions
+## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
-## Hidden (docs/GAME_DESIGN.md 7.11) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## Hidden (docs/GAME_DESIGN.md 7.13) every attack skill is skipped the same way; buffs and non-damaging casts still run.
 ## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
@@ -191,6 +193,26 @@ func cast_ready(dt: float, world: RunWorld) -> void:
 		break
 
 
+## Casts the manual buff `key` (its skill key was pressed): false, with nothing spent or emitted, unless casting is free,
+## the buff is not already running, its cooldown is over and its MP and HP can be paid. Same cast as an auto-cast buff
+## (cooldown = its duration, `buff_cast` then `cast` events), minus the target scan.
+func cast_manual_buff(world: RunWorld, key: String) -> bool:
+	if not world.can_cast() or not world.loadout.book.is_active(key) or not world.loadout.book.usable_with(key,
+			world.held_weapon_family()):
+		return false
+	var st := stats_of(world, key)
+	if String(st.kind) != "buff" or float(cooldowns.get(key, 0.0)) > 1e-6 or not world.can_start_buff(key, st) \
+			or not world.mp_affordable(int(st.mp_cost)) or not world.can_pay_hp(int(st.hp_cost)):
+		return false
+	world.spend_mp(int(st.mp_cost))
+	world.spend_hp(int(st.hp_cost))
+	_shortages.erase(key)
+	cooldowns[key] = restart_cooldown(st)
+	cooldown_totals[key] = cooldowns[key]
+	_resolve_cast(world, key, st, world.cast_origin(), {})
+	return true
+
+
 ## Whether ready skill `key` (resolved stats `st`) would be admitted from `origin` now: exactly
 ## `not _admit_cast(...).is_empty()`, but it only counts targets (up to what admission needs) instead of collecting and
 ## ordering them. cast_ready uses it while the skill is short of MP, when the targets themselves are never used.
@@ -219,6 +241,8 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
 			return _any_target(world, origin, float(st.range), strike_count(st))
+		"self":
+			return world.self_cast_ready(st)
 		"hp_or_undead":
 			var heal: Dictionary = world.book.def(key).get("heal", {})
 			if float(world.player_state.hp) < float(world.player_state.max_hp) * float(heal.get("hp_threshold", 0.0)):
@@ -251,6 +275,8 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 			return _admit_range_around(world, st, origin)
 		"hp_or_undead":
 			return _admit_hp_or_undead(world, key, st)
+		"self":
+			return {"go": true}
 		"manual":
 			return {}
 	return {}
@@ -345,7 +371,7 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 	casts += 1
 	fired_this_tick = true
 	var effect := String(st.effect)
-	if String(st.cast_rule) in ["", "nearest"] and String(st.kind) == "buff":
+	if String(st.cast_rule) in ["", "nearest", "manual"] and String(st.kind) == "buff":
 		# A failed cast (Oak Barrel's chance, #194) pays MP and starts the cooldown but plays no effect.
 		if not world.start_buff(key, st):
 			effect = ""
@@ -369,6 +395,8 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 				_resolve_crowd(world, key, st, targets)
 			"hp_or_undead":
 				_resolve_hp_or_undead(world, key, st, targets)
+			"self":
+				world.convert_hp_to_mp(key, st)
 			"", "nearest":
 				if String(st.kind) != "buff":
 					_resolve_nearest(world, key, st, origin, targets)

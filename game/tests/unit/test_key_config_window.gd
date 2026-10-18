@@ -64,8 +64,17 @@ static func drag(w: UiWindow, a: Vector2, b: Vector2) -> void:
 	w._gui_input(press(b, false))
 
 
-func _key_config() -> KeyConfigWindow:
-	return _add(KeyConfigWindow.new(settings)) as KeyConfigWindow
+func _key_config(skill_keys: Array = []) -> KeyConfigWindow:
+	return _add(KeyConfigWindow.new(settings, skill_keys)) as KeyConfigWindow
+
+
+## The skill key RunWorld.manual_skill_keys() reports for a character that learned Teleport / Dash.
+static func _teleport_key() -> Dictionary:
+	return {"action": "teleport", "name": "Teleport", "icon": "Skill.wz/210.img/skill/2101002/icon", "skill": "teleport_fp"}
+
+
+static func _dash_key() -> Dictionary:
+	return {"action": "dash", "name": "Dash", "icon": "Skill.wz/500.img/skill/5001005/icon", "skill": "dash"}
 
 
 # --- Key Config ----------------------------------------------------------------------------------------------------
@@ -86,7 +95,7 @@ func test_key_config_is_the_v83_keyboard_with_a_tray_of_the_bindable_actions() -
 
 
 func test_drag_a_tray_icon_onto_a_free_key_binds_it() -> void:
-	var w := _key_config()
+	var w := _key_config([_teleport_key()])
 	drag(w, w.tray_rect("jump").get_center(), w.key_rect(KEY_F).get_center())
 	assert_eq(w.draft.action_on(KEY_F), "jump", "F jumps")
 	assert_true(KEY_C in w.draft.keys_of("jump"), "the tray is a source: the old keys stay")
@@ -94,6 +103,24 @@ func test_drag_a_tray_icon_onto_a_free_key_binds_it() -> void:
 	drag(w, w.tray_rect("teleport").get_center(), w.key_rect(KEY_Q).get_center())
 	assert_eq(w.draft.action_on(KEY_Q), "teleport", "dropping on a bound key replaces its action")
 	assert_eq(w.draft.keys_of("drink_hp"), PackedInt32Array([KEY_DELETE]))
+
+
+func test_the_tray_lists_only_the_learned_manual_skills() -> void:
+	var plain := _key_config()
+	assert_eq(plain.tray_rect("teleport"), Rect2(), "no manual skill learned: no Teleport slot")
+	assert_eq(plain.tray_rect("dash"), Rect2(), "and no Dash slot")
+	var pirate := _key_config([_dash_key()])
+	assert_eq(pirate.tray_rect("dash").size, Vector2(32, 32), "a learned Dash has a tray slot")
+	assert_eq(pirate.tray_rect("teleport"), Rect2(), "Teleport has none")
+	assert_eq(pirate.draft.action_on(KEY_X), "dash", "Dash sits on X by default")
+	drag(pirate, pirate.tray_rect("dash").get_center(), pirate.key_rect(KEY_F).get_center())
+	assert_eq(pirate.draft.action_on(KEY_F), "dash", "its icon is dragged like any other")
+	pirate._bt_ok.pressed.emit()
+	assert_true(KEY_F in settings.binding_keys("dash"), "OK saves the skill key")
+	var mage := _key_config([_teleport_key()])
+	assert_eq(mage.draft.action_on(KEY_X), "teleport")
+	mage._bt_delete.pressed.emit()
+	assert_eq(mage.draft.keys_of("teleport"), PackedInt32Array(), "Clear All clears the skill key too")
 
 
 func test_drag_between_keys_moves_and_off_the_keyboard_unbinds() -> void:

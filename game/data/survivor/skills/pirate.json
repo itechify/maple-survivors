@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash belongs to #188; second jobs to #189-194.",
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff; second jobs belong to #189-194.",
 	"skills": {
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
@@ -45,6 +45,34 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
+		},
+		"dash": {
+			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "active",
+			"name": "Dash", "desc": "Press its skill key to run faster and jump higher for a while.",
+			"text": {"desc": "Press the Dash key to temporarily raise your movement speed and jump."},
+			"icon": "Skill.wz/500.img/skill/5001005/icon", "damage": "none",
+			"cast": {"rule": "manual"}, "skill_key": "dash",
+			"buff": {"stat": "speed", "field": "x", "effects": [{"stat": "jump", "field": "y"}], "duration_field": "time"},
+			"manual": {"bot_flee_hp": 0.5, "bot_surround_count": 3, "bot_surround_distance": 120.0},
+			"_buff": "Tier A: canonical mpCon, speed x, jump y and time per level 1-10, the effect art and the use sound. Tier C (owner): a manual skill on its skill key (default X) instead of v83's double-tap, usable with any weapon, recast on the key once the buff ends, no cast hold. Speed and jump follow the movement caps (140 speed, 123 jump).",
+			"_manual": "Tier C: the bot dashes when its HP is below bot_flee_hp of the maximum with a mob within the flee distance, or when at least bot_surround_count mobs on its level are within bot_surround_distance px.",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "", "action_time": 0.0, "ball": "", "hit": "",
+			"effect": "Skill.wz/500.img/skill/5001005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5001005/Use", "hit": ""}
+		},
+		"mp_recovery": {
+			"skill_id": 5101005, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "MP Recovery", "desc": "Turns some of your HP into MP when your MP runs low and your HP is high.",
+			"text": {"desc": "Turns part of your Max HP into MP when your MP runs low and your HP is high.", "h": "Pays {x}% of Max HP, recovers {y}% of it as MP; {cooldown} sec. between uses"},
+			"icon": "Skill.wz/510.img/skill/5101005/icon", "damage": "none", "weapon_families": ["any"],
+			"_tier": "Tier A: pay share x (10% of MaxHP), MP share y (55-100% of the HP paid), cooltime (70-25 s), recovery action and effect art, no weapon requirement. Tier C (owner, #168 grilling): it auto-casts only while MP is below 30% of MaxMP and HP is at least 75% of MaxHP before paying, needs no monster, rounds the HP paid to whole points (the MP gained down), and never leaves 0 HP; action hold 0.6s; untuned.",
+			"cast": {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75},
+			"convert": {"pay_field": "x", "gain_field": "y"}, "cooldown_field": "cooltime",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "recovery", "action_time": 0.6, "ball": "", "hit": "",
+			"effect": "Skill.wz/510.img/skill/5101005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101005/Use", "hit": ""}
 		},
 		"oak_barrel": {
 			"skill_id": 5101007, "book": "510", "job": 510, "kind": "buff", "slot": "passive",

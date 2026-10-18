@@ -109,7 +109,7 @@ func test_teleport_exposes_its_repeat_timer_and_waits_for_mp_only_when_ready() -
 	var w := _teleporter()
 	assert_false(bool(w.skill_readiness("teleport_fp").mp_short), "affordable and ready")
 	var press := MoveInput.new()
-	press.teleport_pressed = true
+	press.press_skill("teleport")
 	w.step(DT, press)
 	var row: Dictionary = w.skill_readiness("teleport_fp")
 	# Teleport's survivor repeat delay is 0.3 s (skills.json).

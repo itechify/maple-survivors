@@ -185,7 +185,8 @@ var _acc := 0.0
 var _jump_latch := false
 var _drink_hp_latch := false
 var _drink_mp_latch := false
-var _teleport_latch := false
+## Skill key id ("teleport", "dash") -> true once its key went down since the last tick (consumed by _read_input).
+var _skill_latches := {}
 var _bot_memo := {}
 var _kind_ids := PackedInt32Array()
 var _kind_names := PackedStringArray()
@@ -216,9 +217,9 @@ var _equip_shot_taken := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
 var _hud_sig_scratch := PackedInt32Array()
-## Cached caption of the Teleport icon (_on_settings_changed; null until first read) and the reused per-frame
-## cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
-var _teleport_label: Variant = null
+## Cached captions of the manual skills' icons (skill key id -> first bound key; emptied by _on_settings_changed, read
+## lazily) and the reused per-frame cooldown buffers of the skill icons (RunWorld.read_skill_cooldowns).
+var _skill_labels := {}
 var _cd_left := PackedFloat32Array()
 var _cd_total := PackedFloat32Array()
 var _cd_short := PackedByteArray()
@@ -408,8 +409,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if world == null:
 		return
 	if not _autoplay and not event.is_echo():
-		if event.is_action_pressed("teleport"):
-			_teleport_latch = true
+		var skill_id := _pressed_skill_key(event)
+		if skill_id != "":
+			_skill_latches[skill_id] = true
 			get_viewport().set_input_as_handled()
 		elif event.is_action_pressed("drink_hp"):
 			_drink_hp_latch = true
@@ -543,7 +545,7 @@ func advance_frame(delta: float) -> void:
 		_jump_latch = false
 		_drink_hp_latch = false
 		_drink_mp_latch = false
-		_teleport_latch = false
+		_skill_latches.clear()
 	if _window_delay > 0.0:
 		_window_delay = maxf(0.0, _window_delay - delta)
 	if not held:
@@ -721,7 +723,8 @@ func _build_ui_windows() -> void:
 	hud.menu_button.pressed.connect(toggle_menu)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
-	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings))
+	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings,
+		world.manual_skill_keys()))
 	ui_windows.register("options", func() -> UiWindow: return OptionsWindow.new(settings))
 	if settings != null:
 		watch_settings(settings)
@@ -778,12 +781,30 @@ func _on_settings_changed() -> void:
 	# A persistent round follows the ALERT levels live (tool rounds never read the settings).
 	if world != null and settings != null and options.get("settings_alert") is Dictionary:
 		world.set_alert(settings.alert_levels())
-	_teleport_label = _first_key_label("teleport")
+	_skill_labels.clear()
 	if hud == null or world == null:
 		return
 	hud.potion_slot.refresh_key_labels()
 	_hud_sig = PackedInt32Array()
 	_update_hud()
+
+
+## The learned manual skill whose skill key `event` pressed ("" when none): the skill key's id.
+func _pressed_skill_key(event: InputEvent) -> String:
+	for key: String in world.loadout.order:
+		var id := world.skill_key_of(key)
+		if id != "" and event.is_action_pressed(id):
+			return id
+	return ""
+
+
+## The caption of skill key `id`'s first bound key, cached until Settings.changed ("" for no skill key or no key).
+func _skill_key_label(id: String) -> String:
+	if id == "":
+		return ""
+	if not _skill_labels.has(id):
+		_skill_labels[id] = _first_key_label(id)
+	return String(_skill_labels[id])
 
 
 ## The caption of the first key bound to `action` ("" when unbound): a skill icon has room for one.
@@ -974,13 +995,17 @@ func _read_input(first_tick: bool) -> MoveInput:
 	mi.up = Input.is_action_pressed("move_up")
 	mi.down = Input.is_action_pressed("move_down")
 	mi.jump_held = Input.is_action_pressed("jump")
-	mi.teleport_held = Input.is_action_pressed("teleport")
+	for key: String in world.loadout.order:
+		var skill_id := world.skill_key_of(key)
+		if skill_id != "" and Input.is_action_pressed(skill_id):
+			mi.hold_skill(skill_id)
 	if first_tick and _jump_latch:
 		mi.jump_pressed = true
 		_jump_latch = false
 	if first_tick:
-		mi.teleport_pressed = _teleport_latch
-		_teleport_latch = false
+		for skill_id: String in _skill_latches:
+			mi.press_skill(skill_id)
+		_skill_latches.clear()
 		mi.drink_hp = _drink_hp_latch
 		mi.drink_mp = _drink_mp_latch
 		_drink_hp_latch = false
@@ -1715,11 +1740,9 @@ func run_time() -> float:
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
 ## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
 func run_info() -> Dictionary:
-	if _teleport_label == null:
-		_teleport_label = _first_key_label("teleport")
 	var skills: Array = []
 	for key: String in world.loadout.order:
-		var label: String = _teleport_label if world.book.def(key).has("teleport") else ""
+		var label := _skill_key_label(world.skill_key_of(key))
 		var ready := world.skill_readiness(key)
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),

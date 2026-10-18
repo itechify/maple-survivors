@@ -1,5 +1,5 @@
 extends TestCase
-## The generic Hidden state (#194 of spec #168, docs/GAME_DESIGN.md 7.11): while an active buff makes the character
+## The generic Hidden state (#194 of spec #168, docs/GAME_DESIGN.md 7.13): while an active buff makes the character
 ## Hidden, monsters (bosses included) neither chase nor attack it and the character cannot attack, but buffs, potions and
 ## movement still work; it ends at the buff's duration. Synthetic buffs and data (no Pirate skill), seeded RNG, fixed dt.
 
