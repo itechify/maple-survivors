@@ -59,7 +59,7 @@ func end(skill: String, events: Array) -> bool:
 	return true
 
 
-## Whether an active buff makes the character Hidden (docs/GAME_DESIGN.md 7.13).
+## Whether an active buff makes the character Hidden (docs/GAME_DESIGN.md 7.14).
 func hidden() -> bool:
 	for buff: Dictionary in active.values():
 		if bool(buff.get("hidden", false)):

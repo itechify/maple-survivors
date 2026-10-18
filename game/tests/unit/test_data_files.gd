@@ -179,6 +179,8 @@ func test_jobs_and_balance() -> void:
 	for id: int in [210, 220, 230]:
 		assert_true(tree.job(id).playable, "%d playable" % id)
 	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
+	for id: int in [510, 520]:
+		assert_true(tree.job(id).playable, "%d is playable since #189" % id)
 	for id: int in [300, 400]:
 		assert_false(tree.job(id).playable, "%d not playable" % id)
 	var b: Dictionary = data.balance
@@ -200,7 +202,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "500:knuckle": "str", "500:gun": "dex"})
+	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
@@ -234,8 +236,8 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
 	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
-		1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001]),
-		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, both Pirate weapons, and the five Warrior advancement weapons")
+		1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1482004, 1492004]),
+		"without MakeCharInfo the setup loads the default outfit, the granted sword and wand, the Warrior's handed-over Spear and Steel Pipe, both Pirate weapons, the five Warrior advancement weapons and the two Pirate advancement weapons")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))

@@ -604,7 +604,7 @@ What the tables above leave open; the class doc comments have the rest.
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
   level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
   The run's starting skill emits `skill_learned` before the first `step()`.
-- **Hidden and morph (#194, GAME_DESIGN 7.13):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
+- **Hidden and morph (#194, GAME_DESIGN 7.14):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
   `RunWorld.is_hidden()` true; `player_state.hidden` and `player_state.morph` (the Morph.wz id of the first morphing
   buff, 0 for the plain avatar, always 0 once dead) feed the presentation. Mobs, bosses, mob skills and balls read
   `is_hidden()` (MobSwarm `ctx.hidden`, MobAttacks, MobProjectileSystem, MobSkillRunner, BossDirector, SpawnDirector,

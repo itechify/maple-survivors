@@ -1,5 +1,5 @@
 {
-	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff; second jobs belong to #189-194.",
+	"_doc": "Pirate line (#168), first job (#186). Rank equals canonical Skill.wz level. Costs, damage, counts, boxes, range, actions, art and sounds are tier A unless overridden next to the entry. Canonical prerequisites are ignored (tier C owner choice #31). Dash (#188) is the first manual buff. Second jobs: passives and boosters #189 (Improve MaxHP, Knuckler/Gun Mastery, Knuckler/Gun Booster; their cards require the exact branch), attacks #191-#192, MP Recovery #193, Oak Barrel #194.",
 	"skills": {
 		"flash_fist": {
 			"skill_id": 5001001, "book": "500", "job": 500, "kind": "instant", "slot": "active",
@@ -45,6 +45,60 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
+		},
+		"improve_maxhp": {
+			"skill_id": 5100000, "book": "510", "job": 510, "kind": "passive", "slot": "passive",
+			"name": "Improve MaxHP", "desc": "Increases the Max HP gained at each level-up.",
+			"icon": "Skill.wz/510.img/skill/5100000/icon", "damage": "none",
+			"text": {"desc": "Boosts the Max HP you gain at each level-up.", "h": "Each level-up gives +{x} more Max HP"},
+			"_passive": "Tier B: like Improved MaxHP Increase, the canonical x (3 to 30) is added to the Max HP of each level-up at the skill's rank then; never retroactive. The AP half of the skill (y per HP AP) has no meaning here (AP is automatic). Tier A: 10 levels, any weapon.",
+			"passive": {"stat":"max_hp_per_level","field":"x"},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"knuckler_mastery": {
+			"skill_id": 5100001, "book": "510", "job": 510, "kind": "passive", "slot": "passive",
+			"name": "Knuckler Mastery", "desc": "Increases the mastery and accuracy of Knucklers.",
+			"icon": "Skill.wz/510.img/skill/5100001/icon", "damage": "none",
+			"weapon_families": ["knuckle"],
+			"_passive": "Tier A: canonical mastery N (mastery (10 + 5N)%) and x (ACC), 20 levels. Tier C: knuckle-only tag (String.wz says so; the family tag is ours). Tier B: mastery encoding and ACC feeding crit chance, as in 7.6.",
+			"passive": {"stat":"mastery","field":"mastery","effects":[{"stat":"acc","field":"x"}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"gun_mastery": {
+			"skill_id": 5200000, "book": "520", "job": 520, "kind": "passive", "slot": "passive",
+			"name": "Gun Mastery", "desc": "Increases the mastery and accuracy of Guns.",
+			"icon": "Skill.wz/520.img/skill/5200000/icon", "damage": "none",
+			"weapon_families": ["gun"],
+			"text": {"desc": "Boosts the accuracy and the mastery of your Guns. This skill only applies when you equip a Gun.", "h": "Gun mastery +{mastery_pct}%, Accuracy +{x}"},
+			"_passive": "Tier A: canonical mastery N and x (ACC), 20 levels. Tier C: gun-only tag. The canonical y (bullets per recharge) has no meaning here: ammo is endless (6.1.2), so it is neither used nor shown.",
+			"passive": {"stat":"mastery","field":"mastery","effects":[{"stat":"acc","field":"x"}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
+			"sounds": {"use": "", "hit": ""}
+		},
+		"knuckler_booster": {
+			"skill_id": 5101006, "book": "510", "job": 510, "kind": "buff", "slot": "passive",
+			"name": "Knuckler Booster", "desc": "Temporarily increases the attack speed of Knucklers.",
+			"icon": "Skill.wz/510.img/skill/5101006/icon", "damage": "none", "weapon_families": ["knuckle"],
+			"_buff": "Tier A: canonical x (-2: two attack speed steps faster, hence scale -1), time (10 to 200 s), hpCon and mpCon (29 down to 10, both paid per cast), the alert2 action, effect art and Use sound. Tier C: knuckle only (String.wz text; family tag ours), self-only auto-cast while inactive and affordable, recast on expiry (7.7), 0.8 s cast hold.",
+			"buff": {"duration_field": "time", "effects": [{"stat": "attack_speed", "field": "x", "scale": -1}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "Skill.wz/510.img/skill/5101006/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101006/Use", "hit": ""}
+		},
+		"gun_booster": {
+			"skill_id": 5201003, "book": "520", "job": 520, "kind": "buff", "slot": "passive",
+			"name": "Gun Booster", "desc": "Temporarily increases the firing speed of Guns.",
+			"icon": "Skill.wz/520.img/skill/5201003/icon", "damage": "none", "weapon_families": ["gun"],
+			"_buff": "Tier A: canonical x (-2: two attack speed steps faster, hence scale -1), time (10 to 200 s), hpCon and mpCon (29 down to 10, both paid per cast), the alert2 action, effect art and Use sound. Tier C: gun only (String.wz text; family tag ours), self-only auto-cast while inactive and affordable, recast on expiry (7.7), 0.8 s cast hold.",
+			"buff": {"duration_field": "time", "effects": [{"stat": "attack_speed", "field": "x", "scale": -1}]},
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "", "effect": "Skill.wz/520.img/skill/5201003/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5201003/Use", "hit": ""}
 		},
 		"dash": {
 			"skill_id": 5001005, "book": "500", "job": 500, "kind": "buff", "slot": "active",

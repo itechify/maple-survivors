@@ -604,7 +604,7 @@ func convert_hp_to_mp(key: String, st: Dictionary) -> int:
 	return restore_player("mp", floori(float(paid) * float(st.conversion.get("gain", 0.0)) + 1e-6), key)
 
 
-## Whether the character is Hidden (docs/GAME_DESIGN.md 7.13): an active buff makes monsters, bosses included, ignore
+## Whether the character is Hidden (docs/GAME_DESIGN.md 7.14): an active buff makes monsters, bosses included, ignore
 ## the character and stops its attacks. Oak Barrel (#194) and Thief Dark Sight (#167) use it.
 func is_hidden() -> bool:
 	return buffs.hidden()

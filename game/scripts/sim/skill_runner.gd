@@ -16,7 +16,7 @@ extends RefCounted
 ## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
 ## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped. While the character is
-## Hidden (docs/GAME_DESIGN.md 7.13) every attack skill is skipped the same way; buffs and non-damaging casts still run.
+## Hidden (docs/GAME_DESIGN.md 7.14) every attack skill is skipped the same way; buffs and non-damaging casts still run.
 ## A buff whose cast block names `mob_within` (Oak Barrel) also needs a living mob within that many px of the cast origin.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,

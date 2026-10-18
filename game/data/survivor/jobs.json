@@ -24,8 +24,10 @@
 		"320": {"weapon_families": ["crossbow"]},
 		"410": {"weapon_families": ["claw"]},
 		"420": {"weapon_families": ["dagger"]},
-		"510": {"weapon_families": ["knuckle"]},
-		"520": {"weapon_families": ["gun"]},
+		"510": {"playable": true, "grants": {"max_hp": 325, "max_mp": 175}, "weapon_families": ["knuckle"], "grant_items": [1482004],
+			"_provenance": "tier B: second-job Max HP +300-350 and Max MP +150-200, fixed midpoints (Cosmic changeJob, v83-facts 4); tier C: advancement weapon (spec #168 #189, ADR 0005 as amended): Prime Hands 1482004 (Lv 30 knuckle, PAD 34, STR 60 / DEX 30), the plain Lv 30 shop knuckle. Canonical Lv 30 stays. Growth stays the Pirate's (balance.json growth 500); AP: balance.json ap_stat/ap_secondary 510 (the knuckle path's rows, whichever path the character took)."},
+		"520": {"playable": true, "grants": {"max_hp": 325, "max_mp": 175}, "weapon_families": ["gun"], "grant_items": [1492004],
+			"_provenance": "tier B: second-job Max HP +300-350 and Max MP +150-200, fixed midpoints (Cosmic changeJob, v83-facts 4); tier C: advancement weapon (spec #168 #189, ADR 0005 as amended): Cold Mind 1492004 (Lv 30 gun, PAD 31, DEX 70 / STR 30), the plain Lv 30 shop gun. Canonical Lv 30 stays. Growth stays the Pirate's (balance.json growth 500); AP: balance.json ap_stat/ap_secondary 520 (the gun path's rows, whichever path the character took)."},
 		"210": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"},
 		"220": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"},
 		"230": {"playable": true, "grants": {"max_mp": 475}, "_provenance": "tier C: fixed midpoint of v83 mage second-job Max MP 450-500; docs/research/cosmic-data.md job-change rewards (server reimplementation, unverified against GMS)"}

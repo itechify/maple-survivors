@@ -153,9 +153,29 @@ static func skill_imgs() -> Dictionary:
 		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
 	pirate["5001005"] = {"level": dash_levels}
 	imgs["500"] = {"skill": pirate}
-	# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
-	imgs["510"] = {"skill": {"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0],
-		"cooltime": [70.0, 25.0]})}}}
+	# #189: the Brawler's and Gunslinger's passives and boosters, original v83 values (Skill.wz/510.img, 520.img): Improve
+	# MaxHP x 3..30; masteries N = ceil(level / 2) and x = level (Gun Mastery also has y = 10 * level, unused here);
+	# boosters x -2, time 10..200 s, hpCon and mpCon 29..10.
+	var mastery := func(with_y: bool) -> Dictionary:
+		var levels := _levels(20, {"x": [1.0, 20.0]})
+		for lv in range(1, 21):
+			levels[str(lv)].mastery = float(ceili(lv / 2.0))
+			if with_y:
+				levels[str(lv)].y = float(10 * lv)
+		return levels
+	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
+		"x": [-2.0, -2.0]})
+	imgs["510"] = {"skill": {
+		# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+		"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0], "cooltime": [70.0, 25.0]})},
+		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
+		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
+		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	imgs["520"] = {"skill": {
+		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
+		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
 	# #194: Oak Barrel 5101007, the v83 level values; the other second-job skills of the line add their own entries.
 	imgs["510"].skill["5101007"] = oak_barrel_skill()
 	return imgs

@@ -236,7 +236,7 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
 ## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
-## and for a Hidden buff (docs/GAME_DESIGN.md 7.13): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
+## and for a Hidden buff (docs/GAME_DESIGN.md 7.14): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
 ## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
 ## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
