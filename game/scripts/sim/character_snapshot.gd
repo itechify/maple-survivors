@@ -9,7 +9,8 @@ extends RefCounted
 ## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
 ## potions: {hp: {item_id, count}, mp: {item_id, count}} (item_id IS the potion tier);
 ## look: {skin, face, hair}, possibly empty (worn equipment is what is drawn over it);
-## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes);
+## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes; the
+## `shield` worn key, #158, is optional and absent for snapshots saved before it: no format bump);
 ## scrolls: {"<scroll item id>": count} (the Use tab's scroll stacks); mesos: integer, 0 for a new character.
 ## Optional spec #34 keys, added without a FORMAT bump (valid in format 1 and 2; a file without them has no cash
 ## equipment and no pet; the snapshot writes them only when set):
