@@ -8,14 +8,15 @@ extends RefCounted
 ## the SpatialHash (mob feet points; the query is padded by the largest body box). Mobs are hit in the order the
 ## segment enters them; a shot hits each mob at most once (per-shot already-hit list) and dies after 1 + pierce hits.
 ## The list stores logical identities, so relocation retains exclusion and a fresh occupant of a reused slot does not.
-## Each hit rolls its damage (`dmg_min`..`dmg_max`, mob MDD when `magic`, crit) with `rng`, applies it through
+## Each hit resolves live defence (PDD physical, MDD magic, none fixed), rolls damage and crit with `rng`, applies it through
 ## MobSwarm.apply_hit (pushed along the shot's direction), appends a `mob_hit` event, and records killed mob slots in
 ## `kills` for RunWorld (mob_died, EXP drop). `paths` is RunWorld.visual_paths (the `visual` and hit-visual indices
 ## point into it); `skill_names` maps the per-shot `skill` index to the survivor skill key.
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
-## rotate (bool), dmg_min, dmg_max, magic (bool), element (canonical elemAttr), crit (chance), crit_mult, pierce,
-## skill (survivor key), level (canonical level at cast).
+## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
+## (skill% / 100, default 1), player_level, element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
+## skill (survivor key), level (canonical skill level at cast). Defence and target level are live at impact.
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
 const MAX_HITS := 16
@@ -36,6 +37,10 @@ var radius := PackedFloat32Array()
 var dmg_min := PackedFloat32Array()
 var dmg_max := PackedFloat32Array()
 var magic := PackedByteArray()
+var damage_type := PackedStringArray()
+var damage_pct := PackedFloat64Array()
+var player_level := PackedInt32Array()
+var crit_damage_bonus := PackedFloat64Array()
 ## Canonical attacking skill elemAttr; resistance is resolved against each target at impact.
 var element := PackedStringArray()
 var crit := PackedFloat32Array()
@@ -103,7 +108,11 @@ func spawn(spec: Dictionary) -> int:
 	radius[i] = float(spec.get("radius", 10.0))
 	dmg_min[i] = float(spec.get("dmg_min", 1.0))
 	dmg_max[i] = float(spec.get("dmg_max", spec.get("dmg_min", 1.0)))
-	magic[i] = 1 if bool(spec.get("magic", false)) else 0
+	damage_type[i] = String(spec.get("damage_type", "magic" if bool(spec.get("magic", false)) else "fixed"))
+	magic[i] = 1 if damage_type[i] == "magic" else 0
+	damage_pct[i] = float(spec.get("damage_pct", 1.0))
+	player_level[i] = int(spec.get("player_level", 1))
+	crit_damage_bonus[i] = float(spec.get("crit_damage_bonus", 0.0))
 	element[i] = String(spec.get("element", ""))
 	crit[i] = float(spec.get("crit", 0.0))
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
@@ -137,7 +146,8 @@ func despawn(i: int) -> void:
 ## appends mob_hit events and fills `kills`. Optional defense/immunity arrays describe this impact tick.
 ## on_hit(slot, hit) runs once per damaging contact before apply_hit, with skill/level/magic/damage/element.
 func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array(),
-		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable()) -> void:
+		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable(),
+		live_pdd: PackedFloat32Array = PackedFloat32Array()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
@@ -176,7 +186,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit)
+			_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -217,24 +227,35 @@ static func segment_enter(ax: float, ay: float, bx: float, by: float, r: Rect2) 
 	return t0 if t0 <= t1 else -1.0
 
 
-## Rolls one hit of shot i's damage spec on mob m: Vector2i(damage, crit 0/1). Shared with instant skills through
-## roll_damage().
-static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: float, crit_chance: float, cmult: float,
-		r: RandomNumberGenerator, element_mult: float = 1.0) -> Vector2i:
+## Shared instant/projectile hit: physical defence on bounds, roll, skill%, crit, element, final rounding.
+## Legacy calls infer fixed/magic from is_magic; explicit damage_type selects physical. Returns damage and crit0/1.
+static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k: float, crit_chance: float, cmult: float,
+		r: RandomNumberGenerator, element_mult: float = 1.0, damage_type: String = "", damage_pct: float = 1.0,
+		player_level: int = 1, mob_level: int = 1, crit_damage_bonus: float = 0.0) -> Vector2i:
 	if element_mult <= 0.0:
 		return Vector2i.ZERO
+	var dtype := damage_type if damage_type != "" else "magic" if is_magic else "fixed"
+	if dtype == "physical":
+		var defended := CombatMath.physical_defense(Vector2(lo, hi), player_level, mob_level, defense)
+		lo = defended.x
+		hi = defended.y
 	var dmg := r.randf_range(lo, hi) if hi > lo else lo
-	if is_magic:
-		dmg = CombatMath.apply_defense(dmg, mdd, k)
+	if dtype == "magic":
+		dmg = CombatMath.apply_defense(dmg, defense, k)
 	var is_crit := CombatMath.roll_crit(crit_chance, r)
-	if is_crit:
-		dmg *= cmult
+	# tier B: Critical Shot/Throw add skill-% points instead of multiplying the skill's damage (SouthPerry).
+	if is_crit and crit_damage_bonus > 0.0:
+		dmg *= damage_pct + crit_damage_bonus / 100.0
+	else:
+		dmg *= damage_pct
+		if is_crit:
+			dmg *= cmult
 	# tier A: element weakness/resistance is 1.5/0.5 (Cold Beam String.wz); round the final hit once.
 	return Vector2i(maxi(1, roundi(dmg * element_mult)), 1 if is_crit else 0)
 
 
 func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray,
-		on_hit: Callable) -> void:
+		on_hit: Callable, live_pdd: PackedFloat32Array) -> void:
 	if hit_count[i] < MAX_HITS:
 		hit_list[i * MAX_HITS + hit_count[i]] = swarm.identity[m]
 		hit_count[i] += 1
@@ -243,9 +264,12 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	if magic[i] == 0 and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
-	var defense := float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd)
+	var physical := damage_type[i] == "physical"
+	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) if physical \
+		else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
 	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
-		crit_mult[i], rng, mk.element_multiplier(element[i]))
+		crit_mult[i], rng, mk.element_multiplier(element[i]), damage_type[i], damage_pct[i], player_level[i],
+		mk.level, crit_damage_bonus[i])
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]
@@ -285,12 +309,13 @@ func _grow(n: int) -> void:
 		return
 	for arr: Variant in [active, rotate, magic]:
 		arr.resize(n)
-	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult]:
+	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	element.resize(n)
+	damage_type.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
 		_free.append(i)

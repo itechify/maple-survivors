@@ -51,7 +51,7 @@ extends RefCounted
 ## weapon (0 bare-handed), weapon_attack() the W.ATT summed over all worn items.
 ##
 ## Separate seeded RNG streams keep e.g. card draws independent of damage rolls: 1 combat rolls, 2 spawning, 3 card
-## draws, 4 drop pops, 5 basic-attack stances, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
+## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls.
 ## Each stream has exactly one owner.
 
@@ -182,6 +182,7 @@ var mob_boss := PackedInt32Array()
 ## Summoning encounter index, -1 for ordinary spawns; preserved through relocation and reset on new slot use.
 var mob_summon_owner := PackedInt32Array()
 var _live_mdd := PackedFloat32Array()
+var _live_pdd := PackedFloat32Array()
 var _live_physical_allowed := PackedByteArray()
 var mob_grid: SpatialHash
 var projectiles: ProjectileSystem
@@ -243,7 +244,7 @@ var mp_regen := 0.0
 var player_pdd := 0.0
 var player_mdd := 0.0
 var player_avoid := 0.0
-## Accuracy from worn equipment (incACC); Bless adds on top. Nothing rolls player accuracy yet (no hit-chance rule).
+## Job-base accuracy plus worn equipment (incACC); buffs add on top in the caster and presentation totals.
 var player_acc := 0.0
 var body := DEFAULT_BODY
 var cast_height := DEFAULT_CAST_HEIGHT
@@ -388,6 +389,7 @@ func _init_skills_and_progression() -> void:
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
 	loadout.crit_mult = float(crit.get("mult", 1.5))
+	loadout.crit_per_acc = float(crit.get("per_acc", 0.0))
 	runner = SkillRunner.new()
 	basic = BasicAttack.new(setup.get("body_img", {}), setup.get("afterimage_imgs", {}))
 	progression = RunProgression.new(ExpCurve.from_data(balance.get("exp_curve", {})),
@@ -711,12 +713,14 @@ func _step_player_attacks(dt: float) -> void:
 	runner.step(dt, self)
 	basic.step(dt, self)
 	_live_mdd.resize(swarm.capacity())
+	_live_pdd.resize(swarm.capacity())
 	_live_physical_allowed.resize(swarm.capacity())
 	for slot in swarm.capacity():
 		if swarm.active[slot] != 0:
-			_live_mdd[slot] = mob_defense(slot,true)
+			_live_mdd[slot] = mob_defense(slot, true)
+			_live_pdd[slot] = mob_defense(slot, false)
 			_live_physical_allowed[slot] = 1 if physical_hit_allowed(slot) else 0
-	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit)
+	projectiles.step(dt, swarm, mob_grid, events, _live_mdd, _live_physical_allowed, _on_player_hit, _live_pdd)
 	for m in projectiles.kills:
 		_on_kill(m)
 
@@ -937,7 +941,8 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 	_mp = minf(_mp, _max_mp)
 	_equipment_speed = equipment_bonus("incSpeed")
 	_equipment_jump = equipment_bonus("incJump")
-	player_acc = equipment_bonus("incACC")
+	player_acc = CombatMath.base_accuracy(float(_attributes.dex), float(_attributes.luk), jobs.lineage(progression.job_id)) \
+		+ equipment_bonus("incACC")
 	refresh_player_speed()
 	magnet_r = loadout.player_stat("magnet", float(balance.get("magnet_radius", 90.0)))
 	hp_regen = loadout.player_stat("hp_regen", float(balance.get("hp_regen", 0.0)))
@@ -959,6 +964,14 @@ func player_speed_stat() -> float:
 
 func _refresh_caster() -> void:
 	loadout.set_caster(float(_attributes.int), equipment_bonus("incMAD") + buffs.effect_total("matk"), progression.level)
+	loadout.str_stat = float(_attributes.str)
+	loadout.dex_stat = float(_attributes.dex)
+	loadout.luk_stat = float(_attributes.luk)
+	loadout.watk = weapon_attack()
+	loadout.acc = player_acc + buffs.effect_total("acc")
+	loadout.weapon_id = weapon_id()
+	loadout.weapon_family = held_weapon_family()
+	loadout.job_id = progression.job_id
 
 
 ## Applies player_speed_stat() to the movement model (whole speed points) and the jump stat (100 + worn incJump,
@@ -1140,9 +1153,10 @@ func weapon_info() -> Dictionary:
 	return Equipment.info_of(setup.get("equipment_info", {}), id) if id > 0 else {}
 
 
-## W.ATT: incPAD summed over every worn item (the weapon, and gloves or anything else that has it).
-func weapon_attack() -> float:
-	return equipment_bonus("incPAD")
+## W.ATT: every worn incPAD plus active W.Att buffs; ranged reserves the ammo hook for #155.
+@warning_ignore("unused_parameter")
+func weapon_attack(ranged: bool = false) -> float:
+	return equipment_bonus("incPAD") + buffs.effect_total("watk")
 
 
 ## What worn equipment adds to one `inc*` stat (the "bonus" of the Stat window's base + bonus).
@@ -1357,16 +1371,20 @@ func relocate_mob(i: int, pos: Vector2, fh: int) -> int:
 	return j
 
 
-## One instant damage line of skill stats `st` on mob m (Magic Claw); hv = hit visual index. Kills drop EXP.
-func hit_mob(m: int, st: Dictionary, hv: int) -> void:
+## One instant damage line with live defence; hv = hit visual index. Optional hit_rng selects basic stream 5.
+func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = null) -> void:
 	if swarm.active[m] == 0:
 		return
-	if not bool(st.magic) and not physical_hit_allowed(m):
+	var dtype := String(st.get("damage_type", "magic" if bool(st.get("magic", false)) else "fixed"))
+	var magic := dtype == "magic"
+	if not magic and not physical_hit_allowed(m):
 		return
 	var mk: MobKind = mob_kinds[swarm.kind[m]]
-	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), bool(st.magic),
-		mob_defense(m, true), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult), rng,
-		mk.element_multiplier(String(st.get("element", ""))))
+	var roll := ProjectileSystem.roll_damage(float(st.damage_min), float(st.damage_max), magic,
+		mob_defense(m, magic), projectiles.magic_defense_k, float(st.crit), float(st.crit_mult),
+		hit_rng if hit_rng != null else rng, mk.element_multiplier(String(st.get("element", ""))), dtype,
+		float(st.get("damage_pct", 1.0)), int(st.get("player_level", progression.level)), mk.level,
+		float(st.get("crit_damage_bonus", 0.0)))
 	var dir := 1 if swarm.x[m] >= player.pos.x else -1
 	emit("mob_hit", {
 		"mob": m, "mob_id": mk.id, "damage": roll.x, "crit": roll.y != 0,
@@ -1375,7 +1393,7 @@ func hit_mob(m: int, st: Dictionary, hv: int) -> void:
 	})
 	_instant_dealt += roll.x
 	if roll.x > 0:
-		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": bool(st.magic),
+		_on_player_hit(m, {"skill": String(st.skill), "level": int(st.get("level", 0)), "magic": magic,
 			"damage": roll.x, "element": String(st.get("element", ""))})
 	if swarm.apply_hit(m, roll.x, dir):
 		_on_kill(m)
@@ -1613,9 +1631,9 @@ func update_view() -> void:
 
 
 func _tick_timers(dt: float) -> void:
-	var matk_before := buffs.effect_total("matk")
+	var caster_buffs := Vector3(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc"))
 	_hp = minf(_max_hp, _hp + upkeep.tick(dt, events))
-	if buffs.effect_total("matk") != matk_before:
+	if caster_buffs != Vector3(buffs.effect_total("matk"), buffs.effect_total("watk"), buffs.effect_total("acc")):
 		_refresh_caster()
 	refresh_player_speed()
 	if _dead:
@@ -1971,8 +1989,8 @@ func _write_player_state(dt: float) -> void:
 	player_state["pdd"] = player_pdd
 	player_state["mdd"] = player_mdd
 	player_state["avoid"] = player_avoid + buffs.effect_total("avoid")
-	# Equipment incACC plus canonical Bless accuracy is stored; outgoing attacks currently have no player-accuracy rule.
-	player_state["acc"] = player_acc + buffs.effect_total("acc")
+	# Total accuracy also feeds outgoing critical chance (every job and damage type; no player MISS).
+	player_state["acc"] = loadout.acc
 	player_state["fortune"] = _own_fortune() + cash_fortune
 	player_state["invincible_t"] = upkeep.invincible_t
 	player_state["action"] = _action

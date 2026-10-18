@@ -29,6 +29,70 @@ var card_ranks := {}
 var int_stat := 4.0
 var matk := 0.0
 var char_level := 1
+## Physical caster inputs; RunWorld._refresh_caster assembles these. Setters invalidate cached stats on change.
+var str_stat := 4.0:
+	set(value):
+		if value != str_stat:
+			str_stat = value
+			version += 1
+var dex_stat := 4.0:
+	set(value):
+		if value != dex_stat:
+			dex_stat = value
+			version += 1
+var luk_stat := 4.0:
+	set(value):
+		if value != luk_stat:
+			luk_stat = value
+			version += 1
+var watk := 0.0:
+	set(value):
+		if value != watk:
+			watk = value
+			version += 1
+var acc := 0.0:
+	set(value):
+		if value != acc:
+			acc = value
+			version += 1
+var weapon_id := 0:
+	set(value):
+		if value != weapon_id:
+			weapon_id = value
+			version += 1
+var weapon_family := "":
+	set(value):
+		if value != weapon_family:
+			weapon_family = value
+			version += 1
+var job_id := 0:
+	set(value):
+		if value != job_id:
+			job_id = value
+			version += 1
+## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
+var mastery := 0.10:
+	set(value):
+		if value != mastery:
+			mastery = value
+			version += 1
+var crit_bonus := 0.0:
+	set(value):
+		if value != crit_bonus:
+			crit_bonus = value
+			version += 1
+## Passive bonus in skill-percentage points (100 adds 1.0 to the skill multiplier on a critical hit).
+var crit_damage_bonus := 0.0:
+	set(value):
+		if value != crit_damage_bonus:
+			crit_damage_bonus = value
+			version += 1
+## Survivor balance.crit.per_acc; accuracy converts to crit chance for every damage type.
+var crit_per_acc := 0.0:
+	set(value):
+		if value != crit_per_acc:
+			crit_per_acc = value
+			version += 1
 ## Base crit chance and multiplier (balance.json `crit`).
 var crit_chance := 0.0
 var crit_mult := 1.5
@@ -51,6 +115,9 @@ func clone() -> Loadout:
 	c.int_stat = int_stat
 	c.matk = matk
 	c.char_level = char_level
+	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
+			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc"]:
+		c.set(field, get(field))
 	c.crit_chance = crit_chance
 	c.crit_mult = crit_mult
 	c.version = version
@@ -138,8 +205,9 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 
 ## Fully resolved numbers of skill `key` at its owned rank, or at `at_rank` when > 0 (a preview of another rank with
 ## the same modifiers; an unowned skill resolves at rank 1):
-## skill, skill_id, kind, slot, rank, level, damage_type ("fixed"/"magic"/"none"), damage_min, damage_max (before mob
-## defence, after damage multipliers), magic (bool: mob MDD applies), element (canonical elemAttr), attack_count,
+## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
+## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
+## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count,
 ## crit, crit_mult, cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), speed, count, pierce, radius, ball, hit, effect
@@ -150,6 +218,8 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
 	var lv := book.canonical_level(key, r)
 	var dtype := String(d.get("damage", "none"))
+	var action := String(d.get("action", ""))
+	var attack_kind := WeaponInfo.attack_kind(action)
 	var dmg_mult := skill_stat(key, "damage", 1.0) * player_stat("damage", 1.0)
 	var lo := 0.0
 	var hi := 0.0
@@ -162,6 +232,11 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		var rng := CombatMath.magic_damage_range(int_stat, matk, mad, mastery)
 		lo = rng.x * dmg_mult
 		hi = rng.y * dmg_mult
+	elif dtype == "physical":
+		var bounds := CombatMath.physical_damage_range(str_stat, dex_stat, luk_stat, watk, weapon_id,
+			attack_kind, job_id, mastery, d.get("physical_formula", {}))
+		lo = bounds.x * dmg_mult
+		hi = bounds.y * dmg_mult
 	var passive: Dictionary = d.get("passive", {})
 	var buff: Dictionary = d.get("buff", {})
 	var heal: Dictionary = d.get("heal", {})
@@ -192,13 +267,18 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
 		"repeat_delay": float(d.get("teleport", {}).get("repeat_delay", 0.0)),
 		"damage_type": dtype,
+		"attack_kind": attack_kind,
+		"defense": "pdd" if dtype == "physical" else "mdd" if dtype == "magic" else "none",
+		"damage_pct": book.canonical(key, lv, "damage", 100.0) / 100.0 if dtype == "physical" else 1.0,
+		"player_level": char_level,
 		"damage_min": lo,
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(book.skill_node(key).get("elemAttr", "")),
 		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
-		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance),
+		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
+		"crit_damage_bonus": crit_damage_bonus,
 		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))),
 		"range": skill_stat(key, "range", float(d.get("range", 0.0))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
@@ -208,7 +288,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"ball": book.visual(key, "ball", lv, char_level),
 		"hit": book.visual(key, "hit", lv, char_level),
 		"effect": book.visual(key, "effect", lv, char_level),
-		"action": String(d.get("action", "")),
+		"action": action,
 		"action_time": float(d.get("action_time", 0.0)),
 		"rotate": bool(d.get("rotate", false)),
 		"passive_stat": String(passive.get("stat", "")),
