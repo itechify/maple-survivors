@@ -107,6 +107,7 @@ extends Node
 ##           Shots: warrior2_<b>_job_window_100/_<b>, _job_confirm_*, _advancement_draw, _playing, _skill_window_top,
 ##           _skill_window_bottom, _skill_greyed_tooltip, _hub, _character_select, _continue_restored; summary.json.
 ##   thief   first-job tracer (#207), --path=claw|dagger: real Lv10 window, both gifts, and combat screenshots.
+##           --disorder=1 captures Disorder on a prepared ordinary crowd instead (#210).
 ##           Invulnerable EXP-drop climb; skill cards applied for evidence only. Save stays in shots_dir.
 ##   pirate  the Pirate line end to end (spec #168 QA #195; `--path=knuckle|gun`, `--branch=510|520`): title -> new character
 ##           -> round; EXP drops (debug warp, invulnerable meanwhile) take it through the real level-up cards to Lv10 and the
@@ -1570,6 +1571,9 @@ func _scenario_thief() -> void:
 	var other := 1332063 if path_id == "claw" else 1472061
 	_check(w.weapon_id() == weapon and w.weapon_path == path_id, "chosen weapon and path")
 	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == other), "opposite gift in Equip")
+	if String(args.get("disorder", "0")) == "1":
+		await _thief_disorder(run)
+		return
 	var key := "lucky_seven" if path_id == "claw" else "double_stab"
 	w.upgrades.apply(key + "_new", w) # evidence: ensure this attack is available regardless of the random draw.
 	w.upgrades.apply("nimble_body_new", w)
@@ -1593,6 +1597,36 @@ func _scenario_thief() -> void:
 		and float(w.player_state.action_t) < 0.1, 15.0, "Thief attack action"):
 		return
 	await _shot("thief_" + path_id + "_fighting", 0.05)
+	_check(w.warnings.is_empty(), "no world warnings")
+	_collect_missing(run)
+	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])
+	_quit()
+
+
+## Diagnostic crowd for Disorder: real cache, card and cast path, with durable stationary ordinary mobs for evidence.
+func _thief_disorder(run: RunScene) -> void:
+	var w := run.world
+	Engine.time_scale = 1.0
+	_steer = false
+	_release_all()
+	for slot in w.swarm.capacity():
+		if w.swarm.is_live(slot):
+			w.swarm.despawn(slot)
+	for key: String in w.loadout.order:
+		w.runner.cooldowns[key] = 10000.0
+	w.basic.cooldown = 10000.0
+	w.upgrades.apply("disorder_new", w)
+	w.heal_fraction("mp", 1.0)
+	var mobs := []
+	# tier C: evidence-only placement/durability; no survivor balance values are changed.
+	w.mob_kinds[0].move_speed = 0.0
+	for dx in [-100.0, -55.0, 50.0, 95.0, 140.0]:
+		mobs.append(w.spawn_mob(0, w.player.pos + Vector2(dx, 0), w.player.fh, 1000.0, false))
+	run.handle_events(w.drain_events())
+	if not await _until(func() -> bool: return mobs.all(func(slot: int) -> bool:
+		return w.swarm.status_time(slot, MobSwarm.THREATENED) > 0.0), 10.0, "Disorder crowd cast"):
+		return
+	await _shot("disorder_crowd", 0.15)
 	_check(w.warnings.is_empty(), "no world warnings")
 	_collect_missing(run)
 	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])

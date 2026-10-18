@@ -278,12 +278,15 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var heal: Dictionary = d.get("heal", {})
 	var cast: Dictionary = d.get("cast", {})
 	var node := book.level_node(key, lv)
-	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
+	# tier C: survivor fallback box for skills without canonical lt/rb (Disorder); WZ boxes always take precedence.
+	var box_node: Dictionary = node if node.get("lt") is Dictionary and node.get("rb") is Dictionary \
+		else cast.get("box", {})
+	var has_box := box_node.get("lt") is Dictionary and box_node.get("rb") is Dictionary
 	var area := skill_stat(key, "area", 1.0)
 	var box := Rect2()
 	if has_box:
-		var lt: Array = node.lt.get("$v", [0.0, 0.0])
-		var rb: Array = node.rb.get("$v", [0.0, 0.0])
+		var lt: Array = box_node.lt.get("$v", [0.0, 0.0])
+		var rb: Array = box_node.rb.get("$v", [0.0, 0.0])
 		var start := Vector2(float(lt[0]), float(lt[1])) * area
 		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
 		if bool(cast.get("around", false)):
@@ -302,7 +305,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"has_box": has_box,
 		"area": area,
 		"box": box,
-		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
+		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", float(cast.get("mob_count", 1.0)))))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
