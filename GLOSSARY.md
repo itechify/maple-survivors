@@ -118,9 +118,9 @@ family the branch uses.
 _Avoid_: job change, promotion
 
 **Advancement weapon**:
-A weapon a job advancement hands the character. A Warrior branch hands one for each of its two weapon families: the one
-of the held weapon's family is worn (the branch's first family's when the held weapon doesn't suit the branch), and the
-rest join the Equip tab.
+A weapon a job advancement hands the character. A branch hands one for each weapon family it uses: the one of the held
+weapon's family is worn (the branch's first family's when the held weapon doesn't suit the branch), and the rest join
+the Equip tab.
 _Avoid_: job reward, starter weapon
 
 **Branch**:
@@ -132,7 +132,7 @@ _Avoid_: path (on its own; a weapon path is the first-job weapon choice), specia
 A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
 Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
 offers each path as its own entry and hands the character that weapon (a Pirate also gets the other path's weapon in
-the Equip tab, as the v83 instructor gives both). It is not a job: both Thief paths are job 400.
+the Equip tab, as the v83 instructor gives both, and a Bowman gets a crossbow there). It is not a job: both Thief paths are job 400.
 The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
 _Avoid_: branch (that is the second-job choice), build, stance
 
@@ -225,6 +225,11 @@ _Avoid_: monster skill (that is a mob skill)
 **Mob skill**:
 A canonical Skill.wz/MobSkill.img skill a boss casts, such as Slow or a summon. Ordinary monsters cast none, so
 status effects on the character only ever come from bosses.
+
+**Knock-back**:
+A skill effect that pushes a struck monster away from the character, by a chance per hit. Bosses are never knocked
+back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
+_Avoid_: push-back, knockdown
 
 **Hit window**:
 The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
