@@ -5,7 +5,7 @@ extends Node
 ## Paths are WZ paths of Sound_DX8 nodes: `play_bgm("Sound.wz/Bgm01.img/CavaBien")` (or a map's info/bgm value
 ## "Bgm01/CavaBien"), `play("Sound.wz/Game.img/PickUpItem")`. BGM loops and cross-fades; SFX use a fixed pool of
 ## players (MAX_VOICES; the oldest voice is stolen when all are busy). Volumes come from the "Settings" autoload
-## (master x bgm / master x sfx, linear) and are applied to the "BGM" and "SFX" buses, created on first use.
+## (master x bgm / master x sfx, linear) and are applied to the "BGM" and "SFX" buses of res://default_bus_layout.tres.
 
 ## Simultaneous one-shot voices.
 const MAX_VOICES := 16
@@ -13,6 +13,9 @@ const MAX_VOICES := 16
 const DEFAULT_FADE := 0.8
 const BGM_BUS := "BGM"
 const SFX_BUS := "SFX"
+
+## Buses `_ensure_buses` had to add because the bus layout lacked them (0 when default_bus_layout.tres is loaded).
+static var buses_added_at_runtime := 0
 
 ## Source of sounds; defaults to the "Assets" autoload.
 var library: AssetLibrary
@@ -179,9 +182,13 @@ func _settings() -> GameSettings:
 	return get_tree().root.get_node_or_null("Settings") as GameSettings
 
 
+## Fallback only: the buses come from res://default_bus_layout.tres. Adding a bus at runtime is broken on web in
+## Godot 4.7.2 (AudioServer.add_bus passes -1 to the web driver; its Bus.addAt/Bus.move misplace the new bus, the sends
+## form a cycle and nothing reaches the AudioContext destination: silence; docs/ARCHITECTURE.md 10).
 static func _ensure_buses() -> void:
 	for bus_name in [BGM_BUS, SFX_BUS]:
 		if AudioServer.get_bus_index(bus_name) < 0:
+			buses_added_at_runtime += 1
 			var idx := AudioServer.bus_count
 			AudioServer.add_bus(idx)
 			AudioServer.set_bus_name(idx, bus_name)
