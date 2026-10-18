@@ -1599,7 +1599,9 @@ func _play_final_attacks() -> void:
 		var key := String(entry.skill)
 		if not book.usable_with(key, held_weapon_family()):
 			continue
-		var st := loadout.stats(key)
+		var st := runner.stats_of(self, key)
+		# The follow-up plays the skill's own stance when its data has one (tier C: it replaces a swing still playing).
+		start_action(String(st.action), float(st.action_time), false, float(st.speed_factor))
 		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
 			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
 		hit_mob(slot, st, visual_index(String(st.hit)), final_rng)

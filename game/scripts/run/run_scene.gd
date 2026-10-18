@@ -1055,6 +1055,9 @@ func handle_events(events: Array) -> void:
 				_event_shot("mp_eater.png", 0.12) # tier C: capture the 700 ms canonical absorb effect early.
 			"final_attack":
 				# The follow-up's own player effect where Skill.wz has one (finalAttack dirs); its hit is a mob_hit.
+				if world.player.state == PlayerMotion.ST_STAND and not bool(world.player_state.dead) \
+						and String(e.action) != "":
+					_restart_action = true # the sim started the follow-up's stance (RunWorld._play_final_attacks)
 				if String(e.effect) != "":
 					fx.play(String(e.effect), Vector2.ZERO, int(e.facing) > 0, avatar)
 			"player_jump":
