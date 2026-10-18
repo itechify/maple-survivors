@@ -231,6 +231,20 @@ func test_two_handed_cover_is_drawn_once_and_replaces_a_shield() -> void:
 	assert_false(50 in _markers(parts), "the regular shield slot is taken by the cash entry")
 
 
+func test_a_worn_regular_shield_is_drawn_beside_a_one_handed_weapon_and_a_cash_shield_replaces_it() -> void:
+	# #158: the shield equip slot's item reaches the avatar through the look's `equips` (Equipment.worn_ids).
+	lib.images[_path(1092000)] = _wz({"stand1": {"0": {"shield": _c("shield", 50)}}}, "Si")
+	lib.images[_path(CASH_SHIELD)] = _wz({"stand1": {"0": {"shield": _c("shield", 51)}}}, "Si")
+	var worn := Equipment.worn_ids({"top": {"id": COAT}, "weapon": {"id": SWORD}, "shield": {"id": 1092000}})
+	assert_eq(worn, [COAT, SWORD, 1092000], "the shield is listed after the weapon")
+	var parts := _compose(_look(worn))
+	assert_true(50 in _markers(parts), "the shield layer is drawn")
+	assert_true(10 in _markers(parts), "and the sword with it")
+	var cash := _markers(_compose(_look(worn, {"shield": CASH_SHIELD})))
+	assert_false(50 in cash, "a worn cash shield takes the regular shield's place")
+	assert_true(51 in cash)
+
+
 func test_cash_shield_is_drawn() -> void:
 	lib.images[_path(CASH_SHIELD)] = _wz({"stand1": {"0": {"shield": _c("shield", 51)}}}, "Si")
 	assert_true(51 in _markers(_compose(_look([COAT, SWORD], {"shield": CASH_SHIELD}))))
