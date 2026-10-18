@@ -701,6 +701,94 @@ func test_warp_fast_forwards_before_the_first_frame() -> void:
 	_assert_nothing_missing(scene, "warp")
 
 
+## A warp whose round ends inside it (#143). `world_prepared` sets the round up before the warp: a clear after 2 s, or
+## a crowd of unkillable Green Mushrooms on top of the Lv1 player.
+func _prepare_clear(w: RunWorld) -> void:
+	w.duration = 2.0
+	w.bosses = BossDirector.new() # the duration fallback decides the clear
+
+
+func _prepare_death(w: RunWorld) -> void:
+	var p := w.player.pos
+	for dx: float in [-20.0, 0.0, 20.0, -40.0, 40.0]:
+		var f := w.fhm.find_below(p.x + dx, p.y - 5.0)
+		w.spawn_mob(int(w.kind_of_id[1110100]), Vector2(p.x + dx, w.fhm.y_at(f, p.x + dx)), f, 1.0e9, false)
+
+
+func _make_warped(prepare: Callable, options: Dictionary = {}) -> RunScene:
+	var o := {"autoplay": true, "autopick": true, "warp": 60.0, "world_prepared": prepare}
+	o.merge(options, true)
+	return _make("henesys_hg1", 4, o)
+
+
+func test_death_inside_the_warp_finishes_the_round() -> void:
+	if not require_cache():
+		return
+	scene = _make_warped(_prepare_death)
+	var w := scene.world
+	assert_eq(w.state, RunWorld.DEAD, "the player died inside the warp")
+	assert_true(w.time < 60.0 - 1e-6, "the warp stopped at the death (%.1f)" % w.time)
+	var t := w.time
+	assert_eq(finished.size(), 0, "results wait for the tombstone")
+	scene.advance_frame(DT)
+	assert_eq(scene.avatar.stance, "dead", "the dead stance is drawn")
+	assert_true(scene.fx.active_count() >= 1, "the tombstone plays once the presentation exists")
+	var fall := lib.find_anim(FxRenderer.TOMB_FALL)
+	_frames(int((fall.total + RunScene.DEATH_HOLD) / DT) + 5)
+	assert_eq(finished.size(), 1, "run_finished emitted exactly once")
+	if finished.size() == 1:
+		assert_eq(bool(finished[0].cleared), false)
+	assert_eq(w.time, t, "no sim time was needed")
+	_frames(30)
+	assert_eq(finished.size(), 1, "still once")
+	_assert_nothing_missing(scene, "warped death")
+
+
+func test_clear_inside_the_warp_finishes_the_round() -> void:
+	if not require_cache():
+		return
+	scene = _make_warped(_prepare_clear)
+	var w := scene.world
+	assert_eq(w.state, RunWorld.CLEARED, "the round cleared inside the warp")
+	var t := w.time
+	assert_eq(finished.size(), 0, "the clear notice holds before the results")
+	scene.advance_frame(DT)
+	assert_true(scene.notice_fx.active_count() == 1, "the CLEAR field effect shows")
+	_frames(int(RunScene.CLEAR_HOLD / DT) + 5)
+	assert_eq(finished.size(), 1, "run_finished emitted exactly once")
+	if finished.size() == 1:
+		assert_eq(bool(finished[0].cleared), true)
+	assert_eq(w.time, t, "no sim time was needed")
+	_assert_nothing_missing(scene, "warped clear")
+
+
+func test_automated_death_and_clear_in_the_warp_reach_the_exit() -> void:
+	if not require_cache():
+		return
+	for case: Array in [[_prepare_death, false], [_prepare_clear, true]]:
+		var dir := ProjectSettings.globalize_path(test_dir("warp_end_%s" % ("clear" if case[1] else "death")))
+		var exits: Array = []
+		var sc := _make_warped(case[0], {"quit_after": 600.0, "shots_dir": dir})
+		sc.exit_hook = func() -> void: exits.append(true)
+		scene = sc
+		for i in 60 * 30:
+			if not exits.is_empty():
+				break
+			sc.advance_frame(DT)
+		assert_eq(exits.size(), 1, "the automation exit was reached once (cleared=%s)" % case[1])
+		assert_eq(finished.size(), 1)
+		var f := FileAccess.open(dir.path_join("summary.json"), FileAccess.READ)
+		assert_true(f != null, "summary.json is written")
+		if f != null:
+			var doc: Dictionary = JSON.parse_string(f.get_as_text())
+			assert_eq(bool(doc.summary.cleared), case[1])
+			assert_near(float(doc.warped_to), sc.world.time, 1e-6, "warped_to records where the warp stopped")
+			f.close()
+		sc.free()
+		scene = null
+		finished = []
+
+
 func test_launcher_args() -> void:
 	var args := RunLauncher.parse_args(PackedStringArray(["--run=henesys_hg1", "--seed=7", "--autoplay", "--autopick",
 		"--speed=4", "--shots=C:\\tmp\\shots", "--shot-every=30", "--quit-after=900", "--perf", "ignored"]))

@@ -15,7 +15,9 @@ extends Node2D
 ## perf (perf overlay on at start with autoplay), name (character name), use_flow (default true; false = only emit
 ## run_finished, e.g. in tests), window_autopick (s: an open level-up / job window answers itself
 ## with BotInput's choice after that long; demos and evidence runs), warp (run seconds: before the first frame the sim is
-## fast-forwarded to that time by BotInput with autopick, nothing drawn; perf runs of the late game in real time).
+## fast-forwarded to that time by BotInput with autopick, nothing drawn; perf runs of the late game in real time; a death
+## or clear inside the warp is kept and plays out once the presentation is built), world_prepared (tests: a
+## Callable(world) called right after the RunWorld is built, before the warp).
 ##
 ## Loop: advance_frame(delta) (called from _process; tests call it directly) accumulates delta, runs at most
 ## MAX_TICKS_PER_FRAME x speed ticks of RunWorld.step() with the keyboard or BotInput, drains and maps the events after
@@ -52,6 +54,9 @@ extends Node2D
 
 ## Emitted when the run is over (always, before Flow.finish_run). See build_summary() for the fields.
 signal run_finished(summary: Dictionary)
+
+## Tests: called instead of WebHandoff.exit_app when an automated run (quit_after, --shot) ends; invalid = really exit.
+var exit_hook := Callable()
 
 const DT := 1.0 / 60.0
 ## docs/ARCHITECTURE.md section 6: at most 4 catch-up ticks per frame (times the speed option).
@@ -220,6 +225,8 @@ var _cd_short := PackedByteArray()
 ## "" while playing, "dead" or "cleared" once the end sequence started.
 var _end_kind := ""
 var _end_left := 0.0
+## player_died / stage_cleared events the warp drained before the presentation existed; handled once it is built.
+var _warp_end_events: Array = []
 var _finished := false
 var _title_t := 0.0
 var _title := PackedStringArray()
@@ -351,6 +358,9 @@ func _ready() -> void:
 	skill_text = SkillText.new(world.book, library.find("String.wz/Skill.img"))
 	for w in world.warnings:
 		push_warning("RunScene: " + w)
+	var prepare: Variant = options.get("world_prepared")
+	if prepare is Callable and (prepare as Callable).is_valid():
+		(prepare as Callable).call(world)
 	var warp := float(options.get("warp", 0.0))
 	if warp > 0.0:
 		_warp(warp)
@@ -362,6 +372,11 @@ func _ready() -> void:
 	_apply_look()
 	handle_events(world.drain_events())
 	_start_title()
+	if not _warp_end_events.is_empty():
+		# The round ended inside the warp: play the death / clear presentation now that the layers exist.
+		_title_t = 0.0 # no map-entry title over a tombstone
+		handle_events(_warp_end_events)
+		_warp_end_events.clear()
 	_play_bgm()
 	if _speed > 1:
 		_saved_time_scale = Engine.time_scale
@@ -1208,8 +1223,9 @@ func _apply_look() -> void:
 		world.worn_cash))
 
 
-## Fast-forwards the sim to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the
-## events are dropped. Stops early when the run ends.
+## Fast-forwarded to run time `to` before anything is drawn (option warp): BotInput plays and chooses, the events are
+## dropped except the run's end (player_died / stage_cleared), which _ready plays once the presentation is built.
+## Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
 		BotInput.auto_choose(world, false, _forced_job())
@@ -1217,7 +1233,11 @@ func _warp(to: float) -> void:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
-		BotShop.equip_after(world, world.drain_events())
+		var drained := world.drain_events()
+		for e: Dictionary in drained:
+			if String(e.type) in ["player_died", "stage_cleared"]:
+				_warp_end_events.append(e)
+		BotShop.equip_after(world, drained)
 	_warped = world.time
 
 
@@ -1757,6 +1777,14 @@ func _automation_end(summary: Dictionary) -> void:
 		_request_shot("final.png")
 		get_tree().create_timer(FINAL_SHOT_TIMEOUT, true, false, true).timeout.connect(_quit_without_final_shot)
 	else:
+		_exit_app()
+
+
+## The automation exit: `exit_hook` when a test set one, else WebHandoff.exit_app.
+func _exit_app() -> void:
+	if exit_hook.is_valid():
+		exit_hook.call()
+	else:
 		WebHandoff.exit_app(get_tree())
 
 
@@ -1767,7 +1795,7 @@ func _quit_without_final_shot() -> void:
 	_quit_after_capture = false
 	print("RunScene: final.png skipped: no frame was drawn within %.0f s (window occluded or minimized?)"
 		% FINAL_SHOT_TIMEOUT)
-	WebHandoff.exit_app(get_tree())
+	_exit_app()
 
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
@@ -1854,7 +1882,7 @@ func _capture() -> void:
 	_skip_perf_frames = 2
 	if _quit_after_capture:
 		_quit_after_capture = false
-		WebHandoff.exit_app(get_tree())
+		_exit_app()
 
 
 func _record_frame(frame_ms: float, work_us: int) -> void:
