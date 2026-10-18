@@ -602,7 +602,7 @@ func test_the_warrior_fixture_restores_as_a_living_warrior_with_both_attacks() -
 	assert_eq(w.progression.job_id, 100)
 	assert_eq(w.progression.level, 11)
 	assert_true(w.loadout.has("power_strike") and w.loadout.has("slash_blast"))
-	assert_eq(w.weapon_id(), 1302077)
+	assert_eq(w.weapon_id(), 1432000, "the bot's planner wore the Spear")
 	assert_eq(w.player_state.str, 62, "the earned AP are all in STR")
 	assert_eq(w.player_state.max_hp, 427 + int(w.equipment_bonus("incMHP")), "225 grant + 26 per level over the Beginner's")
 
