@@ -16,9 +16,10 @@ export const REQUEST_KINDS = ['reimport', 'export_save', 'import_save'];
 // ---- Manifest -------------------------------------------------------------------------------------------------------
 // The Rust importer expands the manifest (map backs, mob links ...) by reading WZ data, so the shell cannot repeat the
 // whole expansion. It checks what is deterministic from the manifest alone: the imgs it names, plus the img paths of
-// its map, mob, character and item ids (the formulas of tools/wzimport/src/manifest.rs). A cache missing any of those,
-// or whose files are gone, is incomplete. Derived dependencies that vanish from a cache are caught by the file check
-// in assessCache(), which looks at every img the cache's own index lists.
+// its map, mob, character and item ids (the formulas of tools/wzimport/src/manifest.rs), and for each of them the
+// sub-paths the cache index (`paths`) must cover. A cache missing any of those, or whose files are gone, is incomplete.
+// Derived dependencies that vanish from a cache are caught by the file check in assessCache(), which looks at every
+// img the cache's own index lists.
 
 /** `Map.wz/Map/Map1/104040000.img`. */
 export function mapImgPath(id) {
@@ -54,12 +55,20 @@ export function characterImgPath(id) {
 	return dir ? `Character.wz/${dir}/${file}.img` : `Character.wz/${file}.img`;
 }
 
+/** Item categories of the importer's item_path() (tools/wzimport/src/manifest.rs); web/dev/test checks the table. */
+export const ITEM_KINDS = { 2: 'Consume', 3: 'Install', 4: 'Etc', 5: 'Cash', 9: 'Special' };
+
+/** {img, sub} of an item id (`Item.wz/Etc/0400.img`, `04000019`), or null for an unknown type. */
+export function itemPath(id) {
+	const kind = ITEM_KINDS[Math.floor(id / 1000000)];
+	if (!kind) return null;
+	return { img: `Item.wz/${kind}/${String(Math.floor(id / 10000)).padStart(4, '0')}.img`, sub: String(id).padStart(8, '0') };
+}
+
 /** The Item.wz img of an item id (`Item.wz/Etc/0400.img`), or null for an unknown type. */
 export function itemImgPath(id) {
-	const kinds = { 2: 'Consume', 3: 'Install', 4: 'Etc', 5: 'Cash' };
-	const kind = kinds[Math.floor(id / 1000000)];
-	if (!kind) return null;
-	return `Item.wz/${kind}/${String(Math.floor(id / 10000)).padStart(4, '0')}.img`;
+	const p = itemPath(id);
+	return p ? p.img : null;
 }
 
 /** Parses manifest JSON text; throws a readable Error for an unsupported manifest. */
@@ -69,25 +78,67 @@ export function parseManifest(text) {
 	return m;
 }
 
-/** Every img the manifest names, plus the imgs its ids resolve to; sorted, without duplicates. */
-export function expectedImgs(manifest) {
-	const out = new Set();
-	for (const spec of manifest.imgs || []) out.add(spec.img);
-	for (const p of manifest.mapimgs || []) out.add(p.replace(/^\/+|\/+$/g, ''));
-	for (const id of manifest.maps || []) out.add(mapImgPath(id));
-	for (const id of manifest.mobs || []) out.add(mobImgPath(id));
+/**
+ * What the manifest asks of each img, like the importer's Plan: `Map(img -> {whole, paths: Set})`. A whole-img request
+ * wins over sub-paths. Only requests the manifest decides on its own appear: its imgs (with their `paths`), whole map,
+ * mob and character imgs, one `Item.wz` sub-path per item id, `MapHelper.img/portal` for any map and one
+ * `Sound.wz/Mob.img/<id>` per listed mob.
+ */
+export function expectedRequests(manifest) {
+	const out = new Map();
+	const get = (img) => {
+		if (!out.has(img)) out.set(img, { whole: false, paths: new Set() });
+		return out.get(img);
+	};
+	const whole = (img) => {
+		get(img).whole = true;
+	};
+	const sub = (img, path) => {
+		const p = String(path).replace(/^\/+|\/+$/g, '');
+		if (p) get(img).paths.add(p);
+		else whole(img);
+	};
+	for (const spec of manifest.imgs || []) {
+		if (Array.isArray(spec.paths)) {
+			get(spec.img);
+			for (const p of spec.paths) sub(spec.img, p);
+		} else whole(spec.img);
+	}
+	for (const p of manifest.mapimgs || []) whole(p.replace(/^\/+|\/+$/g, ''));
+	for (const id of manifest.maps || []) whole(mapImgPath(id));
+	for (const id of manifest.mobs || []) whole(mobImgPath(id));
 	for (const id of manifest.character || []) {
 		const p = characterImgPath(id);
-		if (p) out.add(p);
+		if (p) whole(p);
 	}
 	for (const id of manifest.items || []) {
-		const p = itemImgPath(id);
-		if (p) out.add(p);
+		const p = itemPath(id);
+		if (p) sub(p.img, p.sub);
 	}
 	// Derived by the importer in every case (MapHelper portals for any map, Sound.wz/Mob.img for any mob).
-	if ((manifest.maps || []).length || (manifest.mapimgs || []).length) out.add('Map.wz/MapHelper.img');
-	if ((manifest.mobs || []).length) out.add('Sound.wz/Mob.img');
-	return Array.from(out).sort();
+	if ((manifest.maps || []).length || (manifest.mapimgs || []).length) sub('Map.wz/MapHelper.img', 'portal');
+	for (const id of manifest.mobs || []) sub('Sound.wz/Mob.img', String(id).padStart(7, '0'));
+	return out;
+}
+
+/** Every img the manifest names, plus the imgs its ids resolve to; sorted, without duplicates. */
+export function expectedImgs(manifest) {
+	return Array.from(expectedRequests(manifest).keys()).sort();
+}
+
+/**
+ * True when a cached img entry (`paths`: null/absent = the whole img, else the sub-paths written) covers a request.
+ * A cached path covers itself and everything below it (the importer absorbs paths under a shorter one).
+ */
+export function entryCovers(entry, request) {
+	const cached = entry.paths;
+	if (cached === null || cached === undefined) return true;
+	if (!Array.isArray(cached)) return false;
+	if (request.whole) return false;
+	for (const r of request.paths) {
+		if (!cached.some((p) => r === p || r.startsWith(p + '/'))) return false;
+	}
+	return true;
 }
 
 /** The .wz archives an import of this manifest reads, sorted (e.g. `Map.wz`, `Mob.wz`). */
@@ -120,8 +171,9 @@ export function assessCache({ manifest, indexText, keys, root = CACHE_ROOT }) {
 	}
 	const present = keys ? new Set(keys) : null;
 	const missing = [];
-	for (const img of expectedImgs(manifest)) {
+	for (const [img, request] of expectedRequests(manifest)) {
 		if (!Object.prototype.hasOwnProperty.call(index.imgs, img)) missing.push({ img, reason: 'not in the cache index' });
+		else if (!entryCovers(index.imgs[img], request)) missing.push({ img, reason: 'paths missing' });
 	}
 	if (present) {
 		for (const [img, entry] of Object.entries(index.imgs)) {
