@@ -29,8 +29,9 @@ const FILES := {
 }
 ## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
 ## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
-## creating `<name>/<line>.json` next to the base file; the loader probes exactly these names (no directory listing,
-## which a web/PCK export cannot rely on), and test_data_repo_lines fails on any other file in a fragment directory.
+## creating `<name>/<line>.json` next to the base file; the loader probes exactly these names in this order (job-line
+## order, not file-name order: it decides the order of the merged cards that the level-up roll walks), and
+## test_data_repo_lines fails on any other file in a fragment directory.
 const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
 ## setup.data key -> how the entries of its line fragments (survivor/<name>/<line>.json) merge into the base file
 ## (survivor/<name>.json): `entries` is the key the fragments fill, `merge` the rule (docs/ARCHITECTURE.md 4.4.4).

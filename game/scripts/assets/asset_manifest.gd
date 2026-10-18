@@ -35,7 +35,7 @@ static func load_merged(path: String) -> Dictionary:
 ## "104040000.0", which the Rust reader rejects, so the id lists are written as integers.
 static func to_json(manifest: Dictionary) -> String:
 	var out := manifest.duplicate()
-	for key in ["maps", "mobs", "character", "items"]:
+	for key: String in ["maps", "mobs", "character", "items"]:
 		var ints := []
 		for id: Variant in manifest.get(key, []):
 			ints.append(int(id))
@@ -54,11 +54,11 @@ static func load_checked(path: String) -> Dictionary:
 	var dir := fragment_dir(path)
 	var names := PackedStringArray()
 	if DirAccess.dir_exists_absolute(dir):
-		for f in DirAccess.get_files_at(dir):
+		for f: String in DirAccess.get_files_at(dir):
 			if f.ends_with(".json"):
 				names.append(f)
 	names.sort()
-	for f in names:
+	for f: String in names:
 		var file := dir.path_join(f)
 		var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(file))
 		if not data is Dictionary:
@@ -77,7 +77,7 @@ static func merge(main_name: String, main: Dictionary, fragments: Array) -> Dict
 		out[key] = []
 	var owners := {}
 	var files: Array = [{"name": main_name, "data": main}] + fragments
-	for i in files.size():
+	for i: int in files.size():
 		var name := str(files[i].name)
 		var data: Dictionary = files[i].data
 		if i > 0:
@@ -125,7 +125,7 @@ static func _claim(owners: Dictionary, data: Dictionary, file: String) -> String
 		if owners.has("id|" + k):
 			return _dup("`%s`" % k, owners["id|" + k], file)
 	for img: String in whole:
-		for k in ["whole|" + img, "partial|" + img]:
+		for k: String in ["whole|" + img, "partial|" + img]:
 			if owners.has(k):
 				return _dup("`img %s`" % img, owners[k], file)
 	for k: String in paths:
