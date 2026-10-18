@@ -4,7 +4,7 @@ extends TestCase
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 ## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "823defb05bfcb5a7a10b25f1e679e5be7979ce4562a93ec2ce53f448eb5c6f0e"
+const WINDOWS_GOLDEN := "f3f8998b529e68419b57ca2cc2761e241add01414bcf42a88df4f5c68576e76c"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
@@ -37,6 +37,9 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# is reproduced exactly, so the only new bytes are the equipment pickup events and the pop positions they shift.
 	# re-captured for #63 (the bot scores a card by the steps it grants): with balance.bot.gain_step_score set to 0 the hash
 	# ce161497... is reproduced exactly, so the only new bytes are the bot taking a higher-tier card over a Normal-preferred one.
+	# re-captured for #152 (upgrades.json cards grouped by job line, common -> beginner -> magician, the per-line file merge
+	# order): the same cards in their pre-#152 order reproduce the #63 hash 823defb0... exactly (bb6eee9), so the only
+	# change is which cards the seeded roll draws.
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
 	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
 	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
