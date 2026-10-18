@@ -162,7 +162,8 @@ func test_branch_cards_learning_rank_caps_power_flags_and_bot_scores() -> void:
 	for key: String in ["fire_arrow", "poison_breath"]:
 		assert_eq(w.upgrades.apply(key + "_new", w, "legendary"), 1)
 		assert_eq(w.loadout.rank(key), 5, "tier starting rank")
-		assert_eq(w.upgrades.apply(key + "_rank", w, "legendary"), 25)
+		for consumed: int in [8, 16, 24, 25]:
+			assert_eq(w.upgrades.apply(key + "_rank", w, "legendary"), consumed)
 		assert_eq(w.loadout.rank(key), 30, "canonical attack cap")
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_rank"), w))
 		assert_false(w.upgrades.is_eligible(w.upgrades.card(key + "_new"), w))
