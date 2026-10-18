@@ -11,8 +11,8 @@ changing gameplay.
 |---|---|
 | `game/` | Godot 4.7.2 project (GDScript). `scripts/sim/` is pure deterministic simulation; `scripts/assets/`, `scripts/render/`, `scripts/ui/`, `scripts/audio/` are presentation; `scripts/run/` wires a run together. |
 | `game/data/canonical/` | MapleStory reference facts that are not in WZ (EXP table, job tree). Never put balance tweaks here. |
-| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. |
-| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache. |
+| `game/data/survivor/` | Survivor-mode design data: skill behaviour, upgrades, stages, balance. All tuning lives here. Skills, upgrades, equipment drops, scrolls and shop weapon slots keep their entries in per-job-line files (`<name>/<line>.json`) that `DataRepo` merges; a class spec adds its own line files (`docs/ARCHITECTURE.md` 4.4.4). |
+| `game/data/asset_manifest.json` | Which WZ images the importer exports into the asset cache; line-specific entries live in the include fragments `asset_manifest.d/<line>.json` (`docs/ASSET_PIPELINE.md` 4.1). |
 | `tools/wzimport/` | Rust CLI that reads original v83 `.wz` files and writes the asset cache (PNG atlases, JSON trees, MP3/WAV). |
 | `scripts/` | Bash entry points: `godot.sh`, `test.sh`, `import.sh`, `run.sh`, `playtest.sh`, `balance.sh`, `bench.sh`, `export.sh` (`--web` too), `godot_templates.sh`, `build_wasm.sh`, `check_web_artifact.sh`. |
 | `web/` | The web shell (HTML/CSS/JS, import worker) of the web build; `web/dev/` holds dev-only localhost servers and tests, never shipped. |
