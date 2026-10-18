@@ -464,6 +464,18 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### #142 / #143 / #144 / #146 / #148 combined regression smoke (2026-10-18)
+
+`ISOLATE=lead_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` on
+the merged branch (all five tickets plus their review fixes), real cache, no PATCH or tuning. All 12 runs finish with no
+crashes, script errors or world warnings; every record has `missing: []` and `warnings: []`. Every outcome and end time
+equals the #152 smoke on `39276ef` below (end times here to 0.1 s): Henesys bot D 849.7 / 906.6 / 287.9 s, random
+D 501.7 / 339.4 / 321.4 s; Tree bot D 574.3 / 76.6 / 47.9 s, random D 339.3 / 84.3 / 47.9 s. Magician is reached at
+265.0-281.8 s in the same five Henesys runs, and bot seed 2026 still dies at Lv 9 before advancing. #146's tick-cost work
+is output-identical by construction (`test_tick_cost_identity.gd`), and #144 only withholds the `hit` art of attacks
+the hit window already turned away, so no change was expected. MP-short seconds per run (SYSTEMS line): Henesys bot
+83.1 / 90.7 / 150.5, random 68.7 / 86.4 / 112.8.
+
 #### #152 job-generic prefactor regression smoke (2026-10-17)
 
 `ISOLATE=final bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, plus

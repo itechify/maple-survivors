@@ -954,9 +954,9 @@ source. Nothing the engine could sync lives in `/userfs` but the cache, saves an
 `cache.json` and reads as "no cache". The footer never waits on the browser's permission prompt (#148): at boot
 `navigator.storage.persisted()` is read without prompting and shown at once ("kept (persistent)", else "best effort";
 "not confirmed by this browser" when the API is missing or throws), then `persist()` is asked in the background and a
-grant upgrades the line (a refusal keeps best effort). The call after an import starts no second request while one is
-pending. The toast at the first game start reports the immediate state. The decision and the dedupe state machine are
-`createPersistence` / `storageStatus` in `web/lib.js`, covered by the Node tests.
+grant upgrades the line (a refusal keeps best effort). The call after an import refreshes the usage figure and starts
+no second request while one is pending. The toast at the first game start reports the immediate state. The decision
+and the dedupe state machine are `createPersistence` / `storageStatus` in `web/lib.js`, covered by the Node tests.
 
 **Console line at engine quit.** Every engine quit on the single-threaded web template logs `Pages in use exist at exit
 in PagedAllocator: N16WorkerThreadPool5GroupE` from Godot itself (#147, closed wontfix). It is harmless: no game code
