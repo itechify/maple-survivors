@@ -150,6 +150,11 @@ A timed state in which monsters, bosses included, neither chase nor attack the c
 attack; Oak Barrel and Dark Sight put the character in it.
 _Avoid_: stealth, invisible, cloaked
 
+**Morph**:
+A buff that draws the character as a `Morph.wz` figure instead of its avatar for as long as it lasts, such as Oak
+Barrel's barrel (Morph 1002); the game's movement and stats are unchanged.
+_Avoid_: transformation, disguise
+
 **Skill key**:
 The Key Config binding of one manual skill the character has learned.
 _Avoid_: hotkey, quickslot

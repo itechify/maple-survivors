@@ -22,6 +22,8 @@ extends Node2D
 ## weapon cover draws the art of the real weapon's type (AvatarLayers.weapon_type) for the current stance, and the real
 ## weapon stays when the cover has none (or the look has no weapon). Items hide the layers their `vslot` occupies
 ## through Base.wz/smap.img (hat over hair, full-head hats over head and accessories).
+## A morph (set_morph, Oak Barrel 5101007 -> Morph.wz/1002.img, #194) replaces all of that: the character is drawn as the
+## morph's own frame for the matching action (MORPH_ACTIONS), origin at the feet, and the avatar returns when it ends.
 ## WZ art faces left; facing = 1 mirrors around the character origin.
 
 ## tier C: random interval between blinks, seconds.
@@ -34,6 +36,10 @@ const EQUIP_DIRS := {100: "Cap", 101: "Accessory", 102: "Accessory", 103: "Acces
 const HAT_CATEGORY := 100
 const FACE_ACCESSORY_CATEGORY := 101
 const BACK_STANCES := ["ladder", "rope", "ladder2", "rope2"]
+## Morph.wz actions (stand, walk, jump, prone, ladder, rope, sit, fly) by the avatar stance that plays while morphed;
+## any other stance (an attack or cast action) shows the morph standing. tier A: the action names are Morph.wz's own.
+const MORPH_ACTIONS := {"walk1": "walk", "walk2": "walk", "jump": "jump", "prone": "prone", "proneStab": "prone",
+	"ladder": "ladder", "ladder2": "ladder", "rope": "rope", "rope2": "rope", "sit": "sit", "fly": "fly"}
 ## MakeCharInfo male default look (docs/GAME_DESIGN.md section 1): no weapon; a job weapon (e.g. the Magician's Wooden
 ## Wand 1372005) is added to `equips` by whoever sets the look.
 const DEFAULT_LOOK := {"skin": 0, "face": 20000, "hair": 30030, "equips": [1040002, 1060002, 1072001]}
@@ -53,6 +59,9 @@ var facing := -1
 ## Lookups that failed (missing imgs or stances).
 var missing: PackedStringArray = []
 
+## The Morph.wz id the character is drawn as (0 = the avatar) and its img (null when 0 or not in the cache).
+var morph_id := 0
+var _morph: WzImg
 var _body: WzImg
 var _head: WzImg
 var _face: WzImg
@@ -127,6 +136,21 @@ func set_look(d: Dictionary) -> void:
 	_zorder = zmap_order(lib)
 	_smap = AvatarLayers.smap_codes(lib)
 	play(_requested, true, looping)
+
+
+## Draws the character as Morph.wz/<id>.img (0 = back to the avatar). An id whose img is not in the cache keeps the
+## avatar and lists the path in `missing`.
+func set_morph(id: int) -> void:
+	if id == morph_id:
+		return
+	morph_id = id
+	_morph = _load("Morph.wz/%d.img" % id) if id > 0 else null
+	play(_requested, true, looping)
+
+
+## The Morph.wz action played for avatar stance `s`.
+static func morph_action(s: String) -> String:
+	return String(MORPH_ACTIONS.get(s, "stand"))
 
 
 ## Plays a stance ("stand1", "walk1", "jump", "alert", "prone", "ladder", "rope", "swingO1", "shoot1", "dead", ...).
@@ -207,6 +231,8 @@ func advance(dt: float) -> void:
 
 ## The stance to play for `s`: the held weapon's stand / walk variant for the generic "stand1" / "walk1", else `s`.
 func weapon_stance(s: String) -> String:
+	if _morph != null:
+		return morph_action(s)
 	if s == "stand1":
 		return WeaponInfo.stand_stance(_weapon_info)
 	if s == "walk1":
@@ -216,6 +242,8 @@ func weapon_stance(s: String) -> String:
 
 ## True when the body image has the stance.
 func has_stance(s: String) -> bool:
+	if _morph != null:
+		return _morph.root.get(s) is Dictionary
 	return _body != null and _body.root.get(s) is Dictionary
 
 
@@ -238,9 +266,10 @@ func is_finished() -> bool:
 ## Per-frame delays (s) of a body stance (missing delay -> 100 ms, tier C).
 func stance_delays(s: String) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
-	if _body == null:
+	var img := _morph if _morph != null else _body
+	if img == null:
 		return out
-	var node: Variant = _body.root.get(s)
+	var node: Variant = img.root.get(s)
 	if not (node is Dictionary):
 		return out
 	for k in SpriteAnim.frame_keys(node):
@@ -295,6 +324,8 @@ func current_parts() -> Array:
 ## Builds the draw list of one frame (positions relative to the character origin, unflipped).
 func compose(s: String, index: int, expression: String = "default", expr_t: float = 0.0) -> Array:
 	var parts: Array = []
+	if _morph != null:
+		return _compose_morph(s, index)
 	if _body == null:
 		return parts
 	var res := _resolve(s, index)
@@ -439,6 +470,14 @@ static func part_img_path(id: int) -> String:
 	if cat >= 130 and cat < 171:
 		return "Character.wz/Weapon/%08d.img" % id
 	return "Character.wz/%s/%08d.img" % [EQUIP_DIRS.get(cat, "Accessory"), id]
+
+
+## The one part of a morph frame: its canvas with the origin on the feet (Morph.wz frames carry no map anchors).
+func _compose_morph(s: String, index: int) -> Array:
+	var frame: Variant = _frame_node(_morph.root.get(s), index)
+	if not WzImg.is_canvas(frame):
+		return []
+	return [{"name": s, "frame": SpriteAnim.make_frame(frame, _morph), "map": {}, "z": "", "pos": Vector2.ZERO, "owner": 0}]
 
 
 func _draw() -> void:

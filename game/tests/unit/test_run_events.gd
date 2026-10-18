@@ -360,6 +360,12 @@ func test_every_event_matches_the_schema() -> void:
 	PF.put_player(pet_world, 1100.0, 0.0)
 	for event: Dictionary in PF.run(pet_world, 3):
 		_check(event, seen)
+	# #194: a buff cast whose failure chance rolls true (Oak Barrel) emits buff_failed and starts nothing.
+	var failing := RF.quiet_world()
+	assert_false(failing.start_buff("failing", {"skill_id": 5101007, "level": 1, "icon": "", "duration": 4.0,
+		"fail_chance": 1.0}))
+	for event: Dictionary in failing.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

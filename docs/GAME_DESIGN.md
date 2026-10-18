@@ -3541,6 +3541,62 @@ branches but a second job's advancement draw offers that branch's own skills rat
 Double Shot. The branch attacks come with #191 (Brawler) and #192 (Gunslinger), MP Recovery with #193 and Oak Barrel with
 #194.
 
+### 7.14 Hidden state and Oak Barrel (#194, spec #168)
+
+**Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
+block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
+Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (owner rules, #168 grilling):
+
+- **Monsters, bosses included, ignore the character.** `MobSwarm.step` gets `ctx.hidden` and no target: ground mobs
+  patrol their platform the way a mob with no route does (they walk the way they face and turn at walls and platform
+  ends), flyers hover where they are (tier C). Scheduled bosses neither stall nor teleport to the character
+  (`BossDirector`), and `SpawnDirector` does not recycle mobs as "gone" or "stalled".
+- **No hit of any kind lands:** contact damage (`_touch`), ordinary and boss attacks (`MobAttacks.plan` starts nothing;
+  a windup already under way plays its phases but lands nothing and launches no ball), mob skills aimed at the character
+  (Slow), and balls (they pass through; the ball is not used up and ends at its range). `take_hit` also returns 0 for
+  any source as the safety net.
+- **The character cannot attack:** `SkillRunner.cast_ready` skips every attack skill (active, not a buff, not manual,
+  damage type other than none; the cooldown keeps running), and `BasicAttack` starts no swing and drops one in its
+  windup. Buffs, potions, pickups, movement and manual movement skills (Teleport, Dash) still work. Shots already in
+  flight keep flying.
+- **Presentation:** `player_state.hidden` and `player_state.morph`.
+- **Edge cases (tier C):** a boss already fading out for a pursuit teleport when Hidden begins still finishes that teleport;
+  Cleric Heal still heals below its HP threshold but never strikes undead (it is an attack in this rule even though its
+  `damage` is `none`).
+
+**The buff block.** `buff`: `hidden` (bool), `morph_field` (the level number holding the Morph.wz id), `fail_field` (the
+level number holding the failure chance in percent), `end_hp_above` (an HP fraction above which the buff ends early),
+`cooldown_from_cast` (the cooldown is exactly the cooldown field from the cast, instead of at least the duration; the
+active buff alone blocks a recast). A cast with a failure chance rolls once on the Pirate stream 16 (`pirate_rng`,
+`randf() < fail_chance`); a failed cast pays MP, starts the cooldown, plays no effect and emits `buff_failed` instead
+of `buff_cast`. A skill's `cast` block may set `mob_within` (px): a buff with it needs a living mob within that distance of
+the cast origin (the same reach test as nearest-rule attacks).
+
+**Oak Barrel 5101007** (Brawler 510, ranks 1–10 = Skill.wz levels, no weapon requirement, `skills/pirate.json` entry
+`oak_barrel`, slot "passive" like the other buffs):
+
+| | rank 1 | rank 10 | source |
+|---|---|---|---|
+| MP | 11 | 20 | tier A `mpCon` |
+| Barrel time | 12 s | 30 s | tier A `time` |
+| Failure chance | 37% | 10% | tier A `prop` (read as the failure chance, as the #194 brief states) |
+| Cooldown | 35 s | 15 s | tier A `cooltime` |
+| Morph | 1002 | 1002 | tier A `morph` |
+
+It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), a mob is within 250 px
+(`cast.mob_within`, tier C) and the cooldown is ready; the barrel ends early once HP is above 60% (`end_hp_above` 0.6,
+tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
+(weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
+
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
+`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
+their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
+keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
+`test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
+`test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
+`scenes/debug/morph_driver.tscn`.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4274,6 +4330,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
 | Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
 | Mob Stun behavior | no walking, route/jump/flyer pursuit, new attacks or mob skills, touch damage or hit flinch/push while stunned; animation clocks and damage continue; an airborne mob still falls straight down; a new stun keeps the longer remaining time; elementless (never rejected by an element); `on_hit` `prop`/`time` from Skill.wz | C | #187 owner brief; the stunned look and the `prop`/`time` fields are Skill.wz (tier A) |
+| Hidden state (#194, 7.14) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
+| Oak Barrel values (#194) | MP 11-20, time 12-30 s, failure chance 37-10% (`prop`), cooldown 35-15 s, morph 1002; the cooldown counts from the cast even when the barrel outlasts it | A | Skill.wz/510.img/skill/5101007 (`prop` read as the failure chance per the #194 brief) |
+| Oak Barrel conditions (#194) | casts below 30% HP with a mob within 250 px and the cooldown ready; the barrel ends early above 60% HP; a failed cast still pays MP and the cooldown, rolled once per cast on stream 16; cards: learn weight 3, rank weight 2, max rank 10, Brawlers only | C | owner decisions (30%, 60%, mob near, stream 16) + ours (250 px, card weights) |
+| Morph rendering (#194) | the avatar is replaced by one `Morph.wz` canvas per frame, feet on the origin; attack and cast stances show `stand`; the morph's `info` speed/jump are not applied | A art / C mapping | Morph.wz/1002.img; stance-to-action mapping is ours |
 | Mob Stun cue | the v83 stun stars (`mob` node of Backspin Blow, Shout, Blank Shot ...: 3 frames, 100 ms, repeat), looped over the body top (pos2); yellow (1,.95,.55) tint fallback | A art / C anchor and fallback tint | Skill.wz 111.img skill 1111008 mob (identical to 5101002/5101003/5201004); manifest entry in asset_manifest.json |
 | Mob status cues | Slow one-shot cached mob art, Poison repeat art; pos3 centre/pos2 top; Slow amber (1,.72,.40), Freeze cyan (.45,.80,1), fallback Poison violet (.72,.45,.90) | A art / C anchors and tint choices | original Skill.wz/210.img, Cold Beam has no mob overlay; [status research](research/monster-status-effects.md) |
 | Default frame delay | 100 ms | C | HeavenClient |

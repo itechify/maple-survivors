@@ -235,7 +235,10 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
 ## speed, count, pierce, radius, ball, hit, effect
 ## (WZ paths), action, action_time, rotate, passive_stat,
-## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value).
+## passive_value, icon, displacement ({} or the moving-attack block, _displacement), duration (canonical time), legacy buff_stat/buff_value, buff_effects (stat -> canonical value),
+## and for a Hidden buff (docs/GAME_DESIGN.md 7.14): hidden, morph (Morph.wz id from the `morph_field` level number, 0 = none),
+## fail_chance (0..1, the `fail_field` level number as a percentage), end_hp_above (HP fraction that ends it early) and
+## cooldown_from_cast (the cooldown is exactly buff_cooldown from the cast, however long or short the buff lasts).
 func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var d := book.def(key)
 	var r := clampi(at_rank, 1, book.max_rank(key)) if at_rank > 0 else maxi(1, rank(key))
@@ -338,6 +341,12 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
+		"hidden": bool(buff.get("hidden", false)),
+		"morph": int(book.canonical(key, lv, String(buff.morph_field), 0.0)) if buff.has("morph_field") else 0,
+		"fail_chance": clampf(book.canonical(key, lv, String(buff.fail_field), 0.0) / 100.0, 0.0, 1.0)
+			if buff.has("fail_field") else 0.0,
+		"end_hp_above": float(buff.get("end_hp_above", 0.0)),
+		"cooldown_from_cast": bool(buff.get("cooldown_from_cast", false)),
 		"displacement": _displacement(key, d, r, lv),
 		"conversion": _conversion(key, d, lv),
 	}

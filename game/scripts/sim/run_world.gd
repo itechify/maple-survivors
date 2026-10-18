@@ -79,6 +79,8 @@ const EVENT_FIELDS := {
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
+	# #194: a buff cast with a failure chance (Oak Barrel) that failed; nothing started.
+	"buff_failed": ["skill", "skill_id", "level"],
 	"buff_pulse": ["skill", "skill_id", "amount"],
 	"basic_attack": ["phase", "weapon_id", "action", "facing", "pos", "afterimage", "sound", "hit_after", "interval"],
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
@@ -605,14 +607,31 @@ func convert_hp_to_mp(key: String, st: Dictionary) -> int:
 	return restore_player("mp", floori(float(paid) * float(st.conversion.get("gain", 0.0)) + 1e-6), key)
 
 
-## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
-func start_buff(skill: String, stats: Dictionary) -> void:
+## Whether the character is Hidden (docs/GAME_DESIGN.md 7.14): an active buff makes monsters, bosses included, ignore
+## the character and stops its attacks. Oak Barrel (#194) and Thief Dark Sight (#167) use it.
+func is_hidden() -> bool:
+	return buffs.hidden()
+
+
+## The Morph.wz id the character is drawn as while a morphing buff is active, 0 for the plain avatar.
+func morph_id() -> int:
+	return buffs.morph()
+
+
+## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call. A buff with a
+## `fail_chance` (Oak Barrel: Skill.wz `prop`, tier A) rolls it once on the Pirate stream 16 first and, when the cast
+## fails, starts nothing and emits `buff_failed`. Returns whether the buff started.
+func start_buff(skill: String, stats: Dictionary) -> bool:
+	if float(stats.get("fail_chance", 0.0)) > 0.0 and pirate_rng.randf() < float(stats.fail_chance):
+		emit("buff_failed", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level)})
+		return false
 	buffs.start(skill, stats)
 	_refresh_caster()
 	refresh_player_speed()
 	emit("buff_cast", {"skill": skill, "skill_id": int(stats.skill_id), "level": int(stats.level),
 		"duration": float(stats.duration)})
 	_write_player_state(0.0)
+	return true
 
 
 ## Returns the pending events and clears the list (what the presentation does every frame).
@@ -819,6 +838,8 @@ func _step_monsters(dt: float) -> void:
 	_ctx.target = player.pos
 	_ctx.target_fh = player.fh
 	_ctx.speed_mult = director.value_at("speed", time)
+	# Hidden (#194): the swarm gets no target to chase, so ground mobs patrol and flyers hover.
+	_ctx["hidden"] = is_hidden()
 	_ctx["boss_actions"] = mob_actions.view(bosses.prepare_actions(self), bosses, swarm, time)
 	_ctx["events"] = events
 	swarm.step(dt, _ctx)
@@ -2035,6 +2056,16 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
+	_end_buffs_above_hp()
+
+
+## Ends the buffs whose `end_hp_above` fraction the character's HP has passed (Oak Barrel's barrel once HP is back above
+## 60%, #194). Runs after every HP change of the tick (potions, buff pulses, regeneration).
+func _end_buffs_above_hp() -> void:
+	for skill: String in buffs.active.keys():
+		var above := float(buffs.active[skill].get("end_hp_above", 0.0))
+		if above > 0.0 and _hp > float(_max_hp) * above:
+			buffs.end(skill, events)
 
 
 func _sync_slots() -> void:
@@ -2185,7 +2216,8 @@ func _drop_boss_rewards(pos: Vector2, total: int, item_id: int, config: Dictiona
 
 
 func _touch() -> void:
-	if _dead or god or upkeep.invincible_t > 0.0:
+	# Hidden (#194): walking into a monster deals no contact damage.
+	if _dead or god or upkeep.invincible_t > 0.0 or is_hidden():
 		return
 	var box := player_box()
 	var c := box.get_center()
@@ -2247,7 +2279,8 @@ func _window_blocks(bypass: bool) -> bool:
 ## Source fields: accuracy (canonical acc), elite, dmg_mult, mob, mob_id, boss. Events snapshot max_hp at hit time.
 func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, source: Dictionary = {}) -> int:
 	var bypass := PlayerUpkeep.bypasses_window(source)
-	if _dead or god or _window_blocks(bypass):
+	# Hidden (#194): nothing from a monster lands, whatever its source (the callers also skip the attack itself).
+	if _dead or god or _window_blocks(bypass) or is_hidden():
 		return 0
 	var dir := 1 if player.pos.x >= source_pos.x else -1
 	if CombatMath.roll_miss(player_avoid + buffs.effect_total("avoid"), float(source.get("accuracy", 0.0)), rng):
@@ -2379,6 +2412,8 @@ func _write_player_state(dt: float) -> void:
 	player_state["mp"] = floori(_mp)
 	player_state["mp_short"] = runner.waiting_mp
 	player_state["buffs"] = buffs.snapshot()
+	player_state["hidden"] = is_hidden()
+	player_state["morph"] = 0 if _dead else morph_id()
 	player_state["max_hp"] = _max_hp
 	player_state["max_mp"] = _max_mp
 	player_state["exp"] = progression.exp

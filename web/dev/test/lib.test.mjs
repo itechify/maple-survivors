@@ -31,10 +31,10 @@ test('img path formulas match the importer (tools/wzimport/src/manifest.rs tests
 	assert.equal(lib.itemImgPath(1000000), null);
 });
 
-test('the real manifest needs the twelve archives the desktop import reads', () => {
+test('the real manifest needs the thirteen archives the desktop import reads', () => {
 	const m = lib.parseManifest(manifestText);
 	assert.deepEqual(lib.requiredArchives(m), [
-		'Base.wz', 'Character.wz', 'Effect.wz', 'Etc.wz', 'Item.wz', 'Map.wz', 'Mob.wz', 'Npc.wz', 'Skill.wz',
+		'Base.wz', 'Character.wz', 'Effect.wz', 'Etc.wz', 'Item.wz', 'Map.wz', 'Mob.wz', 'Morph.wz', 'Npc.wz', 'Skill.wz',
 		'Sound.wz', 'String.wz', 'UI.wz',
 	]);
 	const imgs = lib.expectedImgs(m);
