@@ -2064,6 +2064,8 @@ func _tick_timers(dt: float) -> void:
 ## Ends the buffs whose `end_hp_above` fraction the character's HP has passed (Oak Barrel's barrel once HP is back above
 ## 60%, #194). Runs after every HP change of the tick (potions, buff pulses, regeneration).
 func _end_buffs_above_hp() -> void:
+	if not buffs.ends_on_hp():
+		return
 	for skill: String in buffs.active.keys():
 		var above := float(buffs.active[skill].get("end_hp_above", 0.0))
 		if above > 0.0 and _hp > float(_max_hp) * above:

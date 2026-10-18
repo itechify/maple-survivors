@@ -97,6 +97,41 @@ func test_a_buff_can_end_early_when_hp_is_above_its_fraction() -> void:
 	assert_eq(_types(events, "buff_expired").size(), 1)
 
 
+## The hidden flag and morph id are cached fields (review of #194): they follow a buff starting, expiring and being
+## ended or cleared, and the first active morph wins like the first active buff in cast order.
+func test_the_cached_hidden_flag_and_morph_follow_every_start_and_end() -> void:
+	var b := PlayerBuffs.new()
+	var events := []
+	var base := {"skill_id": 1, "level": 1, "icon": "", "duration": 1.0, "buff_stat": "avoid", "buff_value": 1.0,
+		"pulse_interval": 0.0}
+	assert_false(b.hidden())
+	assert_eq(b.morph(), 0)
+	assert_false(b.ends_on_hp())
+	b.start("plain", base)
+	assert_false(b.hidden())
+	var barrel := base.duplicate()
+	barrel.merge({"hidden": true, "morph": 1002, "end_hp_above": 0.6, "duration": 3.0}, true)
+	b.start("barrel", barrel)
+	var second := base.duplicate()
+	second.merge({"morph": 1003, "duration": 5.0}, true)
+	b.start("second", second)
+	assert_true(b.hidden())
+	assert_eq(b.morph(), 1002, "the first active morph")
+	assert_true(b.ends_on_hp())
+	b.step(1.5, events)  # "plain" expires
+	assert_true(b.hidden() and b.morph() == 1002)
+	assert_true(b.end("barrel", events))
+	assert_false(b.hidden())
+	assert_eq(b.morph(), 1003, "the next active morph takes over")
+	assert_false(b.ends_on_hp())
+	b.step(10.0, events)
+	assert_eq(b.morph(), 0)
+	b.start("barrel", barrel)
+	b.clear()
+	assert_false(b.hidden() or b.ends_on_hp())
+	assert_eq(b.morph(), 0)
+
+
 # --- monsters ignore the character -----------------------------------------------------------------------------------
 
 func test_walking_into_a_monster_deals_no_contact_damage() -> void:

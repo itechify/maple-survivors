@@ -77,7 +77,7 @@ func _seed_whose_first_roll(fails: bool, rank := 1) -> int:
 
 func _reset_for_next_cast(w: RunWorld) -> void:
 	w.runner.cooldowns[KEY] = 0.0
-	w.buffs.active.clear()
+	w.buffs.clear()
 	w.heal_fraction("mp", 1.0)
 
 
