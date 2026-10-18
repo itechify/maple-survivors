@@ -75,6 +75,13 @@ character to the Free Market hub, whose out00 exit opens the next tier's map sel
 death/final-tier victory -> `ResultsScreen` -> `CharacterSelect`.
 There is no Retry. Three living slots support create, continue, confirmed delete and ended-run history.
 
+The title is the game's own, not the v83 login scene: the key art `game/assets/branding/title.png` (the project's
+original art, committed; logo baked in) is also the boot splash (`application/boot_splash`, stretch Cover), so start-up
+runs straight into it, and Start opens character select. `KeyArt` draws it on the title and import screens; its
+buttons are `TitleButton`s drawn from code. The emblem is `game/icon.png` (window) and `game/icon.ico` (Windows exe,
+`application/modify_resources`); the web shell ships the favicons, `site.webmanifest` and `title.jpg` from `web/`.
+Character select and creation keep the v83 MapLogin backdrop (`LoginBackdrop`).
+
 `SceneFlow` owns the active slot and boundary persistence ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
 It saves phase `free_market` on a non-final clear,
 `map_select` on exit/first creation and phase `round`
@@ -976,8 +983,13 @@ it reaches, with no engine or presentation change. On web the sim costs about 1.
 The shell is `web/index.html` (Godot's custom HTML shell, placeholders filled at export) plus files that must sit
 beside it in the export: `shell.css`, `shell.js` (page logic), `lib.js` (pure helpers, unit-tested with
 `node --test web/dev/test/*.test.mjs`), `idbfs.js` (reads and writes the `/userfs` IndexedDB), `import_worker.js` (module
-worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`) and `asset_manifest.json` (`game/data/asset_manifest.json` merged with its
-`asset_manifest.d/*.json` fragments by `wzimport manifest`, ASSET_PIPELINE 4.1; fetched same-origin). `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
+worker), `wzimport.js` + `wzimport_bg.wasm` (the importer, `scripts/build_wasm.sh`), `asset_manifest.json`
+(`game/data/asset_manifest.json` merged with its `asset_manifest.d/*.json` fragments by `wzimport manifest`,
+ASSET_PIPELINE 4.1; fetched same-origin), and the branding: `title.jpg` (the key art behind the loading overlay and the shell screens),
+`favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`, `android-chrome-192x192.png` (also the
+emblem in the plate title bar), `android-chrome-512x512.png` and `site.webmanifest` (relative icon paths, for the Pages
+subpath). The Web preset has `html/export_icon=false`, so Godot adds no icon links of its own.
+`bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
 picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
 
 **Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
@@ -1135,8 +1147,8 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   (`tests/unit/test_web_handoff.gd`).
 - **Import screen:** on web it has no folder field, Browse or `FileDialog` and never reaches `OS.execute*`; one button
   hands over with `reimport` (the screen only shows when the cache is missing; the title goes straight to the marker).
-- **Title:** no Quit (hidden; Esc does nothing there). Three plates on the bottom plank: Fullscreen, Export save,
-  Import save.
+- **Title:** no Quit (hidden; Esc does nothing there). Fullscreen, Export save and Import save lead the second button
+  row, before Re-import WZ data.
 - **Fonts (`MapleFonts`, `assets/fonts/arimo/`):** a browser has no system fonts, and a `SystemFont` with no match is
   drawn with Godot's built-in font whatever its `fallbacks` hold (checked on desktop with a font name that does not
   exist: same size as `ThemeDB.fallback_font`). `MapleFonts.make(names, weight)` therefore returns the bundled Arimo
@@ -1152,8 +1164,9 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
   desktop). Godot emits no `size_changed` when a tab shrinks below the base size while the stretched view stays 800x600
   (seen in Chrome: 800x600 -> 640x480 kept a cropped 1x view), so on web `Settings._process` re-fits whenever
   `root.size` changed. The Options window shows a FULLSCREEN check box in place of the FRAME CAP row, and the title has a
-  Fullscreen plate; both call `GameSettings.toggle_fullscreen()` straight from the click (browsers only allow fullscreen
-  inside an input handler) and read the state back from `window_get_mode()`, so leaving with Esc cannot desync them.
+  Fullscreen button; both call `GameSettings.toggle_fullscreen()` straight from the click (browsers only allow
+  fullscreen inside an input handler) and read the state back from `window_get_mode()`, so leaving with Esc cannot
+  desync them.
 - **Keys:** Godot's web input calls `preventDefault()` on every key event of the focused canvas (the shell focuses it,
   `html/focus_canvas_on_start`), so Left Alt (Firefox/Chrome menu), Space, arrows, Tab and F5/F11/F12 should not
   trigger browser actions while the game has focus. Checked under Playwright's synthetic key events in Chrome and

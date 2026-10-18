@@ -1,5 +1,6 @@
 /* Web shell screens (spec #130): the import screen and its siblings, drawn in the colours of the game's own import
-   screen (game/scenes/ui/import_screen.gd): white rim, blue plate, light body, grey button strip, orange buttons. */
+   screen (game/scenes/ui/import_screen.gd): white rim, blue plate, light body, grey button strip, orange buttons,
+   over the dimmed key art (title.jpg) with the emblem in the plate's title bar. */
 
 [hidden] {
 	display: none !important;
@@ -12,7 +13,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: #0c1420;
+	background: linear-gradient(rgba(8, 2, 4, 0.55), rgba(8, 2, 4, 0.55)), url("title.jpg") center / cover no-repeat,
+		#120507;
 	font-family: Tahoma, "Segoe UI", Arial, sans-serif;
 	font-size: 12px;
 	color: #000;
@@ -37,6 +39,12 @@
 	margin: 2px 2px 0;
 	padding: 10px 18px 8px;
 	height: 44px;
+}
+
+.plate-logo {
+	float: left;
+	margin: -6px 10px 0 -8px;
+	image-rendering: auto;
 }
 
 .plate-top h1 {
