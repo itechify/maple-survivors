@@ -399,6 +399,7 @@ const HIT_MORE_EXEMPT := {
 	"teleport_fp": "movement: deals no damage",
 	"teleport_il": "movement: deals no damage",
 	"teleport_cleric": "movement: deals no damage",
+	"threaten": "support: threatens, deals no damage",
 }
 
 

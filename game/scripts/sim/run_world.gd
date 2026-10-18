@@ -783,6 +783,7 @@ func _fill_live_defense() -> void:
 		_kind_pdd[k] = float((mob_kinds[k] as MobKind).pdd)
 	mob_skills.fill_live_defense(swarm.active, swarm.kind, _kind_mdd, swarm.capacity(), time, _live_mdd,
 		_live_physical_allowed, _kind_pdd, _live_pdd)
+	swarm.lower_threatened_pdd(_live_pdd) # Threaten (#183): the same cut mob_defense applies
 
 
 ## Moves and collects drops; collected potions join the stock. Returns the EXP collected this tick.
@@ -1557,7 +1558,8 @@ func mob_action_view() -> Dictionary:
 ## defense (MobSkillRunner.fill_live_defense in _step_player_attacks) computes both cases in bulk: keep them equal.
 func mob_defense(m: int, magic: bool) -> float:
 	var kind: MobKind = mob_kinds[swarm.kind[m]]
-	return float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
+	var defense := float(kind.mdd if magic else kind.pdd) + mob_skills.defense_bonus(m,magic,time)
+	return defense if magic else swarm.threatened_pdd(m, defense) # Threaten (#183) lowers weapon defence only
 
 
 ## Whether a physical impact may damage this slot at the current simulation time.
@@ -2121,7 +2123,9 @@ func _player_hit(m: int, mk: MobKind) -> void:
 		"elite": mob_elite[m] != 0, "boss": boss_index >= 0, "source_kind": "touch"}
 	if boss_index >= 0:
 		source["dmg_mult"] = bosses.damage_multiplier(boss_index)
-	take_hit(float(mk.pad), false, "", Vector2(swarm.x[m], swarm.y[m]), source)
+	# Threaten (#183): a threatened mob's contact weapon attack is lowered by the level's flat amount, floor 0.
+	var attack := swarm.threatened_pad(m, float(mk.pad))
+	take_hit(attack, false, "", Vector2(swarm.x[m], swarm.y[m]), source)
 
 
 ## Defense inputs for a monster hit; overridable by subsequent equipment and buff rules.

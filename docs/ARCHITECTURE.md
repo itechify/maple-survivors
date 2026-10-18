@@ -312,7 +312,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
-| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`), `duration` (float canonical seconds); reapplication emits again and refreshes |
+| `mob_status_applied` | `mob`, `mob_id`, `status` (`slow`, `poison`, `freeze`, `threatened`), `duration` (float canonical seconds); reapplication emits again and refreshes |
 | `mob_status_expired` | `mob`, `mob_id`, `status`; natural timer expiry only; death/release/relocation clears silently |
 | `mob_died` | `mob`, `mob_id`, `pos`, `exp`, `elite` |
 | `player_hit` | `damage` (int), `mp_absorbed` (int), `miss` (bool), `dir` (-1/1), `pos`, `mob` (source slot, -1 when unspecified), `mob_id` (source id, 0 when unspecified), `boss` (bool), `max_hp` (HP pool at hit time), `source_kind` (String: `touch`, `attack`, `projectile`, or `other` for a direct unspecified source). Whole damage/max_hp supports encounter metrics. A miss spends no HP/MP and gives no knockback/invincibility. |
@@ -467,18 +467,22 @@ Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `Run
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
-and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, plus
-`slow_factor` and private poison pulse/damage/source arrays. `status_time(slot, status)` reads a timer. The shared entry
+and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW`, `POISON`, `FREEZE`, `THREATENED`
+(Page Threaten, #183), plus `slow_factor`, the Threaten cut arrays `threat_pad`/`threat_pdd` (read through
+`threatened_pad`/`threatened_pdd`, applied in `RunWorld._player_hit`, `MobAttacks._impact`, `RunWorld.mob_defense` and the
+bulk `lower_threatened_pdd`) and private poison pulse/damage/source arrays. The `crowd` cast rule takes its status from
+the skill's `cast.status` (`SkillRunner.crowd_status`, "slow" by default; `MobSwarm.can_crowd_cast`); Threaten has no
+`prop`, so it draws no random number and RNG stream 13, reserved for spec #165, stays unused. `status_time(slot, status)` reads a timer. The shared entry
 point is `apply_status(slot, name, params, events) -> bool` (`name` from `STATUS_NAMES`); `params` contains canonical
-`time`, signed Slow `x`, or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
-the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`). Bosses, and kinds whose Mob.wz digit for
+`time`, signed Slow `x` (Threaten: signed `x` PAD and `y` WDEF), or poison skill `level`, an optional survivor `skill` key and an optional `element` overriding
+the status default (`STATUS_ELEMENTS`: Poison `S`, Freeze `I`, Threatened none). Bosses, and kinds whose Mob.wz digit for
 the element is 1, 2 or 4 (`MobKind.resists_status`), reject it. `step` receives the current event list in
 `ctx.events`, advances status timers after movement and emits poison `mob_hit` events; it visits only a compact
 list of statused slots, and no status means no status pass at all. `RunWorld.damage_dealt` is a getter summing shots, instant hits and `swarm.poison_dealt`.
 `has_statuses()` lets presentation skip status work. `can_act(slot)` (settled and not frozen) gates monster touch
 damage as well as boss attacks/skills. Release, death and relocation clear these player-inflicted
 statuses; the existing `MobSkillRunner` monster buffs still transfer on relocation. `MobRenderer` uses pooled cached
-Slow/Poison art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
+Slow/Poison/Threaten art and status tints; frozen state/animation clocks do not advance, though a frozen airborne monster still
 falls and a fading-in one keeps fading in.
 
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
