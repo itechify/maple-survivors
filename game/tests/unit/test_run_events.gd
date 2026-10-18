@@ -366,6 +366,18 @@ func test_every_event_matches_the_schema() -> void:
 		"fail_chance": 1.0}))
 	for event: Dictionary in failing.drain_events():
 		_check(event, seen)
+	# #210: Disorder's recipient art is a status effect, never a fake damaging mob_hit.
+	var disorder := RF.quiet_world()
+	disorder.change_job(400, "dagger")
+	disorder.loadout.order.clear()
+	disorder.learn_skill("disorder")
+	disorder.heal_fraction("mp", 1.0)
+	for dx in [40.0, 80.0, 120.0]:
+		RF.put_mob(disorder, 1110100, disorder.player.pos.x + dx, disorder.player.pos.y)
+	disorder.mob_grid.rebuild(disorder.swarm.x, disorder.swarm.y, disorder.swarm.active)
+	disorder.runner.step(DT, disorder)
+	for event: Dictionary in disorder.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
 		if type == "mp_short":
 			var short_world := RF.quiet_world()

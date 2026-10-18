@@ -136,6 +136,8 @@ static func skill_imgs() -> Dictionary:
 	# #207: original Thief endpoints; intermediate fixture levels are synthetic interpolation.
 	imgs["400"] = {"skill": {
 		"4000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})},
+		"4001002": {"level": _levels(20, {"mpCon": [5.0, 10.0], "time": [7.0, 60.0],
+			"x": [-1.0, -20.0], "y": [-1.0, -20.0]})}, # synthetic intermediate levels; cache tests check the real table.
 		"4001334": {"weapon": 33, "level": _levels(20, {"mpCon": [8.0, 14.0],
 			"damage": [98.0, 140.0], "attackCount": [2.0, 2.0]})},
 		"4001344": {"weapon": 47, "level": _levels(20, {"mpCon": [8.0, 16.0],
