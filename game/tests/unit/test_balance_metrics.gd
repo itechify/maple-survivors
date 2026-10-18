@@ -353,17 +353,25 @@ func test_summary_reports_undefined_ratio_when_no_mp_is_used() -> void:
 	assert_true(BR.describe_metrics(none_collected).contains("MP collected/used 0.000"))
 
 
-func test_summary_reports_observed_magician_times() -> void:
+func test_summary_reports_observed_times_per_job() -> void:
+	# Records from before job_times only had the Magician's job_t.
 	var summary := BR.aggregate([{"job_t": 240.0}, {"job_t": 260.0}, {"job_t": -1.0}, {}])
-	assert_true(summary.has("magician_seconds"), "report includes advancement timing")
-	if not summary.has("magician_seconds"):
-		return
-	assert_eq(summary.magician_seconds.count, 2, "unreached and missing times are not observations")
-	assert_eq(summary.magician_seconds.median, 250.0)
-	assert_true("Magician seconds 240.00/250.00/260.00 (n=2)" in BR.describe_metrics(summary))
+	assert_true(summary.job_seconds.has("200"), "report includes advancement timing")
+	assert_eq(summary.job_seconds["200"].count, 2, "unreached and missing times are not observations")
+	assert_eq(summary.job_seconds["200"].median, 250.0)
+	assert_true("Job 200 seconds 240.00/250.00/260.00 (n=2)" in BR.describe_metrics(summary))
 	var absent := BR.aggregate([{"job_t": -1.0}, {}])
-	assert_eq(absent.magician_seconds.count, 0)
-	assert_true("Magician seconds none (n=0)" in BR.describe_metrics(absent))
+	assert_true(absent.job_seconds.is_empty())
+	assert_true("Job seconds none (n=0)" in BR.describe_metrics(absent))
+	var mixed := BR.aggregate([{"job_t": 240.0, "job_times": {"200": 240.0, "210": 1000.0}},
+		{"job_t": 260.0, "job_times": {"200": 260.0, "220": 900.0}}, {"job_t": 300.0, "job_times": {"200": 300.0}}])
+	assert_eq(mixed.job_seconds.keys(), ["200", "210", "220"], "every job id advanced into has its own times")
+	assert_eq(mixed.job_seconds["200"].count, 3)
+	assert_eq(mixed.job_seconds["210"].median, 1000.0)
+	assert_eq(mixed.job_seconds["220"].count, 1)
+	var text := BR.describe_metrics(mixed)
+	assert_true("Job 210 seconds 1000.00/1000.00/1000.00 (n=1)" in text, text)
+	assert_true("Job 220 seconds 900.00/900.00/900.00 (n=1)" in text, text)
 
 
 func test_run_records_each_potion_kind_collected_and_drunk() -> void:
@@ -419,6 +427,8 @@ func test_forced_branch_is_recorded_and_summary_groups_outcomes() -> void:
 	var r := BR.run_one(w, "bot", 53, -1.0, 60.0, 230)
 	assert_eq(r.get("branch", 0), 230)
 	assert_eq(r.get("forced_branch", 0), 230)
+	assert_true(r.job_times.has("230"), "every advancement is timed per job id")
+	assert_true(float(r.job_times["230"]) >= 0.0)
 	var legacy := r.duplicate(true)
 	legacy.erase("branch")
 	legacy.state = "DEAD"

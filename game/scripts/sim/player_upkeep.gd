@@ -6,7 +6,7 @@ extends RefCounted
 ## pulses fell due, and the world applies them. Pure: no nodes, files or time.
 
 ## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
-const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
+const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0}
 
 ## Seconds of hit invincibility left.
 var invincible_t := 0.0
@@ -49,15 +49,9 @@ func pulse_hp() -> float:
 	return float(_regen.get("hp", DEFAULT_REGEN.hp))
 
 
-## Base MP restored by one pulse (before mp_regen modifiers and the Improved MP Recovery bonus).
+## Base MP restored by one pulse (before mp_regen modifiers and the skills' Loadout.regen_bonus).
 func pulse_mp() -> float:
 	return float(_regen.get("mp", DEFAULT_REGEN.mp))
-
-
-## Improved MP Recovery's MP per pulse. tier B: pre-Big-Bang rule floor(level x skill level / divisor), whole MP.
-func improved_mp_bonus(level: int, skill_level: int) -> float:
-	return floorf(float(level * skill_level)
-		/ maxf(1.0, float(_regen.get("improved_mp_divisor", DEFAULT_REGEN.improved_mp_divisor))))
 
 
 ## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion.

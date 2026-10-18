@@ -185,7 +185,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.mob_speed_factor), 0.625)
 	assert_eq(float(b.knockback.speed), 187.5)
 	assert_eq(float(b.mp_regen), 0.0, "no per-second MP recovery")
-	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0})
+	assert_eq(b.regen, {"interval": 10.0, "hp": 10.0, "mp": 3.0})
 	assert_eq(float(b.level_up_refill.hp), 0.0, "level-ups add no HP (owner choice)")
 	assert_eq(float(b.level_up_refill.mp), 1.0, "level-ups refill MP to the new maximum")
 	assert_eq(float(b.potions.drops.normal.mp), 0.03, "normal mobs drop a Blue 3% of the time")

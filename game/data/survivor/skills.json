@@ -114,6 +114,8 @@
 			"skill_id": 2000000, "book": "200", "job": 200, "kind": "passive", "slot": "passive",
 			"name": "Improved MP Recovery", "desc": "Adds character-level-scaled MP recovery every 10 seconds.",
 			"text": {"h": "MP +(character level x {level} / 10) every 10 sec."},
+			"regen": {"pool": "mp", "divisor": 10},
+			"_regen": "Tier B: pre-Big-Bang rule, each regeneration pulse adds floor(character level x skill level / divisor) to the pool (Loadout.regen_bonus; pool hp serves Improved HP Recovery with data only).",
 			"icon": "Skill.wz/200.img/skill/2000000/icon",
 			"damage": "none", "ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
 			"action": "", "action_time": 0.0, "ball": "", "hit": "", "effect": "", "rotate": false,

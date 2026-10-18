@@ -31,9 +31,9 @@ extends RefCounted
 const FORMAT := 2 # tier C: spec #33 adds worn equipment, inventory, scrolls and mesos.
 ## Every format validation_error accepts; RunWorld and SceneFlow migrate older ones on load.
 const FORMATS := [1, 2]
-## tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
-## Beginner's nonzero beginner_weapon, else the nearest job ancestor's entry.
-const FORMAT1_WEAPONS := {"0": 1302000, "200": 1372005}
+# tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
+# Beginner's nonzero beginner_weapon, else the nearest job ancestor's `format1_weapon` (data/survivor/jobs.json,
+# read with JobTree.lineage_value; Equipment.DEFAULT_OUTFIT's weapon when no job in the line has one).
 
 
 ## A format-2 copy of a supported snapshot (format 2 is returned as a detached copy). `equipment_info` ({id: canonical
@@ -68,11 +68,7 @@ static func held_item_ids(character: Dictionary, jobs: JobTree) -> Array:
 			ids.append(int(id))
 	var weapon := int(character.get("beginner_weapon", 0))
 	if int(character.get("job_id", 0)) != 0 or weapon <= 0:
-		weapon = int(FORMAT1_WEAPONS["0"])
-		for ancestor in jobs.lineage(int(character.get("job_id", 0))):
-			if FORMAT1_WEAPONS.has(str(ancestor)):
-				weapon = int(FORMAT1_WEAPONS[str(ancestor)])
-				break
+		weapon = int(jobs.lineage_value(int(character.get("job_id", 0)), "format1_weapon", Equipment.DEFAULT_OUTFIT[-1]))
 	ids.append(weapon)
 	return ids
 

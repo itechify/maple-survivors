@@ -56,6 +56,8 @@ static func options_from_args(args: Dictionary) -> Dictionary:
 		o["window_autopick"] = float(args["window-autopick"])
 	if args.has("warp"):
 		o["warp"] = float(args.warp)
+	if args.has("job"):
+		o["job"] = int(args.job)
 	return o
 
 

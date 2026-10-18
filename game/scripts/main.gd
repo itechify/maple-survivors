@@ -36,6 +36,11 @@ func _ready() -> void:
 		return
 	var run := SceneFlow.parse_run_args(OS.get_cmdline_user_args())
 	if not run.is_empty():
+		var job_error := SceneFlow.forced_job_error(run.options, DataRepo.load_all())
+		if job_error != "":
+			printerr("main: --job: " + job_error)
+			WebHandoff.exit_app(get_tree(), 2)
+			return
 		flow.start_run(String(run.run), int(run.seed), run.options)
 		return
 	flow.goto_title()

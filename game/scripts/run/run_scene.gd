@@ -309,6 +309,10 @@ func _ready() -> void:
 	if stage.is_empty():
 		_fail("unknown stage '%s'" % stage_key)
 		return
+	var job_error := SceneFlow.forced_job_error(options, data)
+	if not job_error.is_empty():
+		_fail("--job: " + job_error)
+		return
 	map_id = int(stage.get("map_id", 0))
 	var character := {}
 	if options.has("character"):
@@ -799,10 +803,12 @@ func _warm_ui() -> void:
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
 			EquipWindow.ART + "backgrnd", EquipWindow.ART + "pet", ItemWindow.ART + "backgrnd", DropConfirm.ART, ItemTooltip.TT + "Can/reqLEV"]:
 		UiArt.frame(path)
-	var npc := int(JobAdvanceWindow.INSTRUCTORS.get(200, 0))
-	if npc > 0:
-		UiArt.anim("Npc.wz/%07d.img/stand" % npc)
-		UiArt.text("String.wz/Npc.img/%d/name" % npc)
+	# Every playable job line's instructor (the first-job ids of INSTRUCTORS; second-job windows use the same NPC).
+	for first_job: int in JobAdvanceWindow.INSTRUCTORS:
+		var npc := int(JobAdvanceWindow.INSTRUCTORS[first_job])
+		if npc > 0 and bool(world.jobs.job(first_job).get("playable", false)):
+			UiArt.anim("Npc.wz/%07d.img/stand" % npc)
+			UiArt.text("String.wz/Npc.img/%d/name" % npc)
 	for path: String in [FX_LEVEL_UP, FX_JOB_CHANGED]:
 		if library != null:
 			library.find_anim(path)
@@ -924,6 +930,12 @@ func _start_title() -> void:
 func _fail(msg: String) -> void:
 	error = msg
 	push_error("RunScene: " + msg)
+
+
+## The job the autoplay bot forces (options.job, `--job=<id>`; the first job of a forced second job is taken at the
+## first window); 0 = the seeded random choice.
+func _forced_job() -> int:
+	return int(options.get("job", 0))
 
 
 # --- loop ----------------------------------------------------------------------------------------------------
@@ -1200,7 +1212,7 @@ func _apply_look() -> void:
 ## events are dropped. Stops early when the run ends.
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
-		BotInput.auto_choose(world, false, int(options.get("branch", 0)))
+		BotInput.auto_choose(world, false, _forced_job())
 		if world.state != RunWorld.PLAYING:
 			break
 		world.step(DT, BotInput.decide(world, _bot_memo))
@@ -1266,7 +1278,7 @@ func _service_windows() -> void:
 		if String(req.kind) == "job":
 			if _autopick:
 				counters.autopicks += 1
-				var j := BotInput.pick_job(req.options, world.job_rng, int(options.get("branch", 0)))
+				var j := BotInput.pick_job(req.options, world.job_rng, _forced_job(), world.jobs)
 				if j < 0 or not world.apply_job(j):
 					world.decline_job()
 				handle_events(world.drain_events())
@@ -1304,7 +1316,7 @@ func _auto_resolve_window(delta: float) -> void:
 	if _window_kind == "cards":
 		_on_card_chosen(BotInput.pick_card_for(world, _window_req.get("cards", [])))
 	else:
-		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, int(options.get("branch", 0)))
+		var j := BotInput.pick_job(_window_req.get("options", []), world.job_rng, _forced_job(), world.jobs)
 		if j < 0:
 			_on_job_declined()
 		else:
@@ -1695,7 +1707,7 @@ func build_summary() -> Dictionary:
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,
-		"skills": skills, "seed": run_seed, "branch": job_id if job_id in [210, 220, 230] else 0,
+		"skills": skills, "seed": run_seed, "branch": world.jobs.second_job(job_id),
 		"bosses_killed": world.bosses_killed(), "levels_gained": world.levels_gained(),
 		"nx_awarded": world.nx_awarded(),
 	}

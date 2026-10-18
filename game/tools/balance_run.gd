@@ -18,9 +18,11 @@ extends SceneTree
 ##   bash scripts/balance.sh                       # henesys_hg1, training seeds 1..6, in parallel
 ##   bash scripts/balance.sh 7 11 --stage=tree_that_grew_1
 ##   godot --headless --path game --script res://tools/balance_run.gd -- --seed=7 [--stage=henesys_hg1]
-##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>]
+##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>]
 ##
-## Card policies (jobs: seeded random branch, overridden by --branch=210|220|230):
+## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
+## job at the first window and itself at the second; a job this build cannot offer fails at startup. --branch=<id> is
+## the deprecated alias):
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the
 ##           same as with any other policy until the choices differ). This is the "careless player" of the tuning
@@ -118,7 +120,7 @@ func _init() -> void:
 	var cap := -1.0
 	var camp_after := 60.0
 	var stage_explicit := false
-	var branch := 0
+	var forced_job := 0
 	var character_file := ""
 	var has_character := false
 	var account_file := ""
@@ -129,8 +131,11 @@ func _init() -> void:
 		if a.begins_with("--stage="):
 			stage = a.substr(8)
 			stage_explicit = true
+		elif a.begins_with("--job="):
+			forced_job = int(a.substr(6))
 		elif a.begins_with("--branch="):
-			branch = int(a.substr(9))
+			printerr("balance_run: --branch is deprecated: use --job=<id>")
+			forced_job = int(a.substr(9))
 		elif a.begins_with("--patch="):
 			patch_file = a.substr(8)
 		elif a.begins_with("--character="):
@@ -156,10 +161,6 @@ func _init() -> void:
 			seeds.append(int(a.substr(7)))
 		elif a.is_valid_int():
 			seeds.append(int(a))
-	if branch not in [0, 210, 220, 230]:
-		print("balance_run: --branch must be 210, 220 or 230")
-		quit(2)
-		return
 	if not (policy in POLICIES):
 		print("balance_run: unknown --policy=%s (%s)" % [policy, POLICIES])
 		quit(2)
@@ -180,6 +181,12 @@ func _init() -> void:
 			quit(1)
 			return
 		deep_merge(data, patch)
+	if forced_job != 0:
+		var job_error := JobTree.from_data(data.jobs, data.jobs_survivor).forced_job_error(forced_job)
+		if job_error != "":
+			print("balance_run: --job: " + job_error)
+			quit(2)
+			return
 	if cap > 0.0:
 		data.balance["run_time_cap"] = cap
 	var tiers: Array = data.stages.get("tiers", [])
@@ -232,13 +239,13 @@ func _init() -> void:
 	for s in seeds:
 		var r: Dictionary
 		if chain:
-			r = run_chain(setups, policy, s, idle_after, camp_after, branch)
+			r = run_chain(setups, policy, s, idle_after, camp_after, forced_job)
 		else:
 			var setup: Dictionary = setups[0].duplicate()
 			setup.seed = s
 			var world := RunWorld.new(setup)
 			var start_character := world.character_snapshot()
-			r = run_one(world, policy, s, idle_after, camp_after, branch)
+			r = run_one(world, policy, s, idle_after, camp_after, forced_job)
 			r.merge({"seed": s, "stage": stage, "policy": policy, "start_character": start_character, "missing": []})
 			for tier_index in tiers.size():
 				if stage in tiers[tier_index]:
@@ -268,7 +275,7 @@ static func round_seed(run_seed: int, tier_index: int) -> int:
 
 ## Plays prepared tier setups in order, carrying a boundary snapshot only after CLEARED; no menu/save dependency.
 static func run_chain(setups: Array, policy: String, run_seed: int, idle_after := -1.0,
-		camp_after := 60.0, branch := 0) -> Dictionary:
+		camp_after := 60.0, forced_job := 0) -> Dictionary:
 	var rounds: Array = []
 	var carried: RunWorld = null
 	for tier_index in setups.size():
@@ -276,7 +283,7 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 		setup.seed = round_seed(run_seed, tier_index)
 		var world := carried if carried != null else RunWorld.new(setup)
 		var start_character := world.character_snapshot()
-		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, branch)
+		var record := run_one(world, policy, int(setup.seed), idle_after, camp_after, forced_job)
 		record["start_character"] = start_character
 		record.merge({"seed": setup.seed, "stage": setup.stage, "policy": policy, "tier": tier_index + 1, "missing": []})
 		rounds.append(record)
@@ -300,12 +307,12 @@ static func run_chain(setups: Array, policy: String, run_seed: int, idle_after :
 
 
 ## Answers an open job / card window of `w` with `policy` (see the class doc); `rng` drives the random policy.
-static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, branch := 0) -> void:
+static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, cards_taken: Array, forced_job := 0) -> void:
 	var guard := 0
 	while guard < 64 and (w.state == RunWorld.CHOOSING_JOB or w.state == RunWorld.CHOOSING_UPGRADE):
 		guard += 1
 		if w.state == RunWorld.CHOOSING_JOB:
-			var job := BotInput.pick_job(w.pending_jobs, w.job_rng, branch)
+			var job := BotInput.pick_job(w.pending_jobs, w.job_rng, forced_job, w.jobs)
 			if job < 0 or not w.apply_job(job):
 				w.decline_job()
 			continue
@@ -322,7 +329,7 @@ static func choose(w: RunWorld, policy: String, rng: RandomNumberGenerator, card
 
 
 ## Plays `w` to its end/cap with movement/card policy `policy` and returns the pacing record.
-static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, branch := 0) -> Dictionary:
+static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after := -1.0, camp_after := 60.0, forced_job := 0) -> Dictionary:
 	var memo := {}
 	var portal_names: Array = []
 	var rng := RandomNumberGenerator.new()
@@ -377,11 +384,12 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var max_alive := 0
 	var max_alive_t := 0.0
 	var job_t := -1.0
+	var job_times := {} # job id (string) -> run time of its first job_changed, for every advancement
 	var ticks := maxi(0, ceili((cap - w.time) / DT - 1e-6))
 	var next_min := 60.0
 	var low_hp := 1.0
 	for t in ticks:
-		choose(w, policy, rng, cards_taken, branch)
+		choose(w, policy, rng, cards_taken, forced_job)
 		if w.state != RunWorld.PLAYING:
 			break
 		var idle := idle_after >= 0.0 and w.time >= idle_after
@@ -460,6 +468,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 				"job_changed":
 					if int(e.job_id) == 200 and job_t < 0.0:
 						job_t = snappedf(w.time, 0.1)
+					if not job_times.has(str(int(e.job_id))):
+						job_times[str(int(e.job_id))] = snappedf(w.time, 0.1)
 		if w.time >= next_min - 1e-6:
 			next_min += 60.0
 			var n := maxi(1, alive_n)
@@ -483,7 +493,7 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			kills_min.append(w.kills)
 			hits = 0
 			taken = 0
-	choose(w, policy, rng, cards_taken, branch)
+	choose(w, policy, rng, cards_taken, forced_job)
 	var eng_min: Array = []
 	var stale_min: Array = []
 	for m in range(1, int(w.time / 60.0) + 1):
@@ -507,8 +517,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 		"camper": {"policy":policy if CAMPER.STAGES.has(policy) else "", "started_time":float(memo.get("started_time",-1.0)),
 			"reached":bool(memo.get("reached",false)),"reached_time":float(memo.get("reached_time",-1.0)),"portals":portal_names},
 		"time": snappedf(w.time, 0.1), "level": int(w.player_state.level),
-		"branch": w.progression.job_id if w.progression.job_id in [210, 220, 230] else 0,
-		"forced_branch": branch, "job": int(w.player_state.job_id), "job_t": job_t, "kills": w.kills, "reach": reach,
+		"branch": w.jobs.second_job(w.progression.job_id),
+		"forced_branch": forced_job, "job": int(w.player_state.job_id), "job_t": job_t, "job_times": job_times, "kills": w.kills, "reach": reach,
 		"alive_by_min": alive_min, "level_by_min": level_min, "hits_by_min": hits_min, "taken_by_min": taken_min,
 		"exp_by_min": exp_min, "kills_by_min": kills_min, "recycled_by_min": recycled_min, "low_hp_by_min": hp_min,
 		"ordinary_kill_hits_by_min": kill_hits.buckets,
@@ -727,7 +737,7 @@ static func aggregate(records: Array) -> Dictionary:
 	var leftovers := {"hp": [], "mp": []}
 	result["late_mp_observed_runs"] = 0
 	result["late_mp_short_runs"] = 0
-	var magician_times: Array = []
+	var job_samples := {} # job id -> advancement times
 	var mesos_earned: Array = []
 	var equips_dropped: Array = []
 	var equips_collected: Array = []
@@ -782,9 +792,16 @@ static func aggregate(records: Array) -> Dictionary:
 		for minute in mini(EARLY_MINUTES, kill_hits.size()):
 			result.ordinary_kill_hits_by_min[minute].hits += int(kill_hits[minute].hits)
 			result.ordinary_kill_hits_by_min[minute].kills += int(kill_hits[minute].kills)
-		var job_time := float(record.get("job_t", -1.0))
-		if job_time >= 0.0:
-			magician_times.append(job_time)
+		# Per-job advancement times; records from before job_times only have the Magician's job_t.
+		var times: Dictionary = record.get("job_times", {})
+		if not record.has("job_times") and float(record.get("job_t", -1.0)) >= 0.0:
+			times = {"200": float(record.job_t)}
+		for id: String in times:
+			if float(times[id]) < 0.0:
+				continue
+			if not job_samples.has(id):
+				job_samples[id] = []
+			job_samples[id].append(float(times[id]))
 		waits.append(float(record.get("mp_short_seconds", 0.0)))
 		if record.has("equips_dropped"):
 			equips_dropped.append(int(record.equips_dropped))
@@ -843,7 +860,9 @@ static func aggregate(records: Array) -> Dictionary:
 	result["potions_left"] = {"hp": statistics(leftovers.hp), "mp": statistics(leftovers.mp)}
 	var mp_used := int(result.potions_used.mp)
 	result["mp_collected_used_ratio"] = float(result.potions_collected.mp)/mp_used if mp_used > 0 else null
-	result["magician_seconds"] = statistics(magician_times)
+	result["job_seconds"] = {}
+	for id: String in job_samples:
+		result.job_seconds[id] = statistics(job_samples[id])
 	result["mesos_earned"] = statistics(mesos_earned)
 	result["equips_dropped"] = statistics(equips_dropped)
 	result["equips_collected"] = statistics(equips_collected)
@@ -923,7 +942,12 @@ static func describe_metrics(summary: Dictionary) -> String:
 		mp_ratio, _range(summary.mp_short_seconds), _campers(summary)])
 	for branch_key: String in summary.get("branches", {}):
 		lines.append("  SUMMARY branch %s: %s" % [branch_key, summary.branches[branch_key]])
-	lines.append("  Magician seconds " + _range(summary.magician_seconds))
+	var job_ids: Array = summary.job_seconds.keys()
+	job_ids.sort_custom(func(a: String, b: String) -> bool: return int(a) < int(b))
+	for id: String in job_ids:
+		lines.append("  Job %s seconds %s" % [id, _range(summary.job_seconds[id])])
+	if job_ids.is_empty():
+		lines.append("  Job seconds none (n=0)")
 	if summary.has("nx_awarded"):
 		lines.append("  NX awarded per run (not credited) " + _range(summary.nx_awarded))
 	if summary.has("mesos_earned"):
