@@ -1541,11 +1541,7 @@ func _scenario_warrior() -> void:
 	get_tree().quit(1 if _failed else 0)
 
 
-## The Pirate line end to end (spec #168 QA #195): Lv10 through the real job window with both weapon paths (`--path=knuckle|gun`,
-## default knuckle), both weapons checked (worn and in the Equip tab), EXP drops (a debug warp, invulnerable meanwhile) to Lv30
-## through the real level-up cards and the real Lv 30 window (`--branch=510|520`, default the path's own), the Lv 30 weapon
-## worn, Dash on its real skill key (X; its card is applied as debug setup, not drawn), then the Free Market boundary, Save &
-## quit and Continue keeping job, path, weapons and skills.
+## First-job Thief tracer (#207): both real advancement entries and gifts, then an attack frame on either path.
 func _scenario_thief() -> void:
 	var path_id := String(args.get("path", "claw"))
 	if path_id not in ["claw", "dagger"]:
@@ -1603,7 +1599,11 @@ func _scenario_thief() -> void:
 	_quit()
 
 
-## Pirate end-to-end scenario (see the scenario list above).
+## The Pirate line end to end (spec #168 QA #195): Lv10 through the real job window with both weapon paths (`--path=knuckle|gun`,
+## default knuckle), both weapons checked (worn and in the Equip tab), EXP drops (a debug warp, invulnerable meanwhile) to Lv30
+## through the real level-up cards and the real Lv 30 window (`--branch=510|520`, default the path's own), the Lv 30 weapon
+## worn, Dash on its real skill key (X; its card is applied as debug setup, not drawn), then the Free Market boundary, Save &
+## quit and Continue keeping job, path, weapons and skills.
 func _scenario_pirate() -> void:
 	var path_id := String(args.get("path", "knuckle"))
 	var other_path := "gun" if path_id == "knuckle" else "knuckle"
