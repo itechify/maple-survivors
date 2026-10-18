@@ -16,7 +16,8 @@
 #
 # --web exports the "Web" preset (single-threaded, GL Compatibility, shell web/index.html) and completes the site
 # beside index.html: the rest of the web shell (shell.css, shell.js, lib.js, idbfs.js, import_worker.js; web/dev/ is
-# never copied), asset_manifest.json, the wasm importer (wzimport.js + wzimport_bg.wasm, built by scripts/build_wasm.sh
+# never copied), asset_manifest.json (the shipping manifest merged with its asset_manifest.d/*.json fragments into one
+# file by `wzimport manifest`), the wasm importer (wzimport.js + wzimport_bg.wasm, built by scripts/build_wasm.sh
 # into WASM_DIR, default _scratch/wasm) and the licence files linked from the shell: GODOT_LICENSES.txt,
 # WZIMPORT_LICENSES.txt (including the wasm-only crates), THIRD_PARTY_NOTICES.md and ARIMO_OFL.txt. It ends with
 # scripts/check_web_artifact.sh, which fails the export if any WZ data or cache-shaped file is in the folder.
@@ -68,6 +69,13 @@ fi
 
 GODOT_CMD=(bash "$REPO/scripts/godot.sh")
 
+# The import screen merges res://data/asset_manifest.json with res://data/asset_manifest.d/*.json inside the pck, so the
+# export presets must include the fragments (docs/ASSET_PIPELINE.md 4.1); a build without them would import too little.
+if ! grep -q 'data/asset_manifest\.d/\*\.json' "$PROJECT/export_presets.cfg"; then
+  echo "[export] game/export_presets.cfg include_filter lacks data/asset_manifest.d/*.json (the manifest fragments)" >&2
+  exit 2
+fi
+
 # Licence notices for the engine (written by the engine itself).
 write_godot_licenses() {
   local out="$1"
@@ -115,9 +123,15 @@ if [[ "$WEB" == 1 ]]; then
     [[ -s "$OUT_DIR/$f" ]] || { echo "[export] the web export produced no $f" >&2; exit 1; }
   done
 
-  # The rest of the web shell (Godot only processes index.html) and the same-origin manifest the shell checks.
+  # The rest of the web shell (Godot only processes index.html) and the same-origin manifest the shell checks. The page
+  # cannot list a folder, so the manifest is shipped as ONE file: game/data/asset_manifest.json merged with its
+  # asset_manifest.d/*.json fragments by the importer's own reader (`wzimport manifest`).
   for f in shell.css shell.js lib.js idbfs.js import_worker.js; do cp "$REPO/web/$f" "$OUT_DIR/$f"; done
-  cp "$REPO/game/data/asset_manifest.json" "$OUT_DIR/asset_manifest.json"
+  (cd "$REPO/tools/wzimport" && cargo build --release --quiet)
+  WZBIN="$REPO/tools/wzimport/target/release/wzimport"
+  [[ -f "$WZBIN.exe" ]] && WZBIN="$WZBIN.exe"
+  "$WZBIN" manifest --manifest "$REPO/game/data/asset_manifest.json" --out "$OUT_DIR/asset_manifest.json"
+  [[ -s "$OUT_DIR/asset_manifest.json" ]] || { echo "[export] could not write the merged asset_manifest.json" >&2; exit 1; }
 
   # The wasm importer (never committed; built here).
   WASM_DIR="${WASM_DIR:-$REPO/_scratch/wasm}"
