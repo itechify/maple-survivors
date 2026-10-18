@@ -238,6 +238,29 @@ func test_final_attack_rolls_canonical_chance_on_physical_hits_and_draws_current
 		assert_eq(shot.to, w.mob_center(slot))
 
 
+func test_final_attack_spread_card_strikes_one_more_mob_and_draws_both_arrows() -> void:
+	var w := _combat("final_attack_crossbow", 30)
+	assert_true(w.upgrades.apply("final_attack_crossbow_spread", w))
+	var first := RF.put_mob(w, 1110100, 510, 190, 10000)
+	var second := RF.put_mob(w, 1110100, 560, 190, 10000)
+	w.swarm.steady[first] = 1
+	w.swarm.steady[second] = 1
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	var hits: Array = []
+	var shots: Array = []
+	for trial in 30:
+		w.hit_mob(first, {"skill": "basic_attack", "damage_type": "physical", "damage_min": 1,
+			"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
+		w.step(DT, MoveInput.new())
+		var events := w.drain_events()
+		hits = events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit" and e.skill == "final_attack_crossbow")
+		shots = events.filter(func(e: Dictionary) -> bool: return e.type == "ammo_shot")
+		if not hits.is_empty():
+			break
+	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.mob)), [first, second])
+	assert_eq(shots.size(), 2)
+
+
 func test_crossbow_only_cards_casts_and_skill_window_and_no_soul_arrow() -> void:
 	var w := _combat()
 	for key: String in SKILLS:

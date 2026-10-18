@@ -237,7 +237,7 @@
 			"final_attack": {
 				"chance_field": "prop"
 			},
-			"_final": "Tier A: canonical prop (2 to 60 percent), damage (105 to 250 percent), 30 levels and the hit art; the node has no action, effect or sound. Tier C: only a crossbow triggers it, listed explicitly because the WZ node has no weapon field; the follow-up plays the held weapon's first basic-attack stance (action weapon) for 0.6 s; one target, with the generic current-ammo arrow flight; stream-12 timing and damage unchanged.",
+			"_final": "Tier A: canonical prop (2 to 60 percent), damage (105 to 250 percent), 30 levels and the hit art; the node has no action, effect or sound. Tier C: only a crossbow triggers it, listed explicitly because the WZ node has no weapon field; the follow-up plays the held weapon's first basic-attack stance (action weapon) for 0.6 s; one base target, extra nearby targets only from the Spread card, with generic current-ammo arrow flights; stream-12 timing and damage unchanged.",
 			"ranks": [
 				1,
 				2,

@@ -4106,8 +4106,10 @@ hold. Booster's hold is 0.8s. All three active skills have a canonical Use sound
 The Bowman upgrades file appends these five skills after Hunter's entries. Each has learn/rank cards requiring
 exact job 320. Attack learn/rank weights are 4/3; the passive/buff cards use 2/2. Behaviour cards add one target
 to Power Knock-Back (`count`), one piercing contact to Iron Arrow (`pierce`), or one Iron Arrow (`count`), max three
-steps, weight two, shared Potential rarities. Extra counts come only from cards; pierce fall-off continues after
-the sixth target. The advancement draw includes Power Knock-Back and Iron Arrow; inherited first-job Bowman
+steps, weight two, shared Potential rarities. Final Attack also has the shared Spreading Arrow card (+1 nearby
+target per step, max three, weight two), drawing a current-ammo follow-up arrow for each target (7.21); this keeps
+every damaging skill eligible for a hit-more-mobs card. Extra counts come only from cards; pierce fall-off continues
+after the sixth target. The advancement draw includes Power Knock-Back and Iron Arrow; inherited first-job Bowman
 cards remain available in ordinary draws through `carry_jobs`, outside the advancement draw.
 
 Soul Arrow: Crossbow 3201004 is deliberately absent, with no skill or card: endless ammo makes it redundant
