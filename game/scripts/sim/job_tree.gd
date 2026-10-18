@@ -7,7 +7,7 @@ extends RefCounted
 ## advancements(job, level) lists every child job of `job` as `{job_id, name, available, reason}`: available when it
 ## is playable and `level` reached its effective advancement level; otherwise `reason` says why ("Lv. 10" while the
 ## level is too low, else the survivor reason such as "Not in this build"). A first job with weapon `paths` (survivor
-## jobs.json `paths`: [{id, label, item_id, family}], spec #151 #157) is listed once per path, each entry carrying its
+## jobs.json `paths`: [{id, label, item_id, family}], spec #151 #157) is listed once per path while it is playable (a locked one stays a single entry), each entry carrying its
 ## `path` id and the path label as its name; other entries have no `path` key. A second job may list the
 ## `weapon_families` it can use and a `grant_item`: branch_grant() reads them. should_offer() decides whether a window
 ## opens at a level: whenever an option is available (so "Not now" asks again next level), and once at exactly the
@@ -119,7 +119,7 @@ func advancements(job_id: int, level: int) -> Array:
 			reason = j.reason
 		else:
 			available = true
-		if j.paths.is_empty():
+		if j.paths.is_empty() or not j.playable: # a locked job stays one entry
 			out.append({"job_id": c, "name": j.name, "available": available, "reason": reason})
 		else:
 			for p: Dictionary in j.paths:

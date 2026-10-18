@@ -86,6 +86,10 @@ func test_shipping_data_keeps_the_path_rows_unplayable() -> void:
 	assert_eq(jobs.paths_of(400).map(func(p: Dictionary) -> int: return p.item_id), [1472061, 1332063])
 	assert_eq(jobs.paths_of(500).map(func(p: Dictionary) -> int: return p.item_id), [1482000, 1492000])
 	assert_eq(jobs.paths_of(400).map(func(p: Dictionary) -> String: return p.family), ["claw", "dagger"])
+	var window := jobs.advancements(0, 10)
+	assert_eq(window.map(func(o: Dictionary) -> int: return o.job_id), [100, 200, 300, 400, 500],
+		"locked jobs stay one entry each, so the shipped window and event stream are unchanged")
+	assert_true(window.all(func(o: Dictionary) -> bool: return not o.has("path")))
 	assert_eq(jobs.paths_of(100), [], "the Warrior keeps its creation weapon")
 	assert_eq(jobs.paths_of(200), [], "the Magician grant is balance.player.weapon_grants")
 	var families := {110: ["sword", "axe"], 120: ["sword", "blunt"], 130: ["spear", "polearm"], 310: ["bow"],

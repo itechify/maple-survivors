@@ -3271,8 +3271,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 ### Weapon paths and weapon grants (#157, spec #151)
 
 A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family}]`). The Job
-Advancement window lists each path as its own entry (the label is the entry text; both Thief paths are job 400) and a
-job without paths keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
+Advancement window lists each path of a playable job as its own entry (the label is the entry text; both Thief paths
+are job 400); a job without paths, and a locked job ("Not in this build"), keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
 snapshot key `weapon_path`, an additive optional key written only when set) and **grants** its item: the weapon is
 worn without requirement checks, so a Lv 10 Beginner whose AP is all STR still wears the Bowman's bow (DEX 25).
 A grant never fails. The previous weapon moves to the Equip inventory; when the tab is full it is dropped at the
