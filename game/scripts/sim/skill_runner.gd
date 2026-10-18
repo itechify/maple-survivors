@@ -8,6 +8,7 @@ extends RefCounted
 ##   few px apart; each shot starts at RunWorld.shot_origin (the hand, cast_forward px toward its target);
 ## - instant skills: `attack_count` damage lines on each of the `count` nearest targets (Magic Claw: 2 lines).
 ## A ready skill without a target waits (it fires on the first tick one is in range). The cooldown restarts on cast.
+## A skill whose weapon requirement the held weapon fails (SkillBook.usable_with) is skipped.
 ## At most one skill fires per tick, oldest-ready first, paying its canonical MP cost. A short-MP skill remains
 ## ready and signals its waiting episode once; a later affordable skill may cast instead. Buffs need no mob target,
 ## stay out of the ready list while active, and use their canonical duration as the next readiness time.
@@ -114,8 +115,16 @@ func tick_cooldowns(dt: float, world: RunWorld) -> void:
 func cast_ready(dt: float, world: RunWorld) -> void:
 	var lo := world.loadout
 	var ready: Array[String] = []
+	var held := world.held_weapon_family()
 	for key: String in lo.order:
-		if lo.book.is_active(key) and not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
+		if not lo.book.is_active(key):
+			continue
+		if not lo.book.usable_with(key, held):
+			# The held weapon cannot use it (spec #151, #156): not considered, its cooldown keeps running, and it
+			# resumes on the first tick a matching weapon is held again.
+			_shortages.erase(key)
+			continue
+		if not world.buffs.has(key) and float(cooldowns.get(key, 0.0)) <= 1e-6 \
 				and String(stats_of(world, key).cast_rule) != "manual":
 			ready.append(key)
 	ready.sort_custom(func(a: String, b: String) -> bool:

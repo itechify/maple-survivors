@@ -9,6 +9,8 @@ extends RefCounted
 ## templates: `{level}` becomes the canonical level, `{cl}` the CharLevel variant for the character's level.
 
 const ACTIVE_KINDS := ["projectile", "instant", "buff"]
+## Skill.wz keys holding a weapon requirement code; the second has a trailing space (tier A: only 5001003 spells it so).
+const WEAPON_FIELDS := ["weapon", "weapon "]
 
 var defs := {}
 var skill_imgs := {}
@@ -93,6 +95,42 @@ func skill_node(key: String) -> Dictionary:
 		return {}
 	var node: Variant = sk.get("%07d" % skill_id(key))
 	return node if node is Dictionary else {}
+
+
+## Weapon families that can use `key` (WeaponInfo.FAMILIES values); empty = any weapon, bare hands included. Source, in
+## order: survivor skills.json `weapon_families` (tier C: an array of family names, or ["any"] for explicitly any weapon;
+## it overrides the canonical value), then the Skill.wz `weapon` code (tier A: weapon type - 100, see
+## WeaponInfo.family_of_skill_code), read from `weapon` and from `"weapon "` with a trailing space (tier A: the WZ typo on
+## 5001003 Pirate Double Shot). No field or an unknown code means no requirement.
+func weapon_families(key: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var d := def(key)
+	if d.has("weapon_families"):
+		var listed: Variant = d.weapon_families
+		if listed is Array:
+			for f: Variant in listed:
+				if String(f) != "any" and not String(f) in out:
+					out.append(String(f))
+			if "any" in listed:
+				out.clear()
+		return out
+	var node := skill_node(key)
+	for field: String in WEAPON_FIELDS:
+		var code: Variant = node.get(field)
+		if (typeof(code) == TYPE_STRING and String(code).is_valid_int()) or typeof(code) == TYPE_INT \
+				or typeof(code) == TYPE_FLOAT:
+			var family := WeaponInfo.family_of_skill_code(int(code))
+			if family != "":
+				out.append(family)
+				break
+	return out
+
+
+## True when a character holding weapon family `family` ("" = bare hands) can use `key`: it has no weapon requirement,
+## or `family` is one of its weapon_families.
+func usable_with(key: String, family: String) -> bool:
+	var needs := weapon_families(key)
+	return needs.is_empty() or family in needs
 
 
 ## Number of canonical levels in the img (0 when the img is absent).

@@ -480,7 +480,7 @@ element multiplier, including zero immunity before the normal minimum-one clamp.
 
 | File | Contents |
 |---|---|
-| `skills.json` + `skills/<line>.json` | survivor behaviour per skill key (line fragments, see below): canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, visuals and sounds |
+| `skills.json` + `skills/<line>.json` | survivor behaviour per skill key (line fragments, see below): canonical `skill_id`, `book`, job, kind (projectile / instant / passive / buff), cooldown, range, speed, count, pierce, rank -> canonical level map, `level_ranks`, buff effect fields and canonical time/cooltime, survivor pulse interval and HP threshold, optional `weapon_families` (family names or `["any"]`; overrides the Skill.wz `weapon` requirement, GAME_DESIGN section 7), visuals and sounds |
 | `upgrades.json` + `upgrades/<line>.json` | upgrade cards (`GAME_DESIGN.md` §8, in the line fragments), `power` flags, the `pity` rule, rarity, magnitudes and the fallback Elixir (base) |
 | `equipment_drops.json` + `equipment_drops/<line>.json` | the drop rules (window, falloff, chance, boss drops; base) and the eligible equipment ids (fragments) |
 | `scrolls.json` + `scrolls/<line>.json` | the scroll roster: item slot -> family -> rate -> item id (fragments) |

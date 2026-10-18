@@ -30,6 +30,10 @@ extends Node
 ##           click opens the star tab and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a
 ##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
 ##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
+##   skill_weapon  weapon-gated skills (#156): a Magician owning Magic Claw and Energy Bolt, with Magic Claw tagged claw-only
+##           through the survivor weapon_families override (debug setup; no shipping skill needs a weapon yet); K opens Skill
+##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
+##           skill_weapon_greyed, skill_weapon_tooltip.
 ##   keys    Key Config and Options (#87): title -> new character -> map select -> run (no bot); Esc pauses, 2 opens
 ##           Key Config over the pause menu, the jump icon is dragged from C onto F, OK; Esc resumes; C no
 ##           longer jumps, F does; Menu -> Options, WASD is clicked; the right arrow no longer moves the player, D does;
@@ -152,6 +156,8 @@ func _ready() -> void:
 			_scenario_windows()
 		"skill":
 			_scenario_skill()
+		"skill_weapon":
+			_scenario_skill_weapon()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1268,6 +1274,45 @@ func _scenario_skill() -> void:
 	if not await _until(func() -> bool: return run.world.state == RunWorld.PLAYING, 5.0, "card picked with 1"):
 		return
 	print("flow_driver: skill scenario %s" % ("FAILED" if _failed else "passed"))
+	await _sleep(0.5)
+	get_tree().quit(1 if _failed else 0)
+
+
+func _scenario_skill_weapon() -> void:
+	if not await _enter_round("SkillGate"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(3.0)
+	var w := run.world
+	w.change_job(200)
+	for id: String in ["energy_bolt_new", "magic_claw_new"]:
+		w.upgrades.apply(id, w)
+	w.book.defs.magic_claw["weapon_families"] = ["claw"]
+	await _sleep(0.5)
+	_check(not w.book.usable_with("magic_claw", w.held_weapon_family()),
+		"the held '%s' cannot use the claw-only Magic Claw" % [w.held_weapon_family()])
+	await _key(KEY_K)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("skill") != null, 3.0, "Skill window (K)"):
+		return
+	var sw := run.ui_windows.find_window("skill") as SkillWindow
+	await _sleep(0.5)
+	await _shot("skill_weapon_greyed")
+	var origin := sw.get_global_rect().position
+	var claw := -1
+	for i in sw.rows().size():
+		if String(sw.rows()[i].get("key", "")) == "magic_claw":
+			claw = i
+	_check(claw >= 0, "Magic Claw is listed")
+	for i in maxi(0, claw - SkillWindow.VISIBLE_ROWS + 1):
+		await _wheel(origin + sw.row_rect(1).get_center(), true)
+	_hover(origin + sw.row_rect(claw - sw.scroll).get_center())
+	await _sleep(0.4)
+	var tip := sw.tooltip()
+	_check(String(tip.get("key", "")) == "magic_claw" and String(tip.get("needs", "")) == "Claw" \
+		and not bool(tip.get("usable", true)), "the tooltip names the Claw and says it is not usable (%s)" % [tip.get("needs", "")])
+	await _shot("skill_weapon_tooltip")
+	await _key(KEY_ESCAPE)
+	print("flow_driver: skill_weapon scenario %s" % ("FAILED" if _failed else "passed"))
 	await _sleep(0.5)
 	get_tree().quit(1 if _failed else 0)
 

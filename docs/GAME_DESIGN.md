@@ -2939,6 +2939,40 @@ Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3
 All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
 damaging attack cards. No behaviour cards are added.
 
+### Weapon-gated skills (#156)
+
+A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
+crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
+(empty = any weapon, bare hands included) and `SkillBook.usable_with(key, family)` answers for the held family
+(`RunWorld.held_weapon_family()`). The requirement comes from, in order:
+
+1. Survivor `skills.json` `weapon_families` (tier C): an array of family names, or `["any"]` for a skill that is
+   explicitly any weapon. It overrides the canonical value, so a class spec tags untagged skills (Somersault Kick and
+   Grenade: `["any"]`; Flash Fist and the Brawler attacks: `["knuckle"]`; Masteries, Boosters and Final Attacks: their
+   named family) and can retag a canonical one.
+2. The Skill.wz `weapon` code (tier A), mapped with `WeaponInfo.family_of_skill_code` (type - 100: 30 and 40 are both
+   "sword", 47 is "claw"). The reader also accepts the key `"weapon "` with a trailing space (tier A: the WZ typo that
+   only 5001003 Pirate Double Shot has). A missing field or an unknown code means no requirement.
+
+Where it applies (all read the same two functions, never a second rule):
+
+- **Casting.** `SkillRunner.cast_ready` skips an owned active skill the held weapon cannot use: no MP is spent, no
+  shortage is signalled, and the cooldown keeps running, so the skill casts on the first tick a matching weapon is held
+  again. A manual skill is refused the same way (no manual cast exists yet). Buffs already running keep running
+  (tier C). Passive effects are untouched here; a mastery's weapon check is the class spec's (#161).
+- **Cards.** `UpgradePool.is_eligible` rejects every card with a `skill` (learn, rank and behaviour cards) while the
+  weapon held when the draw rolls cannot use that skill; the advancement draw reads the same eligibility. Taking a card
+  does not re-check it.
+- **Skill window.** A skill the held weapon cannot use is drawn like an unlearned one (the v83 `skill0` plate, its own
+  `iconDisabled`, grey text), and its tooltip adds "Weapon : Claw" (red "(not held)" while unusable; tier C text).
+  `SkillWindowModel.usable(key)` is read live, so swapping weapons with the Equip window open updates it.
+- **Swapping** weapons by hand in the Equip window takes effect at once (nothing caches the family). The bot never
+  swaps weapons by hand.
+
+No shipping Magician or Beginner skill has a requirement (wand and staff skills are untagged), so their records are
+unchanged. Tier C summary: the `weapon_families` override and its `"any"` marker, the "buffs keep running" rule and the
+tooltip wording; tier A: the `weapon` field and its typo key.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -2948,7 +2982,8 @@ level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
 
 Draw rules:
 
-1. Eligible = requirements met and rank < max. `requires.jobs` matches the **exact current job id**, never its
+1. Eligible = requirements met and rank < max, and the held weapon can use the card's skill (section 7, weapon-gated
+   skills). `requires.jobs` matches the **exact current job id**, never its
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
    but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
@@ -3684,6 +3719,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Shop talk reach (#111) | within 100 px horizontally and 90 px vertically of an NPC's feet (`shops.json` `talk_range`); a double-click on an NPC opens its shop from any distance | C | ours |
 | Shop window layout (#111) | `UIWindow.img/Shop/backgrnd` 463x339, two panels 230 px apart: five rows at y 127 + 40 x n (icon slot x 6, `select` 162x35 at x 43), the strip at y 91 (pink Buy label left, `TabSell` Equip / Use / Set-up / Etc / Cash glyphs right, 44 px each), NPC feet (54, 76), character feet (285, 76), Buy (126, 32), Exit (126, 56), Sell (356, 32), meso text right-aligned in the baked field (361, 63, 90x15), scrollbar `Basic.img/VScr5` at x 208; the `TabBuy` All / Must filter tabs are not drawn | C (measured on the v83 art; art and origins A) | ours |
 | Shop dialogs (#111) | quantity box = `Basic.img/YesNo` with a typed number (1 to 100, or the stack), refusal box = `Basic.img/Notice` with BtOK, sale confirmation = the YesNo box | C | ours |
+| Skill weapon requirement (#156) | Skill.wz `weapon` (type - 100) read as a weapon family; the key `"weapon "` with a trailing space (5001003 only) is read too | A | original v83 Skill.wz |
+| `weapon_families` override (#156) | survivor skills.json array of family names or `["any"]`, wins over the canonical field; untagged skills (Somersault Kick, Grenade: any; Flash Fist, Brawler: knuckle; Masteries, Boosters, Final Attacks: their family) are tagged by the class specs | C | ours (v83-facts.md section 2: no WZ field for these) |
+| Gated skill behaviour (#156) | an unusable owned skill does not auto-cast and its cooldown keeps running; running buffs are not cancelled by a swap; its cards are not offered; the Skill window greys it with `iconDisabled` and the tooltip adds "Weapon : X" | C | ours |
 
 | Bot engage kite_reach (#162) | `balance.bot.engage.kite_reach` 220 px: a build whose longest attack reaches less walks up to mobs instead of kiting; below every Magician attack (shortest Magic Claw 260) and above one-handed swings | C | ours |
 | Bot engage distance (#162) | `reach_fraction` 0.8 of the longest ready attack's reach (`SkillRunner.reach_of`, `BasicAttack.reach`), `chase_range` 300 px on the bot's level; stands facing the mob; `deadzone` 6 px (keeps its facing when closer) | C | ours |
