@@ -948,8 +948,16 @@ source. Nothing the engine could sync lives in `/userfs` but the cache, saves an
 
 **Storage.** The worker deletes the old cache records, writes directory records and files straight into IndexedDB
 `/userfs` (`idbfs.js`: batches of at most 50 records or 32 MiB) and `cache.json` last, so an interrupted import leaves no
-`cache.json` and reads as "no cache". `navigator.storage.persist()` runs at boot and after an import. The result shows
-in the footer of the shell screens and in a toast at the first game start ("kept (persistent)" or "best effort").
+`cache.json` and reads as "no cache". The footer never waits on the browser's permission prompt (#148): at boot
+`navigator.storage.persisted()` is read without prompting and shown at once ("kept (persistent)", else "best effort";
+"not confirmed by this browser" when the API is missing or throws), then `persist()` is asked in the background and a
+grant upgrades the line (a refusal keeps best effort). The call after an import starts no second request while one is
+pending. The toast at the first game start reports the immediate state. The decision and the dedupe state machine are
+`createPersistence` / `storageStatus` in `web/lib.js`, covered by the Node tests.
+
+**Console line at engine quit.** Every engine quit on the single-threaded web template logs `Pages in use exist at exit
+in PagedAllocator: N16WorkerThreadPool5GroupE` from Godot itself (#147, closed wontfix). It is harmless: no game code
+uses the thread pool, `onExit(0)` fires and the saves reach IndexedDB.
 
 **Request marker (the protocol).** `user://web_request.json`, i.e. `/userfs/MapleSurvivors/web_request.json`:
 
@@ -1047,8 +1055,8 @@ p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
    game or shell). With it the build renders and plays: folder and zip import (8-9 s), title, character creation, a
    round, Key Config, Options, fullscreen, pause, Continue after a reload, tier 2, death and history. Firefox frame
    times were not measured (one rAF probe at the title read about 35 callbacks per second; not investigated). Firefox
-   also leaves the import screen's "Storage: checking..." line unresolved until its persistence permission prompt is
-   answered.
+   also left the import screen's "Storage: checking..." line unresolved until its persistence permission prompt was
+   answered (fixed in #148, see Storage in 10.2).
 
 ### Web profile (#134)
 
