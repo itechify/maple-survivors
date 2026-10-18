@@ -194,8 +194,9 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and world.skill_box_count(st.box, need) >= need
 		"crowd":
 			var need := maxi(1, int(st.cast_params.get("min_targets", 1)))
+			var status := crowd_status(st)
 			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
-				return world.swarm.can_crowd_cast(slot, crowd_status(st), _slow_serial)) >= need
+				return world.swarm.can_crowd_cast(slot, status, _slow_serial)) >= need
 		"weapon_reach":
 			var box := world.basic.envelope(world)
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
@@ -332,8 +333,9 @@ func _resolve_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2
 func _admit_crowd(world: RunWorld, st: Dictionary) -> Dictionary:
 	if not bool(st.has_box):
 		return {}
+	var status := crowd_status(st)
 	var targets := world.skill_box_targets(st.box, func(slot: int) -> bool:
-		return world.swarm.can_crowd_cast(slot, crowd_status(st), _slow_serial))
+		return world.swarm.can_crowd_cast(slot, status, _slow_serial))
 	# tier C: survivor crowd threshold lives in the skill's cast block, before MP payment.
 	if targets.size() < maxi(1, int(st.cast_params.get("min_targets", 1))):
 		return {}
