@@ -32,6 +32,15 @@
 		{"id": "lucky_seven_count", "power": true, "kind": "skill_mod", "skill": "lucky_seven", "name": "Lucky Seven",
 			"desc": "Lucky Seven throws +{value} more star.", "value": 1,
 			"icon": "Skill.wz/400.img/skill/4001344/icon", "max_rank": 3, "weight": 2,
-			"requires": {"jobs":[400],"carry_jobs":[410,420]}, "effects": [{"stat":"count","op":"add","value":1}]}
+			"requires": {"jobs":[400],"carry_jobs":[410,420]}, "effects": [{"stat":"count","op":"add","value":1}]},
+		{"id": "dark_sight_new", "power": false, "kind": "skill_new", "skill": "dark_sight", "name": "Dark Sight",
+			"_tier": "Tier C: learn weight 3, rank weight 2; job 400 only, no carried support cards.",
+			"desc": "Learn Dark Sight: become Hidden below 30% HP with a monster nearby.",
+			"icon": "Skill.wz/400.img/skill/4001003/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs":[400]}, "effects": []},
+		{"id": "dark_sight_rank", "power": false, "kind": "skill_rank", "skill": "dark_sight", "name": "Dark Sight",
+			"desc": "Dark Sight +{magnitude} skill level.",
+			"icon": "Skill.wz/400.img/skill/4001003/icon", "max_rank": 20, "weight": 2,
+			"requires": {"jobs":[400]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }

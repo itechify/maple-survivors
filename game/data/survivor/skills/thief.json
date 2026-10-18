@@ -35,6 +35,19 @@
 			"hit": "Skill.wz/400.img/skill/4001344/hit/0", "effect": "Skill.wz/400.img/skill/4001344/effect",
 			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
 			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
+		},
+		"dark_sight": {
+			"skill_id": 4001003, "book": "400", "job": 400, "kind": "buff", "slot": "passive",
+			"name": "Dark Sight", "desc": "Hides you from monsters in a pinch. You cannot attack while Hidden.",
+			"text": {"desc": "Become Hidden below 30% HP with a monster nearby. You cannot attack. Ends when you recover above 60% HP or the duration runs out.", "h": "MP -{mp_cost}; Hidden for {duration} sec.; Speed {buff_value}; {buff_cooldown} sec. between uses"},
+			"icon": "Skill.wz/400.img/skill/4001003/icon", "damage": "none",
+			"_tier": "Tier A: canonical mpCon, time, speed, darksight action, effect and Use sound; any weapon, no failure. Tier C: auto-cast below 30% HP with a mob within 250px (Oak Barrel reach), ends above 60% HP, fixed 30s cooldown from cast, action hold 0.6s; untuned.",
+			"cast": {"rule":"nearest","mob_within":250},
+			"buff": {"hidden":true,"stat":"speed","field":"speed","duration_field":"time","hp_threshold":0.3,"end_hp_above":0.6,"cooldown_from_cast":true,"cooldown":30},
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "darksight", "action_time": 0.6, "ball": "", "hit": "",
+			"effect": "Skill.wz/400.img/skill/4001003/effect", "rotate": false,
+			"sounds": {"use":"Sound.wz/Skill.img/4001003/Use","hit":""}
 		}
 	}
 }

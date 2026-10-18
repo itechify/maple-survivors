@@ -142,6 +142,12 @@ static func skill_imgs() -> Dictionary:
 			"damage": [58.0, 150.0], "bulletCount": [2.0, 2.0]})},
 	}}
 	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
+	# tier A: Dark Sight's original numeric level table; speed changes step size after level 12.
+	var dark_sight := {}
+	var dark_sight_speed := [-30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -7, -6, -5, -4, -3, -2, -1, 0]
+	for i in 20:
+		dark_sight[str(i + 1)] = {"mpCon": 24 - i, "time": 10 * (i + 1), "speed": dark_sight_speed[i], "x": 1}
+	imgs["400"].skill["4001003"] = {"level": dark_sight}
 	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
 			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:
 		var levels := _levels(20, {"mpCon": [float(entry[1]), float(entry[2])],
