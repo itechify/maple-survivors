@@ -336,3 +336,82 @@ func test_the_skill_tooltip_prints_the_needed_weapon_line() -> void:
 	assert_true("Weapon : Claw" in texts.call(usable), "the requirement is always shown")
 	assert_true("Weapon : Claw (not held)" in texts.call(blocked), "and flagged when the held weapon cannot use it")
 	assert_false(texts.call(none).any(func(t: String) -> bool: return t.begins_with("Weapon")))
+
+
+# --- Manual skills and the HUD ----------------------------------------------------------------------------------------
+
+## A Fire/Poison Magician with Teleport on a flat map and plenty of MP; its weapon requirement is set per test.
+func _teleporter(families: Array) -> RunWorld:
+	var data := RF.quiet_data()
+	data.balance.player.mp = 200
+	var setup := RF.setup("quiet", 60, data)
+	setup.map_img = RF.map_from_segments([{"x1": 0, "y1": 0, "x2": 1000, "y2": 0}])
+	setup.skill_imgs["210"] = {"skill": {"2101002": {"level": {"1": {"mpCon": 60, "range": 130}}}}}
+	var w := RunWorld.new(setup)
+	w.change_job(210)
+	w.heal_fraction("mp", 1.0)
+	w.loadout.add_skill("teleport_fp")
+	w.book.def("teleport_fp")["weapon_families"] = families
+	w.player.place(Vector2(400, 0), w.fhm)
+	w.drain_events()
+	return w
+
+
+func _blink(w: RunWorld) -> bool:
+	var x0 := w.player.pos.x
+	var press := MoveInput.new()
+	press.teleport_pressed = true
+	press.right = true
+	w.step(DT, press)
+	return absf(w.player.pos.x - x0) > 100.0
+
+
+func test_a_weapon_gated_manual_skill_refuses_to_cast_with_the_wrong_weapon() -> void:
+	var w := _teleporter(["claw"])
+	assert_ne(w.held_weapon_family(), "claw")
+	var mp0: int = w.player_state.mp
+	assert_false(_blink(w), "the held weapon is not a claw: no blink")
+	assert_eq(int(w.player_state.mp), mp0, "and nothing is paid")
+	assert_eq(w.teleport_skill(), "", "the bot and HUD see no usable Teleport")
+	var ok := _teleporter([w.held_weapon_family()])
+	assert_true(_blink(ok), "the same skill works once the held family is listed")
+	var any := _teleporter(["any"])
+	assert_true(_blink(any), "an explicitly any-weapon skill always works")
+
+
+func test_the_hud_shows_a_weapon_blocked_skill_as_blocked_not_ready() -> void:
+	var w := _world()
+	var left := PackedFloat32Array()
+	var total := PackedFloat32Array()
+	var state := PackedByteArray()
+	w.read_skill_cooldowns(left, total, state)
+	var claw: int = w.loadout.order.find("claw_skill")
+	var free: int = w.loadout.order.find("free_skill")
+	assert_true(bool(w.skill_readiness("claw_skill").blocked), "a sword cannot use the claw skill")
+	assert_false(bool(w.skill_readiness("free_skill").blocked))
+	assert_eq(state[claw], HudSkills.STATE_BLOCKED, "the lean query reports it blocked")
+	assert_eq(state[free], 0)
+	_wear(w, 1472061)
+	w.read_skill_cooldowns(left, total, state)
+	assert_false(bool(w.skill_readiness("claw_skill").blocked), "a claw is held: usable again")
+	assert_eq(state[claw], 0)
+	var hud := HudSkills.new()
+	hud.update({}, {"skills": [
+		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0, "mp_short": false,
+			"blocked": true},
+		{"icon": "", "rank": 1, "key_label": "", "cooldown_left": 0.0, "cooldown_total": 0.0, "mp_short": true,
+			"blocked": false}]})
+	assert_true(bool(hud.displayed()[0].blocked))
+	assert_false(bool(hud.displayed()[0].mp_short), "a blocked skill is not waiting for MP")
+	assert_true(bool(hud.displayed()[1].mp_short))
+	hud.free()
+
+
+func test_weapon_families_are_cached_but_follow_changes_to_the_definition() -> void:
+	var b := _book({"s": {"skill_id": 1, "book": "1", "weapon_families": ["sword"]}}, {})
+	assert_eq(b.weapon_families("s"), PackedStringArray(["sword"]))
+	assert_eq(b.weapon_families("s"), PackedStringArray(["sword"]), "asked again")
+	b.def("s")["weapon_families"] = ["claw", "dagger"]
+	assert_eq(b.weapon_families("s"), PackedStringArray(["claw", "dagger"]), "a changed definition is re-read")
+	b.def("s")["weapon_families"] = ["any"]
+	assert_true(b.usable_with("s", ""))

@@ -63,6 +63,9 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+## read_skill_cooldowns states of a skill icon: waiting for MP, or blocked by the held weapon (0 = normal).
+const SKILL_STATE_MP_WAIT := 1
+const SKILL_STATE_BLOCKED := 2
 
 ## Event type -> its fields (besides `type`), docs/ARCHITECTURE.md 4.4.3.
 const EVENT_FIELDS := {
@@ -618,10 +621,12 @@ func _step_player(dt: float, input: MoveInput) -> void:
 	_tick_timers(dt)
 
 
-## Owned branch Teleport key, or empty before learning it.
+## Owned branch Teleport key the held weapon can use (SkillBook.usable_with), or empty before learning it or while the
+## weapon blocks it: a weapon-gated manual skill neither casts nor is offered to the bot.
 func teleport_skill() -> String:
+	var held := held_weapon_family()
 	for key: String in loadout.order:
-		if _is_teleport(key):
+		if _is_teleport(key) and book.usable_with(key, held):
 			return key
 	return ""
 
@@ -633,24 +638,29 @@ func teleport_affordable() -> bool:
 
 
 ## HUD readiness of an owned skill: `left` seconds until ready (>= 0), the cooldown `total` set at its last cast
-## (0 before any) and `mp_short` (ready and would cast, but MP is below its cost). Teleport reports its repeat timer.
+## (0 before any), `mp_short` (ready and would cast, but MP is below its cost) and `blocked` (the held weapon cannot use
+## the skill, SkillBook.usable_with; it is then never mp_short). Teleport reports its repeat timer.
 func skill_readiness(key: String) -> Dictionary:
-	return {"left": _cooldown_left(key), "total": _cooldown_total(key), "mp_short": _mp_short(key)}
+	var blocked := not book.usable_with(key, held_weapon_family())
+	return {"left": _cooldown_left(key), "total": _cooldown_total(key),
+		"mp_short": not blocked and _mp_short(key), "blocked": blocked}
 
 
 ## The HUD's per-frame readiness of every owned skill, in loadout.order, written into the caller's reused buffers
-## (resized in place; nothing is allocated once they have the right size): left, total and mp_short (0/1) as
-## skill_readiness reports them.
-func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, mp_short: PackedByteArray) -> void:
+## (resized in place; nothing is allocated once they have the right size): left and total as skill_readiness reports
+## them, and `state` per skill (SKILL_STATE_*): 0 normal, 1 waiting for MP, 2 blocked by the held weapon.
+func read_skill_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, state: PackedByteArray) -> void:
 	var n := loadout.order.size()
 	left.resize(n)
 	total.resize(n)
-	mp_short.resize(n)
+	state.resize(n)
+	var held := held_weapon_family()
 	for i in n:
 		var key: String = loadout.order[i]
 		left[i] = _cooldown_left(key)
 		total[i] = _cooldown_total(key)
-		mp_short[i] = 1 if _mp_short(key) else 0
+		state[i] = SKILL_STATE_BLOCKED if not book.usable_with(key, held) \
+			else SKILL_STATE_MP_WAIT if _mp_short(key) else 0
 
 
 func _is_teleport(key: String) -> bool:
