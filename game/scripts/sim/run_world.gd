@@ -55,7 +55,8 @@ extends RefCounted
 ## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
 ## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
-## 14-15 reserved for Bowman/Thief,
+## 14 reserved for Bowman,
+## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194).
 ## Each stream has exactly one owner.
 
@@ -189,6 +190,7 @@ var job_rng: RandomNumberGenerator
 var final_rng: RandomNumberGenerator
 ## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
 ## needs its own stream.
+var thief_rng: RandomNumberGenerator
 var pirate_rng: RandomNumberGenerator
 ## Boss bonus picks have priority and never consume progression.queue.
 var pending_bonus_choices := 0
@@ -392,7 +394,8 @@ func _init_rng_streams() -> void:
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
-	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14-15 reserved, #186.
+	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
+	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.

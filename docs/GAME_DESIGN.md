@@ -4410,6 +4410,18 @@ random policy shares the movement and the camper policies still override it afte
 
 ## 11. Constants and provenance
 
+Thief tracer (#207) additions:
+
+| Constant / choice | Value | Tier / source |
+|---|---|---|
+| First-job Thief | Lv10; +125 MaxHP / +37 MaxMP | C survivor level; B v83-facts ?4 midpoints, MP truncated |
+| Thief growth | 22 HP / 15 MP per level | B v83-facts ?4 midpoints; existing total rounding |
+| Thief AP | LUK primary, DEX target max(25, level) | C survivor policy; existing earned-AP redistribution, no new stat reset |
+| Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
+| Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts ?4); A item IDs/stats; C path/overflow presentation |
+| Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
+
+
 Pirate tracer (#186) additions:
 
 | Constant / rule | Value | Tier / source |

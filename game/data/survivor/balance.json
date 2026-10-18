@@ -12,12 +12,13 @@
 		"stats": {"str": 12, "dex": 5, "int": 4, "luk": 4},
 		"_ap": "Tier C: 5 automatic AP per level; assign to the nearest job ancestor's primary stat, redistributing only earned AP when advancing.",
 		"ap_per_level": 5,
-		"ap_stat": {"0": "str", "100": "str", "200": "int", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"},
+		"ap_stat": {"0": "str", "100": "str", "200": "int", "400": "luk", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"},
 		"_ap_paths": "Tier C (#186): ap_stat and ap_secondary optionally use <job>:<weapon_path> keys, checked before that job's plain key at each lineage step. A branch row wins over its ancestor's path row. Pirate secondary target equals level (knuckle DEX / gun STR); remaining earned AP goes to STR / DEX. Paths are the recorded advancement choice, not the currently held weapon.",
 		"_ap_pirate_branches": "Tier C (#189): the second jobs carry plain rows that copy their weapon's first-job path rows (Brawler 510 = 500:knuckle: STR primary, DEX secondary; Gunslinger 520 = 500:gun: DEX primary, STR secondary), so a branch follows its own weapon whichever path the character took at first job: a knuckle-path Gunslinger switches to DEX with an STR secondary, and the Lv 30 Prime Hands / Cold Mind requirements are met. The branch row wins over the path row (_job_value).",
 		"_ap_warrior": "Tier C (spec #151 #163): the Warrior line puts all earned AP into STR and has no ap_secondary entry: none of the 133 weapons and shields in the asset cache whose reqJob is the Warrior bit or any job (Warrior drops, creation weapons, shields) has a reqDEX above 0 (a scan of Character.wz info/reqDEX), so DEX would only be needed once Warrior armour drops exist; add an ap_secondary \"100\" DEX row with that ticket.",
 		"_ap_secondary": "Tier C: per job line, an optional secondary stat that earned AP fills first, up to its base-value target at the character's level (keyframes [{level, target}], linear, floored, held outside their range). The rest goes to ap_stat. Lines without an entry (the Beginner) put all AP into ap_stat. The targets are not in WZ; 200 follows the v83 Magician equipment pattern (reqLUK 15 at Lv13, 30 at Lv28, 40 at Lv38, 70 at Lv68: about level + 2), so the character meets v83 LUK requirements. Second jobs inherit their first job's entry through the job lineage (the same lookup as ap_stat).",
-		"ap_secondary": {"200": {"stat": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
+		"_ap_thief": "Tier C (#207): LUK primary, DEX secondary target max(25, level): the first-job DEX minimum first, then a modest rising equipment allowance; leaves at least 80 LUK by Lv30 without adding a stat reset. Uses the existing earned-AP redistribution; base creation attributes stay unchanged.",
+		"ap_secondary": {"400": {"stat": "dex", "keyframes": [{"level": 1, "target": 25}, {"level": 25, "target": 25}, {"level": 200, "target": 200}]},"200": {"stat": "luk", "keyframes": [{"level": 1, "target": 3}, {"level": 200, "target": 202}]},
 			"500:knuckle": {"stat": "dex", "keyframes": [{"level": 1, "target": 1}, {"level": 200, "target": 200}]},
 			"500:gun": {"stat": "str", "keyframes": [{"level": 1, "target": 1}, {"level": 200, "target": 200}]},
 			"510": {"stat": "dex", "keyframes": [{"level": 1, "target": 1}, {"level": 200, "target": 200}]},
@@ -38,6 +39,8 @@
 		"_100": "Tier B: Warrior HP 24-28 / MP 4-6 per level (Cosmic levelUp, v83-facts 4), fixed midpoints 26 / 5; Improved MaxHP Increase adds its own HP per level-up on top.",
 		"100": {"hp": 26, "mp": 5},
 		"200": {"hp": 12, "mp": 22, "int_mp_divisor": 10},
+		"_400": "Tier B (#207): Thief per-level HP 20-24 / MP 14-16, fixed midpoints 22 / 15 (v83-facts 4); existing accumulated-total rounding.",
+		"400": {"hp": 22, "mp": 15},
 		"_500": "Tier B (#186): Pirate per-level HP 22-28 / MP 18-23, fixed midpoints 25 / 20.5 (v83-facts 4). Accumulate fractional growth and round the total as for other jobs.",
 		"500": {"hp": 25, "mp": 20.5}
 	},
@@ -72,6 +75,7 @@
 		"_equipment_weights": "Tier C (spec #33, #112): how much a bot values each inc* stat of an equipment instance (an item scores the sum of weight x value; stats not listed are worth 0). Keyed by job id (\"0\" Beginner, \"200\" Magician; a job uses its own entry, else its nearest ancestor's through the job lineage, so second jobs inherit their first job's); a job line without an entry falls back to the Beginner's. A Magician wants M.ATT, then INT (LUK a little), then defences (M.DEF over W.DEF), then pools and movement. The bot wears the best wearable item per slot at each equipment pickup and level-up (BotInput.auto_equip); BotShop also reads the weights to pick scrolls and to keep or sell spare equipment.",
 		"equipment_weights": {
 			"0": {"incPAD": 10, "incSTR": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
+			"400": {"incPAD": 10, "incLUK": 6, "incDEX": 3, "incPDD": 1.5, "incMDD": 1, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.03, "incSpeed": 0.5, "incJump": 0.3},
 			"200": {"incMAD": 10, "incINT": 6, "incLUK": 1, "incMDD": 2, "incPDD": 1.5, "incDEX": 0.2, "incPAD": 0.2, "incACC": 0.3, "incEVA": 0.3, "incMHP": 0.03, "incMMP": 0.05, "incSpeed": 0.5, "incJump": 0.3}
 		}},
 	"_potions": "Tier C: starter stock, independent HP/MP drop chances per monster (higher for elites), and bot drink thresholds. Restore amounts come from each current item's canonical spec.",
