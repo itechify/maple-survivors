@@ -4000,10 +4000,31 @@ Its initial survivor reach is the basic claw's 250px, cooldown 1s, speed 600px/s
 Double Stab uses the dagger's swing envelope, one base target, cooldown 1.2s. Both hold their action for 0.6s
 (tier C untuned; Double Stab's stabO1 is canonical, Lucky Seven's shoot1 is our choice). Only Use sounds exist.
 
-Cards: `<key>_new` / `<key>_rank`, plus `lucky_seven_count` (+1 star) and `double_stab_targets` (+1 target),
-three behavior steps each. Attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 (tier C, shared Potential
-magnitudes). Attack cards require jobs [400] and carry_jobs [410,420]; Nimble Body requires jobs [400] only.
-Cards follow the held family at draw time. No parity lines, Keen Eyes, Disorder, Dark Sight or second jobs are added here.
+Cards: `<key>_new` / `<key>_rank`, plus the parity lines below (#208). Each weapon path has **13 behaviour steps
+across five lines**, including the tracer's star/target line. Attack learn/rank weights 4/3, Nimble Body 2/2,
+behaviour weight 2 (tier C, untuned, shared Potential magnitudes). Attack cards require jobs [400] and
+carry_jobs [410,420]; Nimble Body requires jobs [400] only. Cards follow the held family at draw time and behaviour
+cards never enter an advancement draw; carried learn cards also stay out of branch advancement draws.
+
+| Skill | Behaviour card suffix | Effect per step | Maximum steps |
+|---|---|---|---|
+| Lucky Seven | `_count` | +1 star | 3 |
+| Lucky Seven | `_pierce` | +1 monster pierced per star | 2 |
+| Lucky Seven | `_damage` | damage ×1.2 | 3 |
+| Lucky Seven | `_cooldown` | cooldown ×0.88 | 3 |
+| Lucky Seven | `_range` | range ×1.2 | 2 |
+| Double Stab | `_targets` | +1 target | 3 |
+| Double Stab | `_hits` | +1 damage line per target (`attack_count`) | 2 |
+| Double Stab | `_damage` | damage ×1.2 | 3 |
+| Double Stab | `_cooldown` | cooldown ×0.88 | 3 |
+| Double Stab | `_reach` | skill swing envelope ×1.2 on both axes (`area`) | 2 |
+
+`attack_count` modifiers add to the canonical `attackCount`, independently of target count. The extra-hit card
+previews Hits before/after. A weapon-reach skill applies its own `area` modifier to a copy of the held weapon's
+feet-relative swing envelope; target admission, the short-MP probe and the bot's reach all use that scale.
+The basic attack and other skills keep their own envelope. Multipliers compound per step; rarity grants steps
+through the shared headroom/clamping rules, never exceeding a line's cap. These are tier C survivor choices,
+matching existing behaviour-card magnitudes; canonical v83 levels, counts and weapon data remain unchanged.
 
 Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
 (tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger,
@@ -4075,6 +4096,8 @@ nor exempt.
 | Cold Beam | Spreading Frost (`cold_beam_targets`) |
 | Thunder Bolt | Forking Storm (`thunder_bolt_targets`): +2 targets per step, 3 steps (canonical `mobCount` 6 → 8 → 10 → 12), weight 2; tier C placeholder until the balance pass |
 | Holy Arrow | `holy_arrow_count`, `holy_arrow_pierce` |
+| Lucky Seven | `lucky_seven_count`, `lucky_seven_pierce` |
+| Double Stab | `double_stab_targets` (extra hits per target use the separate `double_stab_hits` line) |
 
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 
@@ -4468,6 +4491,8 @@ Thief tracer (#207) additions:
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
+| Thief parity (#208) | Each attack: 13 steps / 5 lines, weight 2, all power cards, jobs [400], carry_jobs [410,420]. Lucky Seven: count +1 ×3, pierce +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, range ×1.2 ×2. Double Stab: targets +1 ×3, hits +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, reach ×1.2 ×2 | C owner step budgets; existing untuned card magnitudes and Potential scaling |
+| Skill-only melee reach (#208) | `area` scales both feet-relative swing-envelope axes and the bot reach; basic attack unchanged. `attack_count` adds damage lines per target, minimum 1 | C generic survivor card effects; A base attackCount retained |
 
 
 Pirate tracer (#186) additions:

@@ -229,7 +229,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
 ## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
-## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count,
+## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count (canonical
+## attackCount plus skill modifiers, damage lines per target),
 ## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
@@ -314,7 +315,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(book.skill_node(key).get("elemAttr", "")),
-		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
+		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
