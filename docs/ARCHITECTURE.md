@@ -1008,10 +1008,15 @@ for the copy of the workflow on the default branch.
 
 CI runs on Linux with no asset cache and no Arial/Tahoma/Dotum, which found two test assumptions that Windows runs hide
 (fixed in the tests only): `test_maple_text_wrap_and_ellipsize` now accepts the bundled-Arimo `FontVariation` as well as
-a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` keeps its 20-minute golden digest for
-Windows only: on Linux the same code and data produce other event bytes for seed 1 (cause not investigated, probably
-the platform's math library), so there it checks that two replays on the same machine agree. The web build's wasm
-output was recorded as identical to Windows in 10.1; the Linux difference was not compared against wasm.
+a `SystemFont`, and `test_fresh_character_event_stream_matches_before_ticket_67` used a Windows-only 20-minute golden
+because its event digest differed on Linux for seed 1 (16 of 72000 ticks). The cause (#142) was the digest's
+serializer, not the simulation: `JSON.stringify` writes `Vector2` fields through float-to-text, which rounds exact
+decimal ties differently per platform (`1090.8125` gives `.813` on Windows and `.812` on Linux). The digest now hashes
+`var_to_bytes` of the drained events, never float text, and one golden is asserted on every platform for the full
+20 minutes (same digest on Windows and Linux Godot 4.7.2). libm does differ across platforms (one `sin` in the flyer
+bob, integer-exponent `pow` calls in upgrades), but none of it reaches the event stream today; replacing them with
+deterministic approximations is out of scope. The #131 "wasm matches Windows" result in 10.1 compared checkpoints
+(kills, levels, alive count, death time), not event bytes; the wasm build was not compared against the new golden.
 
 **One-time owner setup:** repository Settings -> Pages -> Build and deployment -> Source: **GitHub Actions**. Until that
 is set the `deploy` job fails (the `build` job and pull requests are unaffected). The site is then at
