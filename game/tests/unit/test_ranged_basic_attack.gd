@@ -90,6 +90,22 @@ func test_each_ranged_family_fires_one_projectile_per_attack_and_never_runs_out(
 		assert_true(impacts_late > 0)
 
 
+func test_a_booster_releases_the_ranged_shot_on_the_boosted_timing() -> void:
+	# #160 scales hit_after and the interval by the Booster steps; the shot is released at that impact (#155).
+	var plain := _world("bow")
+	var boosted := _world("bow")
+	boosted.loadout.speed_steps = 2
+	_target(plain, 400 + 200)
+	_target(boosted, 400 + 200)
+	var plain_fight := _fight(plain, 60 * 6)
+	var boosted_fight := _fight(boosted, 60 * 6)
+	assert_true(boosted_fight.impacts.size() > plain_fight.impacts.size(),
+		"two Booster steps release more arrows in six seconds (%d vs %d)" % [boosted_fight.impacts.size(),
+		plain_fight.impacts.size()])
+	assert_true(int(boosted_fight.impacts[0]) < int(plain_fight.impacts[0]), "the first arrow leaves sooner")
+	assert_eq(boosted.basic.shots, boosted_fight.impacts.size(), "one arrow per boosted attack")
+
+
 func test_ammo_shots_roll_on_the_basic_attack_stream() -> void:
 	var world := _world("bow", 5)
 	assert_true(world.projectiles.alt_rng == world.basic_rng, "the shots' rolls and crits come from stream 5")
