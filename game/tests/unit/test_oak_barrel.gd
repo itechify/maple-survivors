@@ -15,15 +15,6 @@ const PROP := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
 const COOLTIME := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
 
 
-func _book() -> Dictionary:
-	var levels := {}
-	for i in 10:
-		levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": float(MP[i]), "time": float(TIME[i]),
-			"prop": float(PROP[i]), "cooltime": float(COOLTIME[i]), "morph": 1002.0}
-	return {"skill": {"5101007": {"icon": RF._canvas(32, 32), "effect": RF._anim(10, 90.0, 60, 80),
-		"affected": RF._anim(5, 150.0, 100, 90), "level": levels}}}
-
-
 ## A world with Oak Barrel learned at `rank`, 1000 HP at `hp_fraction`, 500 MP, one still mob `mob_dx` px to the right.
 func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> RunWorld:
 	var data := RF.quiet_data()
@@ -35,7 +26,6 @@ func _world(p_seed := 194, rank := 1, hp_fraction := 0.25, mob_dx := 100.0) -> R
 	data.balance.magnet_radius = 0
 	data.balance.mob_motion.push_px = 0
 	var setup := RF.with_basic_attack(RF.setup("quiet", p_seed, data))
-	setup.skill_imgs["510"] = _book()
 	var w := RunWorld.new(setup)
 	RF.place_player(w, 400)
 	w.player.facing = 1
@@ -109,6 +99,16 @@ func test_stats_come_from_the_skill_wz_levels() -> void:
 		assert_near(SkillRunner.restart_cooldown(st), float(COOLTIME[rank - 1]), 1e-6, "the 35 -> 15 s cooldown")
 	assert_eq(w.book.max_rank(KEY), 10)
 	assert_eq(w.book.skill_id(KEY), 5101007)
+
+
+func test_skill_text_names_the_canonical_numbers() -> void:
+	var w := _world()
+	var text := SkillText.new(w.book)
+	assert_eq(text.level_line(KEY, 1, w.loadout.stats(KEY, 1)),
+		"MP -11; barrel for 12 sec.; 37% chance to fail; 35 sec. between uses")
+	assert_eq(text.level_line(KEY, 10, w.loadout.stats(KEY, 10)),
+		"MP -20; barrel for 30 sec.; 10% chance to fail; 15 sec. between uses")
+	assert_true(text.desc(KEY).begins_with("Transform into an oak barrel"))
 
 
 func test_no_weapon_is_required() -> void:

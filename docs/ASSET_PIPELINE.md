@@ -307,6 +307,15 @@ Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active
 from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img
 sounds remain in `common`. The five survivor `pirate.json` line files ship through the existing export filter.
 
+Morph.wz (#194): Oak Barrel's barrel is `{"img": "Morph.wz/1002.img"}` in `pirate.json`, exported whole by the
+generic img export (no importer change; the Rust `real_import_of_the_oak_barrel_morph` test checks it against real
+data). A Morph img has `info` (`hide`, `speed`, `jump`, `morphEffect`) and the actions `stand` (14 frames), `walk` (6),
+`prone` (6), `sit` (6), `ladder` (2), `rope` (2), `fly` (2) and `jump` (1), each frame one canvas with `origin` on the
+feet (55 x ~70 px for 1002), `lt`/`rb`/`head` and an optional `delay`; there are no attack actions and no `map`
+anchors. `Morph.wz` is a thirteenth archive an import needs (it was already in the owner's v83 install; the web
+import screen and `requiredArchives` derive it from the manifest, so a cache or source without it is reported
+incomplete or missing it). `AvatarRenderer.set_morph(id)` reads `Morph.wz/<id>.img` through the asset library.
+
 `asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, the creation weapons,
 items, the shared equipment). Everything that belongs to one job line lives in a fragment beside it, so parallel class
 specs each add their own file and do not conflict on the main manifest. A fragment has the same shape as the main file,

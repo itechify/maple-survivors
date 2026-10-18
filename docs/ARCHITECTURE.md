@@ -308,7 +308,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `player_restored` | `stat` (`hp`/`mp`), `amount` (actual positive integer pool gain after capping), `skill` (key or empty), `pos` (player feet); emitted by `restore_player`, independent of legacy Recovery/potions |
 | `final_attack` | `skill`, `skill_id`, `level`, `mob` (the original target's slot), `pos`, `facing`, `action` (the skill's stance), `effect` (WZ path or `""`); emitted just before the follow-up's own `mob_hit` (skill = the Final Attack key; #161) |
 | `buff_cast` | `skill`, `skill_id`, `level`, `duration` (float canonical seconds); also emits ordinary `cast` for stance, effect and sound |
-| `buff_expired` | `skill`, `skill_id`; once when an active timer expires; a run ending first need not emit expiry |
+| `buff_expired` | `skill`, `skill_id`; once when an active timer expires (or a buff ends early: Oak Barrel above its `end_hp_above`); a run ending first need not emit expiry |
+| `buff_failed` | `skill`, `skill_id`, `level` (#194); a buff cast with a `fail_chance` (Oak Barrel) whose roll failed: nothing started, MP and cooldown were paid, the accompanying `cast` event has `effect` `""` |
 | `buff_pulse` | `skill`, `skill_id`, `amount` (canonical integer healing due; the HP gain is clamped to max). Recovery's final pulse precedes its expiry; Guard/Armor have no pulses. |
 | `mob_spawned` | `mob`, `mob_id`, `pos`, `elite`, `relocated_from` (the slot the mob had when SpawnDirector relocated it, -1 for a new spawn) |
 | `mob_hit` | `mob`, `mob_id`, `damage` (int), `crit`, `pos` (where to draw the number: mob head), `hit_visual` (WZ path or `""`), `skill` |
@@ -603,8 +604,14 @@ What the tables above leave open; the class doc comments have the rest.
   and `skill_level_next` its canonical level once the card is taken (0 unless the card learns or ranks the skill; the
   level-up window shows "Skill Lv. 2 → 3" for a skill_rank card, whose own rank is not the skill's level).
   The run's starting skill emits `skill_learned` before the first `step()`.
+- **Hidden and morph (#194, GAME_DESIGN 7.11):** a buff whose snapshot has `hidden` (from `buff.hidden`) makes
+  `RunWorld.is_hidden()` true; `player_state.hidden` and `player_state.morph` (the Morph.wz id of the first morphing
+  buff, 0 for the plain avatar, always 0 once dead) feed the presentation. Mobs, bosses, mob skills and balls read
+  `is_hidden()` (MobSwarm `ctx.hidden`, MobAttacks, MobProjectileSystem, MobSkillRunner, BossDirector, SpawnDirector,
+  `take_hit`, `_touch`), the player's attacks read it too (SkillRunner, BasicAttack). `RunScene` passes `morph` to
+  `AvatarRenderer.set_morph`.
 - **Player buffs:** `player_state.buffs` is an array of `{skill, skill_id, level, icon, remaining, duration,
-  effect_stat, value}`. Duration/effect are snapshotted from canonical `time` and `x`/`pdd` at cast level; upgrading a
+  effect_stat, value}` (plus `hidden`, `morph`, `end_hp_above` since #194). Duration/effect are snapshotted from canonical `time` and `x`/`pdd` at cast level; upgrading a
   rank affects the next cast. `skills.json` kind `buff` keeps its passive slot but joins SkillRunner's oldest-ready
   cast ordering, pays canonical `mpCon`, and casts without a target only while inactive. Buff timers advance before
   casting each tick, including on ropes. `fired_this_tick` covers buffs and keeps basic attacks out of that tick.
@@ -787,7 +794,7 @@ score setting. Both knobs are tier C survivor tuning.
 | Piece | Approach |
 |---|---|
 | `MapRenderer` | Backgrounds (types 0-7, parallax `x + cam_cx*rx/100`, tiling by `cx/cy`, auto-scroll `rx*5 px/s`, `a`, `f`, front backs) redrawn per frame; static tiles/objs per layer recorded once in a `_draw()` command list; animated objs as canvas items. Draw order: non-front backs -> layers 0..7 (objs by `z`, then tiles by canvas `z`, then actors standing on that layer) -> front backs. |
-| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. |
+| `AvatarRenderer` | Composites body/arm/head/face/hair/coat/pants/shoes(/weapon) per frame using `map` anchors (navel, neck, hand, brow) and `Base.wz/zmap.img` order. Mirrors for facing. A morph (`set_morph`, #194) replaces every part with one frame of `Morph.wz/<id>.img` for the matching action. Draws `look.cash` over the outfit (face accessories by expression, weapon covers by weapon type, `vslot` hiding through `smap.img`, an overall replacing top and bottom) through the pure helpers in `AvatarLayers`. |
 | `MobRenderer` | One RenderingServer canvas item per live mob slot (no Nodes), region-of-atlas per frame, alpha for `a0/a1` fades. One renderer per foothold layer (`only_layer` + `update_slot_layers`) to draw mobs inside `actor_layer(L)`. |
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |

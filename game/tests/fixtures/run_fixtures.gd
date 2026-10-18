@@ -145,7 +145,23 @@ static func skill_imgs() -> Dictionary:
 	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
 		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
 	imgs["500"] = {"skill": pirate}
+	# #194: Oak Barrel 5101007 (the Brawler book 510); the other second-job skills of the line are not in the fixtures.
+	imgs["510"] = {"skill": {"5101007": oak_barrel_skill()}}
 	return imgs
+
+
+## Skill.wz/510.img/skill/5101007 (Oak Barrel): the v83 level values (tier A, read from the owner's files), synthetic art.
+static func oak_barrel_skill() -> Dictionary:
+	var mp := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+	var time := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+	var prop := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
+	var cooltime := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
+	var levels := {}
+	for i in 10:
+		levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": float(mp[i]), "time": float(time[i]),
+			"prop": float(prop[i]), "cooltime": float(cooltime[i]), "morph": 1002.0}
+	return {"icon": _canvas(32, 32), "effect": _anim(10, 90.0, 60, 80), "affected": _anim(5, 150.0, 100, 90),
+		"level": levels}
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
