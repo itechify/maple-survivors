@@ -12,7 +12,7 @@ extends RefCounted
 ##   character toward the target first. A skill with an HP cost (`hp_cost`) never casts when paying it would leave 0 HP.
 ## A skill with a `displacement` block (a moving attack, docs/GAME_DESIGN.md 7.9) also moves the grounded character away
 ## from or toward its first target before, after or during the hits (`_resolve_cast`, `_resolve_charge`).
-## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.14) throws at once at the nearest cluster of mobs within its throw range; the blast
+## A `cluster` skill (Gunslinger Grenade, docs/GAME_DESIGN.md 7.16) throws at once at the nearest cluster of mobs within its throw range; the blast
 ## strikes its canonical box around the landing point when the ball arrives (`_throw`, `_land_flights`).
 ## A `self` skill (Brawler MP Recovery, docs/GAME_DESIGN.md 7.12) needs no monster: it casts when its survivor conditions
 ## on the character's own pools hold (`mp_below`, `hp_at_least`; RunWorld.self_cast_ready) and pays HP for MP (`convert`).

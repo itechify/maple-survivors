@@ -3538,7 +3538,7 @@ the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP 
 cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
 `requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
 branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
-Double Shot. The branch attacks come with #191 (Brawler) and #192 (Gunslinger), MP Recovery with #193 and Oak Barrel with
+Double Shot. The branch attacks come with #191 (Brawler) and #192 (Gunslinger, 7.16), MP Recovery with #193 and Oak Barrel with
 #194.
 
 ### 7.14 Hidden state and Oak Barrel (#194, spec #168)
@@ -3596,6 +3596,53 @@ keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state w
 `test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
 `test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
 `scenes/debug/morph_driver.tscn`.
+
+### 7.16 Gunslinger attacks (#192, spec #168)
+
+Four auto-cast attacks join the Gunslinger's book (`skills/pirate.json`, book 520, job 520, 20 canonical levels each; ranks equal
+levels). Owner rules (#168 grilling): Grenade is thrown as if fully charged with no wind-up; Wings is dropped. Costs, damage %,
+mob counts, boxes, stun chance and time and the hop distance are tier A Skill.wz 520.img values (WZ wins over String text where
+they disagree: Invisible Shot's MP is 10 to 25, Grenade's 15 to 27). Damage is the ordinary physical formula of the held
+weapon (gun formula with a gun, the weapon's own with anything else for Grenade); ammo is endless, so `bulletConsume` is unused.
+
+| Skill | Weapon | Cast | Canonical L1 → L20 | Survivor behaviour (tier C unless stated) |
+|---|---|---|---|---|
+| Invisible Shot 5201001 | gun (A) | `box`, `around` | damage 75 → 170%; MP 10 → 25; up to 3 mobs; box (-250,-80)..(-10,40) mirrored to both sides | strikes in front **and** behind; no bullet is drawn (the WZ has no ball); 1 s cooldown; held gun's first stance, 0.6 s; WZ Hit sound as its cast sound (it has no Use) |
+| Blank Shot 5201004 | gun (A) | `box` (front only) | damage 63 → 120%; MP 10 → 25; 3 mobs; box (-250,-80)..(-20,30); stun `prop` 43 → 100% for `time` 1 → 4 s | `on_hit` stun (#187: scheduled and canonical bosses resist; one roll per struck mob on the main stream, none when `prop` is 100); `fake` action (A); 1.4 s cooldown; 0.6 s |
+| Grenade 5201002 | any (C) | `cluster` | damage 45 → 140%; MP 15 → 27; 3 → 6 mobs; blast box (-50,-50)..(50,20) | see below; 2 s cooldown; the held weapon's first stance, 0.6 s |
+| Recoil Shot 5201006 | gun (A) | `nearest`, projectile | damage 70 → 260%; MP 14 → 26; `range` (recoil) 115 → 250 px | one bullet at the nearest mob, then `displacement` `away` / `after` with `field: "range"` (7.9): an instant hop away from the mob, cut short at platform edges and walls, none in the air; the bullet is the current ammo's own sprite (`ammo_shot`: `Ammo.bullet_path(ammo_id())`, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; `backstep` action (A); 1.8 s cooldown; 0.6 s |
+
+**The `cluster` cast rule** (new, generic; Grenade is its only user). `cast: {"rule": "cluster"}` plus the skill's `range`
+(the throw range, 400 px) and `speed` (the ball, 600 px/s); the level needs a canonical `lt`/`rb` box, the blast.
+
+- *Admission and target.* The skill casts when any live mob is within `range` of the cast origin (`has_target` is the cheap
+  `_any_target`). Among the `CLUSTER_CANDIDATES` (12) nearest mobs in range, scheduled bosses first, the target is the first
+  whose blast box, centred on its feet, would strike the most mobs (up to `mob_count`); a scheduled boss in reach is the target
+  outright. A lone mob therefore draws the throw only when nothing better is in reach, and ties go to the nearest.
+- *No wind-up.* The cast tick pays MP, starts the cooldown, turns a standing character to the target, plays the stance and emits
+  `cast` and `skill_thrown` (ARCHITECTURE 4.4.3: `from` the hand, `to` the target's body centre, `seconds`, `ball`, `burst`).
+  The WZ `prepare` (`dash`) and `keydown` nodes are not used.
+- *Landing.* The ball flies `max(0.1 s, distance / speed)`; when it arrives the blast strikes up to `mob_count` live mobs whose
+  bodies intersect the blast box around the landing point (the target's feet at the cast), scheduled bosses first, then nearest to
+  the aim point, `attackCount` lines each, through the ordinary `hit_mob` path (listeners, Final Attack and `on_hit` apply). The
+  stats are the cast's snapshot; the blast ignores where the target moved to. Flights are `SkillRunner` state and count down
+  with the tick (also while casting is blocked, e.g. on a rope); they do not survive a restart of the round.
+- *Presentation.* `RunScene` loops the ball art along a short arc (`THROW_ARC` 40 px) for the flight, then plays the WZ `special`
+  blast art at `to`; each struck mob plays `hit/0` as usual. Sounds: the WZ `Use2` on the throw.
+- *Cards and reach.* `count` cards add targets to `mob_count`; the bot's approach/kiting reads `range` (`SkillRunner.reach_of`).
+
+**Cards** (`upgrades/pirate.json`; all `power`, `requires.jobs [520]` exactly, so the Lv 30 advancement draw, which offers every
+eligible new power skill of the job, shows all four): `<skill>_new` weight 4, `<skill>_rank` weight 3 (max rank 20), and one
+hit-more-mobs card with weight 2, three steps: `invisible_shot_targets`, `blank_shot_targets`, `grenade_targets` (+1 target) and
+`recoil_shot_pierce` (+1 pierce). Cards follow the weapon held at the draw (the skill's gun tag): with a knuckle in hand the three
+gun skills' cards are not offered, Grenade's are. Tests: `tests/unit/test_gunslinger_attacks.gd` (seeded, fixed ticks; the numbers
+by rank, behind and in front, stun chance and time, throw without wind-up and landing, cluster choice, knuckle, hop distance and
+edge/wall/air stops, the cards and the draw, and the original v83 tables, boxes, art and sounds in the private cache).
+
+Evidence (#192): `scenes/debug/gunslinger_driver.tscn -- --shots=<dir>` casts each attack once on the flat part of the real Henesys map with the real
+cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails, `grenade_a/b.png` the ball in flight then the blast on the cluster,
+`recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
+Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
 
 ## 8. Upgrades
 
@@ -4053,6 +4100,15 @@ Pirate tracer (#186) additions:
 | Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
 | Second-job cards | learn/rank weights 2/2, not power, exact branch job; first-job cards `requires.jobs` [500] + `carry_jobs` [510, 520] | C initial untuned choices |
 | Path bot equipment | auto-equip upgrades only the held family (shared drop families allowed) when a weapon path is recorded | C owner rule: bot never swaps paths; prevents Kyrin's spare knuckle replacing the gun; no RNG |
+| Gunslinger attack numbers (#192, 7.16) | costs, damage %, mob counts, boxes, stun prop/time, recoil range per level 1-20 | A Skill.wz 520.img (WZ over String text) |
+| Gunslinger attack weapons | Invisible Shot, Blank Shot, Recoil Shot: gun; Grenade: any | A WZ weapon 49 for the three; C Grenade (owner) |
+| Invisible Shot both sides | `cast.around` mirrors the box's far edge (250 px) across the player; no bullet drawn | C owner behaviour |
+| Gunslinger timing | cooldowns Invisible 1 s, Blank 1.4 s, Grenade 2 s, Recoil 1.8 s; each 0.6 s action hold; Invisible Shot plays the WZ Hit sound as its cast sound | C initial untuned survivor values |
+| Grenade throw (`cluster`) | thrown with no wind-up; range 400 px; ball 600 px/s, flight at least 0.1 s; blast on arrival at the target's feet; target = the first of the 12 nearest mobs in range (bosses first) with the largest blast, a scheduled boss outright | C owner (no wind-up, nearest cluster) + ours (range, speed, candidates) |
+| Grenade arc | presentation only: 40 px mid-flight arc, ball art loops | C ours |
+| Recoil Shot shot | current ammo bullet sprite, 1000 px/s, radius 6, rotating, reach 300 px, no base pierce | C ours; A ammo ids (6.1.2) |
+| Recoil Shot hop | the canonical `range` 115 to 250 px away from the faced mob after the shot; edge/wall stops and no air hop per 7.9 | A distance; C owner rule |
+| Gunslinger attack cards | learn weight 4, rank weight 3 (max 20), hit-more weight 2 (+1 target or pierce, 3 steps); power cards, job 520 exactly | C initial untuned choices |
 
 | Physical combat rule (#153) | Value / behavior | Tier | Source |
 |---|---|---|---|
