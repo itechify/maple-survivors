@@ -963,6 +963,46 @@ is set the `deploy` job fails (the `build` job and pull requests are unaffected)
 `https://itechify.github.io/maple-survivors/`. Out of scope by design: custom domains, analytics, a service worker and
 offline caching of the page.
 
+### 10.4 Browser QA measurements (#136, 2026-10-17)
+
+What was tested: the artifact of `bash scripts/export.sh --web` on the integration branch (head f619dc4, with B2/B3:
+equipment, shops, Cash Shop, pet), served by `web/dev/serve.mjs` on 127.0.0.1, not the deployed Pages site (the owner
+enables Pages after merge; the deployed-URL pass is still to do). Dev PC as in 10.1; Chrome 155.0.8059.40 (installed,
+headed) and Playwright's Firefox 157.0, both in fresh profiles, 1100x800 viewport for the menu flow. Same method and
+flags as 10.1 (`--run=henesys_hg1 --seed=2026 --autoplay --autopick --speed=1 --warp=<s> --perf`, uncapped = Chrome
+`--disable-gpu-vsync --disable-frame-rate-limit` plus `--vsync=off`). The display ran at **165 Hz** this session (rAF
+164 Hz measured with no flags), so the "capped" run is capped at 6.1 ms per frame, not 16.7 ms.
+
+| Window (run time) | Mobs (minute means / max) | Web frame ms p50 / p95 / p99 / max | Desktop exe frame ms p50 / p95 / p99 / max | Sim µs/tick web / desktop |
+|---|---|---|---|---|
+| uncapped 10:00-13:00 | 202-257 / 290 | 3.4 / 5.7 / 8.3 / 133 (one frame; next worst 15) | not re-run | 1260 / not re-run |
+| uncapped 13:00-17:00 (alive at 17:00) | 285-355 / 356 | 4.5 / 15.3 / 27.4 / 75.3 | 2.3 / 8.6 / 12.1 / 45.6 | 5807 / 4274 |
+| capped (165 Hz) 13:00-15:00 | 285-325 / 339 | 6.1 / 14.5 / 17.4 / 55.4 | not run | 4354 / not run |
+
+Minutes 15 and 16 (342-356 mobs) on their own, uncapped: web p95 16.8 / 16.4 ms and p99 31.3 / 34.7 ms against desktop
+p95 10.0 / 10.1 ms and p99 12.5 / 13.0 ms. Every run reported `missing: []`.
+
+1. **What changed since 10.1.** With B2/B3 the same seed no longer dies at 15:07: the bot is alive at 17:00 with up to
+   356 mobs (Henesys' cap of 330 no longer holds), and the desktop sim costs 4274 µs/tick at 13:00-17:00 where 10.1
+   measured 2849 at 292-341 mobs. The web/desktop ratio is unchanged (sim 1.36x here, 1.38x in 10.1; frame p95 1.8x,
+   p99 2.3x).
+2. **Verdict against the bar (60 FPS at 330-400 mobs): marginal.** Median and mean are comfortable (p50 4.2-4.6 ms,
+   uncapped mean 6.5 ms), but at 340-356 mobs the p95 sits at the 16.7 ms budget and the p99 at 27-35 ms, so a 60 Hz
+   display would drop frames in a few percent of frames from about 14:00. 10.1's p95 of 8.7 ms at the same mob counts
+   no longer holds: desktop moved the same way (p95 5.3 -> 8.6 ms), so this is the merged content, not the web
+   platform. 400 mobs is still not reached (356 maximum). Filed as its own issue; nothing was tuned here.
+3. **Heap.** A `--run` session peaks at 286 MiB of wasm memory (10.1: 178 MiB). A real title -> character select -> round
+   session holds 358 MiB right on the title screen and does not grow in the round (the heap never shrinks). Chrome's
+   `usedJSHeapSize` is 358-370 MiB in rounds and 469 MiB on the title.
+4. **Firefox.** The #131 black canvas was most likely Firefox's window occlusion tracking: the same build froze (black
+   canvas, no frames, page calls hanging) while another window covered the headed Firefox window, and worked once the
+   preference `widget.windows.window_occlusion_tracking.enabled=false` was set (in the QA driver only; nothing in the
+   game or shell). With it the build renders and plays: folder and zip import (8-9 s), title, character creation, a
+   round, Key Config, Options, fullscreen, pause, Continue after a reload, tier 2, death and history. Firefox frame
+   times were not measured (one rAF probe at the title read about 35 callbacks per second; not investigated). Firefox
+   also leaves the import screen's "Storage: checking..." line unresolved until its persistence permission prompt is
+   answered.
+
 ### Web profile (#134)
 
 Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`: `OS.has_feature("web")`, with a
