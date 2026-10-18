@@ -3314,6 +3314,14 @@ damaging attack cards. No behaviour cards are added.
 
 ### 7.5 Weapon-gated skills (#156)
 
+Shipping Bowman first job (#199):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| The Blessing of Amazon 3000000, Focus 3001003 | any, including bare hands | A: no canonical restriction; #199 explicit skill table |
+| Critical Shot 3000001, The Eye of Amazon 3000002 | bow or crossbow | C: family tag from v83 skill descriptions |
+| Arrow Blow 3001004, Double Shot 3001005 | bow or crossbow | C: survivor family tags (no canonical weapon field) |
+
 Shipping Pirate first job (#186):
 
 | Skill | Held weapon | Source |
@@ -3975,6 +3983,55 @@ cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails,
 `recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
 Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
 
+### 7.22 Bowman first job (300, #199, spec #166)
+
+Bowman is playable at Lv 10 (tier C survivor override). The `bow` path wears the instructor's Beginner Bowman's bow
+1452051 (tier B gift, tier A stats), moves the creation weapon to Equip and adds Crossbow 1462001 (tier C: the plain
+early shop crossbow, Lv 12 / PAD 29 / no stat requirement). Full Equip tabs spill these items at the feet, following
+the existing advancement rule. The job grants +125 MaxHP / +37 MaxMP (tier B midpoints, MP truncated), and subsequent
+levels give 22 HP / 15 MP (tier B fixed midpoints). Tier-C automatic AP goes to DEX after filling STR to level + 5,
+capped at 35 from Lv 30; without equipment bonuses this meets Ryden 1452005 (Lv 30, STR 35 / DEX 95) and Mountain
+Crossbow 1462000 (Lv 28, STR 28 / DEX 80). Later equipment requirements may extend the target. Bot equipment weights
+prefer PAD, then DEX, then STR; other weights follow the existing physical baseline (tier C, untuned).
+
+`skills/bowman.json` and `upgrades/bowman.json` hold the first-job entries. Ranks map one-to-one to every canonical
+level (tier A); canonical prerequisite skills are ignored (tier C, shared rule). All values below come from Skill.wz:
+
+| Skill | Ranks | Behaviour |
+|---|---|---|
+| The Blessing of Amazon 3000000 | 16 | ACC +1..16; ACC also feeds the shared crit coefficient |
+| Critical Shot 3000001 | 20 | 12..40% critical chance, 105..200% total critical damage; shared additive critical bonus |
+| The Eye of Amazon 3000002 | 8 | +15..120 px range for bows/crossbows (tier C interpretation below) |
+| Focus 3001003 | 20 | Self buff: ACC/avoid +1..20, 70..300 s, MP 8..16; auto-cast and recast on expiry (tier C), 0.8 s hold |
+| Arrow Blow 3001004 | 20 | Nearest monster, one current-ammo arrow, 190..260%, MP 7..14 |
+| Double Shot 3001005 (`bow_double_shot`) | 20 | Two current-ammo arrows via canonical `bulletCount`, 92..130% each, MP 10..16 |
+
+Blessing and Focus allow any weapon, as the ticket's explicit skill table specifies; Critical Shot and Eye apply
+only with a bow or crossbow. Both attacks require those families and use the held weapon's shooting stance (tier C).
+Attacks use a 300 px base range (neither has canonical `range`), 1 s cooldown, 600 px/s projectiles, 8 px radius,
+no base pierce and 0.6 s hold (tier C placeholders, untuned). Double Shot splits over different nearest targets,
+reusing them when necessary, like Pirate Double Shot (tier C; original v83 puts both on one mob). Collinear shots
+can collide with the nearer monster. Ammo is endless and uses each held family's current arrow sprite.
+
+The generic passive stat `range` adds pixels to ranged basic reach (target box and projectile travel) and to the
+resolved range of attack skills explicitly gated to the held ranged family (tier C). The existing passive weapon
+gate controls which skills contribute. Melee boxes and untagged Magician skills stay unchanged. Cached basic boxes
+keep their base size; the bonus is read live, so rank changes and weapon swaps cannot leave stale reach. Ordinary
+skill `range` modifiers apply to the base first, then the passive adds pixels. Stream 14 remains reserved, unregistered;
+this feature adds no roll. The unforced job pool gains Bowman on stream 8 (Warrior, Magician, Bowman and Pirate jobs;
+Pirate's two weapon paths are represented by their own options).
+
+Each skill has a learn card and a rank card capped at its canonical level count. Each attack also has a +1-shot
+behaviour card (up to three steps). Tier-C weights: attacks learn/rank 4/3, other learn/rank 2/2, behaviour 2;
+shared Potential rarity magnitudes apply, and cards follow the weapon held when drawn. First-job cards carry into
+310/320 through `carry_jobs`; their future advancement draws remain branch-only. Choosing Bowman offers both attacks.
+
+The manifest fragment exports Skill.wz 300/310/320, existing active skill sounds, the two grants, representative
+bow/crossbow weapons and all eight arrows moved out of common. CharLevel hit art uses 10/15/20/25 (tier A).
+Sound.wz has no 3001005 node, and 3001004 has only Use: Double Shot reuses Arrow Blow's Use sound (tier C fallback),
+and neither requests a missing Hit sound. Soul Arrow 3101004/3201004 is never added: endless ammo makes it redundant
+(owner decision, tier C). Hunter, Crossbowman, equipment rosters and generic impact mechanics belong to later tickets.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4269,7 +4326,7 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician, Warrior (Dances with Balrog, #163) and Pirate's two paths (Kyrin, #186) are playable; Bowman and Thief are shown as "not in this build".
+- Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199) and Pirate's two paths (Kyrin, #186) are playable; Thief is shown as "not in this build".
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
   teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
@@ -4277,6 +4334,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs open at Lv 30 (spec #165, below).
+- Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  1452051 and places Crossbow 1462001 in Equip, with overflow at the feet (tier B bow gift, tier C spare crossbow).
+  Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary up to level + 5, capped at 35
+  from Lv 30 (tier C; 7.22). The advancement draw offers Arrow Blow and Double Shot. Hunter/Crossbowman stay locked
+  until their branch tickets.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -4351,8 +4413,8 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 
 Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
 and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman and Thief stay `playable: false` ("Not in this build")
-until their class specs. Pirate is playable (#186): optional per-path `extra_items` ([item ids]) grants the opposite
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Thief stays `playable: false` ("Not in this build")
+until its class spec. Bowman is playable (#199), with `extra_items: [1462001]`. Pirate is playable (#186): optional per-path `extra_items` ([item ids]) grants the opposite
 weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
@@ -4409,6 +4471,24 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Bowman (#166), first job #199:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Advancement / gifts | Lv 10; wear 1452051, spare 1462001; HP +125 / MP +37 | C level/spare, B bow and pool midpoints, A item stats | owner #166, v83-facts 4 |
+| Level growth | 22 HP / 15 MP | B | v83-facts 4 midpoints |
+| Automatic AP | DEX primary, STR secondary target level + 5 capped at 35 from Lv 30 | C | requirement policy, meets both Lv 30 advancement weapons |
+| Equipment weights | PAD 10, DEX 6, STR 3; PDD 1.5, MDD 1, ACC/EVA .3, HP/MP .03, speed .5, jump .3 | C | existing physical baseline with Bowman primary; untuned |
+| Skill levels and effects | 16/20/8/20/20/20; canonical costs, damage, prop, range, time, ACC/eva | A | Skill.wz/300.img, string Focus acc cast by SkillBook |
+| Eye range interpretation | Add canonical +15..120 px to ranged basic targeting/travel and family-gated attack-skill range; melee and Magician unchanged | C | owner #166 and binding NOTES |
+| Weapon gates | Critical Shot, Eye and attacks bow/crossbow; Blessing/Focus any | C tags, A no canonical restriction on Blessing/Focus | #199 skill table and String.wz descriptions |
+| Arrow targeting / movement | nearest; base range 300 px, speed 600 px/s, radius 8 px, cooldown 1 s, hold .6 s, pierce 0 | C | survivor placeholders; split Double Shot targets as Pirate, current ammo sprite |
+| Focus casting | automatic, recast on expiry, .8 s hold | C | existing buff rule |
+| Double Shot sound | reuse Arrow Blow Use; no Hit sound | C reuse, A node absence | Sound.wz/Skill.img lacks 3001005; 3001004 has only Use |
+| Cards | learn/rank attack weights 4/3, other 2/2; behaviour +1 shot, cap 3, weight 2; shared rarity gains | C | survivor placeholders, no tuning |
+| RNG | 14 reserved, unregistered; job choices on 8 | C | owner #166; no new random roll |
+| Soul Arrow omission | never add 3101004/3201004 | C | owner #166, endless ammo |
 
 Pirate tracer (#186) additions:
 

@@ -119,7 +119,19 @@ static func skill_imgs() -> Dictionary:
 			"CharLevel": {"10": {"hit": {"0": _anim(4, 90.0, 95, 126)}, "effect": _anim(5, 90.0, 74, 52)}},
 			"level": slash_levels},
 	}}
-	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230}
+	# #199: independently recorded v83 Bowman endpoints; intermediate rows are synthetic linear interpolation.
+	var bowman := {
+		"3000000": {"level": _levels(16, {"x": [1.0, 16.0]})},
+		"3000001": {"level": _levels(20, {"prop": [12.0, 40.0], "damage": [105.0, 200.0]})},
+		"3000002": {"level": _levels(8, {"range": [15.0, 120.0]})},
+		"3001003": {"level": _levels(20, {"time": [70.0, 300.0], "mpCon": [8.0, 16.0],
+			"acc": [1.0, 20.0], "eva": [1.0, 20.0]})},
+		"3001004": {"level": _levels(20, {"mpCon": [7.0, 14.0], "damage": [190.0, 260.0]})},
+		"3001005": {"level": _levels(20, {"mpCon": [10.0, 16.0], "damage": [92.0, 130.0], "bulletCount": [2.0, 2.0]})},
+	}
+	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
+	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
+		"300": {"skill": bowman}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):

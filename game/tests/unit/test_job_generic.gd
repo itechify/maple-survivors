@@ -1,7 +1,7 @@
 extends TestCase
 ## Job-generic sim plumbing (spec #152): a new job line is data only (AP stat, growth, max_hp grant, bot weights,
 ## format-1 weapon), the generic regen passive, and the forced-job (--job) rules. Synthetic Warrior / Bowman rows are
-## added to the loaded data inside the tests; the shipping data has none.
+## added to the loaded data inside the tests; fallback checks explicitly remove shipping rows.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -93,7 +93,13 @@ func test_max_hp_grant_survives_the_character_snapshot() -> void:
 
 
 func test_unlisted_job_falls_back_to_the_beginner_rows() -> void:
-	var w := RunWorld.new(RF.setup("quiet", 75, _data())) # no Bowman rows: STR, Beginner growth
+	var data := _data()
+	# #199 ships Bowman: remove its rows to keep exercising the unlisted-line contract.
+	data.jobs_survivor.jobs.erase("300")
+	data.balance.growth.erase("300")
+	data.balance.player.ap_stat.erase("300")
+	data.balance.player.ap_secondary.erase("300")
+	var w := RunWorld.new(RF.setup("quiet", 75, data))
 	RF.place_player(w, 400)
 	var hp0: int = w.player_state.max_hp
 	w.change_job(300)
@@ -204,7 +210,7 @@ func test_forced_job_must_be_a_playable_first_or_second_job() -> void:
 	for id in [200, 210, 220, 230]:
 		assert_eq(jobs.forced_job_error(id), "", "Magician line %d is playable" % id)
 	assert_eq(jobs.forced_job_error(100), "", "the Warrior is playable since #163")
-	assert_true("not playable" in jobs.forced_job_error(300), jobs.forced_job_error(300))
+	assert_eq(jobs.forced_job_error(300), "", "Bowman is playable since #199")
 	for id in [110, 120, 130]:
 		assert_eq(jobs.forced_job_error(id), "", "the Warrior branch %d is playable since #180" % id)
 	assert_true("not playable" in jobs.forced_job_error(310), "a second job needs to be playable itself")
