@@ -3417,6 +3417,13 @@ Equipment drops use the regular Lv10–70 knuckle/gun progression (1482000–9 /
 Scroll rosters use ordinary 100/60/10 and dark 70/30: knuckle ATT and ACC, gun ATT (tier A ids/rates/stats;
 tier C selection). Free Market uses existing weapon pricing for both slots.
 
+Verification (#186, 2026-10-18, private cache, integration #187/#190 included): full Godot suite 1,699 passed,
+0 failed, 0 skipped; Rust 63 passed, 0 failed, 0 ignored, including the real-data importer checks and manifest golden.
+The 18 Pirate tests also pass after freeing their temporary asset-library node. Both forced-path playtests report
+`missing: []`; the real Lv10 job window and both paths fighting were checked by eye. Existing event and Magician
+pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds. No balance smoke or tuning here;
+#195 owns that pass.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,

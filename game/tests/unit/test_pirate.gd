@@ -353,6 +353,7 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 	var img := lib.img("Skill.wz/500.img")
 	assert_true(img != null, "import the Pirate manifest fragment")
 	if img == null:
+		lib.free()
 		return
 	var book := SkillBook.from_data(DataRepo.load_all().skills, {"500": img.root})
 	var loadout := Loadout.new(book)
@@ -388,3 +389,4 @@ func test_original_pirate_tables_art_actions_and_sounds_resolve_in_the_private_c
 	assert_true(lib.img("Skill.wz/520.img") != null)
 	assert_false(lib.anim("Npc.wz/1090000.img/stand").is_empty())
 	assert_eq(Array(lib.missing), [])
+	lib.free()
