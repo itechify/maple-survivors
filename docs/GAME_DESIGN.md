@@ -212,7 +212,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   (at a wall) keeps counting and is moved as soon as it leaves the screen. The player can still climb away for a
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
-- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is invincible.
+- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing).
 - **Mob attacks (#76):** an ordinary mob whose Mob.wz img lists `attackN` (Tauromacis 7130100 `attack1`, Taurospear
   7130101 `attack1`/`attack2`: type 0 magic) uses them exactly like a boss attack (4.3): the canonical windup stance,
   the hit at `attackAfter` in the canonical range box mirrored by facing, magic attacks with MADamage against M.DEF
@@ -221,8 +221,8 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   attacks only grounded, fully faded in, not frozen, with its feet on screen and the character in a range; it tries its
   attacks in canonical order. Its wait counts only that on-screen time: the first is 50-100% of its interval (by spawn
   identity, so a wave spawned together does not attack in unison), the next the full interval (5 s for both Tauros).
-  Hits are `source_kind` `mob_attack` with today's single 1.5 s invincibility; #88 will route them separately from boss
-  `attack`/`projectile` hits. All cadence values are tier C.
+  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); boss
+  `attack`/`projectile` hits ignore it. All cadence values are tier C.
 - **Mob skills (#76):** ordinary mobs cast none. Character statuses (Slow and the like) come only from bosses (owner,
   #76); Jr. Boogie 3230300 lists Seal (120) and Curse (124) in Mob.wz but deals contact damage only, and both are skipped
   like any other unsupported mob skill.
@@ -480,6 +480,41 @@ later #152 commit (per-line data files, manifest fragments, job-generic plumbing
 byte-identical to `11664d2` apart from the new `job_times` key, `job_t` equals `job_times["200"]` in every record, and
 `--job=210` equals `--branch=210`. No crashes, script errors or world warnings. Full suite 1379 tests, 0 failed,
 0 skipped; `cargo test` and the web dev tests pass.
+
+#### Spec #88 hit-window pressure regression smoke (2026-10-17)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, no PATCH or tuning. "Before" is `main` at `bb6eee9`; "after" is `7d1d2c9` (Spec #88, the shrinking hit
+window). The owner decided on 2026-10-17 to ship #88 as specced despite this smoke; the Henesys pacing regression is
+recorded here for the dedicated balance pass to tune, not fixed by this ticket. All 12 runs finish with no crashes,
+script errors or world warnings, and every record has `missing: []` and `warnings: []`.
+
+Henesys clears fall from 2/6 to 0/6 (bot and random seed 1 cleared before). All six Henesys runs now die between 5:12
+and 9:24; three of them die while the first boss, Mano (spawned at 5:00), is still alive. Every recorded boss hit is a
+body touch, so the shrinking contact window drives these deaths, not the boss-attack bypass. The bypass is not measured
+by this smoke at all: Mano only touches (baseline too), and the first Henesys boss with a skill attack, Mushmom 6130101
+at 10:00, is never reached (baseline: 9 Henesys `attack` hits from 6130101 / 9400205). Magician is reached at the
+same times as before in all six Henesys runs. Tree stays 0/6 clears and record-only: five of six runs die before 2:30
+(baseline two).
+
+| Stage, policy, seed | Outcome, end | Magician reach | Hits before 6:00 | Hits after 8:00 | Boss hits |
+|---|---|---|---|---|---|
+| Henesys, bot, 1 | C 15:29 -> D 8:31 | 4:41 -> 4:41 | 2 -> 2 | 202 -> 0 | 10 -> 2 |
+| Henesys, bot, 2 | D 23:44 -> D 5:40 | 4:31 -> 4:31 | 31 -> 1 | 449 -> 0 | 37 -> 10 |
+| Henesys, bot, 2026 | D 21:08 -> D 9:24 | 4:25 -> 4:25 | 4 -> 4 | 387 -> 141 | 20 -> 1 |
+| Henesys, random, 1 | C 16:28 -> D 8:31 | 4:34 -> 4:34 | 0 -> 0 | 243 -> 0 | 8 -> 0 |
+| Henesys, random, 2 | D 7:42 -> D 5:12 | 4:28 -> 4:28 | 31 -> 1 | 0 -> 0 | 9 -> 18 |
+| Henesys, random, 2026 | D 10:59 -> D 5:36 | 4:20 -> 4:20 | 16 -> 3 | 58 -> 0 | 5 -> 4 |
+| Tree, bot, 1 | D 11:18 -> D 2:24 | 3:39 -> never | 28 -> 23 | 74 -> 0 | 11 -> 0 |
+| Tree, bot, 2 | D 2:36 -> D 1:17 | never -> never | 21 -> 17 | 0 -> 0 | 0 -> 0 |
+| Tree, bot, 2026 | D 2:08 -> D 0:47 | never -> never | 27 -> 0 | 0 -> 0 | 0 -> 0 |
+| Tree, random, 1 | D 20:23 -> D 9:05 | 3:34 -> 3:27 | 18 -> 28 | 273 -> 125 | 28 -> 1 |
+| Tree, random, 2 | D 2:38 -> D 1:17 | never -> never | 21 -> 17 | 0 -> 0 | 0 -> 0 |
+| Tree, random, 2026 | D 1:28 -> D 0:47 | never -> never | 10 -> 0 | 0 -> 0 | 0 -> 0 |
+
+Cells are before -> after. "C" is CLEARED, "D" is DEAD, and "never" means no job change to Magician before the run
+ended. Magician reach is the record's `job_t`; the hit columns come from `hits_by_min`, which omits the partial last
+minute of each run (a death at 5:40 counts minutes 0-4 only). Tree rows are record only.
 
 #### Web audio fix regression smoke (2026-10-17)
 
@@ -2689,7 +2724,8 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
   roll for synthetic data. A miss emits `player_hit` with `miss=true`, zero damage and zero
   MP absorption, draws the original violet MISS, and causes no knockback, invincibility or hurt expression.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
-  1.5 s invincibility with blinking (tier C).
+  invincibility with blinking for the current hit window, 1.5 s for a lone hit and shrinking to 0.4 s in a swarm
+  (#88, tier C; section 11).
 - **Active Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
   maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
@@ -3444,7 +3480,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Background scroll | rx × 5 px/s | B | 3 reimplementations agree |
 | Damage number timing | 400 ms hold + 600 ms fade, 30 px rise | B | v95 RE (Harepacker docs) |
 | Player knockback | 187.5 px/s, 0.3 s lock | C | HeavenClient |
-| Invincibility after hit | 1.5 s | C | ours |
+| Hit window lengths (#88) | `balance.hit_window.lengths` 1.5 / 1.0 / 0.6 / 0.4 s: the grace after the 1st, 2nd, 3rd, 4th+ chained landed hit from contact damage or an ordinary mob attack (a lone mob always gives the full 1.5 s) | C | ours; replaces the old fixed `invincible_time` 1.5 |
+| Hit window chain gap (#88) | `balance.hit_window.chain_gap` 2.5 s: a landed hit this soon after the previous landed hit steps to the next shorter window; between 2.5 s and the reset the step holds | C | ours |
+| Hit window reset (#88) | `balance.hit_window.reset_after` 3.0 s without a landed hit restores the full window (and starts the chain over) | C | ours |
+| Boss skill attacks ignore the hit window (#88) | A boss skill attack (`source_kind` `attack`, `projectile` from a scheduled boss) lands during the window, hits at most once per attack instance (a ball is used up only when it hits), starts the full `lengths[0]` window without advancing the chain and counts as a landed hit for the reset. Boss body touch and every ordinary mob attack respect the window; an ordinary ball that the window turns away flies on, with no hit and no hit art, and can land once the window ends (also from inside the body box). Misses give no window and do not touch the chain; god and death still block everything | C | ours |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
 | Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
