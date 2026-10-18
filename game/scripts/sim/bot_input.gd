@@ -172,7 +172,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 		var side := 1 if s.x[engage_target] > p.x else -1
 		if engage_gap > float(profile.y) * float(engage.reach_fraction):
 			dir = side
-		elif engage_gap > ENGAGE_DEADZONE and w.player.facing != side:
+		elif engage_gap > float(engage.deadzone) and w.player.facing != side:
 			dir = side
 	elif minf(nearest[0], nearest[1]) < FLEE_DIST:
 		dueling = close == 1 and duel >= 0 and _can_duel(w, duel)
@@ -262,7 +262,7 @@ static func decide(w: RunWorld, memo: Dictionary) -> MoveInput:
 ## The engage-mode constants: balance.json bot.engage over the tier C defaults above.
 static func _engage_config(w: RunWorld) -> Dictionary:
 	var cfg := {"kite_reach": ENGAGE_KITE_REACH, "reach_fraction": ENGAGE_REACH_FRACTION,
-		"chase_range": ENGAGE_CHASE_RANGE, "retreat_hp": ENGAGE_RETREAT_HP}
+		"chase_range": ENGAGE_CHASE_RANGE, "retreat_hp": ENGAGE_RETREAT_HP, "deadzone": ENGAGE_DEADZONE}
 	cfg.merge(w.balance.get("bot", {}).get("engage", {}), true)
 	return cfg
 
