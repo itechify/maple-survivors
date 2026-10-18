@@ -573,6 +573,35 @@ func can_start_buff(skill: String, stats: Dictionary) -> bool:
 	return not buffs.has(skill) and (threshold <= 0 or _hp < float(_max_hp) * threshold)
 
 
+## The whole HP paid by one HP-to-MP conversion of resolved stats `st`: its `pay` share of MaxHP rounded to whole points,
+## at least 1 (tier C: the rounding; the shares are canonical, docs/GAME_DESIGN.md 7.11).
+func conversion_hp(st: Dictionary) -> int:
+	return maxi(1, roundi(float(_max_hp) * float(st.conversion.get("pay", 0.0))))
+
+
+## Whether a `self` cast (SkillRunner) of resolved stats `st` is admitted now: the cast block's survivor conditions hold
+## (`mp_below`: MP under that fraction of MaxMP; `hp_at_least`: HP at least that fraction of MaxHP, both before paying;
+## an absent or zero key is not checked) and a conversion's HP payment would leave the character alive.
+func self_cast_ready(st: Dictionary) -> bool:
+	var params: Dictionary = st.cast_params
+	var mp_below := float(params.get("mp_below", 0.0))
+	if mp_below > 0.0 and not _mp < float(_max_mp) * mp_below:
+		return false
+	var hp_at_least := float(params.get("hp_at_least", 0.0))
+	if hp_at_least > 0.0 and _hp < float(_max_hp) * hp_at_least - 1e-6:
+		return false
+	return (st.conversion as Dictionary).is_empty() or can_pay_hp(conversion_hp(st))
+
+
+## Pays a conversion's HP and returns the MP it gives (`gain` of the HP paid, whole points down), as player_restored
+## reports it; the MP is clamped to MaxMP. Returns 0 and changes nothing when the payment would leave 0 HP.
+func convert_hp_to_mp(key: String, st: Dictionary) -> int:
+	var paid := conversion_hp(st)
+	if not spend_hp(paid):
+		return 0
+	return restore_player("mp", floori(float(paid) * float(st.conversion.get("gain", 0.0)) + 1e-6), key)
+
+
 ## Starts a resolved timed buff; SkillRunner pays MP and applies the shared casting gate before this call.
 func start_buff(skill: String, stats: Dictionary) -> void:
 	buffs.start(skill, stats)

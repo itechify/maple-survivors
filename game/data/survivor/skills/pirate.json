@@ -45,6 +45,19 @@
 			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
 			"action": "", "action_time": 0, "ball": "", "hit": "", "effect": "", "rotate": false,
 			"sounds": {"use": "", "hit": ""}
+		},
+		"mp_recovery": {
+			"skill_id": 5101005, "book": "510", "job": 510, "kind": "instant", "slot": "active",
+			"name": "MP Recovery", "desc": "Turns some of your HP into MP when your MP runs low and your HP is high.",
+			"text": {"desc": "Turns part of your Max HP into MP when your MP runs low and your HP is high.", "h": "Pays {x}% of Max HP, recovers {y}% of it as MP; {cooldown} sec. between uses"},
+			"icon": "Skill.wz/510.img/skill/5101005/icon", "damage": "none", "weapon_families": ["any"],
+			"_tier": "Tier A: pay share x (10% of MaxHP), MP share y (55-100% of the HP paid), cooltime (70-25 s), recovery action and effect art, no weapon requirement. Tier C (owner, #168 grilling): it auto-casts only while MP is below 30% of MaxMP and HP is at least 75% of MaxHP before paying, needs no monster, rounds the HP paid to whole points (the MP gained down), and never leaves 0 HP; action hold 0.6s; untuned.",
+			"cast": {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75},
+			"convert": {"pay_field": "x", "gain_field": "y"}, "cooldown_field": "cooltime",
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+			"action": "recovery", "action_time": 0.6, "ball": "", "hit": "",
+			"effect": "Skill.wz/510.img/skill/5101005/effect", "rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/5101005/Use", "hit": ""}
 		}
 	}
 }

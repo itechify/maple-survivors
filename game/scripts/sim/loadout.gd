@@ -316,8 +316,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
-		"cooldown": maxf(0.05, skill_stat(key, "cooldown", float(heal.get("recast_delay", d.get("cooldown", 1.0))))
-			* speed_factor),
+		"cooldown": maxf(0.05, skill_stat(key, "cooldown", _base_cooldown(key, d, heal, lv)) * speed_factor),
 		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)))),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
@@ -340,7 +339,28 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 		"displacement": _displacement(key, d, r, lv),
+		"conversion": _conversion(key, d, lv),
 	}
+
+
+## The seconds between casts before cards and attack speed: the definition's `cooldown_field` (a canonical level number,
+## MP Recovery's `cooltime`) when it names one, else the Heal `recast_delay`, else the survivor `cooldown`, else 1.
+func _base_cooldown(key: String, d: Dictionary, heal: Dictionary, lv: int) -> float:
+	var fallback := float(heal.get("recast_delay", d.get("cooldown", 1.0)))
+	if d.has("cooldown_field"):
+		return book.canonical(key, lv, String(d.cooldown_field), fallback)
+	return fallback
+
+
+## The resolved HP-to-MP conversion of `key` ({} for a skill that has none): {pay, gain} as fractions, `pay` the share of
+## MaxHP paid and `gain` the share of the HP paid that comes back as MP. The definition's `convert` block names the
+## canonical level fields (percent numbers) as `pay_field` and `gain_field` (docs/GAME_DESIGN.md 7.11).
+func _conversion(key: String, d: Dictionary, lv: int) -> Dictionary:
+	var block: Variant = d.get("convert", {})
+	if not (block is Dictionary) or (block as Dictionary).is_empty():
+		return {}
+	return {"pay": maxf(0.0, book.canonical(key, lv, String(block.get("pay_field", "x"))) / 100.0),
+		"gain": maxf(0.0, book.canonical(key, lv, String(block.get("gain_field", "y"))) / 100.0)}
 
 
 ## The resolved moving-attack block of `key` ({} for a skill that does not move): {direction "away" | "toward", when

@@ -44,6 +44,14 @@
 		{"id": "bullet_time_rank", "power": false, "kind": "skill_rank", "skill": "bullet_time", "name": "Bullet Time",
 			"desc": "Bullet Time +{magnitude} skill level.",
 			"icon": "Skill.wz/500.img/skill/5000000/icon", "max_rank": 20, "weight": 2,
-			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]}
+			"requires": {"jobs":[500,510,520]}, "effects": [{"stat":"rank","op":"add","value":1}]},
+		{"id": "mp_recovery_new", "power": false, "kind": "skill_new", "skill": "mp_recovery", "name": "MP Recovery",
+			"desc": "Learn MP Recovery: Turns some of your HP into MP when your MP runs low and your HP is high.",
+			"icon": "Skill.wz/510.img/skill/5101005/icon", "max_rank": 1, "weight": 2,
+			"requires": {"jobs":[510]}, "effects": []},
+		{"id": "mp_recovery_rank", "power": false, "kind": "skill_rank", "skill": "mp_recovery", "name": "MP Recovery",
+			"desc": "MP Recovery +{magnitude} skill level.",
+			"icon": "Skill.wz/510.img/skill/5101005/icon", "max_rank": 10, "weight": 2,
+			"requires": {"jobs":[510]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }

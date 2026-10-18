@@ -675,6 +675,10 @@ What the tables above leave open; the class doc comments have the rest.
   (the first basic-attack stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
   `hpCon`) is paid with the MP: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
   `RunWorld.spend_hp` pays it.
+- **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
+  `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
+  cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
+  `player_restored`. `cooldown_field` reads a skill's cooldown from a canonical level field. GAME_DESIGN 7.11.
 - **Weapon paths and grants (#157).** `RunWorld.apply_job(id, path)` / `change_job(id, path)` record `weapon_path`
   (snapshot key, written only when set) and `_grant_job_weapon` wears the weapon the path, the Magician's
   `balance.player.weapon_grants` (the Warrior's sword 1302077 too) or a second job's `JobTree.branch_grant` names (the weapon of the held family, else the first family's; the branch's other advancement weapons are handed over like `grants.items`, #165 #180); the previous weapon goes to the Equip
