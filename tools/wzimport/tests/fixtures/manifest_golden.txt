@@ -761,7 +761,6 @@ img Sound.wz/Skill.img 5201001
 img Sound.wz/Skill.img 5201002
 img Sound.wz/Skill.img 5201003
 img Sound.wz/Skill.img 5201004
-img Sound.wz/Skill.img 5201005
 img Sound.wz/Skill.img 5201006
 img Sound.wz/UI.img *
 img Sound.wz/Weapon.img *
