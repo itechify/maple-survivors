@@ -72,6 +72,15 @@
 			"_tier": "Tier C: skill-only swing envelope x1.2 on both axes per step (area), max 2 steps, weight 2; existing area-card magnitude, untuned parity (#208).",
 			"desc": "Double Stab reach +{value}% on both axes.", "value": 20,
 			"icon": "Skill.wz/400.img/skill/4001334/icon", "max_rank": 2, "weight": 2,
-			"requires": {"jobs":[400],"carry_jobs":[410,420]}, "effects": [{"stat":"area","op":"mul","value":1.2}]}
+			"requires": {"jobs":[400],"carry_jobs":[410,420]}, "effects": [{"stat":"area","op":"mul","value":1.2}]},
+		{"id": "dark_sight_new", "power": false, "kind": "skill_new", "skill": "dark_sight", "name": "Dark Sight",
+			"_tier": "Tier C: learn weight 3, rank weight 2; job 400 only, no carried support cards.",
+			"desc": "Learn Dark Sight: become Hidden below 30% HP with a monster nearby.",
+			"icon": "Skill.wz/400.img/skill/4001003/icon", "max_rank": 1, "weight": 3,
+			"requires": {"jobs":[400]}, "effects": []},
+		{"id": "dark_sight_rank", "power": false, "kind": "skill_rank", "skill": "dark_sight", "name": "Dark Sight",
+			"desc": "Dark Sight +{magnitude} skill level.",
+			"icon": "Skill.wz/400.img/skill/4001003/icon", "max_rank": 20, "weight": 2,
+			"requires": {"jobs":[400]}, "effects": [{"stat":"rank","op":"add","value":1}]}
 	]
 }

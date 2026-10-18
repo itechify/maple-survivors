@@ -107,6 +107,8 @@ const HIT_FACE_TIME := 1.0
 ## tier C (ours): invincibility blink, alpha of the dim phase and the period (s) of one bright + dim cycle.
 const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
+## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
+const HIDDEN_ALPHA := 0.5
 ## tier C (ours): map/street name notice at run start: seconds shown (the last FADE of them fading).
 const TITLE_TIME := 3.5
 const TITLE_FADE := 1.0
@@ -144,7 +146,7 @@ var world_root: Node2D
 var map: MapRenderer
 var cam: CameraRig
 var avatar: AvatarRenderer
-## Holds the avatar (positioned at the player's feet); its self_modulate blinks while invincible.
+## Holds the avatar at the player's feet; self_modulate fades Hidden avatars and blinks while invincible.
 var player_group: CanvasGroup
 ## The character name tag (NameTags style, like the elite tags).
 var player_tag: NameTags
@@ -1636,11 +1638,14 @@ func _update_player(delta: float) -> void:
 		# An attack stance plays at the attack speed (a Booster shortens its frame times); movement stances do not.
 		avatar.advance(delta / maxf(float(world.player_state.action_scale), 0.1) if action != motion else delta)
 	var inv := float(world.player_state.invincible_t)
+	var hidden_alpha := HIDDEN_ALPHA if not dead and bool(world.player_state.get("hidden", false)) \
+		and int(world.player_state.get("morph", 0)) == 0 else 1.0
 	if inv > 0.0 and not dead:
 		_blink_t += delta
-		player_group.self_modulate.a = BLINK_ALPHA if fposmod(_blink_t, BLINK_PERIOD) >= BLINK_PERIOD * 0.5 else 1.0
+		player_group.self_modulate.a = minf(hidden_alpha, BLINK_ALPHA) \
+			if fposmod(_blink_t, BLINK_PERIOD) >= BLINK_PERIOD * 0.5 else hidden_alpha
 	else:
-		player_group.self_modulate.a = 1.0
+		player_group.self_modulate.a = hidden_alpha
 	# The character name tag under the feet (hidden once dead, like the elite tags of dying mobs).
 	_tag_source.x[0] = p.pos.x
 	_tag_source.y[0] = p.pos.y

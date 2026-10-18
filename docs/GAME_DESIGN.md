@@ -4035,6 +4035,29 @@ The export's existing `data/survivor/*/*.json` include filter covers these files
 Adding the two Thief window entries intentionally changes unforced bot records. The inherited event/pacing tests freeze
 their old job pool; existing combat and player-state goldens are retained. Full smoke belongs to #215; no balance tuning.
 
+### 7.22 Dark Sight (#211, spec #167)
+
+`dark_sight` (4001003, book 400, ranks 1–20, any weapon) reuses the Hidden state in 7.18. It auto-casts below
+30% MaxHP with a living mob within 250 px (the same reach as Oak Barrel), when affordable and ready. It never fails
+and draws no failure RNG. Hidden blocks contact, mob and boss attacks and the character's attacks; movement, buffs,
+potions and pickups still work. It ends after the canonical duration or early above 60% MaxHP. The fixed 30-second
+cooldown starts at the cast; an active buff blocks recasting even after that cooldown finishes (tier C owner rules).
+
+Canonical Skill.wz/400.img values are MP 24→5, duration 10→200 seconds and speed −30→0. The speed table steps by two
+through rank 12 (−8), then by one through rank 20; no interpolation is used in play. The speed penalty is a normal
+buff contribution and disappears with Hidden. `buff.cooldown` optionally supplies a literal survivor cooldown;
+without it buffs retain their canonical `cooldown_field` (or `time`). This adds no state or snapshot fields.
+
+The renderer uses the existing avatar CanvasGroup at 50% opacity while Hidden without a morph; its invincibility
+blink can dim it further. Morph artwork keeps its own appearance. The canonical cast action `darksight`, effect and
+Use sound are retained; the action hold is 0.6 seconds (tier C). Learn/rank cards require job 400 only, with no carry,
+weights 3/2 and a 20-rank cap; neither is a power card (tier C weights, tier A cap).
+
+Seeded tests in `test_dark_sight.gd` cover conditions, costs, canonical speed, duration, early recovery, cooldown,
+ordinary/boss attacks, contact, attack suppression and card gates. Cache tests compare all 20 levels and cast art;
+`test_dark_sight_render.gd` checks transparency/recovery. `scenes/debug/dark_sight_driver.tscn` captures a real Thief
+among Henesys mobs before/while Hidden and after recovery, without save writes. No balance tuning; #215 owns smoke.
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4488,6 +4511,9 @@ Thief tracer (#207) additions:
 | Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
 | Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
 | Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
+| Dark Sight values (#211) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
+| Dark Sight escape (#211) | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
+| Dark Sight cards and appearance (#211) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |

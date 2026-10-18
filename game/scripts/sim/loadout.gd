@@ -339,7 +339,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 		"buff_effects": _buff_effects(key, lv, buff),
-		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
+		# A literal survivor cooldown (Dark Sight) overrides the canonical cooldown field; other buffs keep their WZ value.
+		"buff_cooldown": float(buff.cooldown) if buff.has("cooldown") \
+			else book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 		"hidden": bool(buff.get("hidden", false)),
