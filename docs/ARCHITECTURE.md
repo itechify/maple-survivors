@@ -488,6 +488,13 @@ Slow/Poison/Threaten/Stun art and status tints; frozen state/animation clocks do
 falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
 and fall straight down when airborne; a refresh keeps the longer remaining duration.
 
+Disorder (#210) reuses Threatened with additive crowd parameters: `cast.box` (WZ-shaped lt/rb) and `cast.mob_count`
+are Loadout fallbacks only when their canonical fields are absent. After a successful application, `cast.interrupt`
+calls `MobAttacks.interrupt(world, slot)` to remove a pre-impact pending attack and reset its MobActions stance,
+preserving the existing per-slot wait. No status or player-state fields are added. A crowd skill's optional `hit`
+art emits `skill_mob_effect {skill, mob, pos, effect}`; RunScene plays it once without damage numbers or mob hit sounds.
+Threaten has no interrupt flag or hit art, so its events and behavior are unchanged. GAME_DESIGN 7.22.
+
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
 for absent elements. `undead` exposes the canonical flag. `Loadout.stats().element` comes from Skill.wz `elemAttr`;
 shots retain it in a packed string array. Instant and projectile hits share `ProjectileSystem.roll_damage`'s final

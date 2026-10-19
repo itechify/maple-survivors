@@ -103,6 +103,17 @@ func wait_left(slot: int) -> float:
 	return _wait[slot] if slot < _wait.size() else NAN
 
 
+## Cancels an ordinary mob's pending attack before impact, releasing its stance but preserving its next-attack wait.
+## An attack already at impact (including a launched ball) is never undone.
+func interrupt(world: RunWorld, slot: int) -> void:
+	var pending: Dictionary = _pending.get(slot, {})
+	if pending.is_empty() or bool(pending.impact_done) or not world.swarm.is_live(slot) \
+			or world.swarm.identity[slot] != int(pending.identity):
+		return
+	_pending.erase(slot)
+	world.mob_actions.reset_slot(slot)
+
+
 ## Advances pending windups, then starts the next attack of every ordinary mob that is ready, grounded, fully
 ## visible, on screen, not busy and has the character in an attack's canonical range.
 func step(world: RunWorld, dt: float) -> void:
