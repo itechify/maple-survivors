@@ -360,9 +360,10 @@ static func _keeps_mp_reserve(w: RunWorld, manual_key: String) -> bool:
 
 
 ## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical
-## restore, so most of it lands below the pool cap.
+## restore, so most of it lands below the pool cap. The restore counts only up to the max HP/MP pool (#229: the
+## 1000-2000 point steps restore more than a small pool holds, and would otherwise never be worth drinking).
 static func worth_drinking(w: RunWorld, kind: String, missing: float, guard: float) -> bool:
-	var amount := w.potions.restore_amount(kind)
+	var amount := mini(w.potions.restore_amount(kind), int(w.player_state.get("max_" + kind, 0)))
 	return amount > 0 and int(w.potions.stock[kind].count) > 0 and missing >= guard * amount
 
 

@@ -50,7 +50,6 @@ const SPLIT := {
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
-const POTION_IMG := "Item.wz/Consume/0200.img"
 const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
@@ -326,7 +325,7 @@ static func _jobs(data: Dictionary) -> JobTree:
 
 
 ## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
-## (PotionSchedule). These are the Item.wz/Consume/0200.img entries a setup loads.
+## (PotionSchedule). These are the Item.wz/Consume entries (`potion_img_path`) a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
@@ -336,6 +335,12 @@ static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 		_add_id(ids, int(item))
 	ids.sort()
 	return ids
+
+
+## "Item.wz/Consume/0202.img" for a Consume item id (the img holds the ids of its 10000 block: 2022003 -> 0202).
+@warning_ignore("integer_division")
+static func potion_img_path(item_id: int) -> String:
+	return "Item.wz/Consume/%04d.img" % (item_id / 10000)
 
 
 static func _add_id(ids: PackedInt32Array, id: int) -> void:
@@ -468,13 +473,17 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 			missing.append(path)
 		afterimages[name] = image
 	var item_info := {}
-	var potion_img: Variant = img_loader.call(POTION_IMG)
+	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
 	for id in potion_item_ids(data):
 		var key := "%08d" % id
+		var img_path := potion_img_path(id)
+		if not potion_imgs.has(img_path):
+			potion_imgs[img_path] = img_loader.call(img_path)
+		var potion_img: Variant = potion_imgs[img_path]
 		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
 			item_info[id] = potion_img[key]
 		else:
-			missing.append(POTION_IMG + "/" + key)
+			missing.append(img_path + "/" + key)
 	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,

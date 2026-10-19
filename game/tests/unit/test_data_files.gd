@@ -250,10 +250,11 @@ func test_build_setup_and_paths() -> void:
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
-		if p == "Item.wz/Consume/0200.img":
+		if p == "Item.wz/Consume/0200.img" or p == "Item.wz/Consume/0202.img":
 			var items := {}
-			for id in range(2000000, 2000007):
-				items["%08d" % id] = {"spec": {"hp": 50.0}}
+			for id in DataRepo.potion_item_ids(data):
+				if DataRepo.potion_img_path(id) == p:
+					items["%08d" % id] = {"spec": {"hp": 50.0}}
 			return items
 		if p == DataRepo.SCROLL_IMG:
 			var scrolls := {}
@@ -316,23 +317,39 @@ func test_monster_damage_has_no_hidden_balance_scales() -> void:
 
 
 func test_setup_carries_canonical_potion_specs() -> void:
+	var asked: Array = []
 	var loader := func(path: String) -> Dictionary:
-		if path == "Item.wz/Consume/0200.img":
+		asked.append(path)
+		if path == "Item.wz/Consume/0200.img" or path == "Item.wz/Consume/0202.img":
+			# Every potion entry of the img, its spec marked with its own id so the routing is visible.
 			var items := {}
-			for id in range(2000000, 2000007):
-				items["%08d" % id] = {"spec": {"hp": 50.0}, "info": {"price": 25.0}}
+			for id in DataRepo.potion_item_ids(data):
+				if DataRepo.potion_img_path(id) == path:
+					items["%08d" % id] = {"spec": {"hp": float(id), "mp": float(id)}, "info": {"price": 25.0}}
 			return items
 		return {"info": {}}
 	var setup := DataRepo.build_setup(data, "henesys_hg1", 10, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
-	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
+	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 2000000.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
-		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006,
+		2001001, 2001002, 2022000, 2022003]),
+		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir, Ice Cream Pop, Red Bean Sundae, Pure Water, Unagi")
 	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every scheduled potion is retained")
+	assert_eq(setup.item_info[2022003].spec.hp, 2022003.0, "Unagi comes from Consume/0202.img")
+	assert_eq(setup.item_info[2001002].spec.mp, 2001002.0, "Red Bean Sundae comes from Consume/0200.img")
+	assert_eq(asked.count("Item.wz/Consume/0202.img"), 1, "each potion img is read once")
+	assert_eq(asked.count("Item.wz/Consume/0200.img"), 1)
+	assert_eq(DataRepo.potion_img_path(2022000), "Item.wz/Consume/0202.img")
+	assert_eq(DataRepo.potion_img_path(2000006), "Item.wz/Consume/0200.img")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
+	var sounds := []
+	for entry: Dictionary in manifest.imgs:
+		if String(entry.img) == "Sound.wz/Item.img":
+			sounds.append_array(entry.get("paths", []))
 	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
+		assert_true(("%08d/Use" % id) in sounds, "potion %d has its Use sound in the manifest" % id)
 
 
 func test_boss_summon_and_revive_ids_come_from_canonical_data_not_stages_json() -> void:

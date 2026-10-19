@@ -1059,6 +1059,10 @@ img Sound.wz/Item.img 02000003/Use
 img Sound.wz/Item.img 02000004/Use
 img Sound.wz/Item.img 02000005/Use
 img Sound.wz/Item.img 02000006/Use
+img Sound.wz/Item.img 02001001/Use
+img Sound.wz/Item.img 02001002/Use
+img Sound.wz/Item.img 02022000/Use
+img Sound.wz/Item.img 02022003/Use
 img Sound.wz/Skill.img 0001000
 img Sound.wz/Skill.img 0001001
 img Sound.wz/Skill.img 0001002
@@ -1174,6 +1178,10 @@ item 2000003
 item 2000004
 item 2000005
 item 2000006
+item 2001001
+item 2001002
+item 2022000
+item 2022003
 item 2060000
 item 2060001
 item 2060002
