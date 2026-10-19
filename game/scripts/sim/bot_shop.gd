@@ -58,22 +58,22 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
 ## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
-## it put on. A character with a weapon path upgrades only its recorded family (or a shared drop family), including
-## when the weapon was swapped or destroyed. No RNG.
+## it put on. A character with a weapon path upgrades only its recorded family (or a shared drop family) while its
+## job line can use that family, including when the weapon was swapped or destroyed; otherwise it keeps the held
+## weapon's family. No RNG.
 static func auto_equip(w: RunWorld) -> int:
 	var weights := weights_for(w.balance, w.progression.job_id, w.jobs)
 	var worn_count := 0
 	for _pass in EQUIP_GUARD:
+		var loyal := _loyal_family(w)
 		var candidates: Array = []
 		for index in w.equipment.inventory.size():
 			var instance: Dictionary = w.equipment.inventory[index]
 			var slot := Equipment.slot_of(int(instance.id))
 			if slot == "":
 				continue
-			# tier C (#226): bot weapon loyalty follows the recorded advancement path.
-			if slot == "weapon" and w.weapon_path != "" \
-					and not EquipmentDrops.family_allows(int(instance.id), w.weapon_path,
-					w.data.get("equipment_drops", {})):
+			if slot == "weapon" and loyal != "" \
+					and not EquipmentDrops.family_allows(int(instance.id), loyal, w.data.get("equipment_drops", {})):
 				continue
 			var gain := item_score(instance, weights) - _displaced_score(w.equipment.worn, int(instance.id), weights)
 			if gain > 1e-9:
@@ -88,6 +88,16 @@ static func auto_equip(w: RunWorld) -> int:
 		if not improved:
 			break
 	return worn_count
+
+
+## The weapon family the bot stays loyal to ("" = none). tier C (#226): the recorded advancement path while the current
+## job's line can use it; else the held weapon's family (the earlier rule), which a bare-handed bot does not filter by.
+static func _loyal_family(w: RunWorld) -> String:
+	if w.weapon_path == "":
+		return ""
+	if JobTree.has_path(w.jobs.line_paths(w.progression.job_id), w.weapon_path):
+		return w.weapon_path
+	return w.held_weapon_family()
 
 
 ## Score of what wearing item `id` takes off (Equipment.displaced_slots: a top or bottom displaces an overall, an overall

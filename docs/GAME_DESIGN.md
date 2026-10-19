@@ -4926,7 +4926,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - An **unforced bot** (no `--job`) picks a seeded random available job on stream 8, then draws a family on the same
   stream at every multi-family advancement. Adding Bowman, Thief and Pirate and the #226 path draws intentionally
   change seeded records without changing any stream's initialization. `--job=100:spear`, `--job=120:blunt`,
-  `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it.
+  `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it. A forced single-family
+  branch without a path (`--job=410`, `320`, `510`...) takes the first-job path of its own family (no draw), as before #232;
+  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -4952,7 +4954,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   | Spearman 130 | spear: Forked Spear 1432002 | polearm: Mithril Pole Arm 1442001 |
 
   The data shape is `jobs.json` `paths`, one candidate item per family in default page order;
-  `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
+  `JobTree.paths_of(job)` returns them in that order (`[]` when the row has none), and the
   `DataRepo.starter_equipment_ids` preload reads `paths[].item_id`. The Pirate branches use the same shape with one entry
   each (#189), as do Hunter `[1452005]` (#202), Crossbowman `[1462000]` (#203), Assassin `[1472008]` and Bandit `[1332012]` (#212).
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
@@ -5002,9 +5004,10 @@ migration too, without a format bump. Existing Equip-tab weapons are retained, a
 **Tools:** `JobTree.parse_forced` returns `{job, path}`. A forced multi-path job validates against its own paths
 (`100:spear`, `110:axe`, `120:blunt`); a single-family branch validates against its first job's paths
 (`410:claw`, `410:dagger`). Unknown paths fail at startup. The bot draws uniformly on job stream 8 at every multi-family advancement,
-using a forced path only when that advancement offers it. `110:axe` therefore draws a Warrior family at Lv10 and
+using a forced path only when that advancement offers it; a forced single-family branch without a path takes its own
+family's first-job path instead of drawing (tier C, the pre-#232 behaviour). `110:axe` therefore draws a Warrior family at Lv10 and
 forces Axe at Lv30; it does not infer an earlier family from the branch. Zero/one-path jobs consume no path draw.
-BotShop weapon upgrades follow the recorded path, including after a manual swap or weapon destruction. Seeded records intentionally change: fewer grants, one entry per job, recorded
+BotShop weapon upgrades follow the recorded path while the current job's line can use that family (`JobTree.line_paths`), including after a manual swap or weapon destruction; otherwise the held weapon's family (an unforced Bandit with `weapon_path` claw keeps upgrading daggers). Seeded records intentionally change: fewer grants, one entry per job, recorded
 Warrior/Bowman paths, and the new bot draws. #230 re-captures the fixed-seed synthetic event digest
 (`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Historical character fixtures are retained under snapshot migration; their per-file rationale is in
 `game/tests/fixtures/characters/README.md`.

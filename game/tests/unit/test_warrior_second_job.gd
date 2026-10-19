@@ -194,9 +194,7 @@ func test_the_shipped_rows_pair_each_family_with_its_advancement_weapon() -> voi
 		assert_true(bool(row.playable), "%d is playable" % id)
 		assert_eq(int(row.level), 30, "canonical Lv 30")
 		assert_eq(int(row.grants.max_hp), 325)
-		var weapons: Array = jobs.branch_grant(id).get("weapons", [])
-		assert_eq(weapons.map(func(x: Dictionary) -> Array: return [x.family, x.item_id]), want[id], "branch %d" % id)
-		assert_eq(jobs.weapon_families(id), want[id].map(func(x: Array) -> String: return x[0]))
+		assert_eq(jobs.paths_of(id).map(func(x: Dictionary) -> Array: return [x.family, x.item_id]), want[id], "branch %d" % id)
 
 
 func test_every_advancement_weapon_is_in_the_starter_equipment_preload() -> void:
@@ -210,22 +208,25 @@ func test_every_advancement_weapon_is_in_the_starter_equipment_preload() -> void
 	assert_true(1452999 in DataRepo.starter_equipment_ids(data), "the collector reads paths")
 
 
-func test_branch_grant_reads_one_weapon_per_family_and_nothing_without_items() -> void:
+func test_path_helpers_find_ids_defaults_and_the_deepest_line_paths() -> void:
 	var survivor := {"jobs": {
-		"110": {"paths": [{"id": "sword", "family": "sword", "item_id": GLADIUS}, {"id": "axe", "family": "axe", "item_id": FIREMANS_AXE}]},
-		"310": {"paths": [{"id": "bow", "family": "bow", "item_id": 1452000}]},
-		"410": {},
-		"420": {"paths": [{"id": "dagger", "family": "dagger", "item_id": 0}]},
-		"430": {"paths": [{"id": "dagger", "family": "dagger", "item_id": 1332000}, {"id": "claw", "family": "claw"}]}}}
-	var jobs := JobTree.from_data({"jobs": []}, survivor)
-	assert_eq(jobs.branch_grant(110), {"weapons": [{"family": "sword", "item_id": GLADIUS},
-		{"family": "axe", "item_id": FIREMANS_AXE}]})
-	assert_eq(jobs.branch_grant(310), {"weapons": [{"family": "bow", "item_id": 1452000}]}, "one family: one entry")
-	assert_eq(jobs.branch_grant(410), {}, "no items: nothing is granted")
-	assert_eq(jobs.branch_grant(420), {}, "an item id of 0 is no grant")
-	assert_eq(jobs.branch_grant(430), {"weapons": [{"family": "dagger", "item_id": 1332000}]},
-		"a family without an item is skipped")
-	assert_eq(jobs.branch_grant(999), {})
+		"100": {"paths": [{"id": "sword", "family": "sword", "item_id": 1}, {"id": "spear", "family": "spear", "item_id": 2}]},
+		"110": {"paths": [{"id": "sword", "family": "sword", "item_id": 3}, {"id": "axe", "family": "axe", "item_id": 4}]},
+		"120": {}, "310": {"paths": [{"id": "bow", "family": "bow", "item_id": 5}]},
+		"430": {"paths": [{"id": "dagger", "family": "dagger"}, {"family": "no id"}]}}}
+	var canonical := {"jobs": [{"id": 100, "parent": 0, "tier": 1}, {"id": 110, "parent": 100, "tier": 2},
+		{"id": 120, "parent": 100, "tier": 2}, {"id": 300, "parent": 0, "tier": 1}, {"id": 310, "parent": 300, "tier": 2}]}
+	var jobs := JobTree.from_data(canonical, survivor)
+	assert_true(JobTree.has_path(jobs.paths_of(110), "axe"))
+	assert_false(JobTree.has_path(jobs.paths_of(110), "spear"))
+	assert_false(JobTree.has_path([], ""), "an empty id is never a path")
+	assert_eq(JobTree.default_path(jobs.paths_of(110)), "sword")
+	assert_eq(JobTree.default_path([]), "")
+	assert_eq(jobs.paths_of(430).size(), 1, "a path row without an id is dropped")
+	assert_eq(jobs.line_paths(110).map(func(p: Dictionary) -> String: return p.id), ["sword", "axe"], "its own row")
+	assert_eq(jobs.line_paths(120).map(func(p: Dictionary) -> String: return p.id), ["sword", "spear"], "the first job when the row has none")
+	assert_eq(jobs.line_paths(310).map(func(p: Dictionary) -> String: return p.id), ["bow"])
+	assert_eq(jobs.line_paths(999), [])
 
 
 # --- the first-job attack cards after the second job --------------------------------------------------------------------

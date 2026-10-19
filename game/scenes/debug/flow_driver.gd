@@ -1718,7 +1718,7 @@ func _scenario_pirate() -> void:
 	var other_path := "gun" if path_id == "knuckle" else "knuckle"
 	var first_weapon := {"knuckle": 1482000, "gun": 1492000}
 	var branch := int(args.get("branch", 510 if path_id == "knuckle" else 520))
-	var lv30_weapon := 1482004 if branch == 510 else 1492004 # Prime Hands / Cold Mind (jobs.json grant_items)
+	var lv30_weapon := 1482004 if branch == 510 else 1492004 # Prime Hands / Cold Mind (jobs.json paths item_id)
 	# The scenario presses the default keys (E, I, X): start from a throwaway settings file, not the developer's bindings.
 	_backup_settings()
 	var settings := get_node_or_null("/root/Settings") as GameSettings

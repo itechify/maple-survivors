@@ -53,6 +53,16 @@ const CONFIRM_SECONDS := 1.8
 ## What the instructor asks on the weapon page. tier C: ours (the v83 job NPCs do not ask this).
 const WEAPON_TEXT := "Which weapon would you like to specialize in? I will hand you one to start with, so choose the one you want to fight with."
 
+## Window states (`state`) and entry kinds (`entries[i].kind`); the strings are what tests and the flow driver read.
+const STATE_CHOOSE := "choose"
+const STATE_WEAPON := "weapon"
+const STATE_CONFIRM := "confirm"
+const STATE_DONE := "done"
+const KIND_JOB := "job"
+const KIND_DECLINE := "decline"
+const KIND_PATH := "path"
+const KIND_BACK := "back"
+
 ## Seconds the confirmation line stays before the dialog closes by itself (0 = close at once).
 var confirm_seconds := CONFIRM_SECONDS
 ## The job_advance_pending options ({job_id, name, available, reason, paths: [{id, label, item_id, family}]}).
@@ -61,15 +71,15 @@ var level := 0
 var current_job_id := 0
 ## The instructor NPC shown (0 = none: text only).
 var npc_id := ADMIN
-## Entries of the page shown, in display order. Page 1: {"kind": "job"|"decline", job_id, text, available, reason, paths}.
-## Weapon page: {"kind": "path"|"back"}; a path is {job_id, path, text (the family), item_id, detail (the weapon's
+## Entries of the page shown, in display order. Page 1: {"kind": KIND_JOB|KIND_DECLINE, job_id, text, available, reason, paths}.
+## Weapon page: {"kind": KIND_PATH|KIND_BACK}; a path is {job_id, path, text (the family), item_id, detail (the weapon's
 ## name), available}, "back" is "Cancel.".
 var entries: Array[Dictionary] = []
 ## Focused entry index (-1 = none).
 var focus := -1
 ## "choose" (page 1, the jobs), "weapon" (page 2, the families of the picked job) or "confirm" (a job was picked,
 ## waiting to close).
-var state := "choose"
+var state := STATE_CHOOSE
 ## The weapon path of the picked entry ("" for a job without a weapon page); read it when job_chosen fires.
 var picked_path := ""
 ## The dialog text (wrapped lines are computed from it).
@@ -127,11 +137,11 @@ func open(p_options: Array, p_level: int, p_current_job_id: int) -> void:
 		if not (o is Dictionary):
 			continue
 		var d: Dictionary = o
-		_job_entries.append({"kind": "job", "job_id": int(d.get("job_id", 0)), "path": "",
+		_job_entries.append({"kind": KIND_JOB, "job_id": int(d.get("job_id", 0)), "path": "",
 			"text": String(d.get("name", "")), "available": bool(d.get("available", false)),
-			"reason": String(d.get("reason", "")), "paths": _clean_paths(d.get("paths", []))})
+			"reason": String(d.get("reason", "")), "paths": JobTree.clean_paths(d.get("paths", []))})
 	if any_available():
-		_job_entries.append({"kind": "decline", "job_id": -1, "path": "", "text": "Not now.", "available": true,
+		_job_entries.append({"kind": KIND_DECLINE, "job_id": -1, "path": "", "text": "Not now.", "available": true,
 			"reason": "", "paths": []})
 	_list_npc = list_speaker(options, current_job_id)
 	_list_body = intro_text(_list_npc, options, level)
@@ -142,7 +152,7 @@ func open(p_options: Array, p_level: int, p_current_job_id: int) -> void:
 ## True when at least one job on page 1 can be taken.
 func any_available() -> bool:
 	for e in _job_entries:
-		if e.kind == "job" and e.available:
+		if e.kind == KIND_JOB and e.available:
 			return true
 	return false
 
@@ -155,33 +165,33 @@ func select(i: int) -> bool:
 		return false
 	var e: Dictionary = entries[i]
 	match String(e.kind):
-		"decline":
+		KIND_DECLINE:
 			decline()
-		"back":
+		KIND_BACK:
 			go_back()
-		"job":
+		KIND_JOB:
 			if (e.paths as Array).size() >= 2:
 				UiArt.play_sound(UiArt.SND_CLICK)
 				_show_weapons(i)
 			else:
 				_confirm(i, int(e.job_id), "", String(e.text))
-		"path":
+		KIND_PATH:
 			_confirm(i, int(e.job_id), String(e.path), _job_name(int(e.job_id)))
 	return true
 
 
 ## True while a page with entries is shown (page 1 or the weapon page).
 func listing() -> bool:
-	return state == "choose" or state == "weapon"
+	return state == STATE_CHOOSE or state == STATE_WEAPON
 
 
 ## Cancel on the weapon page: back to the job list with that job focused (no-op elsewhere).
 func go_back() -> void:
-	if not _open or state != "weapon":
+	if not _open or state != STATE_WEAPON:
 		return
 	var idx := -1
 	for i in _job_entries.size():
-		if _job_entries[i].kind == "job" and int(_job_entries[i].job_id) == _weapon_job:
+		if _job_entries[i].kind == KIND_JOB and int(_job_entries[i].job_id) == _weapon_job:
 			idx = i
 	UiArt.play_sound(UiArt.SND_CLICK)
 	_show_list(idx)
@@ -189,20 +199,20 @@ func go_back() -> void:
 
 ## Ends the confirmation: closes the dialog and emits job_chosen (no-op outside the confirmation).
 func finish() -> void:
-	if state != "confirm" or _picked < 0:
+	if state != STATE_CONFIRM or _picked < 0:
 		return
 	var job := _picked
 	_picked = -1
-	state = "done"
+	state = STATE_DONE
 	_hide_window()
 	job_chosen.emit(job)
 
 
 ## Declines (END CHAT, "Not now.", OK with nothing available): closes and emits declined.
 func decline() -> void:
-	if not _open or state != "choose":
+	if not _open or state != STATE_CHOOSE:
 		return
-	state = "done"
+	state = STATE_DONE
 	_hide_window()
 	declined.emit()
 
@@ -273,19 +283,19 @@ static func confirm_text(p_npc: int, job_name: String) -> String:
 func handle_input(event: InputEvent) -> bool:
 	if not _open:
 		return false
-	if state == "confirm":
+	if state == STATE_CONFIRM:
 		if event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo:
 			finish()
 			return true
 		return false
-	if state == "choose" and not any_available():
+	if state == STATE_CHOOSE and not any_available():
 		if MapleWindow.is_confirm(event) or MapleWindow.is_cancel(event):
 			UiArt.play_sound(UiArt.SND_CLICK)
 			decline()
 			return true
 		return event is InputEventKey and (event as InputEventKey).pressed
 	if MapleWindow.is_cancel(event):
-		if state == "weapon":
+		if state == STATE_WEAPON:
 			go_back()
 		else:
 			UiArt.play_sound(UiArt.SND_CLICK)
@@ -297,7 +307,7 @@ func handle_input(event: InputEvent) -> bool:
 		return true
 	var step := MapleWindow.vertical_step(event)
 	if step != 0:
-		_set_focus(_next_selectable(focus, step))
+		set_focus(_next_selectable(focus, step))
 		return true
 	if MapleWindow.is_confirm(event):
 		select(focus)
@@ -314,18 +324,18 @@ func entry_rect(i: int) -> Rect2:
 
 func _process(delta: float) -> void:
 	super._process(delta)
-	if state == "confirm" and _open:
+	if state == STATE_CONFIRM and _open:
 		_confirm_t += delta
 		if _confirm_t >= confirm_seconds:
 			finish()
 
 
 func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
-	if state == "confirm":
+	if state == STATE_CONFIRM:
 		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 			finish()
 		return
-	if not listing() or (state == "choose" and not any_available()):
+	if not listing() or (state == STATE_CHOOSE and not any_available()):
 		return
 	var hit := -1
 	var off := Vector2(TEXT_X, _options_y)
@@ -336,34 +346,23 @@ func _panel_gui_input(event: InputEvent, local: Vector2) -> void:
 	if hit < 0 or not entries[hit].available:
 		return
 	if event is InputEventMouseMotion:
-		_set_focus(hit)
+		set_focus(hit)
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
 			select(hit)
 
 
-## The weapon families of an option, tolerant of missing keys: [{id, label, item_id}].
-static func _clean_paths(raw: Variant) -> Array:
-	var out: Array = []
-	if raw is Array:
-		for p: Variant in raw:
-			if p is Dictionary and String(p.get("id", "")) != "":
-				out.append({"id": String(p.id), "label": String(p.get("label", p.id)),
-					"item_id": int(p.get("item_id", 0))})
-	return out
-
-
 func _job_name(job_id: int) -> String:
 	for e in _job_entries:
-		if e.kind == "job" and int(e.job_id) == job_id:
+		if e.kind == KIND_JOB and int(e.job_id) == job_id:
 			return String(e.text)
 	return ""
 
 
 ## Shows page 1 with entry `focus_idx` focused (-1: the first selectable one).
 func _show_list(focus_idx: int) -> void:
-	state = "choose"
+	state = STATE_CHOOSE
 	_weapon_job = -1
 	entries = _job_entries.duplicate()
 	focus = focus_idx if focus_idx >= 0 else _next_selectable(-1, 1)
@@ -376,14 +375,14 @@ func _show_list(focus_idx: int) -> void:
 func _show_weapons(i: int) -> void:
 	var job: Dictionary = entries[i]
 	_weapon_job = int(job.job_id)
-	state = "weapon"
+	state = STATE_WEAPON
 	var rows: Array[Dictionary] = []
 	for p: Dictionary in job.paths:
 		var item := weapon_name(int(p.item_id))
-		rows.append({"kind": "path", "job_id": _weapon_job, "path": String(p.id), "text": String(p.label),
+		rows.append({"kind": KIND_PATH, "job_id": _weapon_job, "path": String(p.id), "text": String(p.label),
 			"item_id": int(p.item_id), "detail": "" if item.to_lower() == String(p.label).to_lower() else item,
 			"available": true, "reason": ""})
-	rows.append({"kind": "back", "job_id": _weapon_job, "path": "", "text": "Cancel.", "item_id": 0, "detail": "",
+	rows.append({"kind": KIND_BACK, "job_id": _weapon_job, "path": "", "text": "Cancel.", "item_id": 0, "detail": "",
 		"available": true, "reason": ""})
 	entries = rows
 	focus = 0
@@ -397,7 +396,7 @@ func _confirm(i: int, job_id: int, path: String, job_name: String) -> void:
 	_picked = job_id
 	picked_path = path
 	focus = i
-	state = "confirm"
+	state = STATE_CONFIRM
 	_confirm_t = 0.0
 	_set_speaker(instructor_for([], job_id))
 	body = confirm_text(npc_id, job_name)
@@ -418,7 +417,8 @@ static func weapon_name(item_id: int) -> String:
 	return UiArt.text(InventoryModel.name_path(item_id)) if item_id > 0 else ""
 
 
-func _set_focus(i: int) -> void:
+## Moves the focus to entry `i` (ignored for -1 or the current one).
+func set_focus(i: int) -> void:
 	if i != focus and i >= 0:
 		focus = i
 		UiArt.play_sound(UiArt.SND_OVER)
@@ -452,7 +452,7 @@ func _build_layout() -> void:
 	var need_s_top := maxf(content_bottom - 2.0, npc_h + 18.0)
 	if npc_id == 0:
 		need_s_top = maxf(content_bottom - 2.0, 100.0)
-	if state == "confirm":
+	if state == STATE_CONFIRM:
 		need_s_top = maxf(need_s_top, panel_size.y - BOTTOM_H)
 	var n := TiledFrame.center_count(need_s_top + BOTTOM_H, TOP_H, MID_H, BOTTOM_H)
 	panel_size = Vector2(DLG_W, TiledFrame.frame_height(n, TOP_H, MID_H, BOTTOM_H))
@@ -468,9 +468,9 @@ func _layout_children() -> void:
 	_bt_close.position = Vector2(13, s_top + BUTTON_DY)
 	_bt_prev.position = Vector2(13, s_top + BUTTON_DY)
 	_bt_ok.position = Vector2(DLG_W - 13.0 - _bt_ok.size.x, s_top + BUTTON_DY)
-	var page_one := state == "choose"
+	var page_one := state == STATE_CHOOSE
 	_bt_close.visible = page_one and any_available()
-	_bt_prev.visible = state == "weapon"
+	_bt_prev.visible = state == STATE_WEAPON
 	_bt_ok.visible = page_one and not any_available()
 
 
