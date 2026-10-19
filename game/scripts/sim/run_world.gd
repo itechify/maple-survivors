@@ -972,9 +972,9 @@ func apply_job(job_id: int, path := "") -> bool:
 	for o: Dictionary in pending_jobs:
 		if int(o.job_id) == job_id and bool(o.available):
 			var paths: Array = o.get("paths", [])
-			ok = path == "" or paths.any(func(p: Dictionary) -> bool: return String(p.id) == path)
-			if ok and path == "" and not paths.is_empty():
-				path = String(paths[0].id)
+			ok = path == "" or JobTree.has_path(paths, path)
+			if ok and path == "":
+				path = JobTree.default_path(paths)
 			break
 	if not ok:
 		return false
@@ -1031,10 +1031,10 @@ func apply_choice(card_id: String) -> bool:
 ## weapon in page order, recording multi-family choices only. Single-family branches preserve the earlier path.
 func change_job(job_id: int, path := "") -> void:
 	var paths := jobs.page_paths(job_id, held_weapon_family())
-	if path == "" and not paths.is_empty():
-		path = String(paths[0].id)
+	if path == "":
+		path = JobTree.default_path(paths)
 	progression.job_id = job_id
-	if paths.size() >= 2 and paths.any(func(p: Dictionary) -> bool: return String(p.id) == path):
+	if paths.size() >= 2 and JobTree.has_path(paths, path):
 		weapon_path = path
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})

@@ -234,7 +234,7 @@ func _show_window(which: String) -> void:
 						w.select(i)
 						break
 			if args.has("focus"):
-				w._set_focus(int(args.focus))
+				w.set_focus(int(args.focus))
 			window = w
 		"job", "job10", "job_none", "job_confirm", "job_paths", "job_pirate", "job_pirate30":
 			var w := JobAdvanceWindow.new()

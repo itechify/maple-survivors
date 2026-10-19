@@ -43,6 +43,22 @@ func test_forced_path_is_used_only_when_the_current_advancement_offers_it() -> v
 	assert_eq(w.job_rng.state, before, "zero/one-path choices consume no path RNG")
 
 
+func test_a_forced_single_family_branch_without_a_path_takes_its_own_family_at_the_first_advancement() -> void:
+	var w := RF.quiet_world(400, 1)
+	var before := w.job_rng.state
+	for row: Array in [[300, 310, "bow"], [300, 320, "crossbow"], [400, 410, "claw"], [400, 420, "dagger"],
+		[500, 510, "knuckle"], [500, 520, "gun"]]:
+		var first: int = row[0]
+		var options := w.jobs.advancements(0, 10)
+		for draw in 20:
+			assert_eq(BotInput.pick_choice(options, w.job_rng, row[1], w.jobs), {"job_id": first, "path": row[2]})
+	assert_eq(w.job_rng.state, before, "no draw: the branch decides the family")
+	var drawn := {}
+	for draw in 40:
+		drawn[BotInput.pick_choice(w.jobs.advancements(0, 10), w.job_rng, 110, w.jobs).path] = true
+	assert_eq(drawn.size(), 3, "a forced multi-family branch (Fighter) still draws its Warrior family at Lv10")
+
+
 func test_pathless_and_rngless_callers_keep_the_default_and_ignore_locked_jobs() -> void:
 	var w := RF.quiet_world()
 	assert_eq(BotInput.pick_choice(w.jobs.advancements(0, 10), null, 100, w.jobs), {"job_id": 100, "path": ""})

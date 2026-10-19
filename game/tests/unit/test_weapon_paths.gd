@@ -95,7 +95,7 @@ func test_shipping_data_offers_bowman_and_both_thief_and_pirate_paths() -> void:
 		320: ["crossbow"], 410: ["claw"], 420: ["dagger"], 510: ["knuckle"], 520: ["gun"]}
 	var shipped: Dictionary = DataRepo.load_all().jobs_survivor.jobs
 	for id: int in families:
-		assert_eq(jobs.weapon_families(id), families[id], "branch %d" % id)
+		assert_eq(jobs.paths_of(id).map(func(p: Dictionary) -> String: return p.family), families[id], "branch %d" % id)
 
 
 func test_choosing_a_path_grants_and_wears_its_weapon_and_records_it() -> void:

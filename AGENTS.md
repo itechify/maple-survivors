@@ -243,7 +243,8 @@ second job takes its first job there and itself at the second. A job (or path) t
 startup. A multi-family forced job validates against its own families; a single-family branch validates against its
 first job (e.g. `410:claw`). At each advancement the bot uses the forced family only if that job offers it; otherwise
 it draws uniformly among multiple families on job stream 8, including at Lv30. Thus `110:axe` draws a Warrior family
-at Lv10 and forces Axe at Lv30. Unforced jobs also draw on stream 8. BotShop upgrades the recorded family.
+at Lv10 and forces Axe at Lv30, while a single-family branch such as `--job=410` takes its own family (claw) without a
+draw. Unforced jobs also draw on stream 8. BotShop upgrades the recorded family while the job can use it.
 Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 

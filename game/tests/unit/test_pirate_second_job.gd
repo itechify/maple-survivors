@@ -175,7 +175,7 @@ func test_the_magician_branches_grant_no_weapon_and_advance_as_before() -> void:
 		var inventory := _inventory_ids(w)
 		var hp0: int = w.player_state.max_hp
 		var mp0: int = w.player_state.max_mp
-		assert_eq(w.jobs.branch_grant(job), {}, "no advancement weapon for %d" % job)
+		assert_eq(w.jobs.paths_of(job), [], "no advancement weapon for %d" % job)
 		assert_true(w.apply_job(job))
 		assert_eq(w.weapon_id(), weapon, "the Magician keeps its wand")
 		assert_eq(_inventory_ids(w), inventory)
@@ -483,10 +483,10 @@ func test_the_shipped_rows_grant_one_advancement_weapon_each() -> void:
 		assert_eq(int(row.level), 30, "canonical Lv 30")
 		assert_eq(int(row.grants.max_hp), 325)
 		assert_eq(int(row.grants.max_mp), 175)
-		assert_eq(jobs.weapon_families(entry[0]), [entry[1]])
-		assert_eq(jobs.branch_grant(entry[0]), {"weapons": [{"family": entry[1], "item_id": entry[2]}]})
+		assert_eq(jobs.paths_of(entry[0]).map(func(p: Dictionary) -> Array: return [p.family, p.item_id]),
+			[[entry[1], entry[2]]])
 	for id in [210, 220, 230]:
-		assert_eq(jobs.branch_grant(id), {})
+		assert_eq(jobs.paths_of(id), [])
 	assert_true(PRIME_HANDS in DataRepo.starter_equipment_ids(data))
 	assert_true(COLD_MIND in DataRepo.starter_equipment_ids(data))
 

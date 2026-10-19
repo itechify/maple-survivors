@@ -60,7 +60,11 @@ func job(id: int) -> Dictionary:
 
 ## The weapon paths of job `id`: [{id, label, item_id, family}], [] when it has none.
 func paths_of(id: int) -> Array:
-	var raw: Variant = _survivor.get(id, {}).get("paths", [])
+	return clean_paths(_survivor.get(id, {}).get("paths", []))
+
+
+## Normalises a raw path list ([{id, label, item_id, family}], tolerant of missing keys; rows without an id are dropped).
+static func clean_paths(raw: Variant) -> Array:
 	var out: Array = []
 	if raw is Array:
 		for p: Variant in raw:
@@ -70,7 +74,7 @@ func paths_of(id: int) -> Array:
 	return out
 
 
-## Paths in weapon-page order: tier-2 jobs put the held family first; first jobs always keep data order.
+## Paths in weapon-page order (tier C: spec #226): tier-2 jobs put the held family first; first jobs always keep data order.
 func page_paths(job_id: int, held_family := "") -> Array:
 	var paths := paths_of(job_id)
 	if int(_jobs.get(job_id, {}).get("tier", 0)) == 2:
@@ -81,27 +85,23 @@ func page_paths(job_id: int, held_family := "") -> Array:
 	return paths
 
 
-## The path `path_id` of `job_id` or of its first-job ancestor ({} when the line has no such path).
-func path_of(job_id: int, path_id: String) -> Dictionary:
+## Whether `paths` (a paths_of list) holds the path `id`.
+static func has_path(paths: Array, id: String) -> bool:
+	return paths.any(func(p: Dictionary) -> bool: return String(p.id) == id)
+
+
+## The default path id of `paths`: the first one in its order, "" when empty.
+static func default_path(paths: Array) -> String:
+	return String(paths[0].id) if not paths.is_empty() else ""
+
+
+## The paths of the deepest job on `job_id`'s line that has any (the job itself, else its nearest ancestor); [] when none.
+func line_paths(job_id: int) -> Array:
 	for j in lineage(job_id):
-		for p: Dictionary in paths_of(j):
-			if p.id == path_id:
-				return p
-	return {}
-
-
-## The weapon families a job can use, derived from its paths in data order.
-func weapon_families(job_id: int) -> Array:
-	return paths_of(job_id).map(func(p: Dictionary) -> String: return p.family)
-
-
-## Grant candidates derived from paths: {weapons: [{family, item_id}]} in data order; {} without a positive item id.
-func branch_grant(job_id: int) -> Dictionary:
-	var weapons: Array = []
-	for p: Dictionary in paths_of(job_id):
-		if int(p.item_id) > 0:
-			weapons.append({"family": p.family, "item_id": int(p.item_id)})
-	return {} if weapons.is_empty() else {"weapons": weapons}
+		var paths := paths_of(j)
+		if not paths.is_empty():
+			return paths
+	return []
 
 
 ## Display name of a job ("" when unknown).
@@ -236,6 +236,6 @@ func forced_job_error(job_id: int, path := "") -> String:
 				if int(_jobs[j].tier) == 1:
 					paths = paths_of(j)
 					break
-		if not paths.any(func(p: Dictionary) -> bool: return String(p.id) == path):
+		if not has_path(paths, path):
 			return "job %d (%s) has no weapon path '%s'" % [job_id, name_of(job_id), path]
 	return ""
