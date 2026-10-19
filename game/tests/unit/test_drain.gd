@@ -107,6 +107,7 @@ func test_drain_needs_a_claw_and_uses_the_current_star_at_every_assassin_tier() 
 		w.learn_skill("drain")
 		RF.put_mob(w, 1110100, 500, 190, 1000)
 		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+		w.equipment.inventory.append(Equipment.create(1332063, w.setup.equipment_info[1332063]))
 		var dagger: int = w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)).find(1332063)
 		assert_eq(w.equip_item(dagger), "")
 		var mp: int = w.player_state.mp

@@ -18,6 +18,9 @@ extends Node2D
 ##   job_paths       Lv. 10 with the shipped Thief weapon paths made playable by a test-only override (spec #151 #157)
 ##   job_pirate      shipping Pirate paths at Lv. 10 with Kyrin (#186)
 ##   job_pirate30    the shipping Lv. 30 Pirate window: Brawler and Gunslinger (#189)
+##   job_pages       the two-page job window from the real job tree (spec #226): --from=<job id> --level=<n>
+##                   --held=<family> choose the options, --pick=<job id> presses that job (weapon page or confirmation),
+##                   --pick-path=<family> then presses that family, --focus=<i> focuses an entry
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
@@ -207,6 +210,33 @@ func _show_window(which: String) -> void:
 			window = w
 			if args.has("focus"):
 				w.set_focus(int(args.focus))
+		"job_pages":
+			# Spec #226 (#231): the two-page window from the real job tree. --from=<job id> --level=<n> --held=<family>
+			# pick the options, --pick=<job id> presses that job on page 1 (the weapon page opens for a multi-family
+			# job, the confirmation otherwise), --pick-path=<family> then presses that family.
+			var w := JobAdvanceWindow.new()
+			layer.add_child(w)
+			var data := DataRepo.load_all()
+			var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+			var from := int(args.get("from", 0))
+			var lvl := int(args.get("level", 10))
+			w.confirm_seconds = 999.0
+			w.open(jobs.advancements(from, lvl, str(args.get("held", ""))), lvl, from)
+			w.job_chosen.connect(func(id: int) -> void: print("ui_gallery: job_chosen ", id, " ", w.picked_path))
+			w.declined.connect(func() -> void: print("ui_gallery: declined"))
+			if args.has("pick"):
+				for i in w.entries.size():
+					if int(w.entries[i].job_id) == int(args.pick):
+						w.select(i)
+						break
+			if args.has("pick-path"):
+				for i in w.entries.size():
+					if str(w.entries[i].path) == str(args["pick-path"]):
+						w.select(i)
+						break
+			if args.has("focus"):
+				w.set_focus(int(args.focus))
+			window = w
 		"job", "job10", "job_none", "job_confirm", "job_paths", "job_pirate", "job_pirate30":
 			var w := JobAdvanceWindow.new()
 			layer.add_child(w)

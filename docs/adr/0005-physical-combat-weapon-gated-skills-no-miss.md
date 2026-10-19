@@ -7,14 +7,15 @@ v83". The owner decided them in the 2026-10-17 grilling:
 - **Skills follow the weapon you hold.** A skill with a Skill.wz `weapon` requirement (tier A) only casts while a
   matching weapon is held. Survivor overrides cover the skills v83 leaves untagged (tier C). Level-up cards are offered
   for the weapon held when the draw rolls. A weapon swapped in the Equip window turns the mismatched skills off.
-  - Thief and Pirate pick a **weapon path** at first job: Thief Claw/Dagger, Pirate Knuckle/Gun. The path hands the
-    character that weapon. The Thief and the Pirate also get the other path's weapon in the Equip tab, as v83's Dark Lord and
-    Kyrin give both (tier B; owner, #168 and #167 grillings 2026-10-18).
-  - Second job hands one advancement weapon for each of the branch's weapon families. The one of the held family is
-    worn, or the branch's first family when the held one can't be used by the branch; the other goes to the Equip tab.
-    *Amended 2026-10-18 (#165):* originally "only when the held one can't be used". Drops stay in the wielded family
-    and the bot never swaps, so without a grant the branch's second family (a Fighter's axe, a Spearman's polearm)
-    and its Mastery, Booster and Final Attack were unreachable. Every advancement is also an upgrade, as at first job.
+  - *Amended 2026-10-18 (#226):* every multi-family advancement asks for a **weapon path**: Warrior
+    Sword/Spear/Blunt Weapon, Bowman Bow/Crossbow, Thief Claw/Dagger, Pirate Knuckle/Gun; at second job,
+    Fighter Sword/Axe, Page Sword/Blunt Weapon and Spearman Spear/Polearm. Only the chosen family's weapon is
+    granted and worn, without requirements. Displaced equipment goes to the Equip tab, spilling at the feet when full.
+    Single-family branches keep their one worn grant; Magicians have no weapon question.
+  - This replaces the other first-job path's spare weapon and the #165 rule granting one weapon per branch family.
+    That rule made each family's Mastery, Booster and Final Attack reachable; choosing the family now provides that
+    access directly. The recorded weapon path updates on a multi-family second-job choice; held-family skill/card
+    gates remain live when the character swaps weapons. Page order at second job puts the held family first.
   - Weapon drops come only from the wielded weapon family.
 - **Ammo is endless and upgrades itself.** Stars, arrows and bullets are never consumed, never an item stack and never
   a card.

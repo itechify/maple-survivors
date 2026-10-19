@@ -19,8 +19,8 @@ extends RefCounted
 ##     two-handed weapon cover's under both weapon and shield.
 ##   pet: species id of the owned pet that is out (0 or absent = none).
 ## Optional spec #151 key (#157), also without a FORMAT bump:
-##   weapon_path: the first-job weapon path id taken at the Lv 10 advancement ("claw", "dagger", ...; JobTree.paths_of);
-##     written only when set, so Warrior, Magician and older characters keep their exact bytes.
+##   weapon_path: the latest multi-family advancement choice ("sword", "claw", ...; JobTree.paths_of).
+##     Pathless characters infer it from the held family at their deepest multi-family job (tier C: spec #226).
 ## Both are only what the character wears and takes out; whether the account owns them is decided each round
 ## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
 ## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
@@ -53,15 +53,27 @@ static func migrate(value: Dictionary, jobs: JobTree, equipment_info: Dictionary
 			out.card_ranks.erase(removed)
 	if out.get("player_mods") is Dictionary:
 		out.player_mods.erase("magnet")
-	if int(value.get("format", 0)) == FORMAT:
-		return out
-	out.equipment = {"worn": Equipment.worn_from_ids(held_item_ids(value, jobs), equipment_info), "inventory": []}
-	out.scrolls = {}
-	out.mesos = 0
-	out.erase("beginner_weapon")
-	if out.get("look") is Dictionary:
-		out.look.erase("equips")
-	out.format = FORMAT
+	if int(value.get("format", 0)) != FORMAT:
+		out.equipment = {"worn": Equipment.worn_from_ids(held_item_ids(value, jobs), equipment_info), "inventory": []}
+		out.scrolls = {}
+		out.mesos = 0
+		out.erase("beginner_weapon")
+		if out.get("look") is Dictionary:
+			out.look.erase("equips")
+		out.format = FORMAT
+	if String(out.get("weapon_path", "")) == "":
+		var held := WeaponInfo.family(int(out.get("equipment", {}).get("worn", {}).get("weapon", {}).get("id", 0)))
+		for j in jobs.lineage(int(out.get("job_id", 0))):
+			var paths := jobs.paths_of(j)
+			if paths.size() < 2:
+				continue
+			# tier C: migrate only the deepest multi-family row; an incompatible or missing weapon uses its first path.
+			out.weapon_path = String(paths[0].id)
+			for p: Dictionary in paths:
+				if String(p.family) == held:
+					out.weapon_path = String(p.id)
+					break
+			break
 	return out
 
 

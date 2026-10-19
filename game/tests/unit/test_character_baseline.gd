@@ -3,13 +3,11 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Re-captured for #228 (spec #225): Magnet and potion-tier cards are gone and potions upgrade by level, so the bot draws
-## different cards and the run emits potion_tier_up. Earlier: re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
+## Re-captured for the spec #226 merge with main (#225 + playtest-3): #230 lists one entry per job with page-ordered paths
+## and grants only the chosen weapon; #228/#229 removed job-neutral cards and changed the bot waste guard.
+## Earlier: #230 alone b4b22cfe...; #229 alone 6ffbb887... (#228 769106d4..., #199 re-captured on Windows).
 ## Binary event encoding is platform independent (see below).
-## Re-captured for #229: the bot waste guard counts a restore up to the pool (potions.bot.pool_floor 0.25 of the potion
-## at least), so it drinks earlier when a potion exceeds a small pool. With pool_floor set to 1.0 (the old guard) the #228
-## hash 769106d4... is reproduced exactly, so the guard is the only change; the four new schedule steps do not fire here.
-const GOLDEN := "6ffbb887c7c4e39ec26cbcca92f1378236aca93a61eeac56ff9b2c0db9dddc76"
+const GOLDEN := "bd2a232804f874fccbd7d5991d9e96bc82a4e2caebb57b86740dc5bf42320614"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
@@ -71,4 +69,6 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# Re-captured for the #142 merge onto spec #151 (serializer only). This branch retains the #153 crit rolls and
 	# #163 Warrior option / seeded first-job pick above, so its golden legitimately differs from main's 9545f55b... .
 	# The binary digest matches on the unoptimised 19ca0a8 tip and the merged code (Windows, Godot 4.7.2).
+	# #230 deliberately changes job_advance_pending option bytes (paths arrays), weapon grants and resulting records.
+	# The frozen pre-#230 digest was 36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e.
 	assert_eq(_event_digest(72000), GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

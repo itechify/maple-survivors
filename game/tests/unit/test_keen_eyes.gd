@@ -87,6 +87,7 @@ func test_dagger_is_unchanged_and_swapping_back_uses_the_current_rank() -> void:
 	assert_eq(w.loadout.stats("double_stab"), stab)
 	assert_eq(w.loadout.passive_total(Loadout.RANGE), 0.0)
 	assert_near(w.loadout.stats("lucky_seven").range, 250)
+	w.equipment.inventory.append(Equipment.create(1472061, w.setup.equipment_info[1472061]))
 	var inventory: Array = w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 	assert_eq(w.equip_item(inventory.find(1472061)), "")
 	assert_near(w.basic.reach(w), 450)

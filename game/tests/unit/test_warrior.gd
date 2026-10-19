@@ -103,7 +103,7 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	assert_true(bool(warrior[0].available), "the Warrior is on offer at Lv 10")
 	assert_eq(warrior[0].name, "Warrior")
 	var others: Array = w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) in [300, 400])
-	assert_eq(others.size(), 3, "Bowman and both Thief paths")
+	assert_eq(others.size(), 2, "Bowman and Thief once each")
 	assert_true(others.all(func(o: Dictionary) -> bool: return o.available), "Bowman and Thief are playable")
 	var hp0: int = w.player_state.max_hp
 	var mp0: int = w.player_state.max_mp
@@ -114,8 +114,8 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	assert_eq(w.player_state.str, str0, "advancing redistributes nothing: the earned AP already sat in STR")
 	assert_eq(w.player_state.dex, 5, "DEX takes no AP: no Warrior item needs it")
 	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword is granted and worn")
-	assert_eq(w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000, 1432000, 1322006],
-		"the creation sword, then the spear and the Steel Pipe, wait in the Equip tab")
+	assert_eq(w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id)), [1302000],
+		"only the creation sword waits in the Equip tab")
 	var ids := w.pending_cards.map(func(c: Dictionary) -> String: return c.id)
 	assert_has(ids, "power_strike_new", "the advancement draw offers Power Strike")
 	assert_has(ids, "slash_blast_new", "and Slash Blast")
@@ -154,51 +154,52 @@ func _inventory_ids(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(i: Dictionary) -> int: return int(i.id))
 
 
-func test_the_warrior_advancement_gives_the_sword_and_stocks_the_spear_and_mace() -> void:
+func test_the_warrior_default_advancement_gives_only_the_sword() -> void:
 	var w := _advancing(24)
 	assert_eq(w.weapon_id(), 1302077, "the Beginner Warrior's sword (PAD 30) is worn")
 	assert_eq(int(w.weapon_info().incPAD), 30)
 	assert_eq(w.held_weapon_family(), "sword")
-	assert_eq(_inventory_ids(w), [1302000, 1432000, 1322006], "old sword, Spear, Steel Pipe")
+	assert_eq(_inventory_ids(w), [1302000], "only the old sword")
 	assert_eq(_of(w.drain_events(), "pickup_spawned").size(), 0, "everything fit: nothing lies on the ground")
 	var held: Array = w.equipment.inventory.map(func(i: Dictionary) -> String: return WeaponInfo.family(int(i.id)))
-	assert_eq(held, ["sword", "spear", "blunt"])
+	assert_eq(held, ["sword"])
 
 
 func test_an_axe_wielding_warrior_gets_the_same_grants_and_keeps_the_axe_in_the_tab() -> void:
 	var w := _advancing(24, 1312004)
 	assert_eq(w.weapon_id(), 1302077)
-	assert_eq(_inventory_ids(w), [1312004, 1432000, 1322006])
+	assert_eq(_inventory_ids(w), [1312004])
 
 
-func test_a_full_equip_tab_drops_the_old_weapon_and_both_extras_at_the_feet() -> void:
+func test_a_full_equip_tab_drops_only_the_old_weapon() -> void:
 	var w := _advancing(0)
 	assert_eq(w.weapon_id(), 1302077, "advancing never fails")
 	assert_eq(w.equipment.inventory.size(), 24, "the tab is unchanged")
 	var spawned := _of(w.drain_events(), "pickup_spawned")
 	var ids: Array = spawned.map(func(e: Dictionary) -> int: return int(e.item_id))
 	ids.sort()
-	assert_eq(ids, [1302000, 1322006, 1432000], "the old sword, the Spear and the Steel Pipe")
+	assert_eq(ids, [1302000], "only the old sword")
 	for e: Dictionary in spawned:
 		assert_eq(e.kind, "equip")
 		assert_eq(e.pos, w.player.pos, "at the player's feet")
 
 
-func test_the_score_based_bot_planner_wears_the_spear_like_any_better_weapon() -> void:
+func test_bot_planner_keeps_the_chosen_family_when_an_alternative_is_owned() -> void:
 	var w := _advancing(24)
-	assert_eq(BotShop.auto_equip(w), 1, "the Spear (PAD 32) outscores the sword (PAD 30): the #112 planner wears it")
-	assert_eq(w.weapon_id(), 1432000)
-	assert_eq(_inventory_ids(w).size(), 3, "the sword, the old sword and the Steel Pipe wait in the tab")
-	assert_has(_inventory_ids(w), 1302077)
+	w.equipment.inventory.append(Equipment.create(1432000, w.setup.equipment_info[1432000]))
+	assert_eq(BotShop.auto_equip(w), 0, "auto-equip preserves the held family after a path is recorded")
+	assert_eq(w.weapon_id(), 1302077)
+	assert_eq(_inventory_ids(w).size(), 2, "the creation sword and acquired spear wait in the tab")
+	assert_has(_inventory_ids(w), 1432000)
 
 
-func test_one_free_slot_keeps_the_old_weapon_and_drops_the_extras() -> void:
+func test_one_free_slot_keeps_the_old_weapon() -> void:
 	var w := _advancing(1)
 	assert_eq(w.equipment.inventory.size(), 24)
 	assert_eq(_inventory_ids(w).slice(23), [1302000], "the displaced weapon has priority for the free slot")
 	var ids: Array = _of(w.drain_events(), "pickup_spawned").map(func(e: Dictionary) -> int: return int(e.item_id))
 	ids.sort()
-	assert_eq(ids, [1322006, 1432000])
+	assert_eq(ids, [])
 
 
 func test_the_magician_advancement_is_unchanged() -> void:
@@ -210,9 +211,10 @@ func test_the_magician_advancement_is_unchanged() -> void:
 
 func test_the_shipped_warrior_grant_data() -> void:
 	var data := DataRepo.load_all()
-	assert_eq(int(data.balance.player.weapon_grants["100"]), 1302077, "tier B: the Beginner Warrior's sword")
+	assert_false(data.balance.player.weapon_grants.has("100"), "Warrior grants live only in paths")
 	var grants: Dictionary = data.jobs_survivor.jobs["100"].grants
-	assert_eq(grants.items.map(func(i: Variant) -> int: return int(i)), [1432000, 1322006], "tier C: Spear and Steel Pipe, both Lv 10")
+	assert_false(grants.has("items"), "no spare grants")
+	assert_eq(data.jobs_survivor.jobs["100"].paths.map(func(p: Dictionary) -> int: return int(p.item_id)), [1302077, 1432000, 1322006])
 	assert_false(data.jobs_survivor.jobs["200"].grants.has("items"), "the Magician has no extra items")
 	var ids := DataRepo.starter_equipment_ids(data)
 	for id in [1302077, 1432000, 1322006]:

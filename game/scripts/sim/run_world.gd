@@ -983,15 +983,18 @@ func _end_tick() -> void:
 		_advance_queue()
 
 
-## Takes job `job_id` (with weapon `path` when the window lists the job per path) from the open advancement window;
-## false when not on offer or not available.
+## Takes an available job and one of its path ids; an empty path defaults to its first page path.
 func apply_job(job_id: int, path := "") -> bool:
 	if state != CHOOSING_JOB:
 		return false
 	var ok := false
 	for o: Dictionary in pending_jobs:
-		if int(o.job_id) == job_id and String(o.get("path", "")) == path and bool(o.available):
-			ok = true
+		if int(o.job_id) == job_id and bool(o.available):
+			var paths: Array = o.get("paths", [])
+			ok = path == "" or JobTree.has_path(paths, path)
+			if ok and path == "":
+				path = JobTree.default_path(paths)
+			break
 	if not ok:
 		return false
 	pending_jobs = []
@@ -1043,14 +1046,14 @@ func apply_choice(card_id: String) -> bool:
 	return true
 
 
-## Changes the job and its Max HP / Max MP grants, without learning skills; emits job_changed. grants.max_mp is
-## kept apart in `_job_mp`; grants.max_hp joins `_base_hp` (the snapshot's base_hp), the same pool level growth feeds, so
-## it survives a save/Continue without a new CharacterSnapshot field. A known weapon `path` of the job's line is
-## recorded in `weapon_path`; the weapon the job grants is worn by _grant_job_weapon, its `grants.items` join the Equip tab
-## by _grant_job_items.
+## Changes the job and HP/MP grants without learning skills; emits job_changed. Tier C (#226): choose one
+## weapon in page order, recording multi-family choices only. Single-family branches preserve the earlier path.
 func change_job(job_id: int, path := "") -> void:
+	var paths := jobs.page_paths(job_id, held_weapon_family())
+	if path == "":
+		path = JobTree.default_path(paths)
 	progression.job_id = job_id
-	if path != "" and not jobs.path_of(job_id, path).is_empty():
+	if paths.size() >= 2 and JobTree.has_path(paths, path):
 		weapon_path = path
 	var j := jobs.job(job_id)
 	var grants: Dictionary = j.get("grants", {})
@@ -1059,7 +1062,6 @@ func change_job(job_id: int, path := "") -> void:
 	refresh_player_stats()
 	emit("job_changed", {"job_id": job_id, "name": jobs.name_of(job_id)})
 	_grant_job_weapon(job_id, path)
-	_grant_job_items(job_id, path)
 
 
 ## Learns a skill (emits skill_learned); false when unknown or owned.
@@ -1668,35 +1670,14 @@ func _equipment_changed(action: String, slot: String, id: int) -> void:
 	emit("equipment_changed", {"action": action, "slot": slot, "item_id": id})
 
 
-## Wears the weapon an advancement grants and moves the previous one to the inventory (a grant never checks
-## requirements: a Beginner whose AP is all STR still wears the Bowman's bow). The grant is, in order: the chosen weapon
-## path's item (tier B: the v83 Beginner weapons of the instructors), balance.player.weapon_grants (tier C: Magician 200
-## -> Wooden Wand; tier B: Warrior 100 -> the Beginner Warrior's sword 1302077), or a second job's advancement weapons
-## (JobTree.branch_grant, tier C, spec #165 #180): the one of the held weapon's family is worn, else the first family's;
-## the branch's other advancement weapons join the Equip tab after the displaced weapon (_hand_over).
-## tier C: what the grant takes off (the previous weapon; a two-handed grant also the shield) and the full Equip tab has
-## no room for is dropped at the player's feet as a normal equipment pickup (pickup_spawned; the magnet collects it once
-## a slot is free), so advancing never fails.
+## Wears only the chosen path weapon (tier C: #226), or the Magician balance grant, without requirements.
+## Displaced equipment goes to the Equip tab and spills at the feet when full, so a grant never fails.
 func _grant_job_weapon(job_id: int, path := "") -> void:
 	var id := int(balance.get("player", {}).get("weapon_grants", {}).get(str(job_id), 0))
-	var others: Array = []
-	if path != "":
-		id = int(jobs.path_of(job_id, path).get("item_id", id))
-	else:
-		# One pass: the first weapon of the held family is worn, the rest are `others`; with none of that family the
-		# first entry is worn (it comes back off the front of `others`).
-		var weapons: Array = jobs.branch_grant(job_id).get("weapons", [])
-		var worn := -1
-		for raw: Variant in weapons:
-			var w: Dictionary = raw
-			if worn < 0 and String(w.family) == held_weapon_family():
-				worn = int(w.item_id)
-			else:
-				others.append(int(w.item_id))
-		if worn < 0 and not others.is_empty():
-			worn = int(others.pop_front())
-		if worn >= 0:
-			id = worn
+	for p: Dictionary in jobs.paths_of(job_id):
+		if String(p.id) == path:
+			id = int(p.item_id)
+			break
 	if id <= 0:
 		return
 	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
@@ -1714,30 +1695,6 @@ func _grant_job_weapon(job_id: int, path := "") -> void:
 	_equipment_changed("grant", "weapon", id)
 	for item: Dictionary in spilled:
 		spawn_equipment(player.pos, item)
-	for other: int in others:
-		_hand_over(other)
-
-
-## Hands the Equip items of the job's survivor `grants.items` (tier C: the Warrior's Lv 10 Spear and Steel Pipe) to the Equip
-## tab, followed by the chosen path's optional extra_items (#186), after whatever the weapon grant displaced;
-## an item the full tab has no room for lies at the player's feet as a
-## normal equipment pickup, so advancing never fails. A grant never checks requirements.
-func _grant_job_items(job_id: int, path := "") -> void:
-	var items: Array = jobs.job(job_id).get("grants", {}).get("items", []).duplicate()
-	# tier B: Kyrin gives both Pirate weapons. Path extras follow the same overflow rule as grants.items.
-	items.append_array(jobs.path_of(job_id, path).get("extra_items", []))
-	for raw: Variant in items if items is Array else []:
-		_hand_over(int(raw))
-
-
-## Gives a new instance of item `id` to the Equip tab, or to the player's feet when the tab is full.
-func _hand_over(id: int) -> void:
-	var instance := Equipment.create(id, Equipment.info_of(setup.get("equipment_info", {}), id))
-	if equipment.inventory.size() < inventory_slots():
-		equipment.inventory.append(instance)
-		_equipment_changed("grant", "", id)
-	else:
-		spawn_equipment(player.pos, instance)
 
 
 ## Per-slot mob stance snapshot (bosses' and ordinary mobs' authored stances) for MobSwarm and the renderer;
@@ -2617,7 +2574,7 @@ func _advance_queue() -> void:
 		if not _job_checked:
 			_job_checked = true
 			if jobs.should_offer(progression.job_id, lvl):
-				pending_jobs = jobs.advancements(progression.job_id, lvl)
+				pending_jobs = jobs.advancements(progression.job_id, lvl, held_weapon_family())
 				state = CHOOSING_JOB
 				emit("job_advance_pending", {"options": pending_jobs.duplicate(true)})
 				return

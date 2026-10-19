@@ -49,13 +49,14 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_both_paths_are_offered_at_ten_and_grant_both_weapons() -> void:
+func test_one_job_offers_both_paths_and_grants_only_the_chosen_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
 		_open(w)
 		var options := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 400)
-		assert_eq(options.map(func(o: Dictionary) -> String: return o.get("path", "")), ["claw", "dagger"])
-		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Thief - Claw", "Thief - Dagger"])
+		assert_eq(options.size(), 1)
+		assert_eq(options[0].paths.map(func(p: Dictionary) -> String: return p.id), ["claw", "dagger"])
+		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Thief"])
 		assert_true(options.all(func(o: Dictionary) -> bool: return o.available))
 		assert_true(w.jobs.advancements(0, 9).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 400).all(
 			func(o: Dictionary) -> bool: return not o.available and o.reason == "Lv. 10"))
@@ -66,10 +67,10 @@ func test_both_paths_are_offered_at_ten_and_grant_both_weapons() -> void:
 		assert_eq(w.weapon_path, path)
 		assert_eq(w.player_state.max_hp, hp + 125)
 		assert_eq(w.player_state.max_mp, mp + 37)
-		assert_eq(_inventory(w), [1302000, WEAPONS["dagger" if path == "claw" else "claw"]])
+		assert_eq(_inventory(w), [1302000])
 
 
-func test_full_equip_tab_spills_old_and_extra_weapons_at_the_feet() -> void:
+func test_full_equip_tab_spills_only_the_old_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world(0)
 		_open(w)
@@ -78,13 +79,13 @@ func test_full_equip_tab_spills_old_and_extra_weapons_at_the_feet() -> void:
 		assert_eq(w.weapon_id(), WEAPONS[path])
 		assert_eq(w.equipment.inventory.size(), 24)
 		var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-		assert_eq(drops.size(), 2)
+		assert_eq(drops.size(), 1)
 		assert_true(drops.all(func(e: Dictionary) -> bool: return e.pos == w.player.pos and e.kind == "equip"))
 		assert_eq(drops.map(func(e: Dictionary) -> int: return int(e.item_id)),
-			[1302000, WEAPONS["dagger" if path == "claw" else "claw"]])
+			[1302000])
 
 
-func test_snapshot_keeps_the_chosen_path_and_both_weapons() -> void:
+func test_snapshot_keeps_the_chosen_path_and_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
 		_open(w)
@@ -99,7 +100,7 @@ func test_snapshot_keeps_the_chosen_path_and_both_weapons() -> void:
 		assert_eq(restored.character_snapshot(), snapshot)
 		assert_eq(restored.weapon_path, path)
 		assert_eq(restored.weapon_id(), WEAPONS[path])
-		assert_has(_inventory(restored), WEAPONS["dagger" if path == "claw" else "claw"])
+		assert_eq(_inventory(restored), [1302000])
 
 
 
@@ -258,6 +259,7 @@ func test_cards_follow_the_held_weapon_and_attack_cards_carry_to_both_branches()
 				assert_eq(after.count if key == "lucky_seven" else after.mob_count,
 					(before.count if key == "lucky_seven" else before.mob_count) + 1)
 		var other: int = WEAPONS["dagger" if path == "claw" else "claw"]
+		w.equipment.inventory.append(Equipment.create(other, INFO[other]))
 		assert_eq(w.equip_item(_inventory(w).find(other)), "")
 		eligible = w.upgrades.eligible(w)
 		assert_eq("lucky_seven_rank" in eligible, path == "dagger")

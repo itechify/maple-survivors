@@ -482,10 +482,10 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 
 ## The window entry the bot takes: {job_id, path} (job_id -1 and path "" = "Not now"). A seeded available job, or the
 ## forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available option that is an ancestor of
-## `forced` counts too, so forcing a second job takes its first job at the first window. A single option consumes no
-## RNG. A first job listed per weapon path (spec #151 #157) takes `forced_path` when the window has it; with none named,
-## a forced branch takes the path whose weapon family it can use (its JobTree.weapon_families), else the job stream
-## draws one of the paths (tier C).
+## `forced` counts too, so forcing a second job takes its first job at the first window. A forced or sole job needs no
+## draw to select the job. A named forced path is used when the selected advancement offers it; a forced single-family
+## branch without a path takes the offered path of its family (no draw); otherwise every multi-family
+## advancement draws uniformly on the same job stream (8). Zero/one-path jobs and RNG-less callers use the default.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
 		forced_path := "") -> Dictionary:
 	var available: Array[Dictionary] = []
@@ -505,21 +505,34 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 				break
 	if target < 0:
 		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
-			else available[0])
-	var entries := available.filter(func(o: Dictionary) -> bool: return int(o.job_id) == target)
-	for o in entries:
-		if forced_path != "" and String(o.get("path", "")) == forced_path:
-			return _entry(o)
-	if forced_path == "" and jobs != null and entries.size() > 1:
-		var families := jobs.weapon_families(forced)
-		for o in entries:
-			if jobs.path_of(target, String(o.get("path", ""))).get("family", "") in families:
-				return _entry(o)
-	return _entry(entries[rng.randi_range(0, entries.size() - 1)] if entries.size() > 1 and rng != null else entries[0])
+			else available[0], forced_path, rng)
+	for o: Dictionary in available:
+		if int(o.job_id) == target:
+			return _entry(o, forced_path, rng, _branch_family(jobs, forced))
+	return {"job_id": -1, "path": ""}
 
 
-static func _entry(o: Dictionary) -> Dictionary:
-	return {"job_id": int(o.job_id), "path": String(o.get("path", ""))}
+## The one weapon family a forced single-family branch (310, 320, 410, 420, 510, 520) can use; "" for any other job.
+static func _branch_family(jobs: JobTree, forced: int) -> String:
+	if jobs == null or forced <= 0:
+		return ""
+	var own := jobs.paths_of(forced)
+	return String(own[0].family) if own.size() == 1 else ""
+
+
+static func _entry(o: Dictionary, forced_path: String, rng: RandomNumberGenerator, branch_family := "") -> Dictionary:
+	var paths: Array = o.get("paths", [])
+	if JobTree.has_path(paths, forced_path):
+		return {"job_id": int(o.job_id), "path": forced_path}
+	# tier C (#226): a forced single-family branch without a path takes the first-job path its family belongs to.
+	if paths.size() >= 2 and branch_family != "":
+		for p: Dictionary in paths:
+			if String(p.family) == branch_family:
+				return {"job_id": int(o.job_id), "path": String(p.id)}
+	# tier C (#226): one uniform family draw at every multi-family advancement unless its offered path is forced.
+	if paths.size() >= 2 and rng != null:
+		return {"job_id": int(o.job_id), "path": String(paths[rng.randi_range(0, paths.size() - 1)].id)}
+	return {"job_id": int(o.job_id), "path": ""}
 
 
 ## The card a first-card player takes ("" when there is none).
