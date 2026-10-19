@@ -213,7 +213,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   (at a wall) keeps counting and is moved as soon as it leaves the screen. The player can still climb away for a
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
-- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing).
+- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing). A landed hit knocks the player back at most once per knockback guard (#223: the first window length, 1.5 s; section 6).
 - **Mob attacks (#76):** an ordinary mob whose Mob.wz img lists `attackN` (Tauromacis 7130100 `attack1`, Taurospear
   7130101 `attack1`/`attack2`: type 0 magic) uses them exactly like a boss attack (4.3): the canonical windup stance,
   the hit at `attackAfter` in the canonical range box mirrored by facing, magic attacks with MADamage against M.DEF
@@ -480,6 +480,30 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### #223 knockback guard regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, default job pick, read-only
+cache `s167-main` (complete through spec #167, tier-1 data), no PATCH or tuning, 12 runs per side. "Before" is main
+`d1cdb16` run from a clean worktree on the same cache; "now" adds the knockback guard (section 6, tier C owner). All 24 runs
+ended DEAD with `warnings: []` and `missing: []`; no crash or script error, no clear. The records are not byte-identical to
+main, as the issue expects: a player pushed less often takes another path, so from the first guarded hit every later field
+moves (`time`, `kills`, `spawned`, `mesos_*`, `exp_collected`, `boss_hits`, ...; `hits_by_min`, `cards`, `level_*` and
+`job_times` when the run lasts longer or shorter). The `hit_window` fields themselves are untouched. D = death time, then final
+level; the previous smoke's Tree row (D 2:09 / 1:04 / 0:52) matches the "before" column.
+
+| Stage, policy | Seeds 1 / 2 / 2026 before | Seeds 1 / 2 / 2026 now |
+|---|---|---|
+| Henesys, bot | D 5:40 Lv11 / 10:19 Lv32 / 5:14 Lv11 | D 5:43 Lv11 / 6:24 Lv12 / 5:08 Lv11 |
+| Henesys, random | D 7:20 Lv19 / 5:30 Lv10 / 5:05 Lv11 | D 5:53 Lv12 / 5:36 Lv11 / 4:50 Lv9 |
+| Tree, bot | D 2:09 Lv3 / 1:04 Lv2 / 0:52 Lv2 | D 9:53 Lv23 / 1:34 Lv3 / 0:48 Lv1 |
+| Tree, random | D 2:09 Lv3 / 1:04 Lv2 / 0:52 Lv2 | D 5:36 Lv13 / 1:34 Lv2 / 0:48 Lv1 |
+
+Henesys still reaches its first job at the same time in every run that had one (265.7-274.0 s; random seed 2026 now dies
+at 4:50 before advancing) and five of six runs still take Mano hits (random seed 2026 dies first; before: five of six too, random seed 1 had none). No Henesys run reaches the second boss now (before: bot seed 2 died at 10:19 after Mushmom spawned). Henesys bot seed 2 no longer reaches the
+second job (before: Crossbowman at 577.7 s, Lv32); that run, and Tree bot / random seed 1 (now past the first job at
+203.6 s / 215.0 s), are single-seed outcomes of a different position history, not a measured effect of the guard (n=3 per
+cell). Tree stays record-only. No smoke exists for main `d1cdb16` itself (the #215 rows above ran on integration `628223f` with cache `s167-int`), so the "before" column is a fresh baseline: Tree matches #215, Henesys differs from it for that reason, not because of the guard. Raw records: ignored `_scratch/p3-223/{base,new}` (outside the repo).
 
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
@@ -3231,6 +3255,13 @@ or consumed either way.
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   invincibility with blinking for the current hit window, 1.5 s for a lone hit and shrinking to 0.4 s in a swarm
   (#88, tier C; section 11).
+- **Knockback guard (#223, tier C owner).** A hit that knocks the player back starts a guard of the first hit-window
+  length (`balance.hit_window.lengths[0]`, 1.5 s; no new constant). Hits that land inside the guard (the shrinking
+  window can end sooner) do their damage as usual (avoid roll, Power Guard, Magic Guard, `player_hit`, damage number,
+  window chain step) but call no knockback: no shove, no input lock, no new alert stance, and they do not restart the
+  guard, which is counted from the last knockback, so a swarm pushes the player at most once per 1.5 s. A boss skill
+  attack or ball (the hits that bypass the window) always knocks back and restarts the guard. A MISS changes nothing.
+  The timer lives in `PlayerUpkeep` (`knockback_guard_t`, per round, not saved); `RunWorld.take_hit` asks it.
 - **Active Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
   maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
@@ -3711,7 +3742,8 @@ weights 3 and 2.
   defence formula, then the Invincible reduction, then **Power Guard** (`_power_guard_reflect`), then Magic Guard's
   MP split on what is left, then HP/MP, the `player_hit` event (its damage is the reduced hit), the window and the
   reflect (`_apply_reflect`). So Magic Guard's percentage applies to the already-reduced damage, and the hit window
-  still allows one touch per window, hence one reflect per window. The step is a pure no-op without the buff:
+  still allows one touch per window, hence one reflect per window. The knockback guard (#223, section 6) is decided
+  after the damage and events and changes none of this. The step is a pure no-op without the buff:
   no RNG, no event, so every earlier record stays byte-identical.
 - **The reflect is the character's damage.** It emits a `mob_hit` (the Power Guard key as `skill`, no hit art, never a
   crit), counts in `damage_dealt`, and a kill goes through `_on_kill` (EXP, drops, boss rewards, kill count) like
@@ -5435,6 +5467,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hit window reset (#88) | `balance.hit_window.reset_after` 3.0 s without a landed hit restores the full window (and starts the chain over) | C | ours |
 | Boss skill attacks ignore the hit window (#88) | A boss skill attack (`source_kind` `attack`, `projectile` from a scheduled boss) lands during the window, hits at most once per attack instance (a ball is used up only when it hits), starts the full `lengths[0]` window without advancing the chain and counts as a landed hit for the reset. Boss body touch and every ordinary mob attack respect the window; an ordinary ball that the window turns away flies on, with no hit and no hit art, and can land once the window ends (also from inside the body box). Misses give no window and do not touch the chain; god and death still block everything | C | ours |
 | Ordinary mob attacks and the hit window (#144) | An ordinary mob's area or targeted (type 0/1) attack that the hit window turns away at impact does nothing: no damage, no `player_hit`, no `hit` phase and no hit art, as an ordinary ball already behaves (#88). A rolled MISS is not blocked: it emits the MISS `player_hit` and keeps its hit art. Boss attacks bypass the window as before; dead and god-mode attacks are still no-ops for damage and keep their hit art, as before. No v83 evidence settles the window rule: Cosmic does no invincibility check (the client decides hits), the HeavenClient-family clients skip collisions while invincible but have no mob-attack hit art, and Harepacker's later-client simulator draws hit art regardless (weak evidence) | C | ours; owner decision 2026-10-17 |
+| Knockback guard (#223) | A hit that knocks the player back starts a guard of `balance.hit_window.lengths[0]` (1.5 s today, read from the data, no new constant), ticked by `PlayerUpkeep`. Landed hits inside it (after the shrinking damage window) do damage, Power Guard/Magic Guard, `player_hit`, damage number and chain stepping as usual but no `PlayerMotion.knockback` (no shove, input lock or alert stance) and do not restart the guard. Boss skill attacks/balls (window bypass) still knock back and restart it. Misses change nothing; the timer is per round and not in the `CharacterSnapshot` | C | ours; owner decision 2026-10-18 playtest grilling |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
 | Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
