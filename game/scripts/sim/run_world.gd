@@ -924,6 +924,9 @@ func _step_pickups(dt: float) -> int:
 		equipment.inventory.append(instance)
 		equips_collected += 1
 		_equipment_changed("pickup", "", int(instance.id))
+		# tier C (ours, #222): an item for an empty slot that this character may wear is worn at once
+		if auto_wear_error(int(instance.id)) == "":
+			_wear(equipment.inventory.size() - 1, "auto_equip")
 	return got
 
 
@@ -1505,15 +1508,31 @@ func equipment_bonus(field: String) -> float:
 
 ## Wears inventory item `index`; "" or the Equipment reason it failed (nothing changes then). See the header.
 func equip_item(index: int) -> String:
+	return _wear(index, "equip")
+
+
+## Whether item `id` would be worn the moment it is picked up (#222): "" or the Equipment.auto_wear_error reason.
+func auto_wear_error(id: int) -> String:
+	return Equipment.auto_wear_error(equipment.worn, id, Equipment.info_of(setup.get("equipment_info", {}), id),
+		_wearer())
+
+
+## The character fields Equipment checks requirements against: level, job and the total main stats.
+func _wearer() -> Dictionary:
+	var who := {"level": progression.level, "job_id": progression.job_id}
+	who.merge(_attributes)
+	return who
+
+
+## Wears inventory item `index` and emits `equipment_changed` with `action` ("equip", or "auto_equip" from a pickup).
+func _wear(index: int, action: String) -> String:
 	if index < 0 or index >= equipment.inventory.size():
 		return "no_item"
 	var id := int(equipment.inventory[index].id)
-	var who := {"level": progression.level, "job_id": progression.job_id}
-	who.merge(_attributes)
-	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), who,
+	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), _wearer(),
 		inventory_slots())
 	if reason == "":
-		_equipment_changed("equip", Equipment.slot_of(id), id)
+		_equipment_changed(action, Equipment.slot_of(id), id)
 	return reason
 
 

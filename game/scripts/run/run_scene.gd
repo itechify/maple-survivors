@@ -1155,6 +1155,9 @@ func handle_events(events: Array) -> void:
 			"equipment_changed":
 				_apply_look()
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
+				if String(e.action) == "auto_equip" and hud != null:
+					hud.show_equipped(library.string_name("Eqp", int(e.item_id)) if library != null else "")
+					_event_shot("auto_equip.png", 0.4)
 			"scroll_used":
 				_on_scroll_used(e)
 			"ammo_upgraded":
