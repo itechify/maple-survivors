@@ -74,10 +74,12 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout_slots)
 	_layout_slots()
 
-## Folds the quick slot panel away or shows it, with the collapse button's arrow.
-func set_quick_slot_collapsed(collapsed: bool) -> void:
-	quick_slot.set_collapsed(collapsed)
+## Folds the quick slot panel away or shows it, with the collapse button's arrow: the widget and button state follow
+## `collapsed` (the run scene passes GameSettings.quick_slot_collapsed, the one stored value).
+func apply_quick_slot_collapsed(collapsed: bool) -> void:
+	quick_slot.visible = not collapsed
 	quick_slot_button.base_path = QUICK_SLOT_FOLDED_ART if collapsed else QUICK_SLOT_SHOWN_ART
+
 
 ## Compatibility entry point for callers displaying a HUD without a run scene.
 func update(ps: Dictionary, info: Dictionary) -> void:

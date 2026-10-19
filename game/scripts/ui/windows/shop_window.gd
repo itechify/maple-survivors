@@ -253,8 +253,7 @@ func scrollbar_rect(panel: int) -> Rect2:
 
 ## The local rect of sell tab `i`.
 func tab_rect(i: int) -> Rect2:
-	var x0: float = TAB_BOUNDS[i]
-	return Rect2(x0, TAB_TOP, float(TAB_BOUNDS[i + 1]) - x0, TAB_H)
+	return TabStrip.tab_rect_at(TabStrip.bounds_of(TAB_BOUNDS), i, TAB_TOP, TAB_H)
 
 
 ## Which row is under local point `p`: [panel, absolute index], or [] for none.
@@ -481,26 +480,19 @@ func _draw() -> void:
 
 ## Names, the Buy label and the tabs on the strips, the meso total.
 func _draw_header() -> void:
-	var buy_shape := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_TOP, PackedFloat32Array(BUY_TAB_BOUNDS), 0)
-	var sell_shape := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_TOP, PackedFloat32Array(TAB_BOUNDS), tab)
-	if not sell_shape:
-		draw_rect(tab_rect(tab), TabStrip.FALLBACK_SHOWN)
+	var buy_bounds := TabStrip.bounds_of(BUY_TAB_BOUNDS)
+	TabStrip.draw_or_fallback(self, TabStrip.RED_BASE_SET, TAB_TOP, TAB_H, buy_bounds, 0)
+	TabStrip.draw_or_fallback(self, TabStrip.RED_BASE_SET, TAB_TOP, TAB_H, TabStrip.bounds_of(TAB_BOUNDS), tab)
 	var label := UiArt.frame(ART + "TabBuy/enabled/3")
-	var buy_tab := Rect2(BUY_TAB_BOUNDS[0], TAB_TOP, float(BUY_TAB_BOUNDS[1]) - float(BUY_TAB_BOUNDS[0]), TAB_H)
-	if not buy_shape:
-		draw_rect(buy_tab, TabStrip.FALLBACK_SHOWN)
-	if label != null:
-		UiArt.blit(self, label, buy_tab.position + ((buy_tab.size - label.region.size) * 0.5).floor())
-	else:
+	var buy_tab := TabStrip.tab_rect_at(buy_bounds, 0, TAB_TOP, TAB_H)
+	if not TabStrip.blit_centred(self, label, buy_tab):
 		MapleText.draw_centered(self, buy_tab.position.x, buy_tab.position.y + 3.0, buy_tab.size.x, "Buy", MapleText.BLACK,
 			MapleText.SMALL, true)
 	for i in TABS.size():
 		var on := i == tab
 		var glyph := UiArt.frame(ART + "TabSell/%s/%d" % ["enabled" if on else "disabled", i])
 		var r := tab_rect(i)
-		if glyph != null:
-			UiArt.blit(self, glyph, r.position + ((r.size - glyph.region.size) * 0.5).floor())
-		else:
+		if not TabStrip.blit_centred(self, glyph, r):
 			MapleText.draw_centered(self, r.position.x, r.position.y + 5.0, r.size.x, String(TAB_NAMES[i]),
 				MapleText.BLACK if on else MapleText.GREY, MapleText.SMALL, on)
 	MapleText.draw_centered(self, NAME_X.position.x, NAME_Y, NAME_X.size.x, npc_name, MapleText.BLACK, MapleText.SMALL, true)

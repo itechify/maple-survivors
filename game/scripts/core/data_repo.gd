@@ -243,6 +243,23 @@ static func stage_labels(stages_file: Dictionary, stage_key: String) -> Dictiona
 	return {"region": String(st.get("region", st.get("name", ""))), "continent": String(st.get("continent", ""))}
 
 
+## The two stage lines of a run summary: [region, continent] (#221). A summary that carries a `region` keeps its own
+## lines; one that predates the fields reads the stage's labels from stages.json, and a stage no longer in the file keeps
+## the map and street name it was saved with.
+static func summary_stage_lines(summary: Dictionary) -> Array[String]:
+	var region := String(summary.get("region", ""))
+	var continent := String(summary.get("continent", ""))
+	if region.is_empty():
+		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
+		var key := String(summary.get("stage", ""))
+		var known: Dictionary = {}
+		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):
+			known = stage_labels(stages_file, key)
+		region = String(known.get("region", summary.get("map_name", key)))
+		continent = String(known.get("continent", summary.get("street_name", "")))
+	return [region, continent]
+
+
 ## One message per stage of the parsed stages.json that lacks a non-blank `region` or `continent`, in file order.
 static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
 	var errors := PackedStringArray()

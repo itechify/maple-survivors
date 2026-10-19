@@ -473,10 +473,16 @@ func toggle_window(id: String) -> bool:
 
 ## The quick slot's collapse button: folds the panel away or shows it again and remembers the choice in settings.cfg.
 func toggle_quick_slot() -> void:
-	var collapsed := not hud.quick_slot.collapsed
-	hud.set_quick_slot_collapsed(collapsed)
-	if settings != null:
-		settings.set_quick_slot_collapsed(collapsed)
+	if settings == null:
+		return
+	settings.set_quick_slot_collapsed(not settings.quick_slot_collapsed)
+	_sync_quick_slot()
+
+
+## Shows or folds the HUD's quick slot panel and its button arrow from the stored setting.
+func _sync_quick_slot() -> void:
+	if hud != null and settings != null:
+		hud.apply_quick_slot_collapsed(settings.quick_slot_collapsed)
 
 
 ## Opens or closes the status bar's Menu popup above hud.menu_button.
@@ -798,8 +804,7 @@ func _on_settings_changed() -> void:
 	if hud == null or world == null:
 		return
 	hud.quick_slot.refresh_key_labels()
-	if settings != null:
-		hud.set_quick_slot_collapsed(settings.quick_slot_collapsed)
+	_sync_quick_slot()
 	_hud_sig = PackedInt32Array()
 	_update_hud()
 

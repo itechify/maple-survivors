@@ -9,7 +9,8 @@ extends RefCounted
 ## a hidden tab and 1 the shown one: `left`/`right` the two ends of the row (6 px), `fill` a 1 px column repeated over a
 ## tab's body, and `middle0/1/2` the 12 px join between two neighbours (their dividing line is column 5): 0 hidden |
 ## hidden, 1 shown | hidden, 2 hidden | shown. Tab5 is 19 body rows plus the 2 red rows that continue the red rule under
-## the Item, Skill and Shop windows' tab strips; Tab2 is a 19 px set for a plain strip.
+## the Item, Skill and Shop windows' tab strips; Tab3 is the same 21 rows with a grey base (Equip window). Tab2 is a
+## different 19-row skin with 4 px ends and 8 px joins, which this widget does not use.
 ##
 ## `bounds` are the n + 1 x positions that cut the strip into n tabs; the row's first tab starts at bounds[0] and the
 ## last ends (exclusive) at bounds[n]. Tabs may be any width of at least one join half (6 px) plus an edge.
@@ -18,7 +19,7 @@ extends RefCounted
 const RED_BASE_SET := "UI.wz/Basic.img/Tab5/"
 ## Tab3: the same shapes with a grey base instead of the red one (a strip without the red rule).
 const GREY_BASE_SET := "UI.wz/Basic.img/Tab3/"
-## Width of the `left*` / `right*` end pieces and of the `middle*` joins in Tab2-Tab5 (read from the art when drawn).
+## Width of the `left*` / `right*` end pieces and of the `middle*` joins in Tab3 and Tab5 (read from the art when drawn).
 const EDGE_W := 6.0
 const JOIN_W := 12.0
 ## tier C (ours): the shown tab's flat fill when there is no cache (the tab glyphs fall back to text).
@@ -45,6 +46,16 @@ static func pieces(bounds: PackedFloat32Array, selected: int, edge_w: float = ED
 			out.append({"name": "fill%d" % _state(i, selected), "x": x0, "w": x1 - x0})
 	out.append({"name": "right%d" % _state(n - 1, selected), "x": bounds[n] - edge_w, "w": edge_w})
 	return out
+
+
+## The bounds of a window's `TAB_BOUNDS` constant (an untyped Array of floats) as the packed array the helpers take.
+static func bounds_of(values: Array) -> PackedFloat32Array:
+	return PackedFloat32Array(values)
+
+
+## The local rect of tab `i` of a strip cut at `bounds`, its shapes starting at `top` and `height` tall.
+static func tab_rect_at(bounds: PackedFloat32Array, i: int, top: float, height: float) -> Rect2:
+	return Rect2(bounds[i], top, bounds[i + 1] - bounds[i], height)
 
 
 ## The local hit rect of every tab for a strip whose tab shapes start at `top` and are `height` tall.
@@ -74,6 +85,21 @@ static func draw(ci: CanvasItem, set_path: String, top: float, bounds: PackedFlo
 			UiArt.blit_part(ci, f, Rect2(Vector2.ZERO, f.region.size), at, Vector2(float(p.w), f.region.size.y))
 		else:
 			UiArt.blit(ci, f, at)
+	return true
+
+
+## `draw`, and without the art the shown tab `selected` (when it is one of the tabs) gets the flat FALLBACK_SHOWN fill.
+static func draw_or_fallback(ci: CanvasItem, set_path: String, top: float, height: float, bounds: PackedFloat32Array,
+		selected: int) -> void:
+	if not draw(ci, set_path, top, bounds, selected) and selected >= 0 and selected < bounds.size() - 1:
+		ci.draw_rect(tab_rect_at(bounds, selected, top, height), FALLBACK_SHOWN)
+
+
+## Blits `glyph` centred (whole pixels) in `r`; false (nothing drawn) when the glyph art is missing.
+static func blit_centred(ci: CanvasItem, glyph: SpriteFrame, r: Rect2) -> bool:
+	if glyph == null:
+		return false
+	UiArt.blit(ci, glyph, r.position + ((r.size - glyph.region.size) * 0.5).floor())
 	return true
 
 

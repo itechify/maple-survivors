@@ -351,14 +351,14 @@ func test_results_name_the_region_and_continent() -> void:
 	var s := summary(false, 512.4, 17, 1342)
 	s.region = "Henesys"
 	s.continent = "Victoria Island"
-	assert_eq(RESULTS.stage_lines(s), ["Henesys", "Victoria Island"])
+	assert_eq(DataRepo.summary_stage_lines(s), ["Henesys", "Victoria Island"])
 	# A summary saved before the fields existed (map and street name only) reads the stage's region from stages.json.
 	assert_false(summary(false, 1.0, 1, 1).has("region"))
-	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1)), ["Henesys", "Victoria Island"])
-	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1, "dark_cave")), ["Sleepywood", "Victoria Island"])
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1)), ["Henesys", "Victoria Island"])
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "dark_cave")), ["Sleepywood", "Victoria Island"])
 	# A retired stage key has no stages.json entry: the old names stay readable.
-	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1, "retired_stage")), ["Henesys Hunting Ground I", "Victoria Road"])
-	assert_eq(RESULTS.stage_lines({"stage": "retired_stage"}), ["retired_stage", ""])
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "retired_stage")), ["Henesys Hunting Ground I", "Victoria Road"])
+	assert_eq(DataRepo.summary_stage_lines({"stage": "retired_stage"}), ["retired_stage", ""])
 
 
 func test_results_helpers() -> void:

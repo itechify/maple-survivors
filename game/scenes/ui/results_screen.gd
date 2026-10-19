@@ -29,7 +29,7 @@ var summary: Dictionary = {}
 var new_best := false
 ## The stage's best before this run ({} when none).
 var previous_best: Dictionary = {}
-## stage_lines(summary), read once on the first draw.
+## DataRepo.summary_stage_lines(summary), read once on the first draw.
 var _stage_text: Array[String] = []
 
 var backdrop: LoginBackdrop
@@ -80,21 +80,6 @@ func to_character_select() -> void:
 		flow = get_node_or_null("/root/Flow") as SceneFlow
 	if flow != null:
 		flow.goto_character_select()
-
-
-## The two stage lines of a summary: [region, continent] (#221). A summary that predates the fields reads the stage's
-## region from stages.json; a stage no longer in the file keeps the map and street name it was saved with.
-static func stage_lines(p_summary: Dictionary) -> Array[String]:
-	var region := String(p_summary.get("region", ""))
-	var continent := String(p_summary.get("continent", ""))
-	if region.is_empty():
-		var stages_file: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
-		var known: Dictionary = {}
-		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(String(p_summary.get("stage", ""))):
-			known = DataRepo.stage_labels(stages_file, String(p_summary.get("stage", "")))
-		region = String(known.get("region", p_summary.get("map_name", p_summary.get("stage", ""))))
-		continent = String(known.get("continent", p_summary.get("street_name", "")))
-	return [region, continent]
 
 
 ## Headline of a summary.
@@ -171,7 +156,7 @@ func _draw_left(ci: Control, r: Rect2) -> void:
 		UiArt.blit(ci, mark, Vector2(x, y))
 		tx += 44.0
 	if _stage_text.is_empty():
-		_stage_text = stage_lines(summary)
+		_stage_text = DataRepo.summary_stage_lines(summary)
 	var stage_text := _stage_text
 	var lines := MapleText.wrap(stage_text[0], LEFT_W - (tx - x),
 		MapleText.SMALL, true)

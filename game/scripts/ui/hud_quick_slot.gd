@@ -33,8 +33,11 @@ const CAPTION_OUTLINE := Color8(40, 59, 76)
 ## A caption wider than this (a cell's interior) is shortened with "..".
 const CAPTION_MAX_W := 29.0
 
-## The folded-away state (Hud.set_quick_slot_collapsed hides the widget with it).
-var collapsed := false
+## The folded-away state: the widget is hidden (GameSettings.quick_slot_collapsed is the stored value, see
+## Hud.apply_quick_slot_collapsed).
+var collapsed: bool:
+	get:
+		return not visible
 var _potions: Dictionary = {}
 var _movement: Dictionary = {}
 var _cells: Array[Dictionary] = []
@@ -106,12 +109,6 @@ func update(ps: Dictionary, info: Dictionary) -> void:
 ## Re-reads the key captions from the live bindings and redraws with them.
 func refresh_key_labels() -> void:
 	_rebuild()
-
-
-## Folds the panel away or shows it again.
-func set_collapsed(value: bool) -> void:
-	collapsed = value
-	visible = not value
 
 
 ## The cells as drawn now (see cells()).
