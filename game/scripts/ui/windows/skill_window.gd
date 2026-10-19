@@ -251,9 +251,7 @@ func _draw_tabs() -> void:
 	var bounds := PackedFloat32Array()
 	for i in tabs.size() + 1:
 		bounds.append(TAB_ORIGIN.x + TAB_STEP * i)
-	var shaped := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_ORIGIN.y, bounds, tab)
-	if not shaped and tab < tabs.size():
-		draw_rect(tab_rect(tab), TabStrip.FALLBACK_SHOWN)
+	TabStrip.draw_or_fallback(self, TabStrip.RED_BASE_SET, TAB_ORIGIN.y, TAB_SIZE.y, bounds, tab)
 	for i in tabs.size():
 		var r := tab_rect(i)
 		var on := i == tab
@@ -261,9 +259,7 @@ func _draw_tabs() -> void:
 			_draw_star(r.get_center(), 6.5, STAR_ON if on else STAR_OFF)
 			continue
 		var glyph := UiArt.frame(ART + "Tab/%s/%d" % ["enabled" if on else "disabled", int(tabs[i].tier)])
-		if glyph != null:
-			UiArt.blit(self, glyph, (r.get_center() - glyph.region.size * 0.5).floor())
-		else:
+		if not TabStrip.blit_centred(self, glyph, r):
 			MapleText.draw_centered(self, r.position.x, r.position.y + 2.0, r.size.x, str(int(tabs[i].tier)),
 				MapleText.BLACK, MapleText.SMALL, on)
 

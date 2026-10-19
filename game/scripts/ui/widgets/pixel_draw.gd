@@ -25,7 +25,9 @@ static func outline_rects(r: Rect2) -> Array[Rect2]:
 	]
 
 
-## Draws a 1 logical px outline of `r` like the old `draw_rect(r, color, false)`.
+## Draws a 1 logical px outline of `r` like the old THIN `draw_rect(r, color, false)` (no width argument): it lights
+## the row above `r`, the column left of `r`, and `r`'s own last column and last row (so it spans x - 1 .. x + w - 1,
+## y - 1 .. y + h - 1). Use edge_outline() for the width-1.0 call instead.
 static func outline(ci: CanvasItem, r: Rect2, color: Color) -> void:
 	for e in outline_rects(r):
 		ci.draw_rect(e, color)
@@ -55,7 +57,9 @@ static func edge_outline_rects(r: Rect2) -> Array[Rect2]:
 	]
 
 
-## Draws `draw_rect(r, color, false, 1.0)` for a rect on whole coordinates as the 800x600 render lit it.
+## Draws what the old `draw_rect(r, color, false, 1.0)` (explicit width 1.0) lit: rows y and y + h and columns x and
+## x + w, so it spans x .. x + w, y .. y + h inclusive, one pixel larger than `r` on the right and bottom. Not the
+## thin `draw_rect(r, color, false)`, which is outline().
 static func edge_outline(ci: CanvasItem, r: Rect2, color: Color) -> void:
 	for e in edge_outline_rects(r):
 		ci.draw_rect(e, color)

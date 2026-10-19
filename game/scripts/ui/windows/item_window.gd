@@ -24,14 +24,11 @@ const WINDOW_SIZE := Vector2(175, 289)
 ## The tabs in v83 order (Tab/<state>/0..4 glyphs).
 const TABS := ["equip", "use", "setup", "etc", "cash"]
 const TAB_NAMES := ["Equip", "Use", "Set-up", "Etc", "Cash"]
-## tier C (ours, measured on the v83 backgrnd; the tab x offsets cross-checked tier B against JourneyClient): the
-## tab strip, where each tab glyph starts, the first slot, the slot pitch and the meso field.
+## tier C (ours, measured on the v83 backgrnd): the tab strip, the first slot, the slot pitch and the meso field.
 const TAB_STRIP := Rect2(3, 23, 169, 19)
-const TAB_X := [10, 42, 74, 108, 139]
 ## tier C (ours): where the five tab shapes are cut (x of each divider, strip start and end): five equal tabs over the
 ## baked pill (x 4-170), as wide as the 34 px Item/New/Tab0 sprites v83 flashes over a tab, which are one width for all
-## five. Each glyph is centred in its tab; the hit areas are these same tabs. TAB_X (tier B, JourneyClient's glyph
-## positions) only serves the no-cache text fallback.
+## five. Each glyph (or, without the cache, its name) is centred in its tab; the hit areas are these same tabs.
 const TAB_BOUNDS := [4.0, 37.0, 71.0, 104.0, 137.0, 171.0]
 const SLOT_ORIGIN := Vector2(8, 50)
 const SLOT_PITCH := Vector2(36, 34)
@@ -73,8 +70,7 @@ func select_tab(i: int) -> void:
 
 ## The local rect of tab `i` in the tab strip.
 func tab_rect(i: int) -> Rect2:
-	var x0: float = TAB_BOUNDS[i]
-	return Rect2(x0, TAB_STRIP.position.y, float(TAB_BOUNDS[i + 1]) - x0, TAB_STRIP.size.y)
+	return TabStrip.tab_rect_at(TabStrip.bounds_of(TAB_BOUNDS), i, TAB_STRIP.position.y, TAB_STRIP.size.y)
 
 
 ## The local rect of slot `i` (0-23, row-major).
@@ -228,15 +224,12 @@ func _draw() -> void:
 
 
 func _draw_tabs() -> void:
-	if not TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_STRIP.position.y, PackedFloat32Array(TAB_BOUNDS), tab):
-		draw_rect(tab_rect(tab), TabStrip.FALLBACK_SHOWN)
+	TabStrip.draw_or_fallback(self, TabStrip.RED_BASE_SET, TAB_STRIP.position.y, TAB_STRIP.size.y,
+		TabStrip.bounds_of(TAB_BOUNDS), tab)
 	for i in TABS.size():
 		var on := i == tab
 		var glyph := UiArt.frame(ART + "Tab/%s/%d" % ["enabled" if on else "disabled", i])
 		var r := tab_rect(i)
-		if glyph != null:
-			UiArt.blit(self, glyph, Vector2(r.position.x + floorf((r.size.x - glyph.region.size.x) * 0.5),
-				r.position.y + floorf((r.size.y - glyph.region.size.y) * 0.5)))
-		else:
-			MapleText.draw(self, Vector2(float(TAB_X[i]), r.position.y + 3.0), String(TAB_NAMES[i]),
+		if not TabStrip.blit_centred(self, glyph, r):
+			MapleText.draw_centered(self, r.position.x, r.position.y + 3.0, r.size.x, String(TAB_NAMES[i]),
 				MapleText.BLACK if on else MapleText.GREY, 9, on)

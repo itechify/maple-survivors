@@ -80,7 +80,7 @@ const PANEL_EDGE := Color8(99, 147, 183)
 const CELL_FILL := Color8(176, 196, 222)
 const WORN_EDGE := Color8(255, 170, 0)
 ## tier C (ours): the strip's controls, relative to the art's bottom edge. The two tabs fill the blue strip's 19 rows
-## (x 44-102); their grey / pink shapes are the plain Basic.img/Tab2 set (TabStrip, #219), the glyphs on top.
+## (x 44-102); their grey / pink shapes are the grey-base Basic.img/Tab3 set (TabStrip.GREY_BASE_SET, #219), the glyphs on top.
 const TAB_BOUNDS := [42.0, 74.0, 103.0]
 const TAB_TOP := -24.0
 const TAB_H := 19.0
@@ -148,8 +148,7 @@ func panel_rect() -> Rect2:
 ## The strip controls' local rects: "equip" and "cash" tabs.
 func tab_rect(which: String) -> Rect2:
 	var i := 0 if which == "equip" else 1
-	var x0: float = TAB_BOUNDS[i]
-	return Rect2(x0, art_size().y + TAB_TOP, float(TAB_BOUNDS[i + 1]) - x0, TAB_H)
+	return TabStrip.tab_rect_at(TabStrip.bounds_of(TAB_BOUNDS), i, art_size().y + TAB_TOP, TAB_H)
 
 
 func _layout() -> void:
@@ -488,18 +487,13 @@ func _draw_plain_background() -> void:
 
 ## The Equip and Cash glyphs (the Item window's tab art; lit for the shown page); the PET EQUIP. button is a child.
 func _draw_tabs() -> void:
-	if not TabStrip.draw(self, TabStrip.GREY_BASE_SET, art_size().y + TAB_TOP, PackedFloat32Array(TAB_BOUNDS),
-			0 if page == "equip" else (1 if page == "cash" else -1)):
-		for which: String in ["equip", "cash"]:
-			if page == which:
-				draw_rect(tab_rect(which), TabStrip.FALLBACK_SHOWN)
+	TabStrip.draw_or_fallback(self, TabStrip.GREY_BASE_SET, art_size().y + TAB_TOP, TAB_H,
+		TabStrip.bounds_of(TAB_BOUNDS), 0 if page == "equip" else (1 if page == "cash" else -1))
 	for which: String in ["equip", "cash"]:
 		var on := page == which
 		var glyph := UiArt.frame(TAB_ART + "%s/%d" % ["enabled" if on else "disabled", 0 if which == "equip" else 4])
 		var r := tab_rect(which)
-		if glyph != null:
-			UiArt.blit(self, glyph, r.position + ((r.size - glyph.region.size) * 0.5).floor())
-		else:
+		if not TabStrip.blit_centred(self, glyph, r):
 			MapleText.draw(self, r.position + Vector2(1, 3), "Equip" if which == "equip" else "Cash",
 				MapleText.BLACK if on else MapleText.GREY, 9, on)
 
