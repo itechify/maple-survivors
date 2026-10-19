@@ -445,7 +445,7 @@ func _warp_round() -> bool:
 		if run.world.state != RunWorld.PLAYING:
 			continue
 		if run.world.god and run.world.time >= run.world.duration \
-				and (run.stage_key == "dark_cave" or String(args.get("scenario", "")) in ["rounds", "account"]):
+				and (run.stage_key == "dark_cave" or String(args.get("scenario", "")) in ["rounds", "account", "economy"]):
 			# tier C (#232): flow/victory staging, not a naturally won round or a balance candidate.
 			# Use the real damage/death/reward path; never fabricate a summary or bypass pending choices.
 			for record: Dictionary in run.world.bosses.records:
@@ -3069,7 +3069,8 @@ func _scenario_economy() -> void:
 	await _sleep(0.5)
 	_check(not run.ui_windows.has_windows(), "Esc closed both windows")
 	var mesos_round := w.mesos
-	# 3. Clear the round (the bot's fixed-tick warp) and arrive in the Free Market with everything carried.
+	# 3. Stage the shop boundary; the old fixture no longer survives this warp. Not survival evidence.
+	w.god = true # tier C (#232): diagnostic boundary staging, with boss hits after the stage timer.
 	if not await _warp_round():
 		return
 	if not _expect(w.state == RunWorld.CLEARED, "the round was not cleared (%s)" % w.state_name()):

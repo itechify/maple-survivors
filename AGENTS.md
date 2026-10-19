@@ -175,7 +175,7 @@ Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and It
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` first checks
 the Warrior job/weapon pages, then its slot becomes the Lv38 F/P fixture for a Henesys round (meso and item drops picked up, Item window,
-a drop worn), the bot's fixed-tick warp to a real clear into the Free Market (a few minutes), a walk past the four
+a drop worn), a diagnostic invulnerable warp with boss hits after the timer into the Free Market, a walk past the four
 scroll NPCs, Space at El Moth (buy a scroll, sell a spare item), Space at Tulcus (10% scrolls), the scrolls dragged
 onto the worn hat (success, then failure), and Save & quit -> Continue, which must restore mesos, worn equipment,
 inventory and scrolls from the saved snapshot:

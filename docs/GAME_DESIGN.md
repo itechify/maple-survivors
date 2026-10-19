@@ -527,7 +527,8 @@ The evidence collector ignores an intentionally empty WzImage path (the generic 
 through Warrior/Sword, then the existing diagnostic lethal-hit path after the stage timer; boss deaths and rewards
 still pass through RunWorld. `account` also checks Warrior/Sword before its warp and uses those diagnostic hits when
 invulnerable (`--natural-clear=1` disables invulnerability/hits). `economy` first checks Warrior/Sword in a disposable
-round, then loads its original Lv38 F/P fixture for the unchanged economy loop. These are presentation/persistence
+round, then loads its original Lv38 F/P fixture for the economy loop. That fixture also died during its old warp, so
+the shop-boundary warp now uses invulnerability and diagnostic boss hits after the stage timer. These are presentation/persistence
 checks, **not natural clears or balance evidence**; the 23-run smoke above uses no such aids.
 
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
@@ -5089,7 +5090,7 @@ Bowman (#166), QA #204:
 |---|---|---|---|
 | Second-job Bowman fixtures | Hunter Lv30 / Crossbowman Lv31, Henesys seed1 bot, invulnerable, natural EXP, 600 s cap | C | `tools/character_fixture.gd --job=<310|320> --god --seconds=600 --label=spec166/ticket-204`; `_doc` and 4.2 |
 | Bowman flow staging (#226 amendment) | `Bowman204`, invulnerable EXP-drop climb through Lv10/30, chosen Bow/Crossbow only via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
-| Weapon-page flow QA (#232) | Shared keyboard job selection, mouse family selection, Enter confirmation and exact equipment-delta check. `full`, `rounds`, `account`, `economy` probe Warrior/Sword; Warrior branches choose Axe/Blunt/Polearm. Rounds/account invulnerable warps apply diagnostic boss hits after the stage timer; economy then restores its historical fixture | C | #232 QA staging only; no survival/balance claim |
+| Weapon-page flow QA (#232) | Shared keyboard job selection, mouse family selection, Enter confirmation and exact equipment-delta check. `full`, `rounds`, `account`, `economy` probe Warrior/Sword; Warrior branches choose Axe/Blunt/Polearm. Rounds/account/economy invulnerable warps apply diagnostic boss hits after the stage timer; economy restores its historical fixture before the economy loop | C | #232 QA staging only; no survival/balance claim |
 
 Bowman (#166), equipment #201:
 
