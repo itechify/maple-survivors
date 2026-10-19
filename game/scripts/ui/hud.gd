@@ -32,12 +32,13 @@ var menu_button := WzButton.new(HudWidget.SB + "BtMenu")
 ## connects `pressed` to the setting that remembers the state.
 var quick_slot_button := WzButton.new(QUICK_SLOT_SHOWN_ART)
 
-## tier C (ours): BtMenu's top-left in the 800 px status bar, at the right end under the quick slot button (v83 keeps the
-## Menu button on the lower half of the bar, y 36, tier B Elem8100 GM client).
+## tier C (ours): BtMenu's top-left in the 800 px status bar, at the right end under the quick slot button (a third-party v83-era
+## client keeps the Menu button on the lower half of the bar, y 36).
 const MENU_POS := Vector2(744, 36)
 ## tier C: the quick slot panel's top-left relative to the status bar's: flush with the bar's right end and standing
 ## 76 px above its top edge (the 80 px panel overlaps the bar by 4 px). Taken from a third-party v83-era client that lays
-## it out at (875, 622) on a 1024 x 768 screen with the bar at y 698, right-aligned to 800 px here.
+## it out at (875, 622) on a 1024 x 768 screen with the bar at y 698 (a fan renderer, not the official client: tier C
+## here), right-aligned to 800 px.
 const QUICK_SLOT_POS := Vector2(649, -76)
 ## tier C: the collapse button's top-left in the bar (the same client puts it at x 765, y 8 of the bar).
 const QUICK_SLOT_BUTTON_POS := Vector2(765, 8)
