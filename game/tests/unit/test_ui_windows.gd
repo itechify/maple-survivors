@@ -18,6 +18,41 @@ const JOB8 := [
 	{"job_id": 400, "name": "Thief", "available": false, "reason": "Lv. 10"},
 	{"job_id": 500, "name": "Pirate", "available": false, "reason": "Lv. 10"},
 ]
+## The Lv 10 list as JobTree.advancements returns it: one entry per job, `paths` in page order (decision 2 of spec #226).
+const LV10 := [
+	{"job_id": 100, "name": "Warrior", "available": true, "reason": "", "paths": [
+		{"id": "sword", "label": "Sword", "item_id": 1302077, "family": "sword"},
+		{"id": "spear", "label": "Spear", "item_id": 1432000, "family": "spear"},
+		{"id": "blunt", "label": "Blunt Weapon", "item_id": 1322006, "family": "blunt"}]},
+	{"job_id": 200, "name": "Magician", "available": true, "reason": "", "paths": []},
+	{"job_id": 300, "name": "Bowman", "available": true, "reason": "", "paths": [
+		{"id": "bow", "label": "Bow", "item_id": 1452051, "family": "bow"},
+		{"id": "crossbow", "label": "Crossbow", "item_id": 1462001, "family": "crossbow"}]},
+	{"job_id": 400, "name": "Thief", "available": true, "reason": "", "paths": [
+		{"id": "claw", "label": "Claw", "item_id": 1472061, "family": "claw"},
+		{"id": "dagger", "label": "Dagger", "item_id": 1332063, "family": "dagger"}]},
+	{"job_id": 500, "name": "Pirate", "available": true, "reason": "", "paths": [
+		{"id": "knuckle", "label": "Knuckle", "item_id": 1482000, "family": "knuckle"},
+		{"id": "gun", "label": "Gun", "item_id": 1492000, "family": "gun"}]},
+]
+## A sword Warrior's Lv 30 list (the held family first on each page) and a Bowman's (single-family branches: no page).
+const LV30_WARRIOR := [
+	{"job_id": 110, "name": "Fighter", "available": true, "reason": "", "paths": [
+		{"id": "sword", "label": "Sword", "item_id": 1302008, "family": "sword"},
+		{"id": "axe", "label": "Axe", "item_id": 1312005, "family": "axe"}]},
+	{"job_id": 120, "name": "Page", "available": true, "reason": "", "paths": [
+		{"id": "sword", "label": "Sword", "item_id": 1302008, "family": "sword"},
+		{"id": "blunt", "label": "Blunt Weapon", "item_id": 1322014, "family": "blunt"}]},
+	{"job_id": 130, "name": "Spearman", "available": true, "reason": "", "paths": [
+		{"id": "spear", "label": "Spear", "item_id": 1432002, "family": "spear"},
+		{"id": "polearm", "label": "Polearm", "item_id": 1442001, "family": "polearm"}]},
+]
+const LV30_BOWMAN := [
+	{"job_id": 310, "name": "Hunter", "available": true, "reason": "", "paths": [
+		{"id": "bow", "label": "Bow", "item_id": 1452005, "family": "bow"}]},
+	{"job_id": 320, "name": "Crossbowman", "available": true, "reason": "", "paths": [
+		{"id": "crossbow", "label": "Crossbow", "item_id": 1462000, "family": "crossbow"}]},
+]
 const JOB30 := [
 	{"job_id": 210, "name": "Wizard (Fire, Poison)", "available": false, "reason": "Phase 2"},
 	{"job_id": 220, "name": "Wizard (Ice, Lightning)", "available": false, "reason": "Not yet available"},
@@ -284,7 +319,7 @@ func test_job_window_pick_magician_after_confirmation() -> void:
 	w.job_chosen.connect(_record)
 	w.declined.connect(_record.bind("declined"))
 	w.open(JOB8, 8, 0)
-	assert_eq(w.npc_id, 1032001, "Grendel for the Magician branch")
+	assert_eq(w.npc_id, 0, "a list across branches has no portrait")
 	assert_eq(w.entries.size(), 6, "5 jobs + Not now")
 	assert_eq(String(w.entries[5].kind), "decline")
 	assert_eq(w.focus, 0, "Magician focused")
@@ -302,21 +337,159 @@ func test_job_window_pick_magician_after_confirmation() -> void:
 	assert_false(w.is_open())
 
 
-func test_job_window_lists_a_first_job_once_per_weapon_path() -> void:
+func _texts(w: JobAdvanceWindow) -> Array:
+	return w.entries.map(func(e: Dictionary) -> String: return e.text)
+
+
+func test_job_window_page_one_has_one_entry_per_job() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.open(LV10, 10, 0)
+	assert_eq(w.state, "choose")
+	assert_eq(_texts(w), ["Warrior", "Magician", "Bowman", "Thief", "Pirate", "Not now."], "each job once, then Not now")
+	assert_false(w.body.to_lower().contains("canonical"), "no developer wording")
+	assert_false(w.body.contains("Dark Lord"), "the intro does not name one instructor")
+	assert_eq(w.npc_id, 0, "Lv 10: no single instructor speaks for every job, so no portrait (tier C)")
+	assert_false((w.get_node("Panel/Npc") as WzImage).visible, "no NPC portrait on the Lv 10 list")
+
+
+func test_job_window_weapon_page_for_a_multi_family_job() -> void:
 	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
 	w.confirm_seconds = 0.0
 	w.job_chosen.connect(_record)
-	var options := [
-		{"job_id": 200, "name": "Magician", "available": true, "reason": ""},
-		{"job_id": 400, "path": "claw", "name": "Thief - Claw", "available": true, "reason": ""},
-		{"job_id": 400, "path": "dagger", "name": "Thief - Dagger", "available": true, "reason": ""}]
-	w.open(options, 10, 0)
-	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.text),
-		["Magician", "Thief - Claw", "Thief - Dagger", "Not now."])
-	assert_eq(w.entries.map(func(e: Dictionary) -> String: return e.path), ["", "claw", "dagger", ""])
+	w.declined.connect(_record.bind("declined"))
+	w.open(LV10, 10, 0)
+	w.handle_input(key(KEY_4))
+	assert_eq(w.state, "weapon", "Thief has two families: the weapon page follows")
+	assert_eq(_got.size(), 0, "nothing is chosen yet")
+	assert_eq(w.npc_id, 1052001, "the Thief's instructor (the Dark Lord) speaks")
+	assert_eq((w.get_node("Panel/Npc") as WzImage).path, "Npc.wz/1052001.img/stand")
+	assert_true((w.get_node("Panel/Npc") as WzImage).visible)
+	assert_true(w.body.contains("Which weapon would you like to specialize in?"), w.body)
+	assert_eq(_texts(w), ["Claw", "Dagger", "Cancel."], "families in page order, then Cancel")
+	assert_eq(w.focus, 0, "the first family is focused")
+	w.handle_input(key(KEY_2))
+	assert_eq(_got, [400], "choosing Dagger takes the job")
+	assert_eq(w.picked_path, "dagger")
+
+
+func test_job_window_weapon_page_follows_the_given_order() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	w.open(LV30_WARRIOR, 30, 100)
+	assert_eq(_texts(w), ["Fighter", "Page", "Spearman", "Not now."])
+	assert_eq(w.npc_id, 1022000, "Lv 30: every child shares the line's instructor")
+	w.handle_input(key(KEY_2))
+	assert_eq(w.state, "weapon")
+	assert_eq(_texts(w), ["Sword", "Blunt Weapon", "Cancel."], "Page: Sword listed first")
+	assert_eq(w.focus, 0)
+	w.handle_input(key(KEY_ENTER))
+	assert_eq(_got, [120])
+	assert_eq(w.picked_path, "sword")
+
+
+func test_job_window_three_families_know_their_weapons() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.open(LV10, 10, 0)
+	w.select(0)
+	assert_eq(_texts(w), ["Sword", "Spear", "Blunt Weapon", "Cancel."])
+	assert_eq(w.npc_id, 1022000)
+	assert_eq(int(w.entries[1].item_id), 1432000, "each row knows the weapon it gives")
+	assert_eq(String(w.entries[1].path), "spear")
+	w.handle_input(key(KEY_DOWN))
+	w.handle_input(key(KEY_DOWN))
+	assert_eq(w.focus, 2)
+	w.handle_input(key(KEY_DOWN))
+	assert_eq(w.focus, 3, "Cancel is reachable by keys")
+
+
+func test_job_window_skips_the_weapon_page_without_families() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	w.open(LV10, 10, 0)
+	w.handle_input(key(KEY_2))
+	assert_eq(_got, [200], "the Magician goes straight through")
+	assert_eq(w.picked_path, "", "no path for a job without families")
+	w.open(LV30_BOWMAN, 30, 300)
+	w.handle_input(key(KEY_1))
+	assert_eq(_got, [200, 310], "a single-family branch has no weapon page either")
+	assert_eq(w.picked_path, "", "picked_path is only set when a family was chosen")
+
+
+func test_job_window_confirmation_after_the_weapon_page_is_the_instructors() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 60.0
+	w.job_chosen.connect(_record)
+	w.open(LV10, 10, 0)
+	w.select(3)
+	w.select(0)
+	assert_eq(w.state, "confirm")
+	assert_eq(w.npc_id, 1052001, "the chosen job's instructor")
+	assert_true(w.body.begins_with("You are now a Thief!"), w.body)
+	assert_eq(_got.size(), 0)
+	w.finish()
+	assert_eq(_got, [400])
+	assert_eq(w.picked_path, "claw")
+
+
+func test_job_window_cancel_on_the_weapon_page_returns_to_the_list() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	w.declined.connect(_record.bind("declined"))
+	w.open(LV10, 10, 0)
+	var page_one := w.body
+	w.select(3)
+	assert_eq(w.state, "weapon")
+	w.handle_input(key(KEY_ESCAPE))
+	assert_eq(w.state, "choose", "Esc = Cancel goes back, it does not decline")
+	assert_true(w.is_open())
+	assert_eq(_got.size(), 0, "no signal")
+	assert_eq(w.entries.size(), 6, "the job list is back")
+	assert_eq(w.focus, 3, "the Thief entry stays focused")
+	assert_eq(w.body, page_one)
+	assert_eq(w.npc_id, 0, "the list is spoken without a portrait again")
+	# The Cancel entry (digit and click) does the same, and another job can be taken afterwards.
+	w.select(3)
 	w.handle_input(key(KEY_3))
-	assert_eq(_got, [400], "the second Thief entry is chosen")
-	assert_eq(w.picked_path, "dagger", "and tells which path it was")
+	assert_eq(w.state, "choose", "digit 3 = Cancel on the Thief's page")
+	w.select(2)
+	w._gui_input(click(w.entry_rect(2).get_center()))
+	assert_eq(w.state, "choose", "clicking Cancel")
+	assert_eq(_got.size(), 0)
+	w.select(2)
+	w.select(1)
+	assert_eq(_got, [300], "after cancelling, the player can still take a job")
+	assert_eq(w.picked_path, "crossbow")
+
+
+func test_job_window_not_now_still_defers_with_families_listed() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.job_chosen.connect(_record)
+	w.declined.connect(_record.bind("declined"))
+	w.open(LV10, 10, 0)
+	w.handle_input(key(KEY_6))
+	assert_eq(_got, ["declined"], "Not now.")
+	w.open(LV10, 10, 0)
+	w.handle_input(key(KEY_ESCAPE))
+	assert_eq(_got, ["declined", "declined"], "Esc on the list = END CHAT")
+
+
+func test_job_window_weapon_page_mouse() -> void:
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 0.0
+	w.job_chosen.connect(_record)
+	w.open(LV10, 10, 0)
+	w._gui_input(click(w.entry_rect(4).get_center()))
+	assert_eq(w.state, "weapon", "click on Pirate")
+	var move := InputEventMouseMotion.new()
+	move.position = w.entry_rect(1).get_center()
+	w._gui_input(move)
+	assert_eq(w.focus, 1, "hover focuses Gun")
+	w._gui_input(click(w.entry_rect(1).get_center()))
+	assert_eq(_got, [500])
+	assert_eq(w.picked_path, "gun")
 
 
 func test_job_window_confirmation_times_out_and_mouse() -> void:
@@ -400,7 +573,7 @@ func test_job_confirmation_uses_the_selected_jobs_instructor() -> void:
 	w.confirm_seconds = 60.0
 	for i in choices.size():
 		w.open(choices, 10, 0)
-		assert_eq(w.npc_id, 1022000, "opening list keeps the first available instructor")
+		assert_eq(w.npc_id, 0, "opening list: no portrait across branches")
 		assert_true(w.select(i))
 		assert_eq(w.npc_id, instructors[i], "selected job supplies the name tag")
 		assert_eq((w.get_node("Panel/Npc") as WzImage).path,
@@ -427,7 +600,8 @@ func test_job_window_instructors() -> void:
 	assert_eq(JobAdvanceWindow.instructor_for([{"job_id": 510, "available": false}], 500), 1090000)
 	assert_eq(JobAdvanceWindow.branch_of(232), 200)
 	assert_eq(JobAdvanceWindow.branch_of(0), 0)
-	assert_true(JobAdvanceWindow.intro_text(1032001, JOB8, 8).begins_with("So you want to become a Magician?"))
+	assert_false(JobAdvanceWindow.intro_text(0, JOB8, 8).contains("Magician?"), "the list intro is generic")
+	assert_true(JobAdvanceWindow.intro_text(0, LV10, 10).contains("Lv. 10"))
 	assert_true(JobAdvanceWindow.intro_text(9010000, JOB30, 30).contains("Lv. 30"))
 
 
