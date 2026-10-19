@@ -303,6 +303,24 @@ implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
 
+Stage display names (#221, 2026-10-18, tier C, owner choice from the playtest-3 grilling): the player sees a stage as
+the town or region it belongs to, not its v83 map name, because a region may later pick among several maps. Each stage
+in `stages.json` carries a required `region` and `continent` (checked by `DataRepo.stage_label_errors` on load and by
+`test_data_files`); `name` stays only as a fallback. The WZ `mapName`/`streetName` are no longer displayed (WZ's street
+for Henesys Hunting Ground I is "Victoria Road", so the region cannot come from WZ). Keys, map ids, saves and run
+history are unchanged.
+
+| Stage key | Map id | Region | Continent |
+|---|---|---|---|
+| `henesys_hg1` | 104040000 | Henesys | Victoria Island |
+| `tree_that_grew_1` | 101010100 | Ellinia | Victoria Island |
+| `dark_cave` | 105050400 | Sleepywood | Victoria Island |
+
+The stage-select list shows the region; its details panel and the results screen show the region with the continent
+under it; the in-run banner shows the continent small above the region. Run summaries carry `region` and `continent`
+(they still carry the WZ `map_name`/`street_name` for tools); a summary saved before the fields existed reads the
+stage's region from `stages.json`, and a stage no longer in the file keeps its saved map and street name.
+
 Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run tier list:
 `[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
 Its first-pass data targets an arriving Lv35–43 second-job character and is frozen before the report-only smoke;
@@ -4960,7 +4978,7 @@ random policy shares the movement and the camper policies still override it afte
   kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
   advancement, boss-only completion, late ordinary hits and no lost mobs (4.1.1).
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
-- Map name and street name from `String.wz/Map.img` on the stage card and at run start.
+- Stage region and continent (`stages.json`, #221) on the stage card, the results screen and at run start; the WZ map and street names are not shown.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
 - Results: the login book's Back banner returns to character select; death/victory frees the ended character's slot.
 - Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
@@ -5615,7 +5633,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Run end holds | results 2 s after the tombstone has landed; on a clear the party-quest `CLEAR` field effect (`Map.wz/Effect.img/quest/party/clear`, `Sound.wz/Field.img/Party1/Clear`) at the screen centre for 3.5 s | C | ours (art/sound A) |
 | Invincibility blink, hit face | the whole character (one CanvasGroup) alternates alpha 1.0 / 0.4 every 0.08 s while invincible; face `hit` for 1 s after a hit | C | ours |
 | Drop draw order | EXP drops are drawn after the mobs and the character of the character's foothold layer (never hidden in a crowd) | C | ours |
-| Run start title | street name + map name (String.wz) under the timer for 3.5 s, the last 1 s fading | C | ours |
+| Run start title | continent (small) above the region (`stages.json`, #221) under the timer for 3.5 s, the last 1 s fading | C | ours |
 | Sound throttle | each sound path plays at most once per frame (a piercing shell through 20 mobs is one Damage sound) | C | ours |
 | Character name tag | the character name under the feet in the elite name-tag style | C | ours |
 | UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
