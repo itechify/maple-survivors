@@ -914,8 +914,8 @@ Godot oversamples fonts by that scale, so glyphs are rasterised at window pixels
   `GameSettings.capture_logical`. `main.gd` and `map_viewer` take tool-only `--size=WxH` (and main `--fill`) to
   capture a 2x or fill-window view on any screen.
 - **Web.** The same project setting applies; the canvas is the tab's CSS size times `devicePixelRatio`
-  (`html/canvas_resize_policy=2`), so a HiDPI browser gets window-resolution text too. Checked in Chrome at 1600x1200
-  (`web/dev/perf_run.mjs`).
+  (`html/canvas_resize_policy=2`), so a HiDPI browser gets window-resolution text too. Checked in Chrome (`web/dev/perf_run.mjs`) at a 1600x1200
+  viewport and at an 800x600 viewport with devicePixelRatio 2 (canvas 1600x1200, 2x text).
 - **Alternatives rejected.** A native-resolution text overlay on top of the 800x600 viewport cannot keep z-order: a
   window, tooltip or dragged icon drawn over another window's text would no longer cover it, and every `_draw` that
   mixes art and text would have to split. Per-font oversampling alone does nothing in viewport mode (glyphs still land
