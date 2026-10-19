@@ -246,12 +246,13 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	sorted_items.sort()
 	assert_eq(d.equipment_drops["items"], sorted_items, "ascending")
 	var warrior: Dictionary = DataRepo.load_json(DataRepo.fragment_path("equipment_drops", "warrior", root))
+	var thief: Dictionary = DataRepo.load_json(DataRepo.fragment_path("equipment_drops", "thief", root))
 	var pirate: Dictionary = DataRepo.load_json(DataRepo.fragment_path("equipment_drops", "pirate", root))
 	var bowman: Dictionary = DataRepo.load_json(DataRepo.fragment_path("equipment_drops", "bowman", root))
 	assert_eq(d.equipment_drops["items"].size(), common["items"].size() + warrior["items"].size() + magician["items"].size()
-		+ bowman["items"].size() + pirate["items"].size())
+		+ bowman["items"].size() + thief["items"].size() + pirate["items"].size())
 	# scrolls: armour slots in common, the Warrior's weapon kinds and shield, then wand and staff in magician
 	assert_eq(d.scrolls.families.keys(), ["hat", "top", "bottom", "overall", "shoes", "gloves", "sword", "axe", "blunt",
-		"two_handed_sword", "two_handed_axe", "two_handed_blunt", "spear", "polearm", "shield", "wand", "staff", "bow", "crossbow", "knuckle", "gun"])
+		"two_handed_sword", "two_handed_axe", "two_handed_blunt", "spear", "polearm", "shield", "wand", "staff", "bow", "crossbow", "claw", "dagger", "knuckle", "gun"])
 	assert_eq(d.shops.weapon_slots, ["sword", "axe", "blunt", "two_handed_sword", "two_handed_axe", "two_handed_blunt",
-		"spear", "polearm", "wand", "staff", "bow", "crossbow", "knuckle", "gun"], "line order: Warrior, Magician, Bowman, Pirate")
+		"spear", "polearm", "wand", "staff", "bow", "crossbow", "claw", "dagger", "knuckle", "gun"], "line order: Warrior, Magician, Bowman, Thief, Pirate")

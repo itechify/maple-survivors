@@ -181,8 +181,8 @@ func test_jobs_and_balance() -> void:
 	assert_true(tree.job(500).playable, "Pirate first job is playable since #186")
 	for id: int in [510, 520]:
 		assert_true(tree.job(id).playable, "%d is playable since #189" % id)
-	assert_true(tree.job(300).playable, "Bowman first job is playable since #199")
-	assert_false(tree.job(400).playable, "Thief not playable")
+	for id: int in [300, 310, 320, 400, 410, 420]:
+		assert_true(tree.job(id).playable, "%d playable since specs #166/#167" % id)
 	var b: Dictionary = data.balance
 	assert_false(b.has("invincible_time"), "replaced by the shrinking hit_window (spec #88)")
 	assert_eq(b.hit_window, {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0})
@@ -202,7 +202,7 @@ func test_jobs_and_balance() -> void:
 	assert_eq(float(b.growth["0"].hp), 14.0)
 	assert_eq(float(b.growth["200"].mp), 22.0)
 	assert_eq(int(b.player.ap_per_level), 5)
-	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "300": "dex", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
+	assert_eq(b.player.ap_stat, {"0": "str", "100": "str", "200": "int", "300": "dex", "400": "luk", "500:knuckle": "str", "500:gun": "dex", "510": "str", "520": "dex"})
 	assert_eq(String(b.player.ap_secondary["200"].stat), "luk", "Magician AP keeps LUK at the v83 requirement pattern")
 	assert_false(b.player.ap_secondary.has("0"), "the Beginner has no secondary stat")
 	assert_eq(float(b.growth["200"].int_mp_divisor), 10.0)
@@ -236,13 +236,13 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
 	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
-		1452051, 1462001, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1462000, 1482004, 1492004]),
+		1452051, 1462001, 1472061, 1332063, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1462000, 1472008, 1332012, 1482004, 1492004]),
 		"without MakeCharInfo the setup loads the default outfit and every playable job's advancement weapons, including both Bowman gifts")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
 		assert_true(int(id) in with_drops, "the drop list item %d has its info loaded" % int(id))
-	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 3,
-		"listed items are added once (creation coat/pants/shoes, Wooden Wand and spare Bowman crossbow overlap; Warrior sword/Steel Pipe and Beginner Bowman's bow are outside the drop roster)")
+	assert_eq(with_drops.size(), 5 + data.equipment_drops.items.size() - 4 + 5,
+		"listed items are added once (creation coat/pants/shoes, Wooden Wand and spare Bowman crossbow overlap; Warrior sword/Steel Pipe, Beginner Bowman's bow and both Thief gifts are outside the drop roster)")
 
 
 func test_build_setup_and_paths() -> void:
@@ -406,6 +406,7 @@ const HIT_MORE_EXEMPT := {
 	"dash": "movement buff: deals no damage",
 	"mp_recovery": "support: turns HP into MP, deals no damage",
 	"threaten": "support: threatens, deals no damage",
+	"disorder": "support: threatens and interrupts, deals no damage",
 }
 
 

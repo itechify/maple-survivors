@@ -23,6 +23,42 @@ const INFO := {
 const RULES := {"below": 10, "above": 5, "falloff": 0.25, "boss_top": 5, "shared_families": [["wand", "staff"]]}
 
 
+## Shield eligibility follows a data rule for any job line, including boss fallback outside the level window.
+func test_shield_families_are_configurable_per_job_line() -> void:
+	var rules := RULES.duplicate(true)
+	rules.shield_families = {"200": ["sword"]}
+	var infos := {1092000: {"reqJob": 0, "reqLevel": 20}}
+	for job in [200, 210, 230]:
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "wand"), [])
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "sword"), [1092000])
+		assert_eq(EquipmentDrops.pick_boss([1092000], infos, job, 70, rules, _rng(167), "wand"), 0)
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 100, 20, rules, "axe"), [1092000],
+		"unlisted job lines retain unrestricted shield drops")
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 400, 20, rules, "claw"), [1092000],
+		"no job line has an implicit code-only restriction")
+
+
+## Frozen pre-review selector records cover ordinary/boss picks and the following RNG draw.
+func test_seeded_drop_records_stay_identical() -> void:
+	var rules: Dictionary = DataRepo.load_all().equipment_drops
+	var infos := {
+		1002001: {"reqJob": 0, "reqLevel": 10},
+		1092018: {"reqJob": 8, "reqLevel": 22},
+		1332000: {"reqJob": 8, "reqLevel": 10},
+		1472000: {"reqJob": 8, "reqLevel": 10},
+		1092000: {"reqJob": 0, "reqLevel": 20},
+	}
+	var records := []
+	var rng := _rng(167)
+	for job in [0, 100, 200, 400, 410, 420, 430, 500]:
+		for family: String in ["", "sword", "wand", "dagger", "claw", "knuckle"]:
+			for level in [10, 22, 70]:
+				for roll in 8:
+					records.append([EquipmentDrops.pick(infos.keys(), infos, job, level, rules, rng, family),
+						EquipmentDrops.pick_boss(infos.keys(), infos, job, level, rules, rng, family), rng.randi()])
+	assert_eq(JSON.stringify(records).sha256_text(), "f27e3d9f0eeb5377fa67f8487990bd848f1b142293b65222e89ef59225f34d62")
+
+
 func _rng(p_seed: int) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = p_seed
@@ -201,8 +237,8 @@ func test_the_shipped_list_is_ids_only_and_every_item_is_a_wearable_slot() -> vo
 		var slot := Equipment.slot_of(id)
 		assert_true(slot != "", "%d has an equip slot" % id)
 		if slot == "weapon":
-			assert_true(id / 10000 in [137, 138, 130, 131, 132, 140, 141, 142, 143, 144, 145, 146, 148, 149],
-				"only Magician, Warrior, Bowman and Pirate weapon families, not %d" % id)
+			assert_true(id / 10000 in [137, 138, 130, 131, 132, 133, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149],
+				"only Magician, Warrior, Bowman, Thief and Pirate weapon families, not %d" % id)
 	for must: int in [1372005, 1372006, 1372004, 1372003, 1372000, 1372007, 1372014, 1372015, 1382000, 1382002,
 			1382019, 1382001, 1382006, 1382007, 1002017, 1002102, 1002016, 1002064, 1002141, 1002151, 1002215,
 			1002242, 1050008, 1050001, 1050026, 1050002, 1050035, 1050045, 1050053, 1050067, 1072006, 1072136,
@@ -230,8 +266,8 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops
 		var info: Dictionary = img.root.info
 		infos[id] = info
 		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 70, "%d reqLevel 0..70" % id)
-		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 23 != 0,
-			"%d is all-job, Magician, Warrior, Bowman or Pirate" % id)
+		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 31 != 0,
+			"%d is all-job, Magician, Warrior, Bowman, Thief or Pirate" % id)
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not a cash item" % id)
 		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
 	var rng := _rng(8)

@@ -158,6 +158,9 @@ func _vars(key: String, level: int, stats: Dictionary) -> Dictionary:
 	for k: String in stats:
 		if typeof(stats[k]) in [TYPE_INT, TYPE_FLOAT]:
 			vars[k] = float(stats[k])
+	# Buff movement values must not collide with projectile speed/range in the resolved stats.
+	for k: String in stats.get("buff_effects", {}):
+		vars["buff_" + k] = float(stats.buff_effects[k])
 	if vars.has("mastery") and not stats.has("mastery"):
 		vars["mastery_pct"] = roundf(CombatMath.mastery_fraction(int(vars.mastery)) * 100.0)
 	if stats.has("passive_value"):

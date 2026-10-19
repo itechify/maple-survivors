@@ -226,7 +226,9 @@ func test_forced_job_must_be_a_playable_first_or_second_job() -> void:
 	data.jobs_survivor.jobs["310"] = {"playable": true}
 	assert_eq(_tree(data).forced_job_error(310), "")
 	assert_eq(SceneFlow.forced_job_error({"job": 310}, data), "")
-	assert_true(SceneFlow.forced_job_error({"job": 400}, data) != "")
+	assert_eq(SceneFlow.forced_job_error({"job": 400}, data), "", "Thief first job is playable since #207")
+	for id in [410, 420]:
+		assert_eq(SceneFlow.forced_job_error({"job": id}, data), "", "Thief branch playable since #212")
 	assert_eq(SceneFlow.forced_job_error({}, data), "", "nothing forced")
 
 

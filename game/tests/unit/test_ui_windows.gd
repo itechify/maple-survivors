@@ -386,6 +386,37 @@ func test_job_window_nothing_available_ok_declines() -> void:
 	assert_eq(_got, ["declined", "declined"], "Enter = OK")
 
 
+## Confirmation switches from the opening instructor to the selected job's portrait and name.
+func test_job_confirmation_uses_the_selected_jobs_instructor() -> void:
+	var choices := [
+		{"job_id": 100, "name": "Warrior", "available": true},
+		{"job_id": 200, "name": "Magician", "available": true},
+		{"job_id": 300, "name": "Bowman", "available": true},
+		{"job_id": 400, "name": "Thief - Claw", "available": true},
+		{"job_id": 500, "name": "Pirate - Knuckle", "available": true},
+	]
+	var instructors := [1022000, 1032001, 1012100, 1052001, 1090000]
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.confirm_seconds = 60.0
+	for i in choices.size():
+		w.open(choices, 10, 0)
+		assert_eq(w.npc_id, 1022000, "opening list keeps the first available instructor")
+		assert_true(w.select(i))
+		assert_eq(w.npc_id, instructors[i], "selected job supplies the name tag")
+		assert_eq((w.get_node("Panel/Npc") as WzImage).path,
+			"Npc.wz/%07d.img/stand" % instructors[i], "selected job supplies the portrait")
+		w.finish()
+
+
+## Vowel-sound job names use "an" in both instructor confirmation variants.
+func test_job_confirmation_uses_the_job_names_article() -> void:
+	for npc in [1052001, 1032001, 1090000]:
+		for job_name: String in ["Assassin", "Archer", "Ice Wizard"]:
+			assert_true(JobAdvanceWindow.confirm_text(npc, job_name).begins_with("You are now an " + job_name + "!"))
+		for job_name: String in ["Bandit", "Thief - Claw", "Pirate - Knuckle", "Magician"]:
+			assert_true(JobAdvanceWindow.confirm_text(npc, job_name).begins_with("You are now a " + job_name + "!"))
+
+
 func test_job_window_instructors() -> void:
 	assert_eq(JobAdvanceWindow.instructor_for(JOB8, 0), 1032001)
 	assert_eq(JobAdvanceWindow.instructor_for(JOB30, 200), 1032001)

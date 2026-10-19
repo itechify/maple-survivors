@@ -55,7 +55,8 @@ extends RefCounted
 ## draws, 4 drop pops, 5 basic-attack stances/damage/crits, 6 boss reward scatter, 7 potion drop rolls, 8 bot branch choices,
 ## 9 meso drop chance and amount rolls, 10 equipment drop chance, item and stat rolls, 11 scroll success and curse rolls,
 ## 12 Final Attack proc and follow-up damage/crit rolls; 13 Threaten (spec #165; no prop in v83, so unused),
-## 14-15 reserved for Bowman/Thief,
+## 14 reserved for Bowman,
+## 15 Thief-only rolls (thief_rng, Steal success in #214),
 ## 16 Pirate-only rolls (pirate_rng, e.g. Oak Barrel's failure chance in #194).
 ## Each stream has exactly one owner.
 
@@ -90,6 +91,7 @@ const EVENT_FIELDS := {
 	"mob_spawned": ["mob", "mob_id", "pos", "elite", "relocated_from"],
 	"mob_hit": ["mob", "mob_id", "damage", "crit", "pos", "hit_visual", "skill"],
 	"mob_status_applied": ["mob", "mob_id", "status", "duration"],
+	"skill_mob_effect": ["skill", "mob", "pos", "effect"],
 	"mob_status_expired": ["mob", "mob_id", "status"],
 	"mob_died": ["mob", "mob_id", "pos", "exp", "elite"],
 	"mob_revives_spawned": ["boss_index", "mob", "mob_id", "pos", "revives", "time"],
@@ -190,6 +192,8 @@ var reward_rng: RandomNumberGenerator
 var job_rng: RandomNumberGenerator
 ## Final Attack's proc and damage/crit rolls only (stream 12, #161).
 var final_rng: RandomNumberGenerator
+## Thief-only rolls (stream 15, #207): reserved for Steal's success chance (#214).
+var thief_rng: RandomNumberGenerator
 ## Pirate-only rolls (stream 16, #186): today Oak Barrel's failure chance (#194). A future non-Pirate failure chance
 ## needs its own stream.
 var pirate_rng: RandomNumberGenerator
@@ -377,6 +381,8 @@ func _init(p_setup: Dictionary = {}) -> void:
 	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
 	add_hit_listener(_final_attack_hit)
+	add_hit_listener(_damage_heal_hit)
+	add_hit_listener(_steal_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -395,7 +401,8 @@ func _init_rng_streams() -> void:
 	equip_rng = _stream(10) # tier C: equipment rolls never shift another stream, #109.
 	scroll_rng = _stream(11) # tier C: scroll success/curse rolls never shift another stream, #110.
 	final_rng = _stream(12) # tier C: Final Attack procs and follow-up rolls never shift another stream, #161.
-	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14-15 reserved, #186.
+	thief_rng = _stream(15) # tier C: independent Thief-only rolls; reserved for Steal success, #207/#214.
+	pirate_rng = _stream(16) # tier C: Pirate-only rolls never shift another stream; 14 reserved, #186.
 
 
 ## Physics, footholds, bounds, ropes, portals and the two mob navigation graphs from the map img.
@@ -1795,6 +1802,33 @@ func add_hit_listener(listener: Callable) -> void:
 	_hit_listeners.append(listener)
 
 
+func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
+	var key := String(hit.skill)
+	var heal: Dictionary = book.def(key).get("damage_heal", {})
+	if heal.is_empty():
+		return
+	var percent := book.canonical(key, int(hit.level), String(heal.percent_field))
+	# tier C: truncate fractional healing to whole HP after the resolved damage line (including crit/defence).
+	var amount := floori(float(hit.damage) * percent / 100.0)
+	if heal.has("max_hp_fraction"):
+		amount = mini(amount, floori(_max_hp * float(heal.max_hp_fraction)))
+	if bool(heal.get("target_max_hp", false)):
+		amount = mini(amount, swarm.max_hp[slot])
+	restore_player("hp", amount, key)
+
+
+func _steal_hit(slot: int, hit: Dictionary) -> void:
+	var steal: Dictionary = book.def(String(hit.skill)).get("steal", {})
+	if steal.is_empty() or swarm.stolen[slot] != 0:
+		return
+	var chance := book.canonical(String(hit.skill), int(hit.level), String(steal.chance_field))
+	# Owner #167: only Steal success uses stream 15, once per damaging line, including lethal hits and bosses.
+	if thief_rng.randf() * 100.0 >= chance:
+		return
+	drop_mob_loot(slot, true)
+	swarm.stolen[slot] = 1
+
+
 func _mp_eater_hit(slot: int, hit: Dictionary) -> void:
 	if not bool(hit.magic) or int(hit.damage) <= 0 or swarm.mp[slot] <= 0:
 		return
@@ -2156,6 +2190,9 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
+	var recovery := upkeep.periodic_recovery(dt, loadout)
+	_hp = minf(_max_hp, _hp + recovery.x)
+	_mp = minf(_max_mp, _mp + recovery.y)
 	_end_buffs_above_hp()
 
 
@@ -2215,13 +2252,25 @@ func _on_kill(m: int) -> void:
 			chance = director.normal_hp_drop_chance_at(time, chance)
 		if chance > 0.0 and potion_rng.randf() < chance:
 			spawn_potion(kind, pos)
+	drop_mob_loot(m)
+
+
+## Normal equipment/meso roll, also callable for a living mob. `single` guarantees exactly one extra Steal item.
+## tier C: single loot uses the ordinary equipment chance/pool, else a guaranteed normal meso bundle; no EXP/potions.
+## Ordinary death rolls retain their meso-then-equipment order and streams; Steal content never uses stream 15.
+func drop_mob_loot(m: int, single := false) -> void:
+	var pos := swarm.pos(m)
+	var mk := swarm.mob_kind(m)
 	var meso_cfg: Dictionary = balance.get("mesos", {})
 	var meso_chance := float(meso_cfg.get("chance", 0.0))
-	if meso_chance > 0.0 and meso_rng.randf() < meso_chance:
+	if not single and meso_chance > 0.0 and meso_rng.randf() < meso_chance:
 		spawn_meso(pos, _roll_mesos(mk))
 	var equip_chance := float(data.get("equipment_drops", {}).get("chance", 0.0))
 	if equip_chance > 0.0 and equip_rng.randf() < equip_chance:
-		_drop_equipment(pos, false)
+		if _drop_equipment(pos, false) and single:
+			return
+	if single:
+		spawn_meso(pos, _roll_mesos(mk))
 
 
 ## Rolls one meso amount for a mob kind: its listed v83 range (or the level fallback) times balance.mesos.mult.
@@ -2234,7 +2283,8 @@ func _roll_mesos(mk: MobKind) -> int:
 ## One equipment drop for the character's current job, level and held weapon family (EquipmentDrops; `boss` takes the
 ## top of the level window) with v83 random stats, from the equipment stream; nothing when no listed item has info and
 ## fits. A weapon only drops from the family held now; bare hands get none (#159).
-func _drop_equipment(pos: Vector2, boss: bool) -> void:
+## Returns whether an equipment pickup was spawned (Steal falls back to mesos when none fits).
+func _drop_equipment(pos: Vector2, boss: bool) -> bool:
 	var cfg: Dictionary = data.get("equipment_drops", {})
 	var infos: Dictionary = setup.get("equipment_info", {})
 	var items: Array = cfg.get("items", [])
@@ -2242,7 +2292,8 @@ func _drop_equipment(pos: Vector2, boss: bool) -> void:
 	var id := EquipmentDrops.pick_boss(items, infos, progression.job_id, progression.level, cfg, equip_rng, family) if boss \
 		else EquipmentDrops.pick(items, infos, progression.job_id, progression.level, cfg, equip_rng, family)
 	if id > 0:
-		spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng))
+		return spawn_equipment(pos, Equipment.create_drop(id, Equipment.info_of(infos, id), equip_rng)) >= 0
+	return false
 
 
 ## Drops an equipment instance on the ground at pos (drawn with the item's icon); the magnet collects it while the

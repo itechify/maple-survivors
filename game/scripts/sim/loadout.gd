@@ -234,7 +234,8 @@ func set_caster(p_int: float, p_matk: float, p_char_level: int) -> void:
 ## the same modifiers; an unowned skill resolves at rank 1):
 ## skill, skill_id, kind, slot, rank, level, damage_type (fixed/magic/physical/none), attack_kind (swing/stab/shoot/""),
 ## defense (pdd/mdd/none), damage_pct (physical skill% / 100, otherwise 1), damage_min/max (before mob defence,
-## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count,
+## after survivor multipliers; physical bounds are also before skill%), magic (bool), element, attack_count (canonical
+## attackCount plus skill modifiers, damage lines per target),
 ## crit, crit_mult, speed_factor (attack speed: the fraction of the data's cooldown and action time left), cooldown, range, cast_rule (empty means legacy), cast_params (the cast block),
 ## has_box, box (canonical left-facing feet offsets scaled by area), area, mob_count (canonical plus count mods),
 ## mp_cost (canonical mpCon unless overridden by survivor data), hp_cost (canonical hpCon, 0 for most skills; Slash Blast),
@@ -283,12 +284,15 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 	var blast: Dictionary = d.get("impact_blast", {})
 	var cast: Dictionary = d.get("cast", {})
 	var node := book.level_node(key, lv)
-	var has_box := node.get("lt") is Dictionary and node.get("rb") is Dictionary
+	# tier C: survivor fallback box for skills without canonical lt/rb (Disorder); WZ boxes always take precedence.
+	var box_node: Dictionary = node if node.get("lt") is Dictionary and node.get("rb") is Dictionary \
+		else cast.get("box", {})
+	var has_box := box_node.get("lt") is Dictionary and box_node.get("rb") is Dictionary
 	var area := skill_stat(key, "area", 1.0)
 	var box := Rect2()
 	if has_box:
-		var lt: Array = node.lt.get("$v", [0.0, 0.0])
-		var rb: Array = node.rb.get("$v", [0.0, 0.0])
+		var lt: Array = box_node.lt.get("$v", [0.0, 0.0])
+		var rb: Array = box_node.rb.get("$v", [0.0, 0.0])
 		var start := Vector2(float(lt[0]), float(lt[1])) * area
 		box = Rect2(start, Vector2(float(rb[0]), float(rb[1])) * area - start)
 		if bool(cast.get("around", false)):
@@ -307,7 +311,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"has_box": has_box,
 		"area": area,
 		"box": box,
-		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", 1.0)))),
+		"mob_count": maxi(1, roundi(skill_stat(key, "count", book.canonical(key, lv, "mobCount", float(cast.get("mob_count", 1.0)))))),
 		"mp_cost": maxi(0, int(d.get("mp_cost_override", book.canonical(key, lv, "mpCon", 0.0)))),
 		"hp_cost": maxi(0, int(book.canonical(key, lv, "hpCon", 0.0))),
 		"teleport_range": book.canonical(key, lv, "range", 0.0) if d.has("teleport") else 0.0,
@@ -322,7 +326,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"damage_max": hi,
 		"magic": dtype == "magic",
 		"element": String(book.skill_node(key).get("elemAttr", "")),
-		"attack_count": maxi(1, int(book.canonical(key, lv, "attackCount", 1.0))),
+		"attack_count": maxi(1, roundi(skill_stat(key, "attack_count", book.canonical(key, lv, "attackCount", 1.0)))),
 		"crit": skill_stat(key, "crit", 0.0) + player_stat("crit", crit_chance + acc * crit_per_acc + crit_bonus),
 		"crit_mult": crit_mult,
 		"crit_damage_bonus": crit_damage_bonus,
@@ -359,7 +363,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"buff_stat": String(buff.get("stat", "")),
 		"buff_value": book.canonical(key, lv, String(buff.get("field", "")), 0.0) if not buff.is_empty() else 0.0,
 		"buff_effects": _buff_effects(key, lv, buff),
-		"buff_cooldown": book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
+		# A literal survivor cooldown (Dark Sight) overrides the canonical cooldown field; other buffs keep their WZ value.
+		"buff_cooldown": float(buff.cooldown) if buff.has("cooldown") \
+			else book.canonical(key, lv, String(buff.get("cooldown_field", "time")), 0.0),
 		"pulse_interval": float(buff.get("pulse_interval", 0.0)),
 		"hp_threshold": float(buff.get("hp_threshold", 0.0)),
 		"hidden": bool(buff.get("hidden", false)),

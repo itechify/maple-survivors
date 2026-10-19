@@ -1,0 +1,23 @@
+{
+	"_doc": "Thief scrolls (#207). Tier A original v83 IDs, rates and stats. Tier C selection: ordinary 100/60/10 and dark70/30 ATT for claws and daggers, excluding event, strong 100 and item-specific variants.",
+	"families": {
+		"claw": {
+			"ATT": {
+				"10": 2044702,
+				"60": 2044701,
+				"100": 2044700,
+				"dark70": 2044704,
+				"dark30": 2044705
+			}
+		},
+		"dagger": {
+			"ATT": {
+				"10": 2043302,
+				"60": 2043301,
+				"100": 2043300,
+				"dark70": 2043304,
+				"dark30": 2043305
+			}
+		}
+	}
+}

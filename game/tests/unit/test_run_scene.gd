@@ -690,7 +690,7 @@ func test_warp_fast_forwards_before_the_first_frame() -> void:
 		return
 	# Fixed training seed1 reaches the requested warp; full-run regressions retain2026's valid early death.
 	scene = _make("henesys_hg1", 1, {"autoplay": true, "autopick": true, "warp": 300.0, "shots_dir": "",
-		"shot_every": 30.0})
+		"shot_every": 30.0, "job": 200}) # Keep the wand presentation test independent of the expanded job pool.
 	var w := scene.world
 	assert_true(w.time >= 300.0 - 1e-6, "the sim is at 5:00 before any frame (%.1f)" % w.time)
 	assert_eq(w.state, RunWorld.PLAYING)

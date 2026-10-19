@@ -174,7 +174,25 @@ static func skill_imgs() -> Dictionary:
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
 	# #186: original v83 endpoints, synthetic linear interpolation between them. No proprietary art.
+	# #207: original Thief endpoints; intermediate fixture levels are synthetic interpolation.
+	imgs["400"] = {"skill": {
+		"4000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})},
+		"4001002": {"level": _levels(20, {"mpCon": [5.0, 10.0], "time": [7.0, 60.0],
+			"x": [-1.0, -20.0], "y": [-1.0, -20.0]})}, # synthetic intermediate levels; cache tests check the real table.
+		"4001334": {"weapon": 33, "level": _levels(20, {"mpCon": [8.0, 14.0],
+			"damage": [98.0, 140.0], "attackCount": [2.0, 2.0]})},
+		"4001344": {"weapon": 47, "level": _levels(20, {"mpCon": [8.0, 16.0],
+			"damage": [58.0, 150.0], "bulletCount": [2.0, 2.0]})},
+	}}
+	# #209: synthetic canonical-shaped Keen Eyes levels, +25px per rank (tier A, independently cache-checked).
+	imgs["400"].skill["4000001"] = {"level": _levels(8, {"range": [25.0, 200.0]})}
 	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
+	# tier A: Dark Sight's original numeric level table; speed changes step size after level 12.
+	var dark_sight := {}
+	var dark_sight_speed := [-30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -7, -6, -5, -4, -3, -2, -1, 0]
+	for i in 20:
+		dark_sight[str(i + 1)] = {"mpCon": 24 - i, "time": 10 * (i + 1), "speed": dark_sight_speed[i], "x": 1}
+	imgs["400"].skill["4001003"] = {"level": dark_sight}
 	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
 			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:
 		var levels := _levels(20, {"mpCon": [float(entry[1]), float(entry[2])],
@@ -287,6 +305,35 @@ static func skill_imgs() -> Dictionary:
 		"level": _levels(20, {"time": [15.0, 300.0], "mpCon": [12.0, 24.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})}
 	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
 		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
+	# #212: v83 Thief branch mastery and critical endpoints; synthetic art, exact mastery steps.
+	imgs["410"] = {"skill": {"4100000": {"level": mastery.call(true)},
+		"4100001": {"level": _levels(30, {"prop": [21.0, 50.0], "damage": [113.0, 200.0]})}}}
+	imgs["420"] = {"skill": {"4200000": {"level": mastery.call(false)}}}
+	for entry: Array in [["410", "4101003", "4101004"], ["420", "4201002", "4201003"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": booster_levels.duplicate(true)}
+		var haste := _levels(20, {"time": [10.0, 200.0], "speed": [2.0, 40.0], "jump": [1.0, 20.0]})
+		for lv in range(1, 21):
+			haste[str(lv)].mpCon = 15.0 if lv <= 10 else 30.0
+		imgs[entry[0]].skill[entry[2]] = {"level": haste}
+	for entry: Array in [["410", "4100002"], ["420", "4200001"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": _levels(20, {"time": [29.0, 10.0], "hp": [3.0, 60.0], "mp": [1.0, 20.0]})}
+	# #213: canonical Drain levels (tier A); no canonical ball, hit or action node.
+	var drain_levels := _levels(30, {"x": [16.0, 45.0], "damage": [102.0, 160.0]})
+	for lv in range(1, 31):
+		drain_levels[str(lv)].mpCon = 12.0 if lv <= 15 else 24.0
+	imgs["410"].skill["4101005"] = {"weapon": 47.0, "level": drain_levels}
+	# #214: exact v83 Savage Blow steps; synthetic art, no decoded assets.
+	var savage := {}
+	var savage_damage := [40,44,48,52,56,60,64,68,72,74,60,62,64,66,68,70,72,74,76,78,71,72,73,74,75,76,77,78,79,80]
+	for lv in range(1, 31):
+		savage[str(lv)] = {"mpCon": 15 if lv <= 10 else 18 if lv <= 20 else 27,
+			"damage": savage_damage[lv - 1], "attackCount": 4 if lv <= 10 else 5 if lv <= 20 else 6}
+	imgs["420"].skill["4201005"] = {"weapon": 33, "action": {"0": "savage"}, "level": savage}
+	# #214: exact v83 Steal values, including its rank-16 MP step; no weapon requirement.
+	var steal := {}
+	for lv in range(1, 31):
+		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
+	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
 	return imgs
 
 

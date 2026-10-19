@@ -242,7 +242,7 @@ func test_every_roster_scroll_fits_the_item_slot_it_is_listed_under() -> void:
 	var table: Dictionary = DataRepo.load_all().scrolls
 	var categories := {"hat": 0, "top": 4, "bottom": 6, "overall": 5, "shoes": 7, "gloves": 8, "wand": 37, "staff": 38,
 		"sword": 30, "axe": 31, "blunt": 32, "two_handed_sword": 40, "two_handed_axe": 41, "two_handed_blunt": 42,
-		"spear": 43, "polearm": 44, "shield": 9, "bow": 45, "crossbow": 46, "knuckle": 48, "gun": 49}
+		"spear": 43, "polearm": 44, "shield": 9, "bow": 45, "crossbow": 46, "dagger": 33, "claw": 47, "knuckle": 48, "gun": 49}
 	for slot: String in table.families:
 		for family: String in table.families[slot]:
 			for rate: String in table.families[slot][family]:

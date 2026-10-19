@@ -15,6 +15,9 @@ func _event_digest(ticks: int) -> String:
 	# #186 froze Pirate out of this baseline. #199 keeps that exclusion and adds Bowman to the retained job pool;
 	# the golden changes for the new job option / stream-8 choice, not a new combat RNG stream.
 	var data := DataRepo.load_all()
+	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
+	data.jobs_survivor.jobs["400"].playable = false
+	data.jobs_survivor.jobs["400"].reason = "Not in this build"
 	data.jobs_survivor.jobs["500"].playable = false
 	data.jobs_survivor.jobs["500"].reason = "Not in this build"
 	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1, data)))

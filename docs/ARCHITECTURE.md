@@ -490,6 +490,13 @@ Slow/Poison/Threaten/Stun art and status tints; frozen state/animation clocks do
 falls and a fading-in one keeps fading in. Stunned monsters stand without moving or flinching, keep their animation clocks,
 and fall straight down when airborne; a refresh keeps the longer remaining duration.
 
+Disorder (#210) reuses Threatened with additive crowd parameters: `cast.box` (WZ-shaped lt/rb) and `cast.mob_count`
+are Loadout fallbacks only when their canonical fields are absent. After a successful application, `cast.interrupt`
+calls `MobAttacks.interrupt(world, slot)` to remove a pre-impact pending attack and reset its MobActions stance,
+preserving the existing per-slot wait. No status or player-state fields are added. A crowd skill's optional `hit`
+art emits `skill_mob_effect {skill, mob, pos, effect}`; RunScene plays it once without damage numbers or mob hit sounds.
+Threaten has no interrupt flag or hit art, so its events and behavior are unchanged. GAME_DESIGN 7.22.
+
 `MobKind.elements` parses canonical `elem_attr` once; `element_multiplier(letter)` is case-insensitive and neutral
 for absent elements. `undead` exposes the canonical flag. `Loadout.stats().element` comes from Skill.wz `elemAttr`;
 shots retain it in a packed string array. Instant and projectile hits share `ProjectileSystem.roll_damage`'s final
@@ -505,7 +512,13 @@ the recorded advancement choice, independent of later weapon swaps. Other per-jo
 `Loadout.stats` defaults projectile `count` to canonical `bulletCount`, and `range` to canonical `range`, when their
 survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
 player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
-13 belongs to Threaten (no v83 prop, so unused); 14-15 remain reserved for Bowman and Thief. Existing stream initialization and draws are unchanged.
+13 belongs to Threaten (no v83 prop, so unused); 14 remains reserved for Bowman; stream 15 is `RunWorld.thief_rng`
+(#207), used only for Steal success (#214). Existing stream initialization and other draws are unchanged.
+Bandit attacks add `steal: {chance_field: "prop"}` to the instant skill definition. A damaging-hit listener rolls
+stream15 before damage/kill resolution, then calls `RunWorld.drop_mob_loot(m, true)` and marks `MobSwarm.stolen`
+(PackedByteArray). This is not a status: boss immunity does not apply. Logical relocation preserves it, fresh spawns
+reset it. `drop_mob_loot(m)` retains ordinary death meso/equipment rolls; its single-item variant uses the ordinary
+equipment chance and job/held-family pool, with a normal meso bundle fallback. Content draws stay on streams9/10.
 
 | File | Contents |
 |---|---|
@@ -522,6 +535,10 @@ player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pir
 | `cash_items.json` | the Cash Shop catalog (id, kind equip / pet / pet_upgrade, NX price, Commodity SN, prerequisites) and the tier C Fortune each cash slot adds (`CashCatalog`, spec #34); the account and the worn items reach a round as setup keys `account` / `alert` and the CharacterSnapshot `cash` / `pet` keys |
 
 **Job-line fragments.** The five files above that name `<line>.json` are a base file (`_doc` and the job-neutral, non-entry config) plus one fragment per job line in a directory beside it (`survivor/skills/magician.json`). `DataRepo.load_all` returns the merged result under the same `setup.data` keys as before, so nothing downstream knows about the split. The fragments are probed by name, in the fixed order `DataRepo.LINES` = common (job-neutral), beginner, warrior, magician, bowman, thief, pirate (job-line id order after common); the order is job-line order, not file-name order, because it decides the order of the merged cards that the level-up roll walks, and `test_data_repo_lines` fails on a file in a fragment directory that is not named after a line. Merge rules (`DataRepo.SPLIT`): `skills` entries are concatenated by key; `cards` and `weapon_slots` are concatenated in line order; `equipment_drops.items` are concatenated and sorted ascending; `scrolls.families` merge per slot, so a later line can add families to an armour slot another file started. A repeated skill key, card `id`, item id, weapon slot or slot+family across files is an error in the `errors` list of `load_all` and the first value is kept; `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged and never overwrite the base. Placement: skills by Skill.wz book (000 beginner, 2xx magician), cards by their skill (none = common, book 000 = beginner, else the skill's line), equipment ids by canonical `reqJob` (0 = common armour, a Magician bit or any wand/staff = magician, the Warrior bit with the sword/axe/blunt/spear/polearm weapons and shields = warrior; weapons and shields never take reqJob 0, so a Beginner's drops stay as they were), armour scrolls in common, wand/staff scrolls in magician and the sword/axe/blunt/two-handed/spear/polearm/shield scrolls in warrior (`weapon_slots` in `shops/<line>.json`). A weapon drops only from the family held at the roll (`EquipmentDrops.family_allows`, `equipment_drops.shared_families`). **A class spec adds its line** (Warrior, Bowman, Thief, Pirate) by creating its own `<name>/<line>.json` files, never by editing another line's file; an export ships them through `data/survivor/*/*.json` in the `include_filter` of `game/export_presets.cfg`. Tools that deep-merge a patch (`balance_run.gd --patch`) work on the merged data.
+
+The base `equipment_drops.json` also accepts `shield_families`, an optional map from first-job id to allowed held
+weapon families. `EquipmentDrops` applies it to that entire job line, including boss fallback outside the level
+window; unlisted lines retain unrestricted shield eligibility (subject to canonical `reqJob`).
 
 `RunWorld` checks `PortalSet` before movement each PLAYING tick. Holding Up inside a same-map link's activation box
 places the player at the destination minus the configured lift, resets velocity/ladder/down-jump state, and emits
@@ -579,7 +596,18 @@ base amounts plus `Loadout.regen_bonus(pool, character level)`: every owned skil
 to each pulse. Level growth calls `refresh_player_stats(false)` so larger maxima do not restore current pools;
 explicit pool upgrades retain the normal granted-growth behavior.
 
+Skills with `periodic_recovery: {interval_field, hp_field, mp_field}` (#212 Endure) have independent clocks in
+PlayerUpkeep. `periodic_recovery(dt, loadout) -> Vector2` reports the HP/MP due; RunWorld clamps both pools after
+the shared pulse. Canonical values are cached by loadout version; rank changes preserve elapsed time, weapon-gated
+clocks pause while unusable, and all clocks reset with the round. This adds no CharacterSnapshot or player_state field.
+
 What the tables above leave open; the class doc comments have the rest.
+
+Damage-to-heal attacks (#213 Drain) declare `damage_heal: {percent_field, max_hp_fraction, target_max_hp}`.
+The shared hit listener reads the canonical percentage at the hit's launch level, caps the whole-point gain
+by the optional fraction of character MaxHP and the target slot's MaxHP, then uses `restore_player("hp", ...)`.
+It runs before kill resolution for instant and projectile lines, so lethal and piercing hits use the same path.
+No additional packed projectile field, RNG stream, event or snapshot field is needed.
 
 - **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives
   the canonical id. Canonical numbers are read per level from `setup.skill_imgs[book].skill[<7-digit id>].level`.
@@ -695,6 +723,12 @@ What the tables above leave open; the class doc comments have the rest.
   (the first basic-attack stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
   `hpCon`) is paid with the MP: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
   `RunWorld.spend_hp` pays it.
+- **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
+  target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
+  `BasicAttack.envelope(world)` by the skill's existing `area` modifier on both axes. Admission and the short-MP
+  probe share that box; `reach_of` scales the basic reach by the same area for the bot. The basic attack's cached
+  envelope is never mutated. `UpgradePool` previews `attack_count` as whole hits alongside the existing percent
+  `area` preview; the level-up window labels them Hits and Reach. No snapshot schema or RNG stream changes.
 - **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
   `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
   cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
