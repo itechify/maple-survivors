@@ -84,7 +84,7 @@ func _avatar_shot(file_name: String, weapon: int, shield: int) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	img.get_region(Rect2i(0, 0, 760, 300)).save_png(_shots.path_join(file_name + ".png"))
+	GameSettings.capture_logical(get_viewport(), img, Rect2(0, 0, 760, 300)).save_png(_shots.path_join(file_name + ".png"))
 	var missing := PackedStringArray()
 	for a in holder.get_children():
 		for m in (a as AvatarRenderer).missing:

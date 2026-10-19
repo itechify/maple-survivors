@@ -332,12 +332,12 @@ func _draw_tooltip() -> void:
 ## Without the cache: a plain panel with lettered keys and empty tray slots.
 func _draw_plain() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-	draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(8, 4), "KEYBOARD SETTING", MapleText.BLACK, MapleText.SMALL, true)
 	for code: int in _key_rects:
 		for r: Rect2 in _key_rects[code]:
 			draw_rect(r.grow(-1.0), Color.WHITE)
-			draw_rect(r.grow(-1.0), Color8(90, 90, 90), false)
+			PixelDraw.outline(self, r.grow(-1.0), Color8(90, 90, 90))
 			MapleText.draw(self, r.position + Vector2(3, 1), KeyBindings.key_name(code).left(5), MapleText.GREY, 9)
 	for i in 18 * 3:
 		@warning_ignore("integer_division")

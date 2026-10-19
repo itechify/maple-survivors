@@ -149,6 +149,22 @@ static func fit_size(window: Vector2i, base: Vector2i = BASE_VIEW) -> Vector2i:
 	return Vector2i(window.x / s, window.y / s)
 
 
+## The rect in a capture of `vp` (`get_texture().get_image()`) that shows the logical-view rect `logical`: the window draws
+## canvas items at its own pixels (stretch mode canvas_items, #224), so a capture is window-sized and logical crops go
+## through the view's stretch transform (scale and letterbox offset).
+static func capture_rect(vp: Viewport, logical: Rect2) -> Rect2i:
+	var t := vp.get_final_transform()
+	return Rect2i((t * logical.position).round(), (logical.size * t.get_scale()).round())
+
+
+## A capture of the logical-view rect `logical` at logical size (nearest): what debug contact sheets saved before #224.
+## Sprites are whole logical pixels, so they come back unchanged; text loses its window-pixel sharpness.
+static func capture_logical(vp: Viewport, img: Image, logical: Rect2) -> Image:
+	var out := img.get_region(capture_rect(vp, logical).intersection(Rect2i(Vector2i.ZERO, img.get_size())))
+	out.resize(int(logical.size.x), int(logical.size.y), Image.INTERPOLATE_NEAREST)
+	return out
+
+
 ## True when the window is smaller than the base view on either axis (then the view is scaled down, not cropped).
 static func needs_downscale(window: Vector2i, base: Vector2i = BASE_VIEW) -> bool:
 	return window.x < base.x or window.y < base.y

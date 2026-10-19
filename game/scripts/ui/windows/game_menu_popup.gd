@@ -122,7 +122,7 @@ func _draw() -> void:
 		UiArt.blit(self, s, Vector2(0, TOP_H + ENTRIES.size() * ROW_H))
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(17, 34, 51, 230))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(12, 4), "MENU", MapleText.WHITE, MapleText.SMALL, true, 0, Color8(17, 85, 153), true)
 	var ids := entry_ids()
 	for i in ids.size():

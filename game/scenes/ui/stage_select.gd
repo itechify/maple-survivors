@@ -251,7 +251,7 @@ func _draw_entry(ci: Control, i: int) -> void:
 	var e := _entry_rect(i)
 	if i == selected:
 		ci.draw_rect(e, Color8(255, 170, 68, 70))
-		ci.draw_rect(e, Color8(170, 85, 0, 160), false)
+		PixelDraw.outline(ci, e, Color8(170, 85, 0, 160))
 	var mark := UiArt.frame(MARK + String(st.mark)) if String(st.mark) != "" else null
 	if mark != null:
 		UiArt.blit(ci, mark, e.position + Vector2(3, 3))

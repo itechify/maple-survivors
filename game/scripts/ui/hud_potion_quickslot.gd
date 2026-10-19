@@ -56,7 +56,7 @@ func _draw() -> void:
 		var x := 5.0 + i * SLOT_STEP
 		var box := Rect2(x, 0, 36, 36)
 		draw_rect(box, Color8(31, 56, 80, 210))
-		draw_rect(box, Color8(99, 147, 183), false)
+		PixelDraw.outline(self, box, Color8(99, 147, 183))
 		var icon: SpriteFrame = slot.icon
 		if icon != null:
 			_blit(icon, box.position + ((box.size - icon.region.size) * 0.5).floor())
