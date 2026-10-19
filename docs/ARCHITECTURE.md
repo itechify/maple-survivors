@@ -888,7 +888,7 @@ Godot oversamples fonts by that scale, so glyphs are rasterised at window pixels
   Checked windowed at 2x in both stretch modes (same widths, wraps and ascents for a set of strings) and pinned by
   `test_sharp_text.gd` (recorded Arimo widths at 12 / 11 px, regular and bold; the game font's widths and a wrap; AA
   never changes a width). Sibling UI code keeps laying out with `MapleText.width` / `wrap` in logical px.
-- **Antialiasing is one constant**, `MapleFonts.ANTIALIASED` (tier C; false by default, the owner picks the final value from the A/B screenshots in the PR): false =
+- **Antialiasing is one constant**, `MapleFonts.ANTIALIASED` (tier C; false: the owner chose crisp from the A/B screenshots, PR #235, 2026-10-19): false =
   crisp hinted glyphs without antialiasing (default, closest to v83), true = grayscale. `MapleText.font`,
   `HudWidget.make_font` / `Hud.make_font` and the Arimo fallback all go through `MapleFonts`. No settings toggle.
 - **Sprites stay pixel-identical.** Node transforms are snapped per item in logical units, so sprites, map tiles and
