@@ -158,7 +158,7 @@ func _assert_hud_matches(s: RunScene) -> void:
 	assert_eq(s.hud.status.player_state, s.world.player_state, "status widget fed by the run scene")
 	assert_eq(s.hud.counters.run_info.kills, s.world.kills, "counter widget fed by the run scene")
 	_assert_skill_icons_match(s)
-	assert_eq(s.hud.potion_slot.get_parent(), s.hud, "quickslot has its own widget")
+	assert_eq(s.hud.quick_slot.get_parent(), s.hud, "quick slot has its own widget")
 	assert_eq(s.hud.buff_row.get_parent(), s.hud, "buffs have their own widget")
 	assert_eq(s.hud.boss_bar.get_parent(), s.hud, "boss bar has its own widget")
 	var ps := s.world.player_state
@@ -866,21 +866,21 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	if not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
-	var hp: Dictionary = scene.hud.potion_slot.displayed("hp")
+	var hp: Dictionary = scene.hud.quick_slot.displayed("hp")
 	assert_eq(hp.item_id, 2000000)
 	assert_eq(hp.count, 5)
-	assert_eq(hp.key_label, "Del / Q")
+	assert_eq(hp.key_label, "Del", "the first bound key")
 	assert_true(hp.icon != null, "canonical Red Potion icon is drawable")
 	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
-	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
+	var mp: Dictionary = scene.hud.quick_slot.displayed("mp")
 	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End", "E opens the Equip window (#108)")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
 	scene.world.drink_potion("hp")
 	scene.advance_frame(0.0)
-	assert_eq(scene.hud.potion_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
+	assert_eq(scene.hud.quick_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
 	_assert_nothing_missing(scene, "potions")
 	var report := scene.perf_summary()
 	assert_eq(report.get("potions_collected", {}), {"hp": 0, "mp": 2})
@@ -964,10 +964,10 @@ func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -
 	scene.world.progression.level = 25
 	for example: Array in [["orange_potion", "hp", 2000001], ["white_potion", "hp", 2000002],
 			["mana_elixir", "mp", 2000006]]:
-		var before: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		var before: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		scene.world.upgrades.apply(example[0], scene.world)
 		scene.advance_frame(0.0)
-		var after: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		var after: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		assert_eq(after.item_id, example[2])
 		assert_eq(after.count, before.count)
 		assert_true(after.icon != null)

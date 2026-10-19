@@ -75,7 +75,7 @@ the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Defaul
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
-key label (potion quickslots, the manual skills' icons) shows the current binding.
+key label (the quick slot's captions, the manual skills' icons) shows the current binding.
 
 Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
 second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
@@ -2957,7 +2957,7 @@ Normal MP is 3% flat on every stage (owner, 2026-10-16, #80), elite MP 60%, with
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
-The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
+The quick slot (HUD, below) shows each kind's current icon and stock count with its first key; balance/perf records report collected and used
 quantities per kind.
 
 - Mobs drop their **signature Etc item** as an EXP pickup (icon from `Item.wz/Etc/0400.img/<id>/info/iconRaw`), with
@@ -4956,8 +4956,14 @@ random policy shares the movement and the camper policies still override it afte
   opt-in "fill window" setting fills large windows with more map instead of black bars (see View fit below).
 - HUD: independent status-bar, counter, skill-icon and message widgets receive state from RunScene. The original
   gauges, level, job name, timer, kill count and skill icons keep their layout. Decorative controls on the bar's
-  right side are removed to reserve a potion quickslot, except the Menu button at the bar's right end; separate buff and boss widgets reserve space below the
-  kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
+  right side are removed, except the Menu button at the bar's right end and the quick slot's collapse button above it; the **v83 quick slot** (#220,
+  `StatusBar.img/base/quickSlot`, 151 × 80, a 4 × 2 grid) stands above the bar's right end, display only. Its 8 cells are, in a fixed order, top row
+  **HP potion, MP potion, movement skill, Jump** and bottom row **Equip, Item, Stat, Skill**; each shows the icon Key Config uses for that
+  action (`KeyActionArt`) and a small caption of the **first key it is bound to** (nothing when unbound; web-reserved keys such as F11 are
+  captioned too); the potions show their current item's icon and stock (ItemNo digits, bottom-left of the cell); the movement cell shows Teleport
+  or Dash, whichever the character has learned, and stays empty until then. The v83 `QuickSlotD` arrow button (the `QuickSlot` up arrow while
+  folded) hides and shows the panel; the state is kept in `settings.cfg` `[hud] quick_slot_collapsed` (default shown). Captions update at
+  once after Key Config OK. Separate buff and boss widgets reserve space below the kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
   advancement, boss-only completion, late ordinary hits and no lost mobs (4.1.1).
 - Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
 - Map name and street name from `String.wz/Map.img` on the stage card and at run start.
@@ -5387,7 +5393,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Ordinary MP supply | 3% flat on every stage, no per-map values; the #30 stage MP curve and its reader are removed; elite rolls and boss bundles unchanged | C | owner, 2026-10-16, 3% flat, no per-map values; balance.potions.drops.normal.mp; #80 |
-| Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
+| Quick slot cell geometry (#220) | white cell interiors 27 × 25 at (10, 9) of the 151 × 80 `base/quickSlot` canvas, pitch (35, 34); 32 px icon box at (7, 6); 9 px key caption at the cell's top-left, potion stock at its bottom-left | C (measured on the art) | ours; HudQuickSlot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
@@ -5602,7 +5608,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
-| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×44 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
+| Reserved HUD areas | buffs 212×44 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
 | Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
@@ -5621,7 +5627,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
 | In-run windows (#85) | stacked above the modal windows (CanvasLayer 11); 20 px title strip drags; 40 px of a window always stay in the view; first open centred above the status bar, then reopened where it was dragged; sim held while any is open | C | ours |
 | Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
-| Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
+| Quick slot position and collapse button (#220) | the 151 × 80 `base/quickSlot` panel at (649, −76) of the 800 px bar (flush with its right end, 76 px above its top, overlapping the bar by 4 px); `QuickSlotD` (shown) / `QuickSlot` (folded) button at (765, 8); state in `[hud] quick_slot_collapsed` | C (position derived from a third-party v83-era client that places the panel at (875, 622) on a 1024 × 768 screen whose bar is at y 698 and the button at x 765, y 8 of the bar, right-aligned to 800 px; tier B facts, unverified against the official client), A (art) | ours; Elem8100 GM client layout (facts only) |
+| Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 36) of the 800 px bar (moved down from y 20 by #220 so the quick slot's collapse button sits above it; v83 keeps Menu on the bar's lower half), popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
 | Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
 | Key Config window (#87) | bindable: jump, HP / MP potion, Stat, Skill, plus (#188) one skill key per learned manual skill at the end of the tray, with the skill's own icon (Teleport, Dash) (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, the learned skill's icon | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
