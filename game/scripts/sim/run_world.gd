@@ -36,7 +36,9 @@ extends RefCounted
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
 ## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
 ## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
-## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
+## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them. An item
+## for an empty slot that displaces nothing and whose requirements are met is then worn at once (action "auto_equip",
+## Equipment.auto_wear_error, #222).
 ##   use_scroll(scroll_id, slot)  - scroll the item worn in an equip slot (Scrolls rules, #110): "" when the scroll was
 ##                                  used up (the result is the `scroll_used` event: success, failure or destroyed),
 ##                                  else no_item (none held) or a Scrolls refusal (scroll_type, scroll_slots, empty,
@@ -924,6 +926,9 @@ func _step_pickups(dt: float) -> int:
 		equipment.inventory.append(instance)
 		equips_collected += 1
 		_equipment_changed("pickup", "", int(instance.id))
+		# tier C (ours, #222): an item for an empty slot that this character may wear is worn at once
+		if auto_wear_error(int(instance.id)) == "":
+			_wear(equipment.inventory.size() - 1, "auto_equip")
 	return got
 
 
@@ -1505,15 +1510,31 @@ func equipment_bonus(field: String) -> float:
 
 ## Wears inventory item `index`; "" or the Equipment reason it failed (nothing changes then). See the header.
 func equip_item(index: int) -> String:
+	return _wear(index, "equip")
+
+
+## Whether item `id` would be worn the moment it is picked up (#222): "" or the Equipment.auto_wear_error reason.
+func auto_wear_error(id: int) -> String:
+	return Equipment.auto_wear_error(equipment.worn, id, Equipment.info_of(setup.get("equipment_info", {}), id),
+		_wearer())
+
+
+## The character fields Equipment checks requirements against: level, job and the total main stats.
+func _wearer() -> Dictionary:
+	var who := {"level": progression.level, "job_id": progression.job_id}
+	who.merge(_attributes)
+	return who
+
+
+## Wears inventory item `index` and emits `equipment_changed` with `action` ("equip", or "auto_equip" from a pickup).
+func _wear(index: int, action: String) -> String:
 	if index < 0 or index >= equipment.inventory.size():
 		return "no_item"
 	var id := int(equipment.inventory[index].id)
-	var who := {"level": progression.level, "job_id": progression.job_id}
-	who.merge(_attributes)
-	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), who,
+	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), _wearer(),
 		inventory_slots())
 	if reason == "":
-		_equipment_changed("equip", Equipment.slot_of(id), id)
+		_equipment_changed(action, Equipment.slot_of(id), id)
 	return reason
 
 
@@ -2461,8 +2482,11 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_dead = true
 		state = DEAD
 		emit("player_died", {"pos": player.pos})
-	else:
+	elif bypass or upkeep.may_knock_back():
+		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
+		# skill attack/ball (window bypass) always knocks back and restarts the guard.
 		player.knockback(dir)
+		upkeep.start_knockback_guard()
 	_write_player_state(0.0)
 	return dmg
 

@@ -497,6 +497,7 @@ func _scenario_full() -> void:
 	var paused_once := false
 	var resumed_once := false
 	var job_seen := false
+	var picked_job := 0
 	while is_instance_valid(run) and run.world != null and run.world.state != RunWorld.DEAD:
 		await get_tree().process_frame
 		if run.world.time >= stop_at and _steer:
@@ -530,6 +531,7 @@ func _scenario_full() -> void:
 				if jw.entries[i].kind == "job" and jw.entries[i].available:
 					idx = i
 					break
+			picked_job = int(jw.entries[maxi(0, idx)].job_id) # whichever job the window lists first (the pick is no longer forced to a Magician)
 			await _key((KEY_1 + maxi(0, idx)) as Key)
 			await _sleep(0.4)
 			await _shot("job_confirm")
@@ -560,9 +562,9 @@ func _scenario_full() -> void:
 		file.store_string(JSON.stringify(snapshot, "\t"))
 		file.close()
 	print("flow_driver: snapshot %s" % JSON.stringify(snapshot))
-	if not job_seen or int(snapshot.job_id) != 200 or not paused_once or not resumed_once:
+	if not job_seen or picked_job == 0 or int(snapshot.job_id) != picked_job or not paused_once or not resumed_once:
 		_failed = true
-		push_error("flow_driver: full scenario did not complete the Magician and pause/resume path")
+		push_error("flow_driver: full scenario did not complete the job window pick (%d) and pause/resume path" % picked_job)
 	await _sleep(1.0)
 	await _shot("death_tombstone")
 	if not await _until(func() -> bool: return flow.current_name == "results", 30.0, "results"):
@@ -686,8 +688,6 @@ func _create_character(character_name: String) -> bool:
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
-	await _shot("creation_gender")
-	await _click(creation.get("create_button") as Control)
 	await _shot("creation_name")
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)
@@ -1226,10 +1226,13 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 	var a: Vector2 = around.get_global_transform_with_canvas().origin
 	var b: Vector2 = a if also == null else also.get_global_transform_with_canvas().origin
 	print("flow_driver: zoom centre ", a, " ", b, " img ", img.get_size())
-	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
-	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
-	var crop := img.get_region(Rect2i(Vector2i(lo), Vector2i(hi - lo)))
-	crop.resize(crop.get_width() * 3, crop.get_height() * 3, Image.INTERPOLATE_NEAREST)
+	var view := get_viewport().get_visible_rect().size
+	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, view)
+	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, view)
+	# The capture has window pixels (canvas_items stretch, #224): crop at the capture's scale, save at 3x logical size.
+	var crop := img.get_region(GameSettings.capture_rect(img, get_viewport(), Rect2(lo, hi - lo)).intersection(
+		Rect2i(Vector2i.ZERO, img.get_size())))
+	crop.resize(int(hi.x - lo.x) * 3, int(hi.y - lo.y) * 3, Image.INTERPOLATE_NEAREST)
 	_n += 1
 	crop.save_png(shots_dir.path_join("%02d_%s.png" % [_n, step]))
 	print("flow_driver: shot %02d_%s.png (zoom)" % [_n, step])
@@ -1295,6 +1298,12 @@ func _scenario_skill() -> void:
 	await _sleep(0.4)
 	_check(String(sw.tooltip().get("id", "")) == "magnet", "Magnet's tooltip")
 	await _shot("skill_star_tab")
+	# The other job tabs (#219: the tab shapes).
+	for t in [0, 1]:
+		await _click_at(origin + sw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(sw.tab == t, "skill tab %d shown" % t)
+		await _shot("skill_tab_%d" % t)
 	await _key(KEY_1)
 	await _sleep(0.2)
 	_check(sw.tab == 0, "1 switched to the Beginner tab")
@@ -2509,6 +2518,12 @@ func _scenario_inventory() -> void:
 	_hover(io + iw.slot_rect(0).get_center())
 	await _sleep(0.4)
 	await _shot("item_use_tab")
+	# Every tab shown once (#219: the v83 tab shapes, the shown one pink).
+	for t in [2, 3, 4]:
+		await _click_at(io + iw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(iw.tab == t, "tab %d shown" % t)
+		await _shot("item_tab_%s" % ItemWindow.TABS[t])
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
@@ -2802,6 +2817,12 @@ func _scenario_shops() -> void:
 	await _shot("shop_refused")
 	await _key(KEY_ENTER)
 	await _sleep(0.3)
+	# Every sell tab shown once (#219: the v83 tab shapes), ending on Use.
+	for t in [2, 3, 4, 0]:
+		await _click_at(origin + shop.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(shop.tab == t, "sell tab %d shown" % t)
+		await _shot("shop_tab_%s" % ShopWindow.TABS[t])
 	# Selling: the Use tab's scroll stack, then a spare item.
 	await _click_at(origin + shop.tab_rect(1).get_center())
 	await _sleep(0.3)

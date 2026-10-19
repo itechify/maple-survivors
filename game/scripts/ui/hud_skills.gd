@@ -139,7 +139,7 @@ func _draw() -> void:
 			var rect := Rect2(p, Vector2(ICON_SIZE, ICON_SIZE))
 			var tint := BLOCKED_TINT if _short[n] == STATE_BLOCKED \
 				else MP_WAIT_TINT if _short[n] == STATE_MP_WAIT else Color.WHITE
-			draw_texture_rect_region(icon.page, rect, icon.region, tint)
+			PixelDraw.blit_scaled(self, icon.page, rect, icon.region, tint)
 			sweep_polygon(float(_steps[n]), float(SWEEP_STEPS), rect, _sweep)
 			if not _sweep.is_empty():
 				draw_colored_polygon(_sweep, SWEEP_COLOR)

@@ -20,6 +20,7 @@ extends Node2D
 ##   --wshot=<png>       with --shot, also save the real window pixels (screen capture) for integer-scaling checks
 ##   --checker           draw a 1 px checkerboard (top-left) for the integer-scaling check
 ##   --window=max|full   maximise / fullscreen the window at start
+##   --size=WxH          window size (e.g. 1600x1200 for a 2x view on a smaller screen)
 ##   --fill              use the opt-in fill-window view (Settings.fill_window, not saved) instead of the default
 ##   --messages          fixed sample of HUD "+N EXP" system messages (demo mode also shows elite name tags)
 ##   --quit=N            quit after N frames
@@ -84,6 +85,10 @@ func _ready() -> void:
 	if args.has("wshot"):
 		# The screen capture needs the window unoccluded.
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true)
+	if args.has("size"):
+		var wh := str(args.size).split("x")
+		if wh.size() == 2:
+			DisplayServer.window_set_size(Vector2i(int(wh[0]), int(wh[1])))
 	if args.has("fill"):
 		var st := get_node_or_null("/root/Settings") as GameSettings
 		if st != null:

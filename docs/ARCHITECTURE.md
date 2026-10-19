@@ -348,7 +348,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact that consumes the ball, also when a MISS prevents damage; not emitted (and the ball flies on) when the hit window blocks an ordinary ball, `RunWorld.hit_window_blocks(source)`; boss balls ignore the window |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
-| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, a job's weapon grant in `change_job` (the Magician's wand, a weapon path's weapon, a second job's branch weapon; #157) and an equipment pickup (`slot` `""`, `item_id` the new item) |
+| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`, `auto_equip`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, a job's weapon grant in `change_job` (the Magician's wand, a weapon path's weapon, a second job's branch weapon; #157) and an equipment pickup (`slot` `""`, `item_id` the new item); a pickup whose slot is empty and whose requirements are met is followed at once by `auto_equip` (`slot` the worn slot, `Equipment.auto_wear_error`, #222) |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
@@ -763,7 +763,8 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `Character.wz/.../info/iconRaw`). Equipment never expires, merges or counts toward `max_active`. `step(..., equip_room)`
   takes how many items the Equip tab still holds (RunWorld passes `inventory_slots() - inventory.size()`, -1 = unlimited):
   a collected drop is appended to `collected_equipment` (RunWorld puts it in `equipment.inventory`, emits
-  `equipment_changed` action `pickup`, counts `equips_collected`). With room 0 a drop is not magnetised (one already flying
+  `equipment_changed` action `pickup`, counts `equips_collected`, then wears it at once through `equip` with action
+  `auto_equip` when its slot is empty and its requirements are met, #222). With room 0 a drop is not magnetised (one already flying
   falls back to the floor) and `pickup_blocked` is emitted once each time the player comes within magnet range; it is picked
   up as soon as room appears. `EquipmentDrops` (pure statics: `eligible`, `pick`, `pick_boss`) filters
   `survivor/equipment_drops/<line>.json` `items` (ids only; reqLevel, reqJob and stats come from `setup.equipment_info`, which
@@ -850,7 +851,7 @@ score setting. Both knobs are tier C survivor tuning.
 | `NameTags` | Elite name tags under mobs (`RunWorld.mob_elite`), drawn like v83's code-drawn default name tag. |
 | `FxRenderer` | Pooled one-shot WZ animations and repeating slow/immunity icons; `play_repeating`, `stop` and `place` follow sim status/expiration without per-entity Nodes. |
 | `DamageNumbers` | `Effect.wz/BasicEff.img` digit sets: first digit large set, rest small; 400 ms hold then 600 ms fade + 30 px rise (tier B). |
-| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudPotionQuickslot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the pure `sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. The one HUD control that takes the mouse is the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`, process mode ALWAYS so it works while the HUD is frozen). |
+| `Hud` | Hosts separate `HudStatusBar`, `HudCounters`, `HudSkills`, `HudMessages`, `HudQuickSlot`, `HudBuffRow` and `HudBossBar` widgets, all extending the one base `HudWidget` (a mouse-ignoring Control with its own state snapshot, the HUD fonts and the only copies of the WZ drawing helpers `_frame(path, report_missing)`, `_blit`, `_blit_rect`, `_text`, `_rank`). `HudSkills` draws each cooling icon's clockwise sweep (one polygon per icon, filled into a reused array by the pure `sweep_polygon(left, total, rect, out)`) and a blue tint on skills waiting for MP; RunScene feeds its snapshot (icons, ranks, key labels) when the HUD signature changes and the cooldowns every frame through `set_cooldowns` from reused buffers, which redraws only when a sweep step or tint changes. Key labels are cached and re-read on `Settings.changed` (`RunScene.watch_settings`, `GameSettings.action_label`). RunScene feeds potion stock/icons, buff icons with ceiling-second MM:SS labels, and live boss bars stacked below the timer. `HudQuickSlot` is the v83 quick slot: a pure `cells()` model (8 cells in a fixed order; icons from `KeyActionArt`, the table the Key Config window also uses; captions from `GameSettings.first_key_label`, potion stock, the learned movement skill from `run_info.movement_skill`), re-read on `Settings.changed` and display only. The HUD controls that take the mouse are the status bar's Menu button (`Hud.menu_button`, a `WzButton` on `StatusBar.img/BtMenu`) and the quick slot's collapse button (`Hud.quick_slot_button`, `QuickSlotD` / `QuickSlot`; `RunScene.toggle_quick_slot` stores the state in `GameSettings.quick_slot_collapsed`, `[hud] quick_slot_collapsed`), both with process mode ALWAYS so they work while the HUD is frozen. |
 | Windows | Level-up choice (`LevelUpWindow`), job advancement (`JobAdvanceWindow`), pause (`PauseMenu`): `MapleWindow` Controls built from `UI.wz` art, skill icons from `Skill.wz`, text from `String.wz`; `RunScene` hosts them in a CanvasLayer (layer 10) and holds its tick loop while one is open. In-run windows (Stat, Skill, the Menu popup, Key Config, Options): `UiWindow` Controls (draggable, art-sized) in a `WindowStack` on CanvasLayer 11; a window kind is one `ui_windows.register(id, factory)` in `RunScene._build_ui_windows()`, after which its hotkey (`RunScene.WINDOW_HOTKEYS`) and Menu entry work; keys RunScene does not use itself go to the front window's `UiWindow.handle_key`. The Skill window draws a `SkillWindowModel` (plain data from the SkillBook, UpgradePool, Loadout ranks / mods / `card_ranks`, JobTree and SkillText; read-only). The Equip and Item windows (#108; `InventoryWindow` base: the v83 double-click / drag protocol, `ItemTooltip`, `DropConfirm` on `Basic.img/YesNo`) show and change the character only through a RunWorld (`equip_item`, `unequip_item`, `discard_item`, `discard_scrolls`, and `use_scroll` for a scroll dragged from the Use tab onto a worn item, resolved by the pure `Scrolls` module on RNG stream 11) and read their plain data through `InventoryModel`; `RunScene._on_item_action` maps the world's `equipment_changed` and `scroll_used` at once (the Enchant effect is an `EnchantFx` layer above the windows, unfrozen while the run is held). The Free Market hosts the same stack (`FreeMarket.ui_windows`) over `FreeMarket.inventory`, a map-less RunWorld of the saved character whose `character_snapshot()` is written back into the save slot after every change. The tick loop also holds while the stack has a window, Esc closes the front one before the pause menu, and a choice window below sets `input_blocked`. Key Config edits a `KeyBindings` draft (`scripts/core/key_bindings.gd`, no scene) that OK writes through `Settings.set_bindings`; Options calls the `Settings` setters directly; both also open from the pause menu (`RunScene.PAUSE_WINDOWS`). Title, character select/creation, map select, the Cash Shop (`cash_shop.gd`, opened by `SceneFlow.goto_cash_shop(origin)` from map select or the Free Market; rules in `scripts/core/cash_shop.gd`), results and import are scenes under `scenes/ui/`; in the Free Market the pause menu is Resume / Save & quit only (`PauseMenu.boundary_mode`). |
 | `Camera` | Follows the player with smoothing (tier C), clamped to `MapBounds`, positions rounded to whole pixels. |
 
@@ -863,14 +864,68 @@ presentation metadata; the cache is untouched. A dead boss is omitted immediatel
 the low-MP cue), so EXP churn cannot evict them. Arrival replaces that boss's warning, plays the canonical
 `Effect.wz/BasicEff.img/Summoned` animation at its position, and requests an evidence screenshot when enabled.
 
-Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=viewport`,
-`aspect=expand`, `scale_mode=integer`, nearest filtering: on wider windows the player sees more of the map at the same
-pixel size, never a stretched sprite (1920x1080: 1066x600 at 1x with black bars). The logical view size therefore
+Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=canvas_items`
+(since #224; was `viewport`, see "Fonts and sharp text" below), `aspect=expand`, `scale_mode=integer`, nearest
+filtering: on wider windows the player sees more of the map at the same pixel size, never a stretched sprite (1920x1080: 1066x600 at 1x with black bars). The logical view size therefore
 varies; read it live (`get_viewport().get_visible_rect().size`), never assume 800x600. `Settings` adjusts two cases:
 a window smaller than 800x600 on either axis is scaled down (fractional) instead of cropped, and the opt-in
 `[display] fill_window` grows the view to window / s at the same integer scale s instead of showing bars
 (`GameSettings.fit_size`: 3440x1440 -> 1720x720 at 2x, 1920x1080 -> 1920x1080 at 1x; much more map on screen, so it is
 off by default).
+
+#### Fonts and sharp text (`MapleText`, `MapleFonts`, `PixelDraw`; #224, 2026-10-18)
+
+All font text goes through `MapleText` (12 / 11 px, line heights 15 / 13, positions floored to logical pixels) and
+`MapleFonts` (the system Arial, Tahoma, Dotum as a `SystemFont`, else the bundled Arimo; see 10 "Web profile"). Until
+#224 the window used `stretch/mode=viewport`: everything, text included, was drawn into an 800x600 (or expanded)
+texture and scaled up with nearest, so on a 1440p screen text was 12 px glyphs doubled into blocks. Now the window uses
+`stretch/mode=canvas_items` with the same base size, aspect, integer scale, nearest filter and 2D transform/vertex
+snapping: canvas items are drawn straight into the window at its own pixel size through the stretch transform, and
+Godot oversamples fonts by that scale, so glyphs are rasterised at window pixels while every metric stays logical.
+
+- **Metrics are frozen.** Font metrics do not depend on the oversampling (`Font.get_string_size` takes no scale), and
+  the two metric-moving settings stay fixed for both antialiasing variants: hinting normal, subpixel positioning off.
+  Checked windowed at 2x in both stretch modes (same widths, wraps and ascents for a set of strings) and pinned by
+  `test_sharp_text.gd` (recorded Arimo widths at 12 / 11 px, regular and bold; the game font's widths and a wrap; AA
+  never changes a width). Sibling UI code keeps laying out with `MapleText.width` / `wrap` in logical px.
+- **Antialiasing is one constant**, `MapleFonts.ANTIALIASED` (tier C; false: the owner chose crisp from the A/B screenshots, PR #235, 2026-10-19): false =
+  crisp hinted glyphs without antialiasing (default, closest to v83), true = grayscale. `MapleText.font`,
+  `HudWidget.make_font` / `Hud.make_font` and the Arimo fallback all go through `MapleFonts`. No settings toggle.
+- **Sprites stay pixel-identical.** Node transforms are snapped per item in logical units, so sprites, map tiles and
+  moving mobs at fractional positions land on the same pixels as before (measured: `map_viewer` with 40 moving mobs,
+  `ui_gallery` windows, flow_driver Item / Equip / Stat windows, before vs after at 2x and in fill-window: only text
+  pixels differ, plus map layers animated in real time). Three draw kinds would change and are handled: a 1 px
+  `draw_rect(r, c, false)` became one window pixel thin, so `PixelDraw.outline` fills the logical pixels the old
+  render lit (GL compatibility footprint: top row above the rect, left column outside, right and bottom inside); a
+  texture drawn smaller than its art (the HUD's 24 px skill icons from 32 px art) would sample more texels, so
+  `PixelDraw.blit_scaled` copies the texels the old render picked (texel floor((i + 0.5) * src / dst)) as unscaled
+  runs (also the stage-select mob portraits); and 1 px lines on whole coordinates (`draw_line(.., 1.0)`, a
+  `draw_rect(r, c, false, 1.0)` along whole edges) would straddle two logical rows at 2x, so `PixelDraw.hline` / `vline` /
+  `edge_outline` fill the row or column the old render lit (tooltip separators, the stage-select and results dividers). Not reproduced: sprites
+  drawn rotated (arrows, bullets and a few skill projectiles that turn to their direction, `ProjectileRenderer`; the
+  rotated "Run history" label is text) and diagonal edges inside a `_draw` (the cooldown sweep, the Skill
+  window's star-tab glyph, the cash shop's check tick) are rasterised at window pixels, i.e. slightly finer edges than the 800x600 render had.
+- **Every display mode.** Integer 2x / 3x and fill-window (`GameSettings.fit_size`) keep their logical view sizes and
+  integer scale; text is drawn at s x its size. Below 800x600 the fractional downscale now samples each sprite at the
+  window's pixels instead of shrinking the finished 800x600 frame, and text is rasterised at the reduced size (legible
+  instead of nearest-dropped rows).
+- **Captures are window-sized.** `get_viewport().get_texture().get_image()` now holds the window's pixels (1600x1200 at
+  2x), so playtest and driver screenshots show the sharp text. Crops in logical coordinates go through
+  `GameSettings.capture_rect` (capture size / view size; letterbox bars are not in a capture); debug contact sheets that must stay at logical size use
+  `GameSettings.capture_logical`. `main.gd` and `map_viewer` take tool-only `--size=WxH` (and main `--fill`) to
+  capture a 2x or fill-window view on any screen.
+- **Web.** The same project setting applies; the canvas is the tab's CSS size times `devicePixelRatio`
+  (`html/canvas_resize_policy=2`), so a HiDPI browser gets window-resolution text too. Checked in Chrome (`web/dev/perf_run.mjs`) at a 1600x1200
+  viewport and at an 800x600 viewport with devicePixelRatio 2 (canvas 1600x1200, 2x text).
+- **Alternatives rejected.** A native-resolution text overlay on top of the 800x600 viewport cannot keep z-order: a
+  window, tooltip or dragged icon drawn over another window's text would no longer cover it, and every `_draw` that
+  mixes art and text would have to split. Per-font oversampling alone does nothing in viewport mode (glyphs still land
+  in the 800x600 texture). Rendering only the world into an 800x600 SubViewport under a canvas_items root would also
+  keep rotated projectiles blocky, but it splits RunScene, FreeMarket, the login backdrop and every debug scene, and
+  leaves world text (name tags) low-res unless lifted out; the measured difference it would remove (rotated sprites)
+  is small, so the global switch is the simpler choice.
+- **Performance.** Canvas items are drawn at window resolution (4x the fill at 2x) instead of 800x600 plus one blit;
+  frame time is in `docs/IMPLEMENTATION_PLAN.md` "Performance log" (#224).
 
 ## 5. Data architecture
 
@@ -1266,8 +1321,8 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
 - **Fonts (`MapleFonts`, `assets/fonts/arimo/`):** a browser has no system fonts, and a `SystemFont` with no match is
   drawn with Godot's built-in font whatever its `fallbacks` hold (checked on desktop with a font name that does not
   exist: same size as `ThemeDB.fallback_font`). `MapleFonts.make(names, weight)` therefore returns the bundled Arimo
-  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont: no
-  antialiasing, normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
+  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont:
+  `MapleFonts.ANTIALIASED` (#224), normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
   `SystemFont` (Arial, Tahoma, Dotum) with Arimo in its `fallbacks` otherwise, so desktop keeps real Arial. Arimo is
   metric compatible with Arial. Licence: SIL OFL 1.1 (`assets/fonts/arimo/OFL.txt`, `THIRD_PARTY_NOTICES.md`;
   `scripts/export.sh` copies it to `ARIMO_OFL.txt` beside the exe). `MapleText.font`, `HudWidget.make_font` and

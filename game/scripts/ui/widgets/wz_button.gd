@@ -136,7 +136,7 @@ func _draw() -> void:
 		UiArt.blit_origin(self, a.frame_at(_t, true), _origin)
 	elif not has_art():
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(238, 136, 51) if s != "disabled" else Color8(170, 170, 170))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(120, 60, 20), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(120, 60, 20))
 	if label != "":
 		var col := label_color if s != "disabled" else MapleText.GREY
 		var dy := 1.0 if s == "pressed" else 0.0

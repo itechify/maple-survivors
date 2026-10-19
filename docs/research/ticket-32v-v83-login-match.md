@@ -11,10 +11,10 @@ restore the book composition, with the latter relabelled Run history. The offlin
 above the beam. No world/channel plaque or invented server text is shown.
 
 NewChar uses the period settings/name boards, option arrows, preview feet and separate OK/Cancel pairs.
-Name OK validates before appearance; Cancel returns to the preceding phase, and creation still commits
+Name OK validates before appearance; appearance Cancel returns to Name and Name Cancel closes creation (#218), and creation still commits
 only through SceneFlow. A bounded advisory and the survivor weapon strip sit to the left of the preview.
-The gender picker occupies the dropdown baked into Gender/text/0, removing the detached empty frame
-and redundant appearance arrows. Title uses the registered forest/sign and puts offline Start in the
+(Superseded by #218, 2026-10-18: the separate Gender step, its picker and the Gender/* art are removed; creation
+opens on Name and gender is the Look step's Gender row, default Male.) Title uses the registered forest/sign and puts offline Start in the
 Login region, Re-import on the middle plank and Quit at the lower right. #90 names fit inside their
 roster cells, including balanced Tauro/macis and Tauro/spear lines.
 
@@ -40,7 +40,7 @@ in `evidence/t32v/screens/`.
 | History entry / list | `charselect_1.png` View All Characters site | Original angled frame/arrow retained; inner label patch is tier C. Run history itself has no original-client counterpart and retains the existing parchment/list. | `history_entry.png`, `history.png` |
 | Creation, male and female | Period `newchar_1.png`; original v83 charSet, rows and buttons | Offline advisory facts and weapon strip are additions. Canonical option names, selected looks, animation/cloud phase and video compression differ. Preview estimate and backdrop registration have a few pixels of uncertainty. No world plaque. | `creation_male_default.png`, `creation_female_default.png`, `creation_male_hair_colour_changed.png`, `creation_female_hair_colour_changed.png`, `creation_male_weapon_changed.png`, `creation_female_weapon_changed.png` |
 | Name / invalid name | Period `newchar_name_1.png` | Same short board, input and OK/Cancel composition. Name requirements/errors are offline additions; preview look, clouds and compression differ. | `creation_name.png`, `invalid_name.png` |
-| Gender, male/female | Original WZ Gender art; comparison against `ours_gender.png` is explicitly prior implementation only | No trustworthy period capture. Centered parchment, text, buttons and native picker over the baked field are a tier C choice, not claimed original absolute coordinates. | `gender.png`, `gender_female.png` |
+| Gender, male/female | Retired by #218 | The separate Gender step was removed on 2026-10-18; gender is only the appearance Gender row (default Male). `gender.png` / `gender_female.png` are no longer produced by `character_driver`. | (none) |
 | Title | `title_1.png` geometry, `title_2.png` English composition | Original shared forest pixels register almost exactly. Localized footer/version differ. No account fields; offline Start placement and three-action adaptation remain tier C. | `title.png` |
 | Tier-2 map select, #90 | Prior #75 `14_map_select_tier2.png` | Survivor-only screen: no period-client equivalent. Diagnostic character/tier heading differs; original canonical names remain complete inside separate cells. | `map_select_tier2.png` |
 

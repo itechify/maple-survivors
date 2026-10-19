@@ -123,14 +123,14 @@ func _draw() -> void:
 				MapleText.draw_centered(self, PAD, y, WIDTH - PAD * 2.0, String(l[1]), TEXT, MapleText.SIZE, true)
 			"icon_text":
 				var at := Vector2(PAD, y)
-				draw_rect(Rect2(at, Vector2(ICON, ICON)).grow(1.0), Color(1, 1, 1, 0.9), false, 1.0)
+				PixelDraw.edge_outline(self, Rect2(at, Vector2(ICON, ICON)).grow(1.0), Color(1, 1, 1, 0.9))
 				UiArt.blit_icon(self, UiArt.icon_or_fallback(String(data.get("icon", ""))), at)
 				var ty := y
 				for line in String(l[1]).split("\n"):
 					MapleText.draw_markup(self, Vector2(PAD + ICON + GAP, ty), line, l[2], MapleText.SMALL)
 					ty += MapleText.LINE_SMALL
 			"rule":
-				draw_line(Vector2(PAD, y + 3.0), Vector2(WIDTH - PAD, y + 3.0), Color(FRAME, 0.5), 1.0)
+				PixelDraw.hline(self, PAD, WIDTH - PAD, y + 3.0, Color(FRAME, 0.5))
 			_:
 				MapleText.draw_markup(self, Vector2(PAD, y), String(l[1]), l[2], MapleText.SMALL)
 		y += float(l[3])

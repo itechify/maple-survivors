@@ -1,7 +1,7 @@
 class_name PlayerUpkeep
 extends RefCounted
 ## The player's per-tick timers (docs/ARCHITECTURE.md 4.4.6), owned by RunWorld as `upkeep`: timed buffs
-## (PlayerBuffs) and their healing pulses, hit invincibility, the cast-stance hold, shared regen and skill recovery clocks.
+## (PlayerBuffs) and their healing pulses, hit invincibility, the knockback guard, the cast-stance hold, shared regen and skill recovery clocks.
 ## RunWorld owns the HP/MP pools: tick() reports the buff healing due and regen_pulses() how many regeneration
 ## pulses fell due, and the world applies them. Pure: no nodes, files or time.
 
@@ -19,6 +19,9 @@ var invincible_t := 0.0
 var hit_step := 0
 ## Seconds since the last landed hit of any kind; INF before the first one.
 var since_hit := INF
+## Seconds of knockback guard left (issue #223, tier C owner): a hit that knocks the player back starts a guard of the
+## first window length; hits landing inside it do damage but no knockback and do not restart it. Per round, not saved.
+var knockback_guard_t := 0.0
 ## The stance a cast or swing holds, for cast_left more seconds; airborne swings may show it in the air.
 var cast_action := ""
 var cast_left := 0.0
@@ -54,6 +57,7 @@ func _init(buffs: PlayerBuffs, regen: Dictionary = DEFAULT_REGEN, hit_window: Di
 func tick(dt: float, events: Array) -> float:
 	var healing := _buffs.step(dt, events)
 	invincible_t = maxf(0.0, invincible_t - dt)
+	knockback_guard_t = maxf(0.0, knockback_guard_t - dt)
 	since_hit += dt
 	cast_left = maxf(0.0, cast_left - dt)
 	return healing
@@ -84,6 +88,16 @@ func land_hit(boss_skill: bool) -> float:
 	invincible_t = seconds
 	since_hit = 0.0
 	return seconds
+
+
+## Whether a landed hit may knock the player back now (no knockback guard running).
+func may_knock_back() -> bool:
+	return knockback_guard_t <= _EPS
+
+
+## A hit knocked the player back: starts the knockback guard, as long as the first hit-window length (read from the data).
+func start_knockback_guard() -> void:
+	knockback_guard_t = _window_lengths[0]
 
 
 ## Advances the regeneration clock by dt (living players only) and returns the number of pulses due.
