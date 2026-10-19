@@ -4695,6 +4695,8 @@ No cast starts on a rope, while an existing Recovery continues healing and expir
 sound and icon are used; rank previews show duration, HP per pulse, cooldown and MP cost. Learning/ranking Recovery
 never adds permanent HP regeneration, and the skill remains available after advancement.
 
+Research for the potion ladder and its Lv 1-70 schedule: `docs/research/v83-potion-progression.md` (spec #225, #227).
+
 Potion tiers are no longer cards (spec #225, #228): they follow the level schedule of section 5 (HP Red → Orange at
 Lv 10 → White at Lv 25; MP Blue → Mana Elixir at Lv 20), keep the whole stock count and change all future drops of
 that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
