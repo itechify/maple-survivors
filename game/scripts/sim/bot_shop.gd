@@ -58,8 +58,8 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
 ## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
-## it put on. A character with a weapon path upgrades only the held family (or a shared drop family), so the spare
-## advancement weapon never silently changes paths. No RNG.
+## it put on. A character with a weapon path upgrades only its recorded family (or a shared drop family), including
+## when the weapon was swapped or destroyed. No RNG.
 static func auto_equip(w: RunWorld) -> int:
 	var weights := weights_for(w.balance, w.progression.job_id, w.jobs)
 	var worn_count := 0
@@ -70,9 +70,9 @@ static func auto_equip(w: RunWorld) -> int:
 			var slot := Equipment.slot_of(int(instance.id))
 			if slot == "":
 				continue
-			# tier C (#186): path bots keep the wielded family; manual swaps remain the player's choice.
-			if slot == "weapon" and w.weapon_path != "" and w.held_weapon_family() != "" \
-					and not EquipmentDrops.family_allows(int(instance.id), w.held_weapon_family(),
+			# tier C (#226): bot weapon loyalty follows the recorded advancement path.
+			if slot == "weapon" and w.weapon_path != "" \
+					and not EquipmentDrops.family_allows(int(instance.id), w.weapon_path,
 					w.data.get("equipment_drops", {})):
 				continue
 			var gain := item_score(instance, weights) - _displaced_score(w.equipment.worn, int(instance.id), weights)

@@ -291,7 +291,7 @@ func test_forcing_a_path_needs_a_playable_line_that_has_it() -> void:
 	assert_true("not playable" in SceneFlow.forced_job_error({"job": 400, "job_path": "claw"}, data))
 
 
-func test_pick_choice_takes_an_offered_forced_path_else_defaults() -> void:
+func test_pick_choice_takes_an_offered_forced_path_else_draws() -> void:
 	var jobs := JobTree.from_data(_data().jobs, _data().jobs_survivor)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5
@@ -301,11 +301,12 @@ func test_pick_choice_takes_an_offered_forced_path_else_defaults() -> void:
 	assert_eq(RF.pick_job(options, rng, 400, jobs, "claw"), 400)
 	assert_eq(BotInput.pick_choice(options, rng, 410, jobs, "claw"), {"job_id": 400, "path": "claw"},
 		"a forced branch takes its first job with the named path")
-	assert_eq(BotInput.pick_choice(options, rng, 420, jobs, ""), {"job_id": 400, "path": ""},
-		"compatibility default until #232 adds path draws")
+	var ancestor := BotInput.pick_choice(options, rng, 420, jobs, "")
+	assert_eq(ancestor.job_id, 400)
+	assert_true(ancestor.path in ["claw", "dagger"], "no implicit branch-family preference")
 	var unnamed := BotInput.pick_choice(options, rng, 400, jobs, "")
 	assert_eq(unnamed.job_id, 400)
-	assert_eq(unnamed.path, "", "no path named: use the page default until #232")
+	assert_true(unnamed.path in ["claw", "dagger"], "no path named: draw an offered family")
 	var unforced := BotInput.pick_choice(options, rng, 0, jobs, "")
 	assert_true(unforced.job_id in [100, 200, 300, 400, 500])
 	assert_eq(BotInput.pick_choice([{"job_id": 400, "path": "claw", "available": false}], rng, 400, jobs, "claw"),
@@ -324,7 +325,7 @@ func test_pick_choice_default_is_deterministic() -> void:
 		var first := BotInput.pick_choice(options, a, 400, jobs, "")
 		assert_eq(BotInput.pick_choice(options, b, 400, jobs, ""), first, "the same stream state, the same path")
 		seen[first.path] = true
-	assert_eq(seen.keys(), [""], "compatibility callers use default paths; #232 adds path draws")
+	assert_eq(seen.size(), 2, "both families are reachable")
 
 
 func test_auto_choose_forces_the_path_in_a_run() -> void:

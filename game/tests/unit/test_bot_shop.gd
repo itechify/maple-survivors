@@ -130,6 +130,18 @@ func test_the_shield_is_a_slot_the_bot_fills_and_scores_by_its_defence() -> void
 	assert_eq(w.weapon_id(), 1302000, "beside the one-handed sword")
 
 
+func test_weapon_loyalty_follows_the_recorded_path_even_after_a_manual_swap_or_destruction() -> void:
+	for held in [1302000, 0]:
+		var w := _warrior([1402001])
+		w.weapon_path = "axe"
+		if held == 0:
+			w.equipment.worn.erase("weapon")
+		w.setup.equipment_info[1312005] = {"incPAD": 25}
+		w.equipment.inventory.append(Equipment.create(1312005, w.setup.equipment_info[1312005]))
+		assert_eq(BotShop.auto_equip(w), 1, "only the recorded family's upgrade is worn")
+		assert_eq(w.weapon_id(), 1312005, "the stronger off-path sword stays in the tab")
+
+
 func test_a_two_handed_weapon_must_beat_the_sword_and_the_shield_it_displaces() -> void:
 	# Beginner weights: incPAD 10, incPDD 1.5. Sword 17 -> 170, shield 10 -> 15.
 	var strong := _warrior([1402001], [1092009])

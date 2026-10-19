@@ -333,7 +333,7 @@ func test_forced_pirate_path_flags_are_accepted_by_run_and_launcher() -> void:
 		assert_eq(RunLauncher.options_from_args({"job": "500:" + path}).job_path, path)
 
 
-func test_bot_keeps_the_wielded_family_when_an_owned_alternative_scores_higher() -> void:
+func test_bot_keeps_the_recorded_family_when_an_owned_alternative_scores_higher() -> void:
 	var w := _world()
 	_open(w)
 	BotInput.auto_choose(w, false, 500, "gun")
@@ -344,7 +344,7 @@ func test_bot_keeps_the_wielded_family_when_an_owned_alternative_scores_higher()
 	BotShop.equip_after(w, events)
 	assert_eq(w.weapon_id(), 1492000, "the bot must not replace its gun with Kyrin's higher-PAD knuckle")
 	assert_eq(w.weapon_path, "gun")
-	# A manual swap is still allowed; bot upgrades follow the held family rather than forcing the recorded AP path.
+	# A manual swap is allowed; the bot does not downgrade it to the weaker recorded-path weapon.
 	assert_eq(w.equip_item(_inventory(w).find(1482000)), "")
 	BotShop.auto_equip(w)
 	assert_eq(w.weapon_id(), 1482000)

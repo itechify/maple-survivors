@@ -980,7 +980,7 @@ func _forced_job() -> int:
 	return int(options.get("job", 0))
 
 
-## The weapon path named after the forced job (options.job_path, `--job=400:claw`); "" = the bot's own pick.
+## The weapon path named after the forced job (options.job_path, e.g. `--job=100:spear` or `--job=120:blunt`); "" = the bot's own pick.
 func _forced_job_path() -> String:
 	return String(options.get("job_path", ""))
 
