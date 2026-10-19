@@ -1229,8 +1229,8 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 	var view := get_viewport().get_visible_rect().size
 	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, view)
 	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, view)
-	# The capture has window pixels (canvas_items stretch, #224): crop through the stretch transform, 3x logical size.
-	var crop := img.get_region(GameSettings.capture_rect(get_viewport(), Rect2(lo, hi - lo)).intersection(
+	# The capture has window pixels (canvas_items stretch, #224): crop at the capture's scale, save at 3x logical size.
+	var crop := img.get_region(GameSettings.capture_rect(img, get_viewport(), Rect2(lo, hi - lo)).intersection(
 		Rect2i(Vector2i.ZERO, img.get_size())))
 	crop.resize(int(hi.x - lo.x) * 3, int(hi.y - lo.y) * 3, Image.INTERPOLATE_NEAREST)
 	_n += 1

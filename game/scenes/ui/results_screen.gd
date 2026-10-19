@@ -130,8 +130,7 @@ func _layout() -> void:
 
 func _draw_parchment(ci: Control) -> void:
 	var r := ParchmentScroll.PARCHMENT
-	ci.draw_line(Vector2(RIGHT_X - 7.0, r.position.y + 8.0), Vector2(RIGHT_X - 7.0, r.end.y - 8.0),
-		Color(INK_SOFT, 0.45), 1.0)
+	PixelDraw.vline(ci, RIGHT_X - 7.0, r.position.y + 8.0, r.end.y - 8.0, Color(INK_SOFT, 0.45))
 	_draw_left(ci, r)
 	_draw_right(ci, r)
 

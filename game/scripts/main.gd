@@ -28,7 +28,7 @@ func _ready() -> void:
 	if flags.has("fill"):
 		var st := get_node_or_null("/root/Settings") as GameSettings
 		if st != null:
-			st.fill_window = true
+			st.fill_override = true
 			st.fit_viewport()
 	if flags.has("shot"):
 		_shot_and_quit(String(flags.shot), float(flags.get("shot-at", "10")))

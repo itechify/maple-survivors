@@ -898,17 +898,19 @@ Godot oversamples fonts by that scale, so glyphs are rasterised at window pixels
   render lit (GL compatibility footprint: top row above the rect, left column outside, right and bottom inside); a
   texture drawn smaller than its art (the HUD's 24 px skill icons from 32 px art) would sample more texels, so
   `PixelDraw.blit_scaled` copies the texels the old render picked (texel floor((i + 0.5) * src / dst)) as unscaled
-  runs; and the one bare 1 px `draw_line` (import screen) is a 1 px rect on the row it lit. Not reproduced: sprites
+  runs (also the stage-select mob portraits); and 1 px lines on whole coordinates (`draw_line(.., 1.0)`, a
+  `draw_rect(r, c, false, 1.0)` along whole edges) would straddle two logical rows at 2x, so `PixelDraw.hline` / `vline` /
+  `edge_outline` fill the row or column the old render lit (tooltip separators, the stage-select and results dividers). Not reproduced: sprites
   drawn rotated (arrows, bullets and a few skill projectiles that turn to their direction, `ProjectileRenderer`; the
-  rotated "Run history" label is text) and a vertex at a fractional logical position inside a `_draw` (the cooldown
-  sweep's diagonal edge) are rasterised at window pixels, i.e. slightly finer edges than the 800x600 render had.
+  rotated "Run history" label is text) and diagonal edges inside a `_draw` (the cooldown sweep, the Skill
+  window's star-tab glyph, the cash shop's check tick) are rasterised at window pixels, i.e. slightly finer edges than the 800x600 render had.
 - **Every display mode.** Integer 2x / 3x and fill-window (`GameSettings.fit_size`) keep their logical view sizes and
   integer scale; text is drawn at s x its size. Below 800x600 the fractional downscale now samples each sprite at the
   window's pixels instead of shrinking the finished 800x600 frame, and text is rasterised at the reduced size (legible
   instead of nearest-dropped rows).
 - **Captures are window-sized.** `get_viewport().get_texture().get_image()` now holds the window's pixels (1600x1200 at
   2x), so playtest and driver screenshots show the sharp text. Crops in logical coordinates go through
-  `GameSettings.capture_rect` (the stretch transform); debug contact sheets that must stay at logical size use
+  `GameSettings.capture_rect` (capture size / view size; letterbox bars are not in a capture); debug contact sheets that must stay at logical size use
   `GameSettings.capture_logical`. `main.gd` and `map_viewer` take tool-only `--size=WxH` (and main `--fill`) to
   capture a 2x or fill-window view on any screen.
 - **Web.** The same project setting applies; the canvas is the tab's CSS size times `devicePixelRatio`

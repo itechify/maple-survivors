@@ -63,6 +63,8 @@ var sfx_volume := DEFAULT_SFX
 var window_scale := 0
 ## Fill the window with more map instead of black bars (see the class doc; off = docs/ARCHITECTURE.md 4.5).
 var fill_window := false
+## Tool-only fill-window view for this session (main.gd `--fill`): fit_viewport() fills like fill_window, never saved.
+var fill_override := false
 ## Frame-rate cap: 0 = the display's refresh rate (FALLBACK_FPS when unknown), -1 = uncapped, N = N frames/s.
 var max_fps := 0
 ## Movement key set: a MOVEMENT_SETS key ("arrows" or "wasd").
@@ -149,18 +151,19 @@ static func fit_size(window: Vector2i, base: Vector2i = BASE_VIEW) -> Vector2i:
 	return Vector2i(window.x / s, window.y / s)
 
 
-## The rect in a capture of `vp` (`get_texture().get_image()`) that shows the logical-view rect `logical`: the window draws
-## canvas items at its own pixels (stretch mode canvas_items, #224), so a capture is window-sized and logical crops go
-## through the view's stretch transform (scale and letterbox offset).
-static func capture_rect(vp: Viewport, logical: Rect2) -> Rect2i:
-	var t := vp.get_final_transform()
-	return Rect2i((t * logical.position).round(), (logical.size * t.get_scale()).round())
+## The rect in `img`, a capture of `vp` (`get_texture().get_image()`), that shows the logical-view rect `logical`: the
+## window draws canvas items at its own pixels (stretch mode canvas_items, #224), so a capture holds the view at the
+## window's integer scale (letterbox bars are not in it) and logical crops scale by capture size / view size.
+static func capture_rect(img: Image, vp: Viewport, logical: Rect2) -> Rect2i:
+	var view := vp.get_visible_rect().size
+	var k := Vector2(img.get_size()) / view if view.x > 0.0 and view.y > 0.0 else Vector2.ONE
+	return Rect2i((logical.position * k).round(), (logical.size * k).round())
 
 
 ## A capture of the logical-view rect `logical` at logical size (nearest): what debug contact sheets saved before #224.
 ## Sprites are whole logical pixels, so they come back unchanged; text loses its window-pixel sharpness.
 static func capture_logical(vp: Viewport, img: Image, logical: Rect2) -> Image:
-	var out := img.get_region(capture_rect(vp, logical).intersection(Rect2i(Vector2i.ZERO, img.get_size())))
+	var out := img.get_region(capture_rect(img, vp, logical).intersection(Rect2i(Vector2i.ZERO, img.get_size())))
 	out.resize(int(logical.size.x), int(logical.size.y), Image.INTERPOLATE_NEAREST)
 	return out
 
@@ -181,7 +184,7 @@ func fit_viewport() -> void:
 		stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
 	if root.content_scale_stretch != stretch:
 		root.content_scale_stretch = stretch
-	var want := fit_size(root.size) if fill_window else BASE_VIEW
+	var want := fit_size(root.size) if fill_window or fill_override else BASE_VIEW
 	_fitted_window = root.size
 	if root.content_scale_size != want:
 		root.content_scale_size = want

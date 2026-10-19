@@ -240,8 +240,7 @@ func _draw_parchment(ci: Control) -> void:
 	var r := ParchmentScroll.PARCHMENT
 	for i in stages.size():
 		_draw_entry(ci, i)
-	ci.draw_line(Vector2(DETAIL_X - 7.0, r.position.y + 8.0), Vector2(DETAIL_X - 7.0, r.end.y - 8.0),
-		Color(INK_SOFT, 0.45), 1.0)
+	PixelDraw.vline(ci, DETAIL_X - 7.0, r.position.y + 8.0, r.end.y - 8.0, Color(INK_SOFT, 0.45))
 	if selected >= 0 and selected < stages.size():
 		_draw_details(ci, stages[selected])
 
@@ -302,7 +301,8 @@ func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> v
 		var scale := minf(1.0, minf(icon_box.x / f.size().x, icon_box.y / f.size().y))
 		var size := (f.size() * scale).floor()
 		var top := cell + Vector2((cell_size.x - size.x) * 0.5, icon_box.y - size.y)
-		ci.draw_texture_rect(f.texture, Rect2(top.floor(), size), false)
+		# Nearest-downscaled as the 800x600 render did at any window scale (PixelDraw, #224).
+		PixelDraw.blit_scaled(ci, f.page, Rect2(top.floor(), size), f.region)
 	var lib := UiArt.lib()
 	var nm := lib.string_name("Mob", mob_id) if lib != null else str(mob_id)
 	var y := cell.y + cell_size.y - ROSTER_FEET + 1.0

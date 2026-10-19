@@ -134,3 +134,53 @@ func _arimo_copy(weight: int, aa: TextServer.FontAntialiasing) -> Font:
 	v.base_font = file
 	v.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
 	return v
+
+
+func test_tool_fill_override_is_never_saved() -> void:
+	# main.gd --fill (evidence of the fill-window mode) must not persist into the player's settings.cfg.
+	var path := TestCase.test_dir("sharp_text_settings.cfg")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var s := GameSettings.new(path)
+	s.fill_override = true
+	s.set_volume("master", 0.5)
+	var back := GameSettings.new(path)
+	assert_false(back.fill_window, "the override is not written")
+	assert_false(back.fill_override, "nor read back")
+	s.free()
+	back.free()
+
+
+func test_capture_rect_scales_logical_crops_to_the_capture() -> void:
+	# A capture holds the view at the window's integer scale (bars excluded): 800x600 view, 1600x1200 capture.
+	var vp := SubViewport.new()
+	vp.size = Vector2i(800, 600)
+	(Engine.get_main_loop() as SceneTree).root.add_child(vp)
+	var img := Image.create(1600, 1200, false, Image.FORMAT_RGBA8)
+	assert_eq(GameSettings.capture_rect(img, vp, Rect2(10, 20, 100, 50)), Rect2i(20, 40, 200, 100))
+	var same := Image.create(800, 600, false, Image.FORMAT_RGBA8)
+	assert_eq(GameSettings.capture_rect(same, vp, Rect2(10, 20, 100, 50)), Rect2i(10, 20, 100, 50), "1x")
+	var sheet := GameSettings.capture_logical(vp, img, Rect2(0, 0, 760, 300))
+	assert_eq(sheet.get_size(), Vector2i(760, 300), "contact sheets keep their logical size")
+	vp.free()
+
+
+func test_edge_outline_lights_the_rows_and_columns_on_the_edges_once() -> void:
+	# draw_rect(Rect2(5, 7, 4, 3), c, false, 1.0) lit rows 7 and 10, columns 5 and 9 in the 800x600 render.
+	var lit := {}
+	var area := 0
+	for r: Rect2 in PixelDraw.edge_outline_rects(Rect2(5, 7, 4, 3)):
+		area += int(r.get_area())
+		for y in range(int(r.position.y), int(r.end.y)):
+			for x in range(int(r.position.x), int(r.end.x)):
+				lit[Vector2i(x, y)] = true
+	var want := {}
+	for x in range(5, 10):
+		want[Vector2i(x, 7)] = true
+		want[Vector2i(x, 10)] = true
+	for y in range(8, 10):
+		want[Vector2i(5, y)] = true
+		want[Vector2i(9, y)] = true
+	assert_eq(lit, want)
+	assert_eq(area, want.size(), "corners drawn once")

@@ -109,7 +109,7 @@ func _paint(paint: bool) -> float:
 		MapleText.draw_centered(self, PAD, y, WIDTH - PAD * 2.0, title, TEXT, MapleText.SIZE, true)
 	y += MapleText.LINE + 4.0
 	if paint:
-		draw_line(Vector2(PAD, y), Vector2(WIDTH - PAD, y), Color(FRAME, 0.5), 1.0)
+		PixelDraw.hline(self, PAD, WIDTH - PAD, y, Color(FRAME, 0.5))
 	y += 6.0
 	var icon_at := Vector2(PAD + 2.0, y)
 	if paint:
@@ -128,7 +128,7 @@ func _paint(paint: bool) -> float:
 		_draw_jobs(Vector2(PAD + 2.0, y), data.get("jobs", []))
 	y += 18.0
 	if paint:
-		draw_line(Vector2(PAD, y), Vector2(WIDTH - PAD, y), Color(FRAME, 0.5), 1.0)
+		PixelDraw.hline(self, PAD, WIDTH - PAD, y, Color(FRAME, 0.5))
 	y += 5.0
 	for line: Array in fact_lines(data):
 		if paint:
@@ -138,7 +138,7 @@ func _paint(paint: bool) -> float:
 	if desc != "":
 		y += 3.0
 		if paint:
-			draw_line(Vector2(PAD, y), Vector2(WIDTH - PAD, y), Color(FRAME, 0.5), 1.0)
+			PixelDraw.hline(self, PAD, WIDTH - PAD, y, Color(FRAME, 0.5))
 		y += 5.0
 		for text in MapleText.wrap(desc, WIDTH - PAD * 2.0 - 2.0, MapleText.SMALL):
 			if paint:
