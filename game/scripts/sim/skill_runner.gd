@@ -96,8 +96,8 @@ static func restart_cooldown(st: Dictionary) -> float:
 ## Horizontal reach in px from the player of a resolved skill `st` (Loadout.stats), the one number the bot reads to
 ## decide how close an attack needs it: a projectile or nearest-rule skill its range, a box skill its far edge (area
 ## cards included, the facing side), 0 for anything that is not an attack (buffs, manual skills, status-only and heal
-## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach (BasicAttack.reach, the same number
-## the basic attack engages at), range_around the level's `range` around the body.
+## casts). One switch on the cast rule: weapon_reach is the held weapon's swing reach scaled by this skill's area
+## modifier, range_around the level's `range` around the body.
 static func reach_of(st: Dictionary, world: RunWorld) -> float:
 	if String(st.kind) == "buff" or String(st.damage_type) == "none":
 		return 0.0
@@ -105,12 +105,20 @@ static func reach_of(st: Dictionary, world: RunWorld) -> float:
 		"", "nearest", "range_around", "cluster":
 			return maxf(float(st.range), 0.0)
 		"weapon_reach":
-			return maxf(world.basic.reach(world), 0.0)
+			return maxf(world.basic.reach(world) * float(st.area), 0.0)
 		"box":
 			if not bool(st.has_box):
 				return 0.0
 			return maxf(-(st.box as Rect2).position.x, 0.0)
 	return 0.0
+
+
+## The held weapon's swing envelope scaled for this skill only. Reuses area cards' feet-relative scaling on both axes
+## (tier C survivor reach modifier, #208); the basic attack's cached canonical envelope stays unchanged.
+static func weapon_envelope(st: Dictionary, world: RunWorld) -> Rect2:
+	var box := world.basic.envelope(world)
+	var area := float(st.area)
+	return Rect2(box.position * area, box.size * area)
 
 
 ## The status a crowd skill of resolved stats `st` puts on its targets: its cast block's `status`, "slow" when it names none.
@@ -255,7 +263,7 @@ func has_target(world: RunWorld, key: String, st: Dictionary, origin: Vector2) -
 			return bool(st.has_box) and world.skill_box_count(st.box, need, func(slot: int) -> bool:
 				return world.swarm.can_crowd_cast(slot, status, _slow_serial)) >= need
 		"weapon_reach":
-			var box := world.basic.envelope(world)
+			var box := weapon_envelope(st, world)
 			return world.skill_box_count(box, 1) > 0 or world.skill_box_count(box, 1, Callable(),
 				PackedByteArray(), -world.player.facing) > 0
 		"range_around":
@@ -291,7 +299,7 @@ func _admit_cast(world: RunWorld, key: String, st: Dictionary, origin: Vector2) 
 		"crowd":
 			return _admit_crowd(world, st)
 		"weapon_reach":
-			return _admit_weapon_reach(world)
+			return _admit_weapon_reach(world, st)
 		"range_around":
 			return _admit_range_around(world, st, origin)
 		"cluster":
@@ -326,12 +334,13 @@ func _admit_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vector
 	return {"targets": _tgt.duplicate()}
 
 
-## Weapon-reach rule (Warrior Power Strike): the live mobs inside the held weapon's swing envelope (BasicAttack.envelope),
+## Weapon-reach rule (Warrior Power Strike, Double Stab): live mobs inside the held weapon's swing envelope scaled by
+## the skill's area modifier,
 ## nearest first. The player turns in every movement state, so both sides are asked and the side with the nearer first
 ## target wins (the current facing on a tie). The plan carries the side to face before casting; a walking or airborne
 ## player's held direction sets its facing again on the next motion step, so the turn lasts for the cast (tier C).
-func _admit_weapon_reach(world: RunWorld) -> Dictionary:
-	var box := world.basic.envelope(world)
+func _admit_weapon_reach(world: RunWorld, st: Dictionary) -> Dictionary:
+	var box := weapon_envelope(st, world)
 	if not box.has_area():
 		return {}
 	var sides: Array[int] = [world.player.facing, -world.player.facing]

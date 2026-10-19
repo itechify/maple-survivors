@@ -4000,10 +4000,31 @@ Its initial survivor reach is the basic claw's 250px, cooldown 1s, speed 600px/s
 Double Stab uses the dagger's swing envelope, one base target, cooldown 1.2s. Both hold their action for 0.6s
 (tier C untuned; Double Stab's stabO1 is canonical, Lucky Seven's shoot1 is our choice). Only Use sounds exist.
 
-Cards: `<key>_new` / `<key>_rank`, plus `lucky_seven_count` (+1 star) and `double_stab_targets` (+1 target),
-three behavior steps each. Attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 (tier C, shared Potential
-magnitudes). Attack cards require jobs [400] and carry_jobs [410,420]; Nimble Body requires jobs [400] only.
-Cards follow the held family at draw time. Parity lines, Disorder, Dark Sight and second jobs belong to their own tickets.
+Cards: `<key>_new` / `<key>_rank`, plus the parity lines below (#208). Each weapon path has **13 behaviour steps
+across five lines**, including the tracer's star/target line. Attack learn/rank weights 4/3, Nimble Body 2/2,
+behaviour weight 2 (tier C, untuned, shared Potential magnitudes). Attack cards require jobs [400] and
+carry_jobs [410,420]; Nimble Body requires jobs [400] only. Cards follow the held family at draw time and behaviour
+cards never enter an advancement draw; carried learn cards also stay out of branch advancement draws.
+
+| Skill | Behaviour card suffix | Effect per step | Maximum steps |
+|---|---|---|---|
+| Lucky Seven | `_count` | +1 star | 3 |
+| Lucky Seven | `_pierce` | +1 monster pierced per star | 2 |
+| Lucky Seven | `_damage` | damage ×1.2 | 3 |
+| Lucky Seven | `_cooldown` | cooldown ×0.88 | 3 |
+| Lucky Seven | `_range` | range ×1.2 | 2 |
+| Double Stab | `_targets` | +1 target | 3 |
+| Double Stab | `_hits` | +1 damage line per target (`attack_count`) | 2 |
+| Double Stab | `_damage` | damage ×1.2 | 3 |
+| Double Stab | `_cooldown` | cooldown ×0.88 | 3 |
+| Double Stab | `_reach` | skill swing envelope ×1.2 on both axes (`area`) | 2 |
+
+`attack_count` modifiers add to the canonical `attackCount`, independently of target count. The extra-hit card
+previews Hits before/after. A weapon-reach skill applies its own `area` modifier to a copy of the held weapon's
+feet-relative swing envelope; target admission, the short-MP probe and the bot's reach all use that scale.
+The basic attack and other skills keep their own envelope. Multipliers compound per step; rarity grants steps
+through the shared headroom/clamping rules, never exceeding a line's cap. These are tier C survivor choices,
+matching existing behaviour-card magnitudes; canonical v83 levels, counts and weapon data remain unchanged.
 
 **Keen Eyes (#209):** `keen_eyes` 4000001 is a passive with eight canonical ranks. Skill.wz's `range` adds
 +25/+50/+75/+100/+125/+150/+175/+200px (tier A), only while holding a claw (tier C family tag, following the v83
@@ -4049,7 +4070,30 @@ cuts/costs/durations and expiry, boss/duplicate exclusion, weapon freedom, attac
 original schedule; paired Threaten coverage protects its unchanged behavior. A real-cache test checks all 20 levels.
 The `thief --disorder=1` flow-driver probe captures a real cast on an evidence-only prepared crowd.
 
-### 7.23 Assassin and Bandit: passives, buffs and recovery (#212)
+### 7.23 Dark Sight (#211, spec #167)
+
+`dark_sight` (4001003, book 400, ranks 1–20, any weapon) reuses the Hidden state in 7.18. It auto-casts below
+30% MaxHP with a living mob within 250 px (the same reach as Oak Barrel), when affordable and ready. It never fails
+and draws no failure RNG. Hidden blocks contact, mob and boss attacks and the character's attacks; movement, buffs,
+potions and pickups still work. It ends after the canonical duration or early above 60% MaxHP. The fixed 30-second
+cooldown starts at the cast; an active buff blocks recasting even after that cooldown finishes (tier C owner rules).
+
+Canonical Skill.wz/400.img values are MP 24→5, duration 10→200 seconds and speed −30→0. The speed table steps by two
+through rank 12 (−8), then by one through rank 20; no interpolation is used in play. The speed penalty is a normal
+buff contribution and disappears with Hidden. `buff.cooldown` optionally supplies a literal survivor cooldown;
+without it buffs retain their canonical `cooldown_field` (or `time`). This adds no state or snapshot fields.
+
+The renderer uses the existing avatar CanvasGroup at 50% opacity while Hidden without a morph; its invincibility
+blink can dim it further. Morph artwork keeps its own appearance. The canonical cast action `darksight`, effect and
+Use sound are retained; the action hold is 0.6 seconds (tier C). Learn/rank cards require job 400 only, with no carry,
+weights 3/2 and a 20-rank cap; neither is a power card (tier C weights, tier A cap).
+
+Seeded tests in `test_dark_sight.gd` cover conditions, costs, canonical speed, duration, early recovery, cooldown,
+ordinary/boss attacks, contact, attack suppression and card gates. Cache tests compare all 20 levels and cast art;
+`test_dark_sight_render.gd` checks transparency/recovery. `scenes/debug/dark_sight_driver.tscn` captures a real Thief
+among Henesys mobs before/while Hidden and after recovery, without save writes. No balance tuning; #215 owns smoke.
+
+### 7.24 Assassin and Bandit: passives, buffs and recovery (#212)
 
 Both Thief branches advance at canonical Lv30. They keep the Thief's growth and LUK/DEX auto-AP policy.
 Each adds +325 MaxHP / +175 MaxMP (tier B midpoints) and wears its advancement weapon without requirement checks:
@@ -4174,6 +4218,8 @@ nor exempt.
 | Cold Beam | Spreading Frost (`cold_beam_targets`) |
 | Thunder Bolt | Forking Storm (`thunder_bolt_targets`): +2 targets per step, 3 steps (canonical `mobCount` 6 → 8 → 10 → 12), weight 2; tier C placeholder until the balance pass |
 | Holy Arrow | `holy_arrow_count`, `holy_arrow_pierce` |
+| Lucky Seven | `lucky_seven_count`, `lucky_seven_pierce` |
+| Double Stab | `double_stab_targets` (extra hits per target use the separate `double_stab_hits` line) |
 
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 
@@ -4420,11 +4466,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063 and puts the other in Equip (overflow at feet).
   Both paths use starting stars 2070015 when holding a claw. Growth is 22 HP / 15 MP per level; auto-AP uses LUK
   primary and DEX target max(25, level), meeting LUK ≥80 / DEX ≥25 at Lv30 through the existing earned-AP calculation.
-  No new stat reset is added. Skills and cards: 7.21; the playable second jobs are in 7.23.
+  No new stat reset is added. Skills and cards: 7.21; the playable second jobs are in 7.24.
 - Level30, Thief (#212): Assassin410 and Bandit420 are offered from either first-job path, granting +325 MaxHP /
   +175 MaxMP and Steel Guards1472008 / Reef Claw1332012 respectively. The new branch's weapon is worn even when
   the old path differs; the old weapon moves to Equip. Growth and AP stay the Thief's. `--job=410` / `--job=420`
-  work in tools. Skills, carried attacks and star tiers: 7.23.
+  work in tools. Skills, carried attacks and star tiers: 7.24.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -4581,7 +4627,7 @@ Thief second job (#212) additions:
 |---|---|---|
 | Assassin / Bandit advancement | Lv30; +325 MaxHP / +175 MaxMP | A canonical level; B v83-facts section4 fixed midpoints |
 | Advancement weapons | Steel Guards1472008 / Reef Claw1332012 | C owner #167 selection, unconditional wear and existing Equip overflow; A item stats |
-| Branch passives / buffs | Table in7.23; Booster x=-2 scaled by -1 | A Skill.wz410/420 values; C family tags from descriptions where WZ omits weapon |
+| Branch passives / buffs | Table in7.24; Booster x=-2 scaled by -1 | A Skill.wz410/420 values; C family tags from descriptions where WZ omits weapon |
 | Branch buff casting | self auto-cast, 0.8s alert2 hold, Haste within existing caps | C existing Booster convention and owner self-only Haste |
 | Endure recovery lifecycle | skill clock starts at learning, retains elapsed seconds on rank change, resets per round | C fixed-tick timer lifecycle; A HP/MP/time, owner recovery anywhere |
 | Branch learn/rank cards | weight2, exact branch, weapon gated, caps20 (Critical Throw30) | C initial untuned weights/gates; A rank caps |
@@ -4596,9 +4642,14 @@ Thief tracer (#207) additions:
 | Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
 | Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
 | Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
+| Dark Sight values (#211) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
+| Dark Sight escape (#211) | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
+| Dark Sight cards and appearance (#211) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
 | Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
 | Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
 | Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
+| Thief parity (#208) | Each attack: 13 steps / 5 lines, weight 2, all power cards, jobs [400], carry_jobs [410,420]. Lucky Seven: count +1 ×3, pierce +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, range ×1.2 ×2. Double Stab: targets +1 ×3, hits +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, reach ×1.2 ×2 | C owner step budgets; existing untuned card magnitudes and Potential scaling |
+| Skill-only melee reach (#208) | `area` scales both feet-relative swing-envelope axes and the bot reach; basic attack unchanged. `attack_count` adds damage lines per target, minimum 1 | C generic survivor card effects; A base attackCount retained |
 | Keen Eyes (#209) | 4000001; 8 ranks; +25/+50/+75/+100/+125/+150/+175/+200px | A Skill.wz/400.img range; C claw family tag follows the v83 description |
 | Generic range passive (#199, ported unchanged for #209) | `Loadout.RANGE`: additive pixels on ranged basics and weapon-gated ranged attacks; extends only the basic box's far horizontal edge | C shared consumer rule; no change to cached base boxes or unrelated ranges |
 | Keen Eyes cards (#209) | learn/rank weights 2/2; power false; exact jobs [400], no carry | C untuned, matching Nimble Body; A rank cap8 |

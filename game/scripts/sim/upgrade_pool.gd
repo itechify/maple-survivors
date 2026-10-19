@@ -31,7 +31,7 @@ const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -232,7 +232,7 @@ static func is_power(c: Dictionary) -> bool:
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
 ## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
-## are taken, keys as MOD_PREVIEW names them: shots / targets / pierce / speed / range (whole numbers), cooldown
+## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
 ## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
 ## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
