@@ -55,8 +55,11 @@ var hits_left := PackedInt32Array()
 var hit_count := PackedInt32Array()
 ## Optional linear damage lost per earlier contact; 0 keeps the shipped full-damage pierce behaviour.
 var pierce_falloff := PackedFloat64Array()
-## Cast-time blast box, target cap and animation; empty for ordinary shots.
-var impact_blast: Array[Dictionary] = []
+## Cast-time blast state; a zero target cap marks an ordinary shot. Rect2 components retain Vector2 precision.
+var blast_position := PackedVector2Array()
+var blast_size := PackedVector2Array()
+var blast_count := PackedInt32Array()
+var blast_visual := PackedStringArray()
 ## MAX_HITS logical mob identities per shot; slot reuse must not inherit a previous occupant's hit exclusion.
 var hit_list := PackedInt64Array()
 var hit_visual := PackedInt32Array()
@@ -86,6 +89,9 @@ var _count := 0
 var _buf := PackedInt32Array()
 var _cand := PackedInt32Array()
 var _cand_t := PackedFloat32Array()
+## High-water scratch storage; only the nearest blast_count - 1 targets are retained, sorted by body distance/slot.
+var _blast_targets := PackedInt32Array()
+var _blast_distance := PackedFloat64Array()
 
 
 func _init(capacity: int = 64, p_rng: RandomNumberGenerator = null) -> void:
@@ -132,7 +138,16 @@ func spawn(spec: Dictionary) -> int:
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
 	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
-	impact_blast[i] = spec.get("impact_blast", {})
+	blast_count[i] = 0
+	blast_visual[i] = ""
+	if spec.has("impact_blast"):
+		var blast: Dictionary = spec.impact_blast
+		if not blast.is_empty():
+			var box: Rect2 = blast.box
+			blast_position[i] = box.position
+			blast_size[i] = box.size
+			blast_count[i] = maxi(1, int(blast.count))
+			blast_visual[i] = String(blast.visual)
 	hit_visual[i] = int(spec.get("hit_visual", -1))
 	var key := String(spec.get("skill", ""))
 	var si := skill_names.find(key)
@@ -202,7 +217,7 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			if not impact_blast[i].is_empty():
+			if blast_count[i] > 0:
 				_blast(i, m, swarm, grid, events, live_mdd, physical_allowed, on_hit, live_pdd)
 			else:
 				_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
@@ -289,28 +304,43 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 func _blast(i: int, primary: int, swarm: MobSwarm, grid: SpatialHash, events: Array,
 		live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray, on_hit: Callable,
 		live_pdd: PackedFloat32Array) -> void:
-	var blast := impact_blast[i]
 	var anchor := Vector2(swarm.x[primary], swarm.y[primary])
-	var box := SkillRunner.blast_rect(blast, anchor)
+	var box := Rect2(blast_position[i] + anchor, blast_size[i])
 	var n := grid.query_radius(box.get_center(), box.size.length() * 0.5 + max_body_extent(swarm.kinds), _buf)
-	var targets: Array[int] = []
-	var distance := {}
+	var limit := mini(maxi(0, blast_count[i] - 1), n)
+	if _blast_targets.size() < limit:
+		var size := maxi(limit, maxi(16, _blast_targets.size() * 2))
+		_blast_targets.resize(size)
+		_blast_distance.resize(size)
+	var count := 0
 	var centre := swarm.mob_kind(primary).hitbox_at(anchor.x, anchor.y, swarm.facing[primary]).get_center()
 	for c in n:
 		var m := _buf[c]
 		if m == primary or swarm.active[m] == 0:
 			continue
 		var body := swarm.mob_kind(m).hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])
-		if box.intersects(body):
-			targets.append(m)
-			distance[m] = centre.distance_squared_to(body.get_center())
-	targets.sort_custom(func(a: int, b: int) -> bool:
-		return distance[a] < distance[b] or (distance[a] == distance[b] and a < b))
+		if not box.intersects(body):
+			continue
+		var distance := centre.distance_squared_to(body.get_center())
+		var at := count
+		while at > 0 and (_blast_distance[at - 1] > distance or
+				(_blast_distance[at - 1] == distance and _blast_targets[at - 1] > m)):
+			at -= 1
+		if at >= limit:
+			continue
+		var end := mini(count, limit - 1)
+		while end > at:
+			_blast_targets[end] = _blast_targets[end - 1]
+			_blast_distance[end] = _blast_distance[end - 1]
+			end -= 1
+		_blast_targets[at] = m
+		_blast_distance[at] = distance
+		count = mini(count + 1, limit)
 	events.append({"type": "skill_impact", "skill": skill_names[skill[i]], "pos": anchor,
-		"effect": String(blast.visual)})
+		"effect": blast_visual[i]})
 	_damage(i, primary, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
-	for k in mini(maxi(0, int(blast.count) - 1), targets.size()):
-		_damage(i, targets[k], swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+	for k in count:
+		_damage(i, _blast_targets[k], swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
 	hits_left[i] = 0
 
 
@@ -370,11 +400,13 @@ func _grow(n: int) -> void:
 		arr.resize(n)
 	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level, blast_count]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	element.resize(n)
-	impact_blast.resize(n)
+	blast_position.resize(n)
+	blast_size.resize(n)
+	blast_visual.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
 		_free.append(i)

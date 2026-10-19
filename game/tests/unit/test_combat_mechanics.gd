@@ -6,6 +6,46 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 
 
+## Impact selection reuses packed storage rather than allocating containers or a comparator per contact.
+func test_impact_blast_obeys_projectile_hot_loop_storage_rules() -> void:
+	var source := FileAccess.get_file_as_string("res://scripts/sim/projectile_system.gd")
+	var blast := source.get_slice("func _blast(", 1).get_slice("\nfunc ", 0)
+	assert_false(blast.contains("= []"), "no per-impact target Array")
+	assert_false(blast.contains("= {}"), "no per-impact distance Dictionary")
+	assert_false(blast.contains("sort_custom"), "no per-impact comparator Callable")
+	assert_false(source.contains("impact_blast: Array[Dictionary]"), "blast state uses packed projectile fields")
+
+
+## A busy seeded blast replay freezes exact event bytes, RNG state, body-distance ordering and pool reuse.
+func test_seeded_blast_replay_stays_byte_identical() -> void:
+	var w := CF.world()
+	var digest := HashingContext.new()
+	digest.start(HashingContext.HASH_SHA256)
+	for wave in 3:
+		w.swarm = MobSwarm.new(128, w.mob_kinds)
+		w.swarm.fhm = w.fhm
+		var primary := RF.put_mob(w, 1110100, 350, 190, 100)
+		# Equal-distance bodies in distinct hash cells exercise the slot tie-break, beyond the old 64-slot buffer.
+		for k in 80:
+			RF.put_mob(w, 1110100, 350 + (k % 2 * 2 - 1) * (30 + k / 2 * 2), 190, 100)
+		w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+		w.events.clear()
+		var spec := {"x": 350, "y": 180, "vx": 600, "range": 800, "radius": 1,
+			"dmg_min": 10, "dmg_max": 90, "crit": 0.35, "skill": "synthetic",
+			"impact_blast": {"box": Rect2(-200, -60, 400, 60), "count": 70, "visual": "burst"}}
+		w.projectiles.spawn(spec)
+		w.projectiles.step(DT, w.swarm, w.mob_grid, w.events)
+		var hits := w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit")
+		assert_eq(hits.size(), 70)
+		assert_eq(hits[0].mob, primary)
+		for k in range(1, 70):
+			assert_eq(hits[k].mob, k, "nearest body, equal distance resolved by slot")
+		digest.update(var_to_bytes(w.events))
+		digest.update(var_to_bytes(w.projectiles.rng.state))
+	assert_eq(digest.finish().hex_encode(), "9a2f1c81a5c6f4fbc5a779b2475600833dcd57e93ded818d0912a60420cc013a",
+		"pre-fix event/RNG bytes on integration 730467c, seed 200")
+
+
 func test_knockback_chance_direction_edge_boss_and_statuses() -> void:
 	var w := CF.world({"knockback": {"chance_field": "prop", "distance": 120}})
 	var right := RF.put_mob(w, 1110100, 350, 190, 100)
