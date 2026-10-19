@@ -21,6 +21,8 @@ const ACC := "acc"
 const CRIT_CHANCE := "crit_chance"
 const CRIT_DAMAGE := "crit_damage"
 const MAX_HP_PER_LEVEL := "max_hp_per_level"
+## tier C (#199): additive pixels of reach for ranged basic attacks and weapon-gated ranged attack skills.
+const RANGE := "range"
 ## tier B: untrained physical mastery is 10% (SouthPerry/HS.net).
 const BASE_MASTERY := 0.10
 
@@ -324,7 +326,9 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"crit_damage_bonus": crit_damage_bonus,
 		"speed_factor": speed_factor,
 		"cooldown": maxf(0.05, skill_stat(key, "cooldown", _base_cooldown(key, d, heal, lv)) * speed_factor),
-		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0)))),
+		"range": skill_stat(key, "range", float(d.get("range", book.canonical(key, lv, "range", 0.0))))
+			+ (passive_total(RANGE) if attacks and weapon_family in WeaponInfo.RANGED_FAMILIES
+				and weapon_family in book.weapon_families(key) else 0.0),
 		"speed": skill_stat(key, "speed", float(d.get("speed", 0.0))),
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),

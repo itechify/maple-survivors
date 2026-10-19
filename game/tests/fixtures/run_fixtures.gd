@@ -143,6 +143,8 @@ static func skill_imgs() -> Dictionary:
 		"4001344": {"weapon": 47, "level": _levels(20, {"mpCon": [8.0, 16.0],
 			"damage": [58.0, 150.0], "bulletCount": [2.0, 2.0]})},
 	}}
+	# #209: synthetic canonical-shaped Keen Eyes levels, +25px per rank (tier A, independently cache-checked).
+	imgs["400"].skill["4000001"] = {"level": _levels(8, {"range": [25.0, 200.0]})}
 	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
 	# tier A: Dark Sight's original numeric level table; speed changes step size after level 12.
 	var dark_sight := {}
