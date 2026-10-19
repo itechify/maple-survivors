@@ -4103,7 +4103,8 @@ Learn/rank weights are 2/2 and `power:false` (tier C, untuned, matching Nimble B
 effective in either second-job branch while a claw is held. Cards and the Skill window show the canonical pixel bonus.
 
 Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
-(tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger,
+(tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger
+through `equipment_drops.json`'s optional `shield_families` map (first-job id -> allowed held families),
 including the boss fallback. Claw/dagger ordinary and dark ATT scrolls and Free Market weapon slots use existing pricing.
 The export's existing `data/survivor/*/*.json` include filter covers these files.
 

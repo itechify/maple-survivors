@@ -7,5 +7,7 @@
 	"chance": 0.002,
 	"boss_drops": 1,
 	"boss_top": 5,
-	"shared_families": [["wand", "staff"]]
+	"shared_families": [["wand", "staff"]],
+	"_shield_families": "Tier C (#207): optional first-job id -> allowed held weapon families for shield drops, including descendants and boss fallback. Thief shields require a dagger; a claw occupies both hands. Unlisted lines have no held-family restriction.",
+	"shield_families": {"400": ["dagger"]}
 }

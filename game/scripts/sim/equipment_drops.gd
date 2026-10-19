@@ -6,9 +6,9 @@ extends RefCounted
 ## info never drop. A weapon is eligible only when its family (WeaponInfo.family) is the family of the weapon held at the
 ## roll (`held_family`; "" = bare hands, so no weapon): one- and two-handed swords share "sword", and the families listed
 ## together in `rules.shared_families` (wand and staff: a Magician wields either) drop for each other's holder. Armour
-## does not depend on the held weapon; shields are eligible for the jobs their reqJob admits, with Thief shields
-## restricted to a held dagger (#207). `rules` is
-## equipment_drops.json (below, above, falloff, boss_top, shared_families); the random stats of the chosen item come from
+## does not depend on the held weapon; shields additionally follow rules.shield_families, an optional first-job id ->
+## allowed held families map. Unlisted job lines admit any held family. `rules` is
+## equipment_drops.json (below, above, falloff, boss_top, shared_families, shield_families); random stats come from
 ## Equipment.create_drop.
 
 
@@ -98,7 +98,9 @@ static func pick_boss(items: Array, infos: Dictionary, job_id: int, level: int, 
 
 
 static func _allows(id: int, info: Dictionary, job_id: int, held_family: String, rules: Dictionary) -> bool:
-	# tier C (#207): Thief shields belong to the one-handed dagger path; a claw occupies both hands.
-	if Equipment.slot_of(id) == "shield" and floori(float(job_id) / 100.0) == 4 and held_family != "dagger":
-		return false
+	if Equipment.slot_of(id) == "shield":
+		var line := str(floori(float(job_id) / 100.0) * 100)
+		var families: Dictionary = rules.get("shield_families", {})
+		if families.has(line) and held_family not in families[line]:
+			return false
 	return Equipment.job_allows(info, job_id) and family_allows(id, held_family, rules)

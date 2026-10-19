@@ -23,6 +23,42 @@ const INFO := {
 const RULES := {"below": 10, "above": 5, "falloff": 0.25, "boss_top": 5, "shared_families": [["wand", "staff"]]}
 
 
+## Shield eligibility follows a data rule for any job line, including boss fallback outside the level window.
+func test_shield_families_are_configurable_per_job_line() -> void:
+	var rules := RULES.duplicate(true)
+	rules.shield_families = {"200": ["sword"]}
+	var infos := {1092000: {"reqJob": 0, "reqLevel": 20}}
+	for job in [200, 210, 230]:
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "wand"), [])
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "sword"), [1092000])
+		assert_eq(EquipmentDrops.pick_boss([1092000], infos, job, 70, rules, _rng(167), "wand"), 0)
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 100, 20, rules, "axe"), [1092000],
+		"unlisted job lines retain unrestricted shield drops")
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 400, 20, rules, "claw"), [1092000],
+		"no job line has an implicit code-only restriction")
+
+
+## Frozen pre-review selector records cover ordinary/boss picks and the following RNG draw.
+func test_seeded_drop_records_stay_identical() -> void:
+	var rules: Dictionary = DataRepo.load_all().equipment_drops
+	var infos := {
+		1002001: {"reqJob": 0, "reqLevel": 10},
+		1092018: {"reqJob": 8, "reqLevel": 22},
+		1332000: {"reqJob": 8, "reqLevel": 10},
+		1472000: {"reqJob": 8, "reqLevel": 10},
+		1092000: {"reqJob": 0, "reqLevel": 20},
+	}
+	var records := []
+	var rng := _rng(167)
+	for job in [0, 100, 200, 400, 410, 420, 430, 500]:
+		for family: String in ["", "sword", "wand", "dagger", "claw", "knuckle"]:
+			for level in [10, 22, 70]:
+				for roll in 8:
+					records.append([EquipmentDrops.pick(infos.keys(), infos, job, level, rules, rng, family),
+						EquipmentDrops.pick_boss(infos.keys(), infos, job, level, rules, rng, family), rng.randi()])
+	assert_eq(JSON.stringify(records).sha256_text(), "f27e3d9f0eeb5377fa67f8487990bd848f1b142293b65222e89ef59225f34d62")
+
+
 func _rng(p_seed: int) -> RandomNumberGenerator:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = p_seed

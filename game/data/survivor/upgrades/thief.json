@@ -1,5 +1,5 @@
 {
-	"_doc": "Thief first-job cards (#207). Tier A: 20 canonical levels. Tier C: attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 and max 3 steps, +1 star or target; initial untuned choices, shared Potential magnitudes. Attack cards carry to both second jobs through carry_jobs [410, 420] and are power cards; Nimble Body has jobs [400] only. Every skill card follows the held weapon at draw time. Full parity lines belong to #208.",
+	"_doc": "Thief first-job cards (#207). Tier A: 20 canonical levels. Tier C: attack learn/rank weights 4/3, Nimble Body 2/2, behavior weight 2 and max 3 steps, +1 star or target; initial untuned choices, shared Potential magnitudes. Attack cards carry to both second jobs through carry_jobs [410, 420] and are power cards; Nimble Body has jobs [400] only. Every skill card follows the held weapon at draw time. Full parity lines belong to #208. Second-job Masteries, Critical Throw, Boosters, Haste and Endure (#212): exact branch learn/rank weights 2/2 are tier C, untuned; canonical rank caps are tier A.",
 	"cards": [
 		{"id": "nimble_body_new", "power": false, "kind": "skill_new", "skill": "nimble_body", "name": "Nimble Body",
 			"desc": "Learn Nimble Body: Increases accuracy and avoidability.",

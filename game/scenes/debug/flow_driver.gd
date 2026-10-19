@@ -1574,7 +1574,7 @@ func _scenario_thief() -> void:
 	var w := run.world
 	var sword := w.weapon_id()
 	w.god = true # tier C: evidence-only invulnerability while the EXP drops open the real job window.
-	var first := await _pirate_climb(run, 10, 400, path_id, "thief_lv10")
+	var first := await _climb_job_windows(run, 10, 400, path_id, "thief_lv10")
 	if first.is_empty():
 		return
 	_check(first.entries.any(func(t: String) -> bool: return t.begins_with("Thief - Claw")) \
@@ -1624,7 +1624,7 @@ func _scenario_thief() -> void:
 		return
 	await _shot("thief_" + path_id + "_fighting", 0.05)
 	# Resolve the real Lv30 job and card windows, retaining the recorded first-job weapon path.
-	var second := await _pirate_climb(run, 30, branch, "", "thief_lv30")
+	var second := await _climb_job_windows(run, 30, branch, "", "thief_lv30")
 	if second.is_empty():
 		return
 	var lv30_weapon := 1472008 if branch == 410 else 1332012
@@ -1640,41 +1640,11 @@ func _scenario_thief() -> void:
 	run.handle_events(w.drain_events())
 	_check(w.warnings.is_empty(), "no world warnings")
 	_collect_missing(run)
-	# Match the Pirate QA boundary shortcut; all Save & quit / Continue UI below uses injected input.
-	var carried := w.character_snapshot()
-	var slot := flow.save.slot(flow.active_slot)
-	slot.character = carried
-	slot.phase = "free_market"
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "Thief saved at diagnostic Free Market boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Thief hub"):
+	var persisted := await _save_quit_continue(run, "thief")
+	if persisted.is_empty():
 		return
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	await _shot("thief_hub")
-	_collect_missing(hub)
-	await _key(KEY_ESCAPE)
-	await _shot("thief_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved Thief hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("thief_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
-		_check(saved.get(field) == expected.get(field), "saved Thief " + field)
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued Thief hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
-		_check(restored.get(field) == expected.get(field), "Continue restored Thief " + field)
+	var again: FreeMarket = persisted.hub
+	var restored: Dictionary = persisted.character
 	_check(int(restored.skills.get(branch_attack, {}).get("rank", 0)) > 0, "branch attack restored")
 	await _key(KEY_E)
 	await _sleep(0.5)
@@ -1761,7 +1731,7 @@ func _scenario_pirate() -> void:
 	_check(sword != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % sword)
 	# Lv10: the real job window offers Pirate - Knuckle and Pirate - Gun.
 	w.god = true # debug: the idle character must not be killed while EXP drops carry it up
-	var first := await _pirate_climb(run, 10, 500, path_id, "pirate_lv10")
+	var first := await _climb_job_windows(run, 10, 500, path_id, "pirate_lv10")
 	if first.is_empty():
 		return
 	var labels: Array = first.entries
@@ -1799,7 +1769,7 @@ func _scenario_pirate() -> void:
 	run.handle_events(w.drain_events())
 	_check(w.loadout.rank("dash") == 1, "Dash is learned (rank %d)" % w.loadout.rank("dash"))
 	# Lv30 by a debug warp (EXP drops, invulnerable), then the real Lv 30 window.
-	var second := await _pirate_climb(run, 30, branch, "", "pirate_lv30")
+	var second := await _climb_job_windows(run, 30, branch, "", "pirate_lv30")
 	if second.is_empty():
 		return
 	_check(w.progression.job_id == branch and w.progression.level == 30, "a Lv30 job %d (level %d)" % [w.progression.job_id, w.progression.level])
@@ -1828,44 +1798,13 @@ func _scenario_pirate() -> void:
 	await _hold(KEY_RIGHT, 0.5)
 	await _shot("pirate_dash")
 	_collect_missing(run)
-	# The round boundary (debug shortcut for the multi-minute warp-clear): the carried snapshot is saved at the Free Market.
-	var carried := run.world.character_snapshot()
-	var slot := flow.save.slot(flow.active_slot)
-	slot.character = carried
-	slot.phase = "free_market"
-	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "the Pirate was saved at the Free Market boundary")
-	var active := flow.active_slot
-	flow.continue_character(active)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+	var persisted := await _save_quit_continue(run, "pirate")
+	if persisted.is_empty():
 		return
-	var hub := flow.current as FreeMarket
-	await _sleep(1.5)
-	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
-	_check(int(expected.job_id) == branch and String(expected.get("weapon_path", "")) == path_id \
-		and int(expected.equipment.worn.weapon.id) == lv30_weapon, "the hub holds the job %d %s Pirate with its Lv30 weapon" % [branch, path_id])
-	await _shot("pirate_hub")
-	_collect_missing(hub)
-	await _key(KEY_ESCAPE)
-	await _sleep(0.6)
-	await _shot("pirate_save_and_quit")
-	await _key(KEY_2)
-	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
-		return
-	_reload_save()
-	await _sleep(1.0)
-	await _shot("pirate_character_select")
-	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
-		_check(saved.get(key) == expected.get(key), "the saved %s equal the hub's (%s)" % [key, str(saved.get(key)).left(60)])
-	await _click(flow.current.slot_buttons[active])
-	await _click(flow.current.select_button)
-	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
-		return
-	var again := flow.current as FreeMarket
-	await _sleep(1.5)
-	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
-	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
-		_check(restored.get(key) == expected.get(key), "Continue restored the %s" % key)
+	var again: FreeMarket = persisted.hub
+	var restored: Dictionary = persisted.character
+	_check(int(restored.job_id) == branch and String(restored.get("weapon_path", "")) == path_id \
+		and int(restored.equipment.worn.weapon.id) == lv30_weapon, "the hub holds the job %d %s Pirate with its Lv30 weapon" % [branch, path_id])
 	_check(int(restored.skills.get("dash", {}).get("rank", 0)) == 1, "and Dash (%s)" % [restored.skills.get("dash")])
 	await _key(KEY_E)
 	await _sleep(0.5)
@@ -1885,10 +1824,53 @@ func _scenario_pirate() -> void:
 	_quit()
 
 
+## Saves a diagnostic round boundary, then checks Save & quit, reload and Continue through injected input.
+## Returns the continued hub and character, or {} after a failed transition.
+func _save_quit_continue(run: RunScene, shot_prefix: String) -> Dictionary:
+	var slot := flow.save.slot(flow.active_slot)
+	slot.character = run.world.character_snapshot()
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, shot_prefix + " saved at diagnostic Free Market boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, shot_prefix + " hub"):
+		return {}
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	await _shot(shot_prefix + "_hub")
+	_collect_missing(hub)
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	await _shot(shot_prefix + "_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, shot_prefix + " saved hub"):
+		return {}
+	_reload_save()
+	await _sleep(1.0)
+	await _shot(shot_prefix + "_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	_check_carried_fields(saved, expected, "saved " + shot_prefix)
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, shot_prefix + " continued hub"):
+		return {}
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	_check_carried_fields(restored, expected, "Continue restored " + shot_prefix)
+	return {"hub": again, "character": restored}
+
+
+func _check_carried_fields(actual: Dictionary, expected: Dictionary, label: String) -> void:
+	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
+		_check(actual.get(field) == expected.get(field), label + " " + field)
+
+
 ## Takes the run to `target` level with EXP drops through the real level-up cards, answering the job window with the entry for
 ## `want_job` (and `want_path` when given). Returns {entries: ["text", ...]} once the window was answered and the next
 ## stretch of play started, or {} after a failed check.
-func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
+func _climb_job_windows(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
 	var w := run.world
 	var spawned_level := 0
 	var spawned_at := -100.0
