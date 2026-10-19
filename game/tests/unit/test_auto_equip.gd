@@ -124,11 +124,16 @@ func test_a_top_waits_while_an_overall_is_worn_and_an_overall_while_a_top_is_wor
 	assert_eq(bottom_only.equipment.worn.top.id, 1040002, "a top beside only a bottom is fine")
 
 
-func test_an_empty_weapon_slot_takes_a_weapon_but_never_replaces_one() -> void:
+func test_a_weapon_never_replaces_the_held_one_and_only_fills_an_empty_slot() -> void:
 	var world := _world()
 	_pick_up(world, 1372005)
 	assert_eq(_ids(world.equipment.inventory), [1372005], "the creation sword is held, so the wand waits")
 	assert_eq(world.equipment.worn.weapon.id, 1302000)
+	var bare := _world(func(c: Dictionary) -> void:
+		c.level = 10
+		c.equipment.worn.erase("weapon"))
+	_pick_up(bare, 1372005)
+	assert_eq(bare.equipment.worn.weapon.id, 1372005, "a bare-handed character wears the wand (tier C, never reached by drops)")
 
 
 func test_a_full_equip_tab_still_blocks_the_pickup() -> void:
