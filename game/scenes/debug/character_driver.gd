@@ -33,15 +33,7 @@ func _ready() -> void:
 	flow.goto_character_select()
 	await _shot("empty_slots")
 	flow.current.show_creation()
-	await _shot("gender")
 	var creation: Control = flow.current.creation
-	var picker := creation.find_child("GenderValue", true, false) as OptionButton
-	picker.select(1)
-	picker.item_selected.emit(1)
-	await _shot("gender_female")
-	picker.select(0)
-	picker.item_selected.emit(0)
-	creation.create_button.pressed.emit()
 	await _shot("creation_name")
 	creation.name_edit.text = "bad!"
 	creation.create_button.pressed.emit()
