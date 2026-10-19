@@ -4807,6 +4807,15 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
+- **Window flow (spec #226, #231).** The window has two pages. Page 1 is a generic intro and one entry per job (a
+  Thief appears once, not once per weapon) plus "Not now."; the Lv 10 list has no NPC portrait (no single instructor
+  speaks for every job), the Lv 30 list has the line's instructor, who is every child's. Picking a job with two or three
+  weapon families (Warrior, Bowman, Thief, Pirate; Fighter, Page, Spearman) opens page 2, spoken by that job's instructor:
+  "Which weapon would you like to specialize in?", one row per family in the order the data gives (data order at
+  Lv 10, the held family first at Lv 30) with the weapon it hands over in brackets, and a "Cancel." row. Cancel,
+  Esc or the Prev button returns to page 1 with the job still highlighted (it never declines); END CHAT and "Not now."
+  on page 1 still defer. Magicians and single-family branches go straight to the confirmation, which the chosen job's
+  instructor speaks. Keyboard (Up/Down, Enter, digits) and mouse work on both pages. Wording on both pages is tier C (ours).
 - Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199), Thief's two paths (Dark Lord, #207) and Pirate's two paths (Kyrin, #186) are playable.
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
@@ -5578,6 +5587,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15 (Henesys 4:00), then every 60 s; first burst at 1:30 (Henesys 5:00), then every 90 s | C | ours; the Henesys delays keep them out of the sword-paced Beginner phase |
 | Henesys stage EXP | 2.5x canonical mob EXP for ordinary kills (`stages.henesys_hg1.exp_mult`) | C | coarse #29 pass so a sword-paced Beginner reaches Magician near 4:40 |
 | Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
+| Job window pages (#226, #231) | page 1: generic intro, one entry per job, no portrait when the options span several lines; weapon page for jobs with 2+ families, spoken by the chosen job's instructor; Cancel (Esc, Prev) returns to page 1 | C | ours; `job_advance_window.gd` |
 | Magician advancement level | survivor level 10; canonical level 8 and INT 20 stay unchanged | C | owner choice, #40; `data/survivor/jobs.json` |
 | Background auto-scroll axis | types 4-7: no camera term on the scrolling axis (screen x = x + rx·5·t + W/2), parallax on the other | C | ours (reading of "auto-scroll X, parallax Y") |
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
