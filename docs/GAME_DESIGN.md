@@ -4489,8 +4489,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   1452051 and places Crossbow 1462001 in Equip, with overflow at the feet (tier B bow gift, tier C spare crossbow).
   Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary up to level + 5, capped at 35
-  from Lv 30 (tier C; 7.22). The advancement draw offers Arrow Blow and Double Shot. Crossbowman opens at Lv 30 (#203);
-  Hunter is owned by #202.
+  from Lv 30 (tier C; 7.22). The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
 - Level 30, Crossbowman 320 (#203): +325 MaxHP / +175 MaxMP (tier B), with Mountain Crossbow 1462000 always worn
   and the old weapon moved to Equip (tier C grant; Lv28, PAD44, STR28 / DEX80 tier A). Growth/AP inherit Bowman;
   the advancement draw offers Power Knock-Back and Iron Arrow. Crossbow-only skills/cards and ammo tiers: 7.24.
@@ -4582,7 +4581,7 @@ per family (`grant_items`, same order; #165 #180 replaced the single `grant_item
 advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
 (tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
 are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
-the Warrior's three branches, the two Pirate branches and Hunter have them (section 9, Level 30).
+the Warrior's three branches, the two Pirate branches, Hunter and Crossbowman have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
