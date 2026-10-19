@@ -141,9 +141,10 @@ recreated at every launch, standing on the floor between Barun and Tulcus; the r
 The menu flow with injected keyboard/mouse input (v83 character signboard and creation, map select, arrow-key
 movement, level-up / job / pause windows, death, results, saved-round replay and history) is `game/scenes/debug/flow_driver.tscn`:
 `bash scripts/godot.sh --path game res://scenes/debug/flow_driver.tscn -- --scenario=full --shots=<abs dir>`
-Use `--scenario=rounds` for creation -> real tier-1 clear (warp) -> Free Market out00 -> tier-2 map select ->
+Use `--scenario=rounds` for creation -> Warrior job/weapon pages -> diagnostic tier-1 clear -> Free Market out00 -> tier-2 map select ->
 Save & quit -> Continue -> Quit round -> same-seed Continue -> death -> deletion/history. All controls use injected
-input; fixed-tick bot warps skip combat time. `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
+input; fixed-tick bot warps skip combat time. Tier 1 uses invulnerability, EXP drops to Lv10 and diagnostic boss hits
+after its stage timer for flow QA (#232). `--diagnostic-victory=1` makes tier 2 invulnerable and ends remaining
 boss fights with diagnostic hits after 15:00 to check victory presentation only. Use a fresh output directory
 under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
@@ -172,8 +173,8 @@ Historical fixtures retain old spare weapons and generation provenance; snapshot
 --exp-mult=3 --seconds=600` (diagnostic aids and exact revision in `_doc`, GAME_DESIGN 4.2).
 Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
-`botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
-character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
+`botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` first checks
+the Warrior job/weapon pages, then its slot becomes the Lv38 F/P fixture for a Henesys round (meso and item drops picked up, Item window,
 a drop worn), the bot's fixed-tick warp to a real clear into the Free Market (a few minutes), a walk past the four
 scroll NPCs, Space at El Moth (buy a scroll, sell a spare item), Space at Tulcus (10% scrolls), the scrolls dragged
 onto the worn hat (success, then failure), and Save & quit -> Continue, which must restore mesos, worn equipment,
@@ -186,7 +187,8 @@ its default in the InputMap before pressing Space. Use `ISOLATE=<name>` with
 NX and the Cash Shop (spec #34): `--scenario=cash_shop` (#118), `cash_equip` (#122) and `account` (#126, the whole loop:
 prepared NX -> buy a hat and a pet at map select -> wear/bring them out in round 1 through the Equip window -> warp clear ->
 "+N NX" notice -> buy a pet upgrade in the Free Market -> Save & quit/Continue -> tier 2 -> death -> the account keeps NX and
-items -> a new character uses them; round 1 is invulnerable unless `--natural-clear=1`). They write a prepared
+items -> a new character uses them; round 1 checks the Warrior weapon page, uses EXP drops, and is invulnerable with
+diagnostic boss hits after the timer unless `--natural-clear=1`). They write a prepared
 account into the evidence-only `driver_save.json`; delete it (or use a fresh shots dir) before repeating.
 `scenes/debug/cash_gallery.tscn` (every curated cash item on the avatar), `shield_gallery.tscn` (the Equip window and avatar with a shield / a two-handed weapon), `weapon_gallery.tscn` (every weapon family: stand, walk and each basic-attack action on a dummy; `-- --mode=cash` a cash weapon cover over a two-handed sword and a claw; `-- --mode=ammo [--branch=410 --level=37]` real ammo projectiles per tier) and `hair_cap_probe.tscn` (cap vs hair layers)
 are the avatar contact-sheet tools.

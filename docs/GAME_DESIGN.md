@@ -516,6 +516,20 @@ default smoke outcomes above happen to remain the same. The 72,000-tick seed-1 s
 All eleven historical character fixtures remain valid saves: migration infers missing paths, preserves explicit
 ones and keeps old spare weapons. Per-file rationale: `game/tests/fixtures/characters/README.md`.
 
+After merging #231 (`e59b9ed`), flow_driver's shared injected-input helper selects page 1 by keyboard and the weapon
+page by mouse, checks page order and the instructor, confirms by Enter, then compares equipment before/after to
+prove exactly one chosen weapon was added and displaced equipment retained. Warrior branches deliberately select
+Axe / Blunt Weapon / Polearm at Lv30; Bowman selects the branch's Bow / Crossbow at Lv10. Single-family Lv30 jobs
+skip the weapon page and retain the first-job path. Warp-time job choices now render and answer the same windows.
+The evidence collector ignores an intentionally empty WzImage path (the generic Lv10 page has no NPC portrait).
+
+`rounds`' old natural seed-4 staging died before first job, so its tier-1 QA now uses an invulnerable EXP-drop climb
+through Warrior/Sword, then the existing diagnostic lethal-hit path after the stage timer; boss deaths and rewards
+still pass through RunWorld. `account` also checks Warrior/Sword before its warp and uses those diagnostic hits when
+invulnerable (`--natural-clear=1` disables invulnerability/hits). `economy` first checks Warrior/Sword in a disposable
+round, then loads its original Lv38 F/P fixture for the unchanged economy loop. These are presentation/persistence
+checks, **not natural clears or balance evidence**; the 23-run smoke above uses no such aids.
+
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
@@ -5074,7 +5088,8 @@ Bowman (#166), QA #204:
 | Constant / choice | Value / rule | Tier | Source |
 |---|---|---|---|
 | Second-job Bowman fixtures | Hunter Lv30 / Crossbowman Lv31, Henesys seed1 bot, invulnerable, natural EXP, 600 s cap | C | `tools/character_fixture.gd --job=<310|320> --god --seconds=600 --label=spec166/ticket-204`; `_doc` and 4.2 |
-| Bowman flow staging | `Bowman204`, invulnerable EXP-drop climb through Lv10/12/30, both weapons via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
+| Bowman flow staging (#226 amendment) | `Bowman204`, invulnerable EXP-drop climb through Lv10/30, chosen Bow/Crossbow only via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
+| Weapon-page flow QA (#232) | Shared keyboard job selection, mouse family selection, Enter confirmation and exact equipment-delta check. `full`, `rounds`, `account`, `economy` probe Warrior/Sword; Warrior branches choose Axe/Blunt/Polearm. Rounds/account invulnerable warps apply diagnostic boss hits after the stage timer; economy then restores its historical fixture | C | #232 QA staging only; no survival/balance claim |
 
 Bowman (#166), equipment #201:
 
