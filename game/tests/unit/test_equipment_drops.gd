@@ -201,8 +201,8 @@ func test_the_shipped_list_is_ids_only_and_every_item_is_a_wearable_slot() -> vo
 		var slot := Equipment.slot_of(id)
 		assert_true(slot != "", "%d has an equip slot" % id)
 		if slot == "weapon":
-			assert_true(id / 10000 in [137, 138, 130, 131, 132, 140, 141, 142, 143, 144, 148, 149],
-				"only Magician, Warrior and Pirate weapon families, not %d" % id)
+			assert_true(id / 10000 in [137, 138, 130, 131, 132, 140, 141, 142, 143, 144, 145, 146, 148, 149],
+				"only Magician, Warrior, Bowman and Pirate weapon families, not %d" % id)
 	for must: int in [1372005, 1372006, 1372004, 1372003, 1372000, 1372007, 1372014, 1372015, 1382000, 1382002,
 			1382019, 1382001, 1382006, 1382007, 1002017, 1002102, 1002016, 1002064, 1002141, 1002151, 1002215,
 			1002242, 1050008, 1050001, 1050026, 1050002, 1050035, 1050045, 1050053, 1050067, 1072006, 1072136,
@@ -230,8 +230,8 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops
 		var info: Dictionary = img.root.info
 		infos[id] = info
 		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 70, "%d reqLevel 0..70" % id)
-		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 19 != 0,
-			"%d is all-job, Magician, Warrior or Pirate" % id)
+		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 23 != 0,
+			"%d is all-job, Magician, Warrior, Bowman or Pirate" % id)
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not a cash item" % id)
 		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
 	var rng := _rng(8)

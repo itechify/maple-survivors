@@ -99,9 +99,12 @@ static func physical_damage_range(str_stat: float, dex_stat: float, luk_stat: fl
 	var secondary := float(values.get(String(formula.get("secondary", row[3])), 0.0))
 	var max_mult := float(formula.get("max_mult", mult))
 	var min_mult := float(formula.get("min_mult", max_mult))
-	var minimum_mastery := 1.0 if bool(formula.get("ignore_mastery", false)) else 0.9 * mastery
-	var hi := (max_mult * primary + secondary) * watk / 100.0
-	var lo := (min_mult * primary * minimum_mastery + secondary) * watk / 100.0
+	# tier B: Power Knock-Back uses fixed 10% mastery and divides by 150 (ticket #202, pre-BB formula).
+	# Optional overrides keep the ordinary /100 and live mastery for every existing physical attack.
+	var minimum_mastery := 1.0 if bool(formula.get("ignore_mastery", false)) else 0.9 * float(formula.get("mastery", mastery))
+	var divisor := float(formula.get("divisor", 100.0))
+	var hi := (max_mult * primary + secondary) * watk / divisor
+	var lo := (min_mult * primary * minimum_mastery + secondary) * watk / divisor
 	return Vector2(minf(lo, hi), hi)
 
 

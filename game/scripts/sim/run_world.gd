@@ -77,6 +77,9 @@ const EVENT_FIELDS := {
 	"player_restored": ["stat", "amount", "skill", "pos"],
 	"mp_eater_absorbed": ["mob", "amount", "skill", "pos"],
 	"final_attack": ["skill", "skill_id", "level", "mob", "pos", "facing", "action", "effect"],
+	"skill_impact": ["skill", "pos", "effect"],
+	# tier C: a presentation-only ammo flight; Final Attack damage still lands immediately on stream 12.
+	"ammo_shot": ["skill", "from", "to", "seconds", "ball", "rotate"],
 	"boss_skill": ["mob", "mob_id", "skill_id", "level", "pos", "facing", "action", "duration", "effect", "player_effect", "targets", "summon_effect", "recipient_effect"],
 	"buff_cast": ["skill", "skill_id", "level", "duration"],
 	"buff_expired": ["skill", "skill_id"],
@@ -429,6 +432,7 @@ func _init_drops_and_shots() -> void:
 	projectiles.alt_rng = basic_rng # the ranged basic attack's shots roll on stream 5, like its instant swings
 	projectiles.bounds = bounds
 	projectiles.magic_defense_k = float(balance.get("magic_defense_k", CombatMath.MAGIC_DEFENSE_K))
+	projectiles.pierce_floor = float(balance.get("combat", {}).get("pierce_floor", 0.0))
 	var pk: Dictionary = balance.get("pickup", {}).duplicate()
 	pk["collect_radius"] = float(balance.get("collect_radius", PickupSystem.TUNING_DEFAULTS.collect_radius))
 	pk["gravity"] = physics.gravity_acc
@@ -441,6 +445,7 @@ func _init_drops_and_shots() -> void:
 func _init_skills_and_progression() -> void:
 	book = SkillBook.from_data(data.get("skills", {}), setup.get("skill_imgs", {}))
 	loadout = Loadout.new(book)
+	loadout.pierce_floor = projectiles.pierce_floor
 	var crit: Dictionary = balance.get("crit", {})
 	loadout.crit_chance = float(crit.get("chance", 0.0))
 	loadout.crit_mult = float(crit.get("mult", 1.5))
@@ -1859,19 +1864,37 @@ func _play_final_attacks() -> void:
 		emit("final_attack", {"skill": key, "skill_id": int(st.skill_id), "level": int(st.level), "mob": slot,
 			"pos": player.pos, "facing": player.facing, "action": String(st.action), "effect": String(st.effect)})
 		var hit_visual := visual_index(String(st.hit))
+		_final_attack_visual(slot, key)
 		hit_mob(slot, st, hit_visual, final_rng)
 		for extra: int in _spread_targets(slot, int(st.count) - 1):
+			_final_attack_visual(extra, key)
 			hit_mob(extra, st, hit_visual, final_rng)
 
 
-## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing reach
-## (BasicAttack.reach) of the target's body centre, nearest the target first (scheduled bosses first, then the slot,
+func _final_attack_visual(slot: int, key: String) -> void:
+	if not WeaponInfo.is_ranged(weapon_id()):
+		return
+	var shot := Ammo.projectile(data.get("ammo", {}), held_weapon_family())
+	if shot.is_empty():
+		return
+	var aim := mob_center(slot)
+	var start := shot_origin(aim)
+	# tier C: visual-only straight flight at the current ammo's speed, no hit delay or damage projectile.
+	emit("ammo_shot", {"skill": key, "from": start, "to": aim,
+		"seconds": start.distance_to(aim) / maxf(1.0, float(shot.speed)),
+		"ball": Ammo.bullet_path(ammo_id()), "rotate": bool(shot.rotate)})
+
+
+## Spread (#181): up to `want` live mobs other than `target` whose body centre is within the held weapon's swing/ranged
+## reach of the target's body centre, nearest the target first (scheduled bosses first, then the slot,
 ## RunWorld.targets_before). Uses no RNG. tier C: ours; reach is measured around the struck target, as a circle.
 func _spread_targets(target: int, want: int) -> Array[int]:
 	var found: Array[int] = []
 	if want <= 0:
 		return found
 	var reach := basic.reach(self)
+	if WeaponInfo.is_ranged(weapon_id()):
+		reach = maxf(reach, float(WeaponInfo.RANGED_REACH.get(held_weapon_family(), 0.0)))
 	if reach <= 0.0:
 		return found
 	var centre := mob_center(target)
@@ -1908,6 +1931,12 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 			if String(hit.element) != "":
 				params["element"] = String(hit.element)
 			swarm.apply_status(slot, String(status.get("status", "")), params, events)
+	var knockback: Dictionary = book.def(key).get("knockback", {})
+	if not knockback.is_empty() and not swarm.mob_kind(slot).boss and swarm.steady[slot] == 0:
+		var chance := book.canonical(key, level, String(knockback.get("chance_field", "prop")))
+		# tier C: one stream-1 roll per struck non-boss, including the 0/100% endpoints.
+		if rng.randf() * 100.0 < chance:
+			swarm.knockback(slot, player.pos.x, float(knockback.get("distance", 0.0)), fhm, bounds)
 	for listener: Callable in _hit_listeners:
 		listener.call(slot, hit)
 

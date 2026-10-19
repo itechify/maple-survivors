@@ -155,7 +155,11 @@ advancement weapons, the Skill window with the unheld family greyed, Save & quit
 `pirate` (QA #195, `--path=knuckle|gun [--branch=510|520]`: Lv10 window with both paths, both weapons, an invulnerable EXP-drop warp to the
 Lv30 window, Dash on its key, Save & quit -> Continue keeps job, path, weapons and skills; the second-job fixtures
 `lv37_brawler_2nd.json` / `lv36_gunslinger_2nd.json` come from `tools/character_fixture.gd --god [--exp-mult=<k>]`, see
-GAME_DESIGN 4.2). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
+GAME_DESIGN 4.2). Spec #166 (the Bowman line) adds `bowman` (QA #204, `--branch=310|320`): invulnerable EXP-drop
+climb through the real Lv10/Lv30 job windows, bow worn/crossbow in Equip, crossbow worn at Lv12, branch advancement
+weapon and Bronze arrow notice, Save & quit -> Continue keeps job, weapons, skills and derived arrow tier. Its
+`hunter_2nd.json` / `crossbowman_2nd.json` fixtures come from `tools/character_fixture.gd --job=<id> --god --seconds=600`
+(seed 1, bot; exact revision and aids in `_doc`, GAME_DESIGN 4.2). Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
 `botshop` (#112: the bot's shop plan in the hub) and `economy` (#113: the whole loop, below). `economy` takes a new
 character (its slot becomes the Lv38 F/P fixture) through a Henesys round (meso and item drops picked up, Item window,
