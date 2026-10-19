@@ -481,6 +481,59 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
+with `--job=300`, `310`, `320`: **48 runs**, integration `730467c` plus QA-only changes, private cache `s166-int`,
+no PATCH, balance edits or held-out seeds. Another **21 Henesys controls** force `100`, `510`, `520` under both
+policies and `210` under bot. All 69 runs die, with no crashes, script errors, world warnings, missing assets or
+skipped bosses. Raw seed records, exact console/SYSTEMS output and aggregates remain ignored in
+`_scratch/t204-smoke/<job>/<stage>/<policy>/`; `_scratch/t204-audit.json` preserves the configuration/outcome audit.
+Death seconds and final levels below are in seed order **1 / 2 / 2026**; no timeout or clear is implied.
+
+| Stage / forced job | bot: death seconds (final levels) | random: death seconds (final levels) |
+|---|---|---|
+| Henesys, default pick | 339.6 / 455.4 / 323.4 (11 / 13 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Henesys, `300` or `310` | 339.5 / 610.0 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Henesys, `320` | 339.5 / 619.3 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Tree, every job choice above | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | same |
+
+The unforced picks reshuffled (Magician / Magician / Warrior), so historical comparisons use forced controls:
+Warrior `100` matches #185's `110/120/130`, Pirates `510/520` match #195, and Magician `210` bot matches the
+spec #151 forced record, all to the earlier tables' whole-second precision. The forced `210` controls reach Magician
+and spawn Mano in 3/3; Tree remains unchanged and record-only, dying before any job. Bowman advances at
+265.7-274.0 s in all six runs per forced configuration. Mano dies in 2/6 (bot seed 2, random seed 1); only bot
+seed 2 reaches second job, at 577.7 s (Hunter for `300/310`, Crossbowman for `320`). It dies shortly after Mushmom
+spawns. MP-short totals are 104.617 / 118.100 / 136.950 s (bot), 117.850 / 86.717 / 96.367 s (random), identical
+across the three forced configurations. These deaths resemble the existing physical-line bot weakness, without
+the before-first-boss failure pattern or any code error that would justify stopping for a bug. No tuning followed.
+
+The two committed fixtures, `hunter_2nd.json` (Lv30) and `crossbowman_2nd.json` (Lv31), reproduce byte for byte with
+`tools/character_fixture.gd --job=<310|320> --seed=1 --god --seconds=600 --label=spec166/ticket-204
+--revision=730467c36fb3312637733d722a009aa1512d8998 --out=<abs JSON>` on that revision and cache. These are real
+headless Henesys bot rounds, capped alive with invulnerability, natural EXP and no EXP multiplier; every aid and
+provenance field is in `_doc`. `test_bowman_fixtures` checks loading, branch skills, weapon family, restoration of
+ranks and Bronze arrows, and 600 fixed ticks on the real map without warnings.
+
+`flow_driver --scenario=bowman --branch=310|320` passes both branches: real Lv10/Lv30 windows, bow worn and spare
+crossbow in Equip, crossbow worn by input at Lv12, branch advancement weapon, Bronze notice, Save & quit/Continue
+with identical job, level, path, equipment, skills and cards plus the same derived arrow tier. Its invulnerability,
+EXP-drop climb and Free Market boundary shortcut are diagnostic, not survival evidence. It holds the branch's
+family before advancement because #155 intentionally keeps family swaps silent. Fresh passing evidence is in
+`C:/Users/itech/.t3/worktrees/maple-survivors/t3-3420113e/evidence/s166/t204/flow-310-verified/` and `flow-320-retry/`.
+The same root's `bowman/`, `hunter/` and `crossbowman/` shots were checked by eye: both first-job weapon poses,
+Power Knock-Back's swing and displacement, Arrow Bomb's blast then three visibly stunned mobs, Iron Arrow piercing
+six of seven lined-up targets, and Bronze/Steel upgrade notices (Steel arrow visible in flight). All driver
+missing-asset lists are empty. GLOSSARY's Knock-back entry agrees with the shipped chance-based push and boss immunity;
+7.21-7.24 now describe the merged consumers rather than pending tickets. No golden was re-captured.
+
+Final full Godot suite: **2,030 passed / 0 failed / 0 skipped**, 172 files, 659927 ms, exit 0, with
+`MAPLE_SURVIVORS_CACHE=C:/Users/itech/Coding/maple-survivors-refs/caches/s166-int ISOLATE=s166-t204
+TEST_TIMEOUT_S=3000`; integration was fetched/merged before validation and remained at `730467c`.
+The same two previously recorded RendererDummy texture RID shutdown leaks remain. Rust: **64 passed / 0 failed /
+0 ignored**, including all 18 real-data tests with `MAPLE_WZ_ROOT`. Web shell: **51 passed / 0 failed / 0 skipped**.
+The evidence root also preserves `smoke/` raw records and `logs/` verification output, including the full suite.
+
 #### Spec #168 integration with main's spec #165 (2026-10-18)
 
 Merged main `4ec2f0d` (PR #197) into Pirate tip `0352877`: Threaten retains status index 3, stun moves to 4,
@@ -3387,6 +3440,28 @@ Shipping Thief first job (#207):
 | Double Stab 4001334 | dagger | A: canonical weapon 33 |
 | Lucky Seven 4001344 | claw | A: canonical weapon 47 |
 
+Shipping Bowman first job (#199):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| The Blessing of Amazon 3000000, Focus 3001003 | any, including bare hands | A: no canonical restriction; #199 explicit skill table |
+| Critical Shot 3000001, The Eye of Amazon 3000002 | bow or crossbow | C: family tag from v83 skill descriptions |
+| Arrow Blow 3001004, Double Shot 3001005 | bow or crossbow | C: survivor family tags (no canonical weapon field) |
+
+Shipping Hunter (#202):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Bow Mastery 3100000, Final Attack: Bow 3100001, Bow Booster 3101002 | bow | C: family tags from String.wz descriptions |
+| Power Knock-Back 3101003, Arrow Bomb: Bow 3101005 | bow | A: canonical weapon45 |
+
+Shipping Crossbowman (#203):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Crossbow Mastery 3200000, Final Attack: Crossbow 3200001, Crossbow Booster 3201002 | crossbow | C: explicit family tags; String.wz descriptions name crossbow |
+| Power Knock-Back 3201003, Iron Arrow: Crossbow 3201005 | crossbow | A: canonical weapon 46 |
+
 Shipping Pirate first job (#186):
 
 | Skill | Held weapon | Source |
@@ -4245,6 +4320,187 @@ Each attack appends exact-job420 power cards: learn weight4, rank weight3 with30
 at weight2 (tier C, existing Potential magnitudes; untuned). Other jobs cannot draw these cards. #215 owns balance
 smokes and tuning; #214 performs deterministic mechanics, cache, replay and presentation checks only.
 
+### 7.27 Opt-in combat mechanics (#200, spec #166)
+
+These additive skill-definition keys are generic; this ticket adds no Bowman skill data. Skills without the keys keep
+their existing damage, RNG draws and seeded records. Tests use synthetic skill tables, seeded worlds and fixed 1/60 s ticks.
+
+- **`knockback: {"chance_field": "prop", "distance": <px>}`.** Every damaging line on a non-boss rolls once on
+  stream 1, including at 0% and 100%; the named canonical level field is a percent. Success slides the mob `distance`
+  horizontal px away from the character, following its current foothold chain over slopes and stopping at platform
+  edges, walls and map bounds through `FootholdMap.slide_along` (7.13). This is separate from ordinary threshold hit
+  push. Statuses survive. Canonical and scheduled bosses neither roll nor move. Airborne mobs and flyers have no
+  supporting foothold, so the roll has no displacement (tier C). The distance is survivor tuning (tier C); this ticket
+  ships no default distance. A synthetic fixture uses 120 px, not a balance choice for Power Knock-Back.
+- **`impact_blast: {"damage_field": "damage", "visual": "hit"}`.** A projectile explodes at its first mob contact,
+  consuming the projectile even if it has pierce. The struck mob takes one slot of the canonical `mobCount` cap;
+  remaining slots hit live mobs whose bodies intersect the canonical `lt`/`rb` box translated to the primary's feet.
+  The geometry is Grenade's shared `SkillRunner.blast_rect`, without facing mirroring. Splash is nearest to the
+  primary's body, then slot; selection and the anchor are captured before damage, deaths or knock-back. Each hit
+  independently resolves live defence, damage, crit, element, `on_hit` and knock-back through the ordinary callback.
+  Immunity still consumes the primary's cap slot. Blasts never recursively create blasts. `damage_field` selects the
+  canonical physical skill percent for primary and splash alike; Arrow Bomb must use `"x"` (72 to 130), as it has
+  no `damage`. `visual` selects a SkillBook visual (`hit` by default, `effect` also supported), resolved at cast time.
+  `skill_impact` plays this art once at the captured impact feet; ordinary per-target hit art also plays. The choice
+  of art/anchor, first-contact consumption and target order are tier C; box, cap and selected level values are tier A.
+- **`pierce_falloff: <fraction>`.** The n-th direct contact deals `max(floor, 1 - fraction * (n - 1))` of its fully
+  resolved damage, including crit bonuses, before final rounding. `balance.combat.pierce_floor` supplies the floor
+  to projectiles and skill previews (default 0.1). The schedule and 10% default floor are tier C: WZ has no
+  fall-off number. A fraction of 0.1 gives 100/90/80/70/60/50% across six mobs. An immune contact consumes a contact
+  index, as it already consumes pierce. Missing or zero means full damage on every mob. The value is captured at
+  launch; slot reuse resets it. Impact blasts consume the shot before piercing, so their splash has no fall-off.
+- **Ranged Final Attack.** With bow, crossbow, claw or gun held, every follow-up also emits `ammo_shot`, a visual
+  flight of the current ammo's `bullet` art from the hand to the same mob's captured body centre. It uses that
+  family's existing ammo speed and rotation and a straight line; it draws no RNG and causes no delayed damage.
+  The original hit timing, stream-12 rolls, crit and damage are unchanged (tier C presentation). If Spread is
+  available, it uses the greater of `BasicAttack.reach` and the family's ranged base reach around the primary.
+  Each extra target gets its own visual. Hunter and Crossbowman supply ranged Spread cards (7.29-7.30).
+
+**Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`,
+`pierce_falloff` and `pierce_floor` (fractions). SkillText automatically appends these mechanics to rank/learn cards and current/next
+Skill-window lines. Rank previews include changing knock-back chance and blast targets. A `skill_mod` effect with
+`stat: "blast_targets"` adds splash targets without adding projectiles; projectile `count` still means shots.
+`pierce_falloff` modifiers preview percentage points per later mob, and `blast_targets` modifiers preview targets.
+Existing `pierce` cards still increase contacts, independently of the fall-off fraction. Hunter and Crossbowman
+consume these keys in 7.29-7.30; the combined regression smoke is recorded in 4.2 (#204).
+
+### 7.28 Bowman first job (300, #199, spec #166)
+
+Bowman is playable at Lv 10 (tier C survivor override). The `bow` path wears the instructor's Beginner Bowman's bow
+1452051 (tier B gift, tier A stats), moves the creation weapon to Equip and adds Crossbow 1462001 (tier C: the plain
+early shop crossbow, Lv 12 / PAD 29 / no stat requirement). Full Equip tabs spill these items at the feet, following
+the existing advancement rule. The job grants +125 MaxHP / +37 MaxMP (tier B midpoints, MP truncated), and subsequent
+levels give 22 HP / 15 MP (tier B fixed midpoints). Tier-C automatic AP goes to DEX after filling STR to level + 5
+through Lv 30, holds STR 35 through Lv 34, then reaches STR 40 at Lv 35 and level + 5 through Lv 70 / STR 75
+(held thereafter). The original Lv 1/30 keyframes and allocation through Lv 34 stay unchanged, preserving the #204
+Lv 30/31 fixtures. Hunter and Crossbowman inherit this row. A cache-backed seeded level-up test checks all 22 shipped
+bows/crossbows against their canonical reqSTR/reqDEX at reqLevel, without equipment bonuses. Bot equipment weights
+prefer PAD, then DEX, then STR; other weights follow the existing physical baseline (tier C, untuned).
+
+`skills/bowman.json` and `upgrades/bowman.json` hold the first-job entries. Ranks map one-to-one to every canonical
+level (tier A); canonical prerequisite skills are ignored (tier C, shared rule). All values below come from Skill.wz:
+
+| Skill | Ranks | Behaviour |
+|---|---|---|
+| The Blessing of Amazon 3000000 | 16 | ACC +1..16; ACC also feeds the shared crit coefficient |
+| Critical Shot 3000001 | 20 | 12..40% critical chance, 105..200% total critical damage; shared additive critical bonus |
+| The Eye of Amazon 3000002 | 8 | +15..120 px range for bows/crossbows (tier C interpretation below) |
+| Focus 3001003 | 20 | Self buff: ACC/avoid +1..20, 70..300 s, MP 8..16; auto-cast and recast on expiry (tier C), 0.8 s hold |
+| Arrow Blow 3001004 | 20 | Nearest monster, one current-ammo arrow, 190..260%, MP 7..14 |
+| Double Shot 3001005 (`bow_double_shot`) | 20 | Two current-ammo arrows via canonical `bulletCount`, 92..130% each, MP 10..16 |
+
+Blessing and Focus allow any weapon, as the ticket's explicit skill table specifies; Critical Shot and Eye apply
+only with a bow or crossbow. Both attacks require those families and use the held weapon's shooting stance (tier C).
+Attacks use a 300 px base range (neither has canonical `range`), 1 s cooldown, 600 px/s projectiles, 8 px radius,
+no base pierce and 0.6 s hold (tier C placeholders, untuned). Double Shot splits over different nearest targets,
+reusing them when necessary, like Pirate Double Shot (tier C; original v83 puts both on one mob). Collinear shots
+can collide with the nearer monster. Ammo is endless and uses each held family's current arrow sprite.
+
+The generic passive stat `range` adds pixels to ranged basic reach (target box and projectile travel) and to the
+resolved range of attack skills explicitly gated to the held ranged family (tier C). The existing passive weapon
+gate controls which skills contribute. Melee boxes and untagged Magician skills stay unchanged. Cached basic boxes
+keep their base size; the bonus is read live, so rank changes and weapon swaps cannot leave stale reach. Ordinary
+skill `range` modifiers apply to the base first, then the passive adds pixels. Stream 14 remains reserved, unregistered;
+this feature adds no roll. The unforced job pool gains Bowman on stream 8 (Warrior, Magician, Bowman and Pirate jobs;
+Pirate's two weapon paths are represented by their own options).
+
+Each skill has a learn card and a rank card capped at its canonical level count. Each attack also has a +1-shot
+behaviour card (up to three steps). Tier-C weights: attacks learn/rank 4/3, other learn/rank 2/2, behaviour 2;
+shared Potential rarity magnitudes apply, and cards follow the weapon held when drawn. First-job cards carry into
+310/320 through `carry_jobs`; their future advancement draws remain branch-only. Choosing Bowman offers both attacks.
+
+The manifest fragment exports Skill.wz 300/310/320, existing active skill sounds, the two grants, representative
+bow/crossbow weapons and all eight arrows moved out of common. CharLevel hit art uses 10/15/20/25 (tier A).
+Sound.wz has no 3001005 node, and 3001004 has only Use: Double Shot reuses Arrow Blow's Use sound (tier C fallback),
+and neither requests a missing Hit sound. Soul Arrow 3101004/3201004 is never added: endless ammo makes it redundant
+(owner decision, tier C). Hunter and Crossbowman are described in 7.29-7.30, equipment in 8.3 and generic impact mechanics in 7.27.
+
+### 7.29 Hunter (310, #202, spec #166)
+
+Hunter is playable at canonical Lv 30. Its one-family grant wears **Ryden 1452005** (Lv 30, PAD 45, STR 35 / DEX 95)
+and moves the old bow or crossbow to the Equip tab (overflow drops at the feet). The +325 MaxHP / +175 MaxMP grants
+are tier-B second-job midpoints; choosing the plain shop bow is tier C, owner #166. Growth/AP stay Bowman's.
+
+Five bow-only skills in `skills/bowman.json`, book 310, sit before Crossbowman entries. Rank equals every canonical
+level; prerequisites remain ignored (tier C, owner #31). WZ numbers, icons, art and sounds are used as-is.
+
+| Skill | Levels | Canonical effect | Survivor behaviour |
+|---|---|---|---|
+| Bow Mastery 3100000 | 20 | mastery N 1..10, ACC x 1..20 | shared mastery 15..60% and ACC, bow only |
+| Final Attack: Bow 3100001 | 30 | prop 2..60%, damage 105..250% | shared stream 12 follow-up; current arrow visibly flies to the same mob (#200); weapon stance held 0.6 s |
+| Bow Booster 3101002 | 20 | x=-2, hpCon/mpCon 29..10, time 10..200 s | self-only auto-cast/recast, both costs paid once, HP must remain above zero; alert2 held 0.8 s; only a held bow gets its two speed steps |
+| Power Knock-Back 3101003 | 20 | range 130..150, mobCount 2..6, damage 105..200%, prop 13..70%, mpCon 8..15 | `range_around`, faces the nearest admitted mob, 1s cooldown, swingT1 held 0.6 s; non-bosses roll stream 1 to move 120 px away, clamped to platform/wall edges |
+| Arrow Bomb: Bow 3101005 | 30 | x 72..130% (no damage field), mpCon 14..28, mobCount 6, box(-130,-100)..(130,100) to(-150,-100)..(150,100), prop 31..60%, time 2..6 s | nearest projectile, own WZ ball; first mob contact consumes the shot, blasts the canonical box around it including the primary; each hit can stun through shared on_hit; bosses resist |
+
+Power Knock-Back uses the tier-B pre-BB bounds: max `(DEX*3.4+STR)*W.Att/150`, min
+`(DEX*3.4*0.9*0.1+STR)*W.Att/150`, then canonical damage%, normal PDD/level/crit processing. Bow Mastery
+does not raise this swing's fixed 10% mastery. Generic optional `physical_formula` keys `divisor` (default 100)
+and `mastery` (default live mastery) express it; its entry sets primary dex, secondary str, max_mult 3.4,
+divisor 150, mastery 0.1. The same shape supports Crossbowman's Power Knock-Back. No WZ action exists: swingT1 is
+selected from the skill's canonical afterimage actions (tier C). Its afterimage frame is canonically 1x1; it is
+played as-is through `effect: .../afterimage/bow/swingT1/2`, with no invented visible trail.
+
+Arrow Bomb uses `impact_blast: {damage_field:"x",visual:"hit"}` and
+`on_hit: {status:"stun",chance_field:"prop",duration_field:"time"}`. Its impact plays canonical Hit sound.
+Untuned tier-C defaults match first-job arrows: 1s cooldown, 300px base reach, 600px/s, radius 8, no base pierce,
+0.6s held weapon stance. Eye of Amazon contributes its shared range passive to both attacks under #199's rule.
+
+The Hunter cards require exact job 310 and a bow, with learn/rank cards for all five skills and no survivor rank compression.
+Only the two attacks are power cards, so choosing Hunter guarantees Power Knock-Back and Arrow Bomb in its advancement
+draw (plus one seeded passive/Booster). Attack learn/rank weights 4/3; passives/Booster 2/2. Behaviour cards add +1 target
+to PKB (`count`), +1 arrow to Bomb (`count`), +1 blast target (`blast_targets`), or +1 nearby Final Attack target
+(`final_attack_bow_spread`, `count`), each max 3, weight 2, power. Spread uses the shared ranged Final Attack reach.
+Standard Potential rarity magnitudes apply; no vanilla extra counts are added outside cards. First-job Bowman carry
+cards remain eligible after advancement per binding #199/#180, outside the branch's advancement draw; this supersedes
+#202's stale first-job-card sentence. Crossbow held: all five Hunter skills grey in Skill window, passives/Booster
+stop contributing, attacks stop casting and Hunter cards disappear. The existing running buff can survive the swap.
+Soul Arrow 3101004 is deliberately absent from skills and cards: endless ammo makes it redundant (owner #166).
+
+The existing Hunter ammo schedule supplies Bronze2060001 at 30, Steel 2060002 at 40 and Red 2060003 at 50, including
+the highest reached tier when advancing late. Each upgrade changes the current arrow sprite and emits its notice.
+Tool `--job=310` follows Bowman at 10 and Hunter at 30. The combined untuned regression smoke is in 4.2 (#204).
+Deterministic tests: `test_hunter.gd`; real-cache diagnostic evidence: `scenes/debug/hunter_driver.tscn`.
+
+### 7.30 Crossbowman (320, #203, spec #166)
+
+Crossbowman opens at the canonical Lv 30 from Bowman. Advancement adds +325 MaxHP and +175 MaxMP (tier B fixed
+midpoints), wears Mountain Crossbow 1462000 even when a crossbow is already held, and moves the displaced weapon
+to Equip (overflow drops at the feet, ADR 0005). The weapon choice is tier C, the plain Lv 30-class shop crossbow;
+its Lv 28 requirement, PAD 44, STR 28 / DEX 80 are canonical. Growth and automatic AP inherit Bowman.
+
+Every skill below needs a held crossbow. A bow disables its casting/passive contribution, greys its Skill window
+row and removes its cards from new draws. Skill.wz 320 supplies all canonical level tables, icons and art.
+
+| Skill / survivor key | Levels | Behaviour |
+|---|---|---|
+| Crossbow Mastery 3200000 / `crossbow_mastery` | 20 | Mastery 15..60%, accuracy `x` +1..20 (accuracy also raises crit chance) |
+| Final Attack: Crossbow 3200001 / `final_attack_crossbow` | 30 | Physical hit follow-up, canonical `prop` 2..60% and `damage` 105..250%; stream 12, immediate damage and current-ammo arrow presentation (7.27) |
+| Crossbow Booster 3201002 / `crossbow_booster` | 20 | Self auto-cast, recast on expiry; canonical `x` -2 becomes two faster speed steps, `time` 10..200s, `hpCon`/`mpCon` 29..10; refuses lethal HP payment |
+| Power Knock-Back 3201003 / `power_knockback_crossbow` | 20 | `range_around` with canonical range 130..150, 2..6 mobs, damage 105..200%, MP 8..15; canonical `prop` 13..70% pushes non-bosses 120px away on stream 1, clamped at walls/platform edges (7.27) |
+| Iron Arrow: Crossbow 3201005 / `iron_arrow` | 30 | Nearest-target projectile using its own canonical `ball`, `effect` and `hit`; MP 23..28, damage 122..180%, canonical `mobCount` 6 represented by pierce 5; one base arrow |
+
+Power Knock-Back mirrors Hunter's data shape: `knockback: {chance_field: "prop", distance: 120}` and
+`physical_formula: {primary: "dex", secondary: "str", max_mult: 3.4, divisor: 150, mastery: 0.1}` (tier B formula,
+fixed mastery; shared implementation #202). It uses a tier C 1s cooldown, 0.6s `swingT1` hold (no canonical action)
+and canonical `afterimage/crossBow/swingT1/2` art, whose v83 canvas is transparent 1x1. Iron Arrow uses tier C
+`pierce_falloff: 0.1`: contacts take 100/90/80/70/60/50%, continuing linearly to the generic 10% floor past six.
+Its tier C defaults are 1s cooldown, 300px reach, 600px/s flight, 8px collision radius and 0.6s held-weapon shooting
+hold. Booster's hold is 0.8s. All three active skills have a canonical Use sound and no Hit sound.
+
+The Bowman upgrades file appends these five skills after Hunter's entries. Each has learn/rank cards requiring
+exact job 320. Attack learn/rank weights are 4/3; the passive/buff cards use 2/2. Behaviour cards add one target
+to Power Knock-Back (`count`), one piercing contact to Iron Arrow (`pierce`), or one Iron Arrow (`count`), max three
+steps, weight two, shared Potential rarities. Final Attack also has the shared Spreading Arrow card (+1 nearby
+target per step, max three, weight two), drawing a current-ammo follow-up arrow for each target (7.27); this keeps
+every damaging skill eligible for a hit-more-mobs card. Extra counts come only from cards; pierce fall-off continues
+after the sixth target. The advancement draw includes Power Knock-Back and Iron Arrow; inherited first-job Bowman
+cards remain available in ordinary draws through `carry_jobs`, outside the advancement draw.
+
+Soul Arrow: Crossbow 3201004 is deliberately absent, with no skill or card: endless ammo makes it redundant
+(owner #166, same decision as Hunter's Soul Arrow). Endless arrows upgrade to Bronze 2061001 at Lv 30, Steel
+2061002 at Lv 40 and Blue 2061003 at Lv 50, changing the projectile and emitting the existing upgrade notice.
+The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are untuned; the regression smoke is in 4.2 (#204).
+
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
@@ -4459,6 +4715,15 @@ MP Eaters, Invincible and both Slows):
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
 
+Bowman equipment (#166/#201) lives in its own `equipment_drops`, `scrolls` and `shops` line files. The curated
+regular progression has 12 bows (1452000-1452011), 10 crossbows (1462000-1462009) and 202 reqJob-4 armour items
+through Lv70: hats, tops, bottoms, overalls, shoes and gloves, with no shields. Selection is tier C; each item's
+canonical requirements, stats, icons and animation remain tier A. Cash, restricted, event/Maple and instructor-only
+variants are excluded. Only the held weapon's family drops; bow and crossbow never share a drop group.
+Both ATT scroll families stock ordinary 100/60/10 and dark 70/30 at the existing rate NPCs for the existing
+70,000-meso weapon price. The shop's job filter admits both families for Bowmen; applying a scroll still requires
+its matching held family. This adds no drop-rate, level-window, meso or price tuning. The regression smoke is in 4.2 (#204).
+
 The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
 every constant, with its tier, is in section 11 under the tables named below):
 
@@ -4542,7 +4807,7 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician, Warrior (Dances with Balrog, #163), Thief's two paths (Dark Lord, #207) and Pirate's two paths (Kyrin, #186) are playable; Bowman is shown as "not in this build".
+- Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199), Thief's two paths (Dark Lord, #207) and Pirate's two paths (Kyrin, #186) are playable.
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
   teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
@@ -4559,6 +4824,14 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   +175 MaxMP and Steel Guards1472008 / Reef Claw1332012 respectively. The new branch's weapon is worn even when
   the old path differs; the old weapon moves to Equip. Growth and AP stay the Thief's. `--job=410` / `--job=420`
   work in tools. Skills, carried attacks and star tiers: 7.24.
+- Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  1452051 and places Crossbow 1462001 in Equip, with overflow at the feet (tier B bow gift, tier C spare crossbow).
+  Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary: level + 5 through Lv 30,
+  STR 35 through Lv 34, STR 40 at Lv 35, then level + 5 through Lv 70 / STR 75 (tier C; 7.28).
+  The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
+- Level 30, Crossbowman 320 (#203): +325 MaxHP / +175 MaxMP (tier B), with Mountain Crossbow 1462000 always worn
+  and the old weapon moved to Equip (tier C grant; Lv28, PAD44, STR28 / DEX80 tier A). Growth/AP inherit Bowman;
+  the advancement draw offers Power Knock-Back and Iron Arrow. Crossbow-only skills/cards and ammo tiers: 7.30.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
   (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
@@ -4574,8 +4847,11 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   |---|---|---|
   | Brawler 510 | knuckle | Prime Hands 1482004 (Lv 30, PAD 34, STR 60 / DEX 30) |
   | Gunslinger 520 | gun | Cold Mind 1492004 (Lv 30, PAD 31, DEX 70 / STR 30) |
+- Level 30, Bowman (#202): Hunter 310 is playable, adds +325 MaxHP / +175 MaxMP (tier B midpoints), and wears Ryden 1452005
+  (bow, Lv 30/PAD 45/STR 35 / DEX 95; tier C owner choice). The displaced bow or crossbow enters the Equip tab, spilling
+  at the feet when full. Its advancement draw offers Power Knock-Back and Arrow Bomb; skill/card rules are in 7.29.
 - An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
-  stream. Adding Pirate and Thief intentionally changes that pool, without changing any stream's initialization.
+  stream. Adding Bowman, Thief and Pirate intentionally changes that pool, without changing any stream's initialization.
   `--job=100`, `--job=200`, `--job=400:claw`, `--job=400:dagger`, `--job=500:knuckle` and `--job=500:gun` force a choice.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
@@ -4605,7 +4881,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
   `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
   `DataRepo.starter_equipment_ids` preload reads the same field. The Pirate branches use the same shape with one entry
-  each (#189); the Thief branches use Steel Guards1472008 / Reef Claw1332012 (#212).
+  each (#189), as do Hunter `[1452005]` (#202), Crossbowman `[1462000]` (#203), Assassin `[1472008]` and Bandit `[1332012]` (#212).
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
@@ -4633,8 +4909,8 @@ replaces the earlier rule that skipped the Magician's wand grant on a full tab (
 
 Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
 and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman stays `playable: false` ("Not in this build")
-until its class spec. Thief (#207) and Pirate (#186) are playable: optional per-path `extra_items` ([item ids]) grants the opposite
+Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman is playable (#199), with
+`extra_items: [1462001]`. Thief (#207) and Pirate (#186) are playable: optional per-path `extra_items` ([item ids]) grants the opposite
 weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
 grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
 (and adds their imgs to the manifest).
@@ -4644,7 +4920,7 @@ per family (`grant_items`, same order; #165 #180 replaced the single `grant_item
 advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
 (tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
 are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
-the Warrior's three branches and the two Thief and Pirate branches have them (section 9, Level 30).
+the Warrior's three branches and both Bowman, Thief and Pirate branches have them (section 9, Level 30).
 
 | Branch | Families it can use |
 |---|---|
@@ -4752,6 +5028,77 @@ Thief tracer (#207) additions:
 | Generic range passive (#199, ported unchanged for #209) | `Loadout.RANGE`: additive pixels on ranged basics and weapon-gated ranged attacks; extends only the basic box's far horizontal edge | C shared consumer rule; no change to cached base boxes or unrelated ranges |
 | Keen Eyes cards (#209) | learn/rank weights 2/2; power false; exact jobs [400], no carry | C untuned, matching Nimble Body; A rank cap8 |
 
+
+Bowman (#166), QA #204:
+
+| Constant / choice | Value / rule | Tier | Source |
+|---|---|---|---|
+| Second-job Bowman fixtures | Hunter Lv30 / Crossbowman Lv31, Henesys seed1 bot, invulnerable, natural EXP, 600 s cap | C | `tools/character_fixture.gd --job=<310|320> --god --seconds=600 --label=spec166/ticket-204`; `_doc` and 4.2 |
+| Bowman flow staging | `Bowman204`, invulnerable EXP-drop climb through Lv10/12/30, both weapons via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
+
+Bowman (#166), equipment #201:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Drop roster | `equipment_drops/bowman.json`: regular bows 1452000-11, crossbows 1462000-9, and 202 reqJob-4 armour items, Lv10-70; no cash, restricted/event variants or shields | C (curated selection), A (ids, requirements, stats) | Original v83 Character.wz and String.wz; regular progression selected like the Pirate line |
+| Scroll roster and shops | Bow ATT 2044500/01/02/04/05; crossbow ATT 2044600/01/02/04/05, ordinary 100/60/10 and dark 70/30; slots `bow`/`crossbow` use the existing weapon price and rate NPCs | C (roster), A (ids, rates, effects) | Original v83 Item.wz/Consume/0204.img; no separate ACC family; strong 100%, event and item-specific variants excluded |
+
+Bowman (#166), Crossbowman #203:
+
+| Constant | Value | Tier | Source / reason |
+|---|---|---|---|
+| Advancement | Lv30, +325 HP / +175 MP | A level / B grants | canonical job tree; v83 +300..350 HP / +150..200 MP midpoints |
+| Advancement weapon | Mountain Crossbow 1462000 | C choice / A stats | owner #166, plain shop crossbow; Lv28, PAD44, STR28 / DEX80; ADR 0005 always grants/wears |
+| Skill caps / base counts | 20/30/20/20/30; PKB 2..6, Iron Arrow six contacts / one shot | A | Skill.wz 320; no extra base counts |
+| Power Knock-Back formula | (DEX*3.4+STR)*PAD/150, mastery0.1 | B | v83-facts section 5; shared `physical_formula` keys #202 |
+| Power Knock-Back behaviour | range_around, 120px push, 1s cooldown, 0.6s swingT1 | C | owner #166 rule / shared Hunter shape #202, untuned; range/prop from WZ |
+| Iron Arrow flight / cast | nearest, 300px, 600px/s, radius8px, 1s cooldown, 0.6s weapon hold | C | first-job arrow defaults, own WZ ball/effect/hit; untuned |
+| Iron Arrow fall-off | 0.1 per later contact, floor0.1; sixth50% | C | owner #166 default, generic #200; no canonical field |
+| Family tags / buff policy | crossbow only; Booster auto-recasts, 0.8s hold | C | String.wz restrictions on Mastery/Final Attack/Booster; WZ weapon46 on attacks (A) |
+| Cards | learn/rank4/3 attacks, 2/2 passive/buff; behaviours +1, max3, weight2 | C | exact job320, shared Potential rarities; no tuning |
+| Soul Arrow / sound omissions | no3201004 skill/cards; active Hit sound empty | C owner / A absence | endless ammo; Sound.wz contains only Use for3201002/3/5 |
+
+Bowman (#166), generic mechanics (#200):
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
+| Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
+| Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
+| Ranged Final Attack visual | Current ammo's art/speed/rotation, straight hand-to-target flight; no delayed damage, no RNG; ranged Spread uses at least the family's existing ranged reach | A (ammo art), C (presentation, Spread) | Current ammo data; #200 |
+
+Bowman (#166), Hunter #202:
+
+| Constant | Value | Tier | Source |
+|---|---|---|---|
+| Hunter advancement | canonical Lv 30; HP+325, MP+175 | A level, B grants | v83-facts 4 second-job midpoints |
+| Hunter weapon | Ryden 1452005, always worn; old weapon stored/overflow dropped | C selection, A stats | owner #166, Character.wz PAD 45/STR 35 / DEX 95 |
+| Hunter skill ranks and numbers | 20/30/20/20/30; mastery, ACC, costs, speed, durations, damage, chance, range, box/count | A | Skill.wz 310, tested at endpoints against private cache |
+| PKB formula | DEX3.4+STR; divisor 150; fixed mastery 0.1 (minimum has ordinary0.9 factor) | B | #202 pre-BB formula; optional divisor/mastery data keys retain default 100/live mastery |
+| PKB auto-cast / push | range_around, 1s cooldown, 0.6s swingT1, distance120px; stream1; bosses resist | C | untuned defaults; action selected from canonical afterimage, art itself A (1x1 frame) |
+| Arrow Bomb flight / stun | nearest, 1s cooldown/300px/600px per second/radius 8/no pierce/0.6s weapon action; impact_blast x/hit, on_hit prop/time | C scheduling/shape, A fields/art/sounds | first-job flight defaults; generic #200 blast and #187 stun |
+| Hunter passive/Booster presentation | bow-only tags, Final Attack 0.6 s weapon stance/current ammo, Booster auto-cast/recast 0.8 s alert2, scale -1 | C scheduling/tags, A Booster action/art | shared 7.6/7.7 consumers; never lethal HP cost |
+| Hunter cards | attacks power4/3, others2/2; +1 count/blast_targets max 3 weight 2 power; exact job 310 | C | untuned, shared rarity magnitudes; first-job carry preserved per binding notes |
+| Hunter Soul Arrow | 3101004 absent | C | owner #166: endless ammo makes it redundant |
+
+Bowman (#166), first job #199:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Advancement / gifts | Lv 10; wear 1452051, spare 1462001; HP +125 / MP +37 | C level/spare, B bow and pool midpoints, A item stats | owner #166, v83-facts 4 |
+| Level growth | 22 HP / 15 MP | B | v83-facts 4 midpoints |
+| Automatic AP | DEX primary; STR level + 5 through Lv 30, 35 through Lv 34, 40 at Lv 35, then level + 5 through Lv 70 / 75 STR (held thereafter); `balance.player.ap_secondary.300`, inherited by 310/320 | C | equipment requirement policy; all 22 shipped bows/crossbows checked against canonical reqSTR/reqDEX; early allocation/QA fixtures retained |
+| Equipment weights | PAD 10, DEX 6, STR 3; PDD 1.5, MDD 1, ACC/EVA .3, HP/MP .03, speed .5, jump .3 | C | existing physical baseline with Bowman primary; untuned |
+| Skill levels and effects | 16/20/8/20/20/20; canonical costs, damage, prop, range, time, ACC/eva | A | Skill.wz/300.img, string Focus acc cast by SkillBook |
+| Eye range interpretation | Add canonical +15..120 px to ranged basic targeting/travel and family-gated attack-skill range; melee and Magician unchanged | C | owner #166 and binding NOTES |
+| Weapon gates | Critical Shot, Eye and attacks bow/crossbow; Blessing/Focus any | C tags, A no canonical restriction on Blessing/Focus | #199 skill table and String.wz descriptions |
+| Arrow targeting / movement | nearest; base range 300 px, speed 600 px/s, radius 8 px, cooldown 1 s, hold .6 s, pierce 0 | C | survivor placeholders; split Double Shot targets as Pirate, current ammo sprite |
+| Focus casting | automatic, recast on expiry, .8 s hold | C | existing buff rule |
+| Double Shot sound | reuse Arrow Blow Use; no Hit sound | C reuse, A node absence | Sound.wz/Skill.img lacks 3001005; 3001004 has only Use |
+| Cards | learn/rank attack weights 4/3, other 2/2; behaviour +1 shot, cap 3, weight 2; shared rarity gains | C | survivor placeholders, no tuning |
+| RNG | 14 reserved, unregistered; job choices on 8 | C | owner #166; no new random roll |
+| Soul Arrow omission | never add 3101004/3201004 | C | owner #166, endless ammo |
 
 Pirate tracer (#186) additions:
 

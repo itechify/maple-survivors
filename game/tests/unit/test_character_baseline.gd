@@ -3,16 +3,17 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Captured on Windows after merging #142; binary event encoding is platform independent (see below).
-const GOLDEN := "b452687752046c1e218794598caff4133379f4ea98d82056166bfa659dc9a6e5"
+## Re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
+## Binary event encoding is platform independent (see below).
+const GOLDEN := "36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
 ## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
 ## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
-	# #186 adds Pirate to the unforced first-job pool intentionally. Keep this pre-Pirate baseline's job pool fixed
-	# to prove stream 16 and the additive data consumers do not perturb any existing seeded event bytes.
+	# #186 froze Pirate out of this baseline. #199 keeps that exclusion and adds Bowman to the retained job pool;
+	# the golden changes for the new job option / stream-8 choice, not a new combat RNG stream.
 	var data := DataRepo.load_all()
 	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
 	data.jobs_survivor.jobs["400"].playable = false

@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"_doc": "Asset manifest fragment for what every weapon line shares (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1; #154). The weapon afterimages of the non-Warrior families (Character.wz/Afterimage, variant 0 only: WeaponInfo.AFTERIMAGE_VARIANT; the swordOS, swordTL, swordTS, axe, spear and poleArm ones are in warrior.json with the Warrior weapons) with the hit sparks of the sword and mace families (hit.img), the whole Sound.wz/Weapon.img (every weapon info/sfx name: swordL, swordS, mace, poleArm, spear, bow, cBow, tGlove, knuckle, gun, barehands) and one representative weapon item per non-Warrior family for the weapon gallery and tests (bow and crossbow; claws, daggers and stars belong to thief.json; knuckles and guns belong to pirate.json; the creation weapons stay in the main file, the wands and staves in magician.json, the Warrior weapons in warrior.json). The ammo items of the ranged basic attack (#155, `items[]`: the whole item node with info/incPAD, icon and the flight animation `bullet`) are listed here too: Arrow for Bow 2060000-2060003, Arrow for Crossbow 2061000-2061003. Bullets 2330000-2330002 belong to pirate.json (#186). The swordOL, mace, hit.img and Weapon.img entries are moved here from the main file.",
+	"_doc": "Shared weapon afterimages, hit sparks and Weapon.img sounds. Bowman bows/crossbows and arrows belong to bowman.json (#199); Thief claws/daggers and throwing stars belong to thief.json (#207); Pirate knuckles/guns and bullets belong to pirate.json (#186). Afterimages stay shared.",
 	"imgs": [
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
@@ -11,6 +11,6 @@
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
 		{"img": "Sound.wz/Weapon.img"}
 	],
-	"character": [1452000, 1462000],
-	"items": [2060000, 2060001, 2060002, 2060003, 2061000, 2061001, 2061002, 2061003]
+	"character": [],
+	"items": []
 }

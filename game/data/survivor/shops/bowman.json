@@ -1,0 +1,4 @@
+{
+	"_doc": "Bowman scroll weapon slots (#166/#201), using the existing Free Market NPC rates and weapon prices (tier C selection). Both export presets include these line files through data/survivor/*/*.json.",
+	"weapon_slots": ["bow", "crossbow"]
+}

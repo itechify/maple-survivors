@@ -29,9 +29,11 @@ const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "p
 const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
 const PASSIVE_REGEN_HP := "regen_hp"
 const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
+## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff"]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -282,6 +284,16 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
+			var old_stats := lo.stats(skill, r)
+			var new_stats := lo.stats(skill, r + magnitude)
+			for field: String in MECHANIC_PREVIEW_KEYS:
+				if old_stats[field] != new_stats[field]:
+					changes[field] = {"before": _preview_value(field, old_stats, lo, skill),
+						"after": _preview_value(field, new_stats, lo, skill)}
+			var damage_field := String(lo.book.def(skill).get("impact_blast", {}).get("damage_field", "damage"))
+			if damage_field != "damage" and changes.has(damage_field):
+				changes["damage"] = changes[damage_field]
+				changes.erase(damage_field)
 			var renamed := _passive_preview(lo.book.def(skill))
 			if not renamed.is_empty() and changes.has(renamed[0]):
 				changes[renamed[1]] = changes[renamed[0]]
@@ -365,6 +377,8 @@ static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictiona
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"pierce_falloff":
+			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"area":

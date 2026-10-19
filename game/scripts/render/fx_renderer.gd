@@ -28,6 +28,7 @@ var _t: PackedFloat32Array = []
 var _pos: PackedVector2Array = []
 var _offset: PackedVector2Array = []
 var _flip: PackedByteArray = []
+var _rotation := PackedFloat32Array()
 var _hold: PackedByteArray = []
 var _active: PackedByteArray = []
 var _follow: Array = []
@@ -63,6 +64,7 @@ func play_anim(a: SpriteAnim, pos: Vector2, flip: bool = false, follow: Node2D =
 	_pos[i] = pos
 	_offset[i] = offset
 	_flip[i] = 1 if flip else 0
+	_rotation[i] = 0.0
 	_hold[i] = 1 if hold else 0
 	_follow[i] = weakref(follow) if follow != null else null
 	_mode[i] = 0
@@ -104,10 +106,11 @@ func stop(i: int) -> void:
 		_release(i)
 
 
-## Moves an active pooled effect to a simulation-owned anchor, without an entity Node.
-func place(i: int, pos: Vector2) -> void:
+## Moves and optionally turns an active pooled effect at a simulation-owned anchor, without an entity Node.
+func place(i: int, pos: Vector2, rotation: float = 0.0) -> void:
 	if i >= 0 and i < _active.size() and _active[i] == 1:
 		_pos[i] = pos
+		_rotation[i] = rotation
 		_draw_slot(i)
 
 
@@ -176,7 +179,7 @@ func _draw_slot(i: int) -> void:
 	var loop := _mode[i] in [1,3]
 	var f := a.frame_at(_t[i], loop)
 	var pos := slot_position(i).round()
-	_pool.show(i, f, pos, _flip[i] == 1, a.alpha_at(_t[i], loop))
+	_pool.show(i, f, pos, _flip[i] == 1, a.alpha_at(_t[i], loop), _rotation[i])
 
 
 func _alloc() -> int:
@@ -192,6 +195,7 @@ func _alloc() -> int:
 	_pos.append(Vector2.ZERO)
 	_offset.append(Vector2.ZERO)
 	_flip.append(0)
+	_rotation.append(0.0)
 	_hold.append(0)
 	_active.append(0)
 	_follow.append(null)

@@ -53,11 +53,27 @@ func desc(key: String) -> String:
 ## Loadout.stats(key, rank) returns them); "" when there is neither an override nor a WZ line.
 func level_line(key: String, level: int, stats: Dictionary) -> String:
 	var over: Variant = _overrides(key).get("h")
+	var line := ""
 	if over is String:
-		return fill(clean(String(over)), _vars(key, level, stats))
-	var node := book.level_node(key, level)
-	var hs := String(node.get("hs", "h%d" % level))
-	return clean(String(_wz(key).get(hs, "")))
+		line = fill(clean(String(over)), _vars(key, level, stats))
+	else:
+		var node := book.level_node(key, level)
+		var hs := String(node.get("hs", "h%d" % level))
+		line = clean(String(_wz(key).get(hs, "")))
+	var mechanics := PackedStringArray()
+	var def := book.def(key)
+	if def.has("knockback"):
+		mechanics.append("Knock-back: %s%% / %s px" % [number(float(stats.get("knockback_chance", 0.0))),
+			number(float(stats.get("knockback_distance", 0.0)))])
+	if int(stats.get("blast_targets", 0)) > 0:
+		var targets := int(stats.blast_targets)
+		mechanics.append("Blast: %d %s" % [targets, "target" if targets == 1 else "targets"])
+	if def.has("pierce_falloff"):
+		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
+			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
+	if not mechanics.is_empty():
+		line += ("\n" if line != "" else "") + "; ".join(mechanics)
+	return line
 
 
 ## Copies of the cards of a choice_pending event with this skill text at the offered level, using the effective

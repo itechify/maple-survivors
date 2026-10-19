@@ -102,9 +102,9 @@ func test_the_lv10_window_offers_the_warrior_and_advancing_gives_hp_and_str_ap()
 	assert_eq(warrior.size(), 1)
 	assert_true(bool(warrior[0].available), "the Warrior is on offer at Lv 10")
 	assert_eq(warrior[0].name, "Warrior")
-	var others: Array = w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) in [300])
-	assert_true(others.all(func(o: Dictionary) -> bool: return not o.available and o.reason == "Not in this build"),
-		"Bowman stays locked")
+	var others: Array = w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) in [300, 400])
+	assert_eq(others.size(), 3, "Bowman and both Thief paths")
+	assert_true(others.all(func(o: Dictionary) -> bool: return o.available), "Bowman and Thief are playable")
 	var hp0: int = w.player_state.max_hp
 	var mp0: int = w.player_state.max_mp
 	var str0: int = w.player_state.str

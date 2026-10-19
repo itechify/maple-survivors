@@ -485,7 +485,7 @@ func _admit_cluster(world: RunWorld, st: Dictionary, origin: Vector2) -> Diction
 	if not world.is_scheduled_boss(best):
 		var best_count := -1
 		for m in candidates:
-			var count := world.skill_rect_targets(_blast_rect(st, _feet(world, m)), world.mob_center(m),
+			var count := world.skill_rect_targets(blast_rect(st, _feet(world, m)), world.mob_center(m),
 				int(st.mob_count)).size()
 			if count > best_count:
 				best = m
@@ -493,9 +493,8 @@ func _admit_cluster(world: RunWorld, st: Dictionary, origin: Vector2) -> Diction
 	return {"targets": PackedInt32Array([best]), "landing": _feet(world, best), "aim": world.mob_center(best)}
 
 
-## The grenade blast box of resolved stats `st` around the point `at` (the canonical box is symmetric, so it is not
-## mirrored by facing).
-static func _blast_rect(st: Dictionary, at: Vector2) -> Rect2:
+## The shared grenade/impact blast box of resolved stats `st` around `at`, translated without facing mirroring.
+static func blast_rect(st: Dictionary, at: Vector2) -> Rect2:
 	var box: Rect2 = st.box
 	return Rect2(box.position + at, box.size)
 
@@ -528,7 +527,7 @@ func _land_flights(dt: float, world: RunWorld) -> void:
 			continue
 		_flights.remove_at(i)
 		var st: Dictionary = flight.st
-		var hit := world.skill_rect_targets(_blast_rect(st, flight.landing), flight.aim, int(st.mob_count))
+		var hit := world.skill_rect_targets(blast_rect(st, flight.landing), flight.aim, int(st.mob_count))
 		_resolve_instant_targets(world, st, hit, int(st.mob_count), int(st.attack_count),
 			world.visual_index(String(st.hit)))
 
@@ -680,6 +679,8 @@ func _resolve_nearest(world: RunWorld, key: String, st: Dictionary, origin: Vect
 				"damage_type": String(st.damage_type), "damage_pct": float(st.damage_pct),
 				"player_level": int(st.player_level), "crit_damage_bonus": float(st.crit_damage_bonus),
 				"pierce": int(st.pierce), "skill": key, "level": int(st.level), "element": String(st.element),
+				"pierce_falloff": float(st.pierce_falloff),
+				"impact_blast": st.impact_blast,
 			})
 	else:
 		_resolve_instant_targets(world, st, targets, int(st.count), int(st.attack_count), hv)

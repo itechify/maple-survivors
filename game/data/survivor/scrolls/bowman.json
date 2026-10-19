@@ -1,0 +1,11 @@
+{
+	"_doc": "Bowman scrolls (#166/#201). Tier A: original v83 Item.wz/Consume/0204.img ids, success/curse rates and stats. Tier C roster: ordinary ATT 100/60/10 and dark 70/30 for bow and crossbow, like other lines. Strong 100%, 65/15, anniversary, King Pepe and 50% variants excluded. Neither family has a separate ACC scroll family in v83.",
+	"families": {
+		"bow": {
+			"ATT": {"100": 2044500, "60": 2044501, "10": 2044502, "dark70": 2044504, "dark30": 2044505}
+		},
+		"crossbow": {
+			"ATT": {"100": 2044600, "60": 2044601, "10": 2044602, "dark70": 2044604, "dark30": 2044605}
+		}
+	}
+}
