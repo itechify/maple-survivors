@@ -236,7 +236,7 @@ func test_code_fallbacks_match_shipped_balance_data() -> void:
 	var no_drops := data.duplicate()
 	no_drops.erase("equipment_drops")
 	assert_eq(DataRepo.starter_equipment_ids(no_drops), PackedInt32Array([1040002, 1060002, 1072001, 1302000, 1302077, 1372005, 1432000, 1322006,
-		1452051, 1462001, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1482004, 1492004]),
+		1452051, 1462001, 1482000, 1492000, 1302008, 1312005, 1322014, 1432002, 1442001, 1452005, 1462000, 1482004, 1492004]),
 		"without MakeCharInfo the setup loads the default outfit and every playable job's advancement weapons, including both Bowman gifts")
 	var with_drops := DataRepo.starter_equipment_ids(data)
 	for id: Variant in data.equipment_drops.items:
