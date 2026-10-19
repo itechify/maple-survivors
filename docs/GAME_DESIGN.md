@@ -481,6 +481,59 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
+with `--job=300`, `310`, `320`: **48 runs**, integration `730467c` plus QA-only changes, private cache `s166-int`,
+no PATCH, balance edits or held-out seeds. Another **21 Henesys controls** force `100`, `510`, `520` under both
+policies and `210` under bot. All 69 runs die, with no crashes, script errors, world warnings, missing assets or
+skipped bosses. Raw seed records, exact console/SYSTEMS output and aggregates remain ignored in
+`_scratch/t204-smoke/<job>/<stage>/<policy>/`; `_scratch/t204-audit.json` preserves the configuration/outcome audit.
+Death seconds and final levels below are in seed order **1 / 2 / 2026**; no timeout or clear is implied.
+
+| Stage / forced job | bot: death seconds (final levels) | random: death seconds (final levels) |
+|---|---|---|
+| Henesys, default pick | 339.6 / 455.4 / 323.4 (11 / 13 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Henesys, `300` or `310` | 339.5 / 610.0 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Henesys, `320` | 339.5 / 619.3 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Tree, every job choice above | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | same |
+
+The unforced picks reshuffled (Magician / Magician / Warrior), so historical comparisons use forced controls:
+Warrior `100` matches #185's `110/120/130`, Pirates `510/520` match #195, and Magician `210` bot matches the
+spec #151 forced record, all to the earlier tables' whole-second precision. The forced `210` controls reach Magician
+and spawn Mano in 3/3; Tree remains unchanged and record-only, dying before any job. Bowman advances at
+265.7-274.0 s in all six runs per forced configuration. Mano dies in 2/6 (bot seed 2, random seed 1); only bot
+seed 2 reaches second job, at 577.7 s (Hunter for `300/310`, Crossbowman for `320`). It dies shortly after Mushmom
+spawns. MP-short totals are 104.617 / 118.100 / 136.950 s (bot), 117.850 / 86.717 / 96.367 s (random), identical
+across the three forced configurations. These deaths resemble the existing physical-line bot weakness, without
+the before-first-boss failure pattern or any code error that would justify stopping for a bug. No tuning followed.
+
+The two committed fixtures, `hunter_2nd.json` (Lv30) and `crossbowman_2nd.json` (Lv31), reproduce byte for byte with
+`tools/character_fixture.gd --job=<310|320> --seed=1 --god --seconds=600 --label=spec166/ticket-204
+--revision=730467c36fb3312637733d722a009aa1512d8998 --out=<abs JSON>` on that revision and cache. These are real
+headless Henesys bot rounds, capped alive with invulnerability, natural EXP and no EXP multiplier; every aid and
+provenance field is in `_doc`. `test_bowman_fixtures` checks loading, branch skills, weapon family, restoration of
+ranks and Bronze arrows, and 600 fixed ticks on the real map without warnings.
+
+`flow_driver --scenario=bowman --branch=310|320` passes both branches: real Lv10/Lv30 windows, bow worn and spare
+crossbow in Equip, crossbow worn by input at Lv12, branch advancement weapon, Bronze notice, Save & quit/Continue
+with identical job, level, path, equipment, skills and cards plus the same derived arrow tier. Its invulnerability,
+EXP-drop climb and Free Market boundary shortcut are diagnostic, not survival evidence. It holds the branch's
+family before advancement because #155 intentionally keeps family swaps silent. Fresh passing evidence is in
+`C:/Users/itech/.t3/worktrees/maple-survivors/t3-3420113e/evidence/s166/t204/flow-310-verified/` and `flow-320-retry/`.
+The same root's `bowman/`, `hunter/` and `crossbowman/` shots were checked by eye: both first-job weapon poses,
+Power Knock-Back's swing and displacement, Arrow Bomb's blast then three visibly stunned mobs, Iron Arrow piercing
+six of seven lined-up targets, and Bronze/Steel upgrade notices (Steel arrow visible in flight). All driver
+missing-asset lists are empty. GLOSSARY's Knock-back entry agrees with the shipped chance-based push and boss immunity;
+7.21-7.24 now describe the merged consumers rather than pending tickets. No golden was re-captured.
+
+Final full Godot suite: **2,030 passed / 0 failed / 0 skipped**, 172 files, 659927 ms, exit 0, with
+`MAPLE_SURVIVORS_CACHE=C:/Users/itech/Coding/maple-survivors-refs/caches/s166-int ISOLATE=s166-t204
+TEST_TIMEOUT_S=3000`; integration was fetched/merged before validation and remained at `730467c`.
+The same two previously recorded RendererDummy texture RID shutdown leaks remain. Rust: **64 passed / 0 failed /
+0 ignored**, including all 18 real-data tests with `MAPLE_WZ_ROOT`. Web shell: **51 passed / 0 failed / 0 skipped**.
+The evidence root also preserves `smoke/` raw records and `logs/` verification output, including the full suite.
+
 #### Spec #168 integration with main's spec #165 (2026-10-18)
 
 Merged main `4ec2f0d` (PR #197) into Pirate tip `0352877`: Threaten retains status index 3, stun moves to 4,
@@ -4030,15 +4083,15 @@ their existing damage, RNG draws and seeded records. Tests use synthetic skill t
   family's existing ammo speed and rotation and a straight line; it draws no RNG and causes no delayed damage.
   The original hit timing, stream-12 rolls, crit and damage are unchanged (tier C presentation). If Spread is
   available, it uses the greater of `BasicAttack.reach` and the family's ranged base reach around the primary.
-  Each extra target gets its own visual. This ticket offers no ranged Spread card.
+  Each extra target gets its own visual. Hunter and Crossbowman supply ranged Spread cards (7.23-7.24).
 
 **Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`
 and `pierce_falloff` (fraction). SkillText automatically appends these mechanics to rank/learn cards and current/next
 Skill-window lines. Rank previews include changing knock-back chance and blast targets. A `skill_mod` effect with
 `stat: "blast_targets"` adds splash targets without adding projectiles; projectile `count` still means shots.
 `pierce_falloff` modifiers preview percentage points per later mob, and `blast_targets` modifiers preview targets.
-Existing `pierce` cards still increase contacts, independently of the fall-off fraction. No shipped skill uses any
-new key yet, so no baseline golden is intentionally re-captured and no feature balance smoke is run here (#204 owns it).
+Existing `pierce` cards still increase contacts, independently of the fall-off fraction. Hunter and Crossbowman
+consume these keys in 7.23-7.24; the combined regression smoke is recorded in 4.2 (#204).
 
 ### 7.22 Bowman first job (300, #199, spec #166)
 
@@ -4087,7 +4140,7 @@ The manifest fragment exports Skill.wz 300/310/320, existing active skill sounds
 bow/crossbow weapons and all eight arrows moved out of common. CharLevel hit art uses 10/15/20/25 (tier A).
 Sound.wz has no 3001005 node, and 3001004 has only Use: Double Shot reuses Arrow Blow's Use sound (tier C fallback),
 and neither requests a missing Hit sound. Soul Arrow 3101004/3201004 is never added: endless ammo makes it redundant
-(owner decision, tier C). Hunter, Crossbowman, equipment rosters and generic impact mechanics belong to later tickets.
+(owner decision, tier C). Hunter and Crossbowman are described in 7.23-7.24, equipment in 8.3 and generic impact mechanics in 7.21.
 
 ### 7.23 Hunter (310, #202, spec #166)
 
@@ -4132,7 +4185,7 @@ Soul Arrow 3101004 is deliberately absent from skills and cards: endless ammo ma
 
 The existing Hunter ammo schedule supplies Bronze2060001 at 30, Steel 2060002 at 40 and Red 2060003 at 50, including
 the highest reached tier when advancing late. Each upgrade changes the current arrow sprite and emits its notice.
-Tool `--job=310` follows Bowman at 10 and Hunter at 30. No balance smoke or tuning here: #204 owns the spec smoke.
+Tool `--job=310` follows Bowman at 10 and Hunter at 30. The combined untuned regression smoke is in 4.2 (#204).
 Deterministic tests: `test_hunter.gd`; real-cache diagnostic evidence: `scenes/debug/hunter_driver.tscn`.
 
 ### 7.24 Crossbowman (320, #203, spec #166)
@@ -4173,7 +4226,7 @@ cards remain available in ordinary draws through `carry_jobs`, outside the advan
 Soul Arrow: Crossbow 3201004 is deliberately absent, with no skill or card: endless ammo makes it redundant
 (owner #166, same decision as Hunter's Soul Arrow). Endless arrows upgrade to Bronze 2061001 at Lv 30, Steel
 2061002 at Lv 40 and Blue 2061003 at Lv 50, changing the projectile and emitting the existing upgrade notice.
-The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are untuned; #204 owns the regression smoke.
+The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are untuned; the regression smoke is in 4.2 (#204).
 
 ## 8. Upgrades
 
@@ -4393,7 +4446,7 @@ canonical requirements, stats, icons and animation remain tier A. Cash, restrict
 variants are excluded. Only the held weapon's family drops; bow and crossbow never share a drop group.
 Both ATT scroll families stock ordinary 100/60/10 and dark 70/30 at the existing rate NPCs for the existing
 70,000-meso weapon price. The shop's job filter admits both families for Bowmen; applying a scroll still requires
-its matching held family. This adds no drop-rate, level-window, meso or price tuning. #204 owns the regression smoke.
+its matching held family. This adds no drop-rate, level-window, meso or price tuning. The regression smoke is in 4.2 (#204).
 
 The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
 every constant, with its tier, is in section 11 under the tables named below):
@@ -4628,6 +4681,13 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+Bowman (#166), QA #204:
+
+| Constant / choice | Value / rule | Tier | Source |
+|---|---|---|---|
+| Second-job Bowman fixtures | Hunter Lv30 / Crossbowman Lv31, Henesys seed1 bot, invulnerable, natural EXP, 600 s cap | C | `tools/character_fixture.gd --job=<310|320> --god --seconds=600 --label=spec166/ticket-204`; `_doc` and 4.2 |
+| Bowman flow staging | `Bowman204`, invulnerable EXP-drop climb through Lv10/12/30, both weapons via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
 
 Bowman (#166), equipment #201:
 
