@@ -82,7 +82,7 @@ a Lv 1-70 character plausibly uses are listed.
 | Potion | Sold in (town, NPC) |
 |---|---|
 | Red, Orange, White, Blue | every shop in the rows below (Victoria Island department stores, Sleepywood, Florina Beach, Ereve, Rien, Nautilus, Orbis, El Nath, Ludibrium and later towns); Amherst (Lucy) sells Red/Orange/White only; El Nath Ice Valley II (Glibber) has no Red, and Amherst has no Blue |
-| Mana Elixir 2000006 | Lith Harbor (Mina), Henesys (Luna), Perion (Arturo), Ellinia (Len), Kerning City Pharmacy (Dr. Faymus), Sleepywood Regular Sauna (Mr. Sweatbottom), Nautilus (Gali), Ereve (Kiriwing), Rien (Puri Puri), Orbis (Edel), El Nath (Hana), Ludibrium Pharmacy (Misky), Omega Sector (Dr. Pepper), Aquarium (Oannes), Korean Folk Town, Leafre, Mu Lung, Herb Town, Ariant, Magatia |
+| Mana Elixir 2000006 | Lith Harbor (Mina), Henesys (Luna), Perion (Arturo), Ellinia (Len), Kerning City Pharmacy (Dr. Faymus), Sleepywood Regular Sauna (Mr. Sweatbottom), Nautilus (Gali), Ereve (Kiriwing), Rien (Puri Puri), Orbis (Edel), El Nath (Hana, Glibber), Ludibrium Pharmacy (Misky) and its Eos Tower and Path of Time shops, Omega Sector (Dr. Pepper), Aquarium (Oannes), Korean Folk Town, Leafre, Mu Lung, Herb Town, Ariant, Magatia |
 | Unagi 2022003 | Sleepywood Regular Sauna (Mr. Sweatbottom), Florina Beach (Valen), Orbis (Edel), El Nath (Hana, Glibber), Ludibrium (Eos Tower, Path of Time), Omega Sector, Aquarium, Korean Folk Town, Mu Lung, Herb Town, Ariant, Magatia, Altaire Camp |
 | Pure Water 2022000 | same shops as Unagi |
 | Ice Cream Pop 2001001, Red Bean Sundae 2001002 | Florina Beach (Valen), Orbis (Edel), El Nath (Hana, Glibber), Ludibrium Pharmacy and Eos Tower, Omega Sector, Aquarium, Korean Folk Town, Leafre, Mu Lung, Herb Town, Ariant, Magatia, Altaire Camp |
@@ -118,7 +118,7 @@ that looks like an event item rather than v83 shelf stock and is not used here.
 | Source | Version / trust | What it says |
 |---|---|---|
 | "Potions in Old Maple, What to Buy at Every Level" <https://msclassicgold.com/blog/potions-in-old-maple> (fetched) | Seller blog, "from memory", approximate, low trust | Red Potion for Lv 1-15; Orange Lv 15-35 for most classes; White Lv 30+ ("the warrior's staple"); Blue Potion for Magicians to about Lv 30; Mana Elixir for mages from Lv 30 and any class with a booster; Elixirs/Power Elixirs for bosses only; Magicians barely buy HP potions once Magic Guard is up |
-| BasilMarket potion guides (search-result excerpts; the pages returned HTTP 522, so the wording is as excerpted) <http://www.basilmarket.com/forum/1142354/0/Potion_Guide.html>, <http://www.basilmarket.com/forum/2443651/10/Dual_Blade_Guide.html> | Post-Big-Bang era forum guides for mages and a Dual Blade; same items | Lv 30-60: White Potions or Unagi for HP, Pure Water (or Sunrise Dew) for MP; for max HP or MP of 800 to 1,500 use Unagi, Pure Water, Mana Elixir |
+| BasilMarket guide threads, as excerpted in a web-search result (the pages returned HTTP 522, so they were not read; the excerpt did not say which thread carried the level-band line): <http://www.basilmarket.com/forum/1142354/0/Potion_Guide.html>, <http://www.basilmarket.com/Potting-Advice-for-a-mage-Thread-bv5jM-1> for the level band, <http://www.basilmarket.com/forum/2443651/10/Dual_Blade_Guide.html> for the max HP/MP rule | Post-Big-Bang era forum guides (a mage thread and a Dual Blade guide); same items | Lv 30-60: White Potions or Unagi for HP (no Magic Guard), Pure Water or Sunrise Dew for MP; for max HP or MP of 800 to 1,500 use Unagi, Pure Water, Mana Elixir |
 | Wikibooks "MapleStory/Use Items" <https://en.wikibooks.org/wiki/MapleStory/Use_Items> (fetched) | Community wiki | White Potion, Unagi and Pure Water are sold by Jane the Alchemist after a Lv 40 quest |
 | "Save MapleStory Mesos" 2011 <http://maplesecrets.blogspot.com/2011/08/save-maplestory-mesos-how-to-save-mesos.html> (fetched) | MapleSEA player blog | Beyond Lv 20 "it's nearly impossible to train without using potions"; mentions a few White potions/Unagis for Zakum PQ part 1 |
 | Classic consumables guide <https://metaroad.gg/maplestory-classic/walkthroughs/the-complete-consumables-guide> (fetched) | **MapleStory Classic, not v83** (Orange is 250 HP there) | Red stops making sense once max HP passes about 600-800; shown only as a hint on the max-HP rule of thumb, not used for levels |
@@ -167,28 +167,36 @@ Why these and not more:
 ### How the restores compare with the game's own pools
 
 The survivor mode raises max HP with the job's `growth` table (`balance.json` `growth`; `docs/GAME_DESIGN.md` section on
-stats per level; level-ups refill MP but add no HP). Base max HP is about `50 + g x (Lv - 1)` with g = Magician 12,
-Bowman and Thief 22, Pirate 25, Warrior 26 (Beginner 14 before the first job), before equipment and Improved MaxHP:
+stats per level; level-ups refill MP but add no HP). Starting at 50 HP, nine Beginner level-ups (+14 each, Lv 1 to 10)
+give 176, then the first job's growth applies, so base max HP is `176 + g x (Lv - 10)` with g = Magician 12, Bowman and
+Thief 22, Pirate 25, Warrior 26, before equipment, Improved MaxHP and job grants:
 
 | Lv | Magician | Bowman/Thief | Pirate | Warrior |
 |---|---|---|---|---|
-| 40 | 518 | 908 | 1025 | 1064 |
-| 50 | 638 | 1128 | 1275 | 1324 |
-| 60 | 758 | 1348 | 1525 | 1584 |
-| 70 | 878 | 1568 | 1775 | 1844 |
+| 40 | 536 | 836 | 926 | 956 |
+| 50 | 656 | 1056 | 1176 | 1216 |
+| 60 | 776 | 1276 | 1426 | 1476 |
+| 70 | 896 | 1496 | 1676 | 1736 |
 
-Real bot-character fixtures (`game/tests/fixtures/characters/`) show the formula is a floor for lines with HP skills or
-gear: Lv 34 Fighter `base_hp` 1350, Lv 50 Bandit 1506, Lv 38 Magician 512 (formula 494), Lv 30 Hunter 1066. Max MP of
-the same fixtures: Lv 38 Magician `base_mp` 1019, Lv 50 Bandit 695, Lv 37 Brawler 648, Lv 34 Fighter 215. Consequences:
+The Lv 38 Magician fixture (`game/tests/fixtures/characters/lv35_magician_2nd.json`) has `base_hp` 512, which is exactly
+`50 + 14 x 9 + 12 x 28`, so the formula holds for a line without HP grants. Lines with Improved MaxHP or job grants run
+higher: Lv 34 Fighter 1350, Lv 50 Bandit 1506, Lv 30 Hunter 1066. Max MP of the same fixtures: Lv 38 Magician `base_mp`
+1019, Lv 50 Bandit 695, Lv 37 Brawler 648, Lv 34 Fighter 215. Consequences:
 
-- A 1000-HP Unagi at Lv 40 is a nearly full heal for a Magician (518 base HP) and for Bowman/Thief lines; a Warrior
-  uses it better. That is the same overheal the 300-HP White Potion has for a Lv 25 Magician today; BasilMarket's
-  800-1500 guidance would put the sensible Unagi switch at 800+ max HP, which for the Magician is not before Lv 60.
+- A 1000-HP Unagi at Lv 40 is larger than the base HP pool of every line (Magician 536, Warrior 956); only lines with
+  Improved MaxHP or grants (the Lv 34 Fighter fixture has 1350) have a pool above 1000. It is a full heal, not a step up
+  in sustain.
+- A 2000-point step (Ice Cream Pop, Red Bean Sundae) is larger than every line's base HP pool through Lv 70.
 - An 800-MP Pure Water at Lv 40 fits a Magician (1019+) but is more than a Fighter's or Brawler's whole MP pool.
-- A 2000-point step is larger than every non-Warrior pool until about Lv 70.
+- **Bot waste guard (finding for #229).** `balance.potions.bot.min_restore_fraction` is 0.5, and
+  `BotInput.worth_drinking` (`bot_input.gd:366`) drinks only when `max - current >= 0.5 x restore`, with no cap of the
+  restore at max HP. With Unagi a Lv 40 Magician bot (536 HP) drinks only at 36 HP or less, a Warrior base pool (956) at
+  456 or less; with a 2000-point step the bot effectively stops drinking for every line. The #229 regression smoke
+  should expect bots dying with potions in stock unless the guard is capped at the pool (a code change outside this
+  ticket).
 
-The schedule is job-agnostic by spec #225, so #229 and the owner should decide whether to accept the overheal or to
-hold the big steps back; the numbers above are the input.
+The schedule is job-agnostic by spec #225, so #229 and the owner should decide whether to accept the overheal, cap the
+guard, or hold the big steps back; the numbers above are the input.
 
 ## 7. Asset needs for the new steps
 
