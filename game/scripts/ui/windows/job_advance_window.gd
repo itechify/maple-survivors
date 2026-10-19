@@ -8,6 +8,7 @@ extends MapleWindow
 ## Instructor: the branch of the first available option (Warrior 1022000 Dances with Balrog, Magician 1032001 Grendel
 ## the Really Old, Bowman 1012100 Athena Pierce, Thief 1052001 Dark Lord, Pirate 1090000 Kyrin); with nothing
 ## available the branch of the current job; Beginners with nothing available meet the Maple Administrator 9010000.
+## The confirmation switches to the chosen job's instructor.
 ##
 ## Options: available jobs are selectable; unavailable ones are grey with their reason ("Lv. 10", "Not in this build");
 ## "Not now." and the END CHAT button (UtilDlgEx/BtClose) call `declined`. With no available option the dialog only
@@ -137,6 +138,8 @@ func select(i: int) -> bool:
 	focus = i
 	state = "confirm"
 	_confirm_t = 0.0
+	npc_id = instructor_for([], _picked)
+	_npc.path = "Npc.wz/%07d.img/stand" % npc_id
 	body = confirm_text(npc_id, String(entries[i].text))
 	UiArt.play_sound(UiArt.SND_CLICK)
 	_build_layout()
@@ -217,9 +220,11 @@ static func intro_text(p_npc: int, p_options: Array, p_level: int) -> String:
 
 ## The one-line confirmation after a job is picked.
 static func confirm_text(p_npc: int, job_name: String) -> String:
+	# Current job names that begin with a vowel also begin with a vowel sound.
+	var article := "an" if job_name.strip_edges().left(1).to_lower() in ["a", "e", "i", "o", "u"] else "a"
 	if p_npc == 1032001:
-		return "You are now a %s! Use your new power wisely..." % job_name
-	return "You are now a %s! Congratulations!" % job_name
+		return "You are now %s %s! Use your new power wisely..." % [article, job_name]
+	return "You are now %s %s! Congratulations!" % [article, job_name]
 
 
 func handle_input(event: InputEvent) -> bool:
