@@ -25,12 +25,12 @@ extends Node
 ##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
 ##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
 ##   skill   the Skill window (#86): title -> new character -> map select -> run; the build is set up directly
-##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm, Magnet x2); K opens Skill
+##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm); K opens Skill
 ##           on the 2nd-job tab (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left
 ##           switches to the Magician tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a
-##           click opens the star tab and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a
-##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
-##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
+##           click picks the Beginner tab (there is no star tab, spec #225), 1 switches to the Beginner tab, Esc closes; then
+##           K over a level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
+##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_beginner_tab, skill_over_levelup.
 ##   skill_weapon  weapon-gated skills (#156): a Magician owning Magic Claw and Energy Bolt, with Magic Claw tagged claw-only
 ##           through the survivor weapon_families override (debug setup; no shipping skill needs a weapon yet); K opens Skill
 ##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
@@ -705,8 +705,6 @@ func _create_character(character_name: String) -> bool:
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
-	await _shot("creation_gender")
-	await _click(creation.get("create_button") as Control)
 	await _shot("creation_name")
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)
@@ -1248,10 +1246,13 @@ func _shot_zoom(step: String, around: Node2D, also: Node2D = null) -> void:
 	var a: Vector2 = around.get_global_transform_with_canvas().origin
 	var b: Vector2 = a if also == null else also.get_global_transform_with_canvas().origin
 	print("flow_driver: zoom centre ", a, " ", b, " img ", img.get_size())
-	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
-	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, Vector2(img.get_width(), img.get_height()))
-	var crop := img.get_region(Rect2i(Vector2i(lo), Vector2i(hi - lo)))
-	crop.resize(crop.get_width() * 3, crop.get_height() * 3, Image.INTERPOLATE_NEAREST)
+	var view := get_viewport().get_visible_rect().size
+	var lo := Vector2(minf(a.x, b.x) - 110.0, minf(a.y, b.y) - 110.0).clamp(Vector2.ZERO, view)
+	var hi := Vector2(maxf(a.x, b.x) + 110.0, maxf(a.y, b.y) + 50.0).clamp(Vector2.ZERO, view)
+	# The capture has window pixels (canvas_items stretch, #224): crop at the capture's scale, save at 3x logical size.
+	var crop := img.get_region(GameSettings.capture_rect(img, get_viewport(), Rect2(lo, hi - lo)).intersection(
+		Rect2i(Vector2i.ZERO, img.get_size())))
+	crop.resize(int(hi.x - lo.x) * 3, int(hi.y - lo.y) * 3, Image.INTERPOLATE_NEAREST)
 	_n += 1
 	crop.save_png(shots_dir.path_join("%02d_%s.png" % [_n, step]))
 	print("flow_driver: shot %02d_%s.png (zoom)" % [_n, step])
@@ -1263,11 +1264,11 @@ func _scenario_skill() -> void:
 	var run := flow.current as RunScene
 	await _sleep(3.0)
 	# A build to show (debug setup, like the windows scenario's EXP drop): Magician, then Wizard (Ice, Lightning), with
-	# behaviour cards on Magic Claw and Thunder Bolt and a Magnet card for the star tab.
+	# behaviour cards on Magic Claw and Thunder Bolt.
 	var w := run.world
 	w.change_job(200)
 	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_claw_targets", "magic_claw_targets",
-			"magic_claw_cooldown", "magnet", "magnet"]:
+			"magic_claw_cooldown"]:
 		w.upgrades.apply(id, w)
 	w.change_job(220)
 	for id: String in ["thunder_bolt_new", "thunder_bolt_targets"]:
@@ -1281,7 +1282,7 @@ func _scenario_skill() -> void:
 	var t0 := run.world.time
 	await _sleep(0.8)
 	_check(run.world.time == t0, "the sim holds while Skill is open")
-	_check(sw.tab == 2 and sw.model.tabs.size() == 4, "opened on the 2nd-job tab of Beginner / I / II / star")
+	_check(sw.tab == 2 and sw.model.tabs.size() == 3, "opened on the 2nd-job tab of Beginner / I / II (no star tab)")
 	await _shot("skill_window")
 	# Keyboard: Down moves the selection to Thunder Bolt (the last Ice & Lightning skill) with its tooltip; Left
 	# switches to the Magician tab.
@@ -1309,14 +1310,20 @@ func _scenario_skill() -> void:
 	_check(String(tip.get("key", "")) == "magic_claw" and (tip.get("upgrades", []) as Array).size() == 2,
 		"hovering Magic Claw shows Twin Claw and Quick Claw (%s)" % [tip.get("upgrades", [])])
 	await _shot("skill_tooltip_upgrades")
-	# The star tab with the mouse; hover Magnet.
+	# Spec #225: no star tab. The mouse picks the Beginner tab, and the strip ends after the 2nd-job tab.
+	await _click_at(origin + sw.tab_rect(0).get_center())
+	await _sleep(0.3)
+	_check(sw.tab == 0, "clicked the Beginner tab")
+	await _shot("skill_beginner_tab")
 	await _click_at(origin + sw.tab_rect(3).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 3 and sw.rows().size() == 1, "clicked the star tab: Magnet")
-	_hover(origin + sw.row_rect(0).get_center())
-	await _sleep(0.4)
-	_check(String(sw.tooltip().get("id", "")) == "magnet", "Magnet's tooltip")
-	await _shot("skill_star_tab")
+	_check(sw.tab == 0, "no fourth tab to click")
+	# The other job tabs (#219: the tab shapes).
+	for t in [0, 1]:
+		await _click_at(origin + sw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(sw.tab == t, "skill tab %d shown" % t)
+		await _shot("skill_tab_%d" % t)
 	await _key(KEY_1)
 	await _sleep(0.2)
 	_check(sw.tab == 0, "1 switched to the Beginner tab")
@@ -2549,6 +2556,12 @@ func _scenario_inventory() -> void:
 	_hover(io + iw.slot_rect(0).get_center())
 	await _sleep(0.4)
 	await _shot("item_use_tab")
+	# Every tab shown once (#219: the v83 tab shapes, the shown one pink).
+	for t in [2, 3, 4]:
+		await _click_at(io + iw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(iw.tab == t, "tab %d shown" % t)
+		await _shot("item_tab_%s" % ItemWindow.TABS[t])
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
@@ -2842,6 +2855,12 @@ func _scenario_shops() -> void:
 	await _shot("shop_refused")
 	await _key(KEY_ENTER)
 	await _sleep(0.3)
+	# Every sell tab shown once (#219: the v83 tab shapes), ending on Use.
+	for t in [2, 3, 4, 0]:
+		await _click_at(origin + shop.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(shop.tab == t, "sell tab %d shown" % t)
+		await _shot("shop_tab_%s" % ShopWindow.TABS[t])
 	# Selling: the Use tab's scroll stack, then a spare item.
 	await _click_at(origin + shop.tab_rect(1).get_center())
 	await _sleep(0.3)

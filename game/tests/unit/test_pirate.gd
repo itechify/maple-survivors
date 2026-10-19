@@ -112,6 +112,7 @@ func test_snapshot_keeps_the_chosen_path_and_weapon() -> void:
 		_open(w)
 		w.apply_job(500, path)
 		BotInput.auto_choose(w, false, 500, path)
+		w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 		var snapshot := w.character_snapshot()
 		assert_eq(CharacterSnapshot.validation_error(snapshot), "")
 		var setup := w.setup.duplicate(true)

@@ -83,7 +83,7 @@ func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 		"h1": "MP -6; replace 11%", "h2": "MP -6; replace 14%"}})
 	var learn := w.upgrades.choice_card("magic_guard_new", w)
 	var mod := w.upgrades.choice_card("three_snails_count", w)
-	var magnet := w.upgrades.choice_card("magnet", w)
+	var magnet := w.upgrades.choice_card("elixir", w)
 	var cards := text.dress([learn, mod, magnet], w.loadout)
 	assert_eq([cards[0].desc, cards[0].detail], ["Pays damage with MP.", "MP -6; replace 11%"],
 		"a learn card: the skill's desc and its level-1 line")

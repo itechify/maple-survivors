@@ -3,9 +3,11 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Re-captured for #230: one entry per job now carries page-ordered paths, and only the chosen weapon is granted.
+## Re-captured for the spec #226 merge with main (#225 + playtest-3): #230 lists one entry per job with page-ordered paths
+## and grants only the chosen weapon; #228/#229 removed job-neutral cards and changed the bot waste guard.
+## Earlier: #230 alone b4b22cfe...; #229 alone 6ffbb887... (#228 769106d4..., #199 re-captured on Windows).
 ## Binary event encoding is platform independent (see below).
-const GOLDEN := "b4b22cfe4458ac656e34d2cec9d34002b222844494cefd31cf4e018950269bf8"
+const GOLDEN := "bd2a232804f874fccbd7d5991d9e96bc82a4e2caebb57b86740dc5bf42320614"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

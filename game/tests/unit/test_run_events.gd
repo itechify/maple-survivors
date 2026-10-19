@@ -237,7 +237,7 @@ func test_every_event_matches_the_schema() -> void:
 	potion.drink_potion("hp")
 	potion.drink_potion("mp")
 	potion.progression.level = 10
-	potion.upgrades.apply("orange_potion", potion)
+	potion.apply_potion_schedule(10, true)
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	var buff_setup := RF.setup("quiet", 12, RF.quiet_data())

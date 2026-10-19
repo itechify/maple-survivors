@@ -385,6 +385,21 @@ Which colour belongs to which damage source (player-dealt vs taken) is UNVERIFIE
 - Buttons: BtOK (65×24, plus keyFocused), BtCancel, BtYes, BtNo, BtClose, BtMin, BtMax.
 - Tab1–7, ComboBox1–5, VScr/HScr scrollbars, `Cursor/{0..}` (animated cursors), CheckBox, Slider, ItemNo, ShowLevel.
 
+**Tab backgrounds (#219).** The window tab canvases hold only the *text*: `UIWindow.img/{Item,PersonalShop,Trunk,Quest,
+UserList,Skill,Shop/TabSell,Shop/TabBuy}/Tab/{enabled,disabled}/<i>` are pure-white glyphs (5-12 px tall, origin 0,0;
+`enabled` and `disabled` differ only in glyph width / shadow), so on their own they float on the window's light grey
+strip. The tab shapes are a separate skin in **`Basic.img/Tab`, `Tab2`-`Tab7`**, the client's tab control (nine canvases
+per set): `left0/1` and `right0/1` the two row ends (6 px), `fill0/1` a 1 px body column to repeat, `middle0/1/2` the 12 px
+join between two tabs (divider at column 5). State 0 is a hidden tab (grey), state 1 the shown tab (pink with a black outline
+and white highlight); `middle0` joins hidden | hidden, `middle1` shown | hidden, `middle2` hidden | shown. Sets: `Tab5` 21 rows
+(19 + 2 red base rows, grey/pink) and `Tab3` 21 rows (same shapes, grey base): the strips on the red rule of Item, Skill and
+Shop (rows 23-41 at x 4-170 in Item/Skill `backgrnd`, the red rule at rows 42-44; Shop's 25-row strip at rows 91-115, red 116-118);
+`Tab2` 19 rows (grey/pink with dark dividers); `Tab`, `Tab4`, `Tab6` and `Tab7` are other skins (24, 29, 20-21 and 20 rows; not used here). `UIWindow.img/Item/New/Tab0` / `Tab1` (five 34x18 frames each) are not tab backgrounds: they are the grey / pink
+"new item" flash overlays drawn over a tab (HeavenClient draws them at the tab's glyph position minus (2, 1..3)); their width
+is the best evidence that the Item tabs are one equal width (34 px incl. a 1 px shared outline). No canvas under Item/ Equip/
+Skill/Shop carries tab positions (all origins are 0,0 in the cache); the tab cut positions are tier C. Third-party clients
+(HeavenClient / MortalClient, read for facts only) draw only the glyph TwoSpriteButtons, hence the usual "floating text".
+
 **UIWindow.img**:
 - `Skill/{backgrnd 175×289, skill0/skill1 141×35, BtSpUp, Tab, CoolTime[0..15] 32×32}`.
 - `MobGage/{backgrnd…, Mob/<id> 25×25 boss icons}`.

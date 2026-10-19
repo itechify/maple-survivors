@@ -90,12 +90,12 @@ func test_branch_cards_learn_and_rank_passive_only_in_their_job() -> void:
 				assert_true(String(card.kind) in ["skill_new", "skill_rank"], "no behaviour cards")
 
 
-func test_bot_prefers_attack_then_mp_eater_over_general_magnet() -> void:
+func test_bot_prefers_attack_then_mp_eater_over_a_minor_modifier() -> void:
 	var w := RunWorld.new(_setup())
 	RF.change_job_bare(w, 210)
 	var learn := {"id": "mp_eater_fp_new"}
 	assert_true(BotInput.card_score(w, {"id": "fire_arrow_new"}) > BotInput.card_score(w, learn))
-	assert_true(BotInput.card_score(w, learn) > BotInput.card_score(w, {"id": "magnet"}))
+	assert_true(BotInput.card_score(w, learn) > BotInput.card_score(w, {"id": "three_snails_speed"}))
 	assert_true(BotInput.card_score(w, {"id": "mp_eater_fp_rank"}) > BotInput.card_score(w, learn))
 
 

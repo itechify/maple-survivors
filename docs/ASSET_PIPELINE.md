@@ -334,7 +334,7 @@ plus a `_doc` saying what it holds; `format` may be left out (when present it mu
 | File | Holds |
 |---|---|
 | `asset_manifest.json` | shared: everything not listed below |
-| `asset_manifest.d/common.json` | shared non-Warrior `Character.wz/Afterimage` imgs (`swordOL`, `mace`, `bow`, `crossBow`, `gun`, `knuckle`; variant `0`), `hit.img` sparks (sword1/2, mace1/2), whole `Sound.wz/Weapon.img`, representative dagger 1332000 and claw 1472000, and throwing stars 2070001-2070006 / 2070015. Bowman weapons/arrows moved to `bowman.json` (#199); Pirate weapons/bullets moved to `pirate.json` (#186). Creation weapons stay in the main file, wands/staves in `magician.json`, Warrior weapons in `warrior.json`. |
+| `asset_manifest.d/common.json` | shared non-Warrior `Character.wz/Afterimage` imgs (`swordOL`, `mace`, `bow`, `crossBow`, `gun`, `knuckle`; variant `0`), `hit.img` sparks (sword1/2, mace1/2), whole `Sound.wz/Weapon.img`, representative dagger 1332000 and claw 1472000, and throwing stars 2070001-2070006 / 2070015; the potion steps of `potions.schedule` beyond the three card gates (#229: items 2022003 Unagi, 2022000 Pure Water, 2001001 Ice Cream Pop, 2001002 Red Bean Sundae, from `Consume/0200.img` and `0202.img`, and their `Sound.wz/Item.img` `Use` paths; Pure Water's `Use` is a UOL to `../02012002/Use`, exported under that node's name). Bowman weapons/arrows moved to `bowman.json` (#199); Pirate weapons/bullets moved to `pirate.json` (#186). Creation weapons stay in the main file, wands/staves in `magician.json`, Warrior weapons in `warrior.json`. |
 | `asset_manifest.d/bowman.json` | #199: whole `Skill.wz/300.img`, `310.img`, `320.img`; existing active sound nodes `3001003`, `3001004`, `3101002`, `3101003`, `3101005`, `3201002`, `3201003`, `3201005` (3001005 has no Sound.wz node; Soul Arrow omitted by owner); Hunter advancement bow Ryden 1452005 (#202), Beginner bow 1452051 and spare Crossbow 1462001, representative weapons 1452000/1462000 and eight arrows 2060000-2060003 / 2061000-2061003 moved out of common. Bow/crossbow afterimages and shared Weapon.img sounds remain in common, as with Pirate. |
 | `asset_manifest.d/beginner.json` | `Skill.wz/000.img`; `Sound.wz/Skill.img` `0001000`/`0001001`/`0001002` and `1001004` (Three Snails' UOL target) |
 | `asset_manifest.d/magician.json` | `Skill.wz/200.img`, `210`, `220`, `230`; their `Sound.wz/Skill.img` paths (`2001002`-`2301005`); instructor Grendel (`String.wz/Npc.img` `1032001`, `Npc.wz/1032001.img`); the Teleport effect (`Effect.wz/BasicEff.img` `Teleport`); the 212 `character[]` equipment ids whose canonical `reqJob` is the Magician bit (wands, staves, robes, hats, gloves, shoes; all in `survivor/equipment_drops/magician.json`) |
@@ -384,7 +384,10 @@ three pet species (`Item.wz/Pet/5000000-5000002.img` `info`: icons) and `String.
 `Character.wz/PetEquip/01812002-01812005.img` (`info`: icons; their names are already in `String.wz/Eqp.img`).
 
 The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
-items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
+items 2000000–2000006, and (`asset_manifest.d/common.json`, #229) `02001001/Use`, `02001002/Use`, `02022000/Use` and
+`02022003/Use` for the scheduled steps Ice Cream Pop, Red Bean Sundae, Pure Water and Unagi (the sim reads their
+recovery from `Consume/0200.img` / `0202.img`, chosen by `DataRepo.potion_img_path`; `Use` of `02022000` links to
+`../02012002/Use`, so the audio file is `02012002/Use.mp3`). Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
 the other six `Use` nodes are UOLs to `../02000000/Use`. The importer resolves these links and exports the
 shared audio once. RunScene plays the consumed item's eight-digit path from `potion_used.item_id`, including
 after tier upgrades; missing sounds remain silent and enter the normal playtest `missing` list.

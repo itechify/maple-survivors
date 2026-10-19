@@ -36,7 +36,9 @@ extends RefCounted
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
 ## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
 ## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
-## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
+## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them. An item
+## for an empty slot that displaces nothing and whose requirements are met is then worn at once (action "auto_equip",
+## Equipment.auto_wear_error, #222).
 ##   use_scroll(scroll_id, slot)  - scroll the item worn in an equip slot (Scrolls rules, #110): "" when the scroll was
 ##                                  used up (the result is the `scroll_used` event: success, failure or destroyed),
 ##                                  else no_item (none held) or a Scrolls refusal (scroll_type, scroll_slots, empty,
@@ -574,7 +576,8 @@ func _drink(kind: String, by_pet: bool) -> bool:
 	return true
 
 
-## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately.
+## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately; emits
+## potion_tier_up.
 func upgrade_potion(kind: String, item_id: int) -> bool:
 	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
 	if not potions.upgrade(kind, item_id):
@@ -583,6 +586,19 @@ func upgrade_potion(kind: String, item_id: int) -> bool:
 	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
 		"count": int(potions.stock[kind].count)})
 	return true
+
+
+## Applies every potion step of balance.potions.schedule due at `level` (PotionSchedule.due: re-scanned each time, no
+## applied-step state). Level-ups announce each step; a snapshot load applies them silently. Tier C.
+func apply_potion_schedule(level: int, announce: bool) -> void:
+	var current := {}
+	for kind: String in potions.stock:
+		current[kind] = int(potions.stock[kind].item_id)
+	for step: Dictionary in PotionSchedule.due(PotionSchedule.steps(balance), level, current):
+		if announce:
+			upgrade_potion(String(step.kind), int(step.item))
+		else:
+			potions.upgrade(String(step.kind), int(step.item)) # a load: player_state is written by the caller's setup
 
 
 ## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
@@ -924,6 +940,9 @@ func _step_pickups(dt: float) -> int:
 		equipment.inventory.append(instance)
 		equips_collected += 1
 		_equipment_changed("pickup", "", int(instance.id))
+		# tier C (ours, #222): an item for an empty slot that this character may wear is worn at once
+		if auto_wear_error(int(instance.id)) == "":
+			_wear(equipment.inventory.size() - 1, "auto_equip")
 	return got
 
 
@@ -1507,15 +1526,31 @@ func equipment_bonus(field: String) -> float:
 
 ## Wears inventory item `index`; "" or the Equipment reason it failed (nothing changes then). See the header.
 func equip_item(index: int) -> String:
+	return _wear(index, "equip")
+
+
+## Whether item `id` would be worn the moment it is picked up (#222): "" or the Equipment.auto_wear_error reason.
+func auto_wear_error(id: int) -> String:
+	return Equipment.auto_wear_error(equipment.worn, id, Equipment.info_of(setup.get("equipment_info", {}), id),
+		_wearer())
+
+
+## The character fields Equipment checks requirements against: level, job and the total main stats.
+func _wearer() -> Dictionary:
+	var who := {"level": progression.level, "job_id": progression.job_id}
+	who.merge(_attributes)
+	return who
+
+
+## Wears inventory item `index` and emits `equipment_changed` with `action` ("equip", or "auto_equip" from a pickup).
+func _wear(index: int, action: String) -> String:
 	if index < 0 or index >= equipment.inventory.size():
 		return "no_item"
 	var id := int(equipment.inventory[index].id)
-	var who := {"level": progression.level, "job_id": progression.job_id}
-	who.merge(_attributes)
-	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), who,
+	var reason := Equipment.equip(equipment, index, Equipment.info_of(setup.get("equipment_info", {}), id), _wearer(),
 		inventory_slots())
 	if reason == "":
-		_equipment_changed("equip", Equipment.slot_of(id), id)
+		_equipment_changed(action, Equipment.slot_of(id), id)
 	return reason
 
 
@@ -1996,6 +2031,7 @@ func _restore_character(source: Dictionary) -> void:
 	CharacterSnapshot.restore_loadout(character, loadout)
 	for kind: String in potions.stock:
 		potions.stock[kind] = CharacterSnapshot.integers(character.potions[kind])
+	apply_potion_schedule(progression.level, false) # tier C: silent catch-up to the schedule of the loaded level
 	character_look = character.get("look", {}).duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
 		if character_look.has(field):
@@ -2418,8 +2454,11 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_dead = true
 		state = DEAD
 		emit("player_died", {"pos": player.pos})
-	else:
+	elif bypass or upkeep.may_knock_back():
+		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
+		# skill attack/ball (window bypass) always knocks back and restarts the guard.
 		player.knockback(dir)
+		upkeep.start_knockback_guard()
 	_write_player_state(0.0)
 	return dmg
 
@@ -2482,6 +2521,7 @@ func _on_level_up(level: int) -> void:
 		_base_mp += floorf(float(_attributes.int) / divisor)
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
+	apply_potion_schedule(level, true)
 	refresh_player_stats(false)
 	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
 	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
@@ -2522,6 +2562,9 @@ func _advance_queue() -> void:
 	while pending_bonus_choices > 0:
 		choice_bonus = true
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
+		if bonus_cards.is_empty():
+			pending_bonus_choices -= 1 # no card at all (no filler in the data): never open an unanswerable window
+			continue
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true, "advancement": false})
@@ -2537,6 +2580,10 @@ func _advance_queue() -> void:
 				return
 		choice_bonus = false
 		var cards := upgrades.roll_choices(self, card_rng, 3)
+		if cards.is_empty():
+			progression.pop_front() # no card at all (no filler in the data): consume the level instead of soft-locking
+			_job_checked = false
+			continue
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})

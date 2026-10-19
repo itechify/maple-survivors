@@ -23,6 +23,31 @@ func test_load_all_has_every_file() -> void:
 	assert_eq(bad.size(), 13, "every missing file reported")
 
 
+func test_every_stage_names_its_region_and_continent() -> void:
+	var want := {"henesys_hg1": ["Henesys", "Victoria Island"], "tree_that_grew_1": ["Ellinia", "Victoria Island"],
+		"dark_cave": ["Sleepywood", "Victoria Island"]}
+	assert_eq(data.stages.stages.keys(), want.keys())
+	for key: String in want:
+		var st: Dictionary = data.stages.stages[key]
+		assert_eq(String(st.get("region", "")), want[key][0], "%s region" % key)
+		assert_eq(String(st.get("continent", "")), want[key][1], "%s continent" % key)
+		assert_eq(DataRepo.stage_labels(data.stages, key), {"region": want[key][0], "continent": want[key][1]})
+	assert_true(DataRepo.stage_label_errors(data.stages).is_empty(), "the shipped stages validate")
+	var broken: Dictionary = data.stages.duplicate(true)
+	broken.stages.henesys_hg1.erase("region")
+	broken.stages.dark_cave.continent = " "
+	var errors := DataRepo.stage_label_errors(broken)
+	assert_eq(errors.size(), 2, "%s" % [errors])
+	assert_true(errors[0].contains("henesys_hg1") and errors[0].contains("region"))
+	assert_true(errors[1].contains("dark_cave") and errors[1].contains("continent"))
+
+
+func test_stage_labels_fall_back_to_the_old_name() -> void:
+	var stages := {"stages": {"x": {"name": "Old Map"}}}
+	assert_eq(DataRepo.stage_labels(stages, "x"), {"region": "Old Map", "continent": ""})
+	assert_eq(DataRepo.stage_labels(stages, "gone"), {"region": "", "continent": ""})
+
+
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
@@ -75,7 +100,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 func test_cards_are_consistent() -> void:
 	var skills: Dictionary = data.skills.skills
 	var ids := {}
-	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "potion_tier"]
+	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat"]
 	for c: Dictionary in data.upgrades.cards:
 		assert_false(ids.has(c.id), "unique id %s" % c.id)
 		ids[c.id] = true
@@ -90,16 +115,11 @@ func test_cards_are_consistent() -> void:
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
-		if c.kind == "potion_tier":
-			assert_true(c.potion_kind in ["hp", "mp"])
-			var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
-			assert_has(manifest.items.map(func(id: Variant) -> int: return int(id)), int(c.item_id), "%s target is imported" % c.id)
-			assert_true(c.requires.potions.has(c.potion_kind), "tier requires its predecessor")
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
-			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
+			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery"]:
 		assert_true(ids.has(id), "card %s" % id)
 	var fallback: Dictionary = data.upgrades.fallback
 	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
@@ -255,10 +275,11 @@ func test_build_setup_and_paths() -> void:
 	var asked: Array = []
 	var loader := func(p: String) -> Dictionary:
 		asked.append(p)
-		if p == "Item.wz/Consume/0200.img":
+		if p == "Item.wz/Consume/0200.img" or p == "Item.wz/Consume/0202.img":
 			var items := {}
-			for id in range(2000000, 2000007):
-				items["%08d" % id] = {"spec": {"hp": 50.0}}
+			for id in DataRepo.potion_item_ids(data):
+				if DataRepo.potion_img_path(id) == p:
+					items["%08d" % id] = {"spec": {"hp": 50.0}}
 			return items
 		if p == DataRepo.SCROLL_IMG:
 			var scrolls := {}
@@ -321,23 +342,39 @@ func test_monster_damage_has_no_hidden_balance_scales() -> void:
 
 
 func test_setup_carries_canonical_potion_specs() -> void:
+	var asked: Array = []
 	var loader := func(path: String) -> Dictionary:
-		if path == "Item.wz/Consume/0200.img":
+		asked.append(path)
+		if path == "Item.wz/Consume/0200.img" or path == "Item.wz/Consume/0202.img":
+			# Every potion entry of the img, its spec marked with its own id so the routing is visible.
 			var items := {}
-			for id in range(2000000, 2000007):
-				items["%08d" % id] = {"spec": {"hp": 50.0}, "info": {"price": 25.0}}
+			for id in DataRepo.potion_item_ids(data):
+				if DataRepo.potion_img_path(id) == path:
+					items["%08d" % id] = {"spec": {"hp": float(id), "mp": float(id)}, "info": {"price": 25.0}}
 			return items
 		return {"info": {}}
 	var setup := DataRepo.build_setup(data, "henesys_hg1", 10, Vector2(800, 600), loader,
 		func(_id: int) -> Dictionary: return {"info": {"maxHP": 1}})
-	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
+	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 2000000.0,
 		"canonical potion spec reaches the pure simulation")
-	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
-		"the starters and the potion_tier ladders: Red, Orange, White, Blue, Mana Elixir")
-	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every ladder potion is retained")
+	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006,
+		2001001, 2001002, 2022000, 2022003]),
+		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir, Ice Cream Pop, Red Bean Sundae, Pure Water, Unagi")
+	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every scheduled potion is retained")
+	assert_eq(setup.item_info[2022003].spec.hp, 2022003.0, "Unagi comes from Consume/0202.img")
+	assert_eq(setup.item_info[2001002].spec.mp, 2001002.0, "Red Bean Sundae comes from Consume/0200.img")
+	assert_eq(asked.count("Item.wz/Consume/0202.img"), 1, "each potion img is read once")
+	assert_eq(asked.count("Item.wz/Consume/0200.img"), 1)
+	assert_eq(DataRepo.potion_img_path(2022000), "Item.wz/Consume/0202.img")
+	assert_eq(DataRepo.potion_img_path(2000006), "Item.wz/Consume/0200.img")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
+	var sounds := []
+	for entry: Dictionary in manifest.imgs:
+		if String(entry.img) == "Sound.wz/Item.img":
+			sounds.append_array(entry.get("paths", []))
 	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)
+		assert_true(("%08d/Use" % id) in sounds, "potion %d has its Use sound in the manifest" % id)
 
 
 func test_boss_summon_and_revive_ids_come_from_canonical_data_not_stages_json() -> void:

@@ -1,7 +1,7 @@
 extends TestCase
-## The v83 Skill window (#86): SkillWindowModel's tabs (one per job on the character's path plus the star tab),
+## The v83 Skill window (#86): SkillWindowModel's tabs (one per job on the character's path and no star tab, spec #225),
 ## rows (every implemented skill of the job with its level / max, unlearned ones at 0), the tooltips (SkillText lines,
-## cooldown, MP cost, the Upgrades list of behaviour cards) and the star tab's job-neutral cards; then SkillWindow's
+## cooldown, MP cost, the Upgrades list of behaviour cards); then SkillWindow's
 ## keyboard navigation. All data is synthetic (no cache): a two-branch job tree, a few skills, a few cards.
 
 ## Synthetic String.wz/Skill.img: book names and skill lines.
@@ -84,14 +84,6 @@ func _pool() -> UpgradePool:
 				"max_rank": 1, "effects": []},
 			{"id": "fire_arrow_new", "kind": "skill_new", "skill": "fire_arrow", "name": "Fire Arrow",
 				"max_rank": 1, "effects": []},
-			{"id": "magnet", "kind": "stat", "skill": "", "name": "Magnet", "desc": "Pick-up radius +{value}%.", "value": 25,
-				"icon": "Character.wz/PetEquip/01812000.img/info/icon", "max_rank": 4,
-				"effects": [{"stat": "magnet", "op": "mul", "value": 1.25}]},
-			{"id": "orange_potion", "kind": "potion_tier", "skill": "", "name": "Orange Potions",
-				"desc": "Upgrade all HP stock to Orange Potions.", "icon": "Item.wz/Consume/0200.img/02000001/info/icon",
-				"max_rank": 1, "effects": []},
-			{"id": "mana_elixir", "kind": "potion_tier", "skill": "", "name": "Mana Elixirs",
-				"desc": "Upgrade all MP stock to Mana Elixirs.", "max_rank": 1, "effects": []},
 		],
 		"fallback": {"id": "elixir", "kind": "filler", "skill": "", "name": "Power Elixir",
 			"desc": "Fully restores HP and MP.", "max_rank": 0, "effects": []},
@@ -99,7 +91,7 @@ func _pool() -> UpgradePool:
 
 
 ## A Magician (200) who has Three Snails rank 2 with one Additional Shell, Magic Claw rank 1 with Twin Claw x2 and
-## Quick Claw x1, and took Magnet x2, Orange Potions and the Elixir fallback.
+## Quick Claw x1, and took the Elixir fallback.
 func _magician_loadout(book: SkillBook) -> Loadout:
 	var lo := Loadout.new(book)
 	lo.add_skill("three_snails")
@@ -109,7 +101,7 @@ func _magician_loadout(book: SkillBook) -> Loadout:
 	lo.add_skill_mod("magic_claw", "count", "add", 2.0)
 	lo.add_skill_mod("magic_claw", "cooldown", "mul", 0.88)
 	lo.card_ranks = {"three_snails_count": 1, "magic_claw_new": 1, "magic_claw_targets": 2,
-		"magic_claw_cooldown": 1, "magnet": 2, "orange_potion": 1, "elixir": 1}
+		"magic_claw_cooldown": 1, "elixir": 1}
 	return lo
 
 
@@ -127,17 +119,16 @@ static func _tab_names(m: SkillWindowModel) -> Array:
 	return out
 
 
-func test_tabs_follow_the_job_path_and_end_with_the_star_tab() -> void:
-	assert_eq(_tab_names(_model(0)), ["Beginner", "Star"], "a Beginner has the Beginner tab and the star tab")
-	assert_eq(_tab_names(_model(200)), ["Beginner", "Magician", "Star"], "1st job adds its tab")
+func test_tabs_follow_the_job_path_and_there_is_no_star_tab() -> void:
+	assert_eq(_tab_names(_model(0)), ["Beginner"], "a Beginner has only the Beginner tab")
+	assert_eq(_tab_names(_model(200)), ["Beginner", "Magician"], "1st job adds its tab")
 	var m := _model(220)
-	assert_eq(_tab_names(m), ["Beginner", "Magician", "Wizard (Ice, Lightning)", "Star"],
+	assert_eq(_tab_names(m), ["Beginner", "Magician", "Wizard (Ice, Lightning)"],
 		"the 2nd-job branch reached, not the other branch")
 	assert_eq(m.tabs[0].tier, 0, "the Beginner tab uses the Beginner tab glyph")
 	assert_eq(m.tabs[2].tier, 2, "the 2nd job tab uses glyph II")
 	assert_eq(m.tabs[1].book_name, "Intro. to Magic", "the job's v83 book name")
 	assert_eq(m.tabs[1].book_icon, "Skill.wz/200.img/info/icon")
-	assert_eq(String(m.tabs[3].kind), "star")
 
 
 static func _row_keys(tab: Dictionary) -> Array:
@@ -164,15 +155,11 @@ func test_each_job_tab_lists_the_jobs_implemented_skills_with_learned_ranks_and_
 	assert_eq(_row_keys(_model(220).tabs[2]), ["thunder_bolt"], "the 2nd-job tab lists that branch's skills")
 
 
-func test_the_star_tab_lists_the_job_neutral_cards_taken_but_not_the_elixir() -> void:
+func test_a_taken_elixir_is_never_listed_as_a_learned_skill() -> void:
 	var m := _model(200, _magician_loadout(_book()))
-	var star: Dictionary = m.tabs[m.tabs.size() - 1]
-	assert_eq(_row_keys(star), ["magnet", "orange_potion"],
-		"Magnet and the potion tier taken, in card order; Mana Elixirs not taken; the Elixir fallback never")
-	var magnet: Dictionary = star.rows[0]
-	assert_eq([magnet.name, magnet.rank, magnet.max_rank], ["Magnet", 2, 4], "with its rank")
-	assert_eq(magnet.icon, "Character.wz/PetEquip/01812000.img/info/icon")
-	assert_eq(_row_keys(_model(0).tabs[1]), [], "nothing taken: an empty star tab")
+	for t: Dictionary in m.tabs:
+		assert_false("elixir" in _row_keys(t), "the Elixir is used, not learned")
+	assert_false(m.has_method("card_tooltip"), "no job-neutral card tooltips remain")
 
 
 func test_the_skill_tooltip_lists_each_behaviour_card_taken_with_its_steps() -> void:
@@ -206,14 +193,6 @@ func test_the_skill_tooltip_has_the_skill_text_cooldown_and_mp_cost() -> void:
 	assert_eq([passive.cooldown, passive.mp_cost], [-1.0, -1], "a passive has neither")
 
 
-func test_a_star_card_tooltip_describes_every_step_taken() -> void:
-	var m := _model(200, _magician_loadout(_book()))
-	var tip := m.card_tooltip("magnet")
-	assert_eq([tip.name, tip.rank, tip.max_rank], ["Magnet", 2, 4])
-	assert_eq(tip.desc, "Pick-up radius +56.25%.", "two x1.25 steps compound to +56.25%")
-	assert_eq(m.card_tooltip("orange_potion").desc, "Upgrade all HP stock to Orange Potions.")
-
-
 static func _key(code: Key) -> InputEventKey:
 	var e := InputEventKey.new()
 	e.keycode = code
@@ -240,13 +219,14 @@ func test_the_keyboard_switches_tabs_and_moves_the_selection_with_its_tooltip() 
 	assert_eq(w.tooltip().upgrades.size(), 2, "the tooltip carries the Upgrades list")
 	w.handle_key(_key(KEY_UP))
 	assert_eq(w.selected, 1)
-	w.handle_key(_key(KEY_4))
-	assert_eq(w.tab, 3, "4: the fourth tab (the star tab)")
+	w.handle_key(_key(KEY_3))
+	assert_eq(w.tab, 2, "3: the third tab (the 2nd job)")
 	assert_eq(w.selected, -1, "a new tab starts without a selection")
 	w.handle_key(_key(KEY_DOWN))
-	assert_eq(w.tooltip().get("id"), "magnet", "a star card's tooltip")
+	assert_eq(w.tooltip().get("key"), "thunder_bolt")
 	w.handle_key(_key(KEY_RIGHT))
-	assert_eq(w.tab, 3, "Right stops at the last tab")
+	assert_eq(w.tab, 2, "Right stops at the last tab")
+	assert_false(w.handle_key(_key(KEY_4)), "no fourth tab (the star tab is gone): the key is not used")
 	w.handle_key(_key(KEY_1))
 	assert_eq(w.tab, 0, "1: the Beginner tab")
 	assert_false(w.handle_key(_key(KEY_9)), "no ninth tab: the key is not used")
@@ -265,10 +245,6 @@ func test_the_tooltip_draws_an_orange_upgrades_section() -> void:
 	assert_true("[Current Level : 1]" in shown and "[Next Level : 2]" in shown, "both level headings")
 	assert_true("Cooldown 1.1 sec.   MP cost 10" in shown, "cooldown and MP cost")
 	assert_eq(orange, ["Upgrades", "Twin Claw ×2: +2 targets", "Quick Claw ×1: -12% cooldown"])
-	var star := []
-	for l: Array in SkillTooltip.layout(m.card_tooltip("magnet")):
-		star.append(String(l[1]))
-	assert_true("Rank 2 / 4" in star, "a star card shows its rank")
 
 
 func test_a_long_tab_scrolls_to_keep_the_selection_visible() -> void:
@@ -294,4 +270,24 @@ func test_a_long_tab_scrolls_to_keep_the_selection_visible() -> void:
 		w.handle_key(_key(KEY_UP))
 	assert_eq(w.selected, 0)
 	assert_eq(w.scroll, 0, "scrolled back up")
+	w.free()
+
+
+func test_the_tab_cells_touch_and_a_click_anywhere_in_one_picks_it() -> void:
+	var w := SkillWindow.new(_model(220, _magician_loadout(_book())))
+	# Spec #225: Beginner / I / II, no star tab.
+	assert_eq(w.model.tabs.size(), 3, "three job tabs")
+	for i in 3:
+		var r := w.tab_rect(i)
+		if i > 0:
+			assert_eq(r.position.x, w.tab_rect(i - 1).end.x, "tab %d starts where tab %d ends (the drawn shapes)" % [i, i - 1])
+		assert_eq(r.position.y, 23.0, "the shapes start at the strip's top row")
+		for at: Vector2 in [r.position + Vector2(0.5, 0.5), r.get_center(), r.end - Vector2(0.5, 0.5)]:
+			w.select_tab((i + 1) % 3)
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			click.position = at
+			w._window_gui_input(click, at)
+			assert_eq(w.tab, i, "a click at %s picks tab %d" % [at, i])
 	w.free()

@@ -247,7 +247,7 @@ func _draw() -> void:
 		UiArt.blit_part(self, bg, Rect2(0, 0, WIDTH, HEADER_H), Vector2.ZERO)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 		MapleText.draw(self, Vector2(8, 6), "SYSTEM OPTION", MapleText.BLACK, MapleText.SMALL, true)
 	for row: Array in rows:
 		var id := String(row[0])
@@ -346,6 +346,6 @@ func _draw_check(at: Vector2, on: bool) -> void:
 		UiArt.blit(self, f, at)
 		return
 	draw_rect(Rect2(at, CHECK_SIZE), Color.WHITE)
-	draw_rect(Rect2(at, CHECK_SIZE), Color8(90, 90, 90), false)
+	PixelDraw.outline(self, Rect2(at, CHECK_SIZE), Color8(90, 90, 90))
 	if on:
 		draw_rect(Rect2(at + Vector2(3, 3), CHECK_SIZE - Vector2(6, 6)), Color8(40, 40, 40))

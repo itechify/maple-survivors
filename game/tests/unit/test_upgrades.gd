@@ -17,7 +17,7 @@ func test_beginner_eligibility() -> void:
 	var w := RF.quiet_world()
 	var el := w.upgrades.eligible(w)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
-			"three_snails_speed", "nimble_feet", "recovery", "magnet"]:
+			"three_snails_speed", "nimble_feet", "recovery"]:
 		assert_has(el, id, "Beginner card")
 	for id: String in ["improved_max_mp", "improved_mp_recovery"]:
 		assert_false(id in el, "%s: a Magician skill (2000001 / 2000000), not for a Beginner" % id)
@@ -25,8 +25,6 @@ func test_beginner_eligibility() -> void:
 		assert_false(id in el, "%s never before the job" % id)
 	for id: String in ["energy_bolt_count", "magic_claw_targets", "energy_bolt_rank"]:
 		assert_false(id in el, "%s: no mods for a skill not owned" % id)
-	for id: String in ["orange_potion", "white_potion", "mana_elixir"]:
-		assert_false(id in el, "potion cards wait for their level gate")
 
 
 func test_magician_eligibility_and_mods_after_owning() -> void:
@@ -89,10 +87,8 @@ func test_seeded_utility_offers_are_available_to_beginners_and_magicians() -> vo
 				seen[c.id] = true
 				if job_id == 0:
 					assert_false(c.id in JOB_SKILL_CARDS, "Beginner draws never offer later-job skills")
-		for id: String in ["magnet", "orange_potion", "mana_elixir"]:
-			assert_true(seen.has(id), "%s is offered to job %d" % [id, job_id])
-		w.upgrades.apply("orange_potion", w)
-		assert_has(w.upgrades.eligible(w), "white_potion", "the next HP tier stays job-neutral too")
+		for id: String in ["magnet", "orange_potion", "white_potion", "mana_elixir"]:
+			assert_false(seen.has(id), "%s is no longer offered to job %d" % [id, job_id])
 
 
 func test_advancement_and_power_pity_use_only_current_job_cards() -> void:
@@ -166,7 +162,7 @@ func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> voi
 	# Exactly one card left: offer it and one Elixir, without repeating identical healing cards.
 	var w2 := RF.quiet_world()
 	for c: Dictionary in w2.upgrades.cards:
-		if c.id == "magnet":
+		if c.id == "recovery":
 			continue
 		var guard := 0
 		while w2.upgrades.is_eligible(c, w2) and guard < 10:
@@ -174,7 +170,7 @@ func test_exhausted_pool_and_one_card_draw_offer_one_elixir_alternative() -> voi
 			guard += 1
 	var mixed := w2.upgrades.roll_choices(w2, _rng(9), 3)
 	assert_eq(mixed.size(), 2)
-	assert_eq(mixed[0].id, "magnet")
+	assert_eq(mixed[0].id, "recovery")
 	if mixed.size() == 2:
 		assert_eq(mixed[1].id, "elixir")
 	assert_false("elixir" in w2.upgrades.eligible(w2), "Elixir never enters the weighted pool")
@@ -208,9 +204,6 @@ func test_applying_general_cards() -> void:
 	w.upgrades.apply("nimble_feet", w)
 	assert_eq(w.loadout.level("nimble_feet"), 1, "the card learns a timed skill")
 	assert_eq(w.player.speed_stat, 100, "learning gives no permanent speed increase")
-	var m0 := w.magnet_r
-	w.upgrades.apply("magnet", w)
-	assert_near(w.magnet_r, m0 * 1.25, 1e-3)
 	w.upgrades.apply("recovery", w)
 	assert_eq(w.loadout.level("recovery"), 1, "Recovery card learns the Beginner skill")
 	assert_near(w.hp_regen, 0.0, 1e-6, "no permanent Recovery regen")
@@ -237,7 +230,7 @@ func test_choice_cards_carry_the_skill_level_change() -> void:
 	w.loadout.set_rank("three_snails", 2)
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level_next), 0, "a mod keeps the level")
 	assert_eq(int(w.upgrades.choice_card("three_snails_count", w).skill_level), 2, "the mod's skill level is shown")
-	assert_eq(String(w.upgrades.choice_card("magnet", w).skill_name), "", "no skill")
+	assert_eq(String(w.upgrades.choice_card("elixir", w).skill_name), "", "no skill")
 	RF.change_job_bare(w, 200)
 	c = w.upgrades.choice_card("energy_bolt_new", w)
 	assert_eq([int(c.skill_level), int(c.skill_level_next)], [0, 1], "learning Energy Bolt: level 1")
@@ -272,7 +265,7 @@ func test_rank_cards_preview_canonical_attack_mastery_and_mp() -> void:
 	}, "rank preview uses canonical levels, mastery percent, and unmodified MP cost")
 	assert_eq(w.upgrades.choice_card("energy_bolt_new", w).skill_changes, {}, "learning has no prior skill rank")
 	assert_eq(w.upgrades.choice_card("three_snails_count", w).skill_changes, {}, "modifiers have no canonical rank change")
-	assert_eq(w.upgrades.choice_card("magnet", w).skill_changes, {}, "stat cards have no canonical skill values")
+	assert_eq(w.upgrades.choice_card("elixir", w).skill_changes, {}, "the filler has no canonical skill values")
 
 
 func test_mod_cards_preview_the_effective_stat_they_change() -> void:
@@ -284,7 +277,7 @@ func test_mod_cards_preview_the_effective_stat_they_change() -> void:
 	w.upgrades.apply("three_snails_pierce", w)
 	assert_eq(w.upgrades.choice_card("three_snails_pierce", w, "rare").skill_mod_changes,
 		{"pierce": {"before": 1, "after": 3}}, "a Rare pick shows both of its steps on top of the one taken")
-	assert_eq(w.upgrades.choice_card("magnet", w).skill_mod_changes, {}, "stat cards change no skill")
+	assert_eq(w.upgrades.choice_card("elixir", w).skill_mod_changes, {}, "the filler changes no skill")
 	assert_eq(w.upgrades.choice_card("nimble_feet", w).skill_mod_changes, {}, "learn cards have no modifier preview")
 	RF.change_job_bare(w, 200)
 	w.upgrades.apply("magic_claw_new", w)
@@ -308,7 +301,7 @@ func test_loadout_clone_copies_every_field_and_stays_independent() -> void:
 	var lo := RF.quiet_world().loadout
 	lo.add_skill_mod("three_snails", "count", "add", 1.0)
 	lo.add_player_mod("speed", "mul", 1.1)
-	lo.card_ranks["magnet"] = 2
+	lo.card_ranks["recovery"] = 2
 	lo.set_caster(31.0, 12.0, 17)
 	lo.crit_chance = 0.15
 	lo.crit_mult = 1.8
@@ -320,11 +313,11 @@ func test_loadout_clone_copies_every_field_and_stays_independent() -> void:
 	assert_eq(c.stats("three_snails"), lo.stats("three_snails"), "resolves the same numbers")
 	c.add_skill_mod("three_snails", "count", "add", 1.0)
 	c.add_player_mod("speed", "add", 5.0)
-	c.card_ranks["magnet"] = 3
+	c.card_ranks["recovery"] = 3
 	c.order.append("energy_bolt")
 	assert_eq(lo.skill_mods.three_snails.count, Vector2(1.0, 1.0), "the original's skill mods are untouched")
 	assert_eq(lo.player_mods.speed, Vector2(0.0, 1.1), "and its player mods")
-	assert_eq(int(lo.card_ranks.magnet), 2, "and its card ranks")
+	assert_eq(int(lo.card_ranks.recovery), 2, "and its card ranks")
 	assert_false("energy_bolt" in lo.order, "and its learned order")
 
 

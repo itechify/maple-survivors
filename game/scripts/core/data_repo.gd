@@ -50,7 +50,6 @@ const SPLIT := {
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
-const POTION_IMG := "Item.wz/Consume/0200.img"
 const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
@@ -69,6 +68,7 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	errors.append_array(stage_label_errors(out.get("stages", {})))
 	return out
 
 
@@ -233,6 +233,43 @@ static func skill_img_path(book: String) -> String:
 	return "Skill.wz/%s.img" % book
 
 
+## What the player sees as a stage's name (#221): {region, continent} of stage `stage_key` in the parsed stages.json
+## (`stages_file`). The region is the town the stage belongs to, the continent the small line above it; both are survivor
+## display data (tier C: owner choice, playtest 3), not WZ strings. A stage file without them falls back to its `name`
+## as the region; an unknown stage gives empty strings.
+static func stage_labels(stages_file: Dictionary, stage_key: String) -> Dictionary:
+	var st: Dictionary = stages_file.get("stages", {}).get(stage_key, {})
+	return {"region": String(st.get("region", st.get("name", ""))), "continent": String(st.get("continent", ""))}
+
+
+## The two stage lines of a run summary: [region, continent] (#221). A summary that carries a `region` keeps its own
+## lines; one that predates the fields reads the stage's labels from stages.json, and a stage no longer in the file keeps
+## the map and street name it was saved with.
+static func summary_stage_lines(summary: Dictionary) -> Array[String]:
+	var region := String(summary.get("region", ""))
+	var continent := String(summary.get("continent", ""))
+	if region.is_empty():
+		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
+		var key := String(summary.get("stage", ""))
+		var known: Dictionary = {}
+		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):
+			known = stage_labels(stages_file, key)
+		region = String(known.get("region", summary.get("map_name", key)))
+		continent = String(known.get("continent", summary.get("street_name", "")))
+	return [region, continent]
+
+
+## One message per stage of the parsed stages.json that lacks a non-blank `region` or `continent`, in file order.
+static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var all: Dictionary = stages_file.get("stages", {})
+	for key: String in all:
+		for field: String in ["region", "continent"]:
+			if String((all[key] as Dictionary).get(field, "")).strip_edges().is_empty():
+				errors.append("stage '%s' has no %s" % [key, field])
+	return errors
+
+
 ## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and
 ## revive ids the bosses' canonical data lists when their imgs (`mob_imgs`, {id: img root}) and MobSkill.img root are
 ## given. Without imgs only the ids stages.json names.
@@ -315,20 +352,41 @@ static func _jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
-## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
-## target items (the survivor potion ladders). These are the Item.wz/Consume/0200.img entries a setup loads.
+## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
+## (PotionSchedule). These are the Item.wz/Consume entries (`potion_img_path`) a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
-	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
-		if String(c.get("kind", "")) == "potion_tier":
-			_add_id(ids, int(c.get("item_id", 0)))
-			for from: Variant in c.get("requires", {}).get("potions", {}).values():
-				_add_id(ids, int(from))
+	for item: Variant in PotionSchedule.items(data.get("balance", {})):
+		_add_id(ids, int(item))
 	ids.sort()
 	return ids
+
+
+## The canonical node of every potion item a run can hold ({id: Consume node}); ids whose node is absent are listed in
+## `missing`. A round's setup and the hub's inventory world (PotionInventory.upgrade needs the restore specs) share it.
+static func potion_item_info(data: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var item_info := {}
+	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
+	for id in potion_item_ids(data):
+		var key := "%08d" % id
+		var img_path := potion_img_path(id)
+		if not potion_imgs.has(img_path):
+			potion_imgs[img_path] = img_loader.call(img_path)
+		var potion_img: Variant = potion_imgs[img_path]
+		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
+			item_info[id] = potion_img[key]
+		else:
+			missing.append(img_path + "/" + key)
+	return item_info
+
+
+## "Item.wz/Consume/0202.img" for a Consume item id (the img holds the ids of its 10000 block: 2022003 -> 0202).
+@warning_ignore("integer_division")
+static func potion_img_path(item_id: int) -> String:
+	return "Item.wz/Consume/%04d.img" % (item_id / 10000)
 
 
 static func _add_id(ids: PackedInt32Array, id: int) -> void:
@@ -460,14 +518,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		if image.is_empty():
 			missing.append(path)
 		afterimages[name] = image
-	var item_info := {}
-	var potion_img: Variant = img_loader.call(POTION_IMG)
-	for id in potion_item_ids(data):
-		var key := "%08d" % id
-		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
-			item_info[id] = potion_img[key]
-		else:
-			missing.append(POTION_IMG + "/" + key)
+	var item_info := potion_item_info(data, img_loader, missing)
 	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,

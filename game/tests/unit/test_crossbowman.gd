@@ -51,6 +51,7 @@ func test_advancement_at_thirty_upgrades_either_weapon_and_grants_hp_mp() -> voi
 		assert_eq(w.player_state.max_hp, hp + 325)
 		assert_eq(w.player_state.max_mp, mp + 175)
 		BotInput.auto_choose(w, false, 320)
+		w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 		var snapshot := w.character_snapshot()
 		assert_eq(CharacterSnapshot.validation_error(snapshot), "")
 		var setup := w.setup.duplicate(true)

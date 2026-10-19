@@ -1,6 +1,6 @@
 {
 	"format": 1,
-	"_doc": "Shared weapon afterimages, hit sparks and Weapon.img sounds. Bowman bows/crossbows and arrows belong to bowman.json (#199); Thief claws/daggers and throwing stars belong to thief.json (#207); Pirate knuckles/guns and bullets belong to pirate.json (#186). Afterimages stay shared.",
+	"_doc": "Shared weapon afterimages, hit sparks and Weapon.img sounds. Bowman bows/crossbows and arrows belong to bowman.json (#199); Thief claws/daggers and throwing stars belong to thief.json (#207); Pirate knuckles/guns and bullets belong to pirate.json (#186). Afterimages stay shared. Potion steps beyond the three card gates (#229, spec #225, potions.schedule): Unagi 2022003, Pure Water 2022000, Ice Cream Pop 2001001 and Red Bean Sundae 2001002, each with its Item.wz/Consume entry (icon, recovery spec) and Sound.wz/Item.img Use sound; their names are in String.wz/Consume.img, which asset_manifest.json imports whole. Orange, White and Mana Elixir and their sounds stay in asset_manifest.json.",
 	"imgs": [
 		{"img": "Character.wz/Afterimage/swordOL.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/mace.img", "paths": ["0"]},
@@ -9,8 +9,9 @@
 		{"img": "Character.wz/Afterimage/gun.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/knuckle.img", "paths": ["0"]},
 		{"img": "Character.wz/Afterimage/hit.img", "paths": ["sword1", "sword2", "mace1", "mace2"]},
-		{"img": "Sound.wz/Weapon.img"}
+		{"img": "Sound.wz/Weapon.img"},
+		{"img": "Sound.wz/Item.img", "paths": ["02001001/Use", "02001002/Use", "02022000/Use", "02022003/Use"]}
 	],
 	"character": [],
-	"items": []
+	"items": [2022003, 2022000, 2001001, 2001002]
 }

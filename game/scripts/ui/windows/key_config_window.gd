@@ -14,10 +14,8 @@ extends UiWindow
 ## close without saving. Tab, Scroll Lock and the Windows / menu keys are no drop targets (v83 bakes its own functions
 ## on Tab and Scroll Lock into the art). Hovering an icon names its action.
 ##
-## Icons: tier A v83 KeyConfig icons for jump (53 JUMP), Equip (0 EQUIPMENT), Item (1 ITEMS), Stat (2 ABILITY, the
-## v83 Stat window key), Skill (3 SKILL) and NPC Chat (54 NPC CHAT); the potions show Red / Blue Potion (Item.wz 2000000 / 2000003) and
-## each learned manual skill its own skill icon and name (tier C: a skill key follows the skill, #188). Without the cache
-## the window keeps its layout and draws plain keys and lettered boxes.
+## Icons and names come from KeyActionArt (shared with the HUD quick slot). Without the cache the window keeps its
+## layout and draws plain keys and lettered boxes.
 ##
 ## Skill keys: the tray ends with one icon per manual skill the character has learned (`skill_keys`, as
 ## RunWorld.manual_skill_keys() lists them: {action, name, icon}); no other manual skill appears. A skill key is dragged,
@@ -28,14 +26,6 @@ signal saved()
 
 const ART := "UI.wz/UIWindow.img/KeyConfig/"
 const ART_SIZE := Vector2(629, 373)
-## Action -> icon path (see the class doc) and tooltip name.
-const ICONS := {"jump": ART + "icon/53", "drink_hp": "Item.wz/Consume/0200.img/02000000/info/icon",
-	"drink_mp": "Item.wz/Consume/0200.img/02000003/info/icon",
-	"equip_window": ART + "icon/0", "item_window": ART + "icon/1", "stat_window": ART + "icon/2",
-	"skill_window": ART + "icon/3", "npc_chat": ART + "icon/54"}
-const NAMES := {"jump": "Jump", "drink_hp": "HP Potion", "drink_mp": "MP Potion",
-	"equip_window": "Equip", "item_window": "Item", "stat_window": "Stat", "skill_window": "Skill",
-	"npc_chat": "NPC Chat"}
 ## tier C (ours, measured on the v83 backgrnd): key rows as [top, bottom, codes, x edges]; key i spans
 ## [edges[i], edges[i + 1]); code 0 = a key that is no drop target. Left / right Alt, Ctrl and Shift share one physical
 ## keycode (Godot tells them apart by location only), so both keys of a pair show the same icon.
@@ -208,15 +198,11 @@ func _on_settings_changed() -> void:
 
 
 func _icon_of(action: String) -> String:
-	if _skill_info.has(action):
-		return String(_skill_info[action].icon)
-	return String(ICONS.get(action, ""))
+	return KeyActionArt.icon_path(action, _skill_info.get(action, {}))
 
 
 func _name_of(action: String) -> String:
-	if _skill_info.has(action):
-		return String(_skill_info[action].name)
-	return String(NAMES.get(action, action))
+	return KeyActionArt.display_name(action, _skill_info.get(action, {}))
 
 
 func _tray_action_at(p: Vector2) -> String:
@@ -332,12 +318,12 @@ func _draw_tooltip() -> void:
 ## Without the cache: a plain panel with lettered keys and empty tray slots.
 func _draw_plain() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-	draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(8, 4), "KEYBOARD SETTING", MapleText.BLACK, MapleText.SMALL, true)
 	for code: int in _key_rects:
 		for r: Rect2 in _key_rects[code]:
 			draw_rect(r.grow(-1.0), Color.WHITE)
-			draw_rect(r.grow(-1.0), Color8(90, 90, 90), false)
+			PixelDraw.outline(self, r.grow(-1.0), Color8(90, 90, 90))
 			MapleText.draw(self, r.position + Vector2(3, 1), KeyBindings.key_name(code).left(5), MapleText.GREY, 9)
 	for i in 18 * 3:
 		@warning_ignore("integer_division")

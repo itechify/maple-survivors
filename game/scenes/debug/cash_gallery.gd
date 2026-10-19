@@ -92,7 +92,7 @@ func _sheet(file_name: String, look_for: Callable, rows: int = 2) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	img = img.get_region(Rect2i(0, 0, int(CELL.x * POSES.size()), int(CELL.y * rows)))
+	img = GameSettings.capture_logical(get_viewport(), img, Rect2(0, 0, int(CELL.x * POSES.size()), int(CELL.y * rows)))
 	img.save_png(_shots_dir.path_join(file_name + ".png"))
 	var missing := PackedStringArray()
 	for a in holder.get_children():
