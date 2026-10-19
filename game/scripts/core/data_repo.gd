@@ -50,7 +50,6 @@ const SPLIT := {
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
-const POTION_IMG := "Item.wz/Consume/0200.img"
 const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
@@ -363,20 +362,41 @@ static func _jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
-## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
-## target items (the survivor potion ladders). These are the Item.wz/Consume/0200.img entries a setup loads.
+## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
+## (PotionSchedule). These are the Item.wz/Consume entries (`potion_img_path`) a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
-	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
-		if String(c.get("kind", "")) == "potion_tier":
-			_add_id(ids, int(c.get("item_id", 0)))
-			for from: Variant in c.get("requires", {}).get("potions", {}).values():
-				_add_id(ids, int(from))
+	for item: Variant in PotionSchedule.items(data.get("balance", {})):
+		_add_id(ids, int(item))
 	ids.sort()
 	return ids
+
+
+## The canonical node of every potion item a run can hold ({id: Consume node}); ids whose node is absent are listed in
+## `missing`. A round's setup and the hub's inventory world (PotionInventory.upgrade needs the restore specs) share it.
+static func potion_item_info(data: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var item_info := {}
+	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
+	for id in potion_item_ids(data):
+		var key := "%08d" % id
+		var img_path := potion_img_path(id)
+		if not potion_imgs.has(img_path):
+			potion_imgs[img_path] = img_loader.call(img_path)
+		var potion_img: Variant = potion_imgs[img_path]
+		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
+			item_info[id] = potion_img[key]
+		else:
+			missing.append(img_path + "/" + key)
+	return item_info
+
+
+## "Item.wz/Consume/0202.img" for a Consume item id (the img holds the ids of its 10000 block: 2022003 -> 0202).
+@warning_ignore("integer_division")
+static func potion_img_path(item_id: int) -> String:
+	return "Item.wz/Consume/%04d.img" % (item_id / 10000)
 
 
 static func _add_id(ids: PackedInt32Array, id: int) -> void:
@@ -508,14 +528,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		if image.is_empty():
 			missing.append(path)
 		afterimages[name] = image
-	var item_info := {}
-	var potion_img: Variant = img_loader.call(POTION_IMG)
-	for id in potion_item_ids(data):
-		var key := "%08d" % id
-		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
-			item_info[id] = potion_img[key]
-		else:
-			missing.append(POTION_IMG + "/" + key)
+	var item_info := potion_item_info(data, img_loader, missing)
 	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,

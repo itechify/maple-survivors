@@ -4,7 +4,7 @@ extends Control
 ## UI.wz/UIToolTip.img frame is not in the asset cache, so it is drawn), the name in bold, the icon beside the
 ## description, then "[Current Level : N]" / "[Next Level : N]" with their lines, cooldown and MP cost, the weapon the
 ## skill needs ("Weapon : Claw", red with "(not held)" when the held weapon cannot use it), and an orange
-## "Upgrades" section with one line per behaviour card. A star-tab card shows its name, icon, text and rank.
+## "Upgrades" section with one line per behaviour card.
 ##
 ##   tip.show_data(model.skill_tooltip(key), anchor)   # anchor: canvas position of its top-left (clamped to the view)
 ##   tip.show_data({}, anchor)                         # hides it
@@ -24,7 +24,7 @@ const DIM := Color8(190, 200, 215)
 ## tier C (ours): the "Weapon : X (not held)" line of a skill the held weapon cannot use.
 const BLOCKED := Color8(255, 130, 130)
 
-## The data shown (SkillWindowModel.skill_tooltip / card_tooltip); {} hides the tooltip.
+## The data shown (SkillWindowModel.skill_tooltip); {} hides the tooltip.
 var data: Dictionary = {}
 
 var _lines: Array = []
@@ -70,11 +70,6 @@ static func layout(d: Dictionary) -> Array:
 	out.append(["icon_text", "\n".join(first), TEXT, maxf(ICON, float(first.size() * MapleText.LINE_SMALL)) + 2.0])
 	for i in range(beside, side.size()):
 		out.append(["text", side[i], TEXT, float(MapleText.LINE_SMALL)])
-	if d.has("rank"):
-		out.append(["rule", "", FRAME, 7.0])
-		out.append(["text", "Rank %d / %d" % [int(d.rank), int(d.get("max_rank", 0))], DIM,
-			float(MapleText.LINE_SMALL)])
-		return out
 	out.append(["rule", "", FRAME, 7.0])
 	if int(d.get("level", 0)) > 0:
 		_para(out, "[Current Level : %d]" % int(d.level), String(d.get("current", "")), inner)

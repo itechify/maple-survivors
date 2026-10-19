@@ -129,11 +129,18 @@ func test_stacking_tiers_apply_steps_and_compound_the_displayed_value() -> void:
 	assert_true(String(cooldown.pending_cards[0].desc).contains("40.03%"), "four x0.88 steps reduce cooldown 40.030464%")
 	assert_true(cooldown.apply_choice("three_snails_cooldown"))
 	assert_near(cooldown.loadout.stats("three_snails").cooldown, before * 0.59969536, 1e-6)
-	var magnet := _tier_world("unique", "magnet")
+	# Spec #225 removed the Magnet card; a synthetic stat card keeps the player-stat stacking path covered.
+	var data := RF.quiet_data()
+	data.upgrades.rarity.weights = {"unique": 1.0}
+	data.upgrades.cards = [{"id": "test_radius", "kind": "stat", "skill": "", "name": "Test radius",
+		"desc": "Pick-up radius +{value}%.", "value": 25, "max_rank": 4, "weight": 1, "requires": {},
+		"effects": [{"stat": "magnet", "op": "mul", "value": 1.25}]}]
+	var magnet := RunWorld.new(RF.setup("quiet", 43, data))
+	RF.place_player(magnet, 400)
 	var radius := magnet.magnet_r
 	_open_level(magnet)
 	assert_true(String(magnet.pending_cards[0].desc).contains("144.14%"), "four x1.25 steps give +144.140625%")
-	assert_true(magnet.apply_choice("magnet"))
+	assert_true(magnet.apply_choice("test_radius"))
 	assert_near(magnet.magnet_r, radius * 2.44140625, 1e-6, "player-stat stacking scales too")
 
 
@@ -222,14 +229,14 @@ func test_boss_floor_filters_nearly_maxed_rank_cards_and_keeps_normal_exceptions
 	assert_eq(capped.pending_cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"],
 		"one remaining skill rank cannot meet the Rare floor; the fallback still opens a reward")
 	assert_eq(String(capped.pending_cards[0].get("tier", "")), "normal")
-	for id: String in ["orange_potion", "elixir"]:
-		var plain := _tier_world("legendary", id)
-		RF.change_job_bare(plain, 200)
-		plain.progression.level = 25
-		plain.pending_bonus_choices = 1
-		plain.step(1.0 / 60.0, MoveInput.new())
-		for c: Dictionary in plain.pending_cards:
-			assert_eq(String(c.get("tier", "")), "normal", "potion tiers and Elixir never scale, even at bosses")
+	var plain := _tier_world("legendary", "elixir")
+	RF.change_job_bare(plain, 200)
+	plain.progression.level = 25
+	plain.pending_bonus_choices = 1
+	plain.step(1.0 / 60.0, MoveInput.new())
+	assert_eq(plain.pending_cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"])
+	for c: Dictionary in plain.pending_cards:
+		assert_eq(String(c.get("tier", "")), "normal", "the Elixir never scales, even at bosses")
 
 
 func test_max_mp_passive_text_and_before_after_use_the_full_tier_gain() -> void:

@@ -495,7 +495,9 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
-			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},
+			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}},
+			2022003: {"spec": {"hp": 1000}}, 2022000: {"spec": {"mp": 800}},
+			2001001: {"spec": {"hp": 2000}}, 2001002: {"spec": {"mp": 2000}}},
 		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,

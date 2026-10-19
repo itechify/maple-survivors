@@ -53,6 +53,7 @@ func test_bowman_at_ten_grants_pools_bow_and_spare_crossbow_and_snapshot() -> vo
 	assert_eq(w.player_state.max_hp, hp + 125)
 	assert_eq(w.player_state.max_mp, mp + 37)
 	BotInput.auto_choose(w, false, 300, "bow")
+	w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 	var snapshot := w.character_snapshot()
 	assert_eq(CharacterSnapshot.validation_error(snapshot), "")
 	var setup := w.setup.duplicate(true)

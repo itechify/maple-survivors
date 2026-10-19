@@ -1,53 +1,28 @@
 extends TestCase
-## Pet rules that cut across the sim (spec #34, ticket #119): the Magnet card with a VAC pet, upgrade prerequisites,
+## Pet rules that cut across the sim (spec #34, ticket #119): no pickup-radius card exists, upgrade prerequisites,
 ## determinism, and that a round without a pet is untouched.
 
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 
 
-func _offered_magnet(w: RunWorld, draws: int) -> int:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 99
-	var seen := 0
-	for draw in draws:
-		for card: Dictionary in w.upgrades.roll_choices(w, rng, 3):
-			if card.id == "magnet":
-				seen += 1
-	return seen
-
-
-func test_magnet_is_never_offered_while_a_vac_pet_is_out_and_is_offered_again_without_one() -> void:
-	var vac := PF.world(PF.EVERYTHING)
-	assert_false("magnet" in vac.upgrades.eligible(vac), "not eligible with VAC")
-	assert_eq(_offered_magnet(vac, 400), 0, "never offered in 400 draws")
-	var no_vac := PF.world([PF.KITTY, PF.WING, PF.BINOCULAR])
-	assert_true("magnet" in no_vac.upgrades.eligible(no_vac), "a pet without VAC does not remove it")
-	assert_true(_offered_magnet(no_vac, 400) > 0, "offered again")
-	var no_pet := RunWorld.new(PF.setup(PF.data(), 0, PF.EVERYTHING))
-	assert_true("magnet" in no_pet.upgrades.eligible(no_pet), "owning VAC with no pet out does nothing")
-	assert_true(_offered_magnet(no_pet, 400) > 0)
-
-
-func test_magnet_is_also_gone_from_boss_and_advancement_draws() -> void:
-	var w := PF.world(PF.EVERYTHING)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 3
-	w.choice_bonus = true
-	for draw in 200:
-		for card: Dictionary in w.upgrades.roll_choices(w, rng, 3):
-			assert_ne(card.id, "magnet")
-	w.choice_bonus = false
-	for draw in 200:
-		for card: Dictionary in w.upgrades.roll_advancement_choices(w, rng, 3):
-			assert_ne(card.id, "magnet")
+func test_no_card_ever_raises_the_pickup_radius_with_or_without_a_vac_pet() -> void:
+	# Spec #225: the Magnet card is gone, so VAC has nothing to hide and the pickup radius stays at its base.
+	for w: RunWorld in [PF.world(PF.EVERYTHING), PF.world([PF.KITTY, PF.WING, PF.BINOCULAR]),
+			RunWorld.new(PF.setup(PF.data(), 0, PF.EVERYTHING))]:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 99
+		for draw in 100:
+			for card: Dictionary in w.upgrades.roll_choices(w, rng, 3):
+				assert_ne(card.id, "magnet")
+		assert_false("magnet" in w.upgrades.eligible(w))
+		assert_eq(w.magnet_r, float(w.balance.magnet_radius))
 
 
 func test_vac_without_its_prerequisites_is_ignored_with_a_warning() -> void:
 	var w := PF.world([PF.KITTY, PF.VAC])
 	assert_false(w.pet_has("vac"), "VAC needs Wing Boots and Binocular")
 	assert_true("\n".join(Array(w.warnings)).contains("9990000"), "reported: %s" % [w.warnings])
-	assert_true("magnet" in w.upgrades.eligible(w))
 	var full := PF.world(PF.EVERYTHING)
 	assert_true(full.pet_has("vac"))
 	assert_eq(full.warnings.size(), 0)

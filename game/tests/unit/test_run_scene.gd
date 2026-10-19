@@ -66,6 +66,9 @@ func test_one_off_character_file_option_restores_character() -> void:
 	var character := original.character_snapshot()
 	character.level = 35
 	character.exp = 17
+	# A Lv 35 character holds the scheduled potions (a load would catch Red and Blue up to these).
+	character.potions.hp.item_id = 2000002
+	character.potions.mp.item_id = 2000006
 	var path := ProjectSettings.globalize_path(test_dir("one off character.json"))
 	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
@@ -939,7 +942,8 @@ func test_drinking_hp_mp_and_upgraded_potions_plays_the_item_use_sound() -> void
 		scene.handle_events(w.drain_events())
 		assert_eq(scene.counters.sounds, sounds + 1, "%s drink starts its sound" % kind)
 	w.progression.level = 10
-	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	w.apply_potion_schedule(10, true)
+	assert_eq(w.player_state.potions.hp.item_id, 2000001)
 	var sounds := int(scene.counters.sounds)
 	assert_true(w.drink_potion("hp"))
 	scene.handle_events(w.drain_events())
@@ -964,7 +968,8 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 	assert_true(w.drink_potion("hp"))
 	assert_true(w.drink_potion("mp"))
 	w.progression.level = 10
-	assert_eq(w.upgrades.apply("orange_potion", w), 1)
+	w.apply_potion_schedule(10, true)
+	assert_eq(w.player_state.potions.hp.item_id, 2000001)
 	assert_true(w.drink_potion("hp"))
 	scene.handle_events(w.drain_events())
 	assert_eq(scene.counters.sounds, sounds, "missing sounds start no voice")
@@ -973,15 +978,19 @@ func test_missing_potion_sound_is_silent_and_reports_the_consumed_tier_path() ->
 	sfx.library = previous_library
 
 
-func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -> void:
+func test_scheduled_potion_upgrades_change_the_quickslot_icon_and_show_the_v83_notice() -> void:
 	if not require_cache():
 		return
 	scene = _make("henesys_hg1", 11, {})
-	scene.world.progression.level = 25
-	for example: Array in [["orange_potion", "hp", 2000001], ["white_potion", "hp", 2000002],
-			["mana_elixir", "mp", 2000006]]:
+	var notices := {2000001: "Your Red Potions are now Orange Potions.", 2000002: "Your Orange Potions are now White Potions.",
+		2000006: "Your Blue Potions are now Mana Elixirs."}
+	for example: Array in [[10, "hp", 2000001], [20, "mp", 2000006], [25, "hp", 2000002]]:
 		var before: Dictionary = scene.hud.quick_slot.displayed(example[1])
-		scene.world.upgrades.apply(example[0], scene.world)
+		scene.world.drain_events()
+		scene.world.apply_potion_schedule(example[0], true)
+		scene.handle_events(scene.world.drain_events())
+		var lines: Array = scene.hud.messages().map(func(m: Dictionary) -> String: return String(m.text))
+		assert_has(lines, notices[example[2]], "the level-up notice names the v83 items")
 		scene.advance_frame(0.0)
 		var after: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		assert_eq(after.item_id, example[2])
@@ -991,7 +1000,7 @@ func test_potion_tier_cards_change_the_quickslot_icon_without_changing_stock() -
 	_assert_nothing_missing(scene, "potion tiers")
 
 
-func test_levelup_window_adds_one_elixir_beside_its_available_potion_cards() -> void:
+func test_levelup_window_adds_one_elixir_beside_its_available_job_cards() -> void:
 	if not require_cache():
 		return
 	var height_one := 0.0
@@ -1000,7 +1009,7 @@ func test_levelup_window_adds_one_elixir_beside_its_available_potion_cards() -> 
 		var w := scene.world
 		w.change_job(200)
 		w.progression.level = 20
-		var ids: Array = ["orange_potion", "mana_elixir"].slice(0, n)
+		var ids: Array = ["energy_bolt_new", "magic_claw_new"].slice(0, n)
 		var upgrades: Dictionary = scene.data.upgrades.duplicate(true)
 		upgrades.cards = w.upgrades.cards.filter(func(c: Dictionary) -> bool: return c.id in ids)
 		w.upgrades = UpgradePool.from_data(upgrades)
@@ -1021,7 +1030,7 @@ func test_levelup_window_adds_one_elixir_beside_its_available_potion_cards() -> 
 				assert_true(lw.panel_size.y > height_one, "panel grows to hold the second card")
 			assert_true(lw.choose(0))
 			assert_eq(w.state, RunWorld.PLAYING)
-		_assert_nothing_missing(scene, "%d potion cards" % n)
+		_assert_nothing_missing(scene, "%d job cards" % n)
 		scene.free()
 		scene = null
 

@@ -142,12 +142,13 @@ static func new_character(look: Dictionary, weapon: int, img_loader: Callable) -
 	return character
 
 
-## A format-2 copy of a stored character: format 1 migrates with item info from `img_loader` (as new_character).
+## A migrated copy of a stored character, idempotent: format 1 becomes format 2 with item info from `img_loader` (as
+## new_character); a format-2 one only drops what spec #225 removed (Magnet ranks and radius modifier) and needs no loader.
 static func migrated_character(character: Dictionary, img_loader: Callable) -> Dictionary:
-	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
-		return character.duplicate(true)
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
+		return CharacterSnapshot.migrate(character, jobs, {})
 	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
@@ -265,9 +266,11 @@ func continue_character(index: int) -> void:
 	if snapshot.is_empty():
 		return
 	active_slot = index
-	if int(snapshot.character.get("format", 0)) != CharacterSnapshot.FORMAT:
-		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too.
-		snapshot.character = migrated_character(snapshot.character, equipment_info_loader())
+	var migrated := migrated_character(snapshot.character, equipment_info_loader())
+	if migrated != snapshot.character:
+		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too; a format-2
+		# one drops the Magnet ranks of before spec #225 (idempotent: later loads change nothing and do not save).
+		snapshot.character = migrated
 		if save_data().update_slot(index, snapshot) != OK:
 			_swap_to(error_screen("Could not save the round boundary."), "error")
 			return

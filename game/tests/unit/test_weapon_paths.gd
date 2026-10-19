@@ -251,6 +251,7 @@ func test_the_path_round_trips_through_the_snapshot() -> void:
 	_open_window(w, 10)
 	w.apply_job(400, "claw")
 	RF.auto_choose(w)
+	w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 	var snapshot := w.character_snapshot()
 	assert_eq(snapshot.weapon_path, "claw")
 	assert_eq(CharacterSnapshot.validation_error(snapshot), "")

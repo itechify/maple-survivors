@@ -25,7 +25,7 @@
 		{"id": 1812005, "kind": "pet_upgrade", "price": 1800, "sn": 60100042, "requires_any": [5000000, 5000001, 5000002]},
 		{"id": 9990000, "kind": "pet_upgrade", "price": 20000, "_tier": "Tier C: survivor-only item with a placeholder price; id 9990000 is reserved for it.",
 			"requires": [1812004, 1812005], "requires_any": [5000000, 5000001, 5000002], "name": "VAC", "icon": "Character.wz/PetEquip/01812000.img/info/icon",
-			"desc": "Your pet pulls every drop on the map to itself. While a pet with VAC is out, the Magnet card is no longer offered."},
+			"desc": "Your pet pulls every drop on the map to itself."},
 		{"id": 1002279, "kind": "equip", "price": 3700, "sn": 20000051},
 		{"id": 1002296, "kind": "equip", "price": 3200, "sn": 20000309},
 		{"id": 1002310, "kind": "equip", "price": 2700, "sn": 20000157},

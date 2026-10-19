@@ -35,6 +35,8 @@ extends RefCounted
 const FORMAT := 2 # tier C: spec #33 adds worn equipment, inventory, scrolls and mesos.
 ## Every format validation_error accepts; RunWorld and SceneFlow migrate older ones on load.
 const FORMATS := [1, 2]
+## Card ids removed from the game; migrate() drops them from card_ranks (spec #225).
+const REMOVED_CARDS := ["magnet", "orange_potion", "white_potion", "mana_elixir"]
 # tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
 # Beginner's nonzero beginner_weapon, else the nearest job ancestor's `format1_weapon` (data/survivor/jobs.json,
 # read with JobTree.lineage_value; Equipment.DEFAULT_OUTFIT's weapon when no job in the line has one).
@@ -44,6 +46,13 @@ const FORMATS := [1, 2]
 ## info}) gives the migrated items their fresh stats and upgrade slots.
 static func migrate(value: Dictionary, jobs: JobTree, equipment_info: Dictionary) -> Dictionary:
 	var out := value.duplicate(true)
+	# Spec #225: the Magnet and potion-tier cards are gone; their ranks and the radius modifier are dropped (no format
+	# bump). The potion items themselves stay and PotionSchedule catches them up.
+	if out.get("card_ranks") is Dictionary:
+		for removed: String in REMOVED_CARDS:
+			out.card_ranks.erase(removed)
+	if out.get("player_mods") is Dictionary:
+		out.player_mods.erase("magnet")
 	if int(value.get("format", 0)) == FORMAT:
 		return out
 	out.equipment = {"worn": Equipment.worn_from_ids(held_item_ids(value, jobs), equipment_info), "inventory": []}

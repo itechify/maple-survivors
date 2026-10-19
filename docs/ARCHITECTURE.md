@@ -182,7 +182,8 @@ Godot 2D). Time is seconds (WZ `delay` ms are converted on load). `fh` = foothol
 | `SpatialHash` | Broad phase for mobs | `_init(cell)`, `rebuild(xs, ys, active)`, `query_rect(r, out) -> int`, `query_radius(c, r, out) -> int` |
 | `ProjectileSystem` | Shots in flight (pooled SoA) | `spawn(spec) -> int`, `step(dt, swarm, hash, events, live_mdd := PackedFloat32Array(), physical_allowed := PackedByteArray(), on_hit := Callable(), live_pdd := PackedFloat32Array())`, per-shot pierce and already-hit list; live defense/immunity arrays are indexed by target slot at impact |
 | `PickupSystem` | EXP, potion, meso and equipment drops (pooled SoA) | `spawn(pos, exp, item_id, player_pos := Vector2.ZERO)`, `spawn_potion(pos, count, item_id, potion_kind)`, `spawn_meso(pos, amount)`, `spawn_equipment(pos, instance)`, `step(dt, player_pos, magnet_r, fhm, events, equip_room := -1)`, `active_count()`, `exp_count()` |
-| `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
+| `PotionInventory` | Unlimited HP/MP stock and canonical restore specs | `_init(tuning, item_info)`, `snapshot()`, `add(kind, count := 1)`, `upgrade(kind, item_id)` (the current item changes, the count is kept), `consume(kind) -> Dictionary`; `collected`, `used` counters per kind |
+| `PotionSchedule` | Level schedule of automatic potion upgrades (static, pure; `balance.potions.schedule`, spec #225) | `steps(balance)` (valid steps sorted by level), `due(schedule, level, current) -> Array` (re-scanned each time: no applied-step state, never a downgrade), `items(balance)`, `notice_text(from_name, to_name)`; `RunWorld.apply_potion_schedule(level, announce)` applies the due steps through `PotionInventory.upgrade` at each level-up (with a `potion_tier_up` event) and silently when a snapshot is restored |
 | `CombatMath` | Damage formulas (static) | `magic_damage_range(...)`, `monster_hit(attack, magic, element, defense, rng, multiplier)`, `monster_damage(...)`, `miss_chance(avoid, accuracy)`, `roll_miss(...)`, `apply_defense(...)`, `roll_crit(...)` |
 | `SkillBook` / `Loadout` | Survivor skill definitions + owned skills, ranks and modifiers | `Loadout.add_skill(id)`, `rank(id)`, `stats(id) -> Dictionary` (resolved damage, `mp_cost` from canonical `mpCon` or survivor override, cooldown, count, pierce, speed, range, size...), `regen_bonus(pool, char_level)` (HP/MP per regeneration pulse from skills with a `regen` field: `{pool, divisor}` or `{pool, field}`, the canonical level field), `SkillBook.weapon_families(key)` / `usable_with(key, family)` (the weapon a skill needs, #156), `clone()` (an independent copy for previews) |
 | `MobSkillRunner` | Scheduled canonical mob skills, delayed heals, summons, timed per-slot defense/immunity and player slow | `step(world)`, `defense_bonus(slot, magic, time)`, `slow_state(time)`, `immunity_state(slot, time)`, `summoned_alive(world, encounter)`, `resize`, `reset_slot`, `move_slot`; reads setup MobSkill/skill-list nodes and shares BossDirector action timing; named MobSkill ids `SKILL_PDD_UP_AREA` 112, `SKILL_MDD_UP_AREA` 113, `SKILL_HEAL_AREA` 114, `SKILL_SLOW` 126, `SKILL_WEAPON_IMMUNITY` 140, `SKILL_SUMMON` 200 (`SUPPORTED`); reads the world only through `RunWorld`/`MobSwarm` accessors (`swarm.pos`, `is_settled`, `live_in_rect`, `mob_kind`, `world.summoned_alive`, `spawn_offspring`, `refresh_player_speed`) |
@@ -235,7 +236,7 @@ var setup := {
 	                                  # canonical info/afterImage names (WeaponInfo.afterimage_name)
 	"mob_skill_img": Dictionary,      # Skill.wz/MobSkill.img root, including each skill's level tables
 	"item_info": {2000000: Dictionary, 2000003: Dictionary}, # canonical Consume item nodes (info icons + spec) of
-	                                  # DataRepo.potion_item_ids: balance.potions starters + the potion_tier ladders
+	                                  # DataRepo.potion_item_ids: balance.potions starters + the potions.schedule items
 	"data": {"skills": {}, "upgrades": {}, "stages": {}, "balance": {}, "mobs": {}, "jobs_survivor": {},
 		"jobs": {}, "exp_table": {}},   # parsed game/data/survivor/*.json and game/data/canonical/*.json
 	"stage": "henesys_hg1",           # key in stages.json
@@ -326,7 +327,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
-| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved) |
+| `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved): one per `potions.schedule` step applied at a level-up (never on a snapshot load). `RunScene` shows "Your Red Potions are now Orange Potions." from the String.wz item names |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
 | `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. The sim strikes the mobs when it lands (`mob_hit` events then); `RunScene` loops the ball along a short arc and plays `burst` at `to` on arrival |
 | `skill_impact` | `skill`, `pos` (struck mob's feet before hits), `effect` (blast art path): an opt-in projectile impact blast (#200), followed by ordinary `mob_hit` events for the primary and splash targets. `RunScene` plays the effect at the captured position |
@@ -796,10 +797,12 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   no touch damage until alpha is 1.
 - **`UpgradePool`:** `state` is the `RunWorld`; `apply()` also emits `upgrade_applied` (+ `skill_learned`). Card
   `effects` op `add` sums and `mul` compounds per rank. No card heals by percentage and no filler cards are injected.
-  A `potion_tier` card has `potion_kind`, target `item_id`, `requires.min_level` and `requires.potions` mapping its kind
-  to the required current item ID. This survivor data defines the whole ladder. Applying an eligible one-time tier
-  calls `RunWorld.upgrade_potion(kind, item_id)` and preserves stock; the event and refreshed player state update the
-  quickslot immediately. Future `spawn_potion` calls use the current ID, including boss bundles.
+  There are no job-neutral cards (spec #225): the Magnet and `potion_tier` cards are gone (`upgrades/common.json` keeps an
+  empty `cards` list) and the Power Elixir `fallback` is the only filler, offered alone when no card is eligible.
+  Potion tiers come from `PotionSchedule` instead: `RunWorld.apply_potion_schedule` calls `upgrade_potion(kind, item_id)`
+  per due step and preserves stock; the event and refreshed player state update the quickslot immediately. Future
+  `spawn_potion` calls use the current ID, including boss bundles. `CharacterSnapshot.migrate` drops `magnet` and the
+  removed potion cards from `card_ranks` (and the `magnet` modifier from `player_mods`) on load.
 - **Job window:** opens at a queued level whenever an option is available, and once at exactly the tier's first
   advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
 
@@ -837,11 +840,10 @@ be clipped by available MP, so it is not a substitute for the canonical active e
 Legacy `cards_taken` strings prefix the card ID with the front queued level, or −1 when that queue is empty.
 A bonus choice can have a positive prefix while levels remain queued. The field supplies neither a bonus flag
 nor a choice timestamp, so it cannot isolate normal-choice acquisition timing.
-The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
-to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
-ID. These replace the final score, with no job bonus added; an unlisted card retains its existing
-scoring path. Random policy selects uniformly among offered cards with its own seeded RNG and never reads either
-score setting. Both knobs are tier C survivor tuning.
+The sensible `BotInput.card_score` reads optional `balance.bot.card_scores`, which takes precedence for an individual
+card ID (potions are no longer cards, spec #225, so there is no potion-tier score). Such a score replaces the final
+score, with no job bonus added; an unlisted card retains its existing scoring path. Random policy selects uniformly
+among offered cards with its own seeded RNG and never reads the score setting. The knob is tier C survivor tuning.
 
 | Piece | Approach |
 |---|---|

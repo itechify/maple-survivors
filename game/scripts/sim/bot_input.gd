@@ -63,10 +63,8 @@ const SCORE_MOD := {"count": 75.0, "damage": 64.0, "pierce": 58.0, "area": 58.0,
 const SCORE_MOD_OTHER := 25.0
 ## Bonus for cards of a skill of the player's current job (a Magician invests in Magician skills).
 const SCORE_JOB_BONUS := 12.0
-const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0, "magnet": 22.0, "max_mp": 16.0,
+const SCORE_PLAYER := {"max_hp": 46.0, "hp_regen": 36.0, "pdd": 34.0, "speed": 26.0, "max_mp": 16.0,
 	"mp_regen": 16.0}
-## tier C: permanent potion tier improvement is preferred to a general defence card, below attack ranks.
-const SCORE_POTION_TIER := 52.0
 ## tier C: score added per step a card grants beyond its first (`c.magnitude - 1`); survivor balance.json bot.gain_step_score
 ## overrides it. 6 lets a Rare or Epic offer pass the cards just below it (a Rare +2 attack rank, 62+12+6 = 80, passes a
 ## Normal pierce card, 70). A Unique stacking card (+4 shots, 87+18 = 105) and a Legendary +8 attack rank
@@ -362,10 +360,14 @@ static func _keeps_mp_reserve(w: RunWorld, manual_key: String) -> bool:
 
 
 ## tier C: drink a `kind` potion only when stock remains and `missing` is at least `guard` of one potion's canonical
-## restore, so most of it lands below the pool cap.
+## restore, so most of it lands below the pool cap. The restore counts only up to the max HP/MP pool (#229: the
+## 1000-2000 point steps restore more than a pool holds, and would otherwise never be worth drinking), but never as less
+## than `potions.bot.pool_floor` of the potion, so a tiny pool (the 5-MP Beginner) still never wastes a 100-MP Blue.
 static func worth_drinking(w: RunWorld, kind: String, missing: float, guard: float) -> bool:
-	var amount := w.potions.restore_amount(kind)
-	return amount > 0 and int(w.potions.stock[kind].count) > 0 and missing >= guard * amount
+	var restore := w.potions.restore_amount(kind)
+	var floor_share := float(w.balance.get("potions", {}).get("bot", {}).get("pool_floor", 0.25))
+	var amount := maxf(minf(float(restore), float(w.player_state.get("max_" + kind, 0))), floor_share * restore)
+	return restore > 0 and int(w.potions.stock[kind].count) > 0 and missing >= guard * amount
 
 
 ## True when mob `i` is an ordinary (non-elite, non-boss) mob and no attack skill could fire now: every attack is
@@ -545,15 +547,13 @@ static func pick_card_for(w: RunWorld, cards: Array) -> String:
 ## How much a sensible player wants card `c`: its base score (by kind / skill / stat, plus the current-job bonus;
 ## a survivor bot.card_scores entry replaces the base and gets no job bonus) plus gain_step_score for every step beyond
 ## the first that the offer grants (`c.magnitude`, the resolved ranks / steps / starting rank; missing or <= 0 counts as
-## 1). Potion-tier cards score their configured tier_score and the Elixir filler its base, regardless of magnitude; a
+## 1). The Elixir filler scores its base, regardless of magnitude; a
 ## card the pool does not know scores 0.
 static func card_score(w: RunWorld, c: Dictionary) -> float:
 	var d := w.upgrades.card(String(c.get("id", "")))
 	if d.is_empty():
 		return 0.0
 	var kind := String(d.get("kind", ""))
-	if kind == "potion_tier":
-		return float(w.balance.get("potions", {}).get("bot", {}).get("tier_score", SCORE_POTION_TIER))
 	if kind == "filler":
 		return _base_score(w, d) # the Elixir fallback ignores magnitude even if a table ever gave it one
 	var step := float(w.balance.get("bot", {}).get("gain_step_score", SCORE_GAIN_STEP))

@@ -528,6 +528,7 @@ func test_the_snapshot_round_trips_both_branches_on_both_paths() -> void:
 					BotInput.auto_choose(w, false, job, path)
 			assert_eq(w.state, RunWorld.PLAYING)
 			w.learn_skill("improve_maxhp" if job == 510 else "gun_mastery")
+			w.apply_potion_schedule(w.progression.level, false) # the test sets the level directly: no level-up ran the schedule
 			var snapshot := w.character_snapshot()
 			assert_eq(CharacterSnapshot.validation_error(snapshot), "", "%s %d" % [path, job])
 			var setup := w.setup.duplicate(true)

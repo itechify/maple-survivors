@@ -1159,6 +1159,8 @@ func handle_events(events: Array) -> void:
 			"potion_used", "pet_potion_used":
 				# tier A: v83 Item.img uses eight-digit item IDs and the Use property.
 				_sound("Sound.wz/Item.img/%08d/Use" % int(e.item_id))
+			"potion_tier_up":
+				_on_potion_tier_up(e)
 			"level_up":
 				fx.play(FX_LEVEL_UP, Vector2.ZERO, false, avatar)
 				_sound(SND_LEVEL_UP)
@@ -1244,6 +1246,22 @@ func _on_ammo_upgraded(e: Dictionary) -> void:
 	hud.push_message(Ammo.notice(Ammo.noun(world.data.get("ammo", {}), String(e.family)),
 		item_name if item_name != "" else "Item %d" % int(e.item_id)))
 	_event_shot("ammo_%d.png" % int(e.item_id), 0.4)
+
+
+## A scheduled potion upgrade (spec #225): the one-line system notice in the v83 item names ("Your Red Potions are now
+## Orange Potions."), and an evidence shot for playtests.
+func _on_potion_tier_up(e: Dictionary) -> void:
+	if hud == null:
+		return
+	hud.push_message(PotionSchedule.notice_text(int(e.from_item_id), _item_name(int(e.from_item_id)), int(e.item_id),
+		_item_name(int(e.item_id)), world.balance.get("potions", {}).get("plural_names", {})))
+	_event_shot("potion_tier_%d.png" % int(e.item_id), 0.4)
+
+
+## The String.wz name of consumable `id` ("Item <id>" without the cache).
+func _item_name(id: int) -> String:
+	var found: Variant = library.find(InventoryModel.name_path(id)) if library != null else null
+	return String(found) if found is String and String(found) != "" else "Item %d" % id
 
 
 func _on_cast(e: Dictionary) -> void:
