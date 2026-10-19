@@ -507,7 +507,7 @@ func test_the_bot_takes_the_forced_branch_at_both_windows() -> void:
 	var w := _pirate("knuckle")
 	_open_window(w)
 	for job in [510, 520]:
-		assert_eq(BotInput.pick_choice(w.pending_jobs, w.job_rng, job, w.jobs, "knuckle"), {"job_id": job, "path": ""})
+		assert_eq(BotInput.pick_choice(w.pending_jobs, w.job_rng, job, w.jobs, "knuckle"), {"job_id": job, "path": "knuckle" if job == 510 else ""})
 	var seen := {}
 	for seed_value in 12:
 		var rng := RandomNumberGenerator.new()

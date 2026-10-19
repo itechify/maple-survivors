@@ -15,6 +15,8 @@ func _world() -> RunWorld:
 		1452005: {"incPAD": 45, "attackSpeed": 6, "tuc": 7}}, true)
 	var w := RunWorld.new(setup)
 	w.change_job(300, "bow")
+	# Weapon-switch tests own an acquired crossbow; it is no longer an advancement spare.
+	w.equipment.inventory.append(Equipment.create(1462001, setup.equipment_info[1462001]))
 	RF.place_player(w, 400)
 	w.drain_events()
 	return w

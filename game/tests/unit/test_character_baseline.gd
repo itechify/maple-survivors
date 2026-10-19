@@ -3,9 +3,9 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
+## Re-captured for #230: one entry per job now carries page-ordered paths, and only the chosen weapon is granted.
 ## Binary event encoding is platform independent (see below).
-const GOLDEN := "36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e"
+const GOLDEN := "b4b22cfe4458ac656e34d2cec9d34002b222844494cefd31cf4e018950269bf8"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
@@ -67,4 +67,6 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# Re-captured for the #142 merge onto spec #151 (serializer only). This branch retains the #153 crit rolls and
 	# #163 Warrior option / seeded first-job pick above, so its golden legitimately differs from main's 9545f55b... .
 	# The binary digest matches on the unoptimised 19ca0a8 tip and the merged code (Windows, Godot 4.7.2).
+	# #230 deliberately changes job_advance_pending option bytes (paths arrays), weapon grants and resulting records.
+	# The frozen pre-#230 digest was 36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e.
 	assert_eq(_event_digest(72000), GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

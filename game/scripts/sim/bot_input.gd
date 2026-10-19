@@ -481,9 +481,8 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 ## The window entry the bot takes: {job_id, path} (job_id -1 and path "" = "Not now"). A seeded available job, or the
 ## forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available option that is an ancestor of
 ## `forced` counts too, so forcing a second job takes its first job at the first window. A single option consumes no
-## RNG. A first job listed per weapon path (spec #151 #157) takes `forced_path` when the window has it; with none named,
-## a forced branch takes the path whose weapon family it can use (its JobTree.weapon_families), else the job stream
-## draws one of the paths (tier C).
+## RNG. A named forced path is used when the selected job offers it; otherwise pass the default (empty path).
+## The uniform path draws for spec #226 are added by ticket #232.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
 		forced_path := "") -> Dictionary:
 	var available: Array[Dictionary] = []
@@ -503,21 +502,18 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 				break
 	if target < 0:
 		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
-			else available[0])
-	var entries := available.filter(func(o: Dictionary) -> bool: return int(o.job_id) == target)
-	for o in entries:
-		if forced_path != "" and String(o.get("path", "")) == forced_path:
-			return _entry(o)
-	if forced_path == "" and jobs != null and entries.size() > 1:
-		var families := jobs.weapon_families(forced)
-		for o in entries:
-			if jobs.path_of(target, String(o.get("path", ""))).get("family", "") in families:
-				return _entry(o)
-	return _entry(entries[rng.randi_range(0, entries.size() - 1)] if entries.size() > 1 and rng != null else entries[0])
+			else available[0], forced_path)
+	for o: Dictionary in available:
+		if int(o.job_id) == target:
+			return _entry(o, forced_path)
+	return {"job_id": -1, "path": ""}
 
 
-static func _entry(o: Dictionary) -> Dictionary:
-	return {"job_id": int(o.job_id), "path": String(o.get("path", ""))}
+static func _entry(o: Dictionary, forced_path := "") -> Dictionary:
+	for p: Dictionary in o.get("paths", []):
+		if String(p.id) == forced_path:
+			return {"job_id": int(o.job_id), "path": forced_path}
+	return {"job_id": int(o.job_id), "path": ""}
 
 
 ## The card a first-card player takes ("" when there is none).

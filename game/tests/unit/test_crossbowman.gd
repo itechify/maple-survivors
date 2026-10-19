@@ -21,6 +21,7 @@ func _bowman(crossbow := false, fixed_damage := false) -> RunWorld:
 	var w := RunWorld.new(setup)
 	w.change_job(300, "bow")
 	if crossbow:
+		w.equipment.inventory.append(Equipment.create(1462001, setup.equipment_info[1462001]))
 		assert_eq(w.equip_item(_inventory(w).find(1462001)), "")
 	RF.place_player(w, 400)
 	w.god = true

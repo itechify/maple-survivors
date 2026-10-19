@@ -1,8 +1,6 @@
 extends TestCase
-## Warrior second job opens (spec #165 ticket #180, docs/GAME_DESIGN.md sections 8 and 9): Fighter 110, Page 120 and
-## Spearman 130 at Lv 30 with +325 Max HP, two advancement weapons per branch (worn: the held family's, else the first
-## family's; the other and the displaced weapon join the Equip tab, spilling at the player's feet when it is full), and the
-## Warrior's first-job attack cards kept on offer after the advancement (never in the advancement draw). Seeded, fixed ticks.
+## Warrior second job: chosen-only advancement weapons, +325 HP and carried first-job attacks (#226).
+## Seeded synthetic worlds, fixed ticks; defaults follow the held family on the branch page.
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
@@ -111,53 +109,53 @@ func test_warrior_growth_stays_26_hp_and_5_mp_per_level_after_the_second_job() -
 
 # --- advancement weapons -----------------------------------------------------------------------------------------------
 
-func test_a_fighter_holding_a_sword_wears_the_gladius_and_the_tab_gets_the_old_sword_and_the_axe() -> void:
+func test_a_fighter_holding_a_sword_wears_only_the_gladius() -> void:
 	var w := _warrior(1302077)
 	_advance(w, 110)
 	assert_eq(w.weapon_id(), GLADIUS)
 	assert_eq(w.held_weapon_family(), "sword")
-	assert_eq(_inventory_ids(w), [1302077, FIREMANS_AXE], "the displaced sword, then the other advancement weapon")
+	assert_eq(_inventory_ids(w), [1302077], "only the displaced sword")
 	assert_eq(_spilled(w), [])
 
 
-func test_a_fighter_holding_an_axe_wears_the_firemans_axe_and_the_tab_gets_the_axe_and_the_gladius() -> void:
+func test_a_fighter_holding_an_axe_wears_only_the_firemans_axe() -> void:
 	var w := _warrior(1312004)
 	_advance(w, 110)
 	assert_eq(w.weapon_id(), FIREMANS_AXE, "the held family is one of the branch's: its weapon is worn")
-	assert_eq(_inventory_ids(w), [1312004, GLADIUS])
+	assert_eq(_inventory_ids(w), [1312004])
 
 
 func test_a_fighter_holding_the_lv10_spear_wears_the_gladius() -> void:
 	var w := _warrior(1432000)
 	_advance(w, 110)
 	assert_eq(w.weapon_id(), GLADIUS, "a spear is no Fighter family: the first family's weapon is worn")
-	assert_eq(_inventory_ids(w), [1432000, FIREMANS_AXE])
+	assert_eq(_inventory_ids(w), [1432000])
 
 
 func test_a_page_holding_a_sword_or_the_steel_pipe_wears_the_matching_weapon() -> void:
 	var sword := _warrior(1302077)
 	_advance(sword, 120)
 	assert_eq(sword.weapon_id(), GLADIUS)
-	assert_eq(_inventory_ids(sword), [1302077, WAR_HAMMER])
+	assert_eq(_inventory_ids(sword), [1302077])
 	var pipe := _warrior(1322006)
 	_advance(pipe, 120)
 	assert_eq(pipe.weapon_id(), WAR_HAMMER, "the Steel Pipe is blunt: the War Hammer is worn")
-	assert_eq(_inventory_ids(pipe), [1322006, GLADIUS])
+	assert_eq(_inventory_ids(pipe), [1322006])
 
 
-func test_a_spearman_holding_the_spear_wears_the_forked_spear_and_the_tab_gets_the_pole_arm() -> void:
+func test_a_spearman_holding_the_spear_wears_only_the_forked_spear() -> void:
 	var w := _warrior(1432000)
 	_advance(w, 130)
 	assert_eq(w.weapon_id(), FORKED_SPEAR)
 	assert_eq(w.held_weapon_family(), "spear")
-	assert_eq(_inventory_ids(w), [1432000, MITHRIL_POLE_ARM])
+	assert_eq(_inventory_ids(w), [1432000])
 
 
 func test_a_spearman_holding_a_sword_wears_the_forked_spear() -> void:
 	var w := _warrior(1302077)
 	_advance(w, 130)
 	assert_eq(w.weapon_id(), FORKED_SPEAR, "the first family's weapon")
-	assert_eq(_inventory_ids(w), [1302077, MITHRIL_POLE_ARM])
+	assert_eq(_inventory_ids(w), [1302077])
 
 
 func test_a_full_equip_tab_drops_the_grants_at_the_feet_and_advancing_does_not_fail() -> void:
@@ -165,11 +163,11 @@ func test_a_full_equip_tab_drops_the_grants_at_the_feet_and_advancing_does_not_f
 	_advance(w, 110)
 	assert_eq(w.weapon_id(), GLADIUS, "advancing never fails")
 	assert_eq(w.equipment.inventory.size(), 24, "the tab is unchanged")
-	assert_eq(_spilled(w), [1302077, FIREMANS_AXE], "the old sword and the axe lie at the player's feet")
+	assert_eq(_spilled(w), [1302077], "only the old sword lies at the player's feet")
 	var one := _warrior(1302077, 1)
 	_advance(one, 110)
 	assert_eq(_inventory_ids(one).slice(23), [1302077], "the displaced weapon has priority for the one free slot")
-	assert_eq(_spilled(one), [FIREMANS_AXE])
+	assert_eq(_spilled(one), [])
 
 
 func test_a_two_handed_advancement_weapon_takes_the_shield_off_into_the_tab() -> void:
@@ -178,7 +176,7 @@ func test_a_two_handed_advancement_weapon_takes_the_shield_off_into_the_tab() ->
 	_advance(w, 130)
 	assert_eq(w.weapon_id(), FORKED_SPEAR)
 	assert_false(w.equipment.worn.has("shield"), "a two-handed weapon never keeps a shield")
-	assert_eq(_inventory_ids(w), [1302077, 1092000, MITHRIL_POLE_ARM], "the sword, the shield, then the pole arm")
+	assert_eq(_inventory_ids(w), [1302077, 1092000], "the sword and shield")
 
 
 # --- the data shape and the preload -------------------------------------------------------------------------------------
@@ -208,17 +206,17 @@ func test_every_advancement_weapon_is_in_the_starter_equipment_preload() -> void
 	# A row that lists a weapon the collector does not read would pass silently on a warm cache: prove the collector
 	# follows the data by adding a synthetic playable branch.
 	var data := DataRepo.load_all()
-	data.jobs_survivor.jobs["999"] = {"playable": true, "weapon_families": ["bow"], "grant_items": [1452999]}
-	assert_true(1452999 in DataRepo.starter_equipment_ids(data), "the collector reads grant_items")
+	data.jobs_survivor.jobs["999"] = {"playable": true, "paths": [{"id": "bow", "family": "bow", "item_id": 1452999}]}
+	assert_true(1452999 in DataRepo.starter_equipment_ids(data), "the collector reads paths")
 
 
 func test_branch_grant_reads_one_weapon_per_family_and_nothing_without_items() -> void:
 	var survivor := {"jobs": {
-		"110": {"weapon_families": ["sword", "axe"], "grant_items": [GLADIUS, FIREMANS_AXE]},
-		"310": {"weapon_families": ["bow"], "grant_items": [1452000]},
-		"410": {"weapon_families": ["claw"]},
-		"420": {"weapon_families": ["dagger"], "grant_items": [0]},
-		"430": {"weapon_families": ["dagger", "claw"], "grant_items": [1332000]}}}
+		"110": {"paths": [{"id": "sword", "family": "sword", "item_id": GLADIUS}, {"id": "axe", "family": "axe", "item_id": FIREMANS_AXE}]},
+		"310": {"paths": [{"id": "bow", "family": "bow", "item_id": 1452000}]},
+		"410": {},
+		"420": {"paths": [{"id": "dagger", "family": "dagger", "item_id": 0}]},
+		"430": {"paths": [{"id": "dagger", "family": "dagger", "item_id": 1332000}, {"id": "claw", "family": "claw"}]}}}
 	var jobs := JobTree.from_data({"jobs": []}, survivor)
 	assert_eq(jobs.branch_grant(110), {"weapons": [{"family": "sword", "item_id": GLADIUS},
 		{"family": "axe", "item_id": FIREMANS_AXE}]})

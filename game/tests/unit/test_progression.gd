@@ -7,7 +7,7 @@ const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
 const CARD_KEYS := ["id", "kind", "name", "desc", "icon", "tier", "magnitude", "rank_before", "rank", "max_rank", "skill", "skill_name", "skill_level",
 	"skill_level_next", "skill_level_max", "skill_changes", "skill_effect_stat", "skill_mod_changes"]
-const JOB_OPTION_KEYS := ["job_id", "name", "available", "reason"]
+const JOB_OPTION_KEYS := ["job_id", "name", "available", "reason", "paths"]
 
 
 ## Drops `n` EXP on the player and steps until it is collected (or a window opens).
@@ -80,15 +80,15 @@ func test_job_tree_options() -> void:
 	var ids: Array = []
 	for o: Dictionary in at8:
 		ids.append(int(o.job_id))
-		assert_eq(_sorted_keys(o), _sorted(JOB_OPTION_KEYS + (["path"] if int(o.job_id) in [300, 400, 500] else [])))
+		assert_eq(_sorted_keys(o), _sorted(JOB_OPTION_KEYS))
 		if int(o.job_id) == 200:
 			assert_eq(o.name, "Magician")
 		assert_false(o.available)
 		assert_eq(o.reason, "Lv. 10", "%d shows its requirement" % o.job_id)
-	assert_eq(_sorted(ids), [100, 200, 300, 400, 400, 500, 500])
+	assert_eq(_sorted(ids), [100, 200, 300, 400, 500])
 	for o: Dictionary in t.advancements(0, 10):
 		if int(o.job_id) in [100, 200, 300, 400, 500]:
-			assert_true(o.available, "Warrior, Magician, Bowman and both Thief/Pirate paths at 10")
+			assert_true(o.available, "one entry for each playable first job at 10")
 			assert_eq(o.reason, "")
 		else:
 			assert_eq(o.reason, "Not in this build")
@@ -224,7 +224,7 @@ func test_job_advancement_decline_then_accept() -> void:
 	assert_eq(pend.size(), 1)
 	if pend.size() == 1:
 		var opts: Array = pend[0].options
-		assert_eq(opts.size(), 7)
+		assert_eq(opts.size(), 5)
 		for o: Dictionary in opts:
 			assert_true(bool(o.available), "all five first jobs and their paths are available")
 	assert_false(w.apply_job(310), "a second job is not available at the first advancement")
