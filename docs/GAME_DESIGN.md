@@ -565,6 +565,16 @@ Sundae (Lv 60) were all applied in turn, and the bot drank Red Bean Sundae (MP, 
 ("Your White Potions are now Unagis." ... "Your Pure Waters are now Red Bean Sundaes.") and the quick slots with the
 new icons. A second copy at Lv 59 ended at Lv 101-ish (Dark Cave EXP is huge) and drank Red Bean Sundae; it is not evidence of pacing.
 
+#### Spec #225 merged with playtest-3 (#235): `test_full_run` guard relaxed (2026-10-19)
+
+Merging main (#223's knockback guard, #222's auto-equip) into spec #225 moved `test_full_run`'s Henesys seeds 2 and
+2026 to Beginner deaths at 4:34 / 4:19 (Lv 8 / Lv 7), a few seconds before Lv 10, so the guard "Lv 8, Lv 10 and
+Magician on 2/3 predetermined runs" failed (each side alone passed it). Diagnosis on training seeds only,
+`balance.sh 1..24 --policy=bot --job=200 --cap=420`, same cache: main `0e8b216` vs the merge `8047007` both reach Lv 10
+21/24 (median 4:33 / 4:35) and Magician at 267-300 s / 266-290 s; deaths before 7:00 are 4 / 8 (mostly after Lv 10, at
+Mano) and potions collected HP 354 / 304, MP 464 / 414 (no Magnet card). Early pacing is unchanged; the failure is a
+reshuffle. The owner relaxed the guard until the balance pass (#77): Lv 8 on 2/3, Lv 10 / Magician on 1/3.
+
 #### #223 knockback guard regression smoke (2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, default job pick, read-only
