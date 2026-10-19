@@ -4923,7 +4923,8 @@ migration too, without a format bump. Existing Equip-tab weapons are retained, a
 (`410:claw`, `410:dagger`). Unknown paths fail at startup. #230's compatibility callers pass an offered forced
 path or the empty default; #232 adds uniform job-stream-8 path draws at each advancement, using a forced path only
 when that advancement offers it. Seeded records intentionally change: fewer grants, one entry per job, recorded
-Warrior/Bowman paths, and subsequently the new bot draws. No goldens or character fixtures are re-captured in #230.
+Warrior/Bowman paths, and subsequently the new bot draws. #230 re-captures the fixed-seed synthetic event digest
+(`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Character fixtures are unchanged.
 
 **Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
 (a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
