@@ -115,6 +115,9 @@ extends Node
 ##           job, path, weapons, skills and mesos equal the snapshot before quitting. Shots: pirate_equip_both_weapons,
 ##           pirate_lv10_job_window/_job_confirm/_advanced, pirate_lv30_job_window/_job_confirm/_advanced, pirate_playing,
 ##           pirate_dash, pirate_hub, pirate_save_and_quit, pirate_character_select, pirate_continue_restored; summary.json.
+##   bowman  Bowman -> Hunter/Crossbowman (#166 QA #204, --branch=310|320): real Lv10/Lv30 job windows via diagnostic
+##           invulnerable EXP drops, both first-job weapons, Lv30 advancement weapon and Bronze arrow notice;
+##           Free Market boundary shortcut, Save & quit -> Continue restores job, weapons, skills and derived arrow tier.
 ##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
@@ -198,6 +201,8 @@ func _ready() -> void:
 			_scenario_warrior2()
 		"pirate":
 			_scenario_pirate()
+		"bowman":
+			_scenario_bowman()
 		"keys":
 			_scenario_keys()
 		"cash_shop":
@@ -1574,7 +1579,7 @@ func _scenario_pirate() -> void:
 	_check(sword != 0 and w.progression.job_id == 0, "a Beginner holding weapon %d" % sword)
 	# Lv10: the real job window offers Pirate - Knuckle and Pirate - Gun.
 	w.god = true # debug: the idle character must not be killed while EXP drops carry it up
-	var first := await _pirate_climb(run, 10, 500, path_id, "pirate_lv10")
+	var first := await _climb_job(run, 10, 500, path_id, "pirate_lv10")
 	if first.is_empty():
 		return
 	var labels: Array = first.entries
@@ -1612,7 +1617,7 @@ func _scenario_pirate() -> void:
 	run.handle_events(w.drain_events())
 	_check(w.loadout.rank("dash") == 1, "Dash is learned (rank %d)" % w.loadout.rank("dash"))
 	# Lv30 by a debug warp (EXP drops, invulnerable), then the real Lv 30 window.
-	var second := await _pirate_climb(run, 30, branch, "", "pirate_lv30")
+	var second := await _climb_job(run, 30, branch, "", "pirate_lv30")
 	if second.is_empty():
 		return
 	_check(w.progression.job_id == branch and w.progression.level == 30, "a Lv30 job %d (level %d)" % [w.progression.job_id, w.progression.level])
@@ -1698,16 +1703,146 @@ func _scenario_pirate() -> void:
 	_quit()
 
 
+## Bowman QA (#204): real advancement input, diagnostic EXP-drop warp and boundary shortcut, like the Pirate scenario.
+func _scenario_bowman() -> void:
+	var branch := int(args.get("branch", "310"))
+	if branch not in [310, 320]:
+		_fail("bowman requires --branch=310|320")
+		return
+	var weapon := 1452005 if branch == 310 else 1462000
+	var bronze := 2060001 if branch == 310 else 2061001
+	_backup_settings()
+	var settings := get_node("/root/Settings") as GameSettings
+	var scratch := "user://flow_driver_bowman_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
+	settings.reload_from(scratch)
+	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
+		return
+	await _sleep(2.0)
+	await _key(KEY_ENTER)
+	if not await _create_character("Bowman204"):
+		return
+	await _sleep(1.0)
+	await _start_selected(flow.current)
+	if not await _until(func() -> bool: return flow.current_name == "run", 10.0, "run"):
+		return
+	var run := flow.current as RunScene
+	await _sleep(2.0)
+	var w := run.world
+	w.god = true # tier C: diagnostic EXP-drop climb, never a natural survival claim.
+	var first := await _climb_job(run, 10, 300, "bow", "bowman_lv10")
+	if first.is_empty():
+		return
+	_check(w.progression.job_id == 300 and w.weapon_path == "bow" and w.weapon_id() == 1452051,
+		"Lv10 Bowman wears the Beginner Bowman's bow")
+	await _key(KEY_E)
+	await _key(KEY_I)
+	await _sleep(0.5)
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	if ew == null or iw == null:
+		_fail("Bowman Equip and Item windows did not open")
+		return
+	var ids := iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	_check(ew.worn_id("weapon") == 1452051 and 1462001 in ids, "bow worn; crossbow in the Equip tab")
+	await _shot("bowman_equip_both_weapons")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	# The plain crossbow requires Lv12. Reach it through the same real EXP/card flow, then wear it by injected double-click.
+	await _climb_job(run, 12, -1, "", "bowman_lv12")
+	await _key(KEY_I)
+	await _sleep(0.5)
+	iw = run.ui_windows.find_window("item") as ItemWindow
+	ids = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	await _double_click_at(iw.get_global_rect().position + iw.slot_rect(ids.find(1462001)).get_center())
+	await _sleep(0.5)
+	_check(w.weapon_id() == 1462001, "the first-job crossbow is wearable through the Equip tab")
+	await _shot("bowman_first_job_crossbow")
+	# Ammo family changes are intentionally silent (#155). Hold the branch family before advancement to check its tier notice.
+	if branch == 310:
+		ids = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+		await _double_click_at(iw.get_global_rect().position + iw.slot_rect(ids.find(1452051)).get_center())
+		_check(w.weapon_id() == 1452051, "Hunter candidate holds the bow again before advancement")
+	await _key(KEY_ESCAPE)
+	var second := await _climb_job(run, 30, branch, "", "bowman_lv30")
+	if second.is_empty():
+		return
+	_check(second.entries.size() >= 2 and w.progression.job_id == branch and w.progression.level == 30,
+		"Lv30 window offers both Bowman branches and advances to %d" % branch)
+	_check(w.weapon_id() == weapon, "the branch's advancement weapon is worn")
+	_check(w.ammo_id() == bronze, "Bronze arrows selected after advancement")
+	var messages: Array = second.messages
+	_check(messages.any(func(t: String) -> bool: return t.contains("Your arrows are now") and t.contains("Bronze")),
+		"the Bronze arrow upgrade notice is shown (%s)" % [messages])
+	var attack := "arrow_bomb" if branch == 310 else "iron_arrow"
+	_check(w.loadout.rank(attack) > 0 or w.loadout.rank("power_knockback_bow" if branch == 310 else "power_knockback_crossbow") > 0,
+		"the real advancement draw teaches a branch attack")
+	_collect_missing(run)
+	var carried := w.character_snapshot()
+	var slot := flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market" # tier C: diagnostic boundary shortcut, matching Warrior/Pirate QA.
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "saved Bowman boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Free Market"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	_check(hub.inventory.ammo_id() == bronze, "hub derives Bronze arrows")
+	_collect_missing(hub)
+	await _shot("bowman_hub")
+	await _key(KEY_ESCAPE)
+	await _sleep(0.6)
+	await _shot("bowman_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("bowman_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "cards"]:
+		_check(saved.get(key) == expected.get(key), "Save & quit kept %s" % key)
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for key: String in ["job_id", "level", "weapon_path", "equipment", "skills", "cards"]:
+		_check(restored.get(key) == expected.get(key), "Continue restored %s" % key)
+	_check(again.inventory.ammo_id() == bronze, "Continue restored the derived arrow tier")
+	await _key(KEY_E)
+	await _sleep(0.5)
+	ew = again.ui_windows.find_window("equip") as EquipWindow
+	_check(ew != null and ew.worn_id("weapon") == weapon, "restored advancement weapon visible in Equip")
+	await _shot("bowman_continue_restored")
+	_collect_missing(again)
+	_check(_missing.is_empty(), "missing assets: %s" % [_missing])
+	var report := {"scenario": "bowman", "branch": branch, "job_id": int(restored.job_id),
+		"level": int(restored.level), "weapon": weapon, "ammo": again.inventory.ammo_id(), "skills": restored.skills,
+		"lv10_entries": first.entries, "lv30_entries": second.entries, "missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	file.close()
+	print("flow_driver: bowman scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
+	_quit()
+
+
 ## Takes the run to `target` level with EXP drops through the real level-up cards, answering the job window with the entry for
-## `want_job` (and `want_path` when given). Returns {entries: ["text", ...]} once the window was answered and the next
-## stretch of play started, or {} after a failed check.
-func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
+## `want_job` (and `want_path` when given; a negative job only climbs). Returns the entries and advancement-time HUD
+## messages once the window was answered and play resumed, or {} after a failed check.
+func _climb_job(run: RunScene, target: int, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
 	var w := run.world
 	var spawned_level := 0
 	var spawned_at := -100.0
 	var seen := false
 	var advanced_shot := false
 	var texts: Array = []
+	var messages: Array = []
 	for guard in 1500:
 		if guard % 50 == 0:
 			print("flow_driver: climbing to Lv%d: level %d, state %d, window %s, paused %s" % [
@@ -1733,6 +1868,9 @@ func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String,
 			await _sleep(0.4)
 			await _shot(shot_prefix + "_job_confirm")
 			await _key(KEY_ENTER)
+			messages = run.hud.messages().map(func(m: Dictionary) -> String: return String(m.text))
+			if want_job in [310, 320]:
+				await _shot(shot_prefix + "_bronze_arrow_notice")
 			await _sleep(0.9)
 		elif run.window is LevelUpWindow and (run.window as MapleWindow).is_open():
 			await _sleep(0.5)
@@ -1745,6 +1883,8 @@ func _pirate_climb(run: RunScene, target: int, want_job: int, want_path: String,
 				await _key((KEY_1 + pick) as Key)
 				await _sleep(0.4)
 		elif seen and run.window == null and w.state == RunWorld.PLAYING:
+			return {"entries": texts, "messages": messages}
+		elif want_job < 0 and w.progression.level >= target and run.window == null and w.state == RunWorld.PLAYING:
 			return {"entries": texts}
 		elif w.state == RunWorld.PLAYING and run.window == null and w.progression.level < target \
 				and (w.progression.level != spawned_level or w.time - spawned_at > 3.0):
