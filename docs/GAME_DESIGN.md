@@ -481,7 +481,30 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
+#### #222 auto-equip on pickup: regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` (12 runs) on
+`t3/playtest3-222` against the same 12 runs on its base `main` (`d1cdb16`), same private cache
+(`caches/p3-main`, the current manifest), no PATCH, no tuning, no held-out seeds. No crash, script error, world warning or
+missing asset; every run dies, as in the previous smoke (#204, 2026-10-18, below). **All 12 records are byte-identical to
+main's** (outcome, times, hits, levels, drops, `equipment_worn`): the bot already wore an eligible drop on the tick it was
+picked up (`BotShop.equip_after` runs right after each step), so the sim now doing it first changes nothing the bots can
+see. The only difference the rule can show is the bookkeeping: `equips_worn` ("put on mid-round") now also counts the
+sim's `auto_equip` events (`balance_run.gd`), so the metric keeps its meaning; without that, bot seed 2 read 3 instead of
+4 and random seed 1 read 0 instead of 1 (the wears moved from the bot to the sim). A record changes where a drop is worn
+earlier than the bot would have worn it (a drop picked up with a free slot that the bot scores at 0 or defers); none of
+these seeds has one. Death seconds (final level), seeds 1 / 2 / 2026:
+
+| Stage, policy | this branch = main control | #204 default-pick row (earlier revision) |
+|---|---|---|
+| Henesys, bot | 339.5 / 619.3 / 313.8 (11 / 32 / 11) | 339.6 / 455.4 / 323.4 (11 / 13 / 11) |
+| Henesys, random | 440.0 / 329.5 / 305.0 (19 / 10 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Tree, bot and random | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | 128.9 / 63.6 / 51.5 (3 / 2 / 2) |
+
+The Henesys rows differ from #204's by the unforced job pick, which reshuffled when Thief joined main (#204 notes the
+same; its forced-`320` bot row reads 339.5 / 619.3 / 360.0, matching seeds 1 and 2 here). Tree is unchanged and record-only.
+Bot equipment per run (seeds 1 / 2 / 2026): dropped 0 / 5 / 1, picked up 0 / 4 / 1, put on 0 / 4 / 1.
+
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
 with `--job=300`, `310`, `320`: **48 runs**, integration `730467c` plus QA-only changes, private cache `s166-int`,
