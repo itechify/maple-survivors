@@ -470,6 +470,14 @@ func toggle_window(id: String) -> bool:
 	return ui_windows.toggle(id)
 
 
+## The quick slot's collapse button: folds the panel away or shows it again and remembers the choice in settings.cfg.
+func toggle_quick_slot() -> void:
+	var collapsed := not hud.quick_slot.collapsed
+	hud.set_quick_slot_collapsed(collapsed)
+	if settings != null:
+		settings.set_quick_slot_collapsed(collapsed)
+
+
 ## Opens or closes the status bar's Menu popup above hud.menu_button.
 func toggle_menu() -> void:
 	if ui_windows == null:
@@ -721,6 +729,7 @@ func _build_ui_windows() -> void:
 		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
 	enchant = wiring.enchant
 	hud.menu_button.pressed.connect(toggle_menu)
+	hud.quick_slot_button.pressed.connect(toggle_quick_slot)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
 	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings,
@@ -784,7 +793,9 @@ func _on_settings_changed() -> void:
 	_skill_labels.clear()
 	if hud == null or world == null:
 		return
-	hud.potion_slot.refresh_key_labels()
+	hud.quick_slot.refresh_key_labels()
+	if settings != null:
+		hud.set_quick_slot_collapsed(settings.quick_slot_collapsed)
 	_hud_sig = PackedInt32Array()
 	_update_hud()
 
@@ -1720,7 +1731,7 @@ func _update_hud() -> void:
 	hud.counters.update(ps, info)
 	hud.skills.update(ps, info)
 	hud.system_messages.update(ps, info)
-	hud.potion_slot.update(ps, info)
+	hud.quick_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
 
 
@@ -1780,7 +1791,8 @@ func run_time() -> float:
 
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
-## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP, and
+## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
@@ -1791,7 +1803,8 @@ func run_info() -> Dictionary:
 			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
-		"exp_next": int(world.player_state.exp_next), "skills": skills}
+		"exp_next": int(world.player_state.exp_next), "skills": skills,
+		"movement_skill": HudQuickSlot.movement_skill_of(world.manual_skill_keys())}
 
 
 func _draw_notices(canvas: Node2D) -> void:

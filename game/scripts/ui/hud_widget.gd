@@ -135,9 +135,10 @@ func _lib() -> AssetLibrary:
 		library = AssetLibrary.get_default()
 	return library
 
-## Draws a rank/count in the original ItemNo font at an icon's bottom-right corner.
-func _rank(br: Vector2, rank: int) -> void:
-	if rank <= 0:
+## Draws a rank/count in the original ItemNo font at an icon's bottom-right corner (nothing for 0 unless show_zero; with
+## `from_left` the digits start at `br.x` instead of ending there).
+func _rank(br: Vector2, rank: int, show_zero: bool = false, from_left: bool = false) -> void:
+	if rank < 0 or (rank == 0 and not show_zero):
 		return
 	var s := str(rank)
 	var frames: Array = []
@@ -147,7 +148,7 @@ func _rank(br: Vector2, rank: int) -> void:
 		if f != null:
 			frames.append(f)
 			w += f.region.size.x
-	var x := br.x - w
+	var x := br.x if from_left else br.x - w
 	for f: SpriteFrame in frames:
 		_blit(f, Vector2(x, br.y - f.region.size.y))
 		x += f.region.size.x
