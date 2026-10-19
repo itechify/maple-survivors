@@ -650,7 +650,7 @@ func _draw_tooltip() -> void:
 	var mouse: Vector2 = _tip.get_meta("mouse", card_rect(_hover).position)
 	var at := (mouse + Vector2(14, 14)).clamp(Vector2.ZERO, STAGE - size)
 	_tip.draw_rect(Rect2(at, size), Color8(10, 20, 70, 235))
-	_tip.draw_rect(Rect2(at, size), Color8(120, 150, 220), false)
+	PixelDraw.outline(_tip, Rect2(at, size), Color8(120, 150, 220))
 	for i in lines.size():
 		MapleText.draw(_tip, at + Vector2(7, 4 + i * MapleText.LINE_SMALL), lines[i][0], lines[i][1], MapleText.SMALL,
 			lines[i][2])

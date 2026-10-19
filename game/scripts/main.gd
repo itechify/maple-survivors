@@ -8,6 +8,8 @@ extends Node
 ## a check that a build (e.g. the exported exe) starts and reaches its first screen.
 ## `--hub [--character=<abs JSON>] [--mesos=N]` (tool-only, HubTestKit) goes straight into the Free Market with a test
 ## character and kit against a throwaway save: `bash scripts/run.sh -- --hub`.
+## `--size=WxH` (tool-only) sets the window size, e.g. 1600x1200 for a 2x view on a smaller screen, and `--fill` turns on
+## the fill-window view for this session (not saved): evidence and perf runs of every display mode.
 
 
 func _ready() -> void:
@@ -19,6 +21,15 @@ func _ready() -> void:
 	var flags := SceneFlow.parse_flags(OS.get_cmdline_user_args())
 	if String(flags.get("vsync", "")) == "off":
 		GameSettings.apply_frame_cap(-1, true)
+	if flags.has("size"):
+		var wh := String(flags.size).split("x")
+		if wh.size() == 2 and DisplayServer.get_name() != "headless":
+			DisplayServer.window_set_size(Vector2i(int(wh[0]), int(wh[1])))
+	if flags.has("fill"):
+		var st := get_node_or_null("/root/Settings") as GameSettings
+		if st != null:
+			st.fill_override = true
+			st.fit_viewport()
 	if flags.has("shot"):
 		_shot_and_quit(String(flags.shot), float(flags.get("shot-at", "10")))
 	print("Maple Survivors: cache root = ", AssetCachePaths.resolve_cache_root())

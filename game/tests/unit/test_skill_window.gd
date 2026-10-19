@@ -271,3 +271,23 @@ func test_a_long_tab_scrolls_to_keep_the_selection_visible() -> void:
 	assert_eq(w.selected, 0)
 	assert_eq(w.scroll, 0, "scrolled back up")
 	w.free()
+
+
+func test_the_tab_cells_touch_and_a_click_anywhere_in_one_picks_it() -> void:
+	var w := SkillWindow.new(_model(220, _magician_loadout(_book())))
+	# Spec #225: Beginner / I / II, no star tab.
+	assert_eq(w.model.tabs.size(), 3, "three job tabs")
+	for i in 3:
+		var r := w.tab_rect(i)
+		if i > 0:
+			assert_eq(r.position.x, w.tab_rect(i - 1).end.x, "tab %d starts where tab %d ends (the drawn shapes)" % [i, i - 1])
+		assert_eq(r.position.y, 23.0, "the shapes start at the strip's top row")
+		for at: Vector2 in [r.position + Vector2(0.5, 0.5), r.get_center(), r.end - Vector2(0.5, 0.5)]:
+			w.select_tab((i + 1) % 3)
+			var click := InputEventMouseButton.new()
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			click.position = at
+			w._window_gui_input(click, at)
+			assert_eq(w.tab, i, "a click at %s picks tab %d" % [at, i])
+	w.free()

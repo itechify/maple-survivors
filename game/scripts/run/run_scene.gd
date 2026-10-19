@@ -109,7 +109,7 @@ const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
 ## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
 const HIDDEN_ALPHA := 0.5
-## tier C (ours): map/street name notice at run start: seconds shown (the last FADE of them fading).
+## tier C (ours): continent + region notice at run start (#221): seconds shown (the last FADE of them fading).
 const TITLE_TIME := 3.5
 const TITLE_FADE := 1.0
 ## Damage-number stacking key of the player (mob slots use their slot index).
@@ -215,6 +215,7 @@ var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
 var _frame_items: Array[String] = []
+var _frame_equipped: Array[String] = [] # auto-worn pickups (#222), announced after the "gained an item" lines
 var _frame_inventory_full := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
@@ -470,6 +471,20 @@ func toggle_window(id: String) -> bool:
 	return ui_windows.toggle(id)
 
 
+## The quick slot's collapse button: folds the panel away or shows it again and remembers the choice in settings.cfg.
+func toggle_quick_slot() -> void:
+	if settings == null:
+		return
+	settings.set_quick_slot_collapsed(not settings.quick_slot_collapsed)
+	_sync_quick_slot()
+
+
+## Shows or folds the HUD's quick slot panel and its button arrow from the stored setting.
+func _sync_quick_slot() -> void:
+	if hud != null and settings != null:
+		hud.apply_quick_slot_collapsed(settings.quick_slot_collapsed)
+
+
 ## Opens or closes the status bar's Menu popup above hud.menu_button.
 func toggle_menu() -> void:
 	if ui_windows == null:
@@ -562,9 +577,12 @@ func advance_frame(delta: float) -> void:
 	if hud != null:
 		for item_name: String in _frame_items:
 			hud.show_item_gain(item_name)
+		for item_name: String in _frame_equipped:
+			hud.show_equipped(item_name)
 		if _frame_inventory_full:
 			hud.show_inventory_full()
 	_frame_items.clear()
+	_frame_equipped.clear()
 	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
@@ -721,6 +739,7 @@ func _build_ui_windows() -> void:
 		func(text: String) -> void: hud.push_notice("inventory", text), _sound)
 	enchant = wiring.enchant
 	hud.menu_button.pressed.connect(toggle_menu)
+	hud.quick_slot_button.pressed.connect(toggle_quick_slot)
 	if settings == null:
 		settings = get_node_or_null("/root/Settings") as GameSettings
 	ui_windows.register("key_config", func() -> UiWindow: return KeyConfigWindow.new(settings,
@@ -784,7 +803,8 @@ func _on_settings_changed() -> void:
 	_skill_labels.clear()
 	if hud == null or world == null:
 		return
-	hud.potion_slot.refresh_key_labels()
+	hud.quick_slot.refresh_key_labels()
+	_sync_quick_slot()
 	_hud_sig = PackedInt32Array()
 	_update_hud()
 
@@ -961,12 +981,9 @@ func _play_bgm() -> void:
 
 
 func _start_title() -> void:
-	if library == null:
-		return
-	var street := library.string_name("Street", map_id)
-	var name_s := library.string_name("Map", map_id)
-	_title = PackedStringArray([street, name_s])
-	_title_t = TITLE_TIME if name_s != "" else 0.0
+	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
+	_title = PackedStringArray([labels.continent, labels.region])
+	_title_t = TITLE_TIME if String(labels.region) != "" else 0.0
 
 
 func _fail(msg: String) -> void:
@@ -1157,6 +1174,9 @@ func handle_events(events: Array) -> void:
 			"equipment_changed":
 				_apply_look()
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
+				if String(e.action) == "auto_equip" and hud != null:
+					_frame_equipped.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
+					_first_event_shot("auto_equip", "auto_equip.png", 0.4)
 			"scroll_used":
 				_on_scroll_used(e)
 			"ammo_upgraded":
@@ -1741,7 +1761,7 @@ func _update_hud() -> void:
 	hud.counters.update(ps, info)
 	hud.skills.update(ps, info)
 	hud.system_messages.update(ps, info)
-	hud.potion_slot.update(ps, info)
+	hud.quick_slot.update(ps, info)
 	hud.buff_row.update(ps, info)
 
 
@@ -1801,7 +1821,8 @@ func run_time() -> float:
 
 
 ## The HUD's run_info (Hud.update): time, kills, name, job name, exp_next and the owned skills with icon, rank, key_label
-## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP.
+## (Teleport's first bound key, cached until Settings.changed), cooldown left/total and whether each is waiting for MP, and
+## the learned movement skill (Teleport or Dash, HudQuickSlot.movement_skill_of; {} before it is learned).
 func run_info() -> Dictionary:
 	var skills: Array = []
 	for key: String in world.loadout.order:
@@ -1812,7 +1833,8 @@ func run_info() -> Dictionary:
 			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
 	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
-		"exp_next": int(world.player_state.exp_next), "skills": skills}
+		"exp_next": int(world.player_state.exp_next), "skills": skills,
+		"movement_skill": HudQuickSlot.movement_skill_of(world.manual_skill_keys())}
 
 
 func _draw_notices(canvas: Node2D) -> void:
@@ -1846,8 +1868,10 @@ func build_summary() -> Dictionary:
 		skills.append({"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 			"rank": world.loadout.rank(key)})
 	var job_id := int(world.player_state.job_id)
+	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
 	return {
-		"stage": stage_key, "map_id": map_id, "map_name": library.string_name("Map", map_id),
+		"stage": stage_key, "map_id": map_id, "region": labels.region, "continent": labels.continent,
+		"map_name": library.string_name("Map", map_id),
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,

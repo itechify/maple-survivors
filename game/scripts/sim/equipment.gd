@@ -156,6 +156,18 @@ static func requirement_error(info: Dictionary, character: Dictionary) -> String
 	return ""
 
 
+## Why item `id` is not worn the moment it is picked up (#222), "" when it is: not equipment ("not_equipment"), its slot
+## is taken or wearing it would take something off - an overall beside a top or bottom, a top or bottom beside an
+## overall, a shield beside a two-handed weapon ("occupied") - or the `character` fails a requirement (the
+## requirement_error field). Nothing is ever replaced, so the check is exactly "equip would displace nothing and pass".
+static func auto_wear_error(worn: Dictionary, id: int, info: Dictionary, character: Dictionary) -> String:
+	if slot_of(id) == "":
+		return "not_equipment"
+	if not displaced_slots(worn, id).is_empty():
+		return "occupied"
+	return requirement_error(info, character)
+
+
 ## Wears inventory[index] (canonical `info` for its requirements) after checking `character`'s requirements; the item
 ## it replaces (a worn top and bottom for an overall, a worn overall for a top or bottom) takes its inventory place,
 ## any second one is appended.

@@ -169,10 +169,12 @@ func _shot(name: String, world_pos: Vector2, pet_pos: Vector2) -> void:
 
 func _crop(image: Image, world_pos: Vector2, size: Vector2i, scale: int, name: String) -> void:
 	var screen := get_viewport().get_canvas_transform() * world_pos
-	var rect := Rect2i(Vector2i(screen) - Vector2i(size.x / 2, size.y - 30), size).intersection(
+	var logical := Rect2(Vector2i(screen) - Vector2i(size.x / 2, size.y - 30), size)
+	var rect := GameSettings.capture_rect(image, get_viewport(), logical).intersection(
 		Rect2i(Vector2i.ZERO, image.get_size()))
 	var crop := image.get_region(rect)
-	crop.resize(rect.size.x * scale, rect.size.y * scale, Image.INTERPOLATE_NEAREST)
+	var k := float(image.get_width()) / get_viewport().get_visible_rect().size.x
+	crop.resize(int(rect.size.x / k) * scale, int(rect.size.y / k) * scale, Image.INTERPOLATE_NEAREST)
 	crop.save_png(shots.path_join(name + ".png"))
 
 

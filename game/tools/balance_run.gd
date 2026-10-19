@@ -458,6 +458,9 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 								"mp_absorbed": int(e.mp_absorbed), "source_kind": String(e.get("source_kind","other"))})
 				"pickup_collected":
 					exp_total += int(e.exp)
+				"equipment_changed":
+					if String(e.action) == "auto_equip": # worn by the sim at pickup (#222), counted with the bot's own wears
+						equips_worn += 1
 				"potion_used":
 					var id := int(e.item_id)
 					var item: Dictionary = w.potions.item_info.get(id, w.potions.item_info.get(str(id), {}))

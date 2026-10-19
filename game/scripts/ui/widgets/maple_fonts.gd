@@ -8,10 +8,18 @@ extends RefCounted
 ## system font is found, desktop is unchanged: the SystemFont, with Arimo behind it for glyphs it lacks.
 ## One variable font file; the bold face is its wght axis.
 ##
-## Rendering matches the SystemFonts: no antialiasing, normal hinting, no subpixel positioning (set on the loaded
-## FontFile here, because .import settings are not committed).
+## Rendering is the same for the SystemFonts and Arimo (set on the loaded FontFile here, because .import settings are not
+## committed): ANTIALIASED picks the antialiasing, hinting is normal and subpixel positioning off (both move glyph
+## advances, so they stay fixed: text metrics in logical px are frozen). The window draws canvas items at its own pixel
+## size (#224), so the glyphs are rasterised at window pixels at the same logical size (docs/ARCHITECTURE.md "Fonts and
+## sharp text").
 
 const ARIMO_PATH := "res://assets/fonts/arimo/Arimo-Variable.ttf"
+## tier C (#224): false (default) = crisp hinted glyphs without antialiasing (closest to v83), true = grayscale
+## antialiased glyphs. The owner chose crisp from the A/B screenshots (PR #235, 2026-10-19). The one switch for every game
+## font. (Controls left on the default theme font, such as the
+## perf overlay and the import screen's path field, follow project setting gui/theme/default_font_antialiasing = 0.)
+const ANTIALIASED := false
 
 static var _file: FontFile
 static var _faces: Dictionary = {}
@@ -29,12 +37,17 @@ static func make_with(names: PackedStringArray, weight: int, system_found: bool)
 		return face
 	var f := SystemFont.new()
 	f.font_names = names
-	f.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+	f.antialiasing = antialiasing()
 	f.hinting = TextServer.HINTING_NORMAL
 	f.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 	f.font_weight = weight
 	f.fallbacks = fallbacks(weight)
 	return f
+
+
+## The antialiasing of every game font (ANTIALIASED).
+static func antialiasing() -> TextServer.FontAntialiasing:
+	return TextServer.FONT_ANTIALIASING_GRAY if ANTIALIASED else TextServer.FONT_ANTIALIASING_NONE
 
 
 ## True when the OS has a font for at least one of `names`.
@@ -54,7 +67,7 @@ static func arimo(weight: int = 400) -> Font:
 		_file = load(ARIMO_PATH) as FontFile
 		if _file == null:
 			return null
-		_file.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+		_file.antialiasing = antialiasing()
 		_file.hinting = TextServer.HINTING_NORMAL
 		_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
 	var face := FontVariation.new()

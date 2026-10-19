@@ -42,6 +42,22 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	assert_eq(int(summary.nx_awarded), w.nx_awarded())
 
 
+func test_banner_and_summary_name_the_region_not_the_map() -> void:
+	if not require_cache():
+		return
+	var want := {"henesys_hg1": ["Victoria Island", "Henesys"], "tree_that_grew_1": ["Victoria Island", "Ellinia"],
+		"dark_cave": ["Victoria Island", "Sleepywood"]}
+	for key: String in want:
+		scene = _make(key, 5, {})
+		assert_eq(scene._title, PackedStringArray(want[key]), "%s: continent small above the region" % key)
+		assert_true(scene._title_t > 0.0, "%s: the banner is showing" % key)
+		var summary := scene.build_summary()
+		assert_eq(String(summary.region), want[key][1], key)
+		assert_eq(String(summary.continent), want[key][0], key)
+		assert_true(String(summary.map_name) != "" and String(summary.map_name) != String(summary.region),
+			"%s: the WZ map name stays in the summary for tools" % key)
+
+
 func test_one_off_character_file_option_restores_character() -> void:
 	if not require_cache():
 		return
@@ -161,7 +177,7 @@ func _assert_hud_matches(s: RunScene) -> void:
 	assert_eq(s.hud.status.player_state, s.world.player_state, "status widget fed by the run scene")
 	assert_eq(s.hud.counters.run_info.kills, s.world.kills, "counter widget fed by the run scene")
 	_assert_skill_icons_match(s)
-	assert_eq(s.hud.potion_slot.get_parent(), s.hud, "quickslot has its own widget")
+	assert_eq(s.hud.quick_slot.get_parent(), s.hud, "quick slot has its own widget")
 	assert_eq(s.hud.buff_row.get_parent(), s.hud, "buffs have their own widget")
 	assert_eq(s.hud.boss_bar.get_parent(), s.hud, "boss bar has its own widget")
 	var ps := s.world.player_state
@@ -869,21 +885,21 @@ func test_potion_quickslot_shows_current_icons_and_counts_even_when_resources_ar
 	if not require_cache():
 		return
 	scene = _make("henesys_hg1", 10, {})
-	var hp: Dictionary = scene.hud.potion_slot.displayed("hp")
+	var hp: Dictionary = scene.hud.quick_slot.displayed("hp")
 	assert_eq(hp.item_id, 2000000)
 	assert_eq(hp.count, 5)
-	assert_eq(hp.key_label, "Del / Q")
+	assert_eq(hp.key_label, "Del", "the first bound key")
 	assert_true(hp.icon != null, "canonical Red Potion icon is drawable")
 	scene.world.spawn_potion("mp", scene.world.player.pos - Vector2(0, 25), 2)
 	_frames(1)
-	var mp: Dictionary = scene.hud.potion_slot.displayed("mp")
+	var mp: Dictionary = scene.hud.quick_slot.displayed("mp")
 	assert_eq(mp.count, 2, "no starter Blues plus two collected potions")
 	assert_eq(mp.item_id, 2000003)
 	assert_eq(mp.key_label, "End", "E opens the Equip window (#108)")
 	assert_true(mp.icon != null, "canonical Blue Potion icon is drawable")
 	scene.world.drink_potion("hp")
 	scene.advance_frame(0.0)
-	assert_eq(scene.hud.potion_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
+	assert_eq(scene.hud.quick_slot.displayed("hp").count, 4, "stock-only changes redraw the quickslot")
 	_assert_nothing_missing(scene, "potions")
 	var report := scene.perf_summary()
 	assert_eq(report.get("potions_collected", {}), {"hp": 0, "mp": 2})
@@ -969,14 +985,14 @@ func test_scheduled_potion_upgrades_change_the_quickslot_icon_and_show_the_v83_n
 	var notices := {2000001: "Your Red Potions are now Orange Potions.", 2000002: "Your Orange Potions are now White Potions.",
 		2000006: "Your Blue Potions are now Mana Elixirs."}
 	for example: Array in [[10, "hp", 2000001], [20, "mp", 2000006], [25, "hp", 2000002]]:
-		var before: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		var before: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		scene.world.drain_events()
 		scene.world.apply_potion_schedule(example[0], true)
 		scene.handle_events(scene.world.drain_events())
 		var lines: Array = scene.hud.messages().map(func(m: Dictionary) -> String: return String(m.text))
 		assert_has(lines, notices[example[2]], "the level-up notice names the v83 items")
 		scene.advance_frame(0.0)
-		var after: Dictionary = scene.hud.potion_slot.displayed(example[1])
+		var after: Dictionary = scene.hud.quick_slot.displayed(example[1])
 		assert_eq(after.item_id, example[2])
 		assert_eq(after.count, before.count)
 		assert_true(after.icon != null)

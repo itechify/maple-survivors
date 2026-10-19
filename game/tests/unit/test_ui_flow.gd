@@ -212,8 +212,7 @@ func test_creation_arrows_change_every_live_preview_field_for_both_genders() -> 
 	assert_true(creation.find_child("Next_hair_colour", true, false) != null, "real arrow controls drive the preview")
 	if creation.find_child("Next_hair_colour", true, false) == null:
 		return
-	# Move through the Gender and name surfaces using their visible controls.
-	creation.create_button.pressed.emit()
+	# Move through the name surface using its visible controls.
 	creation.name_edit.text = "Preview70"
 	creation.create_button.pressed.emit()
 	for gender in 2:
@@ -227,6 +226,58 @@ func test_creation_arrows_change_every_live_preview_field_for_both_genders() -> 
 				assert_eq(after, DataRepo.character_look({"job_id": 0, "look": creation.model.look(gender, creation.choices),
 					"beginner_weapon": creation.model.weapon(gender, creation.choices)}, DataRepo.load_all()))
 		(creation.find_child("Next_gender", true, false) as BaseButton).pressed.emit()
+
+
+func test_creation_opens_on_name_and_cancel_returns_one_step() -> void:
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	assert_eq(creation.phase, "name", "creation opens on Name; there is no separate Gender step")
+	assert_true(creation.find_child("GenderValue", true, false) == null, "the Gender dropdown is gone")
+	assert_eq(creation.create_button, creation.name_button)
+	creation.name_edit.text = "Phase218"
+	creation.create_button.pressed.emit()
+	assert_eq(creation.phase, "look", "Name OK goes to Look")
+	assert_eq(creation.create_button, creation._look_ok)
+	creation._return_name()
+	assert_eq(creation.phase, "name", "Look Cancel goes back to Name")
+	var closed := [false]
+	creation.cancelled.connect(func() -> void: closed[0] = true)
+	creation._cancel_name()
+	assert_true(closed[0], "Name Cancel closes creation back to character select")
+
+
+func test_creation_defaults_to_male_and_the_look_row_flips_to_female() -> void:
+	if not require_cache():
+		return
+	var flow := _flow()
+	flow.goto_character_select()
+	flow.current.show_creation()
+	var creation: Control = flow.current.creation
+	assert_eq(creation.gender, 0, "gender defaults to Male")
+	assert_eq(creation.option_labels.gender.text, "Male")
+	assert_eq(creation.avatar.look, DataRepo.character_look({"job_id": 0, "look": creation.model.look(0, {}),
+		"beginner_weapon": creation.model.weapon(0, {})}, DataRepo.load_all()), "the preview starts as the Male look")
+	creation.name_edit.text = "Boy21800"
+	creation.create_button.pressed.emit()
+	creation.create_button.pressed.emit()
+	assert_eq(flow.current_name, "stage_select")
+	var male: Dictionary = flow.save.slot(0).character
+	assert_eq(male.look.face, creation.model.look(0, {}).face, "untouched gender row creates a Male character")
+	assert_eq(male.look.hair, creation.model.look(0, {}).hair)
+	flow.goto_character_select()
+	flow.current.show_creation()
+	creation = flow.current.creation
+	(creation.find_child("Next_gender", true, false) as BaseButton).pressed.emit()
+	assert_eq(creation.option_labels.gender.text, "Female")
+	creation.name_edit.text = "Girl21800"
+	creation.create_button.pressed.emit()
+	creation.create_button.pressed.emit()
+	var female: Dictionary = flow.save.slot(1).character
+	assert_eq(female.look.face, creation.model.look(1, {}).face, "flipping the Look row creates a Female character")
+	assert_eq(female.look.hair, creation.model.look(1, {}).hair)
+	assert_ne(female.look.face, male.look.face)
 
 
 func test_character_selection_click_keys_details_delete_cancel_and_history() -> void:
@@ -279,6 +330,35 @@ func test_error_screen_and_goto_without_host() -> void:
 	assert_true(String(e.message).contains("missing"))
 	var label := e.get_node("Message") as Label
 	assert_true(label.text.contains("Esc"), "says how to get back")
+
+
+func test_stage_select_lists_the_region_and_continent() -> void:
+	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
+	var want := [["Henesys", "Victoria Island"], ["Ellinia", "Victoria Island"], ["Sleepywood", "Victoria Island"]]
+	for i in want.size():
+		assert_eq(String(offered[i].region), want[i][0], "stage %d region" % i)
+		assert_eq(String(offered[i].continent), want[i][1], "stage %d continent" % i)
+		assert_false(offered[i].has("name") or offered[i].has("street"), "the WZ map name is not the view data")
+	var legacy := DataRepo.load_all()
+	legacy.stages.stages.henesys_hg1.erase("region")
+	legacy.stages.stages.henesys_hg1.erase("continent")
+	var fallback: Dictionary = STAGE_SELECT.load_stages(legacy)[0]
+	assert_eq(String(fallback.region), "Henesys Hunting Ground I", "a stage without a region falls back to its name")
+	assert_eq(String(fallback.continent), "")
+
+
+func test_results_name_the_region_and_continent() -> void:
+	var s := summary(false, 512.4, 17, 1342)
+	s.region = "Henesys"
+	s.continent = "Victoria Island"
+	assert_eq(DataRepo.summary_stage_lines(s), ["Henesys", "Victoria Island"])
+	# A summary saved before the fields existed (map and street name only) reads the stage's region from stages.json.
+	assert_false(summary(false, 1.0, 1, 1).has("region"))
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1)), ["Henesys", "Victoria Island"])
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "dark_cave")), ["Sleepywood", "Victoria Island"])
+	# A retired stage key has no stages.json entry: the old names stay readable.
+	assert_eq(DataRepo.summary_stage_lines(summary(false, 1.0, 1, 1, "retired_stage")), ["Henesys Hunting Ground I", "Victoria Road"])
+	assert_eq(DataRepo.summary_stage_lines({"stage": "retired_stage"}), ["retired_stage", ""])
 
 
 func test_results_helpers() -> void:

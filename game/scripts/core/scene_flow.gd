@@ -23,7 +23,7 @@ extends Node
 ## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
-## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
+## Summary: {stage, map_id, region, continent (the display names, #221; older saves lack them), map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
 ## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent endings
 ## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
 ## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,

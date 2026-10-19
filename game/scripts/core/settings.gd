@@ -5,7 +5,7 @@ extends Node
 ## Sections/keys: [assets] wz_root, cache_dir (read by AssetCachePaths too); [audio] master, bgm, sfx (linear 0..1);
 ## [display] window_scale (0 = project default 1600x1200), fill_window (bool), max_fps (0 = the display's refresh rate,
 ## -1 = uncapped, N = at most N frames/s; see apply_frame_cap); [controls] movement ("arrows" default or "wasd", see
-## apply_movement); [input] <action> = physical keycodes
+## apply_movement); [hud] quick_slot_collapsed (bool, default false = the quick slot panel is shown); [input] <action> = physical keycodes
 ## (only rebound actions; the rest keep the project's input map). Loading never writes the file: it is saved only when
 ## a setter is called, so a missing file keeps every default (and never pins a cache_dir for other tools).
 ##
@@ -63,6 +63,8 @@ var sfx_volume := DEFAULT_SFX
 var window_scale := 0
 ## Fill the window with more map instead of black bars (see the class doc; off = docs/ARCHITECTURE.md 4.5).
 var fill_window := false
+## Tool-only fill-window view for this session (main.gd `--fill`): fit_viewport() fills like fill_window, never saved.
+var fill_override := false
 ## Frame-rate cap: 0 = the display's refresh rate (FALLBACK_FPS when unknown), -1 = uncapped, N = N frames/s.
 var max_fps := 0
 ## Movement key set: a MOVEMENT_SETS key ("arrows" or "wasd").
@@ -70,6 +72,8 @@ var movement_keys := DEFAULT_MOVEMENT
 ## HP / MP ALERT: the pet's potion level as a fraction of max (0 = do not alert); see the class doc.
 var alert_hp := DEFAULT_ALERT_HP
 var alert_mp := DEFAULT_ALERT_MP
+## The HUD quick slot panel is folded away (its collapse button, the v83 QuickSlot arrow); saved in [hud].
+var quick_slot_collapsed := false
 ## Rebound actions: action name -> PackedInt32Array of physical keycodes (absent = the project's input map).
 var bindings: Dictionary = {}
 
@@ -96,6 +100,7 @@ func reload_from(p_path: String) -> void:
 	fill_window = false
 	max_fps = 0
 	movement_keys = DEFAULT_MOVEMENT
+	quick_slot_collapsed = false
 	bindings = {}
 	_default_events = {}
 	_path = p_path
@@ -149,6 +154,23 @@ static func fit_size(window: Vector2i, base: Vector2i = BASE_VIEW) -> Vector2i:
 	return Vector2i(window.x / s, window.y / s)
 
 
+## The rect in `img`, a capture of `vp` (`get_texture().get_image()`), that shows the logical-view rect `logical`: the
+## window draws canvas items at its own pixels (stretch mode canvas_items, #224), so a capture holds the view at the
+## window's integer scale (letterbox bars are not in it) and logical crops scale by capture size / view size.
+static func capture_rect(img: Image, vp: Viewport, logical: Rect2) -> Rect2i:
+	var view := vp.get_visible_rect().size
+	var k := Vector2(img.get_size()) / view if view.x > 0.0 and view.y > 0.0 else Vector2.ONE
+	return Rect2i((logical.position * k).round(), (logical.size * k).round())
+
+
+## A capture of the logical-view rect `logical` at logical size (nearest): what debug contact sheets saved before #224.
+## Sprites are whole logical pixels, so they come back unchanged; text loses its window-pixel sharpness.
+static func capture_logical(vp: Viewport, img: Image, logical: Rect2) -> Image:
+	var out := img.get_region(capture_rect(img, vp, logical).intersection(Rect2i(Vector2i.ZERO, img.get_size())))
+	out.resize(int(logical.size.x), int(logical.size.y), Image.INTERPOLATE_NEAREST)
+	return out
+
+
 ## True when the window is smaller than the base view on either axis (then the view is scaled down, not cropped).
 static func needs_downscale(window: Vector2i, base: Vector2i = BASE_VIEW) -> bool:
 	return window.x < base.x or window.y < base.y
@@ -165,7 +187,7 @@ func fit_viewport() -> void:
 		stretch = Window.CONTENT_SCALE_STRETCH_FRACTIONAL
 	if root.content_scale_stretch != stretch:
 		root.content_scale_stretch = stretch
-	var want := fit_size(root.size) if fill_window else BASE_VIEW
+	var want := fit_size(root.size) if fill_window or fill_override else BASE_VIEW
 	_fitted_window = root.size
 	if root.content_scale_size != want:
 		root.content_scale_size = want
@@ -188,6 +210,7 @@ func load_settings() -> void:
 	movement_keys = scheme if MOVEMENT_SETS.has(scheme) else DEFAULT_MOVEMENT
 	alert_hp = clampf(float(cfg.get_value("alert", "hp", alert_hp)), 0.0, 1.0)
 	alert_mp = clampf(float(cfg.get_value("alert", "mp", alert_mp)), 0.0, 1.0)
+	quick_slot_collapsed = bool(cfg.get_value("hud", "quick_slot_collapsed", quick_slot_collapsed))
 	bindings = {}
 	if cfg.has_section("input"):
 		for action in cfg.get_section_keys("input"):
@@ -268,6 +291,7 @@ func save_settings() -> Error:
 	_put(cfg, "controls", "movement", movement_keys, DEFAULT_MOVEMENT)
 	_put(cfg, "alert", "hp", alert_hp, DEFAULT_ALERT_HP)
 	_put(cfg, "alert", "mp", alert_mp, DEFAULT_ALERT_MP)
+	_put(cfg, "hud", "quick_slot_collapsed", quick_slot_collapsed, false)
 	if cfg.has_section("input"):
 		cfg.erase_section("input")
 	for action: String in bindings:
@@ -323,6 +347,13 @@ func set_alert(which: String, v: float) -> void:
 			alert_mp = v
 		_:
 			return
+	save_settings()
+	changed.emit()
+
+
+## Folds the HUD quick slot panel away (true) or shows it (false), saves and emits changed.
+func set_quick_slot_collapsed(collapsed: bool) -> void:
+	quick_slot_collapsed = collapsed
 	save_settings()
 	changed.emit()
 
@@ -483,6 +514,12 @@ static func action_label(action: String, sep: String = " / ") -> String:
 	for code in _live_keys(action):
 		names.append(KeyBindings.key_name(code))
 	return sep.join(names) if not names.is_empty() else "-"
+
+
+## The HUD quick slot caption of an action: its first live key (KeyBindings.key_name), "" when it has none.
+static func first_key_label(action: String) -> String:
+	var keys := _live_keys(action)
+	return KeyBindings.key_name(keys[0]) if not keys.is_empty() else ""
 
 
 static func _live_keys(action: String) -> PackedInt32Array:

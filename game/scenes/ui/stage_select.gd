@@ -3,8 +3,9 @@ extends Node2D
 ## WORLD_SELECT without the Neo City promo, BGM BgmUI/WCSelect); the world-select scroll (ParchmentScroll) unrolls from
 ## the rolled scroll hanging on the rod and lists the stages of game/data/survivor/stages.json.
 ##
-## Left column: one entry per stage with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>), map name and street
-## name (String.wz/Map.img). Right column, for the selected stage: names, survival time, the best result from SaveData,
+## Left column: one entry per stage with its map mark (Map.wz/MapHelper.img/mark/<info/mapMark>) and its region
+## (stages.json `region`: Henesys, Ellinia, Sleepywood; #221). Right column, for the selected stage: region and continent,
+## survival time, the best result from SaveData,
 ## and the survivor roster (each mob's Mob.wz stand/0 frame and String.wz name). Buttons: Start (Login.img/CharSelect/
 ## BtSelect) on the parchment, Back (Login.img/Common/BtStart, the "Back" banner) at the bottom-left of the book and the
 ## v83 status-bar CASH SHOP button (StatusBar.img/BtShop, #118) beside it.
@@ -38,7 +39,7 @@ var back_button: WzButton
 ## Opens the Cash Shop as this character (#118); returns here on Leave.
 var shop_button: WzButton
 var character_label: Label
-## Stage keys in file order and their info: key, map_id, name, street, mark, duration, objective and normal mobs.
+## Stage keys in file order and their info: key, map_id, region, continent, mark, duration, objective and normal mobs.
 var stages: Array[Dictionary] = []
 ## Selected stage index.
 var selected := 0
@@ -122,10 +123,7 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 	for key: String in keys:
 		var st: Dictionary = all[key]
 		var map_id := int(st.get("map_id", 0))
-		var names := {}
-		var lib := UiArt.lib()
-		if lib != null:
-			names = lib.map_strings(map_id)
+		var labels := DataRepo.stage_labels(data.get("stages", {}), key)
 		var mark := ""
 		var info: Variant = UiArt.node(AssetLibrary.map_img_path(map_id) + "/info/mapMark")
 		if info is String:
@@ -140,8 +138,8 @@ static func load_stages(data: Dictionary, tier: int = -1) -> Array[Dictionary]:
 			if index >= 0:
 				roster.remove_at(index)
 		out.append({"key": key, "map_id": map_id,
-			"name": String(names.get("mapName", st.get("name", key))),
-			"street": String(names.get("streetName", "")),
+			"region": String(labels.region),
+			"continent": String(labels.continent),
 			"mark": mark,
 			"duration": float(st.get("duration", 0)),
 			"objective": objective,
@@ -240,8 +238,7 @@ func _draw_parchment(ci: Control) -> void:
 	var r := ParchmentScroll.PARCHMENT
 	for i in stages.size():
 		_draw_entry(ci, i)
-	ci.draw_line(Vector2(DETAIL_X - 7.0, r.position.y + 8.0), Vector2(DETAIL_X - 7.0, r.end.y - 8.0),
-		Color(INK_SOFT, 0.45), 1.0)
+	PixelDraw.vline(ci, DETAIL_X - 7.0, r.position.y + 8.0, r.end.y - 8.0, Color(INK_SOFT, 0.45))
 	if selected >= 0 and selected < stages.size():
 		_draw_details(ci, stages[selected])
 
@@ -251,13 +248,13 @@ func _draw_entry(ci: Control, i: int) -> void:
 	var e := _entry_rect(i)
 	if i == selected:
 		ci.draw_rect(e, Color8(255, 170, 68, 70))
-		ci.draw_rect(e, Color8(170, 85, 0, 160), false)
+		PixelDraw.outline(ci, e, Color8(170, 85, 0, 160))
 	var mark := UiArt.frame(MARK + String(st.mark)) if String(st.mark) != "" else null
 	if mark != null:
 		UiArt.blit(ci, mark, e.position + Vector2(3, 3))
 	var tx := e.position.x + 46.0
 	var tw := e.size.x - 48.0
-	var lines := MapleText.wrap(String(st.name), tw, MapleText.SMALL, true)
+	var lines := MapleText.wrap(String(st.region), tw, MapleText.SMALL, true)
 	var y := e.position.y + (6.0 if lines.size() > 1 else 14.0)
 	for k in mini(2, lines.size()):
 		MapleText.draw(ci, Vector2(tx, y), MapleText.ellipsize(lines[k], tw, MapleText.SMALL, true),
@@ -269,10 +266,10 @@ func _draw_details(ci: Control, st: Dictionary) -> void:
 	var r := ParchmentScroll.PARCHMENT
 	var x := DETAIL_X
 	var y := r.position.y + 6.0
-	MapleText.draw(ci, Vector2(x, y), MapleText.ellipsize(String(st.name), DETAIL_W, MapleText.SIZE, true), INK,
+	MapleText.draw(ci, Vector2(x, y), MapleText.ellipsize(String(st.region), DETAIL_W, MapleText.SIZE, true), INK,
 		MapleText.SIZE, true)
 	y += 16.0
-	MapleText.draw(ci, Vector2(x, y), String(st.street), INK_SOFT, MapleText.SMALL)
+	MapleText.draw(ci, Vector2(x, y), String(st.continent), INK_SOFT, MapleText.SMALL)
 	y += 18.0
 	MapleText.draw(ci, Vector2(x, y), String(st.objective), INK,
 		MapleText.SMALL)
@@ -302,7 +299,8 @@ func _draw_mob(ci: Control, mob_id: int, cell: Vector2, cell_size: Vector2) -> v
 		var scale := minf(1.0, minf(icon_box.x / f.size().x, icon_box.y / f.size().y))
 		var size := (f.size() * scale).floor()
 		var top := cell + Vector2((cell_size.x - size.x) * 0.5, icon_box.y - size.y)
-		ci.draw_texture_rect(f.texture, Rect2(top.floor(), size), false)
+		# Nearest-downscaled as the 800x600 render did at any window scale (PixelDraw, #224).
+		PixelDraw.blit_scaled(ci, f.page, Rect2(top.floor(), size), f.region)
 	var lib := UiArt.lib()
 	var nm := lib.string_name("Mob", mob_id) if lib != null else str(mob_id)
 	var y := cell.y + cell_size.y - ROSTER_FEET + 1.0

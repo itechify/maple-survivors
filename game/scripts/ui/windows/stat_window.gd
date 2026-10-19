@@ -148,7 +148,7 @@ func _draw_panel(path: String, at: Vector2, panel: Vector2, rows: Array, label_w
 		UiArt.blit(self, f, at)
 		return
 	draw_rect(Rect2(at, panel), Color8(220, 228, 240))
-	draw_rect(Rect2(at, panel), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(at, panel), Color8(99, 147, 183))
 	for row: Array in rows:
 		var y := float(row[2])
 		draw_rect(Rect2(at + Vector2(6, y), Vector2(label_w - 8.0, FIELD_H)), Color8(204, 85, 136))

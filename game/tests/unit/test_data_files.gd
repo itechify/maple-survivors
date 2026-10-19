@@ -23,6 +23,31 @@ func test_load_all_has_every_file() -> void:
 	assert_eq(bad.size(), 13, "every missing file reported")
 
 
+func test_every_stage_names_its_region_and_continent() -> void:
+	var want := {"henesys_hg1": ["Henesys", "Victoria Island"], "tree_that_grew_1": ["Ellinia", "Victoria Island"],
+		"dark_cave": ["Sleepywood", "Victoria Island"]}
+	assert_eq(data.stages.stages.keys(), want.keys())
+	for key: String in want:
+		var st: Dictionary = data.stages.stages[key]
+		assert_eq(String(st.get("region", "")), want[key][0], "%s region" % key)
+		assert_eq(String(st.get("continent", "")), want[key][1], "%s continent" % key)
+		assert_eq(DataRepo.stage_labels(data.stages, key), {"region": want[key][0], "continent": want[key][1]})
+	assert_true(DataRepo.stage_label_errors(data.stages).is_empty(), "the shipped stages validate")
+	var broken: Dictionary = data.stages.duplicate(true)
+	broken.stages.henesys_hg1.erase("region")
+	broken.stages.dark_cave.continent = " "
+	var errors := DataRepo.stage_label_errors(broken)
+	assert_eq(errors.size(), 2, "%s" % [errors])
+	assert_true(errors[0].contains("henesys_hg1") and errors[0].contains("region"))
+	assert_true(errors[1].contains("dark_cave") and errors[1].contains("continent"))
+
+
+func test_stage_labels_fall_back_to_the_old_name() -> void:
+	var stages := {"stages": {"x": {"name": "Old Map"}}}
+	assert_eq(DataRepo.stage_labels(stages, "x"), {"region": "Old Map", "continent": ""})
+	assert_eq(DataRepo.stage_labels(stages, "gone"), {"region": "", "continent": ""})
+
+
 func test_skills_reference_canonical_ids() -> void:
 	var skills: Dictionary = data.skills.skills
 	var want := {"three_snails": 1000, "energy_bolt": 2001004, "magic_claw": 2001005, "magic_guard": 2001002,
