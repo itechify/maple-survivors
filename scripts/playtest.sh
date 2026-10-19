@@ -12,7 +12,7 @@
 # Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
-# --job=<id> (force a first or second job, e.g. 210; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Anything else is passed to the game unchanged. Screenshots of the running game stay in evidence/ (gitignored).
@@ -37,7 +37,7 @@ for a in "$@"; do
     --job=*|--branch=*)
       [[ "$a" == --branch=* ]] && echo "playtest.sh: --branch is deprecated: use --job=<id>" >&2
       JOB_ID="${a#--*=}"
-      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon path (e.g. 210, 400:claw)" >&2; exit 2; }
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
       EXTRA+=("--job=$JOB_ID") ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;

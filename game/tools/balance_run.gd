@@ -21,8 +21,9 @@ extends SceneTree
 ##       [--patch=<abs path of a JSON patch>] [--policy=bot|random|first] [--idle-after=<s>] [--job=<id>[:<path>]]
 ##
 ## Card policies (jobs: seeded random choice, overridden by --job=<first or second job id>: a second job takes its first
-## job at the first window and itself at the second; a job this build cannot offer fails at startup; a first job with
-## weapon paths takes the one named after a colon, `--job=400:claw`, else the one its branch can use, else a seeded one.
+## job at the first window and itself at the second; a job this build cannot offer fails at startup). At every
+## multi-family advancement use an offered forced family (`100:spear`, `120:blunt`), else draw on job stream 8.
+## For example `110:axe` draws a Warrior family at Lv10, then takes Axe at Lv30.
 ## --branch=<id> is the deprecated alias):
 ##   bot     BotInput.pick_card_for: the card a sensible player takes (the policy RunScene's autopick uses).
 ##   random  a careless player: a seeded random card of the three offered (its own RNG, so the sim's streams are the

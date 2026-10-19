@@ -316,7 +316,9 @@ func test_the_bot_takes_the_forced_warrior_branch_and_an_unforced_one_draws_on_t
 	var w := _warrior()
 	_open_window(w)
 	for job in [110, 120, 130]:
-		assert_eq(BotInput.pick_choice(w.pending_jobs, w.job_rng, job, w.jobs, ""), {"job_id": job, "path": ""})
+		var pick := BotInput.pick_choice(w.pending_jobs, w.job_rng, job, w.jobs, "")
+		assert_eq(pick.job_id, job)
+		assert_true(w.jobs.paths_of(job).any(func(p: Dictionary) -> bool: return p.id == pick.path))
 	var seen := {}
 	for seed_value in 12:
 		var rng := RandomNumberGenerator.new()

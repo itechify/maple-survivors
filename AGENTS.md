@@ -117,7 +117,8 @@ bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off   # fast-
                                                                # then 3 real-time minutes with 200+ mobs, uncapped
 bash scripts/playtest.sh --stage=tree_that_grew_1 --seed=7 --window-autopick=1   # windows open and answer themselves
 bash scripts/playtest.sh --job=210 --minutes=20 --speed=8                      # force Fire/Poison: Magician at Lv10, 210 at Lv30
-bash scripts/playtest.sh --job=100                                             # the Warrior at Lv10 (spec #151); --job=400:claw names a weapon path
+bash scripts/playtest.sh --job=100:spear                                       # Warrior, then Spear on the weapon page
+bash scripts/playtest.sh --job=120:blunt                                       # Warrior, then Page with Blunt Weapon at Lv30
 ```
 
 The frame rate is capped at the display's refresh rate (vsync on, `Engine.max_fps`; `GameSettings.apply_frame_cap`),
@@ -148,21 +149,26 @@ under `evidence/`; saves go to its `driver_save.json`.
 Other scenarios: `title`, `clear` (tool one-off), `import`, and the in-run windows `windows` (#85), `skill` (#86),
 `keys` (#87); see the script header. Spec #151 (physical combat, the Warrior) adds `skill_weapon` (#156: a weapon-gated skill
 greyed in the Skill window), `skill_warrior` (#163: the Warrior's Skill window and Iron Body) and `warrior` (QA #164: Lv10
-through the real job window, a shield worn, Save & quit -> Continue keeps job, weapon and shield). Spec #165 (second job) adds
-`warrior2` (QA #185, `--job=110|120|130`: an invulnerable Lv10 -> Lv30 climb through the real job windows, the branch's two
-advancement weapons, the Skill window with the unheld family greyed, Save & quit -> Continue); its branch fixtures
+through the job and Sword/Spear/Blunt Weapon pages, only the chosen gift, a shield worn, Save & quit -> Continue keeps
+job, path, weapon and shield). Spec #165 (second job) adds `warrior2` (QA #185, `--job=110|120|130`: an invulnerable
+Lv10 -> Lv30 climb through the real job and weapon pages, only the chosen advancement weapon, the Skill window
+with the unheld family greyed, Save & quit -> Continue); its branch fixtures
 `lv34_{fighter,page,spearman}_2nd.json` come from `tools/character_fixture.gd --job=<id> --god --seconds=600`. Spec #168 (the Pirate line) adds
-`pirate` (QA #195, `--path=knuckle|gun [--branch=510|520]`: Lv10 window with both paths, both weapons, an invulnerable EXP-drop warp to the
+`pirate` (QA #195, `--path=knuckle|gun [--branch=510|520]`: Lv10 job then Knuckle/Gun weapon page, only the chosen
+weapon, an invulnerable EXP-drop warp to the
 Lv30 window, Dash on its key, Save & quit -> Continue keeps job, path, weapons and skills; the second-job fixtures
 `lv37_brawler_2nd.json` / `lv36_gunslinger_2nd.json` come from `tools/character_fixture.gd --god [--exp-mult=<k>]`, see
 GAME_DESIGN 4.2). Spec #166 (the Bowman line) adds `bowman` (QA #204, `--branch=310|320`): invulnerable EXP-drop
-climb through the real Lv10/Lv30 job windows, bow worn/crossbow in Equip, crossbow worn at Lv12, branch advancement
+climb through the real Lv10/Lv30 windows, Bowman then Bow/Crossbow weapon page, only the chosen weapon, branch advancement
 weapon and Bronze arrow notice, Save & quit -> Continue keeps job, weapons, skills and derived arrow tier. Its
 `hunter_2nd.json` / `crossbowman_2nd.json` fixtures come from `tools/character_fixture.gd --job=<id> --god --seconds=600`
 (seed 1, bot; exact revision and aids in `_doc`, GAME_DESIGN 4.2). Spec #167 (the Thief line) adds `thief`
 (QA #215, `--path=claw|dagger [--branch=410|420]`): invulnerable EXP-drop climb through the real Lv10/Lv30 windows,
-both gifts through Equip/Item, branch weapon, Save & quit -> Continue keeps job, path, equipment, skills and mesos.
-Its `assassin_2nd.json` / `bandit_2nd.json` fixtures use `tools/character_fixture.gd --job=410:claw|420:dagger --god
+the Claw/Dagger weapon page, only the chosen gift through Equip/Item, branch weapon, Save & quit -> Continue keeps
+job, path, equipment, skills and mesos.
+Historical fixtures retain old spare weapons and generation provenance; snapshot migration keeps them valid
+(`game/tests/fixtures/characters/README.md`). The `assassin_2nd.json` / `bandit_2nd.json` fixtures use
+`tools/character_fixture.gd --job=410:claw|420:dagger --god
 --exp-mult=3 --seconds=600` (diagnostic aids and exact revision in `_doc`, GAME_DESIGN 4.2).
 Spec #33 (mesos, equipment, scrolls, shops) adds `inventory` (#108: Equip and Item
 windows), `scrolls` (#110: scrolls onto worn equipment), `shops` (#111: the Free Market scroll NPCs and shop window),
@@ -228,12 +234,15 @@ assessment; never tune on it. Full-run regressions use fixed training seeds 1/2/
 Use focused filters excluding `full_run` while tuning; freeze data and pacing windows before the full suite and
 held-out matrix. Targets, regression bounds and results are in `docs/GAME_DESIGN.md` 4.1–4.2; record new results there.
 
-`--job=<id>[:<path>]` (any first or second job id of the canonical tree; `--job=400:claw` also names a first job's weapon
-path, `JobTree.parse_forced`; `--branch=<id>` is the deprecated alias) forces the bot's
+`--job=<id>[:<family>]` (any first or second job id of the canonical tree; `--job=100:spear` and `--job=120:blunt`
+name the chosen advancement family, `JobTree.parse_forced`; `--branch=<id>` is the deprecated alias) forces the bot's
 job choice in `balance.sh`, `playtest.sh`, `--run` and `balance_run.gd`: a first job is taken at the first advancement, a
 second job takes its first job there and itself at the second. A job (or path) this build cannot offer (not playable, or a path the line lacks) fails at
-startup. Without `--job` the bot draws its first job (Warrior or Magician today) and, for a job with paths, its path on the
-job stream 8. Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
+startup. A multi-family forced job validates against its own families; a single-family branch validates against its
+first job (e.g. `410:claw`). At each advancement the bot uses the forced family only if that job offers it; otherwise
+it draws uniformly among multiple families on job stream 8, including at Lv30. Thus `110:axe` draws a Warrior family
+at Lv10 and forces Axe at Lv30. Unforced jobs also draw on stream 8. BotShop upgrades the recorded family.
+Records keep `branch` / `forced_branch` / `job_t` and add `job_times` (`{"<job id>": first advancement time}`);
 the summary reports seconds per job id.
 
 The movement policies also include `camper_henesys_top`, `camper_henesys_rope`, and `camper_tree_top`;

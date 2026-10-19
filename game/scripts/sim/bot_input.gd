@@ -481,8 +481,8 @@ static func auto_choose(w: RunWorld, first_card := false, forced_job := 0, force
 ## The window entry the bot takes: {job_id, path} (job_id -1 and path "" = "Not now"). A seeded available job, or the
 ## forced job (`forced`, 0 = none) when it is available; with `jobs` given, an available option that is an ancestor of
 ## `forced` counts too, so forcing a second job takes its first job at the first window. A single option consumes no
-## RNG. A named forced path is used when the selected job offers it; otherwise pass the default (empty path).
-## The uniform path draws for spec #226 are added by ticket #232.
+## job RNG. A named forced path is used when the selected advancement offers it; otherwise every multi-family
+## advancement draws uniformly on the same job stream (8). Zero/one-path jobs and RNG-less callers use the default.
 static func pick_choice(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
 		forced_path := "") -> Dictionary:
 	var available: Array[Dictionary] = []
@@ -502,17 +502,21 @@ static func pick_choice(options: Array, rng: RandomNumberGenerator = null, force
 				break
 	if target < 0:
 		return _entry(available[rng.randi_range(0, available.size() - 1)] if available.size() > 1 and rng != null
-			else available[0], forced_path)
+			else available[0], forced_path, rng)
 	for o: Dictionary in available:
 		if int(o.job_id) == target:
-			return _entry(o, forced_path)
+			return _entry(o, forced_path, rng)
 	return {"job_id": -1, "path": ""}
 
 
-static func _entry(o: Dictionary, forced_path := "") -> Dictionary:
-	for p: Dictionary in o.get("paths", []):
+static func _entry(o: Dictionary, forced_path: String, rng: RandomNumberGenerator) -> Dictionary:
+	var paths: Array = o.get("paths", [])
+	for p: Dictionary in paths:
 		if String(p.id) == forced_path:
 			return {"job_id": int(o.job_id), "path": forced_path}
+	# tier C (#226): one uniform family draw at every multi-family advancement unless its offered path is forced.
+	if paths.size() >= 2 and rng != null:
+		return {"job_id": int(o.job_id), "path": String(paths[rng.randi_range(0, paths.size() - 1)].id)}
 	return {"job_id": int(o.job_id), "path": ""}
 
 

@@ -481,6 +481,41 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Spec #226 weapon specialization: phase-1 regression smoke (#232, 2026-10-18)
+
+On integration `c91d331` plus #232 bot/tool changes, ran `bash scripts/balance.sh 1 2 2026` on both tier-1 stages
+and both `bot` / `random` policies, then one seed-1 Henesys bot run for each new flag: `100:sword/spear/blunt`,
+`300:bow/crossbow`, `110:sword/axe`, `120:sword/blunt`, `130:spear/polearm` (each slash-separated family is a separate
+invocation). All **23 runs ended DEAD**, with no crashes, script errors, world warnings, missing assets or skipped
+bosses. Cache: read-only `C:/Users/itech/Coding/maple-survivors-refs/caches/s226`; isolation `s226-t232-smoke`;
+absolute `BALANCE_OUT` under this worktree's `_scratch/t232/smoke/<config>/`. Exact console/SYSTEMS output,
+seed records and aggregates are kept there; the compact configuration audit is `_scratch/t232/smoke-audit.json`.
+No PATCH, tuning, held-out seeds or data changes. Death seconds and final levels below are in seed order **1 / 2 / 2026**.
+
+| Stage / policy | Death seconds | Final levels | First jobs | Mano spawned / killed |
+|---|---|---|---|---|
+| Henesys / bot | 339.6 / 455.4 / 323.4 | 11 / 13 / 11 | 200 / 200 / 100 | 3 / 1 |
+| Henesys / random | 450.6 / 325.4 / 316.3 | 19 / 11 / 12 | 200 / 200 / 100 | 3 / 1 |
+| Tree / bot | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none | 0 / 0 |
+| Tree / random | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none | 0 / 0 |
+
+The unforced rows match #204's preceding smoke at its reported precision; all six Henesys runs reach a job and Mano,
+including four Magicians. Tree's known pre-job deaths remain record-only. The eleven forced runs all reach Lv11 and
+Mano, then die at 331.3-342.0 s: Sword (`100/110/120`) 331.3; Blunt (`100/120`) and ancestor random draws
+(`110:axe`, `130:polearm`) 332.3; Spear (`100/130`) 339.6; Bow 339.5; Crossbow 342.0. They do not survive to Lv30,
+so they prove startup acceptance, not second-job attainment. Fixed-tick synthetic tool tests separately advance all
+eleven flags through the run parser and balance harness and assert the exact job, recorded path and worn item.
+Every flag also gets a short `run.sh --headless -- --run=henesys_hg1` start; `playtest.sh --job=120:blunt` checks
+the wrapper forwarding path.
+
+**Seeded records intentionally change:** every unforced multi-family advancement now draws uniformly on job stream 8,
+including Warrior/Bowman at Lv10 and Warrior branches at Lv30. A forced family applies only where offered; for example
+`110:axe` draws a Warrior family, then forces Axe at Fighter. BotShop follows the recorded family. The particular
+default smoke outcomes above happen to remain the same. The 72,000-tick seed-1 synthetic event golden remains
+`b4b22cfe...` (that run chooses Magician, so it consumes no new family draw); no golden was re-captured for #232.
+All eleven historical character fixtures remain valid saves: migration infers missing paths, preserves explicit
+ones and keeps old spare weapons. Per-file rationale: `game/tests/fixtures/characters/README.md`.
+
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
@@ -4920,11 +4955,13 @@ migration too, without a format bump. Existing Equip-tab weapons are retained, a
 
 **Tools:** `JobTree.parse_forced` returns `{job, path}`. A forced multi-path job validates against its own paths
 (`100:spear`, `110:axe`, `120:blunt`); a single-family branch validates against its first job's paths
-(`410:claw`, `410:dagger`). Unknown paths fail at startup. #230's compatibility callers pass an offered forced
-path or the empty default; #232 adds uniform job-stream-8 path draws at each advancement, using a forced path only
-when that advancement offers it. Seeded records intentionally change: fewer grants, one entry per job, recorded
-Warrior/Bowman paths, and subsequently the new bot draws. #230 re-captures the fixed-seed synthetic event digest
-(`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Character fixtures are unchanged.
+(`410:claw`, `410:dagger`). Unknown paths fail at startup. The bot draws uniformly on job stream 8 at every multi-family advancement,
+using a forced path only when that advancement offers it. `110:axe` therefore draws a Warrior family at Lv10 and
+forces Axe at Lv30; it does not infer an earlier family from the branch. Zero/one-path jobs consume no path draw.
+BotShop weapon upgrades follow the recorded path, including after a manual swap or weapon destruction. Seeded records intentionally change: fewer grants, one entry per job, recorded
+Warrior/Bowman paths, and the new bot draws. #230 re-captures the fixed-seed synthetic event digest
+(`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Historical character fixtures are retained under snapshot migration; their per-file rationale is in
+`game/tests/fixtures/characters/README.md`.
 
 **Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
 (a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
@@ -4957,6 +4994,7 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 
 Drain (#213) additions:
