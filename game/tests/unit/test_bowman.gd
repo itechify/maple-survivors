@@ -35,7 +35,7 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_bowman_at_ten_grants_pools_bow_and_spare_crossbow_and_snapshot() -> void:
+func test_bowman_at_ten_grants_pools_chosen_bow_and_snapshot() -> void:
 	var w := _world()
 	_open(w)
 	var options := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 300)
@@ -49,7 +49,7 @@ func test_bowman_at_ten_grants_pools_bow_and_spare_crossbow_and_snapshot() -> vo
 	var mp: int = w.player_state.max_mp
 	assert_true(w.apply_job(300, "bow"))
 	assert_eq(w.weapon_id(), 1452051)
-	assert_eq(_inventory(w), [1302000, 1462001])
+	assert_eq(_inventory(w), [1302000])
 	assert_eq(w.player_state.max_hp, hp + 125)
 	assert_eq(w.player_state.max_mp, mp + 37)
 	BotInput.auto_choose(w, false, 300, "bow")
@@ -60,13 +60,13 @@ func test_bowman_at_ten_grants_pools_bow_and_spare_crossbow_and_snapshot() -> vo
 	assert_eq(RunWorld.new(setup).character_snapshot(), snapshot)
 
 
-func test_full_equip_tab_spills_extra_crossbow_as_a_pickup() -> void:
+func test_full_equip_tab_spills_only_the_displaced_weapon() -> void:
 	var w := _world(0)
 	_open(w)
 	w.drain_events()
 	assert_true(w.apply_job(300, "bow"))
 	var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-	assert_eq(drops.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000, 1462001])
+	assert_eq(drops.map(func(e: Dictionary) -> int: return int(e.item_id)), [1302000])
 	assert_true(drops.all(func(e: Dictionary) -> bool: return e.pos == w.player.pos and e.kind == "equip"))
 	assert_eq(w.equipment.inventory.size(), 24)
 
@@ -165,6 +165,7 @@ func _combat(family: String, key := "", rank_value := 1) -> RunWorld:
 	var w := _world()
 	w.change_job(300, "bow")
 	if family == "crossbow":
+		w.equipment.inventory.append(Equipment.create(1462001, w.setup.equipment_info[1462001]))
 		assert_eq(w.equip_item(_inventory(w).find(1462001)), "")
 	elif family == "sword":
 		assert_eq(w.equip_item(_inventory(w).find(1302000)), "")

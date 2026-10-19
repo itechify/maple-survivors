@@ -3574,18 +3574,11 @@ Five v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP
 1000002 is not in the build: the owner dropped it after spec #151 (it only healed on ropes and ladders), so it has no
 entry, cards or rope-regeneration clock.
 
-**Weapons at the advancement** (owner change after the spec, which had the Warrior keep its creation weapon). Advancing to
-100 wears the Beginner Warrior's sword 1302077 (PAD 30, reqLv 10; tier B: the v83 job instructor's first-job gift, v83-facts
-4) through `balance.player.weapon_grants`, so the grant skips the requirements (a Lv 10 Warrior may not have the sword's
-STR 35). The creation weapon (sword, axe or club) goes to the Equip tab as for every grant. Two more items from
-`jobs.json` `grants.items` (an additive optional key) follow it into the tab, **Spear 1432000** (Lv 10, reqJob 13, PAD 32,
-no stat need) and **Steel Pipe 1322006** (Lv 10 one-handed blunt, reqJob 0, PAD 29, no stat need). Tier C choice: the plain
-shop weapons of the spear and blunt families at reqLevel 10 that a Warrior can wear from the first level; the Iron Hammer
-1322032, the other Lv 10 blunt, wants STR 35, and the Lv 10 spears 1432029 and 1432050 are quest or untradable rewards.
-Items that find no free slot (the old weapon has the first claim on it) lie at the player's feet as normal equipment
-pickups, so advancing never fails (`RunWorld._grant_job_items`). The bot makes no deliberate swap, but its
-score-based planner (`BotShop.auto_equip`, #112) treats the handed-over items like any other Equip item: it wears the
-Spear (PAD 32 outscores the sword's 30; two-handed, so a worn shield goes to the tab) and ignores the Steel Pipe (29). The Magician advancement is unchanged.
+**Weapons at the advancement** (*amended 2026-10-18, #226*). Warrior 100 chooses Sword 1302077,
+Spear 1432000 or Steel Pipe 1322006 (Blunt Weapon); only that weapon is granted and worn without requirements.
+The sword is the v83 instructor gift (tier B); the spear and pipe are the existing plain early shop choices
+(tier C; item stats tier A). The displaced weapon joins the Equip tab or spills at the feet when full. The recorded
+path also keeps the bot's equipment planner in the held family. Magician advancement is unchanged. Details: section 9.
 
 | Skill | Kind | Behaviour | Tiers |
 |---|---|---|---|
@@ -4401,8 +4394,8 @@ resolved range of attack skills explicitly gated to the held ranged family (tier
 gate controls which skills contribute. Melee boxes and untagged Magician skills stay unchanged. Cached basic boxes
 keep their base size; the bonus is read live, so rank changes and weapon swaps cannot leave stale reach. Ordinary
 skill `range` modifiers apply to the base first, then the passive adds pixels. Stream 14 remains reserved, unregistered;
-this feature adds no roll. The unforced job pool gains Bowman on stream 8 (Warrior, Magician, Bowman and Pirate jobs;
-Pirate's two weapon paths are represented by their own options).
+this feature adds no roll. The unforced job pool gains Bowman on stream 8. Spec #226 subsequently changes
+the pool to one entry per job with paths carried separately (section 9).
 
 Each skill has a learn card and a rank card capped at its canonical level count. Each attack also has a +1-shot
 behaviour card (up to three steps). Tier-C weights: attacks learn/rank 4/3, other learn/rank 2/2, behaviour 2;
@@ -4816,16 +4809,16 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   Esc or the Prev button returns to page 1 with the job still highlighted (it never declines); END CHAT and "Not now."
   on page 1 still defer. Magicians and single-family branches go straight to the confirmation, which the chosen job's
   instructor speaks. Keyboard (Up/Down, Enter, digits) and mouse work on both pages. Wording on both pages is tier C (ours).
-- Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199), Thief's two paths (Dark Lord, #207) and Pirate's two paths (Kyrin, #186) are playable.
+- Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199), Thief (Dark Lord, #207) and Pirate (Kyrin, #186) are playable.
   "Not now" keeps you a Beginner and asks again next level.
 - Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
-  teaches no skill. It wears the Beginner Warrior's sword 1302077 and moves the creation weapon, a Spear 1432000 and a Steel Pipe 1322006
-  to the Equip tab (7.8; anything the full tab cannot take lies at the feet). Earned AP go to STR (the Warrior has no
+  teaches no skill. It wears only the chosen Sword 1302077, Spear 1432000 or Steel Pipe 1322006
+  (7.8; the displaced weapon joins the Equip tab or spills at the feet). Earned AP go to STR (the Warrior has no
   secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
   Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
   The Warrior's second jobs open at Lv 30 (spec #165, below).
 - Advancing to Thief changes job to 400, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
-  Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063 and puts the other in Equip (overflow at feet).
+  only the chosen Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063.
   Both paths use starting stars 2070015 when holding a claw. Growth is 22 HP / 15 MP per level; auto-AP uses LUK
   primary and DEX target max(25, level), meeting LUK ≥80 / DEX ≥25 at Lv30 through the existing earned-AP calculation.
   No new stat reset is added. Skills and cards: 7.21; the playable second jobs are in 7.24.
@@ -4834,7 +4827,7 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   the old path differs; the old weapon moves to Equip. Growth and AP stay the Thief's. `--job=410` / `--job=420`
   work in tools. Skills, carried attacks and star tiers: 7.24.
 - Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
-  1452051 and places Crossbow 1462001 in Equip, with overflow at the feet (tier B bow gift, tier C spare crossbow).
+  only the chosen Bow 1452051 or Crossbow 1462001 (tier B bow gift, tier C crossbow choice).
   Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary: level + 5 through Lv 30,
   STR 35 through Lv 34, STR 40 at Lv 35, then level + 5 through Lv 70 / STR 75 (tier C; 7.28).
   The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
@@ -4842,8 +4835,8 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   and the old weapon moved to Equip (tier C grant; Lv28, PAD44, STR28 / DEX80 tier A). Growth/AP inherit Bowman;
   the advancement draw offers Power Knock-Back and Iron Arrow. Crossbow-only skills/cards and ammo tiers: 7.30.
 - Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
-  Steel Knuckler 1482000 or Pistol 1492000 and places the other in the Equip tab, after the displaced creation weapon
-  (tier B Kyrin gifts; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
+  only the chosen Steel Knuckler 1482000 or Pistol 1492000, moving the displaced creation weapon to Equip
+  (tier C chosen-only rule; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
   before rounding). Tier-C auto-AP uses STR with level-target DEX for knuckle, DEX with level-target STR for gun.
   At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30).
 - Level 30, Pirate (spec #168 #189): Brawler 510 and Gunslinger 520 are selectable at their canonical level from either
@@ -4872,10 +4865,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
 - Level 30, Warrior (spec #165 #180): Fighter 110, Page 120 and Spearman 130 are selectable at their canonical level.
   Each adds +325 Max HP (tier B: the v83 second-job +300-350, midpoint; growth stays 26 HP / 5 MP per level, all earned AP
-  still go to STR) and hands **two advancement weapons**, one per weapon family (tier C, below). The weapon of the held
-  weapon's family is worn, else the first family's; the displaced weapon and the other advancement weapon join the Equip
-  tab, and whatever the full tab cannot take lies at the player's feet, so advancing never fails. The grant checks no
-  requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
+  still go to STR) and grants only the chosen family's advancement weapon (tier C, below). The held family
+  is listed first when the branch uses it; the default is that first page path. The displaced equipment joins
+  the Equip tab or spills at the feet when full, so advancing never fails. The grant checks no requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
   The Power Strike and Slash Blast cards stay on offer after the second job (section 8, rule 1 exception).
   The advancement draw offers the held family's Final Attack and Booster (the branch's eligible power skills), topped
   up to three with other new skills of the branch (seeded, tier C). `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
@@ -4887,9 +4879,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   | Page 120 | sword: Gladius 1302008 | blunt: War Hammer 1322014 |
   | Spearman 130 | spear: Forked Spear 1432002 | polearm: Mithril Pole Arm 1442001 |
 
-  The data shape is `jobs.json` `weapon_families` plus `grant_items`, one item id per family in the same order;
+  The data shape is `jobs.json` `paths`, one candidate item per family in default page order;
   `JobTree.branch_grant(job)` returns `{weapons: [{family, item_id}]}` in that order (`{}` when the row has none), and the
-  `DataRepo.starter_equipment_ids` preload reads the same field. The Pirate branches use the same shape with one entry
+  `DataRepo.starter_equipment_ids` preload reads `paths[].item_id`. The Pirate branches use the same shape with one entry
   each (#189), as do Hunter `[1452005]` (#202), Crossbowman `[1462000]` (#203), Assassin `[1472008]` and Bandit `[1332012]` (#212).
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
   job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
@@ -4897,56 +4889,51 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
   fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
 
-### Weapon paths and weapon grants (#157, spec #151)
+### Weapon paths and weapon grants (#230, spec #226)
 
-A first job can carry **weapon paths** (survivor `jobs.json` `paths`: `[{id, label, item_id, family, extra_items?}]`). The Job
-Advancement window lists each path of a playable job as its own entry (the label is the entry text; both Thief paths
-are job 400); a job without paths, and a locked job ("Not in this build"), keeps its single entry. Taking a path records its id on the character (`RunWorld.weapon_path`,
-snapshot key `weapon_path`, an additive optional key written only when set) and **grants** its item: the weapon is
-worn without requirement checks, so a Lv 10 Beginner whose AP is all STR still wears the Bowman's bow (DEX 25).
-A grant never fails. The previous weapon moves to the Equip inventory; when the tab is full it is dropped at the
-player's feet as a normal equipment pickup (`pickup_spawned`, then `pickup_blocked` until a slot is free). This
-replaces the earlier rule that skipped the Magician's wand grant on a full tab (the `grant_blocked` event is gone).
+Every weapon-grant job except the Magician uses survivor `jobs.json` `paths: [{id, label, item_id, family}]`,
+with `id == family`. `JobTree.advancements(job_id, level, held_family)` returns one entry per child job:
+`{job_id, name, available, reason, paths}`. Locked jobs and jobs without paths carry `[]`; entries have no `path` key.
+`JobTree.page_paths` preserves data order for first jobs; for tier-2 jobs it puts the held family first, then the
+rest in data order. A Beginner's creation weapon cannot reorder the first-job page (tier C owner decision).
+The weapon question is needed only with two or more paths; the dialogue implementation belongs to #231.
 
-| Path | Weapon (tier B: the v83 Beginner weapons the instructors give) | Family |
+| Advancement | Families in default order | Item per family |
 |---|---|---|
-| Bowman | Beginner Bowman's bow 1452051 | bow |
-| Thief - Claw | Beginner Thief Wrist Guard 1472061 | claw |
-| Thief - Dagger | Beginner Thief's short sword 1332063 | dagger |
-| Pirate - Knuckle | Steel Knuckler 1482000 | knuckle |
-| Pirate - Gun | Pistol 1492000 | gun |
+| Warrior 100 | Sword / Spear / Blunt Weapon | 1302077 / 1432000 / 1322006 |
+| Bowman 300 | Bow / Crossbow | 1452051 / 1462001 |
+| Thief 400 | Claw / Dagger | 1472061 / 1332063 |
+| Pirate 500 | Knuckle / Gun | 1482000 / 1492000 |
+| Fighter 110 | Sword / Axe | 1302008 / 1312005 |
+| Page 120 | Sword / Blunt Weapon | 1302008 / 1322014 |
+| Spearman 130 | Spear / Polearm | 1432002 / 1442001 |
+| Hunter 310 / Crossbowman 320 | Bow / Crossbow (one path each) | 1452005 / 1462000 |
+| Assassin 410 / Bandit 420 | Claw / Dagger (one path each) | 1472008 / 1332012 |
+| Brawler 510 / Gunslinger 520 | Knuckle / Gun (one path each) | 1482004 / 1492004 |
 
-Warrior has no path. Its Lv 10 advancement wears the Beginner Warrior's sword 1302077 (`balance.player.weapon_grants`, tier B)
-and adds a Spear 1432000 and a Steel Pipe 1322006 to the Equip tab (`jobs.json` `grants.items`, tier C; 7.8); the
-Magician keeps its Wooden Wand (`balance.player.weapon_grants`, unchanged). Bowman is playable (#199), with
-`extra_items: [1462001]`. Thief (#207) and Pirate (#186) are playable: optional per-path `extra_items` ([item ids]) grants the opposite
-weapon after the job's `grants.items`, using the same Equip overflow pickup rule. The items of a playable job's paths and
-grants join `DataRepo.starter_equipment_ids`, so their canonical stats load once the class spec makes the job playable
-(and adds their imgs to the manifest).
+`RunWorld.apply_job(id, path := "")` accepts an available job and one of its offered path ids. An empty path
+means the first path in page order. Only the chosen weapon is granted and worn, without requirements; displaced
+equipment joins the Equip tab, or spills at the feet as ordinary pickups when full. Single-family branches always
+wear their one grant. Magician 200 keeps its Wooden Wand in `balance.player.weapon_grants`; Warrior 100 has moved
+out of that table. The old `extra_items`, `grants.items`, `weapon_families` and `grant_items` grant shapes are gone.
+`DataRepo.starter_equipment_ids` reads every playable path's item so its canonical stats are loaded.
 
-**Second-job grants.** A second job lists the weapon families it can use (`weapon_families`) and one advancement weapon
-per family (`grant_items`, same order; #165 #180 replaced the single `grant_item` of #157, ADR 0005 amendment). On
-advancing, the weapon of the held weapon's family (`RunWorld.held_weapon_family()`) is worn, else the first family's
-(tier C); the displaced weapon and the other advancement weapons join the Equip tab (feet when it is full). The item ids
-are chosen by the class specs (basic weapons at the branch's level), so a row without them grants nothing: today
-the Warrior's three branches and both Bowman, Thief and Pirate branches have them (section 9, Level 30).
+A job with at least two paths records `weapon_path` on the character/snapshot, including a new Lv30 choice.
+Jobs with zero or one path preserve it. AP lookup tries `<job>:<path>` then the plain job row at each lineage step,
+so Warrior and Bowman use their plain AP rows, Pirate's path rows work, and a branch's own row wins. Advancing
+re-splits all earned AP, leaving creation attributes unchanged. Skills/cards still follow the weapon held.
 
-| Branch | Families it can use |
-|---|---|
-| Fighter 110 | sword, axe |
-| Page 120 | sword, blunt |
-| Spearman 130 | spear, polearm |
-| Hunter 310 | bow |
-| Crossbowman 320 | crossbow |
-| Assassin 410 | claw |
-| Bandit 420 | dagger |
-| Brawler 510 | knuckle |
-| Gunslinger 520 | gun |
+**Migration:** without a recorded path, the deepest multi-path job in the character's lineage supplies it: use the
+held weapon family when offered there, otherwise that job's first path. This applies after format-1 equipment
+migration too, without a format bump. Existing Equip-tab weapons are retained, and explicit paths are untouched.
 
-**Bot and tools.** `BotInput.pick_choice` returns `{job_id, path}`. With no path
-named, the bot draws one of a first job's paths from the job stream (8); a forced second job takes the path whose weapon
-family the branch can use. `--job=<id>[:<path>]` (`--job=400:claw`; `balance.sh`, `playtest.sh`, `--run`) names the path;
-a path the line does not have fails at startup.
+**Tools:** `JobTree.parse_forced` returns `{job, path}`. A forced multi-path job validates against its own paths
+(`100:spear`, `110:axe`, `120:blunt`); a single-family branch validates against its first job's paths
+(`410:claw`, `410:dagger`). Unknown paths fail at startup. #230's compatibility callers pass an offered forced
+path or the empty default; #232 adds uniform job-stream-8 path draws at each advancement, using a forced path only
+when that advancement offers it. Seeded records intentionally change: fewer grants, one entry per job, recorded
+Warrior/Bowman paths, and subsequently the new bot draws. #230 re-captures the fixed-seed synthetic event digest
+(`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Character fixtures are unchanged.
 
 **Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
 (a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
@@ -4976,6 +4963,10 @@ random policy shares the movement and the camper policies still override it afte
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Constant / choice | Value | Tier | Source |
+|---|---|---|---|
+| Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 
 Drain (#213) additions:
 
@@ -5116,7 +5107,7 @@ Pirate tracer (#186) additions:
 | First-job level / grants | Lv10; +125 HP, +37 MP | C level override; B v83-facts §4 reward midpoints (MP truncated) |
 | Pirate growth | 25 HP / 20.5 MP per level | B v83-facts §4 midpoints; existing accumulated-total rounding |
 | Per-path AP | knuckle STR + DEX target level; gun DEX + STR target level | C owner choice; `ap_stat` / `ap_secondary` keys `500:knuckle`, `500:gun`; nearer branch wins |
-| Pirate weapon gifts | chosen 1482000/1492000 worn, opposite in Equip | B v83-facts §4 Kyrin; C optional `extra_items` shape and overflow pickup rule |
+| Pirate weapon gifts (#226 amendment) | only chosen 1482000/1492000 worn; displaced equipment to Equip or feet | B v83-facts section 4 Kyrin item choices; C chosen-only rule |
 | First-job skill values | 20 levels, original costs / damage / counts / boxes / range / ACC / avoid | A Skill.wz 500.img; canonical `bulletCount`/`range` fallback |
 | Flash Fist / kick weapon overrides | knuckle / any | C owner choice |
 | Kick surrounding box | ±canonical far edge, original vertical bounds | C `cast.around`, owner surrounding-kick behavior |
@@ -5130,7 +5121,7 @@ Pirate tracer (#186) additions:
 | Double Uppercut (#191, 7.19) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
 | Corkscrew Blow (#191, 7.19) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the swept hit box ends at the wall that stops the charge (nothing past it is struck) | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
 | Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.14) |
-| Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `grant_items` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
+| Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `paths` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
 | Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
 | Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
 | Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
@@ -5201,8 +5192,8 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
 | Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
-| Weapon path grants | Each first-job weapon path wears its item (the v83 Beginner weapons above) without requirement checks and records `weapon_path`; Warrior has none: its sword is `balance.player.weapon_grants` (`jobs.json` `paths`, #157) | B (items), C (shape) | Cosmic job-instructor NPC scripts (v83-facts 4); the two Pirate weapons are ordinary shop weapons, v83 has no Beginner pirate weapon |
-| Branch weapon grant | A second job hands one advancement weapon per family (`jobs.json` `weapon_families` + `grant_items`, `JobTree.branch_grant`): the held family's is worn, else the first family's; the displaced weapon and the others go to the Equip tab (#157, reshaped by #165 #180) | C | Ticket #157, spec #165 |
+| Weapon path grants (#226 amendment) | Only the chosen family item is worn without requirements; paths exist at multi-family first and second jobs. >=2 paths records `weapon_path`, 0/1 preserves it | B (instructor item choices), C (selection, data shape, defaults) | Owner spec #226; jobs.json |
+| Branch weapon grant (#226 amendment) | One chosen item, from `paths`; tier-2 page order puts held family first. Single-family grants stay worn; displaced equipment goes to Equip or feet | C | Owner spec #226; ADR 0005 |
 | Warrior advancement weapons | Fighter 110: Gladius 1302008 (sword), Fireman's Axe 1312005 (axe); Page 120: Gladius, War Hammer 1322014 (blunt); Spearman 130: Forked Spear 1432002 (spear), Mithril Pole Arm 1442001 (polearm); plain Lv 30 weapons, stat needs STR 95-100 (#180) | C | Ours |
 | Warrior second-job advancement | Fighter, Page and Spearman at the canonical Lv 30, +325 Max HP (`jobs.json` `grants.max_hp`), growth 26 HP / 5 MP per level unchanged (#180) | B (HP midpoint of +300-350), A (Lv 30) | Cosmic changeJob, v83-facts 4 |
 | Power Strike / Slash Blast after second job | Their ten cards list `requires.carry_jobs` [110, 120, 130]: eligible, still `power`, never in the advancement draw; Iron Body and the HP passives stop at Lv 30 (#180) | C | Owner decision, spec #165 |
@@ -5549,7 +5540,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
 | Buff `scale` | a buff effect entry may multiply its canonical number (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none) | C | data shape; #161 |
 | Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
-| Warrior weapon grants (owner change) | Lv 10 wears the Beginner Warrior's sword 1302077 (PAD 30, `balance.player.weapon_grants`); `jobs.json` `grants.items` = Spear 1432000 (PAD 32) and Steel Pipe 1322006 (PAD 29) join the Equip tab after the old weapon; no room = dropped at the feet; the bot's planner wears the Spear | B (the sword: Cosmic instructor gift, item stats from Character.wz); C (the two extra items, the item choice, the drop rule) | v83-facts 4; owner request 2026-10-18 |
+| Warrior weapon grants (#226 amendment) | Choose Sword 1302077, Spear 1432000 or Steel Pipe 1322006; only chosen item is worn; displaced equipment to Equip or feet | B (sword gift), A (item stats), C (spear/pipe choices, chosen-only rule) | v83-facts 4; owner #226 2026-10-18 |
 | Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
 | Weapon-reach and range-around casts (#163) | `weapon_reach`: nearest mob inside `BasicAttack.envelope` (the union of the held weapon's afterimage boxes, far edge = `reach`); `range_around`: body centres within the level's canonical `range` of the body, `mobCount` cap | A (afterimage boxes, `range`, `mobCount`); C (the rules, auto-cast) | Skill.wz 100.img; ours |
 | Skill stance `"action": "weapon"` (#163) | the held weapon's first basic-attack action (`WeaponInfo.skill_action`), so a spear stabs and a polearm swings | C | the Warrior nodes have no `action` |

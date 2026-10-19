@@ -63,14 +63,18 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for o: Dictionary in e.options:
 				var ok: Array = o.keys()
 				ok.sort()
-				var fields := ["available", "job_id", "name", "reason"]
-				if o.has("path"):
-					fields.insert(3, "path")
+				var fields := ["available", "job_id", "name", "paths", "reason"]
 				if ok != fields:
 					fail("job option fields %s" % [ok])
 				elif typeof(o.job_id) != TYPE_INT or typeof(o.available) != TYPE_BOOL \
-						or (o.has("path") and typeof(o.path) != TYPE_STRING):
+						or not (o.paths is Array):
 					fail("job option types %s" % [o])
+				else:
+					for p: Dictionary in o.paths:
+						var path_fields: Array = p.keys()
+						path_fields.sort()
+						assert_eq(path_fields, ["family", "id", "item_id", "label"])
+						assert_true(p.id is String and p.family is String and p.label is String and p.item_id is int)
 		"choice_pending":
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()

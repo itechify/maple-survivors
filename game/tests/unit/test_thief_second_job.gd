@@ -44,6 +44,9 @@ func _inventory(w: RunWorld) -> Array:
 
 
 func _wear(w: RunWorld, id: int) -> void:
+	# Weapon-switch tests own an independently acquired alternative; advancement grants only its chosen weapon.
+	if id not in _inventory(w):
+		w.equipment.inventory.append(Equipment.create(id, INFO.get(id, {})))
 	assert_eq(w.equip_item(_inventory(w).find(id)), "")
 
 
@@ -280,7 +283,7 @@ func test_each_assassin_tier_fires_the_current_stars_as_lucky_seven_projectiles(
 					"Item.wz/Consume/0207.img/%08d/bullet" % (2070001 + tier))
 
 
-func test_forced_branch_tools_select_the_matching_first_job_path_and_the_branch() -> void:
+func test_forced_branch_tools_select_the_first_job_and_branch_with_default_paths() -> void:
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
 	for job in [410, 420]:
@@ -288,7 +291,7 @@ func test_forced_branch_tools_select_the_matching_first_job_path_and_the_branch(
 		assert_eq(SceneFlow.forced_job_error(parsed.options, data), "")
 		var w := _thief()
 		var pick := BotInput.pick_choice(jobs.advancements(0, 10), w.job_rng, job, jobs, "")
-		assert_eq(pick, {"job_id": 400, "path": "claw" if job == 410 else "dagger"})
+		assert_eq(pick, {"job_id": 400, "path": ""})
 		assert_eq(BotInput.pick_choice(jobs.advancements(400, 30), w.job_rng, job, jobs, ""), {"job_id": job, "path": ""})
 
 

@@ -49,13 +49,14 @@ func _inventory(w: RunWorld) -> Array:
 	return w.equipment.inventory.map(func(item: Dictionary) -> int: return int(item.id))
 
 
-func test_both_paths_are_offered_at_ten_and_grant_both_weapons() -> void:
+func test_one_job_offers_both_paths_and_grants_only_the_chosen_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
 		_open(w)
 		var options := w.pending_jobs.filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500)
-		assert_eq(options.map(func(o: Dictionary) -> String: return o.get("path", "")), ["knuckle", "gun"])
-		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Pirate - Knuckle", "Pirate - Gun"])
+		assert_eq(options.size(), 1)
+		assert_eq(options[0].paths.map(func(p: Dictionary) -> String: return p.id), ["knuckle", "gun"])
+		assert_eq(options.map(func(o: Dictionary) -> String: return o.name), ["Pirate"])
 		assert_true(options.all(func(o: Dictionary) -> bool: return o.available))
 		assert_true(w.jobs.advancements(0, 9).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500).all(
 			func(o: Dictionary) -> bool: return not o.available and o.reason == "Lv. 10"))
@@ -66,10 +67,10 @@ func test_both_paths_are_offered_at_ten_and_grant_both_weapons() -> void:
 		assert_eq(w.weapon_path, path)
 		assert_eq(w.player_state.max_hp, hp + 125)
 		assert_eq(w.player_state.max_mp, mp + 37)
-		assert_eq(_inventory(w), [1302000, WEAPONS["gun" if path == "knuckle" else "knuckle"]])
+		assert_eq(_inventory(w), [1302000])
 
 
-func test_full_equip_tab_spills_old_and_extra_weapons_at_the_feet() -> void:
+func test_full_equip_tab_spills_only_the_old_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world(0)
 		_open(w)
@@ -78,10 +79,10 @@ func test_full_equip_tab_spills_old_and_extra_weapons_at_the_feet() -> void:
 		assert_eq(w.weapon_id(), WEAPONS[path])
 		assert_eq(w.equipment.inventory.size(), 24)
 		var drops := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "pickup_spawned")
-		assert_eq(drops.size(), 2)
+		assert_eq(drops.size(), 1)
 		assert_true(drops.all(func(e: Dictionary) -> bool: return e.pos == w.player.pos and e.kind == "equip"))
 		assert_eq(drops.map(func(e: Dictionary) -> int: return int(e.item_id)),
-			[1302000, WEAPONS["gun" if path == "knuckle" else "knuckle"]])
+			[1302000])
 
 
 func test_seeded_bot_meets_level_thirty_weapon_requirements_on_both_paths() -> void:
@@ -105,7 +106,7 @@ func test_seeded_bot_meets_level_thirty_weapon_requirements_on_both_paths() -> v
 		assert_between(w.player_state.max_mp - mp, 20, 21, "20.5 MP accumulates before rounding")
 
 
-func test_snapshot_keeps_the_chosen_path_and_both_weapons() -> void:
+func test_snapshot_keeps_the_chosen_path_and_weapon() -> void:
 	for path: String in WEAPONS:
 		var w := _world()
 		_open(w)
@@ -119,7 +120,7 @@ func test_snapshot_keeps_the_chosen_path_and_both_weapons() -> void:
 		assert_eq(restored.character_snapshot(), snapshot)
 		assert_eq(restored.weapon_path, path)
 		assert_eq(restored.weapon_id(), WEAPONS[path])
-		assert_has(_inventory(restored), WEAPONS["gun" if path == "knuckle" else "knuckle"])
+		assert_eq(_inventory(restored), [1302000])
 
 
 func test_bullet_time_adds_canonical_accuracy_crit_and_avoid_with_either_weapon() -> void:
@@ -241,6 +242,7 @@ func test_pirate_cards_follow_the_weapon_held_when_drawn_and_attacks_can_hit_mor
 					(before.pierce if key == "double_shot" else before.mob_count) + 1)
 		# Manual weapon swaps change cards immediately, without changing the recorded AP path.
 		var other := int(WEAPONS["gun" if path == "knuckle" else "knuckle"])
+		w.equipment.inventory.append(Equipment.create(other, INFO[other]))
 		assert_eq(w.equip_item(_inventory(w).find(other)), "")
 		eligible = w.upgrades.eligible(w)
 		assert_eq("flash_fist_rank" in eligible, path == "gun")
@@ -302,6 +304,7 @@ func test_path_ap_survives_swaps_and_a_branch_row_takes_precedence() -> void:
 		_level(w, level, "gun")
 	var str_before: int = w.player_state.str
 	var dex_before: int = w.player_state.dex
+	w.equipment.inventory.append(Equipment.create(1482000, INFO[1482000]))
 	assert_eq(w.equip_item(_inventory(w).find(1482000)), "")
 	assert_eq(w.weapon_path, "gun")
 	assert_eq(w.player_state.str, str_before)
@@ -313,11 +316,11 @@ func test_path_ap_survives_swaps_and_a_branch_row_takes_precedence() -> void:
 	assert_true(w.player_state.str > str_before)
 
 
-func test_extra_path_items_load_their_info_even_when_no_other_roster_names_them() -> void:
+func test_path_weapon_loads_info_even_when_no_other_roster_names_it() -> void:
 	var data := RF.quiet_data()
-	data.jobs_survivor.jobs["500"].paths[0].extra_items = [1092003]
+	data.jobs_survivor.jobs["500"].paths[0].item_id = 1482999
 	data.equipment_drops.items = []
-	assert_has(DataRepo.starter_equipment_ids(data), 1092003)
+	assert_has(DataRepo.starter_equipment_ids(data), 1482999)
 
 
 func test_forced_pirate_path_flags_are_accepted_by_run_and_launcher() -> void:
@@ -330,10 +333,11 @@ func test_forced_pirate_path_flags_are_accepted_by_run_and_launcher() -> void:
 		assert_eq(RunLauncher.options_from_args({"job": "500:" + path}).job_path, path)
 
 
-func test_bot_keeps_the_wielded_path_when_the_other_gift_scores_higher() -> void:
+func test_bot_keeps_the_wielded_family_when_an_owned_alternative_scores_higher() -> void:
 	var w := _world()
 	_open(w)
 	BotInput.auto_choose(w, false, 500, "gun")
+	w.equipment.inventory.append(Equipment.create(1482000, INFO[1482000]))
 	var events := w.drain_events()
 	assert_true(BotShop.item_score(w.equipment.inventory[-1], BotShop.weights_for(w.balance, 500, w.jobs)) >
 		BotShop.item_score(w.equipment.worn.weapon, BotShop.weights_for(w.balance, 500, w.jobs)))
