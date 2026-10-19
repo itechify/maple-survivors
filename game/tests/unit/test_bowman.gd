@@ -85,8 +85,10 @@ func test_seeded_bot_meets_both_advancement_weapons_at_thirty_and_grows_22_15() 
 				break
 		assert_eq(w.progression.level, level)
 		if level > 10:
-			assert_eq(w.player_state.max_hp - hp, 22)
-			assert_eq(w.player_state.max_mp - mp, 15)
+			# #202/#203: second jobs add their grants on the Lv30 tick; growth itself stays 22/15.
+			var advanced := level == 30 and w.progression.job_id in [310, 320]
+			assert_eq(w.player_state.max_hp - hp, 22 + (325 if advanced else 0))
+			assert_eq(w.player_state.max_mp - mp, 15 + (175 if advanced else 0))
 		if level == 30:
 			for req: Dictionary in [{"reqLevel": 30, "reqJob": 4, "reqSTR": 35, "reqDEX": 95},
 					{"reqLevel": 28, "reqJob": 4, "reqSTR": 28, "reqDEX": 80}]:

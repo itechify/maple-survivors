@@ -132,6 +132,22 @@ static func skill_imgs() -> Dictionary:
 	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
 	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
 		"300": {"skill": bowman}}
+	# #202: v83 Hunter endpoints; intermediate rows are synthetic linear interpolation, no proprietary art.
+	var bomb_levels := _levels(30, {"mpCon": [14.0, 28.0], "x": [72.0, 130.0], "prop": [31.0, 60.0],
+		"time": [2.0, 6.0], "mobCount": [6.0, 6.0]})
+	for level: String in bomb_levels:
+		var extent := lerpf(130.0, 150.0, float(int(level) - 1) / 29.0)
+		bomb_levels[level].lt = {"$v": [-extent, -100.0]}
+		bomb_levels[level].rb = {"$v": [extent, 100.0]}
+	imgs["310"] = {"skill": {
+		"3100000": {"level": _levels(20, {"mastery": [1.0, 10.0], "x": [1.0, 20.0]})},
+		"3100001": {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})},
+		"3101002": {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
+			"time": [10.0, 200.0], "x": [-2.0, -2.0]})},
+		"3101003": {"level": _levels(20, {"range": [130.0, 150.0], "damage": [105.0, 200.0],
+			"mobCount": [2.0, 6.0], "prop": [13.0, 70.0], "mpCon": [8.0, 15.0]})},
+		"3101005": {"level": bomb_levels},
+	}}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):

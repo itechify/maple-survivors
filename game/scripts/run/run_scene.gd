@@ -1055,6 +1055,7 @@ func handle_events(events: Array) -> void:
 				_on_skill_thrown(e)
 			"skill_impact":
 				fx.play(String(e.effect), e.pos)
+				_sound(String(world.book.def(String(e.skill)).get("sounds", {}).get("hit", "")))
 			"ammo_shot":
 				_on_ammo_shot(e)
 			"teleport":

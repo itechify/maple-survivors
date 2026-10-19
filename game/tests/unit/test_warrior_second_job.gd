@@ -310,7 +310,7 @@ func test_job_110_120_130_can_be_forced_and_an_unknown_second_job_still_fails() 
 	var data := DataRepo.load_all()
 	for job in [110, 120, 130]:
 		assert_eq(SceneFlow.forced_job_error({"job": job}, data), "", "--job=%d is accepted" % job)
-	assert_true("not playable" in SceneFlow.forced_job_error({"job": 310}, data), "the Hunter's line is still locked")
+	assert_eq(SceneFlow.forced_job_error({"job": 310}, data), "", "Hunter is playable since #202")
 	assert_true("not in the canonical" in SceneFlow.forced_job_error({"job": 150}, data), "a job the tree lacks fails")
 
 

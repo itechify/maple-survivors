@@ -34,6 +34,7 @@ func _data() -> Dictionary:
 		{"id": "gun", "label": "Pirate - Gun", "item_id": 1492000, "family": "gun"}]}
 	jobs["410"] = {"playable": true, "weapon_families": ["claw"], "grant_items": [1472061]}
 	jobs["420"] = {"playable": true, "weapon_families": ["dagger"], "grant_items": [1332063]}
+	jobs["310"] = {"weapon_families": ["bow"]} # Synthetic no-grant row, independent of shipping Hunter (#202).
 	return data
 
 
@@ -230,7 +231,7 @@ func test_a_bare_handed_character_gets_the_branch_weapon_and_a_branch_without_da
 	plain.change_job(210)
 	assert_eq(plain.weapon_id(), 1302000, "no weapon_families on the row: no grant")
 	var unfinished := _world()
-	unfinished.change_job(310) # families, but no grant_items yet (the Bowman class spec chooses them)
+	unfinished.change_job(310) # synthetic families-only row
 	assert_eq(unfinished.weapon_id(), 1302000, "a branch with families but no grant items grants nothing")
 
 
