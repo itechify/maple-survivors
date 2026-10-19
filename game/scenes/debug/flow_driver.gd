@@ -106,7 +106,8 @@ extends Node
 ##           Save & quit -> character select -> Continue: job, weapons, skills and cards equal the snapshot before quitting.
 ##           Shots: warrior2_<b>_job_window_100/_<b>, _job_confirm_*, _advancement_draw, _playing, _skill_window_top,
 ##           _skill_window_bottom, _skill_greyed_tooltip, _hub, _character_select, _continue_restored; summary.json.
-##   thief   first-job tracer (#207), --path=claw|dagger: real Lv10 window, both gifts, and combat screenshots.
+##   thief   Thief QA (#215), --path=claw|dagger [--branch=410|420]: Lv10/Lv30 windows, both gifts, combat,
+##           advancement weapon, Free Market Save & quit / Continue. --disorder=1 keeps the first-job crowd probe.
 ##           --disorder=1 captures Disorder on a prepared ordinary crowd instead (#210).
 ##           Invulnerable EXP-drop climb; skill cards applied for evidence only. Save stays in shots_dir.
 ##   pirate  the Pirate line end to end (spec #168 QA #195; `--path=knuckle|gun`, `--branch=510|520`): title -> new character
@@ -1543,16 +1544,26 @@ func _scenario_warrior() -> void:
 
 
 ## First-job Thief tracer (#207): both real advancement entries and gifts, then an attack frame on either path.
+## Thief QA through injected input, with diagnostic invulnerability/EXP drops and an explicit Free Market boundary.
 func _scenario_thief() -> void:
 	var path_id := String(args.get("path", "claw"))
-	if path_id not in ["claw", "dagger"]:
-		_fail("--path must be claw or dagger")
+	var branch := int(args.get("branch", 410 if path_id == "claw" else 420))
+	if path_id not in ["claw", "dagger"] or branch not in [410, 420]:
+		_fail("--path must be claw or dagger; --branch must be 410 or 420")
 		return
+	_backup_settings()
+	var settings := get_node_or_null("/root/Settings") as GameSettings
+	if settings == null:
+		_fail("no Settings autoload")
+		return
+	var scratch := "user://flow_driver_thief_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(scratch))
+	settings.reload_from(scratch)
 	if not await _until(func() -> bool: return flow.current_name == "title", 20.0, "title"):
 		return
 	await _sleep(2.0)
 	await _key(KEY_ENTER)
-	if not await _create_character("Thief207"):
+	if not await _create_character("Thief215"):
 		return
 	await _sleep(1.0)
 	await _start_selected(flow.current)
@@ -1561,6 +1572,7 @@ func _scenario_thief() -> void:
 	var run := flow.current as RunScene
 	await _sleep(2.0)
 	var w := run.world
+	var sword := w.weapon_id()
 	w.god = true # tier C: evidence-only invulnerability while the EXP drops open the real job window.
 	var first := await _pirate_climb(run, 10, 400, path_id, "thief_lv10")
 	if first.is_empty():
@@ -1571,6 +1583,20 @@ func _scenario_thief() -> void:
 	var other := 1332063 if path_id == "claw" else 1472061
 	_check(w.weapon_id() == weapon and w.weapon_path == path_id, "chosen weapon and path")
 	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == other), "opposite gift in Equip")
+	_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == sword), "creation weapon in Equip")
+	await _key(KEY_E)
+	await _key(KEY_I)
+	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null \
+		and run.ui_windows.find_window("equip") != null, 3.0, "Thief Equip and Item windows"):
+		return
+	var ew := run.ui_windows.find_window("equip") as EquipWindow
+	var iw := run.ui_windows.find_window("item") as ItemWindow
+	var cell_ids: Array = iw.cells().map(func(c: Dictionary) -> int: return int(c.id))
+	_check(ew.worn_id("weapon") == weapon and other in cell_ids and sword in cell_ids, "both gifts visible in equipment UI")
+	await _shot("thief_equip_both_weapons")
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	_check(not run.ui_windows.has_windows() and not run.paused, "equipment windows closed")
 	if String(args.get("disorder", "0")) == "1":
 		await _thief_disorder(run)
 		return
@@ -1597,9 +1623,74 @@ func _scenario_thief() -> void:
 		and float(w.player_state.action_t) < 0.1, 15.0, "Thief attack action"):
 		return
 	await _shot("thief_" + path_id + "_fighting", 0.05)
+	# Resolve the real Lv30 job and card windows, retaining the recorded first-job weapon path.
+	var second := await _pirate_climb(run, 30, branch, "", "thief_lv30")
+	if second.is_empty():
+		return
+	var lv30_weapon := 1472008 if branch == 410 else 1332012
+	_check(second.entries.any(func(t: String) -> bool: return t.begins_with("Assassin")) \
+		and second.entries.any(func(t: String) -> bool: return t.begins_with("Bandit")), "both second jobs shown")
+	_check(w.progression.level == 30 and w.progression.job_id == branch, "chosen second job at Lv30")
+	_check(w.weapon_id() == lv30_weapon and w.weapon_path == path_id, "advancement weapon worn; original path retained")
+	for gift in [weapon, other]:
+		_check(w.equipment.inventory.any(func(i: Dictionary) -> bool: return int(i.id) == gift), "first-job gift retained: %d" % gift)
+	var branch_attack := "drain" if branch == 410 else "savage_blow"
+	if w.loadout.rank(branch_attack) == 0:
+		w.upgrades.apply(branch_attack + "_new", w) # diagnostic: persistence checks include an actual branch skill.
+	run.handle_events(w.drain_events())
 	_check(w.warnings.is_empty(), "no world warnings")
 	_collect_missing(run)
+	# Match the Pirate QA boundary shortcut; all Save & quit / Continue UI below uses injected input.
+	var carried := w.character_snapshot()
+	var slot := flow.save.slot(flow.active_slot)
+	slot.character = carried
+	slot.phase = "free_market"
+	_check(flow.save.update_slot(flow.active_slot, slot) == OK, "Thief saved at diagnostic Free Market boundary")
+	var active := flow.active_slot
+	flow.continue_character(active)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "Thief hub"):
+		return
+	var hub := flow.current as FreeMarket
+	await _sleep(1.5)
+	var expected: Dictionary = JSON.parse_string(JSON.stringify(hub.inventory.character_snapshot()))
+	await _shot("thief_hub")
+	_collect_missing(hub)
+	await _key(KEY_ESCAPE)
+	await _shot("thief_save_and_quit")
+	await _key(KEY_2)
+	if not await _until(func() -> bool: return flow.current_name == "character_select", 10.0, "saved Thief hub"):
+		return
+	_reload_save()
+	await _sleep(1.0)
+	await _shot("thief_character_select")
+	var saved: Dictionary = JSON.parse_string(JSON.stringify(flow.save.slot(active).character))
+	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
+		_check(saved.get(field) == expected.get(field), "saved Thief " + field)
+	await _click(flow.current.slot_buttons[active])
+	await _click(flow.current.select_button)
+	if not await _until(func() -> bool: return flow.current_name == "free_market", 10.0, "continued Thief hub"):
+		return
+	var again := flow.current as FreeMarket
+	await _sleep(1.5)
+	var restored: Dictionary = JSON.parse_string(JSON.stringify(again.inventory.character_snapshot()))
+	for field: String in ["job_id", "level", "weapon_path", "equipment", "skills", "mesos"]:
+		_check(restored.get(field) == expected.get(field), "Continue restored Thief " + field)
+	_check(int(restored.skills.get(branch_attack, {}).get("rank", 0)) > 0, "branch attack restored")
+	await _key(KEY_E)
+	await _sleep(0.5)
+	var restored_equip := again.ui_windows.find_window("equip") as EquipWindow
+	_check(restored_equip != null and restored_equip.worn_id("weapon") == lv30_weapon, "restored advancement weapon shown")
+	await _shot("thief_continue_restored")
+	_collect_missing(again)
 	_check(_missing.is_empty(), "no missing assets: %s" % [_missing])
+	var report := {"scenario": "thief", "path": path_id, "branch": branch, "job_id": restored.job_id,
+		"level": restored.level, "equipment": restored.equipment, "skills": restored.skills,
+		"lv10_entries": first.entries, "lv30_entries": second.entries,
+		"warnings": Array(w.warnings), "missing": Array(_missing), "failed": _failed}
+	var file := FileAccess.open(shots_dir.path_join("summary.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify(report, "\t"))
+	file.close()
+	print("flow_driver: thief scenario %s (missing: %s)" % ["FAILED" if _failed else "passed", _missing])
 	_quit()
 
 

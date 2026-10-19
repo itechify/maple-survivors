@@ -9,7 +9,7 @@ extends SceneTree
 ## has to be alive and warning-free; without one the round must clear.
 ## `--job=<id>[:<path>]` also names a weapon path (`--job=520:gun`, as for balance.sh). `--god` is a documented diagnostic
 ## aid (spec #165 #185 and spec #168 #195): RunWorld.god makes the character invulnerable, so the bot can reach a level its play does not
-## survive to (Warrior and Pirate second-job fixtures). Use it with `--seconds`, and the
+## survive to (Warrior, Pirate and Thief second-job fixtures). Use it with `--seconds`, and the
 ## fixture's _doc records it (`invulnerable` and `diagnostic`). `--exp-mult=<k>` is a second aid: it multiplies the round's EXP (balance
 ## `exp_mult`) for a line the bot cannot level at its natural pace (the knuckle Pirate: its damage cannot beat the second
 ## boss), and is recorded in the _doc as well.
