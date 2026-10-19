@@ -36,7 +36,9 @@ extends RefCounted
 ##   discard_item(inventory_index) - destroy an inventory item (worn items cannot be discarded)
 ## Equipment drops (#109) come from kills and bosses (EquipmentDrops, equipment_drops.json); collecting one appends it
 ## to the inventory (`equipment_changed` action "pickup") while the Equip tab has room, otherwise it stays on the
-## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them.
+## ground and `pickup_blocked` (reason inventory_full) is emitted. equips_dropped / equips_collected count them. An item
+## for an empty slot that displaces nothing and whose requirements are met is then worn at once (action "auto_equip",
+## Equipment.auto_wear_error, #222).
 ##   use_scroll(scroll_id, slot)  - scroll the item worn in an equip slot (Scrolls rules, #110): "" when the scroll was
 ##                                  used up (the result is the `scroll_used` event: success, failure or destroyed),
 ##                                  else no_item (none held) or a Scrolls refusal (scroll_type, scroll_slots, empty,

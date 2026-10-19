@@ -215,6 +215,7 @@ var _blink_t := 0.0
 var _frame_exp := 0
 var _frame_mesos := 0
 var _frame_items: Array[String] = []
+var _frame_equipped: Array[String] = [] # auto-worn pickups (#222), announced after the "gained an item" lines
 var _frame_inventory_full := false
 var _frame_sounds := {}
 var _hud_sig := PackedInt32Array()
@@ -562,9 +563,12 @@ func advance_frame(delta: float) -> void:
 	if hud != null:
 		for item_name: String in _frame_items:
 			hud.show_item_gain(item_name)
+		for item_name: String in _frame_equipped:
+			hud.show_equipped(item_name)
 		if _frame_inventory_full:
 			hud.show_inventory_full()
 	_frame_items.clear()
+	_frame_equipped.clear()
 	_frame_inventory_full = false
 	_advance_end(delta)
 	if not held:
@@ -1156,8 +1160,8 @@ func handle_events(events: Array) -> void:
 				_apply_look()
 				_refresh_inventory_windows() # a pickup can land while the windows are open (spec #33, #113)
 				if String(e.action) == "auto_equip" and hud != null:
-					hud.show_equipped(library.string_name("Eqp", int(e.item_id)) if library != null else "")
-					_event_shot("auto_equip.png", 0.4)
+					_frame_equipped.append(library.string_name("Eqp", int(e.item_id)) if library != null else "")
+					_first_event_shot("auto_equip", "auto_equip.png", 0.4)
 			"scroll_used":
 				_on_scroll_used(e)
 			"ammo_upgraded":
