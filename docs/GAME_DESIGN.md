@@ -509,6 +509,30 @@ Raw records: ignored `_scratch/smoke_base/` and `_scratch/smoke_after/`.
 bot event bytes, seed 1) and `test_tick_cost_identity` (`GOLDEN` and `TOTALS`, seed 146: exp 5133 -> 4196, kills 276 ->
 208, casts 249 -> 183, level 14 -> 13).
 
+#### Spec #225 (#229): researched potion steps: regression smoke (2026-10-18)
+
+Feature smoke only, no tuning (AGENTS.md): `bash scripts/balance.sh 1 2 2026 --tier=2 --policy=<bot|random>` (default
+job pick, 6 chains), private cache `s225-t229` (imported with the new manifest). **No chain reached tier 2**: every
+tier-1 Henesys round ended DEAD (4:41-7:45, Lv 9-19), so no tier-2 run started and **no run reached Lv 40 or Lv 60**; the chain smoke
+alone cannot show the new steps fire. All six: `warnings: []`, `missing: []`, no crash. D = death time, final level
+(seeds 1 / 2 / 2026), against the #228 smoke above:
+
+| Policy | #228 smoke (Henesys) | #229 chain (tier-1 round) |
+|---|---|---|
+| bot | D 5:36 Lv11 / 6:42 Lv14 / 5:05 Lv10 | D 5:21 Lv11 / 4:41 Lv9 / 5:05 Lv10 |
+| random | D 7:42 Lv23 / 5:58 Lv13 / 5:06 Lv12 | D 7:45 Lv19 / 5:50 Lv11 / 5:06 Lv12 |
+
+The records differ a little from #228 because the bot waste guard now caps the restore at the pool (it only changes a
+drink when a potion restores more than the pool holds); n = 3 per cell, a record not a finding. To show the steps fire, the committed Lv 38
+Magician fixture (`lv35_magician_2nd.json`) was copied to ignored `_scratch/` files with `level` 39 and `exp` just below
+the next level (a diagnostic copy, Red/Blue potions held, 30 of each) and run on `--stage=dark_cave --policy=bot --cap=600`
+(seeds 1 and 2): both TIMED OUT at 10:00 at Lv 72 / 70 with no warnings and nothing missing; the character is Lv 60
+within the first minute (Dark Cave pays a lot of EXP), so Unagi / Pure Water (Lv 40) and Ice Cream Pop / Red Bean
+Sundae (Lv 60) were all applied in turn, and the bot drank Red Bean Sundae (MP, seed 1 first at 0:20) and Ice Cream Pop
+(HP, seed 1 at 5:13, Lv 63). A playtest of the same copy (`evidence/spec225/t229/lv39_unagi/`) shows the four notices
+("Your White Potions are now Unagis." ... "Your Pure Waters are now Red Bean Sundaes.") and the quick slots with the
+new icons. A second copy at Lv 59 ended at Lv 101-ish (Dark Cave EXP is huge) and drank Red Bean Sundae; it is not evidence of pacing.
+
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
@@ -2958,8 +2982,8 @@ skill in its single-shot vanilla form at canonical MP, Blue Potions are the main
 10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
 EXP cap/absorption path. Both card policies drink a potion only when the missing HP or MP is at least half of one
-current potion's canonical restore (`balance.potions.bot.min_restore_fraction`, tier C), so a sip never mostly
-overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
+current potion's canonical restore, capped at the max HP/MP pool (`balance.potions.bot.min_restore_fraction`, tier C;
+the cap is #229), so a sip never mostly overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
 
 **Automatic potion tiers (spec #225, #228).** No card changes the potion any more. `balance.potions.schedule` lists
 `{level, kind, item}` steps (tier C, ours; sorted by level): HP Red (2000000) → Orange (2000001) at Lv 10, MP Blue
@@ -2971,8 +2995,23 @@ an item without a restore spec is skipped. Nothing is stored: each level-up and 
 to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
 load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
 HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." The Power Elixir is not a
-potion tier (it is the card filler, section 8). Steps beyond Lv 25 come with the research in
-`docs/research/v83-potion-progression.md`.
+potion tier (it is the card filler, section 8).
+
+**Researched steps (#229).** The schedule continues with the table of `docs/research/v83-potion-progression.md`
+section 6 (tier C: items and recovery are tier A from the v83 `Item.wz`, the levels are our own reading of thin
+sources): HP Unagi (2022003, 1000 HP) and MP Pure Water (2022000, 800 MP) at Lv 40, then HP Ice Cream Pop (2001001, 2000
+HP) and MP Red Bean Sundae (2001002, 2000 MP) at Lv 60. The Lv 60 pair has no source for its level; it is an extrapolation
+the spec lead accepted. Melting Cheese, Reindeer Milk, Sunrise Dew, Sunset Dew, the Elixirs and the dual-pool foods stay out. The
+recovery of each item is read from its canonical `spec` (`Consume/0200.img`, `0202.img`; `DataRepo.potion_img_path`
+picks the img from the id) and is never typed into survivor data; the items, icons, String.wz names and `Use` sounds
+come through `asset_manifest.d/common.json` (Pure Water's sound is a canonical link to `02012002/Use`, resolved by the
+importer). Mob and boss potion drops follow the current item, so they drop the new items with no other change.
+A cache imported before #229 has none of the four items: the sim skips an unresolvable step, so such a character
+stops at White / Mana Elixir (no error, no notice; `build_setup` lists the absent entries in `missing`, so
+re-run `scripts/import.sh` or the web re-import). The 1000 and 2000 point steps exceed most pools at their levels
+(research section 6, "How the restores compare"), so the overheal is wasted by design; the bot's waste guard compares the
+missing share with the restore **capped at the max HP/MP pool** (`BotInput.worth_drinking`, tier C), otherwise a 2000-point
+potion would never be worth drinking and the bot would die with stock.
 
 The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level-up refills MP to the new maximum
 (#80, tier B) but adds no HP (tier C). Between level-ups, Three
@@ -4701,8 +4740,8 @@ never adds permanent HP regeneration, and the skill remains available after adva
 Research for the potion ladder and its Lv 1-70 schedule: `docs/research/v83-potion-progression.md` (spec #225, #227).
 
 Potion tiers are no longer cards (spec #225, #228): they follow the level schedule of section 5 (HP Red → Orange at
-Lv 10 → White at Lv 25; MP Blue → Mana Elixir at Lv 20), keep the whole stock count and change all future drops of
-that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
+Lv 10 → White at Lv 25 → Unagi at Lv 40 → Ice Cream Pop at Lv 60; MP Blue → Mana Elixir at Lv 20 → Pure Water at Lv 40
+→ Red Bean Sundae at Lv 60; #229), keep the whole stock count and change all future drops of that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
 gone; the Elixir filler keeps its base score).
 
 Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
@@ -5538,6 +5577,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
+| Researched potion steps (#229) | `balance.potions.schedule`: HP Unagi 2022003 and MP Pure Water 2022000 @ Lv 40, HP Ice Cream Pop 2001001 and MP Red Bean Sundae 2001002 @ Lv 60 (items, recovery, names: tier A from v83 `Item.wz`/`String.wz`; shop stock tier B/C; levels tier C, the Lv 60 pair an extrapolation) | C | `docs/research/v83-potion-progression.md` section 6; balance.json |
+| Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool (drink when missing >= `min_restore_fraction` x min(restore, pool)) | C | our own policy so the 1000-2000 point steps stay drinkable |
 | Sparse draws | 3 choices when full; otherwise eligible cards plus one Elixir, alone at 0 | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |

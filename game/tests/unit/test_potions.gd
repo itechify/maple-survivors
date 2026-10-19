@@ -231,31 +231,35 @@ func test_bot_drinks_only_when_most_of_a_potion_lands() -> void:
 
 
 func test_bot_waste_guard_caps_the_restore_at_the_pool() -> void:
-	# tier C (#229): a 2000-point step restores more than any pool, so the guard compares with the pool, not the potion.
+	# tier C (#229): a restore beyond the pool counts as the pool, so the 1000-2000 point steps stay drinkable, but never
+	# as less than pool_floor (0.25) of the potion, so a tiny pool still never wastes a big one.
 	var w := _world()
+	w.potions.item_info[2022003] = {"spec": {"hp": 1000}}
 	w.potions.item_info[2001001] = {"spec": {"hp": 2000}}
 	w.potions.item_info[2001002] = {"spec": {"mp": 2000}}
 	w.potions.add("mp", 2)
-	assert_true(w.potions.upgrade("hp", 2001001), "Ice Cream Pop restores 2000 HP")
-	assert_true(w.potions.upgrade("mp", 2001002))
-	var max_hp := float(w.player_state.max_hp)
-	assert_true(max_hp < 1000.0, "the fixture pool is far below one potion")
-	w.take_hit(max_hp * 0.8, false, "", w.player.pos - Vector2(10, 0))
-	var missing := max_hp - float(w.player_state.hp)
-	assert_true(missing >= 0.5 * max_hp and missing < 0.5 * 2000.0, "past half the pool, far under half a potion")
-	assert_true(BotInput.decide(w, {}).drink_hp, "half the pool missing is worth a 2000-point potion")
-	w.drink_potion("hp")
-	assert_eq(int(w.player_state.hp), int(max_hp), "the overheal is capped by the pool")
-	w.take_hit(max_hp * 0.2, false, "", w.player.pos - Vector2(10, 0))
-	assert_false(BotInput.decide(w, {}).drink_hp, "a fifth of the pool missing is still a waste of any potion")
-	w.spend_mp(int(w.player_state.mp) - int(float(w.player_state.max_mp) * 0.4))
-	assert_true(BotInput.decide(w, {}).drink_mp, "60 percent of the MP pool missing is worth a 2000-point potion")
-	assert_true(BotInput.worth_drinking(w, "hp", 0.5 * max_hp, 0.5))
-	assert_false(BotInput.worth_drinking(w, "hp", 0.49 * max_hp, 0.5))
-	# A potion smaller than the pool is unchanged: half of its own restore.
+	var pool := float(w.player_state.max_hp)
+	assert_eq(pool, 300.0, "the fixture pool")
+	assert_true(w.potions.upgrade("hp", 2022003), "Unagi restores 1000 HP: more than the pool, its floor 250 is below it")
+	assert_true(BotInput.worth_drinking(w, "hp", 150.0, 0.5), "half the pool missing is worth a potion that overflows it")
+	assert_false(BotInput.worth_drinking(w, "hp", 149.0, 0.5))
+	assert_true(w.potions.upgrade("hp", 2001001), "Ice Cream Pop restores 2000 HP: the 500 floor exceeds the pool")
+	assert_true(BotInput.worth_drinking(w, "hp", 250.0, 0.5), "counted as at least a quarter of the potion")
+	assert_false(BotInput.worth_drinking(w, "hp", 249.0, 0.5), "a small pool does not drink a huge potion for a sliver")
 	w.potions.upgrade("hp", 2000000)
-	assert_true(BotInput.worth_drinking(w, "hp", 25.0, 0.5))
+	assert_true(BotInput.worth_drinking(w, "hp", 25.0, 0.5), "a potion below the pool is unchanged: half of its restore")
 	assert_false(BotInput.worth_drinking(w, "hp", 24.0, 0.5))
+	# The same through the bot's decision: hit for most of the pool, Unagi held.
+	assert_true(w.potions.upgrade("hp", 2022003))
+	w.take_hit(pool * 0.8, false, "", w.player.pos - Vector2(10, 0))
+	assert_true(pool - float(w.player_state.hp) >= 0.5 * pool, "the hit takes at least half the pool")
+	assert_true(BotInput.decide(w, {}).drink_hp)
+	w.drink_potion("hp")
+	assert_eq(int(w.player_state.hp), int(pool), "the overheal is capped by the pool")
+	assert_false(BotInput.decide(w, {}).drink_hp, "full HP drinks nothing")
+	assert_true(w.potions.upgrade("mp", 2001002))
+	w.spend_mp(int(w.player_state.mp))
+	assert_true(BotInput.decide(w, {}).drink_mp, "an empty MP pool is worth a Red Bean Sundae")
 
 
 func test_mp_potion_restores_canonical_amount_before_the_waiting_skill_casts() -> void:

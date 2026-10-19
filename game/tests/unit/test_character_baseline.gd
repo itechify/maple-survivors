@@ -6,7 +6,10 @@ const DT := 1.0 / 60.0
 ## Re-captured for #228 (spec #225): Magnet and potion-tier cards are gone and potions upgrade by level, so the bot draws
 ## different cards and the run emits potion_tier_up. Earlier: re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
 ## Binary event encoding is platform independent (see below).
-const GOLDEN := "769106d462d41e6ecc0bcf2912c8689f2f490fca1b4859abcf79dbc1daa524b4"
+## Re-captured for #229: the bot waste guard counts a restore up to the pool (potions.bot.pool_floor 0.25 of the potion
+## at least), so it drinks earlier when a potion exceeds a small pool. With pool_floor set to 1.0 (the old guard) the #228
+## hash 769106d4... is reproduced exactly, so the guard is the only change; the four new schedule steps do not fire here.
+const GOLDEN := "6ffbb887c7c4e39ec26cbcca92f1378236aca93a61eeac56ff9b2c0db9dddc76"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
