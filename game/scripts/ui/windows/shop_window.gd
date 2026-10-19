@@ -13,7 +13,8 @@ extends InventoryWindow
 ## refusal opens a ShopNotice with the message and changes nothing. The Use tab lists the scroll stacks only (potions
 ## are never sold: tier C); worn equipment is never listed (it cannot be sold until it is taken off). Esc or Exit
 ## closes the window. Hovering a row shows the item's tooltip. Without the cache the window keeps its layout and draws
-## plain panels.
+## plain panels. Tab shapes (#219): TabBuy / TabSell hold only the glyphs; the grey / pink shapes behind them are the
+## Basic.img/Tab5 set drawn by TabStrip (see ItemWindow), the Buy panel's one tab always shown.
 
 const ART := "UI.wz/UIWindow.img/Shop/"
 const VSCR := "UI.wz/Basic.img/VScr5/"
@@ -31,8 +32,12 @@ const BOX := Rect2(43, 0, 162, 35)
 const ROW := Rect2(6, 0, 199, 35)
 ## tier C (measured): the grey strip under the portrait box (the pink Buy label left, the tabs right).
 const STRIP := Rect2(4, 91, 223, 25)
-## tier C (ours): the tab strip's first tab and tab width on the right panel.
-const TAB_W := 44.0
+## tier C (ours): the tab shapes sit on the strip's bottom (19 rows over the red rule, Tab5's red base on backgrnd's):
+## the right panel's five equal tabs span the whole pill (x 235-456), the Buy panel's one tab x 5-41.
+const TAB_TOP := 97.0
+const TAB_H := 19.0
+const TAB_BOUNDS := [235.0, 279.0, 324.0, 368.0, 412.0, 457.0]
+const BUY_TAB_BOUNDS := [5.0, 41.0]
 const TABS := ["equip", "use", "setup", "etc", "cash"]
 const TAB_NAMES := ["Equip", "Use", "Set-up", "Etc", "Cash"]
 ## tier C (ours, measured on the portrait boxes): where the NPC and the character stand (the shadows in the art), the
@@ -248,7 +253,8 @@ func scrollbar_rect(panel: int) -> Rect2:
 
 ## The local rect of sell tab `i`.
 func tab_rect(i: int) -> Rect2:
-	return Rect2(STRIP.position.x + PANEL_DX + 2.0 + TAB_W * i, STRIP.position.y, TAB_W, STRIP.size.y)
+	var x0: float = TAB_BOUNDS[i]
+	return Rect2(x0, TAB_TOP, float(TAB_BOUNDS[i + 1]) - x0, TAB_H)
 
 
 ## Which row is under local point `p`: [panel, absolute index], or [] for none.
@@ -475,11 +481,19 @@ func _draw() -> void:
 
 ## Names, the Buy label and the tabs on the strips, the meso total.
 func _draw_header() -> void:
+	var buy_shape := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_TOP, PackedFloat32Array(BUY_TAB_BOUNDS), 0)
+	var sell_shape := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_TOP, PackedFloat32Array(TAB_BOUNDS), tab)
+	if not sell_shape:
+		draw_rect(tab_rect(tab), TabStrip.FALLBACK_SHOWN)
 	var label := UiArt.frame(ART + "TabBuy/enabled/3")
+	var buy_tab := Rect2(BUY_TAB_BOUNDS[0], TAB_TOP, float(BUY_TAB_BOUNDS[1]) - float(BUY_TAB_BOUNDS[0]), TAB_H)
+	if not buy_shape:
+		draw_rect(buy_tab, TabStrip.FALLBACK_SHOWN)
 	if label != null:
-		UiArt.blit(self, label, STRIP.position + Vector2(8, floorf((STRIP.size.y - label.region.size.y) * 0.5)))
+		UiArt.blit(self, label, buy_tab.position + ((buy_tab.size - label.region.size) * 0.5).floor())
 	else:
-		MapleText.draw(self, STRIP.position + Vector2(8, 5), "Buy", MapleText.BLACK, MapleText.SMALL, true)
+		MapleText.draw_centered(self, buy_tab.position.x, buy_tab.position.y + 3.0, buy_tab.size.x, "Buy", MapleText.BLACK,
+			MapleText.SMALL, true)
 	for i in TABS.size():
 		var on := i == tab
 		var glyph := UiArt.frame(ART + "TabSell/%s/%d" % ["enabled" if on else "disabled", i])

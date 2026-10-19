@@ -2,9 +2,11 @@ class_name SkillWindow
 extends UiWindow
 ## The v83 Skill window (hotkey K, or Menu -> Skill; #86): UI.wz/UIWindow.img/Skill `backgrnd` (SKILL INVENTORY) with
 ## one tab per job on the character's path (the v83 tab glyphs: the Beginner mark, I, II) and a star tab of job-neutral
-## cards, the job's skill book (icon and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or
-## `iconDisabled`, name, level / max), four at a time with a `Basic.img/VScr5` scrollbar. Read-only: there is no SP
-## to spend, so BtSpUp is never shown. All content comes from a SkillWindowModel.
+## cards (tab shapes, #219: Skill/Tab holds only the white glyphs, the grey / pink shapes behind them are the
+## Basic.img/Tab5 set drawn by TabStrip, see ItemWindow; the star is still code-drawn on its shape), the job's skill
+## book (icon and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or `iconDisabled`, name,
+## level / max), four at a time with a `Basic.img/VScr5` scrollbar. Read-only: there is no SP to spend, so BtSpUp is
+## never shown. All content comes from a SkillWindowModel.
 ##
 ##   SkillWindow.new(model)   # model: SkillWindowModel (RunScene.skill_window_model())
 ##
@@ -20,8 +22,8 @@ const VSCR := "UI.wz/Basic.img/VScr5/"
 const WINDOW_SIZE := Vector2(175, 289)
 ## tier C (ours, measured on the v83 art): the tab strip cells, the skill book box (icon slot, banner text), the rows
 ## (top-left of the first, the step between rows, how many fit), the scrollbar, the SP box and the close button.
-const TAB_ORIGIN := Vector2(8, 24)
-const TAB_SIZE := Vector2(27, 17)
+const TAB_ORIGIN := Vector2(8, 23)
+const TAB_SIZE := Vector2(28, 19)
 const TAB_STEP := 28.0
 const BOOK_ICON := Vector2(9, 53)
 const BOOK_TEXT := Vector2(47, 64)
@@ -246,12 +248,15 @@ func _draw() -> void:
 
 func _draw_tabs() -> void:
 	var tabs := _tabs()
+	var bounds := PackedFloat32Array()
+	for i in tabs.size() + 1:
+		bounds.append(TAB_ORIGIN.x + TAB_STEP * i)
+	var shaped := TabStrip.draw(self, TabStrip.RED_BASE_SET, TAB_ORIGIN.y, bounds, tab)
+	if not shaped and tab < tabs.size():
+		draw_rect(tab_rect(tab), TabStrip.FALLBACK_SHOWN)
 	for i in tabs.size():
 		var r := tab_rect(i)
 		var on := i == tab
-		if on:
-			draw_rect(r, Color(1, 1, 1))
-			draw_rect(r, Color8(153, 153, 153), false)
 		if String(tabs[i].kind) == SkillWindowModel.STAR:
 			_draw_star(r.get_center(), 6.5, STAR_ON if on else STAR_OFF)
 			continue

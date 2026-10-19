@@ -476,3 +476,18 @@ func test_a_purchase_in_the_hub_is_carried_in_the_snapshot() -> void:
 	assert_eq(hub.inventory.mesos, before - 35000)
 	assert_eq(int(hub.snapshot.character.mesos), before - 35000, "the carried character holds the new mesos")
 	assert_eq(int(hub.snapshot.character.scrolls[str(int(shop.stock[0].id))]), 1)
+
+
+func test_the_five_sell_tabs_touch_and_a_click_anywhere_in_one_picks_it() -> void:
+	var shop: ShopWindow = _shop(_world(200, 0, [], {}))[1]
+	assert_eq(shop.tab_rect(0).position.x, ShopWindow.TAB_BOUNDS[0])
+	assert_eq(shop.tab_rect(4).end.x, ShopWindow.TAB_BOUNDS[5])
+	for i in ShopWindow.TABS.size():
+		var r := shop.tab_rect(i)
+		if i > 0:
+			assert_eq(r.position.x, shop.tab_rect(i - 1).end.x, "tab %d starts where tab %d ends" % [i, i - 1])
+		for at: Vector2 in [r.position + Vector2(0.5, 0.5), r.get_center(), r.end - Vector2(0.5, 0.5)]:
+			shop.select_tab((i + 2) % 5)
+			shop._gui_input(IW.press(at))
+			shop._gui_input(IW.press(at, false))
+			assert_eq(shop.tab, i, "a click at %s picks tab %d" % [at, i])

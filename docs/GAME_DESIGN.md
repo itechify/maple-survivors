@@ -105,6 +105,17 @@ String.wz description). Every change goes through the character's RunWorld, so t
 (hat, top, bottom, overall, shoes, gloves, weapon, on character select too) and, in the hub, the save slot follow at
 once.
 
+Tab shapes (#219): the tabs of the Item, Skill, Shop (sell side and the Buy label) and Equip windows (its Equip / Cash
+tabs in the bottom strip) are drawn like the v83 client's tab control, a grey tab for each hidden tab and a pink one
+for the shown tab, with the white glyphs of `<window>/Tab/enabled|disabled` centred on top. The shapes are the
+`Basic.img/Tab5` piece set (19 rows plus the 2 red rows that continue the red rule under the strip; the Equip window's
+blue strip has no rule and uses `Tab3`, whose base is grey), laid out by `TabStrip` (`scripts/ui/widgets/tab_strip.gd`).
+The click areas are the drawn tabs. Item tabs: five equal tabs over the strip (tier C widths, from the 34 px
+`Item/New/Tab0` flash sprites); Skill: 28 px per tab from x 8; Shop: five equal tabs over the sell panel's strip and
+one Buy tab; Equip: 32 + 29 px between the CLOSE and PET EQUIP. buttons (the v83 Equip window has no such tabs; ours
+are an invention, tier C). The Skill window's star tab is still code-drawn on its tab shape. Without the asset cache the
+shown tab is a flat pink box and the glyphs are text. Findings: `docs/research/wz-inventory.md` "Tab backgrounds".
+
 Scrolling (#110): dragging a scroll stack from the Use tab onto a **worn** item in the Equip window reads it (any
 time the windows are open, so a round is held meanwhile; spare items in the inventory cannot be scrolled). The scroll
 must be for that kind of item and the item needs an upgrade slot, else a message shows and the scroll is kept. The
