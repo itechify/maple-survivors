@@ -4652,6 +4652,8 @@ No cast starts on a rope, while an existing Recovery continues healing and expir
 sound and icon are used; rank previews show duration, HP per pulse, cooldown and MP cost. Learning/ranking Recovery
 never adds permanent HP regeneration, and the skill remains available after advancement.
 
+Research for the potion ladder and its Lv 1-70 schedule: `docs/research/v83-potion-progression.md` (spec #225, #227).
+
 Potion tiers are one-time cards: HP Red (2000000) → Orange (2000001) from Lv 10 → White (2000002) from Lv 25;
 MP Blue (2000003) → Mana Elixir (2000006) from Lv 20. Each requires its previous item, preserves the entire stock
 count and changes all future drops of that kind. The current item drives canonical restoration and the HUD icon.
