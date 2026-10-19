@@ -104,7 +104,7 @@ func _init() -> void:
 		character._doc["diagnostic"] = "invulnerable (RunWorld.god = true; fixture tool --god): the bot plays with damage ignored to reach second job for diagnostic fixtures"
 	if exp_mult != 1.0:
 		character._doc["exp_mult"] = exp_mult
-		character._doc["diagnostic_exp"] = "balance exp_mult x%s (fixture tool --exp-mult): the knuckle bot cannot beat the second boss, so it levels too slowly to reach Lv 30 by itself" % str(exp_mult)
+		character._doc["diagnostic_exp"] = "balance exp_mult x%s (fixture tool --exp-mult): diagnostic EXP aid to reach the requested job within the recorded time cap; not balance evidence" % str(exp_mult)
 	var file := FileAccess.open(output, FileAccess.WRITE)
 	if file == null:
 		print("character_fixture: cannot write " + output)
