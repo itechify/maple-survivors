@@ -113,27 +113,23 @@ _Avoid_: class line, family (a weapon family is a kind of weapon)
 
 **Job advancement**:
 The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
-new job's skills come only from cards. A second-job advancement hands over a Lv 30 advancement weapon for each weapon
-family the branch uses.
+new job's skills come only from cards. An advancement grants and wears only the chosen weapon family's weapon.
 _Avoid_: job change, promotion
 
 **Advancement weapon**:
-A weapon a job advancement hands the character. A branch hands one for each weapon family it uses: the one of the held
-weapon's family is worn (the branch's first family's when the held weapon doesn't suit the branch), and the rest join
-the Equip tab.
+A weapon a job advancement hands the character for its chosen family; the previous weapon goes to the Equip tab
+or lies at the character's feet when the tab is full.
 _Avoid_: job reward, starter weapon
 
 **Branch**:
 One of the second-job paths a first job splits into, e.g. the Magician's Fire/Poison (210), Ice/Lightning (220)
 and Cleric (230).
-_Avoid_: path (on its own; a weapon path is the first-job weapon choice), specialisation, subclass
+_Avoid_: path (on its own; a weapon path is a weapon-family choice), specialisation, subclass
 
 **Weapon path**:
-A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
-Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun (the Bowman has the one path of its bow). The job window
-offers each path as its own entry and hands the character that weapon (a Thief or Pirate also gets the other path's weapon
-in the Equip tab, as the v83 instructor gives both, and a Bowman gets a crossbow there). It is not a job: both Thief paths are job 400.
-The Warrior has no path: its advancement is a plain job grant (the Beginner Warrior's sword, plus a Spear and a Steel Pipe in the Equip tab), as is the Magician's Wooden Wand.
+A weapon-family choice at a job advancement with more than one family: Warrior Sword/Spear/Blunt Weapon, Bowman
+Bow/Crossbow, Thief Claw/Dagger, Pirate Knuckle/Gun, and the two-family Warrior branches at second job. It chooses
+the advancement weapon; later weapon swaps still decide which skills and cards can be used.
 _Avoid_: branch (that is the second-job choice), build, stance
 
 ## Skills
