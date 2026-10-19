@@ -497,6 +497,7 @@ func _scenario_full() -> void:
 	var paused_once := false
 	var resumed_once := false
 	var job_seen := false
+	var picked_job := 0
 	while is_instance_valid(run) and run.world != null and run.world.state != RunWorld.DEAD:
 		await get_tree().process_frame
 		if run.world.time >= stop_at and _steer:
@@ -530,6 +531,7 @@ func _scenario_full() -> void:
 				if jw.entries[i].kind == "job" and jw.entries[i].available:
 					idx = i
 					break
+			picked_job = int(jw.entries[maxi(0, idx)].job_id) # whichever job the window lists first (the pick is no longer forced to a Magician)
 			await _key((KEY_1 + maxi(0, idx)) as Key)
 			await _sleep(0.4)
 			await _shot("job_confirm")
@@ -560,9 +562,9 @@ func _scenario_full() -> void:
 		file.store_string(JSON.stringify(snapshot, "\t"))
 		file.close()
 	print("flow_driver: snapshot %s" % JSON.stringify(snapshot))
-	if not job_seen or int(snapshot.job_id) != 200 or not paused_once or not resumed_once:
+	if not job_seen or picked_job == 0 or int(snapshot.job_id) != picked_job or not paused_once or not resumed_once:
 		_failed = true
-		push_error("flow_driver: full scenario did not complete the Magician and pause/resume path")
+		push_error("flow_driver: full scenario did not complete the job window pick (%d) and pause/resume path" % picked_job)
 	await _sleep(1.0)
 	await _shot("death_tombstone")
 	if not await _until(func() -> bool: return flow.current_name == "results", 30.0, "results"):
