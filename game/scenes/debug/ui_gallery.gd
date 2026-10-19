@@ -69,22 +69,6 @@ const JOB10 := [
 	{"job_id": 400, "name": "Thief", "available": false, "reason": "Not in this build"},
 	{"job_id": 500, "name": "Pirate", "available": false, "reason": "Not in this build"},
 ]
-const TMP_OPTIONS := [
-	{"job_id": 100, "name": "Warrior", "available": true, "reason": "", "paths": [
-		{"id": "sword", "label": "Sword", "item_id": 1302077, "family": "sword"},
-		{"id": "spear", "label": "Spear", "item_id": 1432000, "family": "spear"},
-		{"id": "blunt", "label": "Blunt Weapon", "item_id": 1322006, "family": "blunt"}]},
-	{"job_id": 200, "name": "Magician", "available": true, "reason": "", "paths": []},
-	{"job_id": 300, "name": "Bowman", "available": true, "reason": "", "paths": [
-		{"id": "bow", "label": "Bow", "item_id": 1452051, "family": "bow"},
-		{"id": "crossbow", "label": "Crossbow", "item_id": 1462001, "family": "crossbow"}]},
-	{"job_id": 400, "name": "Thief", "available": true, "reason": "", "paths": [
-		{"id": "claw", "label": "Claw", "item_id": 1472061, "family": "claw"},
-		{"id": "dagger", "label": "Dagger", "item_id": 1332063, "family": "dagger"}]},
-	{"job_id": 500, "name": "Pirate", "available": true, "reason": "", "paths": [
-		{"id": "knuckle", "label": "Knuckle", "item_id": 1482000, "family": "knuckle"},
-		{"id": "gun", "label": "Gun", "item_id": 1492000, "family": "gun"}]},
-]
 const JOB30 := [
 	{"job_id": 210, "name": "Wizard (Fire, Poison)", "available": false, "reason": "Phase 2"},
 	{"job_id": 220, "name": "Wizard (Ice, Lightning)", "available": false, "reason": "Not yet available"},
@@ -236,7 +220,7 @@ func _show_window(which: String) -> void:
 			var from := int(args.get("from", 0))
 			var lvl := int(args.get("level", 10))
 			w.confirm_seconds = 999.0
-			w.open(TMP_OPTIONS if args.has("tmp") else jobs.callv("advancements", [from, lvl, str(args.get("held", ""))]), lvl, from)
+			w.open(jobs.advancements(from, lvl, str(args.get("held", ""))), lvl, from)
 			w.job_chosen.connect(func(id: int) -> void: print("ui_gallery: job_chosen ", id, " ", w.picked_path))
 			w.declined.connect(func() -> void: print("ui_gallery: declined"))
 			if args.has("pick"):

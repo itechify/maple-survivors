@@ -464,6 +464,55 @@ func test_job_window_cancel_on_the_weapon_page_returns_to_the_list() -> void:
 	assert_eq(w.picked_path, "crossbow")
 
 
+## The window over the shipped job tree: one entry per job, and the weapon pages in the tree's page order.
+func test_job_window_over_the_shipped_job_tree() -> void:
+	var data := DataRepo.load_all()
+	var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.open(jobs.advancements(0, 10), 10, 0)
+	assert_eq(_texts(w).size(), 6, "five jobs and Not now.")
+	for t: String in ["Warrior", "Magician", "Bowman", "Thief", "Pirate", "Not now."]:
+		assert_true(_texts(w).has(t), t)
+	assert_eq(_texts(w).filter(func(t: String) -> bool: return t.begins_with("Thief")).size(), 1, "Thief once")
+	var expected := {"Warrior": ["Sword", "Spear", "Blunt Weapon"], "Bowman": ["Bow", "Crossbow"],
+		"Thief": ["Claw", "Dagger"], "Pirate": ["Knuckle", "Gun"]}
+	for job_name: String in expected:
+		w.open(jobs.advancements(0, 10), 10, 0)
+		w.select(_texts(w).find(job_name))
+		assert_eq(w.state, "weapon", job_name)
+		assert_eq(_texts(w).slice(0, -1), expected[job_name], "%s families in page order" % job_name)
+	w.open(jobs.advancements(0, 10), 10, 0)
+	w.select(_texts(w).find("Magician"))
+	assert_eq(w.state, "confirm", "the Magician has no weapon page")
+	# Lv 30: the held family leads the Page's list.
+	w.open(jobs.advancements(100, 30, "blunt"), 30, 100)
+	w.select(_texts(w).find("Page"))
+	assert_eq(_texts(w).slice(0, -1), ["Blunt Weapon", "Sword"], "a blunt Warrior sees Blunt first")
+	w.open(jobs.advancements(100, 30, "sword"), 30, 100)
+	w.select(_texts(w).find("Page"))
+	assert_eq(_texts(w).slice(0, -1), ["Sword", "Blunt Weapon"], "a sword Warrior sees Sword first")
+	for first_job: int in [300, 400, 500]:
+		w.open(jobs.advancements(first_job, 30), 30, first_job)
+		for i in w.entries.size() - 1:
+			w.select(i)
+			assert_eq(w.state, "confirm", "single-family branches skip the weapon page")
+			w.open(jobs.advancements(first_job, 30), 30, first_job)
+
+
+func test_job_window_weapon_rows_name_the_weapon() -> void:
+	if not require_cache():
+		return
+	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
+	w.open(LV10, 10, 0)
+	w.select(3)
+	assert_eq(String(w.entries[0].detail), "Beginner Thief Wrist Guard", "the claw's v83 name")
+	assert_eq(String(w.entries[1].detail), "Beginner Thief's short sword")
+	w.go_back()
+	w.select(0)
+	assert_eq(String(w.entries[1].detail), "", "a name equal to the family is not repeated (Spear)")
+	assert_eq(String(w.entries[0].detail), "Beginner Warrior's sword")
+
+
 func test_job_window_not_now_still_defers_with_families_listed() -> void:
 	var w := _add(JobAdvanceWindow.new()) as JobAdvanceWindow
 	w.job_chosen.connect(_record)

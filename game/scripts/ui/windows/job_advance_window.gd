@@ -379,8 +379,10 @@ func _show_weapons(i: int) -> void:
 	state = "weapon"
 	var rows: Array[Dictionary] = []
 	for p: Dictionary in job.paths:
+		var item := weapon_name(int(p.item_id))
 		rows.append({"kind": "path", "job_id": _weapon_job, "path": String(p.id), "text": String(p.label),
-			"item_id": int(p.item_id), "detail": weapon_name(int(p.item_id)), "available": true, "reason": ""})
+			"item_id": int(p.item_id), "detail": "" if item.to_lower() == String(p.label).to_lower() else item,
+			"available": true, "reason": ""})
 	rows.append({"kind": "back", "job_id": _weapon_job, "path": "", "text": "Cancel.", "item_id": 0, "detail": "",
 		"available": true, "reason": ""})
 	entries = rows
