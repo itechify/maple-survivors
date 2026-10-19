@@ -489,7 +489,10 @@ is main `d1cdb16` plus a research doc) in a detached worktree, after = this bran
 `caches/s167-main` and the same `BALANCE_OUT` layout. **Seeded records change by design**: Magnet and the three
 potion-tier cards are no longer offered, so every level-up draw, and everything after it, differs (events gain
 `potion_tier_up` at Lv 10 / 20 / 25). All 12 runs ended DEAD, with `warnings: []` and `missing: []` and no crash or
-script error; no run was cleared before or after. D = death time, then final level (seeds 1 / 2 / 2026):
+script error; no run was cleared before or after. The latest earlier smoke (#215's default-pick row, Henesys bot D 8:15
+Lv24 / 5:32 Lv12 / 5:14 Lv11) predates the Bowman merge into main, so its stream-8 job draws differ (that smoke drew
+Gun Pirate / Warrior / Dagger Thief; the `8e417fb` baseline draws Bowman / Crossbowman / Gun Pirate), hence the fresh
+baseline here. D = death time, then final level (seeds 1 / 2 / 2026):
 
 | Stage, policy | before | after |
 |---|---|---|
