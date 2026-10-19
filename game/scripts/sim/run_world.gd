@@ -2461,8 +2461,11 @@ func take_hit(attack: float, magic: bool, element: String, source_pos: Vector2, 
 		_dead = true
 		state = DEAD
 		emit("player_died", {"pos": player.pos})
-	else:
+	elif bypass or upkeep.may_knock_back():
+		# tier C (owner, #223): a hit inside the knockback guard does its damage without pushing the player; a boss
+		# skill attack/ball (window bypass) always knocks back and restarts the guard.
 		player.knockback(dir)
+		upkeep.start_knockback_guard()
 	_write_player_state(0.0)
 	return dmg
 
