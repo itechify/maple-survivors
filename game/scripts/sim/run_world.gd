@@ -378,6 +378,7 @@ func _init(p_setup: Dictionary = {}) -> void:
 	start_level = progression.level
 	add_hit_listener(_mp_eater_hit)
 	add_hit_listener(_final_attack_hit)
+	add_hit_listener(_damage_heal_hit)
 	update_view()
 	_write_player_state(0.0)
 
@@ -1793,6 +1794,21 @@ func hit_mob(m: int, st: Dictionary, hv: int, hit_rng: RandomNumberGenerator = n
 ## Registers a listener(slot, hit) after on-hit statuses and before damage/kill resolution, once per damaging line.
 func add_hit_listener(listener: Callable) -> void:
 	_hit_listeners.append(listener)
+
+
+func _damage_heal_hit(slot: int, hit: Dictionary) -> void:
+	var key := String(hit.skill)
+	var heal: Dictionary = book.def(key).get("damage_heal", {})
+	if heal.is_empty():
+		return
+	var percent := book.canonical(key, int(hit.level), String(heal.percent_field))
+	# tier C: truncate fractional healing to whole HP after the resolved damage line (including crit/defence).
+	var amount := floori(float(hit.damage) * percent / 100.0)
+	if heal.has("max_hp_fraction"):
+		amount = mini(amount, floori(_max_hp * float(heal.max_hp_fraction)))
+	if bool(heal.get("target_max_hp", false)):
+		amount = mini(amount, swarm.max_hp[slot])
+	restore_player("hp", amount, key)
 
 
 func _mp_eater_hit(slot: int, hit: Dictionary) -> void:

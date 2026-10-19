@@ -592,6 +592,12 @@ clocks pause while unusable, and all clocks reset with the round. This adds no C
 
 What the tables above leave open; the class doc comments have the rest.
 
+Damage-to-heal attacks (#213 Drain) declare `damage_heal: {percent_field, max_hp_fraction, target_max_hp}`.
+The shared hit listener reads the canonical percentage at the hit's launch level, caps the whole-point gain
+by the optional fraction of character MaxHP and the target slot's MaxHP, then uses `restore_player("hp", ...)`.
+It runs before kill resolution for instant and projectile lines, so lethal and piercing hits use the same path.
+No additional packed projectile field, RNG stream, event or snapshot field is needed.
+
 - **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives
   the canonical id. Canonical numbers are read per level from `setup.skill_imgs[book].skill[<7-digit id>].level`.
 - **`RunWorld` extras:** `drain_events()` (returns and clears `events`), `emit(type, fields)`, `state_name()`,
