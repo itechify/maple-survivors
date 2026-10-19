@@ -1295,6 +1295,12 @@ func _scenario_skill() -> void:
 	await _sleep(0.4)
 	_check(String(sw.tooltip().get("id", "")) == "magnet", "Magnet's tooltip")
 	await _shot("skill_star_tab")
+	# The other job tabs (#219: the tab shapes).
+	for t in [0, 1]:
+		await _click_at(origin + sw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(sw.tab == t, "skill tab %d shown" % t)
+		await _shot("skill_tab_%d" % t)
 	await _key(KEY_1)
 	await _sleep(0.2)
 	_check(sw.tab == 0, "1 switched to the Beginner tab")
@@ -2509,6 +2515,12 @@ func _scenario_inventory() -> void:
 	_hover(io + iw.slot_rect(0).get_center())
 	await _sleep(0.4)
 	await _shot("item_use_tab")
+	# Every tab shown once (#219: the v83 tab shapes, the shown one pink).
+	for t in [2, 3, 4]:
+		await _click_at(io + iw.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(iw.tab == t, "tab %d shown" % t)
+		await _shot("item_tab_%s" % ItemWindow.TABS[t])
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	await _sleep(0.6)
@@ -2802,6 +2814,12 @@ func _scenario_shops() -> void:
 	await _shot("shop_refused")
 	await _key(KEY_ENTER)
 	await _sleep(0.3)
+	# Every sell tab shown once (#219: the v83 tab shapes), ending on Use.
+	for t in [2, 3, 4, 0]:
+		await _click_at(origin + shop.tab_rect(t).get_center())
+		await _sleep(0.2)
+		_check(shop.tab == t, "sell tab %d shown" % t)
+		await _shot("shop_tab_%s" % ShopWindow.TABS[t])
 	# Selling: the Use tab's scroll stack, then a spare item.
 	await _click_at(origin + shop.tab_rect(1).get_center())
 	await _sleep(0.3)
