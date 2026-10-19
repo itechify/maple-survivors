@@ -686,8 +686,6 @@ func _create_character(character_name: String) -> bool:
 	await _click(flow.current.get("create_button") as Control)
 	await _sleep(0.5)
 	var creation: Control = flow.current.get("creation")
-	await _shot("creation_gender")
-	await _click(creation.get("create_button") as Control)
 	await _shot("creation_name")
 	await _click(creation.get("name_edit") as Control)
 	await _type(character_name)

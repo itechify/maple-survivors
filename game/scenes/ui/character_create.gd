@@ -23,12 +23,6 @@ const PREVIEW_FEET := Vector2(398, 335)
 ## tier C: name-value area between registered WZ arrows, not later-client coordinates; same layout.md.
 const VALUE_X := 556
 const VALUE_SIZE := Vector2(109, 17)
-## tier C: centered native Gender parchment and authored text/dropdown geometry; no period capture exists.
-## Source: private spec32/v83-login-refs/wz-layout-notes.md, Gender; field is baked at text+(133,72).
-const GENDER_AT := Vector2(219, 174)
-const GENDER_TEXT_AT := Vector2(245, 198)
-const GENDER_INPUT := Rect2(378, 270, 48, 19)
-const GENDER_BUTTON_AT := [Vector2(355, 346), Vector2(430, 346)]
 ## tier C: advisory rectangle matched to period newchar_1.png; offline copy, weapon strip and messages are ours.
 const ADVISORY := Rect2(120, 160, 195, 200)
 const WEAPON_BOX := Rect2(120, 380, 195, 45)
@@ -36,7 +30,8 @@ const MESSAGE_BOX := Rect2(475, 365, 215, 45)
 
 var flow: SceneFlow
 var model: CharacterCreation
-var gender := 0
+var gender := 0 # tier C: Male by default; the Look step's gender row is the only place it changes.
+var phase := ""
 var choices := {}
 var name_edit: LineEdit
 var create_button: WzButton
@@ -45,11 +40,8 @@ var avatar: AvatarRenderer
 var option_labels: Dictionary = {}
 var _weapon_label: Label
 var name_button: WzButton
-var _gender_surface: Control
 var _name_surface: Control
 var _look_surface: Control
-var _gender_pick: OptionButton
-var _gender_ok: WzButton
 var _look_ok: WzButton
 
 
@@ -63,9 +55,6 @@ func _ready() -> void:
 	var library := UiArt.lib()
 	var img := library.img(CharacterCreation.IMG) if library != null else null
 	model = CharacterCreation.new(img.root if img != null else {})
-	_gender_surface = Control.new()
-	_gender_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_gender_surface)
 	_name_surface = Control.new()
 	_name_surface.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_name_surface)
@@ -78,24 +67,6 @@ func _ready() -> void:
 	history.position = Vector2(0, 375) # tier C: matched to charselect_1/newchar_1 BtVAC, offline history action.
 	history.pressed.connect(flow.goto_history)
 	add_child(history)
-	_image_on(_gender_surface, "Gender/backgrnd/0", GENDER_AT)
-	_image_on(_gender_surface, "Gender/text/0", GENDER_TEXT_AT)
-	_gender_pick = OptionButton.new()
-	_gender_pick.name = "GenderValue"
-	_gender_pick.position = GENDER_INPUT.position
-	_gender_pick.size = GENDER_INPUT.size
-	_gender_pick.add_item("Male")
-	_gender_pick.add_item("Female")
-	_gender_pick.add_theme_font_override("font", MapleText.font())
-	_gender_pick.add_theme_font_size_override("font_size", MapleText.SMALL)
-	_gender_pick.add_theme_color_override("font_color", INK)
-	_gender_pick.add_theme_icon_override("arrow", ImageTexture.create_from_image(Image.create_empty(1, 1, false, Image.FORMAT_RGBA8)))
-	for state: String in ["normal", "hover", "pressed", "focus"]:
-		_gender_pick.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-	_gender_pick.item_selected.connect(func(index: int) -> void: cycle_option("gender", index - gender))
-	_gender_surface.add_child(_gender_pick)
-	_gender_ok = _button_on(_gender_surface, "Gender/BtYes", "OK", GENDER_BUTTON_AT[0], _advance_gender)
-	_button_on(_gender_surface, "Gender/BtNo", "Cancel", GENDER_BUTTON_AT[1], func() -> void: cancelled.emit())
 	_image_on(_name_surface, "NewChar/charName", NAME_AT)
 	name_edit = LineEdit.new()
 	name_edit.name = "CharacterName"
@@ -109,7 +80,7 @@ func _ready() -> void:
 	_name_surface.add_child(name_edit)
 	name_edit.tooltip_text = "4-12 letters A-Z and digits 0-9, unique among living characters"
 	name_button = _button_on(_name_surface, "NewChar/BtYes", "OK", NAME_BUTTON_AT[0], _check_name)
-	_button_on(_name_surface, "NewChar/BtNo", "Cancel", NAME_BUTTON_AT[1], _return_gender)
+	_button_on(_name_surface, "NewChar/BtNo", "Cancel", NAME_BUTTON_AT[1], _cancel_name)
 	_image_on(_look_surface, "NewChar/charSet", SETTINGS_AT)
 	for i in FIELDS.size():
 		var field: String = FIELDS[i]
@@ -157,17 +128,17 @@ func _ready() -> void:
 	if not model.available():
 		_error("Creation options are missing. Re-import your v83 WZ data from the title screen.")
 	else:
+		message.text = "4-12 letters and digits."
 		_refresh()
 	name_edit.text_submitted.connect(func(_name: String) -> void: _check_name())
-	_set_phase("gender")
+	_set_phase("name")
 
 
-func _set_phase(phase: String) -> void:
-	_gender_surface.visible = phase == "gender"
+func _set_phase(p_phase: String) -> void:
+	phase = p_phase
 	_name_surface.visible = phase == "name"
 	_look_surface.visible = phase == "look"
-	avatar.visible = phase != "gender"
-	create_button = {"gender": _gender_ok, "name": name_button, "look": _look_ok}[phase]
+	create_button = {"name": name_button, "look": _look_ok}[phase]
 	message.position = MESSAGE_BOX.position
 	message.size = MESSAGE_BOX.size
 	if phase == "name":
@@ -176,14 +147,9 @@ func _set_phase(phase: String) -> void:
 		name_edit.release_focus()
 
 
-func _advance_gender() -> void:
-	message.text = "4-12 letters and digits."
-	_set_phase("name")
-
-
-func _return_gender() -> void:
-	message.text = ""
-	_set_phase("gender")
+## Name Cancel closes creation and returns to character select.
+func _cancel_name() -> void:
+	cancelled.emit()
 
 
 func _return_name() -> void:
@@ -205,7 +171,6 @@ func cycle_option(field: String, direction: int) -> void:
 
 func _refresh() -> void:
 	option_labels.gender.text = "Male" if gender == 0 else "Female"
-	_gender_pick.select(gender)
 	for field: String in CharacterCreation.FIELDS:
 		var id := model.value(gender, field, choices)
 		var text := model.option_name(gender, field, id)
