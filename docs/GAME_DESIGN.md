@@ -522,8 +522,11 @@ alone cannot show the new steps fire. All six: `warnings: []`, `missing: []`, no
 | bot | D 5:36 Lv11 / 6:42 Lv14 / 5:05 Lv10 | D 5:21 Lv11 / 4:41 Lv9 / 5:05 Lv10 |
 | random | D 7:42 Lv23 / 5:58 Lv13 / 5:06 Lv12 | D 7:45 Lv19 / 5:50 Lv11 / 5:06 Lv12 |
 
-The records differ a little from #228 because the bot waste guard now caps the restore at the pool (it only changes a
-drink when a potion restores more than the pool holds); n = 3 per cell, a record not a finding. To show the steps fire, the committed Lv 38
+The records differ a little from #228 (bot seeds 1 and 2, random seeds 1 and 2) because the bot waste guard now caps
+the restore at the pool (it only changes a drink when a potion restores more than the pool holds); the new steps start
+at Lv 40 and cannot touch these rounds, and a plain `--stage=henesys_hg1 --policy=bot` run gives the same records as the
+chain's tier-1 round. n = 3 per cell, a record not a finding. Goldens recaptured by this ticket: `test_character_baseline`
+`GOLDEN` only (with `potions.bot.pool_floor` 1.0, the old guard, the #228 hash is reproduced exactly). To show the steps fire, the committed Lv 38
 Magician fixture (`lv35_magician_2nd.json`) was copied to ignored `_scratch/` files with `level` 39 and `exp` just below
 the next level (a diagnostic copy, Red/Blue potions held, 30 of each) and run on `--stage=dark_cave --policy=bot --cap=600`
 (seeds 1 and 2): both TIMED OUT at 10:00 at Lv 72 / 70 with no warnings and nothing missing; the character is Lv 60
@@ -3011,7 +3014,9 @@ stops at White / Mana Elixir (no error, no notice; `build_setup` lists the absen
 re-run `scripts/import.sh` or the web re-import). The 1000 and 2000 point steps exceed most pools at their levels
 (research section 6, "How the restores compare"), so the overheal is wasted by design; the bot's waste guard compares the
 missing share with the restore **capped at the max HP/MP pool** (`BotInput.worth_drinking`, tier C), otherwise a 2000-point
-potion would never be worth drinking and the bot would die with stock.
+potion would never be worth drinking and the bot would die with stock. The capped amount never counts as less than
+`potions.bot.pool_floor` (0.25) of the potion, so the owner rule that a 5-MP Beginner never drinks a 100-MP Blue still
+holds (`test_bot_input`); setting `pool_floor` to 1.0 gives the pre-#229 guard back exactly.
 
 The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level-up refills MP to the new maximum
 (#80, tier B) but adds no HP (tier C). Between level-ups, Three
@@ -5578,7 +5583,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
 | Researched potion steps (#229) | `balance.potions.schedule`: HP Unagi 2022003 and MP Pure Water 2022000 @ Lv 40, HP Ice Cream Pop 2001001 and MP Red Bean Sundae 2001002 @ Lv 60 (items, recovery, names: tier A from v83 `Item.wz`/`String.wz`; shop stock tier B/C; levels tier C, the Lv 60 pair an extrapolation) | C | `docs/research/v83-potion-progression.md` section 6; balance.json |
-| Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool (drink when missing >= `min_restore_fraction` x min(restore, pool)) | C | our own policy so the 1000-2000 point steps stay drinkable |
+| Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool, and at least `potions.bot.pool_floor` = 0.25 of the potion (drink when missing >= `min_restore_fraction` x max(min(restore, pool), 0.25 x restore)) | C | our own policy so the 1000-2000 point steps stay drinkable |
 | Sparse draws | 3 choices when full; otherwise eligible cards plus one Elixir, alone at 0 | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
