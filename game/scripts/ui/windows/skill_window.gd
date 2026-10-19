@@ -1,8 +1,7 @@
 class_name SkillWindow
 extends UiWindow
 ## The v83 Skill window (hotkey K, or Menu -> Skill; #86): UI.wz/UIWindow.img/Skill `backgrnd` (SKILL INVENTORY) with
-## one tab per job on the character's path (the v83 tab glyphs: the Beginner mark, I, II) and a star tab of job-neutral
-## cards, the job's skill book (icon and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or
+## one tab per job on the character's path (the v83 tab glyphs: the Beginner mark, I, II), the job's skill book (icon and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or
 ## `iconDisabled`, name, level / max), four at a time with a `Basic.img/VScr5` scrollbar. Read-only: there is no SP
 ## to spend, so BtSpUp is never shown. All content comes from a SkillWindowModel.
 ##
@@ -34,9 +33,6 @@ const SCROLL_POS := Vector2(155, 95)
 const SCROLL_H := 155.0
 const SP_BOX := Rect2(83, 265, 30, 15)
 const CLOSE_BUTTON_POS := Vector2(134, 266)
-## tier C (ours): the star tab's glyph colours (v83 has no such tab).
-const STAR_ON := Color8(255, 204, 0)
-const STAR_OFF := Color8(170, 160, 120)
 
 ## What the window shows.
 var model: SkillWindowModel
@@ -60,8 +56,8 @@ func _init(p_model: SkillWindowModel = null) -> void:
 	window_id = "skill"
 	size = WINDOW_SIZE
 	model = p_model
-	# Opens on the current job's tab (the last job tab).
-	tab = maxi(0, _tabs().size() - 2)
+	# Opens on the current job's tab (the last tab).
+	tab = maxi(0, _tabs().size() - 1)
 	_tip = SkillTooltip.new()
 	add_child(_tip)
 	_bt_close = WzButton.new(CLOSE)
@@ -95,7 +91,7 @@ func tooltip() -> Dictionary:
 	if i < 0 or i >= list.size() or model == null:
 		return {}
 	var row: Dictionary = list[i]
-	return model.skill_tooltip(String(row.key)) if row.has("key") else model.card_tooltip(String(row.id))
+	return model.skill_tooltip(String(row.key))
 
 
 ## Keyboard navigation (see the class doc); true when the key was used.
@@ -252,9 +248,6 @@ func _draw_tabs() -> void:
 		if on:
 			draw_rect(r, Color(1, 1, 1))
 			draw_rect(r, Color8(153, 153, 153), false)
-		if String(tabs[i].kind) == SkillWindowModel.STAR:
-			_draw_star(r.get_center(), 6.5, STAR_ON if on else STAR_OFF)
-			continue
 		var glyph := UiArt.frame(ART + "Tab/%s/%d" % ["enabled" if on else "disabled", int(tabs[i].tier)])
 		if glyph != null:
 			UiArt.blit(self, glyph, (r.get_center() - glyph.region.size * 0.5).floor())
@@ -263,32 +256,16 @@ func _draw_tabs() -> void:
 				MapleText.BLACK, MapleText.SMALL, on)
 
 
-## A five-pointed star (the star tab's glyph and book icon).
-func _draw_star(c: Vector2, radius: float, col: Color) -> void:
-	var pts := PackedVector2Array()
-	for k in 10:
-		var a := -PI * 0.5 + PI * k / 5.0
-		pts.append(c + Vector2(cos(a), sin(a)) * (radius if k % 2 == 0 else radius * 0.45))
-	draw_colored_polygon(pts, col)
-	var outline := pts.duplicate()
-	outline.append(pts[0])
-	draw_polyline(outline, col.darkened(0.45), 1.0)
-
-
 func _draw_book() -> void:
 	var tabs := _tabs()
 	if tab >= tabs.size():
 		return
 	var t: Dictionary = tabs[tab]
 	var slot := Rect2(BOOK_ICON, Vector2(32, 32))
-	if String(t.kind) == SkillWindowModel.STAR:
+	var icon := UiArt.frame(String(t.book_icon))
+	if icon != null:
 		draw_rect(slot, Color8(238, 238, 238))
-		_draw_star(slot.get_center(), 13.0, STAR_ON)
-	else:
-		var icon := UiArt.frame(String(t.book_icon))
-		if icon != null:
-			draw_rect(slot, Color8(238, 238, 238))
-			UiArt.blit_icon(self, icon, BOOK_ICON)
+		UiArt.blit_icon(self, icon, BOOK_ICON)
 	var title := String(t.book_name) if String(t.book_name) != "" else String(t.name)
 	MapleText.draw(self, BOOK_TEXT, MapleText.ellipsize(title, BOOK_TEXT_W, MapleText.SMALL, true), MapleText.WHITE,
 		MapleText.SMALL, true)
@@ -304,7 +281,7 @@ func _draw_rows() -> void:
 		var row: Dictionary = list[idx]
 		var r := row_rect(i)
 		# A skill the held weapon cannot use (#156) is drawn like an unlearned one: the v83 skill0 plate, iconDisabled.
-		var learned := bool(row.get("learned", true)) and (not row.has("key") or model.usable(String(row.key)))
+		var learned := bool(row.get("learned", true)) and model.usable(String(row.key))
 		var plate := UiArt.frame(ART + ("skill1" if learned else "skill0"))
 		if plate != null:
 			UiArt.blit(self, plate, r.position)
@@ -325,9 +302,8 @@ func _draw_rows() -> void:
 		var tx := r.position.x + 40.0
 		MapleText.draw(self, Vector2(tx, r.position.y + 3.0),
 			MapleText.ellipsize(String(row.name), ROW_SIZE.x - 44.0, MapleText.SMALL), ink, MapleText.SMALL)
-		var lv := "%d / %d" % [int(row.level), int(row.max_level)] if row.has("level") \
-			else "%d / %d" % [int(row.rank), int(row.max_rank)]
-		MapleText.draw(self, Vector2(tx, r.position.y + 20.0), lv, ink, MapleText.SMALL)
+		MapleText.draw(self, Vector2(tx, r.position.y + 20.0), "%d / %d" % [int(row.level), int(row.max_level)], ink,
+			MapleText.SMALL)
 		if line != null and i < VISIBLE_ROWS - 1 and idx < list.size() - 1:
 			UiArt.blit(self, line, r.position + Vector2(0, ROW_STEP - 3.0))
 

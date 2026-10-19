@@ -75,7 +75,7 @@ func _assert_ranks_cover_canonical_levels(book: SkillBook) -> void:
 func test_cards_are_consistent() -> void:
 	var skills: Dictionary = data.skills.skills
 	var ids := {}
-	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat", "potion_tier"]
+	var kinds := ["skill_new", "skill_rank", "skill_mod", "passive", "stat"]
 	for c: Dictionary in data.upgrades.cards:
 		assert_false(ids.has(c.id), "unique id %s" % c.id)
 		ids[c.id] = true
@@ -90,16 +90,11 @@ func test_cards_are_consistent() -> void:
 		for effect: Dictionary in c.effects:
 			assert_false(effect.op == "heal", "%s cannot heal by percentage" % c.id)
 			assert_false(effect.stat == "hp_regen", "%s cannot grant the removed passive Recovery regen" % c.id)
-		if c.kind == "potion_tier":
-			assert_true(c.potion_kind in ["hp", "mp"])
-			var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
-			assert_has(manifest.items.map(func(id: Variant) -> int: return int(id)), int(c.item_id), "%s target is imported" % c.id)
-			assert_true(c.requires.potions.has(c.potion_kind), "tier requires its predecessor")
 		if "{value}" in String(c.desc):
 			assert_true(c.has("value"), "%s fills {value}" % c.id)
 	for id: String in ["three_snails_count", "three_snails_cooldown", "three_snails_pierce",
 			"three_snails_speed", "energy_bolt_new", "magic_claw_new", "magic_guard_new", "magic_armor_new",
-			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery", "magnet"]:
+			"nimble_feet", "recovery", "improved_max_mp", "improved_mp_recovery"]:
 		assert_true(ids.has(id), "card %s" % id)
 	var fallback: Dictionary = data.upgrades.fallback
 	assert_false(ids.has(fallback.id), "fallback is outside the weighted pool")
@@ -333,8 +328,8 @@ func test_setup_carries_canonical_potion_specs() -> void:
 	assert_eq(setup.get("item_info", {}).get(2000000, {}).get("spec", {}).get("hp", -1), 50.0,
 		"canonical potion spec reaches the pure simulation")
 	assert_eq(DataRepo.potion_item_ids(data), PackedInt32Array([2000000, 2000001, 2000002, 2000003, 2000006]),
-		"the starters and the potion_tier ladders: Red, Orange, White, Blue, Mana Elixir")
-	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every ladder potion is retained")
+		"the starters and the potions.schedule items: Red, Orange, White, Blue, Mana Elixir")
+	assert_eq(setup.get("item_info", {}).keys(), Array(DataRepo.potion_item_ids(data)), "every scheduled potion is retained")
 	var manifest: Dictionary = AssetManifest.load_merged("res://data/asset_manifest.json")
 	for id in DataRepo.potion_item_ids(data):
 		assert_true(float(id) in manifest.items, "potion %d imported" % id)

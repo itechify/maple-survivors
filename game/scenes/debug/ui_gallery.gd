@@ -40,8 +40,9 @@ const SAMPLE_CARDS := [
 	{"id": "three_snails_count", "kind": "skill_mod", "skill": "three_snails", "name": "Additional Shell",
 		"desc": "Three Snails throws +1 shell.", "icon": "Skill.wz/000.img/skill/0001000/icon", "rank": 2,
 		"max_rank": 4, "skill_name": "Three Snails", "skill_level": 1, "skill_level_next": 0},
-	{"id": "magnet", "kind": "stat", "skill": "", "name": "Magnet", "desc": "Pick-up radius +25%.",
-		"icon": "Character.wz/PetEquip/01812000.img/info/icon", "rank": 1, "max_rank": 4},
+	{"id": "magic_claw_targets", "kind": "skill_mod", "skill": "magic_claw", "name": "Twin Claw",
+		"desc": "Magic Claw hits +1 target.", "icon": "Skill.wz/200.img/skill/2001002/icon", "rank": 1, "max_rank": 4,
+		"skill_name": "Magic Claw", "skill_level": 1, "skill_level_next": 0},
 ]
 const MISSING_CARDS := [
 	{"id": "improved_max_mp", "kind": "passive", "skill": "", "name": "Improved MaxMP Increase",

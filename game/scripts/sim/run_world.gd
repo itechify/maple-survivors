@@ -574,7 +574,8 @@ func _drink(kind: String, by_pet: bool) -> bool:
 	return true
 
 
-## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately.
+## Upgrades a potion kind's current item, preserving stock and exposing the new icon/restoration immediately; emits
+## potion_tier_up.
 func upgrade_potion(kind: String, item_id: int) -> bool:
 	var from_id := int(potions.stock.get(kind, {}).get("item_id", 0))
 	if not potions.upgrade(kind, item_id):
@@ -583,6 +584,19 @@ func upgrade_potion(kind: String, item_id: int) -> bool:
 	emit("potion_tier_up", {"kind": kind, "from_item_id": from_id, "item_id": item_id,
 		"count": int(potions.stock[kind].count)})
 	return true
+
+
+## Applies every potion step of balance.potions.schedule due at `level` (PotionSchedule.due: re-scanned each time, no
+## applied-step state). Level-ups announce each step; a snapshot load applies them silently. Tier C.
+func apply_potion_schedule(level: int, announce: bool) -> void:
+	var current := {}
+	for kind: String in potions.stock:
+		current[kind] = int(potions.stock[kind].item_id)
+	for step: Dictionary in PotionSchedule.due(PotionSchedule.steps(balance), level, current):
+		if announce:
+			upgrade_potion(String(step.kind), int(step.item))
+		else:
+			potions.upgrade(String(step.kind), int(step.item)) # a load: player_state is written by the caller's setup
 
 
 ## Drops a bundle of the current HP/MP tier, including boss rewards; potion slots never consume the EXP drop cap.
@@ -2039,6 +2053,7 @@ func _restore_character(source: Dictionary) -> void:
 	CharacterSnapshot.restore_loadout(character, loadout)
 	for kind: String in potions.stock:
 		potions.stock[kind] = CharacterSnapshot.integers(character.potions[kind])
+	apply_potion_schedule(progression.level, false) # tier C: silent catch-up to the schedule of the loaded level
 	character_look = character.get("look", {}).duplicate(true)
 	for field: String in ["skin", "face", "hair"]:
 		if character_look.has(field):
@@ -2525,6 +2540,7 @@ func _on_level_up(level: int) -> void:
 		_base_mp += floorf(float(_attributes.int) / divisor)
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
+	apply_potion_schedule(level, true)
 	refresh_player_stats(false)
 	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
 	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
@@ -2565,6 +2581,9 @@ func _advance_queue() -> void:
 	while pending_bonus_choices > 0:
 		choice_bonus = true
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
+		if bonus_cards.is_empty():
+			pending_bonus_choices -= 1 # no card at all (no filler in the data): never open an unanswerable window
+			continue
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": bonus_cards.duplicate(true), "bonus": true, "advancement": false})
@@ -2580,6 +2599,10 @@ func _advance_queue() -> void:
 				return
 		choice_bonus = false
 		var cards := upgrades.roll_choices(self, card_rng, 3)
+		if cards.is_empty():
+			progression.pop_front() # no card at all (no filler in the data): consume the level instead of soft-locking
+			_job_checked = false
+			continue
 		pending_cards = cards
 		state = CHOOSING_UPGRADE
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})

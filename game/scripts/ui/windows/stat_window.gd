@@ -4,7 +4,7 @@ extends UiWindow
 ## name, job, level, guild, HP, MP, EXP, fame, ability points, STR/DEX/INT/LUK) with the `backgrnd2` detail panel
 ## (attack, weapon defence, magic, magic defence, accuracy, avoidability, hands, speed, jump) beside it; BtDetail
 ## shows / hides the detail panel, BtUIClose closes the window. Read-only: AP is spent automatically, so the BtApUp
-## buttons are never shown. v83 stats only (survivor card stats belong on the Skill window's star tab).
+## buttons are never shown. v83 stats only (survivor cards are skills, listed on the Skill window).
 ##
 ##   StatWindow.new(info)   # info: RunScene.stat_info() - name, job, level, exp, exp_next, hp, max_hp, mp, max_mp,
 ##                          # str, dex, int, luk, ap, attack, magic, weapon_def, magic_def, accuracy, avoid, speed, jump

@@ -24,12 +24,12 @@ extends Node
 ##           the status bar's Menu button opens the Menu popup, its Stat entry is clicked, Esc closes Stat; Esc pauses,
 ##           Esc resumes, quit. Shots: stat_window, stat_dragged, stat_over_levelup, menu_popup, menu_stat.
 ##   skill   the Skill window (#86): title -> new character -> map select -> run; the build is set up directly
-##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm, Magnet x2); K opens Skill
+##           (Magician, then Wizard (Ice, Lightning), Twin Claw x2, Quick Claw, Forking Storm); K opens Skill
 ##           on the 2nd-job tab (the sim is checked to hold), Down selects Thunder Bolt (keyboard tooltip), Left
 ##           switches to the Magician tab, the wheel scrolls Magic Claw into view and hovering it shows its Upgrades, a
-##           click opens the star tab and Magnet is hovered, 1 switches to the Beginner tab, Esc closes; then K over a
-##           level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
-##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_star_tab, skill_over_levelup.
+##           click picks the Beginner tab (there is no star tab, spec #225), 1 switches to the Beginner tab, Esc closes; then
+##           K over a level-up choice (1 switches the tab instead of picking), Esc back to the choice, 1 picks, quit. Shots:
+##           skill_window, skill_keyboard_tooltip, skill_tooltip_upgrades, skill_beginner_tab, skill_over_levelup.
 ##   skill_weapon  weapon-gated skills (#156): a Magician owning Magic Claw and Energy Bolt, with Magic Claw tagged claw-only
 ##           through the survivor weapon_families override (debug setup; no shipping skill needs a weapon yet); K opens Skill
 ##           (the held weapon cannot use Magic Claw: greyed row, tooltip "Weapon : Claw (not held)"), Esc closes. Shots:
@@ -1241,11 +1241,11 @@ func _scenario_skill() -> void:
 	var run := flow.current as RunScene
 	await _sleep(3.0)
 	# A build to show (debug setup, like the windows scenario's EXP drop): Magician, then Wizard (Ice, Lightning), with
-	# behaviour cards on Magic Claw and Thunder Bolt and a Magnet card for the star tab.
+	# behaviour cards on Magic Claw and Thunder Bolt.
 	var w := run.world
 	w.change_job(200)
 	for id: String in ["energy_bolt_new", "magic_claw_new", "magic_claw_targets", "magic_claw_targets",
-			"magic_claw_cooldown", "magnet", "magnet"]:
+			"magic_claw_cooldown"]:
 		w.upgrades.apply(id, w)
 	w.change_job(220)
 	for id: String in ["thunder_bolt_new", "thunder_bolt_targets"]:
@@ -1259,7 +1259,7 @@ func _scenario_skill() -> void:
 	var t0 := run.world.time
 	await _sleep(0.8)
 	_check(run.world.time == t0, "the sim holds while Skill is open")
-	_check(sw.tab == 2 and sw.model.tabs.size() == 4, "opened on the 2nd-job tab of Beginner / I / II / star")
+	_check(sw.tab == 2 and sw.model.tabs.size() == 3, "opened on the 2nd-job tab of Beginner / I / II (no star tab)")
 	await _shot("skill_window")
 	# Keyboard: Down moves the selection to Thunder Bolt (the last Ice & Lightning skill) with its tooltip; Left
 	# switches to the Magician tab.
@@ -1287,14 +1287,14 @@ func _scenario_skill() -> void:
 	_check(String(tip.get("key", "")) == "magic_claw" and (tip.get("upgrades", []) as Array).size() == 2,
 		"hovering Magic Claw shows Twin Claw and Quick Claw (%s)" % [tip.get("upgrades", [])])
 	await _shot("skill_tooltip_upgrades")
-	# The star tab with the mouse; hover Magnet.
+	# Spec #225: no star tab. The mouse picks the Beginner tab, and the strip ends after the 2nd-job tab.
+	await _click_at(origin + sw.tab_rect(0).get_center())
+	await _sleep(0.3)
+	_check(sw.tab == 0, "clicked the Beginner tab")
+	await _shot("skill_beginner_tab")
 	await _click_at(origin + sw.tab_rect(3).get_center())
 	await _sleep(0.3)
-	_check(sw.tab == 3 and sw.rows().size() == 1, "clicked the star tab: Magnet")
-	_hover(origin + sw.row_rect(0).get_center())
-	await _sleep(0.4)
-	_check(String(sw.tooltip().get("id", "")) == "magnet", "Magnet's tooltip")
-	await _shot("skill_star_tab")
+	_check(sw.tab == 0, "no fourth tab to click")
 	await _key(KEY_1)
 	await _sleep(0.2)
 	_check(sw.tab == 0, "1 switched to the Beginner tab")

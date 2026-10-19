@@ -325,18 +325,15 @@ static func _jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
-## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
-## target items (the survivor potion ladders). These are the Item.wz/Consume/0200.img entries a setup loads.
+## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
+## (PotionSchedule). These are the Item.wz/Consume/0200.img entries a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
-	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
-		if String(c.get("kind", "")) == "potion_tier":
-			_add_id(ids, int(c.get("item_id", 0)))
-			for from: Variant in c.get("requires", {}).get("potions", {}).values():
-				_add_id(ids, int(from))
+	for item: Variant in PotionSchedule.items(data.get("balance", {})):
+		_add_id(ids, int(item))
 	ids.sort()
 	return ids
 

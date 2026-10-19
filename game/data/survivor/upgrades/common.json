@@ -1,21 +1,4 @@
 {
-	"_doc": "Job-neutral cards: Magnet and the potion tier cards (no skill). Card format and tier rules: see ../upgrades.json _doc.",
-	"cards": [
-		{"id": "magnet", "kind": "stat", "skill": "", "name": "Magnet",
-			"desc": "Pick-up radius +{value}%.", "value": 25, "icon": "Character.wz/PetEquip/01812000.img/info/icon",
-			"max_rank": 4, "weight": 1, "requires": {}, "effects": [{"stat": "magnet", "op": "mul", "value": 1.25}]},
-		{"id": "orange_potion", "kind": "potion_tier", "skill": "", "name": "Orange Potions",
-			"desc": "Upgrade all HP stock and future drops to Orange Potions (150 HP).",
-			"icon": "Item.wz/Consume/0200.img/02000001/info/icon", "potion_kind": "hp", "item_id": 2000001,
-			"max_rank": 1, "weight": 30, "requires": {"min_level": 10, "potions": {"hp": 2000000}}, "effects": []},
-		{"id": "white_potion", "kind": "potion_tier", "skill": "", "name": "White Potions",
-			"desc": "Upgrade all HP stock and future drops to White Potions (300 HP).",
-			"icon": "Item.wz/Consume/0200.img/02000002/info/icon", "potion_kind": "hp", "item_id": 2000002,
-			"max_rank": 1, "weight": 30, "requires": {"min_level": 25, "potions": {"hp": 2000001}}, "effects": []},
-		{"id": "mana_elixir", "kind": "potion_tier", "skill": "", "name": "Mana Elixirs",
-			"desc": "Upgrade all MP stock and future drops to Mana Elixirs (300 MP).",
-			"icon": "Item.wz/Consume/0200.img/02000006/info/icon", "potion_kind": "mp", "item_id": 2000006,
-			"max_rank": 1, "weight": 2, "requires": {"min_level": 20, "potions": {"mp": 2000003}}, "effects": []},
-
-	]
+	"_doc": "Job-neutral cards: none since spec #225 (Magnet and the potion tier cards were removed; potions upgrade by level through balance.potions.schedule, and the Power Elixir is the fallback in ../upgrades.json). The file stays so the per-line merge order keeps its first entry. Card format and tier rules: see ../upgrades.json _doc.",
+	"cards": []
 }

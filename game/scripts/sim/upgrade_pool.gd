@@ -7,7 +7,7 @@ extends RefCounted
 ## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
-## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
+## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler. Draws pick distinct eligible cards with seeded weights.
 ## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
 ## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
 ## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
@@ -81,7 +81,7 @@ func card(id: String) -> Dictionary:
 	return _by_id.get(id, {})
 
 
-## Consumed rank/modifier steps of card `id`; a one-time learn or potion card consumes one.
+## Consumed rank/modifier steps of card `id`; a one-time learn card consumes one.
 func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
@@ -101,9 +101,6 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var id := String(c.get("id", ""))
 	var max_rank := int(c.get("max_rank", 1))
 	if max_rank > 0 and rank(id, state) >= max_rank:
-		return false
-	# Spec #34: a pet with VAC pulls every drop, so the Magnet card (any card raising the magnet stat) is never offered.
-	if state.pet_has("vac") and _raises_stat(c, "magnet"):
 		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
 	var jobs: Array = req.get("jobs", [])
@@ -125,9 +122,6 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 			return false
 	if state.progression.level < int(req.get("min_level", 0)):
 		return false
-	for potion_kind: String in req.get("potions", {}):
-		if int(state.potions.stock.get(potion_kind, {}).get("item_id", 0)) != int(req.potions[potion_kind]):
-			return false
 	var skill := String(c.get("skill", ""))
 	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
 	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
@@ -149,8 +143,8 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
 	if state.choice_bonus:
-		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. Potion and
-		# Elixir are explicitly Normal exceptions to the boss floor, so an exhausted reward still opens a window.
+		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. The
+		# Power Elixir filler is an always-Normal exception to the boss floor, so an exhausted reward still opens a window.
 		pool = pool.filter(func(id: String) -> bool:
 			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
@@ -209,14 +203,6 @@ func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: in
 		power = power or is_power(card(id))
 	state.power_dry = 0 if power else state.power_dry + 1
 	return out
-
-
-## Whether card `c` has an effect on player stat `stat`.
-static func _raises_stat(c: Dictionary, stat: String) -> bool:
-	for effect: Variant in c.get("effects", []):
-		if effect is Dictionary and String(effect.get("stat", "")) == stat:
-			return true
-	return false
 
 
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).
@@ -454,14 +440,14 @@ func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
 
 
 static func _always_normal(c: Dictionary) -> bool:
-	return String(c.get("kind", "")) in ["potion_tier", "filler"]
+	return String(c.get("kind", "")) == "filler"
 
 
 static func _is_stacking(c: Dictionary) -> bool:
 	return String(c.get("kind", "")) in ["skill_mod", "stat", "passive"]
 
 
-## A pick consumes its tier's ranks/modifier steps, while learn, potion and filler cards consume one.
+## A pick consumes its tier's ranks/modifier steps, while learn and filler cards consume one.
 static func _consumed_steps(c: Dictionary, magnitude: int) -> int:
 	return magnitude if String(c.get("kind", "")) == "skill_rank" or _is_stacking(c) else 1
 
@@ -489,7 +475,7 @@ func _roll_tier(state: RunWorld, rng: RandomNumberGenerator) -> String:
 	return "rare" if state.choice_bonus else "normal"
 
 
-## Applies card `id` at its honest `tier` (default Normal) to the run (learn / rank / modifier steps / potion / heal), emits
+## Applies card `id` at its honest `tier` (default Normal) to the run (learn / rank / modifier steps / heal), emits
 ## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var c := card(id)
@@ -497,9 +483,6 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 		return 0
 	tier = _honest_tier(c, state, tier)
 	var kind := String(c.get("kind", ""))
-	if kind == "potion_tier":
-		if not is_eligible(c, state) or not state.upgrade_potion(String(c.get("potion_kind", "")), int(c.get("item_id", 0))):
-			return 0
 	var lo: Loadout = state.loadout
 	var magnitude := _magnitude(c, state, tier)
 	if magnitude <= 0:
