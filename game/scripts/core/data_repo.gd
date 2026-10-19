@@ -337,6 +337,24 @@ static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	return ids
 
 
+## The canonical node of every potion item a run can hold ({id: Consume node}); ids whose node is absent are listed in
+## `missing`. A round's setup and the hub's inventory world (PotionInventory.upgrade needs the restore specs) share it.
+static func potion_item_info(data: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var item_info := {}
+	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
+	for id in potion_item_ids(data):
+		var key := "%08d" % id
+		var img_path := potion_img_path(id)
+		if not potion_imgs.has(img_path):
+			potion_imgs[img_path] = img_loader.call(img_path)
+		var potion_img: Variant = potion_imgs[img_path]
+		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
+			item_info[id] = potion_img[key]
+		else:
+			missing.append(img_path + "/" + key)
+	return item_info
+
+
 ## "Item.wz/Consume/0202.img" for a Consume item id (the img holds the ids of its 10000 block: 2022003 -> 0202).
 @warning_ignore("integer_division")
 static func potion_img_path(item_id: int) -> String:
@@ -472,18 +490,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		if image.is_empty():
 			missing.append(path)
 		afterimages[name] = image
-	var item_info := {}
-	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
-	for id in potion_item_ids(data):
-		var key := "%08d" % id
-		var img_path := potion_img_path(id)
-		if not potion_imgs.has(img_path):
-			potion_imgs[img_path] = img_loader.call(img_path)
-		var potion_img: Variant = potion_imgs[img_path]
-		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
-			item_info[id] = potion_img[key]
-		else:
-			missing.append(img_path + "/" + key)
+	var item_info := potion_item_info(data, img_loader, missing)
 	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,

@@ -7,7 +7,8 @@ extends RefCounted
 ## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
-## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler. Draws pick distinct eligible cards with seeded weights.
+## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler.
+## Draws pick distinct eligible cards with seeded weights.
 ## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
 ## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
 ## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
@@ -325,7 +326,7 @@ static func _passive_preview(d: Dictionary) -> Array:
 
 
 ## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value
-## (the level-up card and the Skill window's star tab both show it).
+## (shown on the level-up card).
 func describe(id: String, magnitude: int) -> String:
 	var c := card(id)
 	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))

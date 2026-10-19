@@ -6,13 +6,10 @@ extends RefCounted
 ## it never changes the loadout.
 ##
 ##   var m := SkillWindowModel.new(world.book, world.upgrades, world.loadout, world.jobs, job_id, run.skill_text)
-##   m.tabs        # [{kind: "job", name, job_id, tier, book_name, book_icon, rows: [...]}]
+##   m.tabs        # [{name, job_id, tier, book_name, book_icon, rows: [...]}]
 ##
 ## Tabs: `tier` picks the v83 tab glyph (UIWindow.img/Skill/Tab/<state>/<tier>: the Beginner mark, I, II, ...);
 ## `book_name` is String.wz/Skill.img/<book>/bookName ("" without it), `book_icon` Skill.wz/<book>.img/info/icon.
-
-## Tab kinds.
-const JOB := "job"
 
 var book: SkillBook
 var pool: UpgradePool
@@ -42,7 +39,7 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 		var j := jobs.job(id)
 		var bk := String(j.get("book", ""))
 		var names: Variant = text.strings.get(bk, {}) if text != null else {}
-		tabs.append({"kind": JOB, "name": String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
+		tabs.append({"name":String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
 			"book_name": String(names.get("bookName", "")) if names is Dictionary else "",
 			"book_icon": "Skill.wz/%s.img/info/icon" % bk if bk != "" else "", "rows": _skill_rows(id)})
 

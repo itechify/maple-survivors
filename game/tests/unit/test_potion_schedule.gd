@@ -292,6 +292,26 @@ func test_snapshot_with_magnet_ranks_loads_with_the_base_radius() -> void:
 	assert_true(character.card_ranks.has("magnet"), "the source is not mutated")
 
 
-func test_notice_text_uses_v83_item_names_with_a_plural_s() -> void:
-	assert_eq(PotionSchedule.notice_text("Red Potion", "Orange Potion"), "Your Red Potions are now Orange Potions.")
-	assert_eq(PotionSchedule.notice_text("Blue Potion", "Mana Elixir"), "Your Blue Potions are now Mana Elixirs.")
+func test_notice_text_reads_right_for_every_scheduled_item() -> void:
+	var data := DataRepo.load_all()
+	var names := {2000000: "Red Potion", 2000003: "Blue Potion", 2000001: "Orange Potion", 2000006: "Mana Elixir",
+		2000002: "White Potion", 2022003: "Unagi", 2022000: "Pure Water", 2001001: "Ice Cream Pop",
+		2001002: "Red Bean Sundae"}
+	var plurals: Dictionary = data.balance.potions.get("plural_names", {})
+	for item: Variant in PotionSchedule.items(data.balance):
+		assert_true(names.has(int(item)), "synthetic name for %s" % item)
+		var line := PotionSchedule.notice_text(2000000, "Red Potion", int(item), String(names[int(item)]), plurals)
+		assert_false("Unagis" in line or "Pure Waters" in line, line)
+		assert_true(line.begins_with("Your Red Potions are now ") and line.ends_with("."), line)
+	assert_eq(PotionSchedule.notice_text(2000000, "Red Potion", 2022003, "Unagi", plurals),
+		"Your Red Potions are now Unagi.")
+	assert_eq(PotionSchedule.notice_text(2022003, "Unagi", 2001001, "Ice Cream Pop", plurals),
+		"Your Unagi are now Ice Cream Pops.")
+	assert_eq(PotionSchedule.notice_text(2000003, "Blue Potion", 2000006, "Mana Elixir", plurals),
+		"Your Blue Potions are now Mana Elixirs.")
+
+
+func test_notice_text_default_plural_is_name_plus_s_and_an_override_wins() -> void:
+	assert_eq(PotionSchedule.notice_text(1, "A", 2, "B", {}), "Your As are now Bs.")
+	assert_eq(PotionSchedule.notice_text(1, "A", 2, "B", {"2": "Bee"}), "Your As are now Bee.")
+	assert_eq(PotionSchedule.notice_text(1, "A", 2, "B", {"1": "Aye", "2": "Bee"}), "Your Aye are now Bee.")

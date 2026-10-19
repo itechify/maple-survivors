@@ -839,11 +839,10 @@ be clipped by available MP, so it is not a substitute for the canonical active e
 Legacy `cards_taken` strings prefix the card ID with the front queued level, or −1 when that queue is empty.
 A bonus choice can have a positive prefix while levels remain queued. The field supplies neither a bonus flag
 nor a choice timestamp, so it cannot isolate normal-choice acquisition timing.
-The sensible `BotInput.card_score` reads optional `balance.potions.bot.tier_score` for potion-tier cards, falling back
-to the legacy tier C score 52 when absent. Optional `balance.bot.card_scores` takes precedence for an individual card
-ID. These replace the final score, with no job bonus added; an unlisted card retains its existing
-scoring path. Random policy selects uniformly among offered cards with its own seeded RNG and never reads either
-score setting. Both knobs are tier C survivor tuning.
+The sensible `BotInput.card_score` reads optional `balance.bot.card_scores`, which takes precedence for an individual
+card ID (potions are no longer cards, spec #225, so there is no potion-tier score). Such a score replaces the final
+score, with no job bonus added; an unlisted card retains its existing scoring path. Random policy selects uniformly
+among offered cards with its own seeded RNG and never reads the score setting. The knob is tier C survivor tuning.
 
 | Piece | Approach |
 |---|---|

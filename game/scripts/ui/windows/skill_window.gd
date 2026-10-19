@@ -1,8 +1,9 @@
 class_name SkillWindow
 extends UiWindow
 ## The v83 Skill window (hotkey K, or Menu -> Skill; #86): UI.wz/UIWindow.img/Skill `backgrnd` (SKILL INVENTORY) with
-## one tab per job on the character's path (the v83 tab glyphs: the Beginner mark, I, II), the job's skill book (icon and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or
-## `iconDisabled`, name, level / max), four at a time with a `Basic.img/VScr5` scrollbar. Read-only: there is no SP
+## one tab per job on the character's path (the v83 tab glyphs: the Beginner mark, I, II), the job's skill book (icon
+## and v83 book name), and the skill rows (`skill1` learned / `skill0` not, icon or `iconDisabled`, name, level / max),
+## four at a time with a `Basic.img/VScr5` scrollbar. Read-only: there is no SP
 ## to spend, so BtSpUp is never shown. All content comes from a SkillWindowModel.
 ##
 ##   SkillWindow.new(model)   # model: SkillWindowModel (RunScene.skill_window_model())

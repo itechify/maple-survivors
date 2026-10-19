@@ -92,7 +92,9 @@ func _ready() -> void:
 	_data = data
 	var physics := library.img(DataRepo.PHYSICS_IMG)
 	motion = FreeMarketMotion.new(map.map_root, physics.root if physics != null else {}, data.balance)
-	var character: Dictionary = snapshot.get("character", {})
+	# Every load path migrates (spec #225: no Magnet ranks); idempotent, so a continued slot is unchanged here.
+	snapshot.character = SceneFlow.migrated_character(snapshot.get("character", {}), SceneFlow.equipment_info_loader(library))
+	var character: Dictionary = snapshot.character
 	var loadout := _boundary_loadout(character, data)
 	_apply_movement_stats(character, loadout)
 	_build_npcs()
@@ -373,7 +375,9 @@ func _build_windows(character: Dictionary, data: Dictionary) -> void:
 	var owned: Array = flow.save_data().account.owned if flow != null else []
 	# The scroll rolls are seeded from the saved state (scroll_seed), so a save always rolls the same and every result,
 	# being saved at once, changes the next seed.
+	# The potion items' restore specs let the world catch the loaded level's potions up (spec #225), as a round does.
 	inventory = RunWorld.new({"data": data, "equipment_info": infos, "scroll_info": scroll_infos,
+		"item_info": DataRepo.potion_item_info(data, loader),
 		"ammo_info": DataRepo.ammo_info(data.get("ammo", {}), loader), "character": character, "seed": scroll_seed(snapshot), "account": {"owned": owned}})
 	var layer := CanvasLayer.new()
 	layer.name = "UiWindows"

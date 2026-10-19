@@ -2986,7 +2986,9 @@ skill in its single-shot vanilla form at canonical MP, Blue Potions are the main
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
 EXP cap/absorption path. Both card policies drink a potion only when the missing HP or MP is at least half of one
 current potion's canonical restore, capped at the max HP/MP pool (`balance.potions.bot.min_restore_fraction`, tier C;
-the cap is #229), so a sip never mostly overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
+the cap is #229). The restore counts as at least `balance.potions.bot.pool_floor` (0.25, tier C) of the potion, so a
+five-MP Beginner never drinks a 100-MP Blue; above that floor a sip may overflow a small pool by up to the guard's slack
+(a drink must restore at least half of the lesser of the potion and the pool, or of the floor share).
 
 **Automatic potion tiers (spec #225, #228).** No card changes the potion any more. `balance.potions.schedule` lists
 `{level, kind, item}` steps (tier C, ours; sorted by level): HP Red (2000000) → Orange (2000001) at Lv 10, MP Blue
@@ -2997,7 +2999,9 @@ drops are the new item, the current item drives canonical restoration and the HU
 an item without a restore spec is skipped. Nothing is stored: each level-up and each snapshot load re-scans the steps up
 to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
 load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
-HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." The Power Elixir is not a
+HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." (name + "s";
+`balance.potions.plural_names`, `{"<item id>": plural}`, tier C, overrides it for names that are their own plural:
+Unagi 2022003, Pure Water 2022000). The Power Elixir is not a
 potion tier (it is the card filler, section 8).
 
 **Researched steps (#229).** The schedule continues with the table of `docs/research/v83-potion-progression.md`
@@ -3030,7 +3034,7 @@ of card policy. Normal MP has no stage field (owner, 2026-10-16, #80: 3% flat, n
 `normal_mp_drop_chance` curve and its reader are removed). Changing the global MP chance also changes which ground
 pickups the bot approaches during the opening.
 
-Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
+(The old potion-tier card score 112 is gone with the cards, spec #225.) Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
 Only sensible choices use these scores; careless choices use their separate seeded card RNG.
 Optional final card-score overrides set Guard learning to 110 and ranks to 109, without adding a job bonus. Missing
@@ -4589,7 +4593,7 @@ The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are unt
 ## 8. Upgrades
 
 `data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
-`stat`, `potion_tier`, `filler` for the separate fallback), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
+`stat`, `filler` for the separate fallback; potions follow a level schedule, not cards, spec #225), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
 
@@ -4691,8 +4695,8 @@ Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking 
 steps without clamping; no such card currently exists. All tier C.
 
 Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
-omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
-are always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
+omitted from boss draws (e.g. a skill rank card with only one rank remaining). The Power Elixir
+is always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
 
 Stacking magnitudes consume several card steps, preserving the card cap. Additive effects add their value once per
 step; multiplicative effects compound (four cooldown ×0.88 steps reduce cooldown by 40.03%). Card text shows
@@ -5583,6 +5587,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
 | Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
 | Researched potion steps (#229) | `balance.potions.schedule`: HP Unagi 2022003 and MP Pure Water 2022000 @ Lv 40, HP Ice Cream Pop 2001001 and MP Red Bean Sundae 2001002 @ Lv 60 (items, recovery, names: tier A from v83 `Item.wz`/`String.wz`; shop stock tier B/C; levels tier C, the Lv 60 pair an extrapolation) | C | `docs/research/v83-potion-progression.md` section 6; balance.json |
+| Potion notice plurals (#225 review) | `balance.potions.plural_names`: `{"2022003": "Unagi", "2022000": "Pure Water"}`; any other scheduled item reads String.wz name + "s" | C | our own wording; balance.json |
 | Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool, and at least `potions.bot.pool_floor` = 0.25 of the potion (drink when missing >= `min_restore_fraction` x max(min(restore, pool), 0.25 x restore)) | C | our own policy so the 1000-2000 point steps stay drinkable |
 | Sparse draws | 3 choices when full; otherwise eligible cards plus one Elixir, alone at 0 | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |

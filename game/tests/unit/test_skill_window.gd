@@ -129,8 +129,6 @@ func test_tabs_follow_the_job_path_and_there_is_no_star_tab() -> void:
 	assert_eq(m.tabs[2].tier, 2, "the 2nd job tab uses glyph II")
 	assert_eq(m.tabs[1].book_name, "Intro. to Magic", "the job's v83 book name")
 	assert_eq(m.tabs[1].book_icon, "Skill.wz/200.img/info/icon")
-	for t: Dictionary in m.tabs:
-		assert_eq(String(t.kind), "job")
 
 
 static func _row_keys(tab: Dictionary) -> Array:

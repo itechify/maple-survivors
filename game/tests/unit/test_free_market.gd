@@ -212,3 +212,38 @@ func test_bot_shop_is_reproducible_for_a_seed_in_purchases_and_scroll_results() 
 	assert_eq(records[0], records[1], "same seed, same purchases and results")
 	assert_eq(worn[0], worn[1], "same seed, same scrolled equipment")
 	assert_ne(JSON.stringify([records[0], worn[0]]), JSON.stringify([records[2], worn[2]]), "another seed, another visit")
+
+
+## Spec #225: an old format-2 save (Magnet ranks, starter potions at Lv 45) is migrated and caught up on every load path.
+func _old_potion_character() -> Dictionary:
+	var character := DataRepo.load_json("res://tests/fixtures/characters/lv35_magician_2nd.json") as Dictionary
+	character.level = 45
+	character.card_ranks["magnet"] = 3
+	character.player_mods["magnet"] = [0.0, 1.953125]
+	character.potions.hp.item_id = 2000000
+	character.potions.mp.item_id = 2000003
+	return character
+
+
+func test_continue_migration_drops_magnet_from_a_format_2_save() -> void:
+	var character := _old_potion_character()
+	var migrated := SceneFlow.migrated_character(character, Callable())
+	assert_false(migrated.card_ranks.has("magnet"), "the Magnet rank is dropped on a format-2 load")
+	assert_false(migrated.player_mods.has("magnet"))
+	assert_true(character.card_ranks.has("magnet"), "the source is not mutated")
+	assert_eq(SceneFlow.migrated_character(migrated, Callable()), migrated, "idempotent")
+
+
+func test_hub_boundary_of_an_old_save_has_no_magnet_and_shows_the_caught_up_potions() -> void:
+	if not require_cache():
+		return
+	var hub := FreeMarket.new()
+	hub.configure({"name": "OldSave", "character": _old_potion_character(), "round_seed": 9}, null, {})
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(hub)
+	hub.set_process(false)
+	var loadout := FreeMarket._boundary_loadout(hub.snapshot.character, DataRepo.load_all())
+	assert_false(loadout.player_mods.has("magnet"), "no magnet radius modifier in the hub")
+	assert_false(hub.snapshot.character.card_ranks.has("magnet"))
+	assert_eq(hub.inventory.potions.stock.hp.item_id, 2022003, "Lv 45 shows Unagi in the hub Item window")
+	assert_eq(hub.inventory.potions.stock.mp.item_id, 2022000, "and Pure Water")
+	hub.free()

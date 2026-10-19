@@ -53,6 +53,13 @@ static func items(balance: Dictionary) -> Array:
 	return steps(balance).map(func(s: Dictionary) -> int: return int(s.item))
 
 
-## The level-up notice, from the v83 String.wz item names ("Red Potion" -> "Orange Potion").
-static func notice_text(from_name: String, to_name: String) -> String:
-	return "Your %ss are now %ss." % [from_name, to_name]
+## The level-up notice, from the v83 String.wz item names ("Red Potion" -> "Orange Potion"). The plural of a name is
+## name + "s" unless `plurals` (balance.potions.plural_names, {"<item id>": plural display name}) names it, for items
+## whose name is its own plural ("Unagi", "Pure Water"; tier C, ours).
+static func notice_text(from_id: int, from_name: String, to_id: int, to_name: String, plurals: Dictionary = {}) -> String:
+	return "Your %s are now %s." % [_plural(from_id, from_name, plurals), _plural(to_id, to_name, plurals)]
+
+
+static func _plural(id: int, item_name: String, plurals: Dictionary) -> String:
+	var override: Variant = plurals.get(str(id), "")
+	return String(override) if override is String and String(override) != "" else item_name + "s"

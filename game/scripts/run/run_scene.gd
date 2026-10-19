@@ -1233,7 +1233,8 @@ func _on_ammo_upgraded(e: Dictionary) -> void:
 func _on_potion_tier_up(e: Dictionary) -> void:
 	if hud == null:
 		return
-	hud.push_message(PotionSchedule.notice_text(_item_name(int(e.from_item_id)), _item_name(int(e.item_id))))
+	hud.push_message(PotionSchedule.notice_text(int(e.from_item_id), _item_name(int(e.from_item_id)), int(e.item_id),
+		_item_name(int(e.item_id)), world.balance.get("potions", {}).get("plural_names", {})))
 	_event_shot("potion_tier_%d.png" % int(e.item_id), 0.4)
 
 
