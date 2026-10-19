@@ -226,7 +226,8 @@ func test_shipped_data_has_no_duplicates_and_places_entries_by_line() -> void:
 	# cards: no skill -> common, book 000 skill -> beginner, otherwise magician
 	for line in ["common", "beginner", "magician"]:
 		var frag: Dictionary = DataRepo.load_json(DataRepo.fragment_path("upgrades", line, root))
-		assert_false(frag.cards.is_empty(), "upgrades/%s.json has cards" % line)
+		# Spec #225: there are no job-neutral cards, so the common fragment is empty.
+		assert_eq(frag.cards.is_empty(), line == "common", "upgrades/%s.json cards" % line)
 		for c: Dictionary in frag.cards:
 			var skill := String(c.get("skill", ""))
 			var want := "common" if skill == "" else ("beginner" if String(d.skills.skills[skill].book) == "000" else "magician")

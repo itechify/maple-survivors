@@ -3,9 +3,10 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
+## Re-captured for #228 (spec #225): Magnet and potion-tier cards are gone and potions upgrade by level, so the bot draws
+## different cards and the run emits potion_tier_up. Earlier: re-captured on Windows for #199: Bowman changes the job-window options and stream-8 first-job choice.
 ## Binary event encoding is platform independent (see below).
-const GOLDEN := "36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e"
+const GOLDEN := "769106d462d41e6ecc0bcf2912c8689f2f490fca1b4859abcf79dbc1daa524b4"
 
 
 ## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded

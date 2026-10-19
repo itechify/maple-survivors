@@ -26,9 +26,11 @@ const MP_DRAIN := 60
 ## its events and totals legitimately differ from main's 4e51522e... baseline. The #146 optimisation changes neither.
 ## Re-captured for #194 (spec #168): player_state gains `hidden` and `morph` and every buff snapshot `hidden`, `morph` and
 ## `end_hp_above`; the events and TOTALS are unchanged, only those bytes differ (previous digest cb554e31...).
-const GOLDEN := "ad5c2bc1c6db7cb8ffd92a8d5909296941900219b6873e57de5ddd7aebbe48db"
-const TOTALS := {"exp": 5133, "mesos": 97368, "pickup_mesos": 97368, "equips_collected": 24,
-	"equips_dropped": 30, "inventory": 24, "hp_potions": 15, "mp_potions": 0, "kills": 276, "casts": 249, "level": 14,
+## Re-captured for #228 (spec #225): no Magnet or potion-tier cards, so the bot draws other cards (previous digest ad5c2bc1...,
+## previous totals exp 5133, kills 276, casts 249, level 14).
+const GOLDEN := "373bb381af9ad481c4519abc5b96c7b44fc007b35970125594703d4f37668da1"
+const TOTALS := {"exp": 4196, "mesos": 88492, "pickup_mesos": 88492, "equips_collected": 24,
+	"equips_dropped": 30, "inventory": 24, "hp_potions": 12, "mp_potions": 0, "kills": 208, "casts": 183, "level": 13,
 	"pool": 6, "time": 59.999999999997875}
 const SKILLS: Array[String] = ["energy_bolt", "magic_claw", "magic_guard", "cold_beam", "thunder_bolt", "slow_il",
 	"heal", "fire_arrow", "poison_breath", "holy_arrow"]

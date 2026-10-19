@@ -140,8 +140,8 @@ it is taken off. Every purchase and sale is saved into the character slot at onc
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
 every skill of that job a card can offer, by skill id: icon, name and level / max, unlearned skills greyed at 0 / max.
-A last tab with a star lists the job-neutral cards taken (Magnet, potion tiers, later Fortune) with their rank; the
-one-off Elixir is not listed. Hovering a row, or selecting it with the keyboard, shows a v83-style tooltip: icon, name,
+There is no star tab: since spec #225 every card is a skill of a job, and the one-off Elixir is used, not learned.
+Hovering a row, or selecting it with the keyboard, shows a v83-style tooltip: icon, name,
 the SkillText desc, the current and next level lines (effective values), cooldown and MP cost (none for passives),
 and an orange "Upgrades" list of the behaviour cards taken for the skill with their steps ("Twin Claw ×2: +2
 targets"). The cooldown is the one the auto-cast uses: a buff's is the longer of its duration and its canonical
@@ -475,11 +475,36 @@ Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` 
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
 rope to drops left on a platform above, and picks a seeded-random available branch (override with `--job=<first or second job id>`; `--branch` is the deprecated alias). Card
-policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
+policies: `bot` uses `BotInput.pick_card_for`, prioritizing Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores, each plus
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #225 (#228): no job-neutral cards, automatic potion tiers: regression smoke (2026-10-18)
+
+Feature smoke only, no tuning (AGENTS.md): `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` (4 invocations, 12 runs), default job pick, before = `8e417fb` (the spec integration branch, which
+is main `d1cdb16` plus a research doc) in a detached worktree, after = this branch, both with the read-only cache
+`caches/s167-main` and the same `BALANCE_OUT` layout. **Seeded records change by design**: Magnet and the three
+potion-tier cards are no longer offered, so every level-up draw, and everything after it, differs (events gain
+`potion_tier_up` at Lv 10 / 20 / 25). All 12 runs ended DEAD, with `warnings: []` and `missing: []` and no crash or
+script error; no run was cleared before or after. D = death time, then final level (seeds 1 / 2 / 2026):
+
+| Stage, policy | before | after |
+|---|---|---|
+| Henesys bot | D 5:39 Lv11 / 10:19 Lv32 / 5:13 Lv11 | D 5:36 Lv11 / 6:42 Lv14 / 5:05 Lv10 |
+| Henesys random | D 7:20 Lv19 / 5:29 Lv10 / 5:05 Lv11 | D 7:42 Lv23 / 5:58 Lv13 / 5:06 Lv12 |
+| Tree bot, random | D 2:08 / 1:03 / 0:51, Lv3 / Lv2 / Lv2 | the same (seeds 1 and 2026 byte-identical; seed 2's record differs, outcome the same) |
+
+The Henesys rounds still reach the first job (Lv 10 at 4:25-4:34 before, 4:26-4:42 after) and meet Mano at 5:00, with no
+clear before or after; the Tree stays record-only. The one large move, bot seed 2 (a Crossbowman reaching Lv 32 before, a
+Lv14 Bowman after), comes from different cards in the same seeded draw (n = 3 per cell); it is a record, not a finding.
+Raw records: ignored `_scratch/smoke_base/` and `_scratch/smoke_after/`.
+
+**Goldens recaptured by this ticket** (the draws changed, nothing else): `test_character_baseline` (`GOLDEN`, 20-minute
+bot event bytes, seed 1) and `test_tick_cost_identity` (`GOLDEN` and `TOTALS`, seed 146: exp 5133 -> 4196, kills 276 ->
+208, casts 249 -> 183, level 14 -> 13).
 
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
@@ -2933,6 +2958,19 @@ EXP cap/absorption path. Both card policies drink a potion only when the missing
 current potion's canonical restore (`balance.potions.bot.min_restore_fraction`, tier C), so a sip never mostly
 overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
 
+**Automatic potion tiers (spec #225, #228).** No card changes the potion any more. `balance.potions.schedule` lists
+`{level, kind, item}` steps (tier C, ours; sorted by level): HP Red (2000000) → Orange (2000001) at Lv 10, MP Blue
+(2000003) → Mana Elixir (2000006) at Lv 20, HP Orange → White (2000002) at Lv 25. When the character reaches a
+level (level-up, including several levels in one tick), every step of that kind at or below it that the character
+does not hold yet is applied in order through `PotionInventory.upgrade`: the whole stock count is kept, all later
+drops are the new item, the current item drives canonical restoration and the HUD icon, a step never downgrades, and
+an item without a restore spec is skipped. Nothing is stored: each level-up and each snapshot load re-scans the steps up
+to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
+load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
+HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." The Power Elixir is not a
+potion tier (it is the card filler, section 8). Steps beyond Lv 25 come with the research in
+`docs/research/v83-potion-progression.md`.
+
 The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level-up refills MP to the new maximum
 (#80, tier B) but adds no HP (tier C). Between level-ups, Three
 Snails at its canonical 3 MP casts about once per 10 s regeneration pulse, and the Beginner phase is
@@ -4514,7 +4552,8 @@ Draw rules:
    skills). `requires.jobs` matches the **exact current job id**, never its
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
-   but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
+   but their cards stop appearing. There are no job-neutral cards (spec #225 removed Magnet and the potion-tier
+   cards); only the Power Elixir filler (item 3) omits `requires.jobs`.
    **Carried physical attacks (ADR 0005, spec #165 #180 and #167):** the Warrior's second jobs have no attack skills, so
    the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
    `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
@@ -4532,7 +4571,10 @@ Draw rules:
    from the current pool; if no eligible power card exists, pity adds none.
 3. With fewer than three eligible cards, offer those cards plus **one Power Elixir** alternative (item 2000005).
    With no eligible cards, offer Power Elixir alone. This applies to normal level-ups and boss rewards; every
-   reward opens a window. `upgrades.fallback` holds the job-neutral Elixir definition outside the weighted pool,
+   reward opens a window. A boss reward keeps the Elixir as an always-Normal card (no Potential tier scaling), and an
+   exhausted pool can never soft-lock the run: the Elixir is always accepted, and a pool with no card at all (no
+   fallback in the data) consumes the level instead of opening an unanswerable window.
+   `upgrades.fallback` holds the Elixir definition, the only job-neutral card, outside the weighted pool,
    so it never displaces a normal card in a full draw. It uses the canonical Power Elixir name and icon and fully
    restores HP and MP immediately when chosen, without changing carried potion stock. This reward rule is tier C;
    the item identity, art and 100% restoration are tier A.
@@ -4633,8 +4675,9 @@ climbing; its active effect and cooldown keep advancing there. Its original effe
 is imposed because v83 provides no action node. Auto-casting and slot/lifecycle rules are tier C; the skill values
 and assets are tier A. The former flat +6 speed card and Max HP +10% card are removed.
 
-Magnet's Normal step is +25% radius and stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at
-their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
+The Magnet card (+25% pickup radius) was removed in spec #225: the radius stays at `magnet_radius` and the pet's VAC and
+Binocular upgrades are the only pickup-range upgrades; `magnet` ranks and modifiers in older snapshots are dropped on load.
+Magicians learn Improved MaxMP Increase (2000001) at their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
 Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant. The canonical
@@ -4652,13 +4695,10 @@ No cast starts on a rope, while an existing Recovery continues healing and expir
 sound and icon are used; rank previews show duration, HP per pulse, cooldown and MP cost. Learning/ranking Recovery
 never adds permanent HP regeneration, and the skill remains available after advancement.
 
-Potion tiers are one-time cards: HP Red (2000000) → Orange (2000001) from Lv 10 → White (2000002) from Lv 25;
-MP Blue (2000003) → Mana Elixir (2000006) from Lv 20. Each requires its previous item, preserves the entire stock
-count and changes all future drops of that kind. The current item drives canonical restoration and the HUD icon.
-The ladders, level gates and weights are tier C entries in `upgrades.json` (`potion_kind`, `item_id`,
-`requires.potions`, `requires.min_level`); no canonical item value is changed. The sensible bot scores tier cards at
-the configured `potions.bot.tier_score` (currently 112), with fallback 52 when absent; first/random policies can
-offer and take them normally.
+Potion tiers are no longer cards (spec #225, #228): they follow the level schedule of section 5 (HP Red → Orange at
+Lv 10 → White at Lv 25; MP Blue → Mana Elixir at Lv 20), keep the whole stock count and change all future drops of
+that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
+gone; the Elixir filler keeps its base score).
 
 Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
 job requirement and rank/modifier cards still require the skill they upgrade. Skills learned in an earlier job keep
@@ -4787,7 +4827,7 @@ It follows the character on the same platforms, teleports when left behind, and 
 Pouch and Meso Magnet are built in); it has no hunger, lifetime or commands. Upgrades belong to the account and apply to
 whichever pet is out: Auto HP / MP Potion Pouch drink from the character's stock below the HP / MP ALERT levels set in
 Options (defaults 30 % / 20 %), Wing Boots fetch resting drops, Binocular doubles the pickup radius, and VAC pulls every
-drop on the map to the pet while the Magnet card is no longer offered.
+drop on the map to the pet. Since spec #225 these are the only pickup-range upgrades (no card raises the radius).
 
 **Tools.** Tool rounds (balance, playtests, `--run`) start with an empty account; `--account=<json>` supplies owned items,
 worn cash equipment, a pet and ALERT levels (`game/tests/fixtures/accounts/full_pet.json` is the full set) and the round
@@ -5492,9 +5532,9 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
-| Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
+| Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
+| Sparse draws | 3 choices when full; otherwise eligible cards plus one Elixir, alone at 0 | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
-| Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
 | Bot sword duel | a lone ordinary mob within 160 px and 40 px of the feet while no attack skill is ready and affordable: stand facing it so the basic attack swings; flee from two or more | C | owner review of #29; BotInput, shared by every movement policy that uses it |
 | Bot Guard preference / offers | base-score overrides learn 110, rank 109 (the #63 gain term is added on top); no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
@@ -5516,7 +5556,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Weapon cover type | the cover draws the `<type>/<stance>` art of the real weapon's type, type = weapon id / 10000 - 100 (30 sword, 37 wand, 38 staff, ...); no art for the type or stance leaves the real weapon, no real weapon draws no cover | B | third-party RE of the official client for the type selection; the fallback is ours (C) |
 | Cash replaces regular equipment | a worn cash item draws instead of the regular equip of its slot, and also of any regular equip whose whole `info/vslot` it holds (a MaPn vest replaces the pants, an overall both) | C | v83 shows the cash item in place of the regular one; the vslot-subset rule is ours |
 | vslot hiding | a layer is hidden when one other drawn item's `info/vslot` codes cover every code of the layer's `Base.wz/smap.img` entry (hat CpH1H5 hides hairOverHead, a full-head hat the head, hair and accessories); face accessories follow the face expression; hats, eye accessories and earrings use their `default` frame for stances they lack | C | codes are tier A (smap.img, `info/vslot`); the all-codes-of-one-item reading is ours (any-code or pooled readings hide the sleeves, pants and shoes wrongly) |
-| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); while a pet with VAC is out the Magnet card (any card raising the `magnet` stat) is never offered, in normal, boss and advancement draws | C | spec #34, ADR 0003; our design |
+| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); with the Magnet card removed (#225) VAC and Binocular are the only pickup-range upgrades | C | spec #34, ADR 0003; our design |
 | Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). A pet brought out (round start, the Pet page, the Free Market) stands `beside_offset` 30 px behind the way the player faces, else in front, on the same flat floor, else on the player (#126: on the player it was hidden behind or over the avatar while the player stood still; a teleport still lands on the player and the pet walks off) Three more constants live in the same `pet` block rather than in code: `speed_stat_floor` 100 (the pet's speed stat is the player's but never below the 100 % base), `stuck_move_px` 0.2 (it counts as pushing against a wall when it moved less than this in a tick) and `floor_tolerance` 2 px (a floor within this of the player's feet is the same floor, for standing beside). `cash_items.json` `pet` is the only place the numbers live; `PetSystem` has no defaults. The pet upgrade item ids in `PetSystem` are tier A (1812002-1812005 are v83 items) except VAC 9990000 (tier C, survivor-only). A drop flying to the pet when it is dismissed falls and lands as an ordinary drop. State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
 | Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, potions; mesos with B2) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
 | Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
@@ -5527,10 +5567,10 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
-| Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
+| Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10; Magnet ×1.25 removed in #225; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
-| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
+| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks | C | survivor integration, existing BotInput defaults; #59 |
 | MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
 | Mastery passive | WZ `mastery` N gives (10 + 5N)% (the same encoding as magic masteries); the best owned Mastery of the held family replaces the 10% base; its `x` adds ACC | B | Cosmic and String.wz agree (v83-facts section 3); #161 |
 | Crit passives | `crit_chance` = `prop` percent added to the crit chance; `crit_damage` = `damage` total percent, so a crit adds `damage - 100` points to the skill % instead of multiplying | B (additive rule), C (data shape) | SouthPerry Critical Shot/Throw (v83-facts section 5); #161 |
@@ -5622,7 +5662,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | In-run windows (#85) | stacked above the modal windows (CanvasLayer 11); 20 px title strip drags; 40 px of a window always stay in the view; first open centred above the status bar, then reopened where it was dragged; sim held while any is open | C | ours |
 | Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
 | Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
-| Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
+| Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; no star tab (removed in #225); tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
 | Key Config window (#87) | bindable: jump, HP / MP potion, Stat, Skill, plus (#188) one skill key per learned manual skill at the end of the tray, with the skill's own icon (Teleport, Dash) (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, the learned skill's icon | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
