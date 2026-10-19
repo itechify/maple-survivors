@@ -69,6 +69,7 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	errors.append_array(stage_label_errors(out.get("stages", {})))
 	return out
 
 
@@ -231,6 +232,26 @@ static func map_img_path(map_id: int) -> String:
 ## Cache path of a Skill.wz book img: "Skill.wz/000.img".
 static func skill_img_path(book: String) -> String:
 	return "Skill.wz/%s.img" % book
+
+
+## What the player sees as a stage's name (#221): {region, continent} of stage `stage_key` in the parsed stages.json
+## (`stages_file`). The region is the town the stage belongs to, the continent the small line above it; both are survivor
+## display data (tier C: owner choice, playtest 3), not WZ strings. A stage file without them falls back to its `name`
+## as the region; an unknown stage gives empty strings.
+static func stage_labels(stages_file: Dictionary, stage_key: String) -> Dictionary:
+	var st: Dictionary = stages_file.get("stages", {}).get(stage_key, {})
+	return {"region": String(st.get("region", st.get("name", ""))), "continent": String(st.get("continent", ""))}
+
+
+## One message per stage of the parsed stages.json that lacks a non-blank `region` or `continent`, in file order.
+static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var all: Dictionary = stages_file.get("stages", {})
+	for key: String in all:
+		for field: String in ["region", "continent"]:
+			if String((all[key] as Dictionary).get(field, "")).strip_edges().is_empty():
+				errors.append("stage '%s' has no %s" % [key, field])
+	return errors
 
 
 ## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and

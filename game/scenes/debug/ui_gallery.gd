@@ -129,7 +129,7 @@ func _show_screen(which: String) -> void:
 	match which:
 		"results", "results_dead":
 			var dead := which == "results_dead"
-			var summary := {"stage": "henesys_hg1", "map_id": 104040000, "map_name": "Henesys Hunting Ground I",
+			var summary := {"stage": "henesys_hg1", "map_id": 104040000, "region": "Henesys", "continent": "Victoria Island", "map_name": "Henesys Hunting Ground I",
 				"street_name": "Victoria Road", "time": 512.4 if dead else 900.0, "duration": 900.0,
 				"cleared": not dead, "level": 17 if dead else 31, "job_id": 200, "job_name": "Magician",
 				"kills": 1342 if dead else 3120, "damage_dealt": 48210 if dead else 151377, "seed": 12345,
