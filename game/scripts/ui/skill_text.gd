@@ -70,7 +70,7 @@ func level_line(key: String, level: int, stats: Dictionary) -> String:
 		mechanics.append("Blast: %d %s" % [targets, "target" if targets == 1 else "targets"])
 	if def.has("pierce_falloff"):
 		mechanics.append("Pierce fall-off: %s%% per target (minimum %s%%)" % [
-			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(ProjectileSystem.PIERCE_FLOOR * 100.0)])
+			number(float(stats.get("pierce_falloff", 0.0)) * 100.0), number(float(stats.get("pierce_floor", 0.0)) * 100.0)])
 	if not mechanics.is_empty():
 		line += ("\n" if line != "" else "") + "; ".join(mechanics)
 	return line

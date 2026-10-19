@@ -4073,8 +4073,9 @@ their existing damage, RNG draws and seeded records. Tests use synthetic skill t
   no `damage`. `visual` selects a SkillBook visual (`hit` by default, `effect` also supported), resolved at cast time.
   `skill_impact` plays this art once at the captured impact feet; ordinary per-target hit art also plays. The choice
   of art/anchor, first-contact consumption and target order are tier C; box, cap and selected level values are tier A.
-- **`pierce_falloff: <fraction>`.** The n-th direct contact deals `max(0.1, 1 - fraction * (n - 1))` of its fully
-  resolved damage, including crit bonuses, before final rounding. The schedule and 10% floor are tier C: WZ has no
+- **`pierce_falloff: <fraction>`.** The n-th direct contact deals `max(floor, 1 - fraction * (n - 1))` of its fully
+  resolved damage, including crit bonuses, before final rounding. `balance.combat.pierce_floor` supplies the floor
+  to projectiles and skill previews (default 0.1). The schedule and 10% default floor are tier C: WZ has no
   fall-off number. A fraction of 0.1 gives 100/90/80/70/60/50% across six mobs. An immune contact consumes a contact
   index, as it already consumes pierce. Missing or zero means full damage on every mob. The value is captured at
   launch; slot reuse resets it. Impact blasts consume the shot before piercing, so their splash has no fall-off.
@@ -4085,8 +4086,8 @@ their existing damage, RNG draws and seeded records. Tests use synthetic skill t
   available, it uses the greater of `BasicAttack.reach` and the family's ranged base reach around the primary.
   Each extra target gets its own visual. Hunter and Crossbowman supply ranged Spread cards (7.23-7.24).
 
-**Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`
-and `pierce_falloff` (fraction). SkillText automatically appends these mechanics to rank/learn cards and current/next
+**Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`,
+`pierce_falloff` and `pierce_floor` (fractions). SkillText automatically appends these mechanics to rank/learn cards and current/next
 Skill-window lines. Rank previews include changing knock-back chance and blast targets. A `skill_mod` effect with
 `stat: "blast_targets"` adds splash targets without adding projectiles; projectile `count` still means shots.
 `pierce_falloff` modifiers preview percentage points per later mob, and `blast_targets` modifiers preview targets.
@@ -4099,9 +4100,11 @@ Bowman is playable at Lv 10 (tier C survivor override). The `bow` path wears the
 1452051 (tier B gift, tier A stats), moves the creation weapon to Equip and adds Crossbow 1462001 (tier C: the plain
 early shop crossbow, Lv 12 / PAD 29 / no stat requirement). Full Equip tabs spill these items at the feet, following
 the existing advancement rule. The job grants +125 MaxHP / +37 MaxMP (tier B midpoints, MP truncated), and subsequent
-levels give 22 HP / 15 MP (tier B fixed midpoints). Tier-C automatic AP goes to DEX after filling STR to level + 5,
-capped at 35 from Lv 30; without equipment bonuses this meets Ryden 1452005 (Lv 30, STR 35 / DEX 95) and Mountain
-Crossbow 1462000 (Lv 28, STR 28 / DEX 80). Later equipment requirements may extend the target. Bot equipment weights
+levels give 22 HP / 15 MP (tier B fixed midpoints). Tier-C automatic AP goes to DEX after filling STR to level + 5
+through Lv 30, holds STR 35 through Lv 34, then reaches STR 40 at Lv 35 and level + 5 through Lv 70 / STR 75
+(held thereafter). The original Lv 1/30 keyframes and allocation through Lv 34 stay unchanged, preserving the #204
+Lv 30/31 fixtures. Hunter and Crossbowman inherit this row. A cache-backed seeded level-up test checks all 22 shipped
+bows/crossbows against their canonical reqSTR/reqDEX at reqLevel, without equipment bonuses. Bot equipment weights
 prefer PAD, then DEX, then STR; other weights follow the existing physical baseline (tier C, untuned).
 
 `skills/bowman.json` and `upgrades/bowman.json` hold the first-job entries. Ranks map one-to-one to every canonical
@@ -4541,8 +4544,9 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   The Warrior's second jobs open at Lv 30 (spec #165, below).
 - Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
   1452051 and places Crossbow 1462001 in Equip, with overflow at the feet (tier B bow gift, tier C spare crossbow).
-  Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary up to level + 5, capped at 35
-  from Lv 30 (tier C; 7.22). The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
+  Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary: level + 5 through Lv 30,
+  STR 35 through Lv 34, STR 40 at Lv 35, then level + 5 through Lv 70 / STR 75 (tier C; 7.22).
+  The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
 - Level 30, Crossbowman 320 (#203): +325 MaxHP / +175 MaxMP (tier B), with Mountain Crossbow 1462000 always worn
   and the old weapon moved to Equip (tier C grant; Lv28, PAD44, STR28 / DEX80 tier A). Growth/AP inherit Bowman;
   the advancement draw offers Power Knock-Back and Iron Arrow. Crossbow-only skills/cards and ammo tiers: 7.24.
@@ -4717,7 +4721,7 @@ Bowman (#166), generic mechanics (#200):
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
-| Pierce fall-off schedule | Linear `max(0.1, 1 - fraction * (n - 1))`; 0.1 per mob means the sixth takes 50%; floor 10%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value |
+| Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
 | Ranged Final Attack visual | Current ammo's art/speed/rotation, straight hand-to-target flight; no delayed damage, no RNG; ranged Spread uses at least the family's existing ranged reach | A (ammo art), C (presentation, Spread) | Current ammo data; #200 |
 
@@ -4741,7 +4745,7 @@ Bowman (#166), first job #199:
 |---|---|---|---|
 | Advancement / gifts | Lv 10; wear 1452051, spare 1462001; HP +125 / MP +37 | C level/spare, B bow and pool midpoints, A item stats | owner #166, v83-facts 4 |
 | Level growth | 22 HP / 15 MP | B | v83-facts 4 midpoints |
-| Automatic AP | DEX primary, STR secondary target level + 5 capped at 35 from Lv 30 | C | requirement policy, meets both Lv 30 advancement weapons |
+| Automatic AP | DEX primary; STR level + 5 through Lv 30, 35 through Lv 34, 40 at Lv 35, then level + 5 through Lv 70 / 75 STR (held thereafter); `balance.player.ap_secondary.300`, inherited by 310/320 | C | equipment requirement policy; all 22 shipped bows/crossbows checked against canonical reqSTR/reqDEX; early allocation/QA fixtures retained |
 | Equipment weights | PAD 10, DEX 6, STR 3; PDD 1.5, MDD 1, ACC/EVA .3, HP/MP .03, speed .5, jump .3 | C | existing physical baseline with Bowman primary; untuned |
 | Skill levels and effects | 16/20/8/20/20/20; canonical costs, damage, prop, range, time, ACC/eva | A | Skill.wz/300.img, string Focus acc cast by SkillBook |
 | Eye range interpretation | Add canonical +15..120 px to ranged basic targeting/travel and family-gated attack-skill range; melee and Magician unchanged | C | owner #166 and binding NOTES |

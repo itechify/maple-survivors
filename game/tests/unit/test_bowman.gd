@@ -98,6 +98,61 @@ func test_seeded_bot_meets_both_advancement_weapons_at_thirty_and_grows_22_15() 
 	assert_true(float(weights.incDEX) > float(weights.incSTR))
 
 
+## Bot level-ups meet every shipped weapon's canonical STR/DEX at reqLevel, with all other AP left in DEX.
+func test_auto_ap_meets_every_shipped_bowman_weapon_requirement_by_its_level() -> void:
+	if not require_cache():
+		return
+	var lib := AssetLibrary.new()
+	var line: Dictionary = DataRepo.load_json(DataRepo.fragment_path("equipment_drops", "bowman", "res://data"))
+	var infos := {}
+	for raw: Variant in line.items:
+		var id := int(raw)
+		if WeaponInfo.family(id) not in ["bow", "crossbow"]:
+			continue
+		var img := lib.img(AvatarRenderer.part_img_path(id))
+		assert_true(img != null, "canonical requirements for %d" % id)
+		if img != null:
+			infos[id] = img.root.info
+	assert_eq(infos.size(), 22, "every shipped bow and crossbow is checked")
+	for branch in [300, 310, 320]:
+		var setup := _world().setup.duplicate(true)
+		setup.equipment_info.merge(infos, true)
+		if branch == 300:
+			# Also cover a Bowman who defers the second job, using the same public level-up/AP path.
+			for child: String in ["310", "320"]:
+				setup.data.jobs_survivor.jobs[child].playable = false
+		var w := RunWorld.new(setup)
+		RF.place_player(w, 400)
+		w.god = true
+		for level in range(2, 71):
+			w.pickups.spawn(w.player.pos, w.progression.exp_to_next(), 4000019)
+			for tick in 120:
+				w.step(DT, MoveInput.new())
+				BotInput.auto_choose(w, false, branch, "bow")
+				if w.progression.level == level:
+					break
+			assert_eq(w.progression.level, level)
+			if level < 10:
+				continue
+			var who := w.player_state.duplicate()
+			who.str -= w.equipment_bonus("incSTR")
+			who.dex -= w.equipment_bonus("incDEX")
+			assert_eq(w.progression.job_id, 300 if level < 30 else branch)
+			if level <= 34:
+				assert_eq(int(who.str), mini(level + 5, 35), "existing early AP/fixtures unchanged")
+			assert_eq(int(who.dex), 5 + 5 * (level - 1) - (int(who.str) - 12),
+				"every remaining earned AP goes to DEX")
+			for id: int in infos:
+				var info: Dictionary = infos[id]
+				if int(info.reqLevel) == level:
+					assert_true(who.str >= int(info.get("reqSTR", 0)),
+						"job %d Lv%d weapon %d needs STR%d, has %d" % [branch, level, id,
+						info.get("reqSTR", 0), who.str])
+					assert_eq(Equipment.requirement_error(info, who), "", "%d at reqLevel" % id)
+	assert_eq(Array(lib.missing), [])
+	lib.free()
+
+
 func test_forced_bowman_is_valid_for_a_tool_run() -> void:
 	var data := DataRepo.load_all()
 	var parsed := SceneFlow.parse_run_args(PackedStringArray(["--run=henesys_hg1", "--job=300"]))
