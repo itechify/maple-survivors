@@ -513,6 +513,10 @@ including Warrior/Bowman at Lv10 and Warrior branches at Lv30. A forced family a
 `110:axe` draws a Warrior family, then forces Axe at Fighter. BotShop follows the recorded family. The particular
 default smoke outcomes above happen to remain the same. The 72,000-tick seed-1 synthetic event golden remains
 `b4b22cfe...` (that run chooses Magician, so it consumes no new family draw); no golden was re-captured for #232.
+One additional controlled replay isolates the decision change: in a scratch mirror, replacing only BotInput with
+`c91d331`'s compatibility implementation makes seed-1 `--job=110:axe` die at **331.3 s**, versus **332.3 s** in the
+new forced-path smoke record. Both have no warnings. The old Lv10 default chooses Sword when Axe is unavailable;
+the new rule draws a Warrior family. The mirror was restored afterwards; this is a regression control, not tuning.
 All eleven historical character fixtures remain valid saves: migration infers missing paths, preserves explicit
 ones and keeps old spare weapons. Per-file rationale: `game/tests/fixtures/characters/README.md`.
 
@@ -530,6 +534,22 @@ invulnerable (`--natural-clear=1` disables invulnerability/hits). `economy` firs
 round, then loads its original Lv38 F/P fixture for the economy loop. That fixture also died during its old warp, so
 the shop-boundary warp now uses invulnerability and diagnostic boss hits after the stage timer. These are presentation/persistence
 checks, **not natural clears or balance evidence**; the 23-run smoke above uses no such aids.
+
+**Scenario QA: 14/14 passed**, exit 0 and no missing assets or failed checks: `warrior`; `warrior2 --job=110/120/130`;
+`bowman --branch=310/320`; `thief --path=claw/dagger`; `pirate --path=knuckle/gun`; `full`, `rounds`, `account`, `economy`.
+Each multi-value flag above denotes separate runs. Screenshots of the lists, weapon pages, confirmations and restored
+equipment/flow were checked by eye. Evidence root:
+`C:/Users/itech/.t3/worktrees/maple-survivors/t3-50d91cd0/evidence/s226/t232/`. Passing directories are
+`warrior-verified`, `warrior2-110/120/130`, `bowman-310/320`, `thief-claw-verified`, `thief-dagger-verified`,
+`pirate-knuckle-verified`, `pirate-gun-verified`, `full-verified`, `rounds-verified`, `account-verified`, `economy-final`.
+Only the directories listed above are final passing evidence; older attempts remain for diagnosis. Console logs and the compact
+scenario audit remain in this worktree's ignored `_scratch/t232/`. Phase-1 full suite: 2,137 pass / 0 fail / 0 SKIP,
+184 files, 617048 ms. Rust after the final integration merge: 46 synthetic tests execute, 0 failures; the 18 real-WZ
+tests return early without `MAPLE_WZ_ROOT` (reported as ok by cargo, but no real-WZ validation). No fixture or golden
+was re-captured. Final post-#231 suite on source `335df91`, with `ISOLATE=s226-t232`, `TEST_TIMEOUT_S=3000` and
+read-only cache `s226`: **2,147 pass / 0 fail / 0 SKIP**, 184 files, 568142 ms, exit 0. Cache-dependent tests executed.
+The same two pre-existing RendererDummy texture RID shutdown leaks remain. Final logs: `_scratch/t232/full-final.log`
+and `cargo-final.log`; no unfinished/superseded test run is counted as passing.
 
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
