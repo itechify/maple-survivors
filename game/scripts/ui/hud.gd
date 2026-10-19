@@ -111,6 +111,10 @@ func show_mesos(n: int) -> void:
 func show_item_gain(item_name: String) -> void:
 	system_messages.show_item_gain(item_name)
 
+## Shows the "Equipped <item>" notice of an auto-worn pickup.
+func show_equipped(item_name: String) -> void:
+	system_messages.show_equipped(item_name)
+
 ## Shows the "inventory full" notice (an equipment drop that cannot be picked up).
 func show_inventory_full() -> void:
 	system_messages.show_inventory_full()

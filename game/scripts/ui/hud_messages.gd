@@ -52,6 +52,11 @@ func show_item_gain(item_name: String) -> void:
 	push_message("You have gained an item (%s)" % item_name if item_name != "" else "You have gained an item")
 
 
+## Shows "Equipped Red Hat" when a picked-up item was worn at once (#222; tier C: our wording, same yellow system line).
+func show_equipped(item_name: String) -> void:
+	push_message("Equipped %s" % item_name if item_name != "" else "Equipped an item")
+
+
 ## Shows the v83 full-inventory notice when a drop cannot be picked up (tier B: v83 client string pool).
 func show_inventory_full() -> void:
 	push_message("You can't get anymore items.")

@@ -534,6 +534,30 @@ second job (before: Crossbowman at 577.7 s, Lv32); that run, and Tree bot / rand
 203.6 s / 215.0 s), are single-seed outcomes of a different position history, not a measured effect of the guard (n=3 per
 cell). Tree stays record-only. No smoke exists for main `d1cdb16` itself (the #215 rows above ran on integration `628223f` with cache `s167-int`), so the "before" column is a fresh baseline: Tree matches #215, Henesys differs from it for that reason, not because of the guard. Raw records: ignored `_scratch/p3-223/{base,new}` (outside the repo).
 
+#### #222 auto-equip on pickup: regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` (12 runs) on
+`t3/playtest3-222` against the same 12 runs on its base `main` (`d1cdb16`), same private cache
+(`caches/p3-main`, the current manifest), no PATCH, no tuning, no held-out seeds. No crash, script error, world warning or
+missing asset; every run dies, as in the previous smoke (#204, 2026-10-18, below). **All 12 records are byte-identical to
+main's** (outcome, times, hits, levels, drops, `equipment_worn`): the bot already wore an eligible drop on the tick it was
+picked up (`BotShop.equip_after` runs right after each step), so the sim now doing it first changes nothing the bots can
+see. The only difference the rule can show is the bookkeeping: `equips_worn` ("put on mid-round") now also counts the
+sim's `auto_equip` events (`balance_run.gd`), so the metric keeps its meaning; without that, bot seed 2 read 3 instead of
+4 and random seed 1 read 0 instead of 1 (the wears moved from the bot to the sim). A record changes where a drop is worn
+earlier than the bot would have worn it (a drop picked up with a free slot that the bot scores at 0 or defers); none of
+these seeds has one. Death seconds (final level), seeds 1 / 2 / 2026:
+
+| Stage, policy | this branch = main control | #204 default-pick row (earlier revision) |
+|---|---|---|
+| Henesys, bot | 339.5 / 619.3 / 313.8 (11 / 32 / 11) | 339.6 / 455.4 / 323.4 (11 / 13 / 11) |
+| Henesys, random | 440.0 / 329.5 / 305.0 (19 / 10 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Tree, bot and random | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | 128.9 / 63.6 / 51.5 (3 / 2 / 2) |
+
+The Henesys rows differ from #204's by the unforced job pick, which reshuffled when Thief joined main (#204 notes the
+same; its forced-`320` bot row reads 339.5 / 619.3 / 360.0, matching seeds 1 and 2 here). Tree is unchanged and record-only.
+Bot equipment per run (seeds 1 / 2 / 2026): dropped 0 / 5 / 1, picked up 0 / 4 / 1, put on 0 / 4 / 1.
+
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
@@ -4797,7 +4821,11 @@ every constant, with its tier, is in section 11 under the tables named below):
    two-handed swords, an axe holder axes, ...; bare hands get no weapon; a Magician holding a wand or a staff gets both),
    so a Warrior's weapon drops are of the one family it holds (sword, axe, blunt weapon, spear or polearm) and its armour
    drops include Warrior shields (#159). It goes to the
-   Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
+   Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".) If its slot is empty and the
+   character meets its requirements it is worn at once instead, with an "Equipped <name>" notice (#222, "Auto-equip rule").
+   It still waits in the tab when the slot is occupied (an item is never replaced, even by a better one), a requirement
+   (level, job or a stat, the check the Item window uses) fails, it is a shield beside a two-handed weapon, or it is a top or
+   bottom beside an overall or an overall beside a top or bottom.
 3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
    open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
 4. In the **Free Market**, four NPCs sell scrolls only, one per success rate (100%, 60%, 10%, dark 70% / 30%), at 35,000
@@ -5304,6 +5332,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
 | Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
 | Notices | "You have gained an item (Name)" on pickup (name from String.wz/Eqp.img) and "You can't get anymore items." when a full tab refuses a drop, in the system-message queue | B | v83 client string pool (open client reimplementations) |
+| Auto-equip rule (#222; `Equipment.auto_wear_error`, `RunWorld._step_pickups`) | A collected equipment drop is worn at once when wearing it displaces nothing (its slot is empty; no overall beside a top or bottom, no top or bottom beside an overall, no shield beside a two-handed weapon) and the character passes `Equipment.requirement_error` (level, job, total STR/DEX/INT/LUK incl. equipment), through the same `Equipment.equip` as the Item window. The world emits `equipment_changed` "pickup" and then "auto_equip" (slot, item), the stats refresh and the HUD shows "Equipped <name>". Otherwise it stays in the Equip tab. A weapon qualifies only for an empty weapon slot (never past Lv10); cash equipment is out of scope. Runs in the sim, so bots and headless runs get it; `BotShop.auto_equip` keeps its upgrade logic for occupied slots. No RNG | C | Owner brief (playtest 3 grilling, 2026-10-18); the "Equipped <name>" wording is ours |
 
 | Bot shopping rule (spec #33, #112; `BotShop`, bots only, never the player) | Value / behavior | Tier | Source |
 |---|---|---|---|

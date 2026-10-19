@@ -348,7 +348,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `mob_projectile_hit` | `proj`, `mob`, `mob_id`, `pos` (swept contact), `hit` (WZ path), `facing`, `time`; emitted on first body contact that consumes the ball, also when a MISS prevents damage; not emitted (and the ball flies on) when the hit window blocks an ordinary ball, `RunWorld.hit_window_blocks(source)`; boss balls ignore the window |
 | `mob_healed` | `mob`, `mob_id`, `skill_id`, `level`, `amount` (actual restored HP after max clamp, int), `pos` (feet), `time` (resolution tick) |
 | `mob_revives_spawned` | `boss_index`, `mob`, `mob_id` (dead source IDs), `pos` (source feet), `revives` (ordered Array of `{mob: int, mob_id: int}` living offspring), `time` (death tick); one event per canonical death list |
-| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, a job's weapon grant in `change_job` (the Magician's wand, a weapon path's weapon, a second job's branch weapon; #157) and an equipment pickup (`slot` `""`, `item_id` the new item) |
+| `equipment_changed` | `action` (`equip`, `unequip`, `discard`, `grant`, `pickup`, `auto_equip`), `slot` (equip slot, `""` for a discard), `item_id`; after the derived stats were refreshed; the presentation redraws the worn look. Emitted by `equip_item`, `unequip_item`, `discard_item`, a job's weapon grant in `change_job` (the Magician's wand, a weapon path's weapon, a second job's branch weapon; #157) and an equipment pickup (`slot` `""`, `item_id` the new item); a pickup whose slot is empty and whose requirements are met is followed at once by `auto_equip` (`slot` the worn slot, `Equipment.auto_wear_error`, #222) |
 | `teleport` | `skill`, `skill_id`, `level`, `phase` (`departure`/`arrival`), `pos`, `facing`, `effect`; fixed world positions for the manual player blink |
 | `boss_teleported` | `boss_index`, `mob` (current slot), `mob_id`, `pos` (arrival), `time`; also emits `mob_spawned` with relocation identity |
 
@@ -763,7 +763,8 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   `Character.wz/.../info/iconRaw`). Equipment never expires, merges or counts toward `max_active`. `step(..., equip_room)`
   takes how many items the Equip tab still holds (RunWorld passes `inventory_slots() - inventory.size()`, -1 = unlimited):
   a collected drop is appended to `collected_equipment` (RunWorld puts it in `equipment.inventory`, emits
-  `equipment_changed` action `pickup`, counts `equips_collected`). With room 0 a drop is not magnetised (one already flying
+  `equipment_changed` action `pickup`, counts `equips_collected`, then wears it at once through `equip` with action
+  `auto_equip` when its slot is empty and its requirements are met, #222). With room 0 a drop is not magnetised (one already flying
   falls back to the floor) and `pickup_blocked` is emitted once each time the player comes within magnet range; it is picked
   up as soon as room appears. `EquipmentDrops` (pure statics: `eligible`, `pick`, `pick_boss`) filters
   `survivor/equipment_drops/<line>.json` `items` (ids only; reqLevel, reqJob and stats come from `setup.equipment_info`, which
