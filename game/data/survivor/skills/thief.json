@@ -36,6 +36,17 @@
 			"char_level": {"thresholds":[10,15,20,25],"hit":"Skill.wz/400.img/skill/4001344/CharLevel/{cl}/hit/0"},
 			"rotate": true, "sounds": {"use":"Sound.wz/Skill.img/4001344/Use","hit":""}
 		},
+		"disorder": {
+			"skill_id": 4001002, "book": "400", "job": 400, "kind": "instant", "slot": "active",
+			"name": "Disorder", "desc": "Lowers nearby monsters' weapon attack and defence and interrupts their ongoing attacks.",
+			"text": {"desc": "Lowers nearby monsters' weapon attack and weapon defence, interrupting their ongoing attacks. Monsters already threatened cannot be affected again.", "h": "MP -{mp_cost}; enemy weapon attack {x}, weapon def. {y} for {time} sec., up to {mob_count|monster|monsters}"},
+			"icon": "Skill.wz/400.img/skill/4001002/icon", "damage": "none",
+			"_tier": "Tier A: canonical mpCon, signed x/y, time, mob art and Use sound; no weapon requirement, action or effect node. Tier C: Threaten crowd rule, at least 3 fresh ordinary mobs in a (-250,-150)..(250,150) box, nearest 6 targets, 1s cooldown and alert2 held 0.8s. Interrupt cancels a pending attack and its stance, preserving its existing wait; no stun. Initial survivor choices, untuned.",
+			"cast": {"rule":"crowd", "status":"threatened", "min_targets":3, "mob_count":6, "box":{"lt":{"$v":[-250,-150]},"rb":{"$v":[250,150]}}, "interrupt":true}, "cooldown": 1.0,
+			"ranks": [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+			"action": "alert2", "action_time": 0.8, "ball": "", "hit": "Skill.wz/400.img/skill/4001002/mob", "effect": "",
+			"rotate": false, "sounds": {"use":"Sound.wz/Skill.img/4001002/Use","hit":""}
+		},
 		"claw_mastery": {
 			"skill_id": 4100000, "book": "410", "job": 410, "kind": "passive", "slot": "passive",
 			"name": "Claw Mastery", "desc": "Increases claw mastery and accuracy.",
