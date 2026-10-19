@@ -18,15 +18,13 @@ extends RefCounted
 ## (skill% / 100, default 1), player_level, element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
 ## skill (survivor key), level (canonical skill level at cast), alt_rng (bool: roll this shot on `alt_rng`, the basic-attack
 ## stream 5, instead of `rng`; the ranged basic attack of #155). Defence and target level are live at impact.
-## Optional pierce_falloff is linear damage lost per previous contact (floor PIERCE_FLOOR). impact_blast is a
+## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
 ## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
 const MAX_HITS := 16
 ## Shots die this far outside `bounds`.
 const BOUNDS_MARGIN := 200.0
-## tier C: linear per-contact pierce decay never falls below 10% (#200).
-const PIERCE_FLOOR := 0.1
 
 var active := PackedByteArray()
 var x := PackedFloat32Array()
@@ -78,6 +76,8 @@ var alt_rng: RandomNumberGenerator
 var uses_alt := PackedByteArray()
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
+## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
+var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 ## Total damage dealt by every hit so far.
@@ -296,7 +296,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 		hit_count[i] += 1
 	hits_left[i] -= 1
 	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd,
-		maxf(PIERCE_FLOOR, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
+		maxf(pierce_floor, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
 
 
 ## A blast consumes the projectile at its first contact. Select before hits move or kill any targets.

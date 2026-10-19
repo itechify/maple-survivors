@@ -42,6 +42,8 @@ var card_ranks := {}
 var int_stat := 4.0
 var matk := 0.0
 var char_level := 1
+## tier C: display/preview input matching ProjectileSystem, supplied from balance.combat.pierce_floor at setup.
+var pierce_floor := 0.0
 ## Physical caster inputs; RunWorld._refresh_caster assembles these. Setters invalidate cached stats on change.
 var str_stat := 4.0:
 	set(value):
@@ -139,6 +141,7 @@ func clone() -> Loadout:
 	c.int_stat = int_stat
 	c.matk = matk
 	c.char_level = char_level
+	c.pierce_floor = pierce_floor
 	for field: String in ["str_stat", "dex_stat", "luk_stat", "watk", "acc", "weapon_id", "weapon_family",
 			"job_id", "mastery", "crit_bonus", "crit_damage_bonus", "crit_per_acc", "weapon_speed", "speed_steps"]:
 		c.set(field, get(field))
@@ -332,6 +335,7 @@ func stats(key: String, at_rank: int = 0) -> Dictionary:
 		"count": maxi(1, roundi(skill_stat(key, "count", float(d.get("count", book.canonical(key, lv, "bulletCount", 1.0)))))),
 		"pierce": maxi(0, roundi(skill_stat(key, "pierce", float(d.get("pierce", 0))))),
 		"pierce_falloff": maxf(0.0, skill_stat(key, "pierce_falloff", float(d.get("pierce_falloff", 0.0)))),
+		"pierce_floor": pierce_floor,
 		"knockback_chance": book.canonical(key, lv, String(d.knockback.get("chance_field", "prop")))
 			if d.has("knockback") else 0.0,
 		"knockback_distance": float(d.get("knockback", {}).get("distance", 0.0)),

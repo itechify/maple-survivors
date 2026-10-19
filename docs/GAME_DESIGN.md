@@ -4657,7 +4657,7 @@ Bowman (#166), generic mechanics (#200):
 |---|---|---|---|
 | Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
 | Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
-| Pierce fall-off schedule | Linear `max(0.1, 1 - fraction * (n - 1))`; 0.1 per mob means the sixth takes 50%; floor 10%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value |
+| Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
 | Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
 | Ranged Final Attack visual | Current ammo's art/speed/rotation, straight hand-to-target flight; no delayed damage, no RNG; ranged Spread uses at least the family's existing ranged reach | A (ammo art), C (presentation, Spread) | Current ammo data; #200 |
 

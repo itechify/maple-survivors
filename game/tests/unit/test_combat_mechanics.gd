@@ -112,6 +112,27 @@ func test_knockback_clamps_at_walls_follows_slopes_and_does_not_relocate_airborn
 	assert_eq(w.swarm.pos(m), before, "no ground destination invented for an airborne mob")
 
 
+## Survivor combat data controls the floor; changing it affects later contacts without changing the first hit.
+func test_pierce_floor_comes_from_survivor_combat_data() -> void:
+	var setup := CF.world().setup.duplicate(true)
+	setup.data.balance["combat"] = {"pierce_floor": 0.25}
+	setup.data.skills.skills.synthetic["pierce_falloff"] = 0.5
+	var w := RunWorld.new(setup)
+	var text := SkillText.new(w.book)
+	assert_true(text.level_line("synthetic", 1, w.loadout.stats("synthetic", 1)).contains("minimum 25%"))
+	assert_true(text.level_line("synthetic", 1, w.loadout.clone().stats("synthetic", 1)).contains("minimum 25%"))
+	w.loadout.order.clear()
+	for k in 4:
+		RF.put_mob(w, 1110100, 300 + k * 80, 190, 100)
+	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active)
+	w.projectiles.spawn({"x": 200, "y": 180, "vx": 600, "range": 800,
+		"dmg_min": 100, "dmg_max": 100, "pierce": 3, "pierce_falloff": 0.5})
+	for tick in 60:
+		w.projectiles.step(DT, w.swarm, w.mob_grid, w.events)
+	var hits := w.events.filter(func(e: Dictionary) -> bool: return e.type == "mob_hit")
+	assert_eq(hits.map(func(e: Dictionary) -> int: return int(e.damage)), [100, 50, 25, 25])
+
+
 func test_pierce_falloff_is_linear_with_a_floor_and_absent_key_keeps_full_damage() -> void:
 	for falloff: float in [0.0, 0.1, 0.5]:
 		var w := CF.world()

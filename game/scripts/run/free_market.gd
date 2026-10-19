@@ -284,6 +284,7 @@ static func owned_pet(character: Dictionary, data: Dictionary, owned: Array) -> 
 
 static func _boundary_loadout(character: Dictionary, data: Dictionary) -> Loadout:
 	var loadout := Loadout.new(SkillBook.from_data(data.skills, {}))
+	loadout.pierce_floor = float(data.balance.get("combat", {}).get("pierce_floor", 0.0))
 	CharacterSnapshot.restore_loadout(character, loadout)
 	return loadout
 
