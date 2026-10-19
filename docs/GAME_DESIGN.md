@@ -481,75 +481,33 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
-#### Spec #226 weapon specialization: phase-1 regression smoke (#232, 2026-10-18)
+#### Spec #226 weapon specialization: regression smoke (#232, 2026-10-18)
 
-On integration `c91d331` plus #232 bot/tool changes, ran `bash scripts/balance.sh 1 2 2026` on both tier-1 stages
-and both `bot` / `random` policies, then one seed-1 Henesys bot run for each new flag: `100:sword/spear/blunt`,
-`300:bow/crossbow`, `110:sword/axe`, `120:sword/blunt`, `130:spear/polearm` (each slash-separated family is a separate
-invocation). All **23 runs ended DEAD**, with no crashes, script errors, world warnings, missing assets or skipped
-bosses. Cache: read-only `C:/Users/itech/Coding/maple-survivors-refs/caches/s226`; isolation `s226-t232-smoke`;
-absolute `BALANCE_OUT` under this worktree's `_scratch/t232/smoke/<config>/`. Exact console/SYSTEMS output,
-seed records and aggregates are kept there; the compact configuration audit is `_scratch/t232/smoke-audit.json`.
-No PATCH, tuning, held-out seeds or data changes. Death seconds and final levels below are in seed order **1 / 2 / 2026**.
+`bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both `bot` / `random` policies, plus one seed-1 Henesys
+bot run per new `--job` family flag (11): **23 runs, all DEAD as before**, with no crashes, world warnings, missing
+assets or skipped bosses. Private read-only cache, no PATCH, tuning or held-out seeds. Unforced rows match #204's smoke;
+the forced runs reach Lv11 and Mano and die at 331-342 s (they prove startup acceptance, not second-job attainment).
+Seeds 1 / 2 / 2026:
 
-| Stage / policy | Death seconds | Final levels | First jobs | Mano spawned / killed |
-|---|---|---|---|---|
-| Henesys / bot | 339.6 / 455.4 / 323.4 | 11 / 13 / 11 | 200 / 200 / 100 | 3 / 1 |
-| Henesys / random | 450.6 / 325.4 / 316.3 | 19 / 11 / 12 | 200 / 200 / 100 | 3 / 1 |
-| Tree / bot | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none | 0 / 0 |
-| Tree / random | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none | 0 / 0 |
+| Stage / policy | Death seconds | Final levels | First jobs |
+|---|---|---|---|
+| Henesys / bot | 339.6 / 455.4 / 323.4 | 11 / 13 / 11 | 200 / 200 / 100 |
+| Henesys / random | 450.6 / 325.4 / 316.3 | 19 / 11 / 12 | 200 / 200 / 100 |
+| Tree / bot and random | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none |
 
-The unforced rows match #204's preceding smoke at its reported precision; all six Henesys runs reach a job and Mano,
-including four Magicians. Tree's known pre-job deaths remain record-only. The eleven forced runs all reach Lv11 and
-Mano, then die at 331.3-342.0 s: Sword (`100/110/120`) 331.3; Blunt (`100/120`) and ancestor random draws
-(`110:axe`, `130:polearm`) 332.3; Spear (`100/130`) 339.6; Bow 339.5; Crossbow 342.0. They do not survive to Lv30,
-so they prove startup acceptance, not second-job attainment. Fixed-tick synthetic tool tests separately advance all
-eleven flags through the run parser and balance harness and assert the exact job, recorded path and worn item.
-Every flag also gets a short `run.sh --headless -- --run=henesys_hg1` start; `playtest.sh --job=120:blunt` checks
-the wrapper forwarding path.
+**Seeded records intentionally change** where a multi-family advancement draws a family on job stream 8 (a forced
+single-family branch without a path takes its own family and draws nothing); the 72,000-tick seed-1 synthetic event
+golden is `b4b22cfe...` (re-captured in #230). Historical character fixtures stay valid saves (migration; rationale in
+`game/tests/fixtures/characters/README.md`).
 
-**Seeded records intentionally change:** every unforced multi-family advancement now draws uniformly on job stream 8,
-including Warrior/Bowman at Lv10 and Warrior branches at Lv30. A forced family applies only where offered; for example
-`110:axe` draws a Warrior family, then forces Axe at Fighter. BotShop follows the recorded family. The particular
-default smoke outcomes above happen to remain the same. The 72,000-tick seed-1 synthetic event golden remains
-`b4b22cfe...` (that run chooses Magician, so it consumes no new family draw); no golden was re-captured for #232.
-One additional controlled replay isolates the decision change: in a scratch mirror, replacing only BotInput with
-`c91d331`'s compatibility implementation makes seed-1 `--job=110:axe` die at **331.3 s**, versus **332.3 s** in the
-new forced-path smoke record. Both have no warnings. The old Lv10 default chooses Sword when Axe is unavailable;
-the new rule draws a Warrior family. The mirror was restored afterwards; this is a regression control, not tuning.
-All eleven historical character fixtures remain valid saves: migration infers missing paths, preserves explicit
-ones and keeps old spare weapons. Per-file rationale: `game/tests/fixtures/characters/README.md`.
-
-After merging #231 (`e59b9ed`), flow_driver's shared injected-input helper selects page 1 by keyboard and the weapon
-page by mouse, checks page order and the instructor, confirms by Enter, then compares equipment before/after to
-prove exactly one chosen weapon was added and displaced equipment retained. Warrior branches deliberately select
-Axe / Blunt Weapon / Polearm at Lv30; Bowman selects the branch's Bow / Crossbow at Lv10. Single-family Lv30 jobs
-skip the weapon page and retain the first-job path. Warp-time job choices now render and answer the same windows.
-The evidence collector ignores an intentionally empty WzImage path (the generic Lv10 page has no NPC portrait).
-
-`rounds`' old natural seed-4 staging died before first job, so its tier-1 QA now uses an invulnerable EXP-drop climb
-through Warrior/Sword, then the existing diagnostic lethal-hit path after the stage timer; boss deaths and rewards
-still pass through RunWorld. `account` also checks Warrior/Sword before its warp and uses those diagnostic hits when
-invulnerable (`--natural-clear=1` disables invulnerability/hits). `economy` first checks Warrior/Sword in a disposable
-round, then loads its original Lv38 F/P fixture for the economy loop. That fixture also died during its old warp, so
-the shop-boundary warp now uses invulnerability and diagnostic boss hits after the stage timer. These are presentation/persistence
-checks, **not natural clears or balance evidence**; the 23-run smoke above uses no such aids.
-
-**Scenario QA: 14/14 passed**, exit 0 and no missing assets or failed checks: `warrior`; `warrior2 --job=110/120/130`;
-`bowman --branch=310/320`; `thief --path=claw/dagger`; `pirate --path=knuckle/gun`; `full`, `rounds`, `account`, `economy`.
-Each multi-value flag above denotes separate runs. Screenshots of the lists, weapon pages, confirmations and restored
-equipment/flow were checked by eye. Evidence root:
-`C:/Users/itech/.t3/worktrees/maple-survivors/t3-50d91cd0/evidence/s226/t232/`. Passing directories are
-`warrior-verified`, `warrior2-110/120/130`, `bowman-310/320`, `thief-claw-verified`, `thief-dagger-verified`,
-`pirate-knuckle-verified`, `pirate-gun-verified`, `full-verified`, `rounds-verified`, `account-verified`, `economy-final`.
-Only the directories listed above are final passing evidence; older attempts remain for diagnosis. Console logs and the compact
-scenario audit remain in this worktree's ignored `_scratch/t232/`. Phase-1 full suite: 2,137 pass / 0 fail / 0 SKIP,
-184 files, 617048 ms. Rust after the final integration merge: 46 synthetic tests execute, 0 failures; the 18 real-WZ
-tests return early without `MAPLE_WZ_ROOT` (reported as ok by cargo, but no real-WZ validation). No fixture or golden
-was re-captured. Final post-#231 suite on source `335df91`, with `ISOLATE=s226-t232`, `TEST_TIMEOUT_S=3000` and
-read-only cache `s226`: **2,147 pass / 0 fail / 0 SKIP**, 184 files, 568142 ms, exit 0. Cache-dependent tests executed.
-The same two pre-existing RendererDummy texture RID shutdown leaks remain. Final logs: `_scratch/t232/full-final.log`
-and `cargo-final.log`; no unfinished/superseded test run is counted as passing.
+**Scenario QA: 14/14 passed** (`warrior`, `warrior2 --job=110/120/130`, `bowman --branch=310/320`,
+`thief --path=claw/dagger`, `pirate --path=knuckle/gun`, `full`, `rounds`, `account`, `economy`), screenshots checked by
+eye under `evidence/s226/t232/`. `rounds`, `account` and `economy` use **diagnostic staging** (invulnerability and
+diagnostic boss hits after the stage timer, through the real boss death and reward choices) because their old natural
+staging already fails on `main` (d1cdb16): `rounds` seed 4 dies at about 200 s (Lv6) before a first job, and the Lv38
+F/P `economy` fixture dies in its warp. That baseline was re-run for this review. This is flow QA, not natural clears or
+balance evidence. Cargo: 46 synthetic tests run; the 18 real-WZ tests return early without `MAPLE_WZ_ROOT` (no real-WZ
+validation).
 
 #### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
 
