@@ -16,7 +16,8 @@ extends RefCounted
 
 const ARIMO_PATH := "res://assets/fonts/arimo/Arimo-Variable.ttf"
 ## tier C (#224, owner choice): false = crisp hinted glyphs without antialiasing (closest to v83), true = grayscale
-## antialiased glyphs. The one switch for every game font.
+## antialiased glyphs. The one switch for every game font. (Controls left on the default theme font, such as the
+## perf overlay and the import screen's path field, follow project setting gui/theme/default_font_antialiasing = 0.)
 const ANTIALIASED := false
 
 static var _file: FontFile

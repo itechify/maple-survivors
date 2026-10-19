@@ -863,14 +863,66 @@ presentation metadata; the cache is untouched. A dead boss is omitted immediatel
 the low-MP cue), so EXP churn cannot evict them. Arrival replaces that boss's warning, plays the canonical
 `Effect.wz/BasicEff.img/Summoned` animation at its position, and requests an evidence screenshot when enabled.
 
-Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=viewport`,
-`aspect=expand`, `scale_mode=integer`, nearest filtering: on wider windows the player sees more of the map at the same
-pixel size, never a stretched sprite (1920x1080: 1066x600 at 1x with black bars). The logical view size therefore
+Logical resolution 800x600 (v83's native size and the width of `StatusBar.img/base/backgrnd`), `stretch/mode=canvas_items`
+(since #224; was `viewport`, see "Fonts and sharp text" below), `aspect=expand`, `scale_mode=integer`, nearest
+filtering: on wider windows the player sees more of the map at the same pixel size, never a stretched sprite (1920x1080: 1066x600 at 1x with black bars). The logical view size therefore
 varies; read it live (`get_viewport().get_visible_rect().size`), never assume 800x600. `Settings` adjusts two cases:
 a window smaller than 800x600 on either axis is scaled down (fractional) instead of cropped, and the opt-in
 `[display] fill_window` grows the view to window / s at the same integer scale s instead of showing bars
 (`GameSettings.fit_size`: 3440x1440 -> 1720x720 at 2x, 1920x1080 -> 1920x1080 at 1x; much more map on screen, so it is
 off by default).
+
+#### Fonts and sharp text (`MapleText`, `MapleFonts`, `PixelDraw`; #224, 2026-10-18)
+
+All font text goes through `MapleText` (12 / 11 px, line heights 15 / 13, positions floored to logical pixels) and
+`MapleFonts` (the system Arial, Tahoma, Dotum as a `SystemFont`, else the bundled Arimo; see 10 "Web profile"). Until
+#224 the window used `stretch/mode=viewport`: everything, text included, was drawn into an 800x600 (or expanded)
+texture and scaled up with nearest, so on a 1440p screen text was 12 px glyphs doubled into blocks. Now the window uses
+`stretch/mode=canvas_items` with the same base size, aspect, integer scale, nearest filter and 2D transform/vertex
+snapping: canvas items are drawn straight into the window at its own pixel size through the stretch transform, and
+Godot oversamples fonts by that scale, so glyphs are rasterised at window pixels while every metric stays logical.
+
+- **Metrics are frozen.** Font metrics do not depend on the oversampling (`Font.get_string_size` takes no scale), and
+  the two metric-moving settings stay fixed for both antialiasing variants: hinting normal, subpixel positioning off.
+  Checked windowed at 2x in both stretch modes (same widths, wraps and ascents for a set of strings) and pinned by
+  `test_sharp_text.gd` (recorded Arimo widths at 12 / 11 px, regular and bold; the game font's widths and a wrap; AA
+  never changes a width). Sibling UI code keeps laying out with `MapleText.width` / `wrap` in logical px.
+- **Antialiasing is one constant**, `MapleFonts.ANTIALIASED` (tier C, the owner's pick from A/B screenshots): false =
+  crisp hinted glyphs without antialiasing (default, closest to v83), true = grayscale. `MapleText.font`,
+  `HudWidget.make_font` / `Hud.make_font` and the Arimo fallback all go through `MapleFonts`. No settings toggle.
+- **Sprites stay pixel-identical.** Node transforms are snapped per item in logical units, so sprites, map tiles and
+  moving mobs at fractional positions land on the same pixels as before (measured: `map_viewer` with 40 moving mobs,
+  `ui_gallery` windows, flow_driver Item / Equip / Stat windows, before vs after at 2x and in fill-window: only text
+  pixels differ, plus map layers animated in real time). Three draw kinds would change and are handled: a 1 px
+  `draw_rect(r, c, false)` became one window pixel thin, so `PixelDraw.outline` fills the logical pixels the old
+  render lit (GL compatibility footprint: top row above the rect, left column outside, right and bottom inside); a
+  texture drawn smaller than its art (the HUD's 24 px skill icons from 32 px art) would sample more texels, so
+  `PixelDraw.blit_scaled` copies the texels the old render picked (texel floor((i + 0.5) * src / dst)) as unscaled
+  runs; and the one bare 1 px `draw_line` (import screen) is a 1 px rect on the row it lit. Not reproduced: sprites
+  drawn rotated (arrows, bullets and a few skill projectiles that turn to their direction, `ProjectileRenderer`; the
+  rotated "Run history" label is text) and a vertex at a fractional logical position inside a `_draw` (the cooldown
+  sweep's diagonal edge) are rasterised at window pixels, i.e. slightly finer edges than the 800x600 render had.
+- **Every display mode.** Integer 2x / 3x and fill-window (`GameSettings.fit_size`) keep their logical view sizes and
+  integer scale; text is drawn at s x its size. Below 800x600 the fractional downscale now samples each sprite at the
+  window's pixels instead of shrinking the finished 800x600 frame, and text is rasterised at the reduced size (legible
+  instead of nearest-dropped rows).
+- **Captures are window-sized.** `get_viewport().get_texture().get_image()` now holds the window's pixels (1600x1200 at
+  2x), so playtest and driver screenshots show the sharp text. Crops in logical coordinates go through
+  `GameSettings.capture_rect` (the stretch transform); debug contact sheets that must stay at logical size use
+  `GameSettings.capture_logical`. `main.gd` and `map_viewer` take tool-only `--size=WxH` (and main `--fill`) to
+  capture a 2x or fill-window view on any screen.
+- **Web.** The same project setting applies; the canvas is the tab's CSS size times `devicePixelRatio`
+  (`html/canvas_resize_policy=2`), so a HiDPI browser gets window-resolution text too. Checked in Chrome at 1600x1200
+  (`web/dev/perf_run.mjs`).
+- **Alternatives rejected.** A native-resolution text overlay on top of the 800x600 viewport cannot keep z-order: a
+  window, tooltip or dragged icon drawn over another window's text would no longer cover it, and every `_draw` that
+  mixes art and text would have to split. Per-font oversampling alone does nothing in viewport mode (glyphs still land
+  in the 800x600 texture). Rendering only the world into an 800x600 SubViewport under a canvas_items root would also
+  keep rotated projectiles blocky, but it splits RunScene, FreeMarket, the login backdrop and every debug scene, and
+  leaves world text (name tags) low-res unless lifted out; the measured difference it would remove (rotated sprites)
+  is small, so the global switch is the simpler choice.
+- **Performance.** Canvas items are drawn at window resolution (4x the fill at 2x) instead of 800x600 plus one blit;
+  frame time is in `docs/IMPLEMENTATION_PLAN.md` "Performance log" (#224).
 
 ## 5. Data architecture
 
@@ -1266,8 +1318,8 @@ Everything below is behind `WebProfile.is_web()` (`scripts/core/web_profile.gd`:
 - **Fonts (`MapleFonts`, `assets/fonts/arimo/`):** a browser has no system fonts, and a `SystemFont` with no match is
   drawn with Godot's built-in font whatever its `fallbacks` hold (checked on desktop with a font name that does not
   exist: same size as `ThemeDB.fallback_font`). `MapleFonts.make(names, weight)` therefore returns the bundled Arimo
-  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont: no
-  antialiasing, normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
+  (a `FontVariation` of the variable `Arimo-Variable.ttf`, wght 400 / 700, same pixel settings as the SystemFont:
+  `MapleFonts.ANTIALIASED` (#224), normal hinting, no subpixel positioning) when no system font exists for any of the names, and the
   `SystemFont` (Arial, Tahoma, Dotum) with Arimo in its `fallbacks` otherwise, so desktop keeps real Arial. Arimo is
   metric compatible with Arial. Licence: SIL OFL 1.1 (`assets/fonts/arimo/OFL.txt`, `THIRD_PARTY_NOTICES.md`;
   `scripts/export.sh` copies it to `ARIMO_OFL.txt` beside the exe). `MapleText.font`, `HudWidget.make_font` and
