@@ -511,7 +511,12 @@ the recorded advancement choice, independent of later weapon swaps. Other per-jo
 survivor overrides are absent. For a box cast, optional `cast.around:true` mirrors its far horizontal edge across the
 player while retaining canonical height (Somersault Kick; tier C). `RunWorld.pirate_rng` owns stream 16; stream
 13 belongs to Threaten (no v83 prop, so unused); 14 remains reserved for Bowman; stream 15 is `RunWorld.thief_rng`
-(#207), reserved for Steal success (#214). Existing stream initialization and draws are unchanged.
+(#207), used only for Steal success (#214). Existing stream initialization and other draws are unchanged.
+Bandit attacks add `steal: {chance_field: "prop"}` to the instant skill definition. A damaging-hit listener rolls
+stream15 before damage/kill resolution, then calls `RunWorld.drop_mob_loot(m, true)` and marks `MobSwarm.stolen`
+(PackedByteArray). This is not a status: boss immunity does not apply. Logical relocation preserves it, fresh spawns
+reset it. `drop_mob_loot(m)` retains ordinary death meso/equipment rolls; its single-item variant uses the ordinary
+equipment chance and job/held-family pool, with a normal meso bundle fallback. Content draws stay on streams9/10.
 
 | File | Contents |
 |---|---|

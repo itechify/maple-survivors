@@ -4129,7 +4129,7 @@ Every skill has learn/rank cards, weight2, requiring its exact branch and held w
 Lucky Seven and Double Stab remain carried attacks for both branches, gated by held weapon and excluded from the
 advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/Ilbi at 30/35/40/45/50/55, with
 the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
-the bot selects their matching first-job path. Drain is described below; Savage Blow and Steal belong to later tickets.
+the bot selects their matching first-job path. Drain, Savage Blow and Steal are described below; no tuning here.
 
 ### 7.25 Drain: the Assassin's healing star (#213)
 
@@ -4152,6 +4152,32 @@ Only Assassin410 gets `drain_new` / `drain_rank` / `drain_pierce`, all power car
 Learn/rank weights4/3, pierce weight2 and +1 pierce per step up to three steps use the shared Potential magnitudes
 (tier C; owner behavior budget). A piercing star heals once for each struck monster. Keen Eyes (#209) can extend
 the skill through normal range resolution; Drain adds no special range path. No balance tuning is part of #213.
+
+### 7.26 Bandit attacks (#214, spec #167)
+
+Savage Blow 4201005 and Steal 4201004 have 30 ranks, each mapping directly to its canonical Skill.wz level (tier A).
+Savage Blow requires a dagger (weapon33), auto-casts in the held weapon's swing envelope, and strikes each target
+4 times at ranks1-10, 5 at11-20 and 6 at21-30. Damage follows the original stepped table (40% at1, 80% at30),
+including the lower per-line damage at each extra-hit threshold; MP is15/18/27 by those bands. It uses the canonical
+`savage` action, effect, hit art and Use/Hit sounds. Its cooldown1.2s, action hold1s and one base target are tier C.
+
+Steal has no weapon requirement, uses canonical `swingO2`, effect and Use sound, and makes one physical melee hit:
+42-100% damage, MP12 at ranks1-15 and24 at16-30 (tier A). The tier-C auto-cast uses the existing range-around rule
+within100px, one base target, cooldown1.2s and action hold0.6s. Each damaging Steal line on a mob not yet Stolen
+rolls canonical `prop`11-40% on `RunWorld.thief_rng` stream15. A failure leaves it eligible. A success immediately
+drops exactly one extra item and marks it Stolen before damage/kill resolution, so lethal hits work too. Bosses
+can be stolen from: this is a packed per-mob flag, independent of status immunity. Relocation preserves the flag;
+a fresh logical spawn, including a reused slot, resets it. Ordinary attacks and other skills never roll for Steal.
+
+`RunWorld.drop_mob_loot(m, single)` is shared by ordinary deaths and living-mob Steal. The normal path retains its
+meso-then-equipment rolls, probabilities and stream order. The tier-C single-item interpretation uses the ordinary
+equipment chance and job/level/held-family pool on stream10; if that produces no equipment, it guarantees one normal
+meso bundle on stream9. It grants no EXP, potions, boss reward shower or kill credit. Only the success roll draws
+stream15; a run without Steal retains its previous event/player-state bytes. No canonical drop tables are introduced.
+
+Each attack appends exact-job420 power cards: learn weight4, rank weight3 with30 levels, and targets +1 three times
+at weight2 (tier C, existing Potential magnitudes; untuned). Other jobs cannot draw these cards. #215 owns balance
+smokes and tuning; #214 performs deterministic mechanics, cache, replay and presentation checks only.
 
 ## 8. Upgrades
 
@@ -4609,6 +4635,14 @@ Drain (#213) additions:
 | Drain integer healing | truncate fractional HP after resolved damage, clamp to missing HP; launch rank applies | C integer interpretation and existing projectile/restore seams |
 | Drain cast | nearest, one star, range250px, cooldown1s, speed600px/s, radius8px, pierce0, shoot1 hold0.6s | C initial untuned Lucky Seven delivery convention; current ammo sprite via ammo_shot |
 | Drain cards | learn/rank weights4/3, exact410, power; pierce +1 ×3, weight2 | C owner #167 behavior budget and existing attack-card convention; A rank cap30 |
+
+| Bandit attacks (#214) | Values | Tier / source |
+|---|---|---|
+| Savage Blow | weapon33; ranks1-30, stepped damage40-80%, attackCount4/5/6, MP15/18/27, savage/action/effect/hit/sounds | A: Skill.wz/420.img/skill/4201005 and Sound.wz |
+| Steal | ranks1-30, damage42-100%, prop11-40%, MP12/24, swingO2/effect/Use, no weapon field | A: Skill.wz/420.img/skill/4201004 and Sound.wz |
+| Bandit auto-cast | Savage Blow weapon_reach, action hold1s; Steal range_around100px, hold0.6s; both cooldown1.2s, one base target | C: initial survivor choices, untuned |
+| Steal loot/lifecycle | stream15 once per damaging line until success, including lethal hits/bosses; one equipment roll on10 then meso fallback on9; preserve Stolen on relocation, reset on fresh spawn | C: owner #167 success/lifecycle, guaranteed-single-loot interpretation reuses ordinary content rules |
+| Bandit cards | exact job420, power, learn/rank weights4/3, target weight2, +1 target x3 | C: owner #167 target budget, existing card conventions/Potential |
 
 Disorder (#210) additions:
 

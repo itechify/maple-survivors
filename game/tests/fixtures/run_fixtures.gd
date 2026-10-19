@@ -281,6 +281,18 @@ static func skill_imgs() -> Dictionary:
 	for lv in range(1, 31):
 		drain_levels[str(lv)].mpCon = 12.0 if lv <= 15 else 24.0
 	imgs["410"].skill["4101005"] = {"weapon": 47.0, "level": drain_levels}
+	# #214: exact v83 Savage Blow steps; synthetic art, no decoded assets.
+	var savage := {}
+	var savage_damage := [40,44,48,52,56,60,64,68,72,74,60,62,64,66,68,70,72,74,76,78,71,72,73,74,75,76,77,78,79,80]
+	for lv in range(1, 31):
+		savage[str(lv)] = {"mpCon": 15 if lv <= 10 else 18 if lv <= 20 else 27,
+			"damage": savage_damage[lv - 1], "attackCount": 4 if lv <= 10 else 5 if lv <= 20 else 6}
+	imgs["420"].skill["4201005"] = {"weapon": 33, "action": {"0": "savage"}, "level": savage}
+	# #214: exact v83 Steal values, including its rank-16 MP step; no weapon requirement.
+	var steal := {}
+	for lv in range(1, 31):
+		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
+	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
 	return imgs
 
 
