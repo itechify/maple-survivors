@@ -109,7 +109,7 @@ const BLINK_ALPHA := 0.4
 const BLINK_PERIOD := 0.16
 ## tier C (ours, #211): a Hidden avatar is drawn at half opacity; morph artwork keeps its own appearance.
 const HIDDEN_ALPHA := 0.5
-## tier C (ours): map/street name notice at run start: seconds shown (the last FADE of them fading).
+## tier C (ours): continent + region notice at run start (#221): seconds shown (the last FADE of them fading).
 const TITLE_TIME := 3.5
 const TITLE_FADE := 1.0
 ## Damage-number stacking key of the player (mob slots use their slot index).
@@ -961,12 +961,9 @@ func _play_bgm() -> void:
 
 
 func _start_title() -> void:
-	if library == null:
-		return
-	var street := library.string_name("Street", map_id)
-	var name_s := library.string_name("Map", map_id)
-	_title = PackedStringArray([street, name_s])
-	_title_t = TITLE_TIME if name_s != "" else 0.0
+	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
+	_title = PackedStringArray([labels.continent, labels.region])
+	_title_t = TITLE_TIME if String(labels.region) != "" else 0.0
 
 
 func _fail(msg: String) -> void:
@@ -1828,8 +1825,10 @@ func build_summary() -> Dictionary:
 		skills.append({"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 			"rank": world.loadout.rank(key)})
 	var job_id := int(world.player_state.job_id)
+	var labels := DataRepo.stage_labels(data.get("stages", {}), stage_key)
 	return {
-		"stage": stage_key, "map_id": map_id, "map_name": library.string_name("Map", map_id),
+		"stage": stage_key, "map_id": map_id, "region": labels.region, "continent": labels.continent,
+		"map_name": library.string_name("Map", map_id),
 		"street_name": library.string_name("Street", map_id), "time": run_time(), "duration": world.duration,
 		"cleared": world.state == RunWorld.CLEARED, "level": int(world.player_state.level), "job_id": job_id,
 		"job_name": world.jobs.name_of(job_id), "kills": world.kills, "damage_dealt": world.damage_dealt,

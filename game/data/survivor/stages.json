@@ -1,5 +1,5 @@
 {
-	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. original_life is the map's own spawn list (shown on the stage card). Optional normal_hp_drop_chance clamps each endpoint to [0,1], uses the global normal HP fallback when missing, interpolates linearly, and holds outside the frame range without post-duration ramping; elite chances remain global and fixed boss bundles bypass the curve. Normal MP has no stage values: one global chance everywhere (owner, 2026-10-16). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
+	"_doc": "Stages (docs/GAME_DESIGN.md 4.1): stage key -> original map id, duration (s), pacing keyframes, bursts, elites. Keyframe numbers (rate = mobs/s, max_alive, hp and speed multipliers) interpolate linearly in time between keyframes; the pool (mob id -> weight) is the one of the last keyframe at or before t. Bursts: every `every` s from `first`, a ring of count_min..count_max mobs (growing with time) around the view, allowed past max_alive up to `hard_cap`. Elites: every `every` s from `first`, one mob of the current pool with hp_mult x HP, exp_mult x EXP and damage_mult x mitigated damage. spawn: overrides of balance.json spawn for this map. exp_mult: EXP multiplier of this stage. note: a line shown on the stage card. region and continent (both required, tier C owner choice #221): the town the player sees as the stage name and the small line above or beside it; they replace the WZ map and street names everywhere. original_life is the map's own spawn list (shown on the stage card). Optional normal_hp_drop_chance clamps each endpoint to [0,1], uses the global normal HP fallback when missing, interpolates linearly, and holds outside the frame range without post-duration ramping; elite chances remain global and fixed boss bundles bypass the curve. Normal MP has no stage values: one global chance everywhere (owner, 2026-10-16). Boss summon and revive mob ids are not listed here: they come from the bosses' canonical MobSkill 200 and info/revive data (StageRoster). All numbers tier C (ours).",
 	"_mp_rewards": "Tier C: all explicit boss MP bundles halved from 6 to 3 (#37), matching the global default; HP rewards unchanged.",
 	"_tiers": "Tier C: owner choice, spec #32. Zero-based run tier index; choose one stage from each list.",
 	"tiers": [["henesys_hg1", "tree_that_grew_1"], ["dark_cave"]],
@@ -7,6 +7,8 @@
 		"henesys_hg1": {
 			"map_id": 104040000,
 			"name": "Henesys Hunting Ground I",
+			"region": "Henesys",
+			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
 			"_bosses": "Tier C: survivor arrival times and separate HP/contact/attack multipliers, calibrated on training runs 1..60 and 2026. Canonical stats, attack boxes and timing remain in Mob.wz; typical_hp/pdd are illustrative build inputs, not runtime scaling.",
@@ -59,6 +61,8 @@
 		"tree_that_grew_1": {
 			"map_id": 101010100,
 			"name": "The Tree That Grew I",
+			"region": "Ellinia",
+			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
 			"bosses": [{"time": 300, "mob_id": 3220000, "rewards": {"potions":{"mp":3,"hp":3}}, "hp_mult": 0.45, "dmg_mult": 0.83,
@@ -100,6 +104,8 @@
 			"_tier": "Tier A: map ID and original_life from v83 Map.wz. Tier C: owner roster/order, 900 s duration, all pacing values, pool weights, EXP, burst and elite settings; first-pass data chosen before measurement for arriving Lv35-43 second-job characters, not calibrated (#77). Tauromacis/Taurospear use their canonical attacks (#76; cadence in balance.json mob_attacks). Jr. Boogie deals contact damage only and casts nothing: ordinary mobs cast no mob skills because character statuses come only from bosses (owner, #76).",
 			"map_id": 105050400,
 			"name": "Dark Cave",
+			"region": "Sleepywood",
+			"continent": "Victoria Island",
 			"duration": 900,
 			"hard_cap": 400,
 			"_bosses": "Tier C: owner schedule; first-pass encounter scales, 8 s per-attack cadence and potion bundles chosen before measurement (#73), not tuned. Jr. Balrog has the greatest HP/contact/attack multipliers and effective HP (150000 versus 110000/28000). Canonical attacks, timing, stats and elements remain in Mob.wz. All bosses and reward choices must finish to clear.",

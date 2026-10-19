@@ -42,6 +42,22 @@ func test_summary_reports_round_levels_bosses_and_nx() -> void:
 	assert_eq(int(summary.nx_awarded), w.nx_awarded())
 
 
+func test_banner_and_summary_name_the_region_not_the_map() -> void:
+	if not require_cache():
+		return
+	var want := {"henesys_hg1": ["Victoria Island", "Henesys"], "tree_that_grew_1": ["Victoria Island", "Ellinia"],
+		"dark_cave": ["Victoria Island", "Sleepywood"]}
+	for key: String in want:
+		scene = _make(key, 5, {})
+		assert_eq(scene._title, PackedStringArray(want[key]), "%s: continent small above the region" % key)
+		assert_true(scene._title_t > 0.0, "%s: the banner is showing" % key)
+		var summary := scene.build_summary()
+		assert_eq(String(summary.region), want[key][1], key)
+		assert_eq(String(summary.continent), want[key][0], key)
+		assert_true(String(summary.map_name) != "" and String(summary.map_name) != String(summary.region),
+			"%s: the WZ map name stays in the summary for tools" % key)
+
+
 func test_one_off_character_file_option_restores_character() -> void:
 	if not require_cache():
 		return

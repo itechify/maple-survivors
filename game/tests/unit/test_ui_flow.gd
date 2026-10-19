@@ -332,6 +332,35 @@ func test_error_screen_and_goto_without_host() -> void:
 	assert_true(label.text.contains("Esc"), "says how to get back")
 
 
+func test_stage_select_lists_the_region_and_continent() -> void:
+	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
+	var want := [["Henesys", "Victoria Island"], ["Ellinia", "Victoria Island"], ["Sleepywood", "Victoria Island"]]
+	for i in want.size():
+		assert_eq(String(offered[i].region), want[i][0], "stage %d region" % i)
+		assert_eq(String(offered[i].continent), want[i][1], "stage %d continent" % i)
+		assert_false(offered[i].has("name") or offered[i].has("street"), "the WZ map name is not the view data")
+	var legacy := DataRepo.load_all()
+	legacy.stages.stages.henesys_hg1.erase("region")
+	legacy.stages.stages.henesys_hg1.erase("continent")
+	var fallback: Dictionary = STAGE_SELECT.load_stages(legacy)[0]
+	assert_eq(String(fallback.region), "Henesys Hunting Ground I", "a stage without a region falls back to its name")
+	assert_eq(String(fallback.continent), "")
+
+
+func test_results_name_the_region_and_continent() -> void:
+	var s := summary(false, 512.4, 17, 1342)
+	s.region = "Henesys"
+	s.continent = "Victoria Island"
+	assert_eq(RESULTS.stage_lines(s), ["Henesys", "Victoria Island"])
+	# A summary saved before the fields existed (map and street name only) reads the stage's region from stages.json.
+	assert_false(summary(false, 1.0, 1, 1).has("region"))
+	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1)), ["Henesys", "Victoria Island"])
+	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1, "dark_cave")), ["Sleepywood", "Victoria Island"])
+	# A retired stage key has no stages.json entry: the old names stay readable.
+	assert_eq(RESULTS.stage_lines(summary(false, 1.0, 1, 1, "retired_stage")), ["Henesys Hunting Ground I", "Victoria Road"])
+	assert_eq(RESULTS.stage_lines({"stage": "retired_stage"}), ["retired_stage", ""])
+
+
 func test_results_helpers() -> void:
 	assert_eq(RESULTS.headline({"cleared": true}), "Stage Clear!")
 	assert_eq(RESULTS.headline({"cleared": false}), "You died...")
