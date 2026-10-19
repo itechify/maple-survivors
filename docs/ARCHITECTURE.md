@@ -585,6 +585,11 @@ base amounts plus `Loadout.regen_bonus(pool, character level)`: every owned skil
 to each pulse. Level growth calls `refresh_player_stats(false)` so larger maxima do not restore current pools;
 explicit pool upgrades retain the normal granted-growth behavior.
 
+Skills with `periodic_recovery: {interval_field, hp_field, mp_field}` (#212 Endure) have independent clocks in
+PlayerUpkeep. `periodic_recovery(dt, loadout) -> Vector2` reports the HP/MP due; RunWorld clamps both pools after
+the shared pulse. Canonical values are cached by loadout version; rank changes preserve elapsed time, weapon-gated
+clocks pause while unusable, and all clocks reset with the round. This adds no CharacterSnapshot or player_state field.
+
 What the tables above leave open; the class doc comments have the rest.
 
 - **Ids:** `Loadout.add_skill/rank/stats` take the survivor skill key (`"three_snails"`); `SkillBook.skill_id(key)` gives

@@ -262,6 +262,18 @@ static func skill_imgs() -> Dictionary:
 		"level": _levels(20, {"time": [15.0, 300.0], "mpCon": [12.0, 24.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})}
 	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
 		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
+	# #212: v83 Thief branch mastery and critical endpoints; synthetic art, exact mastery steps.
+	imgs["410"] = {"skill": {"4100000": {"level": mastery.call(true)},
+		"4100001": {"level": _levels(30, {"prop": [21.0, 50.0], "damage": [113.0, 200.0]})}}}
+	imgs["420"] = {"skill": {"4200000": {"level": mastery.call(false)}}}
+	for entry: Array in [["410", "4101003", "4101004"], ["420", "4201002", "4201003"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": booster_levels.duplicate(true)}
+		var haste := _levels(20, {"time": [10.0, 200.0], "speed": [2.0, 40.0], "jump": [1.0, 20.0]})
+		for lv in range(1, 21):
+			haste[str(lv)].mpCon = 15.0 if lv <= 10 else 30.0
+		imgs[entry[0]].skill[entry[2]] = {"level": haste}
+	for entry: Array in [["410", "4100002"], ["420", "4200001"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": _levels(20, {"time": [29.0, 10.0], "hp": [3.0, 60.0], "mp": [1.0, 20.0]})}
 	return imgs
 
 

@@ -2132,6 +2132,9 @@ func _tick_timers(dt: float) -> void:
 	for _pulse in upkeep.regen_pulses(dt):
 		_hp = minf(_max_hp, _hp + upkeep.pulse_hp() + hp_regen + loadout.regen_bonus("hp", progression.level))
 		_mp = minf(_max_mp, _mp + upkeep.pulse_mp() + mp_regen + loadout.regen_bonus("mp", progression.level))
+	var recovery := upkeep.periodic_recovery(dt, loadout)
+	_hp = minf(_max_hp, _hp + recovery.x)
+	_mp = minf(_max_mp, _mp + recovery.y)
 	_end_buffs_above_hp()
 
 
