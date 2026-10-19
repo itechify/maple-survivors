@@ -3613,7 +3613,7 @@ entry, cards or rope-regeneration clock.
 Spear 1432000 or Steel Pipe 1322006 (Blunt Weapon); only that weapon is granted and worn without requirements.
 The sword is the v83 instructor gift (tier B); the spear and pipe are the existing plain early shop choices
 (tier C; item stats tier A). The displaced weapon joins the Equip tab or spills at the feet when full. The recorded
-path also keeps the bot's equipment planner in the held family. Magician advancement is unchanged. Details: section 9.
+path also keeps the bot's equipment planner in the recorded family. Magician advancement is unchanged. Details: section 9.
 
 | Skill | Kind | Behaviour | Tiers |
 |---|---|---|---|
@@ -4298,7 +4298,8 @@ Every skill has learn/rank cards, weight2, requiring its exact branch and held w
 Lucky Seven and Double Stab remain carried attacks for both branches, gated by held weapon and excluded from the
 advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/Ilbi at 30/35/40/45/50/55, with
 the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
-the bot selects their matching first-job path. Drain, Savage Blow and Steal are described below; no tuning here.
+the bot draws the first-job family unless an offered family is explicitly forced (`410:claw`, `420:dagger`).
+Drain, Savage Blow and Steal are described below; no tuning here.
 
 ### 7.25 Drain: the Assassin's healing star (#213)
 
@@ -4878,9 +4879,10 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
 - Level 30, Bowman (#202): Hunter 310 is playable, adds +325 MaxHP / +175 MaxMP (tier B midpoints), and wears Ryden 1452005
   (bow, Lv 30/PAD 45/STR 35 / DEX 95; tier C owner choice). The displaced bow or crossbow enters the Equip tab, spilling
   at the feet when full. Its advancement draw offers Power Knock-Back and Arrow Bomb; skill/card rules are in 7.29.
-- An **unforced bot** (no `--job`) picks a seeded random available first job on stream 8, then a path on the same
-  stream. Adding Bowman, Thief and Pirate intentionally changes that pool, without changing any stream's initialization.
-  `--job=100`, `--job=200`, `--job=400:claw`, `--job=400:dagger`, `--job=500:knuckle` and `--job=500:gun` force a choice.
+- An **unforced bot** (no `--job`) picks a seeded random available job on stream 8, then draws a family on the same
+  stream at every multi-family advancement. Adding Bowman, Thief and Pirate and the #226 path draws intentionally
+  change seeded records without changing any stream's initialization. `--job=100:spear`, `--job=120:blunt`,
+  `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -5155,7 +5157,7 @@ Pirate tracer (#186) additions:
 | Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
 | Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
 | Second-job cards | learn/rank weights 2/2, not power, exact branch job; first-job cards `requires.jobs` [500] + `carry_jobs` [510, 520] | C initial untuned choices |
-| Path bot equipment | auto-equip upgrades only the held family (shared drop families allowed) when a weapon path is recorded | C owner rule: bot never swaps paths; prevents Kyrin's spare knuckle replacing the gun; no RNG |
+| Path bot equipment (#226 amendment) | auto-equip upgrades only the recorded weapon family (shared drop families allowed), including after swaps or destruction; a candidate must still improve the worn score | C owner rule: bot loyalty follows the recorded path; no RNG |
 | Gunslinger attack numbers (#192, 7.20) | costs, damage %, mob counts, boxes, stun prop/time, recoil range per level 1-20 | A Skill.wz 520.img (WZ over String text) |
 | Gunslinger attack weapons | Invisible Shot, Blank Shot, Recoil Shot: gun; Grenade: any | A WZ weapon 49 for the three; C Grenade (owner) |
 | Invisible Shot both sides | `cast.around` mirrors the box's far edge (250 px) across the player; no bullet drawn | C owner behaviour |
