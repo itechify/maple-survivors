@@ -712,6 +712,12 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   (the first basic-attack stance), which also picks the swing/stab multiplier. `Loadout.stats().hp_cost` (canonical
   `hpCon`) is paid with the MP: `cast_ready` skips a skill `RunWorld.can_pay_hp` refuses (HP must stay above 0) and
   `RunWorld.spend_hp` pays it.
+- **Melee behaviour cards (#208).** `Loadout.stats().attack_count` applies skill modifiers to canonical `attackCount`;
+  target count remains separate. `SkillRunner.weapon_envelope(stats, world)` scales a copy of
+  `BasicAttack.envelope(world)` by the skill's existing `area` modifier on both axes. Admission and the short-MP
+  probe share that box; `reach_of` scales the basic reach by the same area for the bot. The basic attack's cached
+  envelope is never mutated. `UpgradePool` previews `attack_count` as whole hits alongside the existing percent
+  `area` preview; the level-up window labels them Hits and Reach. No snapshot schema or RNG stream changes.
 - **Self casts and HP-to-MP conversion (#193).** The `self` cast rule needs no monster: `SkillRunner.has_target` asks
   `RunWorld.self_cast_ready(stats)` (the cast block's `mp_below` / `hp_at_least` fractions plus `can_pay_hp`), and the
   cast calls `RunWorld.convert_hp_to_mp` for a `convert` block (`Loadout.stats().conversion`), reporting the MP through
