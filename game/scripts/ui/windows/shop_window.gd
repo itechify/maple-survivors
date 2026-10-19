@@ -463,7 +463,7 @@ func _draw() -> void:
 		UiArt.blit(self, bg, Vector2.ZERO)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 		draw_rect(Rect2(PANEL_DX - 2.0, 0, 2, size.y), Color8(99, 147, 183))
 		for panel in 2:
 			draw_rect(Rect2(STRIP.position + Vector2(PANEL_DX * panel, 0), STRIP.size), Color8(200, 204, 212))

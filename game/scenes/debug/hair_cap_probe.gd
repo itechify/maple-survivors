@@ -47,7 +47,8 @@ func _ready() -> void:
 		await RenderingServer.frame_post_draw
 		await RenderingServer.frame_post_draw
 		var img := get_viewport().get_texture().get_image()
-		img = img.get_region(Rect2i(0, 0, int(CELL.x * poses.size() * 2), int(CELL.y * caps.size())))
+		img = GameSettings.capture_logical(get_viewport(), img, Rect2(0, 0, int(CELL.x * poses.size() * 2),
+			int(CELL.y * caps.size())))
 		img.save_png(shots.path_join("hair_%d.png" % hair))
 		holder.queue_free()
 		await get_tree().process_frame

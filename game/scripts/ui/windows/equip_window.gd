@@ -466,7 +466,7 @@ func _draw() -> void:
 func _draw_plain_background() -> void:
 	var art := art_size()
 	draw_rect(Rect2(Vector2.ZERO, art), Color8(220, 228, 240))
-	draw_rect(Rect2(Vector2.ZERO, art), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(Vector2.ZERO, art), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(8, 4), "EQUIPMENT INVENTORY", MapleText.BLACK, MapleText.SMALL, true)
 	match page:
 		"equip":
@@ -546,7 +546,7 @@ func _draw_pet() -> void:
 func _draw_panel() -> void:
 	var p := panel_rect()
 	draw_rect(p, PANEL_FILL)
-	draw_rect(p, PANEL_EDGE, false)
+	PixelDraw.outline(self, p, PANEL_EDGE)
 	var title := "Cash equipment" if page == "cash" else "Pets"
 	MapleText.draw(self, p.position + Vector2(8, 5), title, MapleText.BLACK, MapleText.SMALL, true)
 	var catalog := _cash_catalog()

@@ -236,7 +236,7 @@ func _draw() -> void:
 		UiArt.blit(self, bg, Vector2.ZERO)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 		MapleText.draw(self, Vector2(8, 4), "SKILL INVENTORY", MapleText.BLACK, MapleText.SMALL, true)
 	_draw_tabs()
 	_draw_book()

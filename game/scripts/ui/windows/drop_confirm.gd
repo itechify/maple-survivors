@@ -78,7 +78,7 @@ func _draw() -> void:
 		UiArt.blit(self, bg, Vector2.ZERO)
 	else:
 		draw_rect(Rect2(Vector2.ZERO, size), Color8(214, 214, 214))
-		draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+		PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 	var lines := MapleText.wrap(message, TEXT_RECT.size.x, MapleText.SIZE)
 	var y := TEXT_RECT.position.y + floorf((TEXT_RECT.size.y - lines.size() * MapleText.LINE) * 0.5)
 	for line in lines:

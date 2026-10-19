@@ -412,7 +412,7 @@ func _draw_panel() -> void:
 	_panel.draw_rect(Rect2(3, 63, PANEL_SIZE.x - 6, PANEL_SIZE.y - 63 - 52), Color8(238, 238, 238))
 	_panel.draw_rect(Rect2(3, PANEL_SIZE.y - 52, PANEL_SIZE.x - 6, 49), GREY)
 	_panel.draw_rect(Rect2(10, 188, PANEL_SIZE.x - 20, 218), BLUE)
-	_panel.draw_line(Vector2(3, 63), Vector2(PANEL_SIZE.x - 3, 63), BLUE_DARK)
+	_panel.draw_rect(Rect2(3, 62, PANEL_SIZE.x - 6, 1), BLUE_DARK) # the row the old 1 px line lit (PixelDraw)
 
 
 func _validate_now() -> void:
