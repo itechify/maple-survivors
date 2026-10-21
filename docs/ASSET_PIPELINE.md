@@ -211,6 +211,10 @@ warnings were retained. The post-change header scan again parsed all 16,821 imgs
 wasm cases (injected readers and deflated ZIPs) checked overflow/oversize, aggregate budget, nesting, v95 rejection
 and normal v83 acceptance: readable errors, no traps, and at most 1,441,792 bytes of wasm memory for these tiny
 synthetic fixtures. These worker-API checks do not establish browser/storage/UI behaviour or real-import peak memory.
+The headless `export.sh --web` produced 27 allowlisted shipping files. On that actual export, a synthetic extra PNG,
+an extra ZIP containing a generated WZ entry, and that ZIP under an approved favicon filename were each rejected;
+the restored export passed again. The known audit MS-42 debug `character_driver.gd` parse error was still logged
+during export (outside the importer/guard changes); export/artifact success does not prove that debug scene runs.
 
 Follow-up #132b timing (2026-10-17, Ryzen 7 7800X3D, Windows, Node 24.21.0, release builds): the full current
 manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal compression (`-tzip -mm=Deflate -mx=5`),
