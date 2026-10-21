@@ -130,6 +130,40 @@ func test_reopened_windows_return_where_they_were_dragged() -> void:
 	assert_eq(s.find_window("stat").position, dragged, "the stack remembers the last position per id")
 
 
+func test_remembered_windows_are_clamped_when_reopened_in_a_smaller_logical_view() -> void:
+	var s := _stack()
+	s.size = Vector2(1066, 600)
+	var stat := s.open(_window("stat"))
+	stat.position = Vector2(1000, 550)
+	var item := s.open(_window("item"))
+	item.position = Vector2(180, 110)
+	s.close_all()
+	s.size = Vector2(800, 600)
+	stat = s.open(_window("stat"))
+	assert_true(stat.position.x <= s.size.x - UiWindow.KEEP_VISIBLE, "the remembered title is reachable on the right")
+	assert_eq(stat.position.y, 550.0, "valid coordinates are preserved")
+	item = s.open(_window("item"))
+	assert_eq(item.position, Vector2(180, 110), "each window keeps its own remembered position")
+	s.close("stat")
+	stat = s.open(_window("stat"))
+	assert_true(stat.position.x <= s.size.x - UiWindow.KEEP_VISIBLE, "recovery survives another close/open")
+
+
+func test_open_windows_reclamp_on_logical_width_and_height_shrink() -> void:
+	var s := _stack()
+	s.size = Vector2(1066, 900)
+	var w := s.open(_window("stat"))
+	w.position = Vector2(1000, 850)
+	s.size = Vector2(800, 600)
+	assert_true(w.position.x <= s.size.x - UiWindow.KEEP_VISIBLE, "a wide-to-narrow resize recovers an open window")
+	assert_true(w.position.y <= s.size.y - w.title_height, "a portrait-to-landscape resize recovers its title")
+	assert_eq(s.ids(), PackedStringArray(["stat"]), "the same window stays open")
+	s.close("stat")
+	w = s.open(_window("stat"))
+	assert_true(w.position.x <= s.size.x - UiWindow.KEEP_VISIBLE, "closing remembers the recovered coordinate")
+	assert_true(w.position.y <= s.size.y - w.title_height)
+
+
 func test_changed_fires_on_open_close_and_reorder() -> void:
 	var s := _stack()
 	var n := [0]
