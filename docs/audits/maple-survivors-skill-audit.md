@@ -766,6 +766,45 @@ the result verifiable.
 
 ---
 
+## 12. Implementation status (follow-up, 2026-10-21)
+
+The actionable backlog was implemented the same day on branch `t3/comprehensive-game-audit`. Ten GPT-6.1-Sol (High)
+workstreams ran in isolated worktrees, each with test-first commits; the lead reviewed each diff and integrated by
+cherry-pick. The owner decided four open questions on 2026-10-21:
+- MS-07: the clear wins.
+- MS-08: every remaining drop is collected at the clear.
+- MS-09: damage-number stacking stays as is.
+- MS-17: no new CI browser dependency.
+
+| Status | Findings |
+|---|---|
+| **Done** | MS-01, MS-02 (desktop: subprocess-free renewable lease on the persistent save; web: Web Locks single-tab ownership), MS-04 (all 27 flow-driver configurations pass), MS-05, MS-06, MS-07, MS-08 (equipment that does not fit a full Equip tab stays on the ground, per the existing pickup rule), MS-10, MS-11, MS-12, MS-13, MS-14, MS-15, MS-16, MS-18, MS-19, MS-24, MS-25, MS-27, MS-28, MS-29, MS-30, MS-31, MS-32, MS-33, MS-34, MS-35, MS-37, MS-38, MS-39, MS-41, MS-42 |
+| **Partly done** | MS-22: the frame-telemetry recorder is extracted from RunScene (`run_frame_recorder.gd`); the hit-effects seam waits until that code next changes |
+| **Won't do (owner)** | MS-09 (keep authentic number stacking), MS-17 (no new dev dependency) |
+| **Deferred** | MS-03 (human playtest, then #77), MS-23 and MS-40 (balance data/policy for #77), MS-26 (needs a 60 vs 164 Hz motion capture first), MS-20 and MS-36 (keyboard/a11y wave), MS-21 (instrument voice steals first) |
+
+**Integration findings.**
+- The first W2 lock probed process liveness with `tasklist`/`ps`. That contradicted ARCHITECTURE §7 and W5's new
+  subprocess guard, so it was redone as a lease (W2b).
+- The integrated flow scenarios exposed a driver bug: the warp dropped the synchronous `stage_cleared` that W7 emits
+  when the last choice is answered. It was fixed in the driver (W8); the game was correct.
+- `scripts/test.sh` now defaults to a 1,800 s timeout because the suite takes 13-16 minutes.
+- Caches imported before this change re-export their sound-bearing imgs once on the next import, because the index
+  gained audio file lists (MS-16).
+
+**Verification on the final HEAD `aefe7df`:**
+- Godot: 2,106 passed, 0 failed, 0 skipped, 202 files (the only engine errors are the expected parse errors from the corrupted-settings test and the known dummy-texture leak at exit).
+- Rust: 70 passed, 0 failed, real WZ enabled.
+- Node: 62/62.
+- Flow scenarios: `full`, `rounds`, `economy`, `account` and `warrior` pass on the integrated branch (W8); all 27
+  configurations passed on the base with the W1b driver.
+- Balance regression smoke: identical seeded outcomes to the audit baseline, except the intended MS-08 sweep (one clear
+  ends at Lv50 instead of Lv44); recorded in `docs/GAME_DESIGN.md` 4.2.
+- Screenshots checked by eye: the MP cue at full-MP level-up and at death; the Free Market hints with WASD and unbound
+  NPC Chat; window clamping after a view shrink; a sweep-triggered level-up before the CLEAR; the Free Market arrival.
+- **Not verified:** a real-browser two-tab session (Web Locks), the second-instance lock notice on screen, POSIX
+  behaviour, and the Bless tooltip wrap.
+
 ## Appendix A: audit integrity and disclosures
 
 - **Tree state.** The worktree was clean at the start and at the end (`git status --short` empty), apart from this new
