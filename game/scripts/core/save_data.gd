@@ -13,7 +13,7 @@ extends RefCounted
 ## stage?, round_seed?}; tier indexes the next tier (0-based). phase is free_market/map_select/round;
 ## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
 ## History: {name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}; ending is
-## died/victory/deleted. Dates are nonempty caller-supplied strings; SaveData never reads the clock or picks seeds.
+## died/victory/deleted. Dates are nonempty caller-supplied strings; persistence never generates gameplay dates or seeds.
 ## A round summary's `nx_awarded` is added to the account inside the same write as update_slot (clear boundary) or
 ## end_run (death/victory); deletion never credits. set_account replaces the whole block (Cash Shop spending).
 ## Corrupt/unsupported files are copied to .bad[.N]; valid .bak recovers a missing or rejected primary.

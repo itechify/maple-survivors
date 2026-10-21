@@ -1228,6 +1228,8 @@ and consumed without touching the primary or `.bak`; no second nested validator 
 candidate goes through SaveData's normal temporary/backup write, then the staging file is removed. The shell's
 toast says "staged", since it cannot claim validation succeeded before the game loads it. A failed promotion keeps
 the prior in-memory state and staged file for recovery.
+SaveData remains lazy: in the normal menu flow, Start opens the roster and consumes the candidate. Until that
+first persistent-save use, Export save still downloads the committed primary, and the shell only claims "staged".
 
 **Network.** The shell requests its own static bundle and, when the player enters an address, that address (`fetch`
 for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`
