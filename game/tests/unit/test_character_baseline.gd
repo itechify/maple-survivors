@@ -3,13 +3,26 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const DT := 1.0 / 60.0
-## Captured on Windows (see the test below).
-const WINDOWS_GOLDEN := "823defb05bfcb5a7a10b25f1e679e5be7979ce4562a93ec2ce53f448eb5c6f0e"
+## Re-captured for the spec #226 merge with main (#225 + playtest-3): #230 lists one entry per job with page-ordered paths
+## and grants only the chosen weapon; #228/#229 removed job-neutral cards and changed the bot waste guard.
+## Earlier: #230 alone b4b22cfe...; #229 alone 6ffbb887... (#228 769106d4..., #199 re-captured on Windows).
+## Binary event encoding is platform independent (see below).
+const GOLDEN := "bd2a232804f874fccbd7d5991d9e96bc82a4e2caebb57b86740dc5bf42320614"
 
 
-## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only.
+## SHA-256 over the drained event bytes of a fixed-tick bot run, seed 1, synthetic assets only. The events are encoded
+## with var_to_bytes, which writes ints, floats and Vector2 components as binary and never goes through float-to-text
+## (JSON.stringify turned Vector2 into "(1090.813, 260.0)", whose decimal-tie rounding differs between platforms, #142).
 func _event_digest(ticks: int) -> String:
-	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1)))
+	# #186 froze Pirate out of this baseline. #199 keeps that exclusion and adds Bowman to the retained job pool;
+	# the golden changes for the new job option / stream-8 choice, not a new combat RNG stream.
+	var data := DataRepo.load_all()
+	# #207: retain the same pre-expansion pool; the Thief is covered by its tracer tests.
+	data.jobs_survivor.jobs["400"].playable = false
+	data.jobs_survivor.jobs["400"].reason = "Not in this build"
+	data.jobs_survivor.jobs["500"].playable = false
+	data.jobs_survivor.jobs["500"].reason = "Not in this build"
+	var w := RunWorld.new(RF.with_basic_attack(RF.setup("henesys_hg1", 1, data)))
 	w.god = true
 	var memo := {}
 	var digest := HashingContext.new()
@@ -21,7 +34,7 @@ func _event_digest(ticks: int) -> String:
 		for event: Dictionary in events:
 			# Spec #34 (#119) added `collector` to pickup_collected; the stream is otherwise unchanged, which is the point.
 			event.erase("collector")
-		digest.update(JSON.stringify(events, "", false, true).to_utf8_buffer())
+		digest.update(var_to_bytes(events))
 	return digest.finish().hex_encode()
 
 
@@ -37,12 +50,25 @@ func test_fresh_character_event_stream_matches_before_ticket_67() -> void:
 	# is reproduced exactly, so the only new bytes are the equipment pickup events and the pop positions they shift.
 	# re-captured for #63 (the bot scores a card by the steps it grants): with balance.bot.gain_step_score set to 0 the hash
 	# ce161497... is reproduced exactly, so the only new bytes are the bot taking a higher-tier card over a Normal-preferred one.
+	# re-captured for #152 (upgrades.json cards grouped by job line, common -> beginner -> magician, the per-line file merge
+	# order): the same cards in their pre-#152 order reproduce the #63 hash 823defb0... exactly (bb6eee9), so the only
+	# change is which cards the seeded roll draws.
+	# Re-captured on Windows for #153: accuracy grants critical chance to every job/damage type, including Beginner
+	# and fixed Three Snails; basic damage and crit rolls now use stream 5. Non-critical creation-weapon bounds are
+	# unchanged (test_physical_damage). The owner explicitly permits the resulting Beginner/Magician event deltas.
+	# Re-captured on Windows for #163 (Warrior playable, lead-approved): the Lv 10 job_advance_pending options now list the
+	# Warrior as available, and the unforced bot picks a seeded random available first job on the job stream (spec #151), so
+	# the run takes whichever job that draw gives. With jobs.json 100 locked ("Not in this build") the #153 hash 1a6cdb7c...
+	# is reproduced exactly (checked on the pre-merge head).
 	# Fixed ticks include setup events, all drained event bytes and bot choices, with synthetic assets only.
-	# The golden digest is a Windows capture. On Linux the same code and data give other event bytes (seen on the CI
-	# runner and in WSL, #135; cause not investigated, probably the platform's math library; tracked in #142, the owner
-	# decision on whether to keep this platform split is pending), so there the test
-	# checks what survives a platform change: two runs on the same machine agree, over two minutes of play.
-	if OS.get_name() != "Windows":
-		assert_eq(_event_digest(7200), _event_digest(7200), "two replays agree (the golden digest is Windows-only)")
-		return
-	assert_eq(_event_digest(72000), WINDOWS_GOLDEN, "20-minute pre-change event bytes, seed 1")
+	# Platform independent (#142): the digest hashes var_to_bytes of the events, not JSON text. The earlier Windows-only
+	# golden differed on Linux in 16 of 72000 ticks, all from one artifact: JSON.stringify writes Vector2 fields through
+	# float-to-text, which rounds exact decimal ties differently per platform (1090.8125 -> .813 on Windows, .812 on
+	# Linux). The simulation itself did not diverge. libm does differ across platforms (a sin in the flyer bob,
+	# integer-exponent pow calls in upgrades) but none of it reaches the event stream today.
+	# Re-captured for the #142 merge onto spec #151 (serializer only). This branch retains the #153 crit rolls and
+	# #163 Warrior option / seeded first-job pick above, so its golden legitimately differs from main's 9545f55b... .
+	# The binary digest matches on the unoptimised 19ca0a8 tip and the merged code (Windows, Godot 4.7.2).
+	# #230 deliberately changes job_advance_pending option bytes (paths arrays), weapon grants and resulting records.
+	# The frozen pre-#230 digest was 36805f002b3abb5e4e58e135dbae101ffe28985881bd4fc19effc5df1d1e474e.
+	assert_eq(_event_digest(72000), GOLDEN, "20-minute physical-combat baseline event bytes, seed 1")

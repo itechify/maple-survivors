@@ -1,12 +1,12 @@
 class_name PlayerUpkeep
 extends RefCounted
 ## The player's per-tick timers (docs/ARCHITECTURE.md 4.4.6), owned by RunWorld as `upkeep`: timed buffs
-## (PlayerBuffs) and their healing pulses, hit invincibility, the cast-stance hold and the balance.regen pulse clock.
+## (PlayerBuffs) and their healing pulses, hit invincibility, the knockback guard, the cast-stance hold, shared regen and skill recovery clocks.
 ## RunWorld owns the HP/MP pools: tick() reports the buff healing due and regen_pulses() how many regeneration
 ## pulses fell due, and the world applies them. Pure: no nodes, files or time.
 
 ## tier B: v83 MP recovery cadence/base; tier C: owner-selected always-on HP recovery.
-const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0, "improved_mp_divisor": 10.0}
+const DEFAULT_REGEN := {"interval": 10.0, "hp": 10.0, "mp": 3.0}
 
 ## tier C (ours, spec #88): the shrinking hit window; balance.hit_window overrides it.
 const DEFAULT_HIT_WINDOW := {"lengths": [1.5, 1.0, 0.6, 0.4], "chain_gap": 2.5, "reset_after": 3.0}
@@ -19,13 +19,21 @@ var invincible_t := 0.0
 var hit_step := 0
 ## Seconds since the last landed hit of any kind; INF before the first one.
 var since_hit := INF
+## Seconds of knockback guard left (issue #223, tier C owner): a hit that knocks the player back starts a guard of the
+## first window length; hits landing inside it do damage but no knockback and do not restart it. Per round, not saved.
+var knockback_guard_t := 0.0
 ## The stance a cast or swing holds, for cast_left more seconds; airborne swings may show it in the air.
 var cast_action := ""
 var cast_left := 0.0
 var action_airborne := false
+## The fraction of the stance's canonical frame time it plays in (attack speed, WeaponInfo.speed_factor); 1.0 normally.
+var action_scale := 1.0
 var _buffs: PlayerBuffs
 var _regen: Dictionary
 var _regen_elapsed := 0.0
+## Skill-owned recovery clocks, per round. Resolved values refresh only when the loadout changes.
+var _recovery_version := -1
+var _recoveries := {}
 var _window_lengths: Array[float] = []
 var _chain_gap := float(DEFAULT_HIT_WINDOW.chain_gap)
 var _reset_after := float(DEFAULT_HIT_WINDOW.reset_after)
@@ -49,6 +57,7 @@ func _init(buffs: PlayerBuffs, regen: Dictionary = DEFAULT_REGEN, hit_window: Di
 func tick(dt: float, events: Array) -> float:
 	var healing := _buffs.step(dt, events)
 	invincible_t = maxf(0.0, invincible_t - dt)
+	knockback_guard_t = maxf(0.0, knockback_guard_t - dt)
 	since_hit += dt
 	cast_left = maxf(0.0, cast_left - dt)
 	return healing
@@ -81,6 +90,16 @@ func land_hit(boss_skill: bool) -> float:
 	return seconds
 
 
+## Whether a landed hit may knock the player back now (no knockback guard running).
+func may_knock_back() -> bool:
+	return knockback_guard_t <= _EPS
+
+
+## A hit knocked the player back: starts the knockback guard, as long as the first hit-window length (read from the data).
+func start_knockback_guard() -> void:
+	knockback_guard_t = _window_lengths[0]
+
+
 ## Advances the regeneration clock by dt (living players only) and returns the number of pulses due.
 func regen_pulses(dt: float) -> int:
 	var interval := maxf(0.01, float(_regen.get("interval", DEFAULT_REGEN.interval)))
@@ -97,21 +116,47 @@ func pulse_hp() -> float:
 	return float(_regen.get("hp", DEFAULT_REGEN.hp))
 
 
-## Base MP restored by one pulse (before mp_regen modifiers and the Improved MP Recovery bonus).
+## Base MP restored by one pulse (before mp_regen modifiers and the skills' Loadout.regen_bonus).
 func pulse_mp() -> float:
 	return float(_regen.get("mp", DEFAULT_REGEN.mp))
 
 
-## Improved MP Recovery's MP per pulse. tier B: pre-Big-Bang rule floor(level x skill level / divisor), whole MP.
-func improved_mp_bonus(level: int, skill_level: int) -> float:
-	return floorf(float(level * skill_level)
-		/ maxf(1.0, float(_regen.get("improved_mp_divisor", DEFAULT_REGEN.improved_mp_divisor))))
+## Advances each owned periodic_recovery skill's canonical interval; returns HP/MP due, independently of shared regen.
+## A weapon-gated recovery pauses while unusable. Rank changes preserve elapsed seconds; a new round starts fresh.
+func periodic_recovery(dt: float, loadout: Loadout) -> Vector2:
+	if _recovery_version != loadout.version:
+		var next := {}
+		for key: String in loadout.order:
+			var rule: Dictionary = loadout.book.def(key).get("periodic_recovery", {})
+			if rule.is_empty():
+				continue
+			var level := loadout.level(key)
+			var interval := loadout.book.canonical(key, level, String(rule.get("interval_field", "time")))
+			if interval <= 0.0:
+				continue
+			next[key] = {"elapsed": float(_recoveries.get(key, {}).get("elapsed", 0.0)), "interval": interval,
+				"hp": loadout.book.canonical(key, level, String(rule.get("hp_field", "hp"))),
+				"mp": loadout.book.canonical(key, level, String(rule.get("mp_field", "mp")))}
+		_recoveries = next
+		_recovery_version = loadout.version
+	var due := Vector2.ZERO
+	for key: String in _recoveries:
+		if not loadout.book.usable_with(key, loadout.weapon_family):
+			continue
+		var clock: Dictionary = _recoveries[key]
+		clock.elapsed += dt
+		while float(clock.elapsed) >= float(clock.interval) - _EPS:
+			clock.elapsed = maxf(0.0, float(clock.elapsed) - float(clock.interval))
+			due += Vector2(float(clock.hp), float(clock.mp))
+	return due
 
 
-## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion.
-func start_action(action: String, seconds: float, airborne: bool = false) -> void:
+## Holds `action` for `seconds`; airborne opts basic swings into the same visual without changing motion; `scale` is the
+## attack-speed fraction of the frame time the avatar plays it in.
+func start_action(action: String, seconds: float, airborne: bool = false, scale: float = 1.0) -> void:
 	if action == "" or seconds <= 0.0:
 		return
 	cast_action = action
 	cast_left = seconds
 	action_airborne = airborne
+	action_scale = scale

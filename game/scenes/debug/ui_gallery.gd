@@ -15,6 +15,12 @@ extends Node2D
 ##   job             job advancement at Lv. 8 (Magician available, the others locked)
 ##   job10           at Lv. 10 (the others "Not in this build")       job_none  Lv. 30 Magician, nothing available
 ##   job_confirm     the confirmation line after picking Magician      pause     pause menu
+##   job_paths       Lv. 10 with the shipped Thief weapon paths made playable by a test-only override (spec #151 #157)
+##   job_pirate      shipping Pirate paths at Lv. 10 with Kyrin (#186)
+##   job_pirate30    the shipping Lv. 30 Pirate window: Brawler and Gunslinger (#189)
+##   job_pages       the two-page job window from the real job tree (spec #226): --from=<job id> --level=<n>
+##                   --held=<family> choose the options, --pick=<job id> presses that job (weapon page or confirmation),
+##                   --pick-path=<family> then presses that family, --focus=<i> focuses an entry
 ##   options         the Options window (BGM, SOUND, FRAME CAP, MOVE KEYS, HP / MP ALERT) with default settings
 ##   title | stage_select | results | results_dead | import            the menu screens (sample data)
 ##   flow            the real scene flow end to end (Flow autoload, this node as its host): title -> stage select ->
@@ -37,8 +43,9 @@ const SAMPLE_CARDS := [
 	{"id": "three_snails_count", "kind": "skill_mod", "skill": "three_snails", "name": "Additional Shell",
 		"desc": "Three Snails throws +1 shell.", "icon": "Skill.wz/000.img/skill/0001000/icon", "rank": 2,
 		"max_rank": 4, "skill_name": "Three Snails", "skill_level": 1, "skill_level_next": 0},
-	{"id": "magnet", "kind": "stat", "skill": "", "name": "Magnet", "desc": "Pick-up radius +25%.",
-		"icon": "Character.wz/PetEquip/01812000.img/info/icon", "rank": 1, "max_rank": 4},
+	{"id": "magic_claw_targets", "kind": "skill_mod", "skill": "magic_claw", "name": "Twin Claw",
+		"desc": "Magic Claw hits +1 target.", "icon": "Skill.wz/200.img/skill/2001002/icon", "rank": 1, "max_rank": 4,
+		"skill_name": "Magic Claw", "skill_level": 1, "skill_level_next": 0},
 ]
 const MISSING_CARDS := [
 	{"id": "improved_max_mp", "kind": "passive", "skill": "", "name": "Improved MaxMP Increase",
@@ -126,7 +133,7 @@ func _show_screen(which: String) -> void:
 	match which:
 		"results", "results_dead":
 			var dead := which == "results_dead"
-			var summary := {"stage": "henesys_hg1", "map_id": 104040000, "map_name": "Henesys Hunting Ground I",
+			var summary := {"stage": "henesys_hg1", "map_id": 104040000, "region": "Henesys", "continent": "Victoria Island", "map_name": "Henesys Hunting Ground I",
 				"street_name": "Victoria Road", "time": 512.4 if dead else 900.0, "duration": 900.0,
 				"cleared": not dead, "level": 17 if dead else 31, "job_id": 200, "job_name": "Magician",
 				"kills": 1342 if dead else 3120, "damage_dealt": 48210 if dead else 151377, "seed": 12345,
@@ -203,12 +210,49 @@ func _show_window(which: String) -> void:
 			window = w
 			if args.has("focus"):
 				w.set_focus(int(args.focus))
-		"job", "job10", "job_none", "job_confirm":
+		"job_pages":
+			# Spec #226 (#231): the two-page window from the real job tree. --from=<job id> --level=<n> --held=<family>
+			# pick the options, --pick=<job id> presses that job on page 1 (the weapon page opens for a multi-family
+			# job, the confirmation otherwise), --pick-path=<family> then presses that family.
+			var w := JobAdvanceWindow.new()
+			layer.add_child(w)
+			var data := DataRepo.load_all()
+			var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+			var from := int(args.get("from", 0))
+			var lvl := int(args.get("level", 10))
+			w.confirm_seconds = 999.0
+			w.open(jobs.advancements(from, lvl, str(args.get("held", ""))), lvl, from)
+			w.job_chosen.connect(func(id: int) -> void: print("ui_gallery: job_chosen ", id, " ", w.picked_path))
+			w.declined.connect(func() -> void: print("ui_gallery: declined"))
+			if args.has("pick"):
+				for i in w.entries.size():
+					if int(w.entries[i].job_id) == int(args.pick):
+						w.select(i)
+						break
+			if args.has("pick-path"):
+				for i in w.entries.size():
+					if str(w.entries[i].path) == str(args["pick-path"]):
+						w.select(i)
+						break
+			if args.has("focus"):
+				w.set_focus(int(args.focus))
+			window = w
+		"job", "job10", "job_none", "job_confirm", "job_paths", "job_pirate", "job_pirate30":
 			var w := JobAdvanceWindow.new()
 			layer.add_child(w)
 			match which:
 				"job10":
 					w.open(JOB10, 10, 0)
+				"job_paths":
+					w.open(_playable_thief_options(), 10, 0)
+				"job_pirate":
+					var data := DataRepo.load_all()
+					var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+					w.open(jobs.advancements(0, 10).filter(func(o: Dictionary) -> bool: return int(o.job_id) == 500), 10, 0)
+				"job_pirate30":
+					var data := DataRepo.load_all()
+					var jobs := JobTree.from_data(data.jobs, data.jobs_survivor)
+					w.open(jobs.advancements(500, 30), 30, 500)
 				"job_none":
 					w.open(JOB30, 30, 200)
 				_:
@@ -219,6 +263,24 @@ func _show_window(which: String) -> void:
 				w.confirm_seconds = 999.0
 				w.select(0)
 			window = w
+		"ammo":
+			# #155: an Assassin reaches Lv 55 and the throwing stars become Ilbi: the real notice, and the Equip window
+			# with the claw's tooltip listing the ammo (the real world and events, the real String.wz names).
+			var world := _ammo_world()
+			world._gain_exp(world.progression.exp_to_next())
+			hud.update(world.player_state, {"time": 0.0, "kills": 0, "name": "Assassin", "job_name": "Assassin",
+				"exp_next": world.progression.exp_to_next(), "skills": []})
+			avatar.set_look({"equips": [1040002, 1060002, 1072001, world.weapon_id()]})
+			for e: Dictionary in world.drain_events():
+				if e.type == "ammo_upgraded":
+					var found: Variant = UiArt.lib().find(InventoryModel.name_path(int(e.item_id)))
+					hud.push_message(Ammo.notice(Ammo.noun(world.data.ammo, String(e.family)), String(found)))
+			var w := EquipWindow.new(world)
+			layer.add_child(w)
+			w.position = Vector2(60, 40)
+			var motion := InputEventMouseMotion.new()
+			motion.position = w.slot_rect("weapon").get_center()
+			w._gui_input(motion)
 		"options":
 			# Settings from a scratch file (never the developer's settings.cfg); not in the tree, so no autoload effects.
 			var settings := GameSettings.new("user://_test_cache/gallery_options.cfg")
@@ -236,6 +298,33 @@ func _show_window(which: String) -> void:
 			window = w
 		_:
 			push_error("ui_gallery: unknown --window=%s" % which)
+
+
+## A Lv 54 Assassin wearing a Garnier-class claw (1472000) from the real cache, one level short of Ilbi Throwing-Stars.
+func _ammo_world() -> RunWorld:
+	var lib := UiArt.lib()
+	var data := DataRepo.load_all()
+	var loader := func(path: String) -> Dictionary:
+		var found := lib.img(path)
+		return found.root if found != null else {}
+	var ids := PackedInt32Array([1472008])
+	ids.append_array(Equipment.DEFAULT_OUTFIT)
+	var setup := {"data": data, "seed": 3, "equipment_info": DataRepo.equipment_info(ids, loader),
+		"ammo_info": DataRepo.ammo_info(data.ammo, loader)}
+	var world := RunWorld.new(setup)
+	world.change_job(410)
+	world.progression.level = 54
+	world.progression.job_id = 410
+	world.refresh_player_stats(false)
+	world.drain_events()
+	return world
+
+
+## The Lv. 10 advancement options with the shipped Thief row made playable (test-only override; the build keeps it locked).
+func _playable_thief_options() -> Array:
+	var data := DataRepo.load_all()
+	data.jobs_survivor.jobs["400"].playable = true
+	return JobTree.from_data(data.jobs, data.jobs_survivor).advancements(0, 10)
 
 
 func _rank_cards() -> Array:

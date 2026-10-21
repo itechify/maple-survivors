@@ -4,7 +4,8 @@
 # the first available job, one Godot process per seed in parallel (game/tools/balance_run.gd). Needs the asset cache.
 #
 #   bash scripts/balance.sh                                # henesys_hg1, training seeds 1..6
-#   bash scripts/balance.sh 1 2 --branch=220  # force an available second-job branch
+#   bash scripts/balance.sh 1 2 --job=210     # force a first or second job (a second job takes its first job at the first
+#   # window); one the build cannot offer fails at startup (see the seed log). --branch=<id> is the deprecated alias. --job=100:spear / --job=120:blunt select an advancement family.
 #   bash scripts/balance.sh 1 --character="C:/absolute path/character.json"  # carried one-off round, no saves
 #   bash scripts/balance.sh 1 --account="C:/abs/account.json"  # a round with an account (spec #34): {"owned": [item ids],
 #   # "cash": {slot: id}, "pet": id, "alert": {"hp": f, "mp": f}} (all optional; nx ignored). owned = the account's cash items,
@@ -75,8 +76,11 @@ for a in "$@"; do
     --stage=*) STAGE="${a#--stage=}"; STAGE_EXPLICIT=1 ;;
     --policy=*) POLICY="${a#--policy=}" ;;
     --first-card) POLICY="first" ;;
-    --branch=*)
-      case "${a#--branch=}" in 210|220|230) EXTRA_BRANCH="$a" ;; *) echo "--branch must be 210, 220 or 230" >&2; exit 2 ;; esac ;;
+    --job=*|--branch=*)
+      [[ "$a" == --branch=* ]] && echo "balance.sh: --branch is deprecated: use --job=<id>" >&2
+      JOB_ID="${a#--*=}"
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
+      EXTRA_JOB="--job=$JOB_ID" ;;
     --idle-after=*) EXTRA_IDLE="$a" ;;
     --cap=*) EXTRA_CAP="$a" ;;
     --camp-after=*) EXTRA_CAMP="$a" ;;
@@ -115,7 +119,7 @@ GODOT_CMD=(bash "$REPO/scripts/godot.sh")
 OUT="${BALANCE_OUT:-$REPO/_scratch/balance}"
 mkdir -p "$OUT"
 EXTRA=()
-[[ -n "${EXTRA_BRANCH:-}" ]] && EXTRA+=("$EXTRA_BRANCH")
+[[ -n "${EXTRA_JOB:-}" ]] && EXTRA+=("$EXTRA_JOB")
 [[ -n "${PATCH:-}" ]] && EXTRA+=(--patch="$(cygpath -m "$PATCH" 2>/dev/null || echo "$PATCH")")
 [[ -n "$EXTRA_IDLE" ]] && EXTRA+=("$EXTRA_IDLE")
 [[ -n "$EXTRA_CAP" ]] && EXTRA+=("$EXTRA_CAP")

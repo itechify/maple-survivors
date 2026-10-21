@@ -9,7 +9,8 @@ extends RefCounted
 ## fortune: resolved survivor stat; base_fortune: its unmodified starting value;
 ## potions: {hp: {item_id, count}, mp: {item_id, count}} (item_id IS the potion tier);
 ## look: {skin, face, hair}, possibly empty (worn equipment is what is drawn over it);
-## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes);
+## equipment: {worn: {equip slot: instance}, inventory: [instance, ...]} (Equipment: instance and slot shapes; the
+## `shield` worn key, #158, is optional and absent for snapshots saved before it: no format bump);
 ## scrolls: {"<scroll item id>": count} (the Use tab's scroll stacks); mesos: integer, 0 for a new character.
 ## Optional spec #34 keys, added without a FORMAT bump (valid in format 1 and 2; a file without them has no cash
 ## equipment and no pet; the snapshot writes them only when set):
@@ -17,6 +18,9 @@ extends RefCounted
 ##     top, bottom, shoes, gloves, cape, weapon, shield). An overall's id is stored under both top and bottom, a
 ##     two-handed weapon cover's under both weapon and shield.
 ##   pet: species id of the owned pet that is out (0 or absent = none).
+## Optional spec #151 key (#157), also without a FORMAT bump:
+##   weapon_path: the latest multi-family advancement choice ("sword", "claw", ...; JobTree.paths_of).
+##     Pathless characters infer it from the held family at their deepest multi-family job (tier C: spec #226).
 ## Both are only what the character wears and takes out; whether the account owns them is decided each round
 ## (RunWorld ignores and warns about what it does not own). Fortune from cash slots is computed live, never stored:
 ## base_fortune and fortune above exclude it. Cash equipment is drawn over the worn equipment (AvatarLayers).
@@ -31,24 +35,45 @@ extends RefCounted
 const FORMAT := 2 # tier C: spec #33 adds worn equipment, inventory, scrolls and mesos.
 ## Every format validation_error accepts; RunWorld and SceneFlow migrate older ones on load.
 const FORMATS := [1, 2]
-## tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
-## Beginner's nonzero beginner_weapon, else the nearest job ancestor's entry.
-const FORMAT1_WEAPONS := {"0": 1302000, "200": 1372005}
+## Card ids removed from the game; migrate() drops them from card_ranks (spec #225).
+const REMOVED_CARDS := ["magnet", "orange_potion", "white_potion", "mana_elixir"]
+# tier C: the frozen spec #32 weapon rule (old balance.player.weapon_by_job), used only to migrate format 1: a
+# Beginner's nonzero beginner_weapon, else the nearest job ancestor's `format1_weapon` (data/survivor/jobs.json,
+# read with JobTree.lineage_value; Equipment.DEFAULT_OUTFIT's weapon when no job in the line has one).
 
 
 ## A format-2 copy of a supported snapshot (format 2 is returned as a detached copy). `equipment_info` ({id: canonical
 ## info}) gives the migrated items their fresh stats and upgrade slots.
 static func migrate(value: Dictionary, jobs: JobTree, equipment_info: Dictionary) -> Dictionary:
 	var out := value.duplicate(true)
-	if int(value.get("format", 0)) == FORMAT:
-		return out
-	out.equipment = {"worn": Equipment.worn_from_ids(held_item_ids(value, jobs), equipment_info), "inventory": []}
-	out.scrolls = {}
-	out.mesos = 0
-	out.erase("beginner_weapon")
-	if out.get("look") is Dictionary:
-		out.look.erase("equips")
-	out.format = FORMAT
+	# Spec #225: the Magnet and potion-tier cards are gone; their ranks and the radius modifier are dropped (no format
+	# bump). The potion items themselves stay and PotionSchedule catches them up.
+	if out.get("card_ranks") is Dictionary:
+		for removed: String in REMOVED_CARDS:
+			out.card_ranks.erase(removed)
+	if out.get("player_mods") is Dictionary:
+		out.player_mods.erase("magnet")
+	if int(value.get("format", 0)) != FORMAT:
+		out.equipment = {"worn": Equipment.worn_from_ids(held_item_ids(value, jobs), equipment_info), "inventory": []}
+		out.scrolls = {}
+		out.mesos = 0
+		out.erase("beginner_weapon")
+		if out.get("look") is Dictionary:
+			out.look.erase("equips")
+		out.format = FORMAT
+	if String(out.get("weapon_path", "")) == "":
+		var held := WeaponInfo.family(int(out.get("equipment", {}).get("worn", {}).get("weapon", {}).get("id", 0)))
+		for j in jobs.lineage(int(out.get("job_id", 0))):
+			var paths := jobs.paths_of(j)
+			if paths.size() < 2:
+				continue
+			# tier C: migrate only the deepest multi-family row; an incompatible or missing weapon uses its first path.
+			out.weapon_path = String(paths[0].id)
+			for p: Dictionary in paths:
+				if String(p.family) == held:
+					out.weapon_path = String(p.id)
+					break
+			break
 	return out
 
 
@@ -68,11 +93,7 @@ static func held_item_ids(character: Dictionary, jobs: JobTree) -> Array:
 			ids.append(int(id))
 	var weapon := int(character.get("beginner_weapon", 0))
 	if int(character.get("job_id", 0)) != 0 or weapon <= 0:
-		weapon = int(FORMAT1_WEAPONS["0"])
-		for ancestor in jobs.lineage(int(character.get("job_id", 0))):
-			if FORMAT1_WEAPONS.has(str(ancestor)):
-				weapon = int(FORMAT1_WEAPONS[str(ancestor)])
-				break
+		weapon = int(jobs.lineage_value(int(character.get("job_id", 0)), "format1_weapon", Equipment.DEFAULT_OUTFIT[-1]))
 	ids.append(weapon)
 	return ids
 
@@ -123,6 +144,8 @@ static func validation_error(value: Variant) -> String:
 	var cash_message := cash_error(value)
 	if cash_message != "":
 		return cash_message
+	if value.has("weapon_path") and not value.weapon_path is String:
+		return "invalid weapon_path"
 	if format == 1:
 		return ""
 	var equipment_error := Equipment.validation_error(value.get("equipment"))

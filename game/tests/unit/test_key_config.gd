@@ -29,7 +29,7 @@ func after_each() -> void:
 
 
 func _defaults() -> KeyBindings:
-	var kb := KeyBindings.new({}, "arrows")
+	var kb := KeyBindings.new({}, "arrows", ["teleport"])
 	kb.reset_defaults()
 	return kb
 
@@ -244,10 +244,11 @@ func test_hud_key_labels_read_the_live_bindings() -> void:
 	s.set_bindings({"drink_hp": PackedInt32Array([KEY_F]), "drink_mp": PackedInt32Array()})
 	assert_eq(GameSettings.action_label("drink_hp"), "F", "rebinding changes the label")
 	assert_eq(GameSettings.action_label("drink_mp"), "-", "an unbound action")
-	var slot := HudPotionQuickslot.new()
+	assert_eq(GameSettings.first_key_label("drink_mp"), "", "the quick slot shows no caption for it")
+	var slot := HudQuickSlot.new()
 	slot.update({"potions": {"hp": {"item_id": 0, "count": 3}, "mp": {"item_id": 0, "count": 0}}}, {})
 	assert_eq(slot.displayed("hp").key_label, "F", "the HUD potion quickslot shows the rebound key")
-	assert_eq(slot.displayed("mp").key_label, "-")
+	assert_eq(slot.displayed("mp").key_label, "")
 	slot.free()
 	s.free()
 
@@ -273,15 +274,136 @@ func test_hud_key_labels_follow_key_config_ok_at_once_over_the_paused_run() -> v
 	scene.watch_settings(s)
 	assert_eq(String(scene.hud.skills.displayed().back().key_label), "X", "Teleport's default key on its icon")
 	scene.paused = true # Key Config opens over the pause menu: no frame refreshes the HUD while it is open
-	var kb := KeyBindings.from_settings(s)
+	var kb := KeyBindings.from_settings(s, ["teleport"])
 	kb.unbind(KEY_X)
 	kb.bind("teleport", KEY_C)
+	kb.unbind(KEY_DELETE)
+	kb.unbind(KEY_Q)
 	kb.bind("drink_hp", KEY_F)
 	kb.apply_to(s) # OK
 	assert_eq(String(scene.hud.skills.displayed().back().key_label), "C", "the Teleport icon shows the new key")
 	assert_eq(String(scene.run_info().skills.back().key_label), "C", "and so does the run's HUD snapshot")
-	var hp := String(scene.hud.potion_slot.displayed("hp").key_label)
-	assert_true(hp.ends_with("F"), "the HP quickslot shows the new key: %s" % hp)
+	var hp := String(scene.hud.quick_slot.displayed("hp").key_label)
+	assert_eq(hp, "F", "the HP quick slot shows the new key")
 	scene.hud.free()
 	scene.free()
+	s.free()
+
+
+# --- Skill keys (#188) -----------------------------------------------------------------------------------------
+
+func test_key_config_lists_only_the_learned_manual_skills() -> void:
+	var s := GameSettings.new(cfg_path)
+	var none := KeyBindings.from_settings(s)
+	assert_eq(none.skill_keys.size(), 0, "no manual skill learned: no skill key")
+	assert_false(none.actions().has("teleport"), "Teleport is not listed")
+	assert_false(none.actions().has("dash"), "Dash is not listed")
+	assert_false(none.bind("dash", KEY_F), "an unlearned skill key cannot be bound")
+	var pirate := KeyBindings.from_settings(s, ["dash"])
+	assert_eq(pirate.actions().back(), "dash", "a learned manual skill follows the fixed actions")
+	assert_false(pirate.actions().has("teleport"), "only the learned one")
+	var mage := KeyBindings.from_settings(s, ["teleport"])
+	assert_true(mage.actions().has("teleport"))
+	assert_false(mage.actions().has("dash"))
+	assert_eq(KeyBindings.from_settings(s, ["no_such_skill"]).skill_keys.size(), 0, "an unknown id is dropped")
+	s.free()
+
+
+func test_teleport_and_dash_default_to_x() -> void:
+	assert_eq(GameSettings.default_keys("teleport"), PackedInt32Array([KEY_X]))
+	assert_eq(GameSettings.default_keys("dash"), PackedInt32Array([KEY_X]))
+	var s := GameSettings.new(cfg_path)
+	assert_eq(KeyBindings.from_settings(s, ["dash"]).keys_of("dash"), PackedInt32Array([KEY_X]), "a Pirate dashes on X")
+	assert_eq(KeyBindings.from_settings(s, ["teleport"]).keys_of("teleport"), PackedInt32Array([KEY_X]))
+	s.free()
+
+
+func test_a_saved_teleport_binding_is_teleports_skill_key() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "teleport", [KEY_F])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	var kb := KeyBindings.from_settings(s, ["teleport"])
+	assert_eq(kb.keys_of("teleport"), PackedInt32Array([KEY_F]), "the saved binding loads on the skill key")
+	assert_eq(kb.action_on(KEY_F), "teleport")
+	assert_eq(s.binding_keys("teleport"), PackedInt32Array([KEY_F]), "and is live in the InputMap")
+	assert_eq(KeyBindings.from_settings(s, ["dash"]).keys_of("dash"), PackedInt32Array([KEY_X]),
+		"a Teleport rebind does not move Dash")
+	s.free()
+
+
+func test_a_skill_key_round_trips_through_ok() -> void:
+	var s := GameSettings.new(cfg_path)
+	var kb := KeyBindings.from_settings(s, ["dash"])
+	kb.unbind(KEY_X)
+	assert_true(kb.bind("dash", KEY_F))
+	kb.apply_to(s)
+	assert_eq(s.binding_keys("dash"), PackedInt32Array([KEY_F]), "applied to the InputMap at once")
+	var t := GameSettings.new(cfg_path)
+	assert_eq(KeyBindings.from_settings(t, ["dash"]).keys_of("dash"), PackedInt32Array([KEY_F]), "saved and loaded")
+	kb.reset_defaults()
+	assert_eq(kb.keys_of("dash"), PackedInt32Array([KEY_X]), "Default puts the skill key back on X")
+	t.free()
+	s.free()
+
+
+## A key holds one action across every skill key, learned or not (review of #188): a character without Dash rebinds X,
+## and the next character who knows Dash (same session or after a restart) must not find X on two actions.
+func _holders(s: GameSettings, key: int) -> Array:
+	var out: Array = []
+	for a: StringName in InputMap.get_actions():
+		if String(a).begins_with("ui_"):
+			continue
+		if key in s.binding_keys(String(a)):
+			out.append(String(a))
+	return out
+
+
+func test_rebinding_x_takes_it_off_the_unlisted_skill_keys() -> void:
+	var s := GameSettings.new(cfg_path) # character A: no manual skill, so Key Config lists neither Teleport nor Dash
+	var a := KeyBindings.from_settings(s)
+	a.unbind(KEY_X)
+	assert_true(a.bind("jump", KEY_X))
+	a.apply_to(s)
+	assert_eq(_holders(s, KEY_X), ["jump"], "live: X is on jump only, Dash and Teleport lost it")
+	var b := KeyBindings.from_settings(s, ["dash"]) # character B knows Dash, same session
+	assert_eq(b.action_on(KEY_X), "jump")
+	assert_eq(b.keys_of("dash"), PackedInt32Array(), "Dash has no key until rebound")
+	var t := GameSettings.new(cfg_path) # after a restart
+	t.apply_bindings()
+	assert_eq(_holders(t, KEY_X), ["jump"], "saved: still one holder")
+	assert_eq(KeyBindings.from_settings(t, ["dash"]).keys_of("dash"), PackedInt32Array())
+	assert_eq(KeyBindings.from_settings(t, ["teleport"]).keys_of("teleport"), PackedInt32Array())
+	t.free()
+	s.free()
+
+
+func test_binding_a_rebound_skill_keys_key_takes_it_off_that_skill_key() -> void:
+	var s := GameSettings.new(cfg_path)
+	var dasher := KeyBindings.from_settings(s, ["dash"]) # a Pirate moves Dash to F
+	dasher.unbind(KEY_X)
+	assert_true(dasher.bind("dash", KEY_F))
+	dasher.apply_to(s)
+	var a := KeyBindings.from_settings(s) # a character without Dash puts a potion on F
+	a.unbind(KEY_F)
+	assert_true(a.bind("drink_hp", KEY_F))
+	a.apply_to(s)
+	assert_eq(_holders(s, KEY_F), ["drink_hp"], "F left the unlisted Dash")
+	var t := GameSettings.new(cfg_path)
+	t.apply_bindings()
+	assert_eq(_holders(t, KEY_F), ["drink_hp"], "saved")
+	assert_eq(KeyBindings.from_settings(t, ["dash"]).action_on(KEY_F), "drink_hp")
+	t.free()
+	s.free()
+
+
+func test_loading_a_file_with_one_key_on_a_skill_key_and_another_action_keeps_one_holder() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "jump", [KEY_X])
+	cfg.set_value("input", "dash", [KEY_X])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	assert_eq(_holders(s, KEY_X), ["jump"], "a skill key yields to the fixed actions")
 	s.free()

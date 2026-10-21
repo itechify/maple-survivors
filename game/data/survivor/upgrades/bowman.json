@@ -1,0 +1,766 @@
+{
+	"_doc": "Bowman first-job cards (#199), followed by Hunter (#202) and Crossbowman (#203) cards. Crossbowman ranks20/30/20/20/30; attacks learn/rank4/3 and passives/buff2/2; behaviour +1/max3/weight2, exact job320, held crossbow, shared rarities. Tier A: rank caps16/20/8/20/20/20. Tier C: attacks learn/rank weights4/3, other skills2/2; +1 shot per behaviour step, max3, weight2; shared Potential rarity magnitudes and held-weapon eligibility. First-job cards carry to310/320, but never displace their own advancement draws. Untuned.",
+	"cards": [
+		{
+			"id": "blessing_of_amazon_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "blessing_of_amazon",
+			"name": "The Blessing of Amazon",
+			"desc": "Learn The Blessing of Amazon: Increases accuracy, which also raises critical chance.",
+			"icon": "Skill.wz/300.img/skill/3000000/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "blessing_of_amazon_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "blessing_of_amazon",
+			"name": "The Blessing of Amazon",
+			"desc": "The Blessing of Amazon +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000000/icon",
+			"max_rank": 16,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "critical_shot_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "critical_shot",
+			"name": "Critical Shot",
+			"desc": "Learn Critical Shot: Increases critical chance and critical damage with bows and crossbows.",
+			"icon": "Skill.wz/300.img/skill/3000001/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "critical_shot_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "critical_shot",
+			"name": "Critical Shot",
+			"desc": "Critical Shot +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000001/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "eye_of_amazon_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "eye_of_amazon",
+			"name": "The Eye of Amazon",
+			"desc": "Learn The Eye of Amazon: Extends bow and crossbow attacks.",
+			"icon": "Skill.wz/300.img/skill/3000002/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "eye_of_amazon_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "eye_of_amazon",
+			"name": "The Eye of Amazon",
+			"desc": "The Eye of Amazon +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3000002/icon",
+			"max_rank": 8,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "focus_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "focus",
+			"name": "Focus",
+			"desc": "Learn Focus: Temporarily increases accuracy and avoidability.",
+			"icon": "Skill.wz/300.img/skill/3001003/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "focus_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "focus",
+			"name": "Focus",
+			"desc": "Focus +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001003/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "arrow_blow_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Learn Arrow Blow: Fires a powerful arrow at the nearest monster.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "arrow_blow_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Arrow Blow +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 20,
+			"weight": 3,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "arrow_blow_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "arrow_blow",
+			"name": "Arrow Blow",
+			"desc": "Arrow Blow fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "count", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "bow_double_shot_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Learn Double Shot: Fires two arrows at nearby monsters.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": []
+		},
+		{
+			"id": "bow_double_shot_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Double Shot +{magnitude} skill level.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 20,
+			"weight": 3,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "rank", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "bow_double_shot_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "bow_double_shot",
+			"name": "Double Shot",
+			"desc": "Double Shot fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [300], "carry_jobs": [310, 320]},
+			"effects": [
+				{"stat": "count", "op": "add", "value": 1}
+			]
+		},
+		{
+			"id": "bow_mastery_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "bow_mastery",
+			"name": "Bow Mastery",
+			"desc": "Learn Bow Mastery: Increases bow mastery and accuracy.",
+			"icon": "Skill.wz/310.img/skill/3100000/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": []
+		},
+		{
+			"id": "bow_mastery_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "bow_mastery",
+			"name": "Bow Mastery",
+			"desc": "Bow Mastery +{magnitude} skill level.",
+			"icon": "Skill.wz/310.img/skill/3100000/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "final_attack_bow_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "final_attack_bow",
+			"name": "Final Attack: Bow",
+			"desc": "Learn Final Attack: Bow: A chance to follow a bow hit with another powerful arrow.",
+			"icon": "Skill.wz/310.img/skill/3100001/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": []
+		},
+		{
+			"id": "final_attack_bow_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "final_attack_bow",
+			"name": "Final Attack: Bow",
+			"desc": "Final Attack: Bow +{magnitude} skill level.",
+			"icon": "Skill.wz/310.img/skill/3100001/icon",
+			"max_rank": 30,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "final_attack_bow_spread",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "final_attack_bow",
+			"name": "Spreading Arrow",
+			"desc": "Final Attack: Bow also strikes +{value} monster next to the target.",
+			"_tier": "Tier C: shared Final Attack Spread; +1 nearby target per step, max3, weight2, current-ammo follow-up arrows. Untuned.",
+			"value": 1,
+			"icon": "Skill.wz/310.img/skill/3100001/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {"jobs": [310]},
+			"effects": [{"stat": "count", "op": "add", "value": 1}]
+		},
+		{
+			"id": "bow_booster_new",
+			"power": false,
+			"kind": "skill_new",
+			"skill": "bow_booster",
+			"name": "Bow Booster",
+			"desc": "Learn Bow Booster: Uses HP and MP to temporarily increase bow attack speed.",
+			"icon": "Skill.wz/310.img/skill/3101002/icon",
+			"max_rank": 1,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": []
+		},
+		{
+			"id": "bow_booster_rank",
+			"power": false,
+			"kind": "skill_rank",
+			"skill": "bow_booster",
+			"name": "Bow Booster",
+			"desc": "Bow Booster +{magnitude} skill level.",
+			"icon": "Skill.wz/310.img/skill/3101002/icon",
+			"max_rank": 20,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "power_knockback_bow_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "power_knockback_bow",
+			"name": "Power Knock-Back",
+			"desc": "Learn Power Knock-Back: Swings the bow at nearby monsters, with a chance to push them away.",
+			"icon": "Skill.wz/310.img/skill/3101003/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": []
+		},
+		{
+			"id": "power_knockback_bow_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "power_knockback_bow",
+			"name": "Power Knock-Back",
+			"desc": "Power Knock-Back +{magnitude} skill level.",
+			"icon": "Skill.wz/310.img/skill/3101003/icon",
+			"max_rank": 20,
+			"weight": 3,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "arrow_bomb_new",
+			"power": true,
+			"kind": "skill_new",
+			"skill": "arrow_bomb",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Learn Arrow Bomb: Bow: Fires an explosive arrow that damages a group and may stun each monster.",
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"max_rank": 1,
+			"weight": 4,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": []
+		},
+		{
+			"id": "arrow_bomb_rank",
+			"power": true,
+			"kind": "skill_rank",
+			"skill": "arrow_bomb",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Arrow Bomb: Bow +{magnitude} skill level.",
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"max_rank": 30,
+			"weight": 3,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "power_knockback_bow_targets",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "power_knockback_bow",
+			"name": "Power Knock-Back",
+			"desc": "Power Knock-Back strikes +{value} more monster.",
+			"value": 1,
+			"icon": "Skill.wz/310.img/skill/3101003/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "arrow_bomb_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "arrow_bomb",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Arrow Bomb: Bow fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "arrow_bomb_targets",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "arrow_bomb",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Arrow Bomb: Bow blasts +{value} more monster.",
+			"value": 1,
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [310]
+			},
+			"effects": [
+				{
+					"stat": "blast_targets",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "crossbow_mastery_new",
+			"kind": "skill_new",
+			"power": false,
+			"skill": "crossbow_mastery",
+			"name": "Crossbow Mastery",
+			"icon": "Skill.wz/320.img/skill/3200000/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Learn Crossbow Mastery: Increases your crossbow mastery and accuracy while a crossbow is in hand.",
+			"max_rank": 1,
+			"weight": 2,
+			"effects": []
+		},
+		{
+			"id": "crossbow_mastery_rank",
+			"kind": "skill_rank",
+			"power": false,
+			"skill": "crossbow_mastery",
+			"name": "Crossbow Mastery",
+			"icon": "Skill.wz/320.img/skill/3200000/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Crossbow Mastery +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "final_attack_crossbow_new",
+			"kind": "skill_new",
+			"power": false,
+			"skill": "final_attack_crossbow",
+			"name": "Final Attack: Crossbow",
+			"icon": "Skill.wz/320.img/skill/3200001/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Learn Final Attack: Crossbow: A far deadlier second blow follows a hit with a crossbow, with a given success rate.",
+			"max_rank": 1,
+			"weight": 2,
+			"effects": []
+		},
+		{
+			"id": "final_attack_crossbow_rank",
+			"kind": "skill_rank",
+			"power": false,
+			"skill": "final_attack_crossbow",
+			"name": "Final Attack: Crossbow",
+			"icon": "Skill.wz/320.img/skill/3200001/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Final Attack: Crossbow +{magnitude} skill level.",
+			"max_rank": 30,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "final_attack_crossbow_spread",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "final_attack_crossbow",
+			"name": "Spreading Arrow",
+			"desc": "Final Attack: Crossbow also strikes +{value} monster next to the target.",
+			"_tier": "Tier C: shared Final Attack Spread; +1 nearby target per step, max3, weight2, current-ammo follow-up arrows. Untuned.",
+			"value": 1,
+			"icon": "Skill.wz/320.img/skill/3200001/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "crossbow_booster_new",
+			"kind": "skill_new",
+			"power": false,
+			"skill": "crossbow_booster",
+			"name": "Crossbow Booster",
+			"icon": "Skill.wz/320.img/skill/3201002/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Learn Crossbow Booster: Uses HP and MP to temporarily boost the attack speed of your crossbow.",
+			"max_rank": 1,
+			"weight": 2,
+			"effects": []
+		},
+		{
+			"id": "crossbow_booster_rank",
+			"kind": "skill_rank",
+			"power": false,
+			"skill": "crossbow_booster",
+			"name": "Crossbow Booster",
+			"icon": "Skill.wz/320.img/skill/3201002/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Crossbow Booster +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 2,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "power_knockback_crossbow_new",
+			"kind": "skill_new",
+			"power": true,
+			"skill": "power_knockback_crossbow",
+			"name": "Power Knock-Back",
+			"icon": "Skill.wz/320.img/skill/3201003/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Learn Power Knock-Back: Swings a crossbow at nearby monsters, with a chance to push them away.",
+			"max_rank": 1,
+			"weight": 4,
+			"effects": []
+		},
+		{
+			"id": "power_knockback_crossbow_rank",
+			"kind": "skill_rank",
+			"power": true,
+			"skill": "power_knockback_crossbow",
+			"name": "Power Knock-Back",
+			"icon": "Skill.wz/320.img/skill/3201003/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Power Knock-Back +{magnitude} skill level.",
+			"max_rank": 20,
+			"weight": 3,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "iron_arrow_new",
+			"kind": "skill_new",
+			"power": true,
+			"skill": "iron_arrow",
+			"name": "Iron Arrow: Crossbow",
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Learn Iron Arrow: Crossbow: Fires a piercing arrow that loses damage with each monster struck.",
+			"max_rank": 1,
+			"weight": 4,
+			"effects": []
+		},
+		{
+			"id": "iron_arrow_rank",
+			"kind": "skill_rank",
+			"power": true,
+			"skill": "iron_arrow",
+			"name": "Iron Arrow: Crossbow",
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"desc": "Iron Arrow: Crossbow +{magnitude} skill level.",
+			"max_rank": 30,
+			"weight": 3,
+			"effects": [
+				{
+					"stat": "rank",
+					"op": "add",
+					"value": 1
+				}
+			]
+		},
+		{
+			"id": "power_knockback_crossbow_targets",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "power_knockback_crossbow",
+			"name": "Power Knock-Back",
+			"desc": "Power Knock-Back strikes +{value} more monster.",
+			"value": 1,
+			"icon": "Skill.wz/320.img/skill/3201003/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
+		},
+		{
+			"id": "iron_arrow_pierce",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "iron_arrow",
+			"name": "Iron Arrow: Crossbow",
+			"desc": "Iron Arrow: Crossbow pierces +{value} more monster; damage fall-off continues.",
+			"value": 1,
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"effects": [
+				{
+					"stat": "pierce",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
+		},
+		{
+			"id": "iron_arrow_shots",
+			"power": true,
+			"kind": "skill_mod",
+			"skill": "iron_arrow",
+			"name": "Iron Arrow: Crossbow",
+			"desc": "Iron Arrow: Crossbow fires +{value} more arrow.",
+			"value": 1,
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"max_rank": 3,
+			"weight": 2,
+			"requires": {
+				"jobs": [
+					320
+				]
+			},
+			"effects": [
+				{
+					"stat": "count",
+					"op": "add",
+					"value": 1
+				}
+			],
+			"_tier": "Tier C: +1 per behaviour step, max3, weight2; shared Potential rarity magnitudes. Exact Crossbowman branch and held crossbow. Untuned."
+		}
+	]
+}

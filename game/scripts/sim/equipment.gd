@@ -11,7 +11,8 @@ extends RefCounted
 ##
 ## Equipment state: {"worn": {equip slot: instance}, "inventory": [instance, ...]} (CharacterSnapshot format 2
 ## `equipment`). Equip slots are SLOTS; an overall fills the top and bottom slots together, so "overall" is never worn
-## beside "top" or "bottom". The inventory (Equip tab) holds at most `capacity` instances
+## beside "top" or "bottom", and a two-handed weapon (WeaponInfo.is_two_handed: tier B, Cosmic isTwoHanded) is never
+## worn beside a "shield": wearing either moves the other to the inventory (`displaced_slots`). The inventory (Equip tab) holds at most `capacity` instances
 ## (balance.player.inventory_slots).
 ##
 ## Mutators change the state in place and return "" on success, otherwise a reason and the state is unchanged:
@@ -22,10 +23,10 @@ extends RefCounted
 ## RunWorld applies them for the live character (equip_item, unequip_item, discard_item); UI and bots go through it.
 
 ## Equip slots in display/drawing order.
-const SLOTS := ["hat", "top", "bottom", "overall", "shoes", "gloves", "weapon"]
-## Item category (id / 10000) -> equip slot: Cap, Coat, Longcoat, Pants, Shoes, Glove (tier A: v83 Character.wz
+const SLOTS := ["hat", "top", "bottom", "overall", "shoes", "gloves", "weapon", "shield"]
+## Item category (id / 10000) -> equip slot: Cap, Coat, Longcoat, Pants, Shoes, Glove, Shield (tier A: v83 Character.wz
 ## folders). Weapons are categories 130..169 (Weapon folder; 170 is cash weapon covers).
-const CATEGORY_SLOTS := {100: "hat", 104: "top", 105: "overall", 106: "bottom", 107: "shoes", 108: "gloves"}
+const CATEGORY_SLOTS := {100: "hat", 104: "top", 105: "overall", 106: "bottom", 107: "shoes", 108: "gloves", 109: "shield"}
 ## tier A: a new character's first MakeCharInfo option per field (Etc.wz/MakeCharInfo.img Info/CharMale "0":
 ## top, bottom, shoes, weapon); what a character without a snapshot wears.
 const DEFAULT_OUTFIT := [1040002, 1060002, 1072001, 1302000]
@@ -33,7 +34,8 @@ const DEFAULT_OUTFIT := [1040002, 1060002, 1072001, 1302000]
 const SPEED_CAP := 140
 const JUMP_CAP := 123
 ## tier A: v83 reqJob bits by job branch (job id / 100): 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate.
-const JOB_BITS := {1: 1, 2: 2, 3: 4, 4: 8, 5: 16}
+const JOB_BIT_THIEF := 8
+const JOB_BITS := {1: 1, 2: 2, 3: 4, 4: JOB_BIT_THIEF, 5: 16}
 ## Requirement fields checked against the character's total main stats, in reporting order.
 const STAT_REQS := {"reqSTR": "str", "reqDEX": "dex", "reqINT": "int", "reqLUK": "luk"}
 
@@ -103,11 +105,8 @@ static func worn_from_ids(ids: Array, infos: Dictionary) -> Dictionary:
 		var slot := slot_of(id)
 		if slot == "":
 			continue
-		if slot == "overall":
-			worn.erase("top")
-			worn.erase("bottom")
-		elif slot in ["top", "bottom"]:
-			worn.erase("overall")
+		for gone: String in displaced_slots(worn, id):
+			worn.erase(gone)
 		worn[slot] = create(id, info_of(infos, id))
 	return worn
 
@@ -157,6 +156,18 @@ static func requirement_error(info: Dictionary, character: Dictionary) -> String
 	return ""
 
 
+## Why item `id` is not worn the moment it is picked up (#222), "" when it is: not equipment ("not_equipment"), its slot
+## is taken or wearing it would take something off - an overall beside a top or bottom, a top or bottom beside an
+## overall, a shield beside a two-handed weapon ("occupied") - or the `character` fails a requirement (the
+## requirement_error field). Nothing is ever replaced, so the check is exactly "equip would displace nothing and pass".
+static func auto_wear_error(worn: Dictionary, id: int, info: Dictionary, character: Dictionary) -> String:
+	if slot_of(id) == "":
+		return "not_equipment"
+	if not displaced_slots(worn, id).is_empty():
+		return "occupied"
+	return requirement_error(info, character)
+
+
 ## Wears inventory[index] (canonical `info` for its requirements) after checking `character`'s requirements; the item
 ## it replaces (a worn top and bottom for an overall, a worn overall for a top or bottom) takes its inventory place,
 ## any second one is appended.
@@ -171,7 +182,7 @@ static func equip(state: Dictionary, index: int, info: Dictionary, character: Di
 	var reason := requirement_error(info, character)
 	if reason != "":
 		return reason
-	var displaced := _displaced(state.worn, slot)
+	var displaced := displaced_slots(state.worn, int(instance.id))
 	if inventory.size() - 1 + displaced.size() > capacity:
 		return "inventory_full"
 	inventory.remove_at(index)
@@ -210,7 +221,7 @@ static func discard(state: Dictionary, index: int) -> String:
 ## (tier C: nothing is ever destroyed; the character keeps what it wears).
 static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> String:
 	var slot := slot_of(int(instance.id))
-	var displaced := _displaced(state.worn, slot)
+	var displaced := displaced_slots(state.worn, int(instance.id))
 	if state.inventory.size() + displaced.size() > capacity:
 		return "inventory_full"
 	for moved_slot: String in displaced:
@@ -220,9 +231,16 @@ static func grant(state: Dictionary, instance: Dictionary, capacity: int) -> Str
 	return ""
 
 
-static func _displaced(worn: Dictionary, slot: String) -> Array:
+## The worn slots (SLOTS order) that wearing item `id` takes off: its own slot; for an overall the top and bottom, for a
+## top or bottom the overall; for a two-handed weapon the shield, and for a shield a worn two-handed weapon.
+static func displaced_slots(worn: Dictionary, id: int) -> Array:
+	var slot := slot_of(id)
 	var slots: Array = ["top", "bottom", "overall"] if slot == "overall" \
-		else [slot, "overall"] if slot in ["top", "bottom"] else [slot]
+		else [slot, "overall"] if slot in ["top", "bottom"] \
+		else [slot, "shield"] if slot == "weapon" and WeaponInfo.is_two_handed(id) \
+		else [slot, "weapon"] if slot == "shield" and worn.has("weapon") \
+			and WeaponInfo.is_two_handed(int(worn.weapon.id)) \
+		else [slot]
 	return SLOTS.filter(func(s: String) -> bool: return s in slots and worn.has(s))
 
 
@@ -240,6 +258,8 @@ static func validation_error(value: Variant) -> String:
 			return "equipment worn in the wrong slot"
 	if value.worn.has("overall") and (value.worn.has("top") or value.worn.has("bottom")):
 		return "an overall is worn with a top or bottom"
+	if value.worn.has("shield") and value.worn.has("weapon") and WeaponInfo.is_two_handed(int(value.worn.weapon.id)):
+		return "a two-handed weapon is worn with a shield"
 	for instance: Variant in value.inventory:
 		var error := _instance_error(instance)
 		if error != "":

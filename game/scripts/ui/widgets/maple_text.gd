@@ -1,7 +1,8 @@
 class_name MapleText
 extends Label
-## MapleStory-style text: the system font (Arial, then Tahoma, then Dotum) without antialiasing at v83 sizes (11-12 px),
-## and the v83 UI colours. No fonts are shipped (GAME_DESIGN section 10).
+## MapleStory-style text: the system font (Arial, then Tahoma, then Dotum; the bundled Arimo where none exists, MapleFonts)
+## at v83 sizes (11-12 px) and the v83 UI colours. Sizes, line heights and widths are logical px (800x600 view); the
+## glyphs are rasterised at the window's own pixels with MapleFonts.ANTIALIASED (#224, GAME_DESIGN section 10).
 ##
 ## Two ways to use it:
 ##   - as a node: `MapleText.new("Hello", MapleText.SIZE, MapleText.NPC_TEXT)` (a Label with the font applied);
@@ -49,7 +50,7 @@ func _init(p_text: String = "", p_size: int = SIZE, p_color: Color = BLACK, bold
 
 
 ## The text font (cached per weight): Arial, Tahoma, Dotum when the system has one of them, else the bundled Arimo
-## (MapleFonts; browsers have no system fonts); no antialiasing, no subpixel positioning.
+## (MapleFonts; browsers have no system fonts); MapleFonts.ANTIALIASED, no subpixel positioning.
 static func font(bold: bool = false) -> Font:
 	var key := 700 if bold else 400
 	if _fonts.has(key):

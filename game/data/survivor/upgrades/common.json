@@ -1,0 +1,4 @@
+{
+	"_doc": "Job-neutral cards: none since spec #225 (Magnet and the potion tier cards were removed; potions upgrade by level through balance.potions.schedule, and the Power Elixir is the fallback in ../upgrades.json). The file stays so the per-line merge order keeps its first entry. Card format and tier rules: see ../upgrades.json _doc.",
+	"cards": []
+}

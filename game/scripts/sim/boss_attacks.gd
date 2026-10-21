@@ -50,6 +50,11 @@ func step(world: RunWorld) -> void:
 			break
 
 
+## True while any scheduled boss's attack is winding up (its telegraph is up, before the impact).
+func telegraph_up() -> bool:
+	return not _pending.is_empty()
+
+
 ## World-space canonical attack range, mirrored horizontally when the mob faces right (MobAttacks.area_at).
 static func area_at(range_data: Dictionary, pos: Vector2, facing: int) -> Rect2:
 	return MobAttacks.area_at(range_data, pos, facing)

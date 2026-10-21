@@ -21,10 +21,15 @@ const CORNERS: Array[Vector2] = [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), 
 ## Teleport's grey can't-afford tint so every skill shows the same cue).
 const SWEEP_COLOR := Color(0, 0, 0, 0.6)
 const MP_WAIT_TINT := Color(0.35, 0.5, 1.0)
+## tier C: an icon whose skill the held weapon cannot use is greyed (the Skill window greys the same skill).
+const BLOCKED_TINT := Color(0.4, 0.4, 0.4)
+## An icon's state byte: normal (0), waiting for MP, blocked by the held weapon (RunWorld.read_skill_cooldowns).
+const STATE_MP_WAIT := RunWorld.SKILL_STATE_MP_WAIT
+const STATE_BLOCKED := RunWorld.SKILL_STATE_BLOCKED
 
 ## Reused overlay polygon (sweep_polygon resizes it in place).
 var _sweep := PackedVector2Array()
-## Per icon (info.skills order): the drawn sweep step (sweep_step) and MP-wait tint (0/1).
+## Per icon (info.skills order): the drawn sweep step (sweep_step) and state byte (0 / STATE_MP_WAIT / STATE_BLOCKED).
 var _steps := PackedInt32Array()
 var _short := PackedByteArray()
 
@@ -48,32 +53,34 @@ func update(p_player_state: Dictionary, p_run_info: Dictionary) -> void:
 		var s: Variant = skills[i]
 		var row: Dictionary = s if s is Dictionary else {}
 		_steps[i] = sweep_step(float(row.get("cooldown_left", 0.0)), float(row.get("cooldown_total", 0.0)))
-		_short[i] = 1 if bool(row.get("mp_short", false)) else 0
+		_short[i] = STATE_BLOCKED if bool(row.get("blocked", false)) \
+			else STATE_MP_WAIT if bool(row.get("mp_short", false)) else 0
 
 
 ## The per-frame cooldowns of the icons, in snapshot order (RunWorld.read_skill_cooldowns' buffers). Builds nothing;
-## queues a redraw and returns true only when an icon's sweep step or MP tint changed.
-func set_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, mp_short: PackedByteArray) -> bool:
+## queues a redraw and returns true only when an icon's sweep step or state (MP tint, blocked grey) changed.
+func set_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array, state: PackedByteArray) -> bool:
 	var changed := false
-	for i in mini(_steps.size(), mini(left.size(), mini(total.size(), mp_short.size()))):
+	for i in mini(_steps.size(), mini(left.size(), mini(total.size(), state.size()))):
 		var step := sweep_step(left[i], total[i])
-		if step != _steps[i] or mp_short[i] != _short[i]:
+		if step != _steps[i] or state[i] != _short[i]:
 			_steps[i] = step
-			_short[i] = mp_short[i]
+			_short[i] = state[i]
 			changed = true
 	if changed:
 		queue_redraw()
 	return changed
 
 
-## What each icon shows now: [{icon, rank, key_label, sweep_step, mp_short}] in snapshot order (for tests).
+## What each icon shows now: [{icon, rank, key_label, sweep_step, mp_short, blocked}] in snapshot order (for tests).
 func displayed() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var skills: Array = run_info.get("skills", [])
 	for i in skills.size():
 		var row: Dictionary = skills[i] if skills[i] is Dictionary else {}
 		out.append({"icon": String(row.get("icon", "")), "rank": int(row.get("rank", 0)),
-			"key_label": String(row.get("key_label", "")), "sweep_step": _steps[i], "mp_short": _short[i] == 1})
+			"key_label": String(row.get("key_label", "")), "sweep_step": _steps[i], "mp_short": _short[i] == STATE_MP_WAIT,
+			"blocked": _short[i] == STATE_BLOCKED})
 	return out
 
 
@@ -130,8 +137,9 @@ func _draw() -> void:
 		var icon := _frame(str(s.get("icon", "")))
 		if icon != null:
 			var rect := Rect2(p, Vector2(ICON_SIZE, ICON_SIZE))
-			var tint := MP_WAIT_TINT if _short[n] == 1 else Color.WHITE
-			draw_texture_rect_region(icon.page, rect, icon.region, tint)
+			var tint := BLOCKED_TINT if _short[n] == STATE_BLOCKED \
+				else MP_WAIT_TINT if _short[n] == STATE_MP_WAIT else Color.WHITE
+			PixelDraw.blit_scaled(self, icon.page, rect, icon.region, tint)
 			sweep_polygon(float(_steps[n]), float(SWEEP_STEPS), rect, _sweep)
 			if not _sweep.is_empty():
 				draw_colored_polygon(_sweep, SWEEP_COLOR)

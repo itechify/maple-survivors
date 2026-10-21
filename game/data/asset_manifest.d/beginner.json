@@ -1,0 +1,8 @@
+{
+	"format": 1,
+	"_doc": "Asset manifest fragment for the Beginner line (merged into asset_manifest.json by tools/wzimport and AssetManifest; docs/ASSET_PIPELINE.md 4.1). Beginner skill book Skill.wz/000.img and the Beginner skill sounds (Three Snails 0001000 and its UOL target 1001004, Recovery 0001001, Nimble Feet 0001002). The weapon afterimages and Sound.wz/Weapon.img are in common.json (#154); the creation weapons stay in the main file. Entries are moved unchanged from the single-file manifest.",
+	"imgs": [
+		{"img": "Skill.wz/000.img"},
+		{"img": "Sound.wz/Skill.img", "paths": ["0001000", "0001001", "0001002", "1001004"]}
+	]
+}

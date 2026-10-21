@@ -259,6 +259,43 @@ func walk_blocked(p: int, xa: float, xb: float) -> bool:
 	return false
 
 
+## Slides a body standing on floor `fh` at `x` up to `distance` horizontal px toward `side` (-1 / 1) along its platform
+## (moving attacks, docs/GAME_DESIGN.md 7.13), staying between the horizontal limits `lo` and `hi`. Follows the chain of
+## floors across slopes (the surface y comes from the floor under the final x). It stops at the platform's edge
+## (the end of the chain: it never walks off) and EPS (0.01 px) short of a wall that stands across the surface on the way (the
+## same stop as ground walking). Total: a blocked or degenerate slide returns the start. Returns
+## {"x", "y", "fh", "moved"} (moved = horizontal px actually covered, >= 0). tier C: ours.
+func slide_along(fh: int, x: float, side: int, distance: float, lo: float, hi: float) -> Dictionary:
+	var f := fh
+	var cur := x
+	var start := {"x": x, "y": y_at(fh, x) if fh >= 0 else 0.0, "fh": fh, "moved": 0.0}
+	if fh < 0 or fh >= count() or not is_floor(fh) or side == 0 or distance <= 0.0:
+		return start
+	var dir := 1.0 if side > 0 else -1.0
+	var target := clampf(x + dir * distance, lo, hi)
+	if (target - x) * dir <= 0.0:
+		return start
+	var guard := 0
+	while guard < 4096:
+		guard += 1
+		var seg_end := x2[f] if dir > 0.0 else x1[f]
+		var stop := minf(target, seg_end) if dir > 0.0 else maxf(target, seg_end)
+		if floor_wall[f] != 0:
+			var w := wall_hit(cur, y_at(f, cur), stop, y_at(f, stop))
+			if w >= 0:
+				var wx := x1[w] - dir * EPS
+				cur = maxf(cur, wx) if dir > 0.0 else minf(cur, wx)
+				break
+		cur = stop
+		if cur * dir >= target * dir:
+			break
+		var g := next[f] if dir > 0.0 else prev[f]
+		if g < 0 or not is_floor(g):
+			break
+		f = g
+	return {"x": cur, "y": y_at(f, cur), "fh": f, "moved": absf(cur - x)}
+
+
 ## Finds a Teleport landing {pos, fh}, or {}. Vertical blinks choose the nearest floor strictly in that direction.
 ## tier C: horizontal blinks choose the furthest floor point within range and snap vertically by at most range;
 ## walls stop the blink at the existing collision epsilon. No unsupported air destination is returned.

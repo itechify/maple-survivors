@@ -23,7 +23,7 @@ extends Node
 ## start_run(stage, seed, options) is ONLY a tool one-off (--run), clears active_slot and never reads/writes saves.
 ## options.character also accepts the existing --character=<absolute JSON path>. The CLI parser passes other
 ## --key[=value] flags to RunScene unchanged. finish_run shows one-off results without bests or history.
-## Summary: {stage, map_id, map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
+## Summary: {stage, map_id, region, continent (the display names, #221; older saves lack them), map_name, street_name, time, duration, cleared, level, job_id, job_name, kills,
 ## damage_dealt, skills: [{key, name, icon, rank}], seed, bosses_killed, levels_gained, nx_awarded}; persistent endings
 ## add ending and tiers_cleared. nx_awarded (NxAward, tier C) is credited to the save's account only for persistent
 ## rounds: in the boundary write of a non-final clear, or the end_run write of a death/victory. One-off rounds,
@@ -46,7 +46,8 @@ const RUN := "res://scenes/run/run_scene.tscn"
 const FREE_MARKET := "res://scenes/run/free_market.tscn"
 const CASH_SHOP := "res://scenes/ui/cash_shop.tscn"
 ## Run option names for the command-line flags (others pass through with "-" -> "_").
-const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after"}
+const FLAG_OPTIONS := {"shots": "shots_dir", "shot-every": "shot_every", "quit-after": "quit_after",
+	"branch": "job"} # --branch is the deprecated alias of --job (parse_run_args prints a note)
 const BOOL_OPTIONS := ["autoplay", "autopick"]
 const INT_OPTIONS := ["speed"]
 const FLOAT_OPTIONS := ["shot_every", "quit_after", "warp", "window_autopick"]
@@ -141,12 +142,13 @@ static func new_character(look: Dictionary, weapon: int, img_loader: Callable) -
 	return character
 
 
-## A format-2 copy of a stored character: format 1 migrates with item info from `img_loader` (as new_character).
+## A migrated copy of a stored character, idempotent: format 1 becomes format 2 with item info from `img_loader` (as
+## new_character); a format-2 one only drops what spec #225 removed (Magnet ranks and radius modifier) and needs no loader.
 static func migrated_character(character: Dictionary, img_loader: Callable) -> Dictionary:
-	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
-		return character.duplicate(true)
 	var data := DataRepo.load_all()
 	var jobs := JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
+	if int(character.get("format", 0)) == CharacterSnapshot.FORMAT:
+		return CharacterSnapshot.migrate(character, jobs, {})
 	var ids := PackedInt32Array(CharacterSnapshot.held_item_ids(character, jobs))
 	return CharacterSnapshot.migrate(character, jobs, DataRepo.equipment_info(ids, img_loader))
 
@@ -264,9 +266,11 @@ func continue_character(index: int) -> void:
 	if snapshot.is_empty():
 		return
 	active_slot = index
-	if int(snapshot.character.get("format", 0)) != CharacterSnapshot.FORMAT:
-		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too.
-		snapshot.character = migrated_character(snapshot.character, equipment_info_loader())
+	var migrated := migrated_character(snapshot.character, equipment_info_loader())
+	if migrated != snapshot.character:
+		# A format-1 (spec #32) character migrates once, so the hub and map select see worn equipment too; a format-2
+		# one drops the Magnet ranks of before spec #225 (idempotent: later loads change nothing and do not save).
+		snapshot.character = migrated
 		if save_data().update_slot(index, snapshot) != OK:
 			_swap_to(error_screen("Could not save the round boundary."), "error")
 			return
@@ -436,10 +440,14 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 			continue
 		var key: String = FLAG_OPTIONS.get(k, k.replace("-", "_"))
 		var v: String = flags[k]
+		if k == "branch":
+			printerr("--branch is deprecated: use --job=<id>")
 		if key in BOOL_OPTIONS:
 			options[key] = v != "0" and v.to_lower() != "false"
 		elif key in INT_OPTIONS:
 			options[key] = int(v)
+		elif key == "job":
+			JobTree.put_forced(options, v) # --job=<id>[:<weapon path>], spec #151 #157
 		elif key in FLOAT_OPTIONS:
 			options[key] = float(v)
 		elif key == "perf":
@@ -447,6 +455,17 @@ static func parse_run_args(list: PackedStringArray) -> Dictionary:
 		else:
 			options[key] = v
 	return {"run": String(flags.run), "seed": seed_v, "options": options}
+
+
+## Why the run options' forced job (`--job=<id>[:<path>]`) cannot be played ("" when none is forced or it can): an unknown
+## id, a job above the second advancement, a job (or its first job) that is not playable in this build, or a weapon path
+## its line does not have.
+static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
+	var job_id := int(options.get("job", 0))
+	if job_id == 0:
+		return ""
+	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {})).forced_job_error(job_id,
+		String(options.get("job_path", "")))
 
 
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).

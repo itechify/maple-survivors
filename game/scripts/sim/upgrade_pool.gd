@@ -3,10 +3,14 @@ extends RefCounted
 ## Data-driven upgrade cards (`data/survivor/upgrades.json`, docs/GAME_DESIGN.md section 8): eligibility, seeded
 ## weighted draws and applying a card to a run. `state` is the RunWorld (its loadout, progression, jobs and player).
 ##
-## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id),
+## Eligible = requirements met and rank < max_rank (0 = unlimited): `requires.jobs` (exact current job id, or one of
+## `requires.carry_jobs`: later jobs that keep a card on offer but never in the advancement draw),
 ## `requires.skills` (owned), `requires.min_rank` ({skill: rank}), `requires.min_level`; skill_new also
 ## needs the skill unowned; skill_rank / skill_mod need the skill owned (skill_rank also below its max rank).
-## Potion tiers require a current item and level from data. Draws pick distinct eligible cards with seeded weights.
+## There are no job-neutral cards: potions upgrade by level (PotionSchedule), the Power Elixir is the only filler.
+## Draws pick distinct eligible cards with seeded weights.
+## Cards of a skill (any kind with a `skill`) are eligible only while the weapon held when the draw rolls can use the
+## skill (SkillBook.usable_with with RunWorld.held_weapon_family); the advancement draw goes through the same check.
 ## An accepted job opens a separate roll_advancement_choices draw before the normal level draw.
 ## Pity (upgrades.json `pity.draws` = N > 0): after N draws in a row that offered no
 ## "power" card (cards flagged `"power": true`: new attack skills, attack skill ranks, more shots / targets / damage),
@@ -14,13 +18,23 @@ extends RefCounted
 ## RunWorld.power_dry counts those draws. A sparse draw adds one separate `fallback` card (Power Elixir, full HP/MP),
 ## never weighted; an exhausted pool offers it alone. Tier C: survivor reward rule, preserving earlier-job skills.
 ## Each scalable offer rolls a Potential tier with the same seeded RNG. Fortune shifts only tier odds; magnitude
-## tables resolve the skill ranks / modifier steps. Headroom downgrades happen before preview and application.
+## tables resolve the skill ranks / modifier steps. Tiers in magnitudes.clamp clamp to remaining headroom; other
+## tiers drop to the highest fitting tier. Equal gains wear the lowest label, before preview and application.
 
 ## Canonical level fields a rank card previews as before -> after (mastery converted to percent), in display order.
-const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp"]
+const PREVIEW_FIELDS := ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "mdd", "acc", "eva", "mobCount", "cooltime", "speed", "range", "hp",
+	"damage", "hpCon", "prop"]
+## Preview keys of passive skills whose canonical number means something else than its field name (the Warrior
+## passives, #163): Max HP per level-up for Improved MaxHP Increase (field x), HP per regeneration pulse for Improved HP
+## Recovery (field hp, which is a percent for Heal).
+const PASSIVE_MAX_HP := Loadout.MAX_HP_PER_LEVEL
+const PASSIVE_REGEN_HP := "regen_hp"
+const PASSIVE_PREVIEW_KEYS := [Loadout.MAX_MP_PERCENT, PASSIVE_MAX_HP, PASSIVE_REGEN_HP]
+## Effective opt-in mechanic values; fall-off is displayed as percentage points per later target.
+const MECHANIC_PREVIEW_KEYS := ["knockback_chance", "blast_targets", "pierce_falloff"]
 ## Skill modifier stats a skill_mod card previews. Each is its own skill_mod_changes key, except "count", which is
 ## SkillRunner.count_meaning of the skill's kind ("shots" or "targets").
-const MOD_PREVIEW := ["count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit"]
+const MOD_PREVIEW := ["count", "attack_count", "pierce", "cooldown", "speed", "range", "area", "damage", "crit", "blast_targets", "pierce_falloff"]
 ## tier C: survivor Potential ladder order; weights and Fortune scaling live in upgrades.json.
 const TIERS := ["normal", "rare", "epic", "unique", "legendary"]
 
@@ -68,7 +82,7 @@ func card(id: String) -> Dictionary:
 	return _by_id.get(id, {})
 
 
-## Consumed rank/modifier steps of card `id`; a one-time learn or potion card consumes one.
+## Consumed rank/modifier steps of card `id`; a one-time learn card consumes one.
 func rank(id: String, state: RunWorld) -> int:
 	return int(state.loadout.card_ranks.get(id, 0))
 
@@ -89,14 +103,12 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 	var max_rank := int(c.get("max_rank", 1))
 	if max_rank > 0 and rank(id, state) >= max_rank:
 		return false
-	# Spec #34: a pet with VAC pulls every drop, so the Magnet card (any card raising the magnet stat) is never offered.
-	if state.pet_has("vac") and _raises_stat(c, "magnet"):
-		return false
 	var req: Dictionary = c.get("requires", {}) if c.get("requires") is Dictionary else {}
 	var jobs: Array = req.get("jobs", [])
 	if not jobs.is_empty():
 		var ok := false
-		for j: Variant in jobs:
+		# carry_jobs (spec #165 #180): later jobs that keep offering the card; the advancement draw reads `jobs` only.
+		for j: Variant in jobs + req.get("carry_jobs", []):
 			if state.progression.job_id == int(j):
 				ok = true
 				break
@@ -111,10 +123,10 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 			return false
 	if state.progression.level < int(req.get("min_level", 0)):
 		return false
-	for potion_kind: String in req.get("potions", {}):
-		if int(state.potions.stock.get(potion_kind, {}).get("item_id", 0)) != int(req.potions[potion_kind]):
-			return false
 	var skill := String(c.get("skill", ""))
+	# Spec #151 (#156): a skill's cards are offered only while the held weapon can use the skill.
+	if skill != "" and not lo.book.usable_with(skill, state.held_weapon_family()):
+		return false
 	match String(c.get("kind", "")):
 		"skill_new":
 			if not lo.book.has(skill) or lo.has(skill):
@@ -132,8 +144,8 @@ func is_eligible(c: Dictionary, state: RunWorld) -> bool:
 func roll_choices(state: RunWorld, rng: RandomNumberGenerator, n: int = 3) -> Array:
 	var pool := eligible(state)
 	if state.choice_bonus:
-		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. Potion and
-		# Elixir are explicitly Normal exceptions to the boss floor, so an exhausted reward still opens a window.
+		# tier C: an almost-maxed rank card that cannot sustain Rare is omitted from boss rewards. The
+		# Power Elixir filler is an always-Normal exception to the boss floor, so an exhausted reward still opens a window.
 		pool = pool.filter(func(id: String) -> bool:
 			return _always_normal(card(id)) or _honest_tier(card(id), state, "rare") != "normal")
 	var picked: Array = []
@@ -194,14 +206,6 @@ func roll_advancement_choices(state: RunWorld, rng: RandomNumberGenerator, n: in
 	return out
 
 
-## Whether card `c` has an effect on player stat `stat`.
-static func _raises_stat(c: Dictionary, stat: String) -> bool:
-	for effect: Variant in c.get("effects", []):
-		if effect is Dictionary and String(effect.get("stat", "")) == stat:
-			return true
-	return false
-
-
 ## True for a card flagged `"power": true` (it raises an attack skill's damage output).
 static func is_power(c: Dictionary) -> bool:
 	return bool(c.get("power", false))
@@ -217,7 +221,7 @@ static func is_power(c: Dictionary) -> bool:
 ## passive shows only its own stat in percent, e.g. Loadout.MAX_MP_PERCENT), skill_effect_stat (the skill's
 ## skills.json buff `stat`, e.g. "hp" for Recovery, "mp_guard" for Magic Guard; "" for other skills),
 ## skill_mod_changes (skill_mod cards on an owned skill: effective value -> {before, after} once all the card's steps
-## are taken, keys as MOD_PREVIEW names them: shots / targets / pierce / speed / range (whole numbers), cooldown
+## are taken, keys as MOD_PREVIEW names them: shots / targets / attack_count / pierce / speed / range (whole numbers), cooldown
 ## (seconds between casts as SkillRunner.restart_cooldown counts them, two decimals), area / damage / crit (percent);
 ## {} otherwise)}.
 func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictionary:
@@ -241,8 +245,13 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 		var buff_effects: Array = lo.book.def(skill).get("buff", {}).get("effects", [])
 		if effect_stat == "" and not buff_effects.is_empty():
 			effect_stat = String(buff_effects[0].stat)
+		if effect_stat == "":
+			# A Mastery's accuracy is its canonical `x` (#181): the card names that stat, not a buff's.
+			for passive_effect: Variant in lo.book.def(skill).get("passive", {}).get("effects", []):
+				if passive_effect is Dictionary and String(passive_effect.get("field", "")) == "x":
+					effect_stat = String(passive_effect.get("stat", ""))
 		if String(lo.book.def(skill).get("cast", {}).get("rule", "")) == "crowd":
-			effect_stat = "slow"
+			effect_stat = String(lo.book.def(skill).cast.get("status", "slow")) # the status the crowd cast inflicts
 		var r := lo.rank(skill) if lo.has(skill) else 0
 		level = lo.book.canonical_level(skill, r) if r > 0 else 0
 		if kind == "skill_new":
@@ -252,6 +261,9 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 			var before := lo.book.level_node(skill, level)
 			var after := lo.book.level_node(skill, level_next)
 			for field: String in PREVIEW_FIELDS:
+				# `prop` is previewed for Final Attack only (#181): other skills' cards (Poison Breath) keep their events.
+				if field == "prop" and not lo.book.def(skill).has("final_attack"):
+					continue
 				if before.has(field) and after.has(field):
 					var a := int(lo.book.canonical(skill, level, field))
 					var b := int(lo.book.canonical(skill, level_next, field))
@@ -259,6 +271,20 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 						a = roundi(CombatMath.mastery_fraction(a) * 100.0)
 						b = roundi(CombatMath.mastery_fraction(b) * 100.0)
 					changes[field] = {"before": a, "after": b}
+			var old_stats := lo.stats(skill, r)
+			var new_stats := lo.stats(skill, r + magnitude)
+			for field: String in MECHANIC_PREVIEW_KEYS:
+				if old_stats[field] != new_stats[field]:
+					changes[field] = {"before": _preview_value(field, old_stats, lo, skill),
+						"after": _preview_value(field, new_stats, lo, skill)}
+			var damage_field := String(lo.book.def(skill).get("impact_blast", {}).get("damage_field", "damage"))
+			if damage_field != "damage" and changes.has(damage_field):
+				changes["damage"] = changes[damage_field]
+				changes.erase(damage_field)
+			var renamed := _passive_preview(lo.book.def(skill))
+			if not renamed.is_empty() and changes.has(renamed[0]):
+				changes[renamed[1]] = changes[renamed[0]]
+				changes.erase(renamed[0])
 			var passive: Dictionary = lo.book.def(skill).get("passive", {})
 			if passive.has("per_level"):
 				# tier C: a survivor per-level passive (Improved MaxMP Increase) previews its own fraction as a percent,
@@ -287,8 +313,20 @@ func choice_card(id: String, state: RunWorld, tier: String = "normal") -> Dictio
 	}
 
 
+## [canonical field, preview key] for a Warrior passive whose number a rank card shows under another name (see
+## PASSIVE_MAX_HP), else [].
+static func _passive_preview(d: Dictionary) -> Array:
+	var regen: Variant = d.get("regen")
+	if regen is Dictionary and regen.has("field") and String(regen.get("pool", "")) == "hp":
+		return [String(regen.field), PASSIVE_REGEN_HP]
+	var passive: Dictionary = d.get("passive", {})
+	if String(passive.get("stat", "")) == PASSIVE_MAX_HP and passive.has("field"):
+		return [String(passive.field), PASSIVE_MAX_HP]
+	return []
+
+
 ## Card `id`'s desc for `magnitude` ranks / steps: {magnitude} filled in, {value} as the scaled or compounded value
-## (the level-up card and the Skill window's star tab both show it).
+## (shown on the level-up card).
 func describe(id: String, magnitude: int) -> String:
 	var c := card(id)
 	var desc := String(c.get("desc", "")).replace("{magnitude}", str(magnitude))
@@ -326,6 +364,8 @@ static func _mod_changes(c: Dictionary, lo: Loadout, magnitude: int) -> Dictiona
 
 static func _preview_value(stat: String, st: Dictionary, lo: Loadout, skill: String) -> Variant:
 	match stat:
+		"pierce_falloff":
+			return snappedf(float(st.pierce_falloff) * 100.0, 0.01)
 		"cooldown":
 			return snappedf(SkillRunner.restart_cooldown(st), 0.01)
 		"area":
@@ -374,8 +414,10 @@ func _headroom(c: Dictionary, state: RunWorld) -> int:
 
 
 func _requested_magnitude(c: Dictionary, state: RunWorld, tier: String) -> int:
-	var value: Variant = _tier_value(c, tier)
-	return _headroom(c, state) if str(value) == "max" else maxi(1, int(value))
+	var value := maxi(1, int(_tier_value(c, tier)))
+	# tier C: owner #173 (2026-10-18): configured tiers clamp their fixed gain; -1 headroom means unlimited.
+	var headroom := _headroom(c, state)
+	return mini(value, headroom) if tier in _magnitudes.get("clamp", []) and headroom >= 0 else value
 
 
 func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
@@ -399,14 +441,14 @@ func _honest_tier(c: Dictionary, state: RunWorld, tier: String) -> String:
 
 
 static func _always_normal(c: Dictionary) -> bool:
-	return String(c.get("kind", "")) in ["potion_tier", "filler"]
+	return String(c.get("kind", "")) == "filler"
 
 
 static func _is_stacking(c: Dictionary) -> bool:
 	return String(c.get("kind", "")) in ["skill_mod", "stat", "passive"]
 
 
-## A pick consumes its tier's ranks/modifier steps, while learn, potion and filler cards consume one.
+## A pick consumes its tier's ranks/modifier steps, while learn and filler cards consume one.
 static func _consumed_steps(c: Dictionary, magnitude: int) -> int:
 	return magnitude if String(c.get("kind", "")) == "skill_rank" or _is_stacking(c) else 1
 
@@ -434,7 +476,7 @@ func _roll_tier(state: RunWorld, rng: RandomNumberGenerator) -> String:
 	return "rare" if state.choice_bonus else "normal"
 
 
-## Applies card `id` at its honest `tier` (default Normal) to the run (learn / rank / modifier steps / potion / heal), emits
+## Applies card `id` at its honest `tier` (default Normal) to the run (learn / rank / modifier steps / heal), emits
 ## upgrade_applied (and skill_learned for skill_new) and returns the card's new rank (0 when the card is unknown).
 func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 	var c := card(id)
@@ -442,9 +484,6 @@ func apply(id: String, state: RunWorld, tier: String = "normal") -> int:
 		return 0
 	tier = _honest_tier(c, state, tier)
 	var kind := String(c.get("kind", ""))
-	if kind == "potion_tier":
-		if not is_eligible(c, state) or not state.upgrade_potion(String(c.get("potion_kind", "")), int(c.get("item_id", 0))):
-			return 0
 	var lo: Loadout = state.loadout
 	var magnitude := _magnitude(c, state, tier)
 	if magnitude <= 0:

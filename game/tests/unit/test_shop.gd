@@ -52,7 +52,8 @@ func test_the_four_scroll_npcs_and_their_rates() -> void:
 		by_id[int(npc.id)] = npc.rates
 	assert_eq(by_id, {1032103: ["100"], 2022002: ["60"], 1052104: ["10"], 2041016: ["dark70", "dark30"]})
 	assert_eq([int(_data.shops.prices.armour), int(_data.shops.prices.weapon)], [35000, 70000])
-	assert_eq(_data.shops.weapon_slots, ["wand", "staff"])
+	assert_true("wand" in _data.shops.weapon_slots and "staff" in _data.shops.weapon_slots, "the Magician weapon slots")
+	assert_false("shield" in _data.shops.weapon_slots, "shield scrolls are priced as armour")
 
 
 # --- stock ---

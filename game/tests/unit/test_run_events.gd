@@ -5,13 +5,14 @@ extends TestCase
 
 const RF := preload("res://tests/fixtures/run_fixtures.gd")
 const PF := preload("res://tests/fixtures/pet_fixtures.gd")
+const CF := preload("res://tests/fixtures/combat_mechanics_fixtures.gd")
 const DT := 1.0 / 60.0
 
 const INT_FIELDS := ["mob", "pickup", "mob_id", "item_id", "job_id", "skill_id", "level", "damage", "mp_absorbed",
 	"dir", "exp", "count", "rank", "magnitude", "facing", "relocated_from", "boss_index", "max_hp", "restored", "required_mp", "mp", "from_item_id", "weapon_id", "proj", "amount"]
 
-const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus"]
-const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat"]
+const BOOL_FIELDS := ["crit", "elite", "miss", "boss", "bonus", "rotate"]
+const STRING_FIELDS := ["reason", "skill", "hit_visual", "action", "effect", "name", "id", "tier", "portal", "target", "kind", "potion_kind", "phase", "afterimage", "sound", "attack", "source_kind", "player_effect", "summon_effect", "recipient_effect", "ball", "hit", "status", "stat", "family"]
 
 
 
@@ -62,10 +63,18 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 			for o: Dictionary in e.options:
 				var ok: Array = o.keys()
 				ok.sort()
-				if ok != ["available", "job_id", "name", "reason"]:
+				var fields := ["available", "job_id", "name", "paths", "reason"]
+				if ok != fields:
 					fail("job option fields %s" % [ok])
-				elif typeof(o.job_id) != TYPE_INT or typeof(o.available) != TYPE_BOOL:
+				elif typeof(o.job_id) != TYPE_INT or typeof(o.available) != TYPE_BOOL \
+						or not (o.paths is Array):
 					fail("job option types %s" % [o])
+				else:
+					for p: Dictionary in o.paths:
+						var path_fields: Array = p.keys()
+						path_fields.sort()
+						assert_eq(path_fields, ["family", "id", "item_id", "label"])
+						assert_true(p.id is String and p.family is String and p.label is String and p.item_id is int)
 		"choice_pending":
 			for c: Dictionary in e.cards:
 				var ck: Array = c.keys()
@@ -82,7 +91,7 @@ func _check(e: Dictionary, seen: Dictionary) -> void:
 				else:
 					for field: String in c.skill_changes:
 						var change: Dictionary = c.skill_changes[field]
-						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent"] or change.size() != 2 \
+						if not field in ["mad", "mastery", "mpCon", "fixdamage", "time", "x", "pdd", "cooltime", "speed", "range", "hp", "max_mp_percent", "mobCount", "damage", "hpCon", "max_hp_per_level", "regen_hp"] or change.size() != 2 \
 								or typeof(change.get("before")) != TYPE_INT or typeof(change.get("after")) != TYPE_INT:
 							fail("card skill change schema %s: %s" % [field, change])
 		"mob_hit":
@@ -228,7 +237,7 @@ func test_every_event_matches_the_schema() -> void:
 	potion.drink_potion("hp")
 	potion.drink_potion("mp")
 	potion.progression.level = 10
-	potion.upgrades.apply("orange_potion", potion)
+	potion.apply_potion_schedule(10, true)
 	for e: Dictionary in potion.drain_events():
 		_check(e, seen)
 	var buff_setup := RF.setup("quiet", 12, RF.quiet_data())
@@ -267,7 +276,7 @@ func test_every_event_matches_the_schema() -> void:
 	teleporter.heal_fraction("mp", 1.0)
 	teleporter.learn_skill("teleport_fp")
 	var blink := MoveInput.new()
-	blink.teleport_pressed = true
+	blink.press_skill("teleport")
 	teleporter.step(DT, blink)
 	for event: Dictionary in teleporter.drain_events():
 		_check(event, seen)
@@ -288,6 +297,22 @@ func test_every_event_matches_the_schema() -> void:
 		"damage_max": 1.0, "crit": 0.0, "crit_mult": 1.5}, -1)
 	for event: Dictionary in eater.drain_events():
 		_check(event, seen)
+	# A synthetic Final Attack (#161) follows a physical line of the held sword with its own event.
+	var final_data := RF.quiet_data()
+	final_data.skills.skills["final_fixture"] = {"skill_id": 9991005, "book": "999", "kind": "passive", "slot": "passive",
+		"name": "Final", "damage": "physical", "ranks": [1], "action": "swingO1", "action_time": 0.0,
+		"final_attack": {"chance_field": "prop"}, "effect": "", "icon": ""}
+	var final_setup := RF.setup("quiet", 161, final_data)
+	final_setup.skill_imgs["999"] = {"skill": {"9991005": {"level": {"1": {"prop": 100, "damage": 200}}}}}
+	var finisher := RunWorld.new(final_setup)
+	RF.place_player(finisher, 400)
+	finisher.learn_skill("final_fixture")
+	var target := RF.put_mob(finisher, 100100, 450, 190, 1000)
+	finisher.hit_mob(target, {"skill": "fixture", "damage_type": "physical", "magic": false, "damage_min": 5.0,
+		"damage_max": 5.0, "crit": 0.0, "crit_mult": 1.5}, -1)
+	finisher.step(DT, MoveInput.new())
+	for event: Dictionary in finisher.drain_events():
+		_check(event, seen)
 	# An equipment drop beside the player with a full Equip tab: spawn, then the inventory-full notice.
 	var full := RF.quiet_world(400, 61)
 	while full.equipment.inventory.size() < full.inventory_slots():
@@ -305,6 +330,25 @@ func test_every_event_matches_the_schema() -> void:
 	assert_eq(scroller.use_scroll(2040400, "top"), "")
 	for event: Dictionary in scroller.drain_events():
 		_check(event, seen)
+	# An Assassin's throwing stars reach the next tier (#155): ammo_upgraded, schema-checked like every event.
+	var thrower := RF.quiet_world()
+	thrower.setup.equipment_info[1472000] = {"incPAD": 10.0, "attackSpeed": 6.0}
+	thrower.equipment.inventory.append(Equipment.create(1472000, {"incPAD": 10.0, "attackSpeed": 6.0}))
+	assert_eq(thrower.equip_item(thrower.equipment.inventory.size() - 1), "")
+	thrower.progression.level = 37
+	thrower.change_job(410)
+	for event: Dictionary in thrower.drain_events():
+		_check(event, seen)
+	# A Gunslinger's Grenade is thrown (#192): skill_thrown, schema-checked like every event.
+	var grenadier := RF.quiet_world()
+	grenadier.change_job(520)
+	grenadier.loadout.order.clear()
+	assert_true(grenadier.learn_skill("grenade"))
+	RF.put_mob(grenadier, 1110100, grenadier.player.pos.x + 200, 190, 1000)
+	for tick in 90:
+		grenadier.step(DT, MoveInput.new())
+	for event: Dictionary in grenadier.drain_events():
+		_check(event, seen)
 	# A job-weapon grant with a full Equip tab is skipped and reported (review fix of #33).
 	var blocked := RF.quiet_world()
 	blocked.setup.equipment_info = {1372005: {"reqJob": 2, "incMAD": 23, "tuc": 7}}
@@ -321,7 +365,40 @@ func test_every_event_matches_the_schema() -> void:
 	PF.put_player(pet_world, 1100.0, 0.0)
 	for event: Dictionary in PF.run(pet_world, 3):
 		_check(event, seen)
+	# #194: a buff cast whose failure chance rolls true (Oak Barrel) emits buff_failed and starts nothing.
+	var failing := RF.quiet_world()
+	assert_false(failing.start_buff("failing", {"skill_id": 5101007, "level": 1, "icon": "", "duration": 4.0,
+		"fail_chance": 1.0}))
+	for event: Dictionary in failing.drain_events():
+		_check(event, seen)
+	# #210: Disorder's recipient art is a status effect, never a fake damaging mob_hit.
+	var disorder := RF.quiet_world()
+	disorder.change_job(400, "dagger")
+	disorder.loadout.order.clear()
+	disorder.learn_skill("disorder")
+	disorder.heal_fraction("mp", 1.0)
+	for dx in [40.0, 80.0, 120.0]:
+		RF.put_mob(disorder, 1110100, disorder.player.pos.x + dx, disorder.player.pos.y)
+	disorder.mob_grid.rebuild(disorder.swarm.x, disorder.swarm.y, disorder.swarm.active)
+	disorder.runner.step(DT, disorder)
+	for event: Dictionary in disorder.drain_events():
+		_check(event, seen)
 	for type: String in RunWorld.EVENT_FIELDS:
+		if type == "ammo_shot":
+			var archer := CF.ranged_final(1452000, 310)
+			var dummy := RF.put_mob(archer, 1110100, 350, 190, 100)
+			archer.hit_mob(dummy, {"skill": "fixture", "damage_type": "physical", "damage_min": 1,
+				"damage_max": 1, "crit": 0, "crit_mult": 1.5}, -1)
+			archer.step(DT, MoveInput.new())
+			for event: Dictionary in archer.drain_events():
+				_check(event, seen)
+		if type == "skill_impact":
+			var blaster := CF.world({"kind": "projectile", "impact_blast": {}})
+			RF.put_mob(blaster, 1110100, 350, 190, 100)
+			for tick in 30:
+				blaster.step(DT, MoveInput.new())
+			for event: Dictionary in blaster.drain_events():
+				_check(event, seen)
 		if type == "mp_short":
 			var short_world := RF.quiet_world()
 			short_world.change_job(200)

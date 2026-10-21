@@ -103,7 +103,64 @@ static func skill_imgs() -> Dictionary:
 			"effect": _anim(10, 100.0, 50, 100), "hit": {"0": _anim(7, 100.0, 50, 60)}, "level": heal_levels},
 	}}
 	b230.skill.merge(support_230.skill)
-	var imgs := {"000": b000, "200": b200, "210": b210, "220": b220, "230": b230}
+	# Warrior book (#163): the original v83 level-1 and top-level values (Skill.wz/100.img), levels between interpolated.
+	var slash_levels := _levels(20, {"hpCon": [8.0, 16.0], "mpCon": [6.0, 14.0], "damage": [72.0, 130.0],
+		"range": [130.0, 150.0], "mobCount": [6.0, 6.0]})
+	var b100 := {"skill": {
+		"1000000": {"icon": _canvas(32, 32), "level": _levels(16, {"hp": [3.0, 50.0]})},
+		"1000001": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [4.0, 40.0], "y": [3.0, 30.0]})},
+		"1001003": {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+			"level": _levels(20, {"time": [75.0, 300.0], "mpCon": [8.0, 15.0], "pdd": [2.0, 40.0]})},
+		"1001004": {"icon": _canvas(32, 32), "hit": {"0": _anim(2, 90.0, 69, 74)}, "effect": _anim(6, 50.0, 164, 156),
+			"CharLevel": {"10": {"hit": {"0": _anim(5, 150.0, 110, 146)}, "effect": _anim(6, 90.0, 228, 215)}},
+			"level": _levels(20, {"mpCon": [4.0, 12.0], "damage": [165.0, 260.0]})},
+		"1001005": {"icon": _canvas(32, 32), "hit": {"0": _anim(2, 70.0, 104, 83), "1": _anim(2, 70.0, 83, 91)},
+			"effect": _anim(5, 90.0, 74, 52),
+			"CharLevel": {"10": {"hit": {"0": _anim(4, 90.0, 95, 126)}, "effect": _anim(5, 90.0, 74, 52)}},
+			"level": slash_levels},
+	}}
+	# #199: independently recorded v83 Bowman endpoints; intermediate rows are synthetic linear interpolation.
+	var bowman := {
+		"3000000": {"level": _levels(16, {"x": [1.0, 16.0]})},
+		"3000001": {"level": _levels(20, {"prop": [12.0, 40.0], "damage": [105.0, 200.0]})},
+		"3000002": {"level": _levels(8, {"range": [15.0, 120.0]})},
+		"3001003": {"level": _levels(20, {"time": [70.0, 300.0], "mpCon": [8.0, 16.0],
+			"acc": [1.0, 20.0], "eva": [1.0, 20.0]})},
+		"3001004": {"level": _levels(20, {"mpCon": [7.0, 14.0], "damage": [190.0, 260.0]})},
+		"3001005": {"level": _levels(20, {"mpCon": [10.0, 16.0], "damage": [92.0, 130.0], "bulletCount": [2.0, 2.0]})},
+	}
+	bowman["3001003"].level["20"].acc = "20"  # tier A: the original Focus max-level field is a string.
+	var imgs := {"000": b000, "100": b100, "200": b200, "210": b210, "220": b220, "230": b230,
+		"300": {"skill": bowman}}
+	# #202: v83 Hunter endpoints; intermediate rows are synthetic linear interpolation, no proprietary art.
+	var bomb_levels := _levels(30, {"mpCon": [14.0, 28.0], "x": [72.0, 130.0], "prop": [31.0, 60.0],
+		"time": [2.0, 6.0], "mobCount": [6.0, 6.0]})
+	for level: String in bomb_levels:
+		var extent := lerpf(130.0, 150.0, float(int(level) - 1) / 29.0)
+		bomb_levels[level].lt = {"$v": [-extent, -100.0]}
+		bomb_levels[level].rb = {"$v": [extent, 100.0]}
+	imgs["310"] = {"skill": {
+		"3100000": {"level": _levels(20, {"mastery": [1.0, 10.0], "x": [1.0, 20.0]})},
+		"3100001": {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})},
+		"3101002": {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
+			"time": [10.0, 200.0], "x": [-2.0, -2.0]})},
+		"3101003": {"level": _levels(20, {"range": [130.0, 150.0], "damage": [105.0, 200.0],
+			"mobCount": [2.0, 6.0], "prop": [13.0, 70.0], "mpCon": [8.0, 15.0]})},
+		"3101005": {"level": bomb_levels},
+	}}
+	# #203: Iron Arrow's independently recorded v83 endpoints, synthetic intermediate rows and art.
+	imgs["320"] = {"skill": {"3201005": {"weapon": 46, "ball": _anim(3, 90.0, 61, 24),
+		"level": _levels(30, {"mpCon": [23.0, 28.0], "damage": [122.0, 180.0], "mobCount": [6.0, 6.0]})}}}
+	imgs["320"].skill["3201003"] = {"weapon": 46, "level": _levels(20, {
+		"mpCon": [8.0, 15.0], "prop": [13.0, 70.0], "mobCount": [2.0, 6.0],
+		"damage": [105.0, 200.0], "range": [130.0, 150.0]})}
+	var crossbow_mastery := {}
+	for lv in range(1, 21):
+		crossbow_mastery[str(lv)] = {"mastery": float(ceili(lv / 2.0)), "x": float(lv)}
+	imgs["320"].skill["3200000"] = {"level": crossbow_mastery}
+	imgs["320"].skill["3200001"] = {"level": _levels(30, {"prop": [2.0, 60.0], "damage": [105.0, 250.0]})}
+	imgs["320"].skill["3201002"] = {"level": _levels(20, {"hpCon": [29.0, 10.0], "mpCon": [29.0, 10.0],
+		"time": [10.0, 200.0], "x": [-2.0, -2.0]})}
 	# Teleport: synthetic intermediate levels between the recorded v83 endpoint facts, shared across branch IDs.
 	for pair: Array in [["210", "2101002"], ["220", "2201002"], ["230", "2301001"]]:
 		if not imgs.has(pair[0]):
@@ -116,7 +173,208 @@ static func skill_imgs() -> Dictionary:
 		if not imgs.has(book):
 			imgs[book] = {"skill": {}}
 		imgs[book].skill[str(job * 10000)] = {"level": _levels(20, {"prop": [11.0, 30.0], "x": [21.0, 40.0]})}
+	# #186: original v83 endpoints, synthetic linear interpolation between them. No proprietary art.
+	# #207: original Thief endpoints; intermediate fixture levels are synthetic interpolation.
+	imgs["400"] = {"skill": {
+		"4000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})},
+		"4001002": {"level": _levels(20, {"mpCon": [5.0, 10.0], "time": [7.0, 60.0],
+			"x": [-1.0, -20.0], "y": [-1.0, -20.0]})}, # synthetic intermediate levels; cache tests check the real table.
+		"4001334": {"weapon": 33, "level": _levels(20, {"mpCon": [8.0, 14.0],
+			"damage": [98.0, 140.0], "attackCount": [2.0, 2.0]})},
+		"4001344": {"weapon": 47, "level": _levels(20, {"mpCon": [8.0, 16.0],
+			"damage": [58.0, 150.0], "bulletCount": [2.0, 2.0]})},
+	}}
+	# #209: synthetic canonical-shaped Keen Eyes levels, +25px per rank (tier A, independently cache-checked).
+	imgs["400"].skill["4000001"] = {"level": _levels(8, {"range": [25.0, 200.0]})}
+	var pirate := {"5000000": {"level": _levels(20, {"x": [1.0, 20.0], "y": [1.0, 20.0]})}}
+	# tier A: Dark Sight's original numeric level table; speed changes step size after level 12.
+	var dark_sight := {}
+	var dark_sight_speed := [-30, -28, -26, -24, -22, -20, -18, -16, -14, -12, -10, -8, -7, -6, -5, -4, -3, -2, -1, 0]
+	for i in 20:
+		dark_sight[str(i + 1)] = {"mpCon": 24 - i, "time": 10 * (i + 1), "speed": dark_sight_speed[i], "x": 1}
+	imgs["400"].skill["4001003"] = {"level": dark_sight}
+	for entry: Array in [["5001001", 6, 14, 156, 270, 1, 1, [-74, -30], [-20, 10]],
+			["5001002", 8, 16, 114, 190, 3, 6, [-81, -71], [-5, 0]]]:
+		var levels := _levels(20, {"mpCon": [float(entry[1]), float(entry[2])],
+			"damage": [float(entry[3]), float(entry[4])], "mobCount": [float(entry[5]), float(entry[6])]})
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": entry[7]}
+			node.rb = {"$v": entry[8]}
+		pirate[entry[0]] = {"level": levels}
+	pirate["5001003"] = {"weapon ": 49, "level": _levels(20, {"mpCon": [4.0, 7.0],
+		"damage": [61.0, 80.0], "bulletCount": [2.0, 2.0], "range": [215.0, 350.0]})}
+	# #188: Dash 5001005's real levels 1-10 as [mpCon, x (speed), y (jump), time] (Skill.wz/500.img).
+	var dash_levels := {}
+	var dash_rows := [[14, 12, 1, 4], [13, 14, 2, 4], [12, 16, 3, 8], [11, 18, 4, 8], [10, 20, 5, 12], [9, 22, 6, 12],
+		[8, 24, 7, 16], [7, 26, 8, 16], [6, 28, 9, 20], [5, 30, 10, 20]]
+	for i in dash_rows.size():
+		var row: Array = dash_rows[i]
+		dash_levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": row[0], "x": row[1], "y": row[2], "time": row[3]}
+	pirate["5001005"] = {"level": dash_levels}
+	imgs["500"] = {"skill": pirate}
+	# #189: the Brawler's and Gunslinger's passives and boosters, original v83 values (Skill.wz/510.img, 520.img): Improve
+	# MaxHP x 3..30; masteries N = ceil(level / 2) and x = level (Gun Mastery also has y = 10 * level, unused here);
+	# boosters x -2, time 10..200 s, hpCon and mpCon 29..10.
+	var mastery := func(with_y: bool) -> Dictionary:
+		var levels := _levels(20, {"x": [1.0, 20.0]})
+		for lv in range(1, 21):
+			levels[str(lv)].mastery = float(ceili(lv / 2.0))
+			if with_y:
+				levels[str(lv)].y = float(10 * lv)
+		return levels
+	var booster_levels := _levels(20, {"time": [10.0, 200.0], "mpCon": [29.0, 10.0], "hpCon": [29.0, 10.0],
+		"x": [-2.0, -2.0]})
+	# #191: the Brawler's attacks, original v83 tables (Skill.wz/510.img 5101002-5101004): the stepwise mpCon pairs/fives/fours,
+	# Backspin's box (0,-50)..(140,0) behind the facing, Double Uppercut's string-typed attackCount/time without a box, and
+	# Corkscrew's reach lt.x -100..-200 (two levels per 10 px, then 190 and 200).
+	var backspin_levels := {}
+	var uppercut_levels := {}
+	var corkscrew_levels := {}
+	for lv in range(1, 21):
+		backspin_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 12.0 + 2.0 * floorf((lv - 1) / 2.0), "damage": 80.0 + 8.0 * lv,
+			"time": 1.0, "lt": {"$v": [0.0, -50.0]}, "rb": {"$v": [140.0, 0.0]}, "mobCount": 3.0}
+		uppercut_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 15.0 + 5.0 * floorf((lv - 1) / 5.0), "damage": 90.0 + 10.0 * lv,
+			"attackCount": "2", "time": "1"}
+		var reach := 200.0 if lv == 20 else 100.0 + 10.0 * floorf((lv - 1) / 2.0)
+		corkscrew_levels[str(lv)] = {"hs": "h%d" % lv, "mpCon": 20.0 + 4.0 * floorf((lv - 1) / 4.0), "damage": 120.0 + 15.0 * lv,
+			"mobCount": 3.0, "lt": {"$v": [-reach, -50.0]}, "rb": {"$v": [0.0, 0.0]}}
+	imgs["510"] = {"skill": {
+		# #193: Brawler MP Recovery 5101005, original endpoints (x 10, y 55 -> 100, cooltime 70 -> 25), linear between.
+		"5101005": {"level": _levels(10, {"x": [10.0, 10.0], "y": [55.0, 100.0], "cooltime": [70.0, 25.0]})},
+		"5100000": {"icon": _canvas(32, 32), "level": _levels(10, {"x": [3.0, 30.0], "y": [2.0, 20.0]})},
+		"5100001": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(false)},
+		"5101006": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)},
+		"5101002": {"icon": _canvas(32, 32), "action": {"0": "backspin"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18), "level": backspin_levels},
+		"5101003": {"icon": _canvas(32, 32), "action": {"0": "doubleupper"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40), "1": _anim(3, 60.0, 40, 40)}, "mob": _anim(3, 100.0, 66, 18),
+			"level": uppercut_levels},
+		"5101004": {"icon": _canvas(32, 32), "action": {"0": "screw"}, "effect": _anim(4, 90.0, 80, 60),
+			"hit": {"0": _anim(3, 60.0, 40, 40)}, "level": corkscrew_levels}}}
+	imgs["520"] = {"skill": {
+		"5200000": {"icon": _canvas(32, 32), "skillType": 1, "level": mastery.call(true)},
+		"5201003": {"icon": _canvas(32, 32), "skillType": 2, "action": {"0": "alert2"},
+			"effect": _anim(4, 90.0, 60, 40), "level": booster_levels.duplicate(true)}}}
+	# #192: the Gunslinger attacks, original v83 endpoints (Skill.wz/520.img), linear between: Invisible Shot 5201001 (mpCon
+	# 10-25, damage 75-170, 3 mobs, box (-250,-80)..(-10,40)), Grenade 5201002 (mpCon 15-27, damage 45-140, mobCount 3-6,
+	# blast box (-50,-50)..(50,20)), Blank Shot 5201004 (mpCon 10-25, damage 63-120, prop 43-100, time 1-4, box
+	# (-250,-80)..(-20,30)) and Recoil Shot 5201006 (mpCon 14-26, damage 70-260, recoil range 115-250). The gun ones carry
+	# the WZ weapon code 49.
+	var boxed := func(fields: Dictionary, lt: Array, rb: Array) -> Dictionary:
+		var levels := _levels(20, fields)
+		for node: Dictionary in levels.values():
+			node.lt = {"$v": lt}
+			node.rb = {"$v": rb}
+		return levels
+	imgs["520"].skill["5201001"] = {"weapon": 49, "icon": _canvas(32, 32), "hit": {"0": _anim(4, 60.0, 50, 50)},
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [75.0, 170.0], "mobCount": [3.0, 3.0]}, [-250, -80], [-10, 40])}
+	imgs["520"].skill["5201002"] = {"icon": _canvas(32, 32), "ball": _anim(8, 30.0, 31, 31), "special": _anim(4, 120.0, 100, 80),
+		"hit": {"0": _anim(4, 120.0, 50, 50)},
+		"level": boxed.call({"mpCon": [15.0, 27.0], "damage": [45.0, 140.0], "mobCount": [3.0, 6.0]}, [-50, -50], [50, 20])}
+	imgs["520"].skill["5201004"] = {"weapon": 49, "action": {"0": "fake"}, "icon": _canvas(32, 32),
+		"hit": {"0": _anim(4, 120.0, 50, 50)}, "effect": _anim(4, 90.0, 60, 40),
+		"level": boxed.call({"mpCon": [10.0, 25.0], "damage": [63.0, 120.0], "prop": [43.0, 100.0], "time": [1.0, 4.0],
+			"mobCount": [3.0, 3.0]}, [-250, -80], [-20, 30])}
+	imgs["520"].skill["5201006"] = {"weapon": 49, "action": {"0": "backstep"}, "icon": _canvas(32, 32),
+		"effect": _anim(4, 120.0, 100, 100),
+		"level": _levels(20, {"mpCon": [14.0, 26.0], "damage": [70.0, 260.0], "range": [115.0, 250.0]})}
+	# #194: Oak Barrel 5101007, the v83 level values; the other second-job skills of the line add their own entries.
+	imgs["510"].skill["5101007"] = oak_barrel_skill()
+	# Warrior second job (spec #165): one block per ticket, in ticket order.
+	for book: String in ["110", "120", "130"]:
+		imgs[book] = {"skill": {}}
+	_warrior_weapon_skill_imgs(imgs) # #181
+	# Page Threaten (#183): the v83 endpoints of Skill.wz/120.img (x = y = -1..-20, time 44..120, mpCon 12/20 with the
+	# L11 step, six targets, the box widening at L11); levels between are interpolated. The node has no prop.
+	var threaten_levels := _levels(20, {"mpCon": [12.0, 20.0], "time": [44.0, 120.0], "x": [-1.0, -20.0],
+		"y": [-1.0, -20.0], "mobCount": [6.0, 6.0]})
+	for level: String in threaten_levels:
+		var wide := int(level) > 10
+		threaten_levels[level].lt = {"$v": [-300.0 if wide else -250.0, -200.0 if wide else -150.0]}
+		threaten_levels[level].rb = {"$v": [300.0 if wide else 250.0, 200.0 if wide else 150.0]}
+	imgs["120"].skill["1201006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(7, 100.0, 86, 160),
+		"mob": _anim(8, 70.0, 30, 17).merged({"pos": 2.0, "repeat": 1.0}), "level": threaten_levels}
+	# Warrior second job, Rage and Power Guard (#182): the v83 level-1 and top-level values, levels between interpolated.
+	for pair: Array in [["110", "1101006", 20, {"mpCon": [12.0, 20.0], "time": [46.0, 160.0], "pad": [3.0, 12.0], "pdd": [-3.0, -12.0]}],
+			["110", "1101007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}],
+			["120", "1201007", 30, {"mpCon": [15.0, 30.0], "x": [11.0, 40.0], "time": [3.0, 90.0]}]]:
+		imgs[pair[0]].skill[pair[1]] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "level": _levels(pair[2], pair[3])}
+	# Spearman buffs (#184): the v83 level-1 and top-level values of Iron Will and Hyper Body, levels between interpolated.
+	imgs["130"].skill["1301006"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(16, 90.0, 60, 90),
+		"level": _levels(20, {"time": [15.0, 300.0], "mpCon": [12.0, 24.0], "pdd": [1.0, 20.0], "mdd": [1.0, 20.0]})}
+	imgs["130"].skill["1301007"] = {"icon": _canvas(32, 32), "action": {"0": "alert2"}, "effect": _anim(11, 90.0, 60, 90),
+		"level": _levels(30, {"time": [10.0, 300.0], "mpCon": [20.0, 60.0], "x": [2.0, 60.0], "y": [2.0, 60.0]})}
+	# #212: v83 Thief branch mastery and critical endpoints; synthetic art, exact mastery steps.
+	imgs["410"] = {"skill": {"4100000": {"level": mastery.call(true)},
+		"4100001": {"level": _levels(30, {"prop": [21.0, 50.0], "damage": [113.0, 200.0]})}}}
+	imgs["420"] = {"skill": {"4200000": {"level": mastery.call(false)}}}
+	for entry: Array in [["410", "4101003", "4101004"], ["420", "4201002", "4201003"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": booster_levels.duplicate(true)}
+		var haste := _levels(20, {"time": [10.0, 200.0], "speed": [2.0, 40.0], "jump": [1.0, 20.0]})
+		for lv in range(1, 21):
+			haste[str(lv)].mpCon = 15.0 if lv <= 10 else 30.0
+		imgs[entry[0]].skill[entry[2]] = {"level": haste}
+	for entry: Array in [["410", "4100002"], ["420", "4200001"]]:
+		imgs[entry[0]].skill[entry[1]] = {"level": _levels(20, {"time": [29.0, 10.0], "hp": [3.0, 60.0], "mp": [1.0, 20.0]})}
+	# #213: canonical Drain levels (tier A); no canonical ball, hit or action node.
+	var drain_levels := _levels(30, {"x": [16.0, 45.0], "damage": [102.0, 160.0]})
+	for lv in range(1, 31):
+		drain_levels[str(lv)].mpCon = 12.0 if lv <= 15 else 24.0
+	imgs["410"].skill["4101005"] = {"weapon": 47.0, "level": drain_levels}
+	# #214: exact v83 Savage Blow steps; synthetic art, no decoded assets.
+	var savage := {}
+	var savage_damage := [40,44,48,52,56,60,64,68,72,74,60,62,64,66,68,70,72,74,76,78,71,72,73,74,75,76,77,78,79,80]
+	for lv in range(1, 31):
+		savage[str(lv)] = {"mpCon": 15 if lv <= 10 else 18 if lv <= 20 else 27,
+			"damage": savage_damage[lv - 1], "attackCount": 4 if lv <= 10 else 5 if lv <= 20 else 6}
+	imgs["420"].skill["4201005"] = {"weapon": 33, "action": {"0": "savage"}, "level": savage}
+	# #214: exact v83 Steal values, including its rank-16 MP step; no weapon requirement.
+	var steal := {}
+	for lv in range(1, 31):
+		steal[str(lv)] = {"mpCon": 12 if lv <= 15 else 24, "damage": 40 + 2 * lv, "prop": 10 + lv}
+	imgs["420"].skill["4201004"] = {"action": "swingO2", "level": steal}
 	return imgs
+
+
+## Skill.wz/510.img/skill/5101007 (Oak Barrel): the v83 level values (tier A, read from the owner's files), synthetic art.
+static func oak_barrel_skill() -> Dictionary:
+	var mp := [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+	var time := [12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+	var prop := [37, 34, 31, 28, 25, 22, 19, 16, 13, 10]
+	var cooltime := [35, 35, 30, 30, 25, 25, 20, 20, 15, 15]
+	var levels := {}
+	for i in 10:
+		levels[str(i + 1)] = {"hs": "h%d" % (i + 1), "mpCon": float(mp[i]), "time": float(time[i]),
+			"prop": float(prop[i]), "cooltime": float(cooltime[i]), "morph": 1002.0}
+	return {"icon": _canvas(32, 32), "effect": _anim(10, 90.0, 60, 80), "affected": _anim(5, 150.0, 100, 90),
+		"level": levels}
+
+
+## Spec #165 ticket #181: the Warrior second-job Masteries, Final Attacks and Boosters (books 110, 120, 130). The level
+## tables are the exact v83 formulas read from Skill.wz (mastery step ceil(level / 2) with accuracy x = level; Final
+## Attack prop 2 x level and damage 100 + 5 x level; Booster hpCon = mpCon = 30 - level, time 10 x level, x -2); only
+## the art is synthetic.
+static func _warrior_weapon_skill_imgs(imgs: Dictionary) -> void:
+	for book: String in ["110", "120", "130"]:
+		var base := int(book) * 10000
+		var skills: Dictionary = imgs[book].skill
+		for offset: int in [0, 1]:
+			var mastery := {}
+			for lv in range(1, 21):
+				mastery[str(lv)] = {"hs": "h%d" % lv, "mastery": float(ceili(lv / 2.0)), "x": float(lv)}
+			skills[str(base + offset)] = {"icon": _canvas(32, 32), "level": mastery}
+			var final := {}
+			for lv in range(1, 31):
+				final[str(lv)] = {"hs": "h%d" % lv, "prop": float(2 * lv), "damage": float(100 + 5 * lv)}
+			skills[str(base + 2 + offset)] = {"icon": _canvas(32, 32), "hit": {"0": _anim(3, 90.0, 167, 92)},
+				"level": final}
+			var booster := {}
+			for lv in range(1, 21):
+				booster[str(lv)] = {"hs": "h%d" % lv, "hpCon": float(30 - lv), "mpCon": float(30 - lv),
+					"time": float(10 * lv), "x": -2.0}
+			skills[str(base + 1004 + offset)] = {"icon": _canvas(32, 32), "action": {"0": "alert2"},
+				"effect": _anim(9, 90.0, 44, 12), "level": booster}
 
 
 ## Canonical info rows of the stage mobs (cosmic-data.md section 6).
@@ -237,12 +495,27 @@ static func setup(stage := "henesys_hg1", p_seed := 12345, data: Dictionary = {}
 			1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0}},
 		# Synthetic item nodes with independently verified v83 restore amounts.
 		"item_info": {2000000: {"spec": {"hp": 50}}, 2000001: {"spec": {"hp": 150}},
-			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}}},
+			2000002: {"spec": {"hp": 300}}, 2000003: {"spec": {"mp": 100}}, 2000006: {"spec": {"mp": 300}},
+			2022003: {"spec": {"hp": 1000}}, 2022000: {"spec": {"mp": 800}},
+			2001001: {"spec": {"hp": 2000}}, 2001002: {"spec": {"mp": 2000}}},
+		"ammo_info": ammo_info(),
 		"data": data if not data.is_empty() else DataRepo.load_all(),
 		"stage": stage,
 		"seed": p_seed,
 		"view_size": Vector2(800, 600),
 	}
+
+
+## The ammo items of survivor/ammo.json as setup.ammo_info carries them ({id: {incPAD}}): the v83 Item.wz values, written
+## out so tests do not need the asset cache.
+static func ammo_info() -> Dictionary:
+	var pads := {2070015: 15, 2070001: 17, 2070002: 19, 2070003: 21, 2070004: 23, 2070005: 25, 2070006: 27,
+		2060000: 0, 2060001: 1, 2060002: 2, 2060003: 4, 2061000: 0, 2061001: 1, 2061002: 2, 2061003: 4,
+		2330000: 10, 2330001: 12, 2330002: 14}
+	var out := {}
+	for id: int in pads:
+		out[id] = {"incPAD": pads[id]}
+	return out
 
 
 ## Level nodes 1..n; fields maps name -> [value at level 1, value at level n] (linear in between, rounded).
@@ -280,6 +553,20 @@ static func bot_input(w: RunWorld, memo: Dictionary) -> MoveInput:
 	return BotInput.decide(w, memo)
 
 
+## The job id the bot would take from window `options` (BotInput.pick_choice's job_id; -1 = "Not now").
+static func pick_job(options: Array, rng: RandomNumberGenerator = null, forced := 0, jobs: JobTree = null,
+		forced_path := "") -> int:
+	return int(BotInput.pick_choice(options, rng, forced, jobs, forced_path).job_id)
+
+
+## Basic-attack bounds after level gap and live PDD, for the examples that predate the physical hit path (LUK 0):
+## the physical weapon bounds of the stance `action`, then CombatMath.physical_defense.
+static func physical_bounds(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
+		player_level: int, mob_level: int, pdd: float) -> Vector2:
+	return CombatMath.physical_defense(CombatMath.physical_damage_range(str_stat, dex_stat, 0.0, watk, weapon_id,
+		WeaponInfo.attack_kind(action)), player_level, mob_level, pdd)
+
+
 ## Resolves an open window like BotInput: the first available job (else "Not now") and BotInput.pick_card_for's card.
 static func auto_choose(w: RunWorld) -> void:
 	BotInput.auto_choose(w)
@@ -290,14 +577,20 @@ static func auto_choose(w: RunWorld) -> void:
 static func with_basic_attack(setup: Dictionary) -> Dictionary:
 	setup.equipment_info = {
 		1302000: {"incPAD": 17.0, "attackSpeed": 4.0, "afterImage": "swordOL", "sfx": "swordL"},
-		1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0, "afterImage": "mace", "sfx": "mace"}}
+		1372005: {"incPAD": 15.0, "incMAD": 23.0, "attackSpeed": 6.0, "afterImage": "mace", "sfx": "mace"},
+		# The Warrior's Lv 10 grants (spec #151 owner change): the Beginner Warrior's sword is worn, the spear and the
+		# Steel Pipe wait in the Equip tab.
+		1302077: {"reqJob": 1, "reqLevel": 10, "reqSTR": 35, "incPAD": 30.0, "attackSpeed": 4.0, "afterImage": "swordOS",
+			"sfx": "swordS"},
+		1432000: {"reqJob": 13, "reqLevel": 10, "incPAD": 32.0, "attackSpeed": 8.0, "afterImage": "spear", "sfx": "spear"},
+		1322006: {"reqJob": 0, "reqLevel": 10, "incPAD": 29.0, "attackSpeed": 5.0, "afterImage": "mace", "sfx": "mace"}}
 	setup.body_img = {}
 	var images := {"0": {}}
 	for action: String in BasicAttack.ACTIONS:
 		setup.body_img[action] = {"0": {"delay": 300.0}, "1": {"delay": 150.0}, "2": {"delay": 350.0}}
 		images["0"][action] = {"lt": {"$v": [-88.0, -62.0]}, "rb": {"$v": [-18.0, -6.0]},
 			"2": {"0": {"$canvas": [0, 0, 0, 40, 30], "delay": 200.0}}}
-	setup.afterimage_imgs = {"swordOL": images, "mace": images}
+	setup.afterimage_imgs = {"swordOL": images, "swordOS": images, "spear": images, "mace": images}
 	return setup
 
 

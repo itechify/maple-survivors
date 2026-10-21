@@ -20,7 +20,43 @@ const INFO := {
 	1372000: {"reqLevel": 38, "reqJob": 2, "incPAD": 33, "incMAD": 53, "tuc": 7}, # Fairy Wand
 	1382019: {"reqLevel": 40, "reqJob": 2, "incPAD": 38, "incMAD": 55, "tuc": 7}, # staff
 }
-const RULES := {"below": 10, "above": 5, "falloff": 0.25, "boss_top": 5}
+const RULES := {"below": 10, "above": 5, "falloff": 0.25, "boss_top": 5, "shared_families": [["wand", "staff"]]}
+
+
+## Shield eligibility follows a data rule for any job line, including boss fallback outside the level window.
+func test_shield_families_are_configurable_per_job_line() -> void:
+	var rules := RULES.duplicate(true)
+	rules.shield_families = {"200": ["sword"]}
+	var infos := {1092000: {"reqJob": 0, "reqLevel": 20}}
+	for job in [200, 210, 230]:
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "wand"), [])
+		assert_eq(EquipmentDrops.eligible([1092000], infos, job, 20, rules, "sword"), [1092000])
+		assert_eq(EquipmentDrops.pick_boss([1092000], infos, job, 70, rules, _rng(167), "wand"), 0)
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 100, 20, rules, "axe"), [1092000],
+		"unlisted job lines retain unrestricted shield drops")
+	assert_eq(EquipmentDrops.eligible([1092000], infos, 400, 20, rules, "claw"), [1092000],
+		"no job line has an implicit code-only restriction")
+
+
+## Frozen pre-review selector records cover ordinary/boss picks and the following RNG draw.
+func test_seeded_drop_records_stay_identical() -> void:
+	var rules: Dictionary = DataRepo.load_all().equipment_drops
+	var infos := {
+		1002001: {"reqJob": 0, "reqLevel": 10},
+		1092018: {"reqJob": 8, "reqLevel": 22},
+		1332000: {"reqJob": 8, "reqLevel": 10},
+		1472000: {"reqJob": 8, "reqLevel": 10},
+		1092000: {"reqJob": 0, "reqLevel": 20},
+	}
+	var records := []
+	var rng := _rng(167)
+	for job in [0, 100, 200, 400, 410, 420, 430, 500]:
+		for family: String in ["", "sword", "wand", "dagger", "claw", "knuckle"]:
+			for level in [10, 22, 70]:
+				for roll in 8:
+					records.append([EquipmentDrops.pick(infos.keys(), infos, job, level, rules, rng, family),
+						EquipmentDrops.pick_boss(infos.keys(), infos, job, level, rules, rng, family), rng.randi()])
+	assert_eq(JSON.stringify(records).sha256_text(), "f27e3d9f0eeb5377fa67f8487990bd848f1b142293b65222e89ef59225f34d62")
 
 
 func _rng(p_seed: int) -> RandomNumberGenerator:
@@ -107,40 +143,40 @@ func test_create_drop_is_deterministic_per_seed() -> void:
 # --- job and level filters ---
 
 func test_a_beginner_only_gets_all_job_items_and_a_magician_both() -> void:
-	var beginner := EquipmentDrops.eligible(_ids(), INFO, 0, 8, RULES)
+	var beginner := EquipmentDrops.eligible(_ids(), INFO, 0, 8, RULES, "wand")
 	for id: int in beginner:
 		assert_eq(int(INFO[id].reqJob), 0, "%d is for every job" % id)
 	assert_true(1372005 in beginner and 1002001 in beginner and 1040002 in beginner)
 	assert_false(1002017 in beginner, "a Magician hat never drops for a Beginner")
-	var magician := EquipmentDrops.eligible(_ids(), INFO, 200, 12, RULES)
+	var magician := EquipmentDrops.eligible(_ids(), INFO, 200, 12, RULES, "wand")
 	assert_true(1002017 in magician and 1372005 in magician and 1072006 in magician, "Magician and all-job")
 	for job in [210, 220, 230, 211, 232]:
-		assert_true(1002017 in EquipmentDrops.eligible(_ids(), INFO, job, 12, RULES), "job %d wears Magician gear" % job)
-	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 100, 12, RULES), "a Warrior line is not playable and not eligible")
+		assert_true(1002017 in EquipmentDrops.eligible(_ids(), INFO, job, 12, RULES, "wand"), "job %d wears Magician gear" % job)
+	assert_false(1002017 in EquipmentDrops.eligible(_ids(), INFO, 100, 12, RULES, "wand"), "a Warrior line is not playable and not eligible")
 
 
 func test_the_level_window_is_ten_below_to_five_above() -> void:
-	var at_30 := EquipmentDrops.eligible(_ids(), INFO, 200, 30, RULES)
+	var at_30 := EquipmentDrops.eligible(_ids(), INFO, 200, 30, RULES, "wand")
 	assert_eq(at_30, [1050001, 1372004], "reqLevel 20..35 for level 30: the overall (23) and the Ice Wand (23)")
-	var edge_low := EquipmentDrops.eligible(_ids(), INFO, 200, 33, RULES)
+	var edge_low := EquipmentDrops.eligible(_ids(), INFO, 200, 33, RULES, "wand")
 	assert_true(1050001 in edge_low, "exactly 10 below (23) is inside")
-	var edge_out := EquipmentDrops.eligible(_ids(), INFO, 200, 34, RULES)
+	var edge_out := EquipmentDrops.eligible(_ids(), INFO, 200, 34, RULES, "wand")
 	assert_false(1050001 in edge_out, "11 below is outside")
-	var edge_high := EquipmentDrops.eligible(_ids(), INFO, 200, 35, RULES)
+	var edge_high := EquipmentDrops.eligible(_ids(), INFO, 200, 35, RULES, "wand")
 	assert_true(1372000 in edge_high, "exactly 3 above is inside")
-	assert_true(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, 35, RULES), "exactly 5 above (40) is inside")
-	assert_false(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, 34, RULES), "6 above is outside")
+	assert_true(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, 35, RULES, "wand"), "exactly 5 above (40) is inside")
+	assert_false(1382019 in EquipmentDrops.eligible(_ids(), INFO, 200, 34, RULES, "wand"), "6 above is outside")
 
 
 func test_items_missing_from_the_info_table_never_drop() -> void:
-	assert_eq(EquipmentDrops.eligible([1372005, 9999999], {1372005: INFO[1372005]}, 0, 8, RULES), [1372005])
+	assert_eq(EquipmentDrops.eligible([1372005, 9999999], {1372005: INFO[1372005]}, 0, 8, RULES, "wand"), [1372005])
 
 
 func test_nearer_items_are_likelier() -> void:
 	var rng := _rng(5)
 	var counts := {}
 	for i in 4000:
-		var id := EquipmentDrops.pick(_ids(), INFO, 200, 20, RULES, rng)
+		var id := EquipmentDrops.pick(_ids(), INFO, 200, 20, RULES, rng, "wand")
 		counts[id] = int(counts.get(id, 0)) + 1
 	# level 20: 1002017 (10, d=-10), 1072006 (10), 1082019 (15), 1050001 (23, d=+3), 1372005 (8, out), 1372004 (23)
 	assert_true(counts[1050001] > counts[1002017], "+3 away beats -10 away")
@@ -150,14 +186,14 @@ func test_nearer_items_are_likelier() -> void:
 
 
 func test_pick_returns_nothing_for_an_empty_window_and_is_deterministic() -> void:
-	assert_eq(EquipmentDrops.pick(_ids(), INFO, 0, 60, RULES, _rng(1)), 0, "nothing for a level-60 Beginner")
+	assert_eq(EquipmentDrops.pick(_ids(), INFO, 0, 60, RULES, _rng(1), "wand"), 0, "nothing for a level-60 Beginner")
 	var a: Array = []
 	var b: Array = []
 	var ra := _rng(9)
 	var rb := _rng(9)
 	for i in 50:
-		a.append(EquipmentDrops.pick(_ids(), INFO, 200, 25, RULES, ra))
-		b.append(EquipmentDrops.pick(_ids(), INFO, 200, 25, RULES, rb))
+		a.append(EquipmentDrops.pick(_ids(), INFO, 200, 25, RULES, ra, "wand"))
+		b.append(EquipmentDrops.pick(_ids(), INFO, 200, 25, RULES, rb, "wand"))
 	assert_eq(a, b)
 
 
@@ -167,7 +203,7 @@ func test_a_boss_item_comes_from_the_top_of_the_window() -> void:
 	var rng := _rng(6)
 	var seen := {}
 	for i in 300:
-		seen[EquipmentDrops.pick_boss(_ids(), INFO, 200, 20, RULES, rng)] = true
+		seen[EquipmentDrops.pick_boss(_ids(), INFO, 200, 20, RULES, rng, "wand")] = true
 	# level 20: window 10..25, top = reqLevel 20..25: only the reqLevel 23 items (overall, Ice Wand).
 	var got := seen.keys()
 	got.sort()
@@ -176,13 +212,13 @@ func test_a_boss_item_comes_from_the_top_of_the_window() -> void:
 
 func test_a_boss_falls_back_to_the_highest_item_in_the_window_then_the_nearest_item() -> void:
 	# level 12, top band 12..17: only Gloves (15) of the window 2..17 sit there? hats at 10 are below: gloves only.
-	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 200, 12, RULES, _rng(1)), 1082019)
+	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 200, 12, RULES, _rng(1), "wand"), 1082019)
 	# a custom band with nothing in it: the highest reqLevel in the window wins (15 gloves, not the level-10 items)
 	var narrow := {"below": 10, "above": 5, "falloff": 0.25, "boss_top": 0}
-	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 200, 12, narrow, _rng(1)), 1082019)
+	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 200, 12, narrow, _rng(1), "wand"), 1082019)
 	# nothing in the window at all (Beginner Lv 60): the nearest eligible item by level (Wooden Wand, level 8)
-	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 0, 60, RULES, _rng(1)), 1372005)
-	assert_eq(EquipmentDrops.pick_boss([], INFO, 0, 60, RULES, _rng(1)), 0, "no list, no item")
+	assert_eq(EquipmentDrops.pick_boss(_ids(), INFO, 0, 60, RULES, _rng(1), "wand"), 1372005)
+	assert_eq(EquipmentDrops.pick_boss([], INFO, 0, 60, RULES, _rng(1), "wand"), 0, "no list, no item")
 
 
 # --- survivor data ---
@@ -201,7 +237,8 @@ func test_the_shipped_list_is_ids_only_and_every_item_is_a_wearable_slot() -> vo
 		var slot := Equipment.slot_of(id)
 		assert_true(slot != "", "%d has an equip slot" % id)
 		if slot == "weapon":
-			assert_true(id / 10000 in [137, 138], "only wands and staves, not %d" % id)
+			assert_true(id / 10000 in [137, 138, 130, 131, 132, 133, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149],
+				"only Magician, Warrior, Bowman, Thief and Pirate weapon families, not %d" % id)
 	for must: int in [1372005, 1372006, 1372004, 1372003, 1372000, 1372007, 1372014, 1372015, 1382000, 1382002,
 			1382019, 1382001, 1382006, 1382007, 1002017, 1002102, 1002016, 1002064, 1002141, 1002151, 1002215,
 			1002242, 1050008, 1050001, 1050026, 1050002, 1050035, 1050045, 1050053, 1050067, 1072006, 1072136,
@@ -229,17 +266,18 @@ func test_every_listed_item_has_cache_info_and_an_icon_and_every_level_has_drops
 		var info: Dictionary = img.root.info
 		infos[id] = info
 		assert_true(int(info.get("reqLevel", -1)) >= 0 and int(info.reqLevel) <= 70, "%d reqLevel 0..70" % id)
-		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 2 != 0, "%d is all-job or Magician" % id)
+		assert_true(int(info.get("reqJob", -1)) == 0 or int(info.reqJob) & 31 != 0,
+			"%d is all-job, Magician, Warrior, Bowman, Thief or Pirate" % id)
 		assert_eq(int(info.get("cash", 0)), 0, "%d is not a cash item" % id)
 		assert_true(lib.frame(AvatarRenderer.part_img_path(id) + "/info/iconRaw") != null, "%d has iconRaw" % id)
 	var rng := _rng(8)
 	for level in range(10, 71):
-		assert_true(EquipmentDrops.eligible(ed.items, infos, 200, level, ed).size() > 0, "a Magician of level %d can get drops" % level)
-		var boss := EquipmentDrops.pick_boss(ed.items, infos, 200, level, ed, rng)
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 200, level, ed, "wand").size() > 0, "a Magician of level %d can get drops" % level)
+		var boss := EquipmentDrops.pick_boss(ed.items, infos, 200, level, ed, rng, "wand")
 		assert_true(boss > 0, "a boss drop exists at level %d" % level)
 		assert_true(int(infos[boss].reqLevel) >= level - 10, "and it is not far below: %d at %d" % [boss, level])
 	for level in range(1, 10):
-		assert_true(EquipmentDrops.eligible(ed.items, infos, 0, level, ed).size() > 0, "a Beginner of level %d can get drops" % level)
+		assert_true(EquipmentDrops.eligible(ed.items, infos, 0, level, ed, "wand").size() > 0, "a Beginner of level %d can get drops" % level)
 	assert_eq(lib.missing.size(), 0, "%s" % [lib.missing])
 
 
@@ -423,9 +461,9 @@ func test_kills_drop_only_what_the_current_job_can_wear_inside_the_level_window(
 	var ids := {}
 	for e: Dictionary in _equip_spawns(beginner.drain_events()):
 		ids[int(e.item_id)] = true
-	assert_eq(ids.keys().size(), 3, "level 8 Beginner: the wand (8) and the two level-0 items, all-job")
+	assert_eq(ids.keys().size(), 2, "level 8 Beginner: the two level-0 items, all-job (the creation sword is held, so no wand)")
 	for id: int in ids:
-		assert_true(id in [1372005, 1002001, 1040002], "%d is an all-job item in 0..13" % id)
+		assert_true(id in [1002001, 1040002], "%d is an all-job item in 0..13" % id)
 	var magician := _world(1.0, 12, 200)
 	magician.drain_events()
 	for i in 120:

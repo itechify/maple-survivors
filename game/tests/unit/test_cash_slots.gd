@@ -64,8 +64,7 @@ func test_seed_items_use_the_real_commodity_prices_and_prerequisites() -> void:
 		assert_eq(catalog.price_of(upgrade), 1800)
 	assert_eq(catalog.kind_of(9990000), "pet_upgrade", "VAC is a survivor-only pet upgrade")
 	assert_eq(catalog.price_of(9990000), 20000)
-	assert_eq(catalog.item(9990000).desc, "Your pet pulls every drop on the map to itself. While a pet with VAC is out, "
-		+ "the Magnet card is no longer offered.")
+	assert_eq(catalog.item(9990000).desc, "Your pet pulls every drop on the map to itself.")
 	assert_false(catalog.prerequisites_met(1812002, []), "an upgrade needs an owned pet")
 	assert_true(catalog.prerequisites_met(1812002, [5000001]))
 	assert_false(catalog.prerequisites_met(9990000, [5000000, 1812004]), "VAC needs Wing Boots and Binocular")

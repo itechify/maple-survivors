@@ -14,7 +14,7 @@ func _level_to(w: RunWorld, target: int) -> void:
 		if int(w.player_state.level) == target:
 			break
 	assert_eq(int(w.player_state.level), target, "EXP was collected through the run")
-	RF.auto_choose(w)
+	BotInput.auto_choose(w, false, 200) # these tests are about the Magician line: force it at the Lv 10 window
 
 
 func test_beginner_ap_and_magician_redistribution() -> void:

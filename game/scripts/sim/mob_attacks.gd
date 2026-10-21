@@ -103,6 +103,17 @@ func wait_left(slot: int) -> float:
 	return _wait[slot] if slot < _wait.size() else NAN
 
 
+## Cancels an ordinary mob's pending attack before impact, releasing its stance but preserving its next-attack wait.
+## An attack already at impact (including a launched ball) is never undone.
+func interrupt(world: RunWorld, slot: int) -> void:
+	var pending: Dictionary = _pending.get(slot, {})
+	if pending.is_empty() or bool(pending.impact_done) or not world.swarm.is_live(slot) \
+			or world.swarm.identity[slot] != int(pending.identity):
+		return
+	_pending.erase(slot)
+	world.mob_actions.reset_slot(slot)
+
+
 ## Advances pending windups, then starts the next attack of every ordinary mob that is ready, grounded, fully
 ## visible, on screen, not busy and has the character in an attack's canonical range.
 func step(world: RunWorld, dt: float) -> void:
@@ -116,7 +127,9 @@ func step(world: RunWorld, dt: float) -> void:
 			continue
 		if service(pending, world):
 			_pending.erase(slot)
-	if world.state != RunWorld.PLAYING:
+	# Hidden (#194): no ordinary mob starts an attack (waits do not run down either); windups already begun still play
+	# out their phases but land nothing (_impact).
+	if world.state != RunWorld.PLAYING or world.is_hidden():
 		return
 	var now := world.time
 	var view := world.view
@@ -134,7 +147,8 @@ func step(world: RunWorld, dt: float) -> void:
 		if active[slot] == 0 or _kind_attacks[kinds[slot]] == 0 or boss[slot] >= 0:
 			continue
 		# MobSwarm.can_act and Rect2.has_point(swarm.pos(slot)), inlined: this loop runs for every attacker on screen.
-		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0:
+		if alpha[slot] < 1.0 or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.FREEZE] > 0.0 \
+				or status[slot * MobSwarm.STATUS_COUNT + MobSwarm.STUN] > 0.0:
 			continue
 		if xs[slot] < view_pos.x or ys[slot] < view_pos.y or xs[slot] >= view_end.x or ys[slot] >= view_end.y:
 			continue
@@ -171,7 +185,7 @@ static func plan(world: RunWorld, slot: int, img: Dictionary, attack: String, bo
 	var stance: Dictionary = img.get(attack, {})
 	var info: Dictionary = stance.get("info", {})
 	var type := int(info.get("type", -1))
-	if type not in [0, 1, 2]:
+	if type not in [0, 1, 2] or world.is_hidden():
 		return {}
 	var id := swarm.mob_kind(slot).id
 	var pos := swarm.pos(slot)
@@ -236,7 +250,13 @@ static func service(pending: Dictionary, world: RunWorld) -> bool:
 
 
 static func _impact(pending: Dictionary, world: RunWorld) -> void:
+	if not bool(pending.magic):
+		# Threaten (#183): a threatened attacker's weapon attack is lowered at impact, for strikes and balls alike.
+		pending.damage = world.swarm.threatened_pad(int(pending.mob), float(pending.damage))
 	emit(pending, "impact", world)
+	# Hidden (#194): an attack winding up when the character vanished lands nothing and launches no ball.
+	if world.is_hidden():
+		return
 	if int(pending.type) == 2:
 		_launch_ball(pending, world)
 		return
@@ -246,8 +266,12 @@ static func _impact(pending: Dictionary, world: RunWorld) -> void:
 	# tier C: a locked type-1 strike follows the character, including airborne/escaped targets, at attackAfter.
 	if can_hit and (targeted or (pending.area as Rect2).intersects(world.player_box(), true)):
 		var kind := world.swarm.mob_kind(int(pending.mob))
-		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos,
-			_source(pending, kind.acc))
+		var source := _source(pending, kind.acc)
+		# tier C: the hit window turns an ordinary attack away before it lands, as it turns away an ordinary ball
+		# (spec #144): no damage, no player_hit and no hit art. A rolled MISS is not blocked and keeps its art.
+		if world.hit_window_blocks(source):
+			return
+		world.take_hit(float(pending.damage), bool(pending.magic), pending.element, pending.pos, source)
 		if String(pending.hit) != "":
 			emit(pending, "hit", world)
 

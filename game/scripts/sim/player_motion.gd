@@ -70,6 +70,11 @@ var state := ST_AIR
 var speed_stat := 100
 var jump_stat := 100
 
+## Body stances played while standing and walking: the held weapon's (WeaponInfo.stand_stance / walk_stance); a
+## two-handed weapon stands with "stand2". Set by whoever owns the weapon (RunWorld, the Free Market).
+var stand_stance := "stand1"
+var walk_stance := "walk1"
+
 var constants: PhysicsConstants
 var tuning: Dictionary
 ## Seconds left of the post-hit input lock / alert stance / ladder re-grab cooldown.
@@ -114,6 +119,23 @@ func teleport_destination(direction: Vector2, distance: float, fhm: FootholdMap,
 	if ladder >= 0 or state == ST_LADDER:
 		return {}
 	return fhm.teleport_destination(pos, direction, distance, bounds)
+
+
+## Moves a grounded player up to `distance` horizontal px toward `side` (-1 / 1) along its platform, for a moving attack
+## (FootholdMap.slide_along: follows slopes, stops at the platform's edge and at walls, stays inside the map limits).
+## Facing, timers and the foothold-bound state are kept; the player ends at rest on the foothold. An airborne or
+## climbing player does not move (tier C). Returns the horizontal px actually covered (0 when nothing moved).
+func displace(side: int, distance: float, fhm: FootholdMap, bounds: Rect2) -> float:
+	if fh < 0 or ladder >= 0 or state == ST_LADDER or side == 0 or distance <= 0.0:
+		return 0.0
+	var lim := _x_limits(fhm, bounds)
+	var slid := fhm.slide_along(fh, pos.x, side, distance, lim.x, lim.y)
+	if float(slid.moved) <= 0.0:
+		return 0.0
+	fh = int(slid.fh)
+	pos = Vector2(float(slid.x), float(slid.y))
+	vel = Vector2.ZERO
+	return float(slid.moved)
 
 
 ## Advances by dt seconds (normally 1/60) in `substeps` sub-steps. `ladders` may be null; `bounds` is the MapBounds
@@ -170,8 +192,8 @@ func stance() -> String:
 		ST_PRONE:
 			return "prone"
 		ST_WALK:
-			return "walk1"
-	return "alert" if alert_t > 0.0 else "stand1"
+			return walk_stance
+	return "alert" if alert_t > 0.0 else stand_stance
 
 
 ## Current maximum walk speed in px/s (walkSpeed x speed%).

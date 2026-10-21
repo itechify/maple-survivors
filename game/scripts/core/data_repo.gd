@@ -3,6 +3,8 @@ extends RefCounted
 ## Loads the survivor design data (`game/data/survivor/*.json`) and the canonical facts that are not in WZ
 ## (`game/data/canonical/*.json`) into the `data` Dictionary of a RunWorld setup (docs/ARCHITECTURE.md 4.4.1, 4.4.4),
 ## and assembles a whole setup from an img loader. Presentation/core code: it reads files; the sim never does.
+## Skills, upgrades, equipment drops, scrolls and shops are a base file plus per-job-line fragments
+## (`survivor/<name>/<line>.json`) merged by `load_split` (SPLIT, LINES; docs/ARCHITECTURE.md 4.4.4).
 ##
 ##   var data := DataRepo.load_all()
 ##   var setup := DataRepo.build_setup(data, "henesys_hg1", 12345, Vector2(800, 600),
@@ -24,18 +26,41 @@ const FILES := {
 	"jobs": "canonical/jobs.json",
 	"exp_table": "canonical/exp_table.json",
 	"cash_items": "survivor/cash_items.json",
+	"ammo": "survivor/ammo.json",
+}
+## The job lines whose fragment files may exist, in merge order: common (job-neutral) first, then the job-line ids in
+## ascending order (Beginner 0, Warrior 1, Magician 2, Bowman 3, Thief 4, Pirate 5). A class spec adds its line by
+## creating `<name>/<line>.json` next to the base file; the loader probes exactly these names in this order (job-line
+## order, not file-name order: it decides the order of the merged cards that the level-up roll walks), and
+## test_data_repo_lines fails on any other file in a fragment directory.
+const LINES: PackedStringArray = ["common", "beginner", "warrior", "magician", "bowman", "thief", "pirate"]
+## setup.data key -> how the entries of its line fragments (survivor/<name>/<line>.json) merge into the base file
+## (survivor/<name>.json): `entries` is the key the fragments fill, `merge` the rule (docs/ARCHITECTURE.md 4.4.4).
+##   keys:      Dictionary, entry keys concatenated (skills)
+##   ids:       Array of Dictionaries with a unique `id`, concatenated in line order (upgrade cards)
+##   sorted:    Array of unique numbers, concatenated then sorted ascending (equipment drop ids)
+##   values:    Array of unique values, concatenated in line order (shop weapon slots)
+##   families:  Dictionary slot -> Dictionary family -> rates, merged per slot (scrolls)
+const SPLIT := {
+	"skills": {"entries": "skills", "merge": "keys"},
+	"upgrades": {"entries": "cards", "merge": "ids"},
+	"equipment_drops": {"entries": "items", "merge": "sorted"},
+	"scrolls": {"entries": "families", "merge": "families"},
+	"shops": {"entries": "weapon_slots", "merge": "values"},
 }
 const PHYSICS_IMG := "Map.wz/Physics.img"
 const MOB_SKILL_IMG := "Skill.wz/MobSkill.img"
-const POTION_IMG := "Item.wz/Consume/0200.img"
 const SCROLL_IMG := "Item.wz/Consume/0204.img"
 
 
 ## Every data file parsed, keyed as in setup.data. A missing or malformed file gives {} for its key and is listed in
-## `errors` (when given).
+## `errors` (when given). The keys in SPLIT are the base file plus the merged line fragments (load_split).
 static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
 	var out := {}
 	for key: String in FILES:
+		if SPLIT.has(key):
+			out[key] = load_split(key, root, errors)
+			continue
 		var path := root.path_join(FILES[key])
 		var v: Variant = load_json(path)
 		if v is Dictionary:
@@ -43,7 +68,138 @@ static func load_all(root: String = DATA_ROOT, errors: PackedStringArray = Packe
 		else:
 			out[key] = {}
 			errors.append("cannot read %s" % path)
+	errors.append_array(stage_label_errors(out.get("stages", {})))
 	return out
+
+
+## The data of a SPLIT key: its base file (`_doc` and the job-neutral config) with the entries of every existing line
+## fragment `<name>/<line>.json` merged in LINES order, per SPLIT's rule. A duplicate entry across files is listed in
+## `errors` and the first value kept; an unreadable fragment, or a key in it that is neither `_`-prefixed nor the
+## entries key, is listed too. `_`-prefixed keys of a fragment (its `_doc`, notes) are never merged. A missing or
+## malformed base gives {} (and no fragments are read). The entries key always exists in the result.
+static func load_split(key: String, root: String = DATA_ROOT, errors: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var base_path := root.path_join(FILES[key])
+	var base: Variant = load_json(base_path)
+	if not base is Dictionary:
+		errors.append("cannot read %s" % base_path)
+		return {}
+	var spec: Dictionary = SPLIT[key]
+	var entries_key: String = spec.entries
+	var out: Dictionary = base
+	var merge: String = spec.merge
+	if not out.has(entries_key):
+		out[entries_key] = {} if merge in ["keys", "families"] else []
+	for line in LINES:
+		var path := fragment_path(key, line, root)
+		if not FileAccess.file_exists(path):
+			continue
+		var frag: Variant = load_json(path)
+		if not frag is Dictionary:
+			errors.append("cannot read %s" % path)
+			continue
+		_merge_fragment(out, frag, spec, path, errors)
+	if merge == "sorted":
+		(out[entries_key] as Array).sort()
+	return out
+
+
+## Path of one line's fragment of a SPLIT key: `res://data/survivor/skills/magician.json` for ("skills", "magician").
+static func fragment_path(key: String, line: String, root: String = DATA_ROOT) -> String:
+	return root.path_join(String(FILES[key]).trim_suffix(".json")).path_join(line + ".json")
+
+
+## Files in the fragment directories whose name is not `<known line>.json` (e.g. "survivor/skills/rogue.json"). They
+## would be ignored by load_all, so a unit test requires this to be empty. Lists directories: tools and tests only.
+static func unknown_line_files(root: String = DATA_ROOT) -> PackedStringArray:
+	var out := PackedStringArray()
+	for key: String in SPLIT:
+		var dir_path := root.path_join(String(FILES[key]).trim_suffix(".json"))
+		var dir := DirAccess.open(dir_path)
+		if dir == null:
+			continue
+		for file in dir.get_files():
+			if not (file.ends_with(".json") and file.trim_suffix(".json") in LINES):
+				out.append(String(FILES[key]).trim_suffix(".json").path_join(file))
+	out.sort()
+	return out
+
+
+static func _merge_fragment(out: Dictionary, frag: Dictionary, spec: Dictionary, path: String,
+		errors: PackedStringArray) -> void:
+	var entries_key: String = spec.entries
+	for k: Variant in frag:
+		var name := String(k)
+		if name.begins_with("_"):
+			continue
+		if name != entries_key:
+			errors.append("%s: unexpected key '%s' (only '%s' and _-prefixed notes)" % [path, name, entries_key])
+			continue
+		var into: Variant = out[entries_key]
+		var from: Variant = frag[k]
+		match String(spec.merge):
+			"keys":
+				if not (from is Dictionary and into is Dictionary):
+					errors.append("%s: '%s' must be an object" % [path, entries_key])
+				else:
+					_merge_keys(into, from, entries_key, path, errors)
+			"families":
+				if not (from is Dictionary and into is Dictionary):
+					errors.append("%s: '%s' must be an object" % [path, entries_key])
+				else:
+					_merge_families(into, from, path, errors)
+			_:
+				if not (from is Array and into is Array):
+					errors.append("%s: '%s' must be an array" % [path, entries_key])
+				else:
+					_merge_list(into, from, String(spec.merge) == "ids", entries_key, path, errors)
+
+
+static func _merge_keys(into: Dictionary, from: Dictionary, label: String, path: String, errors: PackedStringArray) -> void:
+	for k: Variant in from:
+		if String(k).begins_with("_"):
+			continue
+		if into.has(k):
+			errors.append("%s: duplicate %s entry '%s' (first kept)" % [path, label, k])
+		else:
+			into[k] = from[k]
+
+
+static func _merge_families(into: Dictionary, from: Dictionary, path: String, errors: PackedStringArray) -> void:
+	for slot: Variant in from:
+		if String(slot).begins_with("_"):
+			continue
+		if not from[slot] is Dictionary:
+			errors.append("%s: slot '%s' must be an object" % [path, slot])
+			continue
+		if not into.has(slot):
+			into[slot] = {}
+		for family: Variant in from[slot]:
+			if String(family).begins_with("_"):
+				continue
+			if into[slot].has(family):
+				errors.append("%s: duplicate family '%s' of slot '%s' (first kept)" % [path, family, slot])
+			else:
+				into[slot][family] = from[slot][family]
+
+
+static func _merge_list(into: Array, from: Array, by_id: bool, label: String, path: String,
+		errors: PackedStringArray) -> void:
+	var seen := {}
+	for e: Variant in into:
+		seen[_list_key(e, by_id)] = true
+	for e: Variant in from:
+		var k: Variant = _list_key(e, by_id)
+		if by_id and not (e is Dictionary and e.has("id")):
+			errors.append("%s: a %s entry has no id" % [path, label])
+		elif seen.has(k):
+			errors.append("%s: duplicate %s entry '%s' (first kept)" % [path, label, k])
+		else:
+			seen[k] = true
+			into.append(e)
+
+
+static func _list_key(entry: Variant, by_id: bool) -> Variant:
+	return entry.get("id") if by_id and entry is Dictionary else entry
 
 
 ## Parses one JSON file; null when missing or invalid.
@@ -77,6 +233,43 @@ static func skill_img_path(book: String) -> String:
 	return "Skill.wz/%s.img" % book
 
 
+## What the player sees as a stage's name (#221): {region, continent} of stage `stage_key` in the parsed stages.json
+## (`stages_file`). The region is the town the stage belongs to, the continent the small line above it; both are survivor
+## display data (tier C: owner choice, playtest 3), not WZ strings. A stage file without them falls back to its `name`
+## as the region; an unknown stage gives empty strings.
+static func stage_labels(stages_file: Dictionary, stage_key: String) -> Dictionary:
+	var st: Dictionary = stages_file.get("stages", {}).get(stage_key, {})
+	return {"region": String(st.get("region", st.get("name", ""))), "continent": String(st.get("continent", ""))}
+
+
+## The two stage lines of a run summary: [region, continent] (#221). A summary that carries a `region` keeps its own
+## lines; one that predates the fields reads the stage's labels from stages.json, and a stage no longer in the file keeps
+## the map and street name it was saved with.
+static func summary_stage_lines(summary: Dictionary) -> Array[String]:
+	var region := String(summary.get("region", ""))
+	var continent := String(summary.get("continent", ""))
+	if region.is_empty():
+		var stages_file: Variant = load_json(DATA_ROOT.path_join(FILES.stages))
+		var key := String(summary.get("stage", ""))
+		var known: Dictionary = {}
+		if stages_file is Dictionary and (stages_file as Dictionary).get("stages", {}).has(key):
+			known = stage_labels(stages_file, key)
+		region = String(known.get("region", summary.get("map_name", key)))
+		continent = String(known.get("continent", summary.get("street_name", "")))
+	return [region, continent]
+
+
+## One message per stage of the parsed stages.json that lacks a non-blank `region` or `continent`, in file order.
+static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
+	var errors := PackedStringArray()
+	var all: Dictionary = stages_file.get("stages", {})
+	for key: String in all:
+		for field: String in ["region", "continent"]:
+			if String((all[key] as Dictionary).get(field, "")).strip_edges().is_empty():
+				errors.append("stage '%s' has no %s" % [key, field])
+	return errors
+
+
 ## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and
 ## revive ids the bosses' canonical data lists when their imgs (`mob_imgs`, {id: img root}) and MobSkill.img root are
 ## given. Without imgs only the ids stages.json names.
@@ -96,6 +289,12 @@ static func starter_equipment_ids(data: Dictionary, creation_img: Dictionary = {
 	var ids := PackedInt32Array()
 	for id: Variant in Equipment.DEFAULT_OUTFIT + pb.get("weapon_grants", {}).values():
 		_add_id(ids, int(id))
+	# Chosen-only advancement weapons (tier C #226); load every offered path of playable jobs.
+	var job_rows: Variant = data.get("jobs_survivor", {}).get("jobs", {})
+	for row: Variant in job_rows.values() if job_rows is Dictionary else []:
+		if row is Dictionary and bool(row.get("playable", false)):
+			for path: Variant in row.get("paths", []) if row.get("paths", []) is Array else []:
+				_add_id(ids, int(path.get("item_id", 0)) if path is Dictionary else 0)
 	var creation := CharacterCreation.new(creation_img)
 	for gender in CharacterCreation.GENDERS.size():
 		for field: String in ["top", "bottom", "shoes", "weapon"]:
@@ -153,20 +352,41 @@ static func _jobs(data: Dictionary) -> JobTree:
 	return JobTree.from_data(data.get("jobs", {}), data.get("jobs_survivor", {}))
 
 
-## Every potion item a run can hold, ascending: the balance.potions starters and every potion_tier card's required and
-## target items (the survivor potion ladders). These are the Item.wz/Consume/0200.img entries a setup loads.
+## Every potion item a run can hold, ascending: the balance.potions starters and every item of the potions.schedule
+## (PotionSchedule). These are the Item.wz/Consume entries (`potion_img_path`) a setup loads.
 static func potion_item_ids(data: Dictionary) -> PackedInt32Array:
 	var ids := PackedInt32Array()
 	var potions: Dictionary = data.get("balance", {}).get("potions", {})
 	for kind: String in PotionInventory.DEFAULT_ITEMS:
 		_add_id(ids, int(potions.get(kind, {}).get("item_id", 0)))
-	for c: Dictionary in data.get("upgrades", {}).get("cards", []):
-		if String(c.get("kind", "")) == "potion_tier":
-			_add_id(ids, int(c.get("item_id", 0)))
-			for from: Variant in c.get("requires", {}).get("potions", {}).values():
-				_add_id(ids, int(from))
+	for item: Variant in PotionSchedule.items(data.get("balance", {})):
+		_add_id(ids, int(item))
 	ids.sort()
 	return ids
+
+
+## The canonical node of every potion item a run can hold ({id: Consume node}); ids whose node is absent are listed in
+## `missing`. A round's setup and the hub's inventory world (PotionInventory.upgrade needs the restore specs) share it.
+static func potion_item_info(data: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var item_info := {}
+	var potion_imgs := {} # Consume/0200.img (Red .. Mana Elixir, Ice Cream Pop) and 0202.img (Unagi, Pure Water): one read each
+	for id in potion_item_ids(data):
+		var key := "%08d" % id
+		var img_path := potion_img_path(id)
+		if not potion_imgs.has(img_path):
+			potion_imgs[img_path] = img_loader.call(img_path)
+		var potion_img: Variant = potion_imgs[img_path]
+		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
+			item_info[id] = potion_img[key]
+		else:
+			missing.append(img_path + "/" + key)
+	return item_info
+
+
+## "Item.wz/Consume/0202.img" for a Consume item id (the img holds the ids of its 10000 block: 2022003 -> 0202).
+@warning_ignore("integer_division")
+static func potion_img_path(item_id: int) -> String:
+	return "Item.wz/Consume/%04d.img" % (item_id / 10000)
 
 
 static func _add_id(ids: PackedInt32Array, id: int) -> void:
@@ -209,6 +429,25 @@ static func scroll_info(ids: Array, img_loader: Callable, missing: PackedStringA
 			elif value is int or value is float:
 				kept[name] = int(value)
 		out[int(id)] = kept
+	return out
+
+
+## The canonical facts of every ammo item survivor/ammo.json names ({id: {incPAD}}, tier A: Item.wz/Consume 0206 arrows,
+## 0207 throwing stars, 0233 bullets; an item without incPAD, like Arrow for Bow, adds 0). Ids whose node is absent are
+## listed in `missing` and left out. `img_loader` as for build_setup.
+static func ammo_info(ammo: Dictionary, img_loader: Callable, missing: PackedStringArray = PackedStringArray()) -> Dictionary:
+	var out := {}
+	var imgs := {}
+	for id in Ammo.item_ids(ammo):
+		var path := Ammo.img_path(id)
+		if not imgs.has(path):
+			imgs[path] = img_loader.call(path)
+		var img: Variant = imgs[path]
+		var key := "%08d" % id
+		if img is Dictionary and img.get(key) is Dictionary and img[key].get("info") is Dictionary:
+			out[id] = {"incPAD": int(img[key].info.get("incPAD", 0))}
+		else:
+			missing.append(path + "/" + key)
 	return out
 
 
@@ -279,14 +518,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		if image.is_empty():
 			missing.append(path)
 		afterimages[name] = image
-	var item_info := {}
-	var potion_img: Variant = img_loader.call(POTION_IMG)
-	for id in potion_item_ids(data):
-		var key := "%08d" % id
-		if potion_img is Dictionary and potion_img.get(key) is Dictionary:
-			item_info[id] = potion_img[key]
-		else:
-			missing.append(POTION_IMG + "/" + key)
+	var item_info := potion_item_info(data, img_loader, missing)
 	var setup := {
 		"map_img": map_img,
 		"physics_img": physics,
@@ -298,6 +530,7 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		"mob_skill_img": mob_skill,
 		"item_info": item_info,
 		"scroll_info": scroll_info(scroll_item_ids(data, character), img_loader, missing),
+		"ammo_info": ammo_info(data.get("ammo", {}), img_loader, missing),
 		"data": data,
 		"stage": stage_key,
 		"seed": p_seed,

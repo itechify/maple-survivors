@@ -18,6 +18,9 @@ const INFO := {
 	1050001: {"reqJob": 2, "incMDD": 3, "tuc": 7, "price": 500}, # a weak Magician overall
 	1050002: {"reqJob": 2, "incMDD": 8, "incINT": 2, "tuc": 7, "price": 800}, # a strong Magician overall
 	1082002: {"incPAD": 1, "tuc": 5, "price": 150}, # gloves
+	1092009: {"incPDD": 10, "tuc": 7, "price": 400}, # an all-job shield
+	1402001: {"incPAD": 40, "attackSpeed": 6, "tuc": 7, "price": 3000}, # a strong two-handed sword
+	1402002: {"incPAD": 18, "attackSpeed": 6, "tuc": 7, "price": 900}, # a weak two-handed sword
 }
 const SCROLL_INFO := {
 	2043700: {"incMAD": 1, "success": 100, "price": 1}, # wand 100%
@@ -108,6 +111,72 @@ func test_an_overall_is_compared_with_the_top_and_bottom_it_replaces() -> void:
 	assert_eq(w.equipment.worn.overall.id, 1050002)
 	assert_false(w.equipment.worn.has("top") or w.equipment.worn.has("bottom"))
 	assert_eq(_inventory_ids(w).size(), 2, "top and bottom are in the Equip tab")
+
+
+## A quiet-stage Warrior-job bot (the Beginner weights) wearing the starter sword and `worn_extra` ids, holding `inventory`.
+func _warrior(inventory: Array, worn_extra: Array = []) -> RunWorld:
+	var w := _world(10, 0, inventory)
+	w.progression.job_id = 100
+	w.equipment.worn.weapon = Equipment.create(1302000, INFO[1302000])
+	for id: int in worn_extra:
+		w.equipment.worn[Equipment.slot_of(id)] = Equipment.create(id, INFO[id])
+	return w
+
+
+func test_the_shield_is_a_slot_the_bot_fills_and_scores_by_its_defence() -> void:
+	var w := _warrior([1092009])
+	assert_eq(BotShop.auto_equip(w), 1)
+	assert_eq(w.equipment.worn.shield.id, 1092009, "an empty shield slot takes a shield with value")
+	assert_eq(w.weapon_id(), 1302000, "beside the one-handed sword")
+
+
+func test_weapon_loyalty_follows_the_recorded_path_even_after_a_manual_swap_or_destruction() -> void:
+	for held in [1302000, 0]:
+		var w := _warrior([1402001])
+		w.progression.job_id = 110 # a Fighter line can use the axe family
+		w.weapon_path = "axe"
+		if held == 0:
+			w.equipment.worn.erase("weapon")
+		w.setup.equipment_info[1312005] = {"incPAD": 25}
+		w.equipment.inventory.append(Equipment.create(1312005, w.setup.equipment_info[1312005]))
+		assert_eq(BotShop.auto_equip(w), 1, "only the recorded family's upgrade is worn")
+		assert_eq(w.weapon_id(), 1312005, "the stronger off-path sword stays in the tab")
+
+
+func test_loyalty_ignores_a_recorded_path_the_current_job_cannot_use() -> void:
+	# tier C (#226): an unforced Bandit can keep weapon_path "claw" from Lv 10 yet only wield daggers.
+	var w := _world(10, 0, [])
+	w.progression.job_id = 420
+	w.weapon_path = "claw"
+	w.setup.equipment_info[1332063] = {"incPAD": 28, "attackSpeed": 3, "tuc": 7}
+	w.setup.equipment_info[1332064] = {"incPAD": 40, "attackSpeed": 3, "tuc": 7}
+	w.setup.equipment_info[1472061] = {"incPAD": 99, "attackSpeed": 5, "tuc": 7}
+	w.equipment.worn.weapon = Equipment.create(1332063, w.setup.equipment_info[1332063])
+	w.equipment.inventory.append(Equipment.create(1472061, w.setup.equipment_info[1472061]))
+	w.equipment.inventory.append(Equipment.create(1332064, w.setup.equipment_info[1332064]))
+	assert_eq(BotShop.auto_equip(w), 1)
+	assert_eq(w.weapon_id(), 1332064, "the held family (dagger) is upgraded, not the unusable claw")
+
+
+func test_a_two_handed_weapon_must_beat_the_sword_and_the_shield_it_displaces() -> void:
+	# Beginner weights: incPAD 10, incPDD 1.5. Sword 17 -> 170, shield 10 -> 15.
+	var strong := _warrior([1402001], [1092009])
+	assert_eq(BotShop.auto_equip(strong), 1, "400 beats 170 + 15")
+	assert_eq(strong.weapon_id(), 1402001)
+	assert_false(strong.equipment.worn.has("shield"))
+	assert_eq(_inventory_ids(strong).size(), 2, "the sword and the shield wait in the Equip tab")
+	var weak := _warrior([1402002], [1092009])
+	assert_eq(BotShop.auto_equip(weak), 0, "180 beats the sword's 170 but not with the shield's 15 lost")
+	assert_eq(weak.weapon_id(), 1302000)
+	assert_eq(weak.equipment.worn.shield.id, 1092009)
+
+
+func test_a_shield_does_not_replace_a_two_handed_weapon_that_scores_higher() -> void:
+	var w := _warrior([1092009], [])
+	w.equipment.worn.weapon = Equipment.create(1402001, INFO[1402001])
+	assert_eq(BotShop.auto_equip(w), 0, "a 15 point shield against the 400 point weapon it would move")
+	assert_eq(w.weapon_id(), 1402001)
+	assert_false(w.equipment.worn.has("shield"))
 
 
 func test_an_equip_that_does_not_fit_the_full_tab_is_skipped_without_looping() -> void:
@@ -209,6 +278,36 @@ func test_the_sensible_plan_scrolls_the_weapon_overall_and_gloves_first_then_the
 	assert_eq(first_use.weapon, 2043701, "the 60% wand scroll (expected 15.6) beats the 100% one (10)")
 	assert_eq(first_use.overall, 2040512, "INT before defence for a Magician")
 	assert_eq(first_use.gloves, 2040818, "Magic Att. gloves scroll")
+
+
+func test_a_warrior_bot_scrolls_its_sword_and_shield_from_the_warrior_families() -> void:
+	var w := _warrior([], [1092009])
+	w.mesos = 5000000
+	# the shops stock the families of the listed equipment the job can wear: one sword and one shield of the list
+	w.setup.equipment_info[1302008] = {"reqJob": 1, "reqLevel": 30, "incPAD": 47, "tuc": 7}
+	w.setup.equipment_info[1092002] = {"reqJob": 1, "reqLevel": 30, "incPDD": 40, "tuc": 7}
+	for id: int in [2043000, 2043001, 2043004, 2040900, 2040929]:
+		w.setup.scroll_info[id] = {"success": 100, "price": 1}
+	w.setup.scroll_info[2043000].incPAD = 1 # sword ATT 100%
+	w.setup.scroll_info[2043001] = {"incPAD": 2, "incSTR": 1, "success": 60, "price": 1} # sword ATT 60%
+	w.setup.scroll_info[2043004] = {"incPAD": 2, "incSTR": 1, "success": 70, "cursed": 50, "price": 1} # sword ATT dark 70%
+	w.setup.scroll_info[2040900].incPDD = 1 # shield DEF 100%
+	w.setup.scroll_info[2040929].incSTR = 1 # shield STR 100%
+	var stock_ids := BotShop.stock_of(w).map(func(e: Dictionary) -> int: return int(e.id))
+	assert_true(2043001 in stock_ids and 2040929 in stock_ids, "a Warrior's shops stock the new families")
+	var plan := _plan(w, "sensible")
+	var first_use := {}
+	for step: Dictionary in _uses(plan):
+		if not first_use.has(step.slot):
+			first_use[step.slot] = int(step.scroll)
+	assert_eq(first_use.weapon, 2043001, "the 60% sword scroll (expected 15.6) beats the 100% one (10)")
+	assert_eq(first_use.shield, 2040929, "STR (6) before defence (1.5) for a Warrior")
+	assert_eq(_uses(plan).filter(func(s: Dictionary) -> bool: return s.slot == "weapon").size(), 7, "one per upgrade slot")
+	for step: Dictionary in plan.steps:
+		assert_false(int(step.scroll) == 2043004, "never the dark one")
+	assert_true(_cost(plan, w) <= 5000000)
+	var careless := _plan(w, "careless", 4)
+	assert_true(_uses(careless).any(func(s: Dictionary) -> bool: return s.slot == "shield"), "the careless bot scrolls the shield too")
 
 
 func test_the_sensible_plan_never_buys_dark_scrolls() -> void:

@@ -89,6 +89,22 @@ persistent progression and achievements (local save file).
 
 ## Performance log
 
+**#224 sharp text (2026-10-18).** Before = 97e3bef (`stretch/mode=viewport`), after = the #224 branch
+(`canvas_items`, crisp text). `bash scripts/playtest.sh --speed=1 --warp=600 --minutes=13 --vsync=off --seed=5 --job=210
+--size=1600x1200` (seed 5 without `--job` dies at 10:05 on this build; with the F/P job it ends PLAYING at 13:00, Lv31,
+max 273 alive), runs alternated before/after/before/after with no other run of this ticket active (other agents' Godot
+processes may have been running). The display was a 1024x768 virtual screen, so the window was sized with `--size`.
+
+| Run | frame_ms p50 / p95 / p99 | frames with 200+ mobs p50 / p95 / p99 | frame_work_us avg / p50 / p95 |
+|---|---|---|---|
+| before 1 | 1.79 / 3.01 / 3.76 | 1.79 / 3.00 / 3.71 | 856 / 702 / 1727 |
+| before 2 | 1.79 / 3.07 / 4.02 | 1.79 / 3.09 / 4.06 | 867 / 705 / 1739 |
+| after 1 | 1.82 / 3.19 / 4.28 | 1.80 / 3.06 / 3.93 | 894 / 717 / 1786 |
+| after 2 | 1.82 / 3.11 / 4.09 | 1.82 / 3.11 / 4.09 | 878 / 709 / 1764 |
+
+Drawing canvas items at window resolution costs about 0.03 ms at p50 and 0.1 ms at p95 (2-3%), with frame work up
+about 2%. The p99 spread between the two before runs (0.26 ms) is about as large as the before/after gap.
+
 The final corrected Spec #1 sample uses runtime `a25697e`, unchanged survivor data, Godot 4.7.2 Compatibility/OpenGL 3.3,
 NVIDIA GeForce RTX 4070 SUPER (driver 610.88), Ryzen 7 7800X3D and 32 GB RAM (31.1 GiB visible). Logical view 800x600,
 window override 1600x1200, no saved window overrides. All owned training, final acceptance and suite processes had
@@ -120,6 +136,7 @@ drawn. Evidence includes summary, actual adapter log, process creation times/CPU
 
 | Date | Build | Scenario | Result |
 |---|---|---|---|
+| 2026-10-18 | #146: base b2ef00d vs after b0a17c5, `bash scripts/bench.sh run 300 340` (editor binary headless), the two trees alternated 3 times; same `bench_run.gd` in both (the late-game build was broken from 5fa4680 until #146, so bench numbers recorded in that span measured a Beginner); median (range) of the third alternation, the second agreeing within 10%; other agents' Godot runs had ended, but single runs still spiked | `bench_run` RunWorld tick; MP-short ticks per cell are the same in both trees: synthetic 300: 0%, synthetic 340: 71%, 104040000 300: 71%, 104040000 340: 63% | synthetic 300: 1023 (1002-1035) -> 794 (784-797) µs/tick; synthetic 340: 1482 (1469-1493) -> 820 (783-833); 104040000 300: 1533 (1462-2233) -> 1024 (975-1028); 104040000 340: 1730 (1601-2530) -> 1002 (932-1021). Desktop and web playtest rows of the same day: `docs/ARCHITECTURE.md` 10.4 |
 | 2026-10-14 | Final corrected runtime `a25697e`, speed 1 uncapped; context/wrapper disclosure above | Henesys seed 2026, draw 10:00–13:00 after warp 600; PLAYING at deliberate cap, Lv29, 3,207 kills, max 274 mobs, `missing: []` | **200+ mobs: p95 3.070 ms, p99 3.662, max 25.346 over 74,953 frames**. Global p95 3.044 ms over 87,800 frames; frame work avg 0.885/p95 1.806 ms; sim 0.865 ms/tick. |
 | 2026-10-14 | Historical pre-review runtime `59ccfd5`, speed1 uncapped; hardware/background context above | Henesys seed2026, draw 10:00–13:00 after warp600; PLAYING at the deliberate measurement cap, Lv29, 3,318 kills, max274 mobs, `missing: []` | **200+ mobs: p95 3.912 ms, p99 5.801, max15.021 over62,580 frames**. Global p95 3.743 ms over75,954 frames; frame work avg1.030/p95 2.099 ms; sim1.024 ms/tick. |
 | 2026-10-13 | Phase 0 probe | GDScript SoA sim, 1000 mobs, Forward+ | 2.5-3.3 ms/frame (editor), 2.1-2.6 ms (release) |

@@ -106,7 +106,7 @@ func test_round_start_resets_buffs_slow_timers_and_every_map_pool() -> void:
 	w.pickups.spawn(w.player.pos, 19, 4000019)
 	w.spawn_potion("hp", w.player.pos, 3)
 	var input := MoveInput.new()
-	input.teleport_pressed = true
+	input.press_skill("teleport")
 	w.step(DT, input)
 	assert_false(w.buffs.snapshot().is_empty(), "source buff active")
 	assert_false(w.mob_skills.slow_state(w.time).is_empty(), "source slow active")

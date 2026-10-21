@@ -1,0 +1,235 @@
+{
+	"_doc": {
+		"branch": "spec168/ticket-195",
+		"diagnostic": "invulnerable (RunWorld.god = true; fixture tool --god): the kiting bot dies as a Pirate before the second job (Lv 11 on knuckles at the first boss, Lv 21-24 on guns), so the round played to its cap with damage ignored",
+		"diagnostic_exp": "balance exp_mult x3.0 (fixture tool --exp-mult): the knuckle bot cannot beat the second boss, so it levels too slowly to reach Lv 30 by itself",
+		"exp_mult": 3.0,
+		"forced_branch": 510,
+		"forced_path": "knuckle",
+		"outcome": "TIMEOUT",
+		"policy": "bot",
+		"revision": "837a86d8bb712ae42d9b02c0a9e2150bb4485d39",
+		"round_seconds": 480.0,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round, stopped at the 480 s cap (a low-level fixture)",
+		"stage": "henesys_hg1"
+	},
+	"attributes": {
+		"dex": 37,
+		"int": 4,
+		"luk": 4,
+		"str": 160
+	},
+	"base_attributes": {
+		"dex": 5,
+		"int": 4,
+		"luk": 4,
+		"str": 12
+	},
+	"base_fortune": 0.0,
+	"base_hp": 1301.0,
+	"base_mp": 648.5,
+	"card_ranks": {
+		"backspin_blow_new": 1,
+		"backspin_blow_targets": 1,
+		"corkscrew_blow_new": 1,
+		"corkscrew_blow_rank": 1,
+		"double_uppercut_new": 1,
+		"flash_fist_new": 1,
+		"flash_fist_rank": 10,
+		"flash_fist_targets": 3,
+		"knuckler_booster_new": 1,
+		"mana_elixir": 1,
+		"mp_recovery_new": 1,
+		"orange_potion": 1,
+		"somersault_kick_new": 1,
+		"somersault_kick_rank": 12,
+		"somersault_kick_targets": 3,
+		"three_snails_cooldown": 2,
+		"three_snails_count": 4,
+		"three_snails_pierce": 3,
+		"white_potion": 1
+	},
+	"earned_ap": 180,
+	"equipment": {
+		"inventory": [
+			{
+				"id": 1302000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 17
+				}
+			},
+			{
+				"id": 1492000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 13
+				}
+			},
+			{
+				"id": 1482000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 18
+				}
+			},
+			{
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1072056,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 12,
+					"incSpeed": 2
+				}
+			}
+		],
+		"worn": {
+			"bottom": {
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			"hat": {
+				"id": 1002063,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 4
+				}
+			},
+			"shoes": {
+				"id": 1072018,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 15
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1482004,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 34
+				}
+			}
+		}
+	},
+	"exp": 5085,
+	"format": 2,
+	"fortune": 0.0,
+	"job_id": 510,
+	"job_mp": 212.0,
+	"level": 37,
+	"look": {},
+	"mesos": 84728,
+	"player_mods": {},
+	"potions": {
+		"hp": {
+			"count": 16,
+			"item_id": 2000002
+		},
+		"mp": {
+			"count": 20,
+			"item_id": 2000006
+		}
+	},
+	"scrolls": {},
+	"skill_order": [
+		"three_snails",
+		"flash_fist",
+		"somersault_kick",
+		"backspin_blow",
+		"knuckler_booster",
+		"corkscrew_blow",
+		"mp_recovery",
+		"double_uppercut"
+	],
+	"skills": {
+		"backspin_blow": {
+			"mods": {
+				"count": [
+					1.0,
+					1.0
+				]
+			},
+			"rank": 2
+		},
+		"corkscrew_blow": {
+			"mods": {},
+			"rank": 2
+		},
+		"double_uppercut": {
+			"mods": {},
+			"rank": 3
+		},
+		"flash_fist": {
+			"mods": {
+				"count": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 11
+		},
+		"knuckler_booster": {
+			"mods": {},
+			"rank": 2
+		},
+		"mp_recovery": {
+			"mods": {},
+			"rank": 1
+		},
+		"somersault_kick": {
+			"mods": {
+				"count": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 13
+		},
+		"three_snails": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					4.0,
+					1.0
+				],
+				"pierce": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 3
+		}
+	},
+	"weapon_path": "knuckle"
+}

@@ -14,24 +14,18 @@ extends UiWindow
 ## close without saving. Tab, Scroll Lock and the Windows / menu keys are no drop targets (v83 bakes its own functions
 ## on Tab and Scroll Lock into the art). Hovering an icon names its action.
 ##
-## Icons: tier A v83 KeyConfig icons for jump (53 JUMP), Equip (0 EQUIPMENT), Item (1 ITEMS), Stat (2 ABILITY, the
-## v83 Stat window key), Skill (3 SKILL) and NPC Chat (54 NPC CHAT); the potions show Red / Blue Potion (Item.wz 2000000 / 2000003) and
-## Teleport the F/P Teleport skill icon (tier C). Without the cache the window keeps its layout and draws plain keys
-## and lettered boxes.
+## Icons and names come from KeyActionArt (shared with the HUD quick slot). Without the cache the window keeps its
+## layout and draws plain keys and lettered boxes.
+##
+## Skill keys: the tray ends with one icon per manual skill the character has learned (`skill_keys`, as
+## RunWorld.manual_skill_keys() lists them: {action, name, icon}); no other manual skill appears. A skill key is dragged,
+## cleared and saved like any other action.
 
 ## Emitted after OK saved the draft.
 signal saved()
 
 const ART := "UI.wz/UIWindow.img/KeyConfig/"
 const ART_SIZE := Vector2(629, 373)
-## Action -> icon path (see the class doc) and tooltip name.
-const ICONS := {"jump": ART + "icon/53", "drink_hp": "Item.wz/Consume/0200.img/02000000/info/icon",
-	"drink_mp": "Item.wz/Consume/0200.img/02000003/info/icon", "teleport": "Skill.wz/210.img/skill/2101002/icon",
-	"equip_window": ART + "icon/0", "item_window": ART + "icon/1", "stat_window": ART + "icon/2",
-	"skill_window": ART + "icon/3", "npc_chat": ART + "icon/54"}
-const NAMES := {"jump": "Jump", "drink_hp": "HP Potion", "drink_mp": "MP Potion", "teleport": "Teleport",
-	"equip_window": "Equip", "item_window": "Item", "stat_window": "Stat", "skill_window": "Skill",
-	"npc_chat": "NPC Chat"}
 ## tier C (ours, measured on the v83 backgrnd): key rows as [top, bottom, codes, x edges]; key i spans
 ## [edges[i], edges[i + 1]); code 0 = a key that is no drop target. Left / right Alt, Ctrl and Shift share one physical
 ## keycode (Godot tells them apart by location only), so both keys of a pair show the same icon.
@@ -83,6 +77,8 @@ var draft: KeyBindings
 ## The outlined key (the last one clicked or dropped on), -1 = none.
 var selected_key := -1
 
+## Skill key id -> {action, name, icon} of the learned manual skills this window was opened with.
+var _skill_info: Dictionary = {}
 var _key_rects: Dictionary = {}
 var _drag_action := ""
 var _drag_from := -1
@@ -94,13 +90,18 @@ var _bt_delete: WzButton
 var _bt_close: WzButton
 
 
-func _init(p_settings: GameSettings = null) -> void:
+func _init(p_settings: GameSettings = null, p_skill_keys: Array = []) -> void:
 	super._init()
 	name = "KeyConfigWindow"
 	window_id = "key_config"
 	size = ART_SIZE
 	settings = p_settings
-	draft = KeyBindings.from_settings(settings) if settings != null else KeyBindings.new()
+	var ids: Array = []
+	for info: Dictionary in p_skill_keys:
+		ids.append(String(info.action))
+		_skill_info[String(info.action)] = info
+	draft = KeyBindings.from_settings(settings, ids) if settings != null else KeyBindings.new({},
+		GameSettings.DEFAULT_MOVEMENT, ids)
 	if settings != null:
 		settings.changed.connect(_on_settings_changed)
 	for row: Array in ROWS:
@@ -139,7 +140,7 @@ func key_at(p: Vector2) -> int:
 
 ## The local rect of `action`'s tray slot (Rect2() for an action that is not bindable).
 func tray_rect(action: String) -> Rect2:
-	var i := KeyBindings.BINDABLE.find(action)
+	var i := draft.actions().find(action)
 	if i < 0:
 		return Rect2()
 	return Rect2(TRAY_POS + Vector2(i * TRAY_PITCH, 0), SLOT)
@@ -172,7 +173,7 @@ func restore_defaults() -> void:
 
 ## BtDelete (CLEAR ALL): every bindable action off the keyboard (saved only by OK).
 func clear_all() -> void:
-	for a: String in KeyBindings.BINDABLE:
+	for a: String in draft.actions():
 		draft.keys[a] = PackedInt32Array()
 	selected_key = -1
 	queue_redraw()
@@ -196,8 +197,16 @@ func _on_settings_changed() -> void:
 		queue_redraw()
 
 
+func _icon_of(action: String) -> String:
+	return KeyActionArt.icon_path(action, _skill_info.get(action, {}))
+
+
+func _name_of(action: String) -> String:
+	return KeyActionArt.display_name(action, _skill_info.get(action, {}))
+
+
 func _tray_action_at(p: Vector2) -> String:
-	for a: String in KeyBindings.BINDABLE:
+	for a: String in draft.actions():
 		if tray_rect(a).has_point(p):
 			return a
 	return ""
@@ -275,7 +284,7 @@ func _draw() -> void:
 	if selected_key >= 0:
 		for r: Rect2 in _key_rects.get(selected_key, []):
 			draw_rect(r.grow(-1.0), SELECT_COLOR, false, 2.0)
-	for a: String in KeyBindings.BINDABLE:
+	for a: String in draft.actions():
 		_draw_icon(a, tray_rect(a))
 	if _drag_action != "":
 		_draw_icon(_drag_action, Rect2(_mouse - SLOT * 0.5, SLOT), Color(1, 1, 1, 0.8))
@@ -284,13 +293,13 @@ func _draw() -> void:
 
 
 func _draw_icon(action: String, r: Rect2, col: Color = Color.WHITE) -> void:
-	var f := UiArt.frame(String(ICONS[action]))
+	var f := UiArt.frame(_icon_of(action))
 	if f != null:
 		UiArt.blit_icon(self, f, r.position, r.size, col)
 		return
 	var box := Rect2(r.position + ((r.size - SLOT) * 0.5).floor(), SLOT).grow(-2.0)
 	draw_rect(box, Color8(204, 85, 136, int(col.a * 255.0)))
-	MapleText.draw_centered(self, box.position.x, box.position.y + 8.0, box.size.x, String(NAMES[action]).left(4),
+	MapleText.draw_centered(self, box.position.x, box.position.y + 8.0, box.size.x, _name_of(action).left(4),
 		MapleText.WHITE, 9, true)
 
 
@@ -299,7 +308,7 @@ func _draw_tooltip() -> void:
 	var a := draft.action_on(code) if code >= 0 else _tray_action_at(_mouse)
 	if a == "":
 		return
-	var text := String(NAMES[a])
+	var text := _name_of(a)
 	var w := MapleText.width(text, MapleText.SMALL) + 8.0
 	var at := (_mouse + Vector2(12, 14)).min(size - Vector2(w, 16))
 	draw_rect(Rect2(at, Vector2(w, 16)), Color8(17, 34, 51, 230))
@@ -309,12 +318,12 @@ func _draw_tooltip() -> void:
 ## Without the cache: a plain panel with lettered keys and empty tray slots.
 func _draw_plain() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color8(220, 228, 240))
-	draw_rect(Rect2(Vector2.ZERO, size), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(Vector2.ZERO, size), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(8, 4), "KEYBOARD SETTING", MapleText.BLACK, MapleText.SMALL, true)
 	for code: int in _key_rects:
 		for r: Rect2 in _key_rects[code]:
 			draw_rect(r.grow(-1.0), Color.WHITE)
-			draw_rect(r.grow(-1.0), Color8(90, 90, 90), false)
+			PixelDraw.outline(self, r.grow(-1.0), Color8(90, 90, 90))
 			MapleText.draw(self, r.position + Vector2(3, 1), KeyBindings.key_name(code).left(5), MapleText.GREY, 9)
 	for i in 18 * 3:
 		@warning_ignore("integer_division")

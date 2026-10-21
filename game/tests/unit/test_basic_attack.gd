@@ -213,6 +213,7 @@ func test_swing_hits_the_single_nearest_target_and_mirrors_its_box() -> void:
 
 func test_five_stances_are_uniform_and_level_three_stats_one_shot_snails() -> void:
 	var world := BF.world(83)
+	world.loadout.crit_per_acc = 0.0 # This test checks the unchanged non-critical weapon bounds.
 	world.pickups.spawn(world.player.pos - Vector2(0, 20), world.progression.curve.total_to(3), 4000019)
 	world.step(DT, MoveInput.new())
 	assert_eq(world.player_state.level, 3)
@@ -245,25 +246,24 @@ func test_five_stances_are_uniform_and_level_three_stats_one_shot_snails() -> vo
 
 
 func test_known_physical_bounds_include_weapon_stance_defense_and_level_difference() -> void:
-	var sword := CombatMath.basic_damage_range(12, 4, 17, 1302000, "swingO1", 1, 1, 0)
+	var sword := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 1, 1, 0)
 	assert_near(sword.x, 1.4144, 0.00001)
 	assert_near(sword.y, 8.84, 0.00001)
-	var swing := CombatMath.basic_damage_range(12, 4, 15, 1372005, "swingO1", 1, 1, 0)
+	var swing := RF.physical_bounds(12, 4, 15, 1372005, "swingO1", 1, 1, 0)
 	assert_near(swing.x, 1.3128, 0.00001)
 	assert_near(swing.y, 8.52, 0.00001)
-	var stab := CombatMath.basic_damage_range(12, 4, 15, 1372005, "stabO1", 1, 1, 0)
+	var stab := RF.physical_bounds(12, 4, 15, 1372005, "stabO1", 1, 1, 0)
 	assert_near(stab.x, 1.1184, 0.00001)
 	assert_near(stab.y, 6.36, 0.00001)
-	var defended := CombatMath.basic_damage_range(12, 4, 17, 1302000, "swingO1", 1, 6, 5)
+	var defended := RF.physical_bounds(12, 4, 17, 1302000, "swingO1", 1, 6, 5)
 	assert_near(defended.x, 1.0, 0.00001)
 	assert_near(defended.y, 5.898, 0.00001)
 
 
 func test_weapon_info_reads_type_afterimage_interval_and_sound_from_the_canonical_node() -> void:
 	assert_eq(WeaponInfo.type_of(1302000), 130)
-	assert_eq(WeaponInfo.swing_k(1302000, "stabO1"), 4.0, "one-handed swords use k 4 for every stance")
-	assert_eq(WeaponInfo.swing_k(1372005, "swingO2"), 4.4)
-	assert_eq(WeaponInfo.swing_k(1372005, "stabO2"), 3.2)
+	assert_eq(WeaponInfo.physical_formula(1302000, 0), [4.0, 4.0, "str", "dex"])
+	assert_eq(WeaponInfo.physical_formula(1372005, 200), [4.4, 3.2, "str", "dex"])
 	var sword := {"afterImage": "swordOL", "attackSpeed": 4, "sfx": "swordL"}
 	var wand := {"afterImage": "mace", "attackSpeed": 6, "sfx": "mace"}
 	assert_near(WeaponInfo.attack_interval(sword), 0.72, 1e-9, "Sword 720 ms")

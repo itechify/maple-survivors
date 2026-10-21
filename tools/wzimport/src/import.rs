@@ -45,8 +45,8 @@ pub struct ImportReport {
 /// Run an import. Errors in single imgs are collected in the report; only setup failures return Err.
 pub fn run_import(opts: &ImportOptions) -> Result<ImportReport> {
     let t0 = Instant::now();
-    let text = std::fs::read_to_string(&opts.manifest).map_err(|e| WzError::io(&opts.manifest, e))?;
-    let manifest = Manifest::parse(&text).map_err(WzError::Other)?;
+    // The main manifest plus the include fragments beside it (asset_manifest.d/*.json).
+    let manifest = Manifest::load(&opts.manifest).map_err(WzError::Other)?;
     let wz = if opts.wz.is_dir() {
         WzRoot::new(&opts.wz)
     } else if opts.wz.is_file() {

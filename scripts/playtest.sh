@@ -12,14 +12,14 @@
 # Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
 # seconds between screenshots (60), --out=<dir> (default evidence/playtest/<stage>_s<seed>_x<speed>_<time>), --warp=<s>,
-# --branch=210|220|230 (forced available branch), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
+# --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
 # Anything else is passed to the game unchanged. Screenshots of the running game stay in evidence/ (gitignored).
 #
 # Frame times: the game caps the frame rate at the display's refresh rate (Settings / GameSettings.apply_frame_cap), so
 # frame_ms without --vsync=off is the cap (16.7 ms at 60 Hz); pass --vsync=off for performance measurements.
-# Output files: t<s>.png every --shot-every, levelup_N / job_N / hit_first / death_* / clear / final.png, summary.json
+# Output files: t<s>.png every --shot-every, levelup_N / job_N / cast_<skill> (each skill's first cast) / hit_first / death_* / clear / final.png, summary.json
 # (RunScene.perf_summary: frame_ms p50/p95/p99/max, frame_work_us, sim_us_per_tick, max_alive, level_by_minute, ...).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -34,8 +34,11 @@ AUTOPICK="--autopick"
 EXTRA=()
 for a in "$@"; do
   case "$a" in
-    --branch=*)
-      case "${a#--branch=}" in 210|220|230) EXTRA+=("$a") ;; *) echo "--branch must be 210, 220 or 230" >&2; exit 2 ;; esac ;;
+    --job=*|--branch=*)
+      [[ "$a" == --branch=* ]] && echo "playtest.sh: --branch is deprecated: use --job=<id>" >&2
+      JOB_ID="${a#--*=}"
+      [[ "$JOB_ID" =~ ^[0-9]+(:[a-z_]+)?$ ]] || { echo "--job must be a job id with an optional weapon family (e.g. 100:spear, 120:blunt)" >&2; exit 2; }
+      EXTRA+=("--job=$JOB_ID") ;;
     --stage=*) STAGE="${a#--stage=}" ;;
     --seed=*) SEED="${a#--seed=}" ;;
     --speed=*) SPEED="${a#--speed=}" ;;

@@ -27,8 +27,7 @@ func _kill(w: RunWorld) -> void:
 func test_boss_shower_conserves_configured_exp_and_only_drops_current_tier_bundles() -> void:
 	var w := _world()
 	w.progression.level = 25
-	for id: String in ["orange_potion", "white_potion", "mana_elixir"]:
-		w.upgrades.apply(id, w)
+	w.apply_potion_schedule(25, false) # White Potions and Mana Elixirs by the level schedule
 	w.balance.potions.drops.normal = {"hp": 1.0, "mp": 1.0}
 	w.drain_events()
 	_kill(w)

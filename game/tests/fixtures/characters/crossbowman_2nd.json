@@ -1,0 +1,223 @@
+{
+	"_doc": {
+		"branch": "spec166/ticket-204",
+		"diagnostic": "invulnerable (RunWorld.god = true; fixture tool --god): the bot plays with damage ignored to reach second job for diagnostic fixtures",
+		"forced_branch": 320,
+		"invulnerable": true,
+		"outcome": "TIMEOUT",
+		"policy": "bot",
+		"revision": "730467c36fb3312637733d722a009aa1512d8998",
+		"round_seconds": 600.0,
+		"rounding": "floating character fields rounded to six decimal places",
+		"seed": 1,
+		"source": "real headless Henesys bot round with the character invulnerable (RunWorld.god), stopped at the 600 s cap",
+		"stage": "henesys_hg1"
+	},
+	"attributes": {
+		"dex": 132,
+		"int": 4,
+		"luk": 4,
+		"str": 35
+	},
+	"base_attributes": {
+		"dex": 5,
+		"int": 4,
+		"luk": 4,
+		"str": 12
+	},
+	"base_fortune": 0.0,
+	"base_hp": 1088.0,
+	"base_mp": 410.0,
+	"card_ranks": {
+		"arrow_blow_new": 1,
+		"arrow_blow_rank": 19,
+		"arrow_blow_shots": 3,
+		"bow_double_shot_new": 1,
+		"bow_double_shot_rank": 8,
+		"bow_double_shot_shots": 3,
+		"critical_shot_new": 1,
+		"iron_arrow_new": 1,
+		"mana_elixir": 1,
+		"orange_potion": 1,
+		"power_knockback_crossbow_new": 1,
+		"three_snails_cooldown": 2,
+		"three_snails_count": 4,
+		"three_snails_pierce": 3,
+		"white_potion": 1
+	},
+	"earned_ap": 150,
+	"equipment": {
+		"inventory": [
+			{
+				"id": 1302000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 17
+				}
+			},
+			{
+				"id": 1462001,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 29
+				}
+			},
+			{
+				"id": 1060002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1002116,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 11
+				}
+			},
+			{
+				"id": 1072001,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 2
+				}
+			},
+			{
+				"id": 1452051,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 28
+				}
+			}
+		],
+		"worn": {
+			"bottom": {
+				"id": 1062001,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incMHP": 2,
+					"incPDD": 12
+				}
+			},
+			"hat": {
+				"id": 1002160,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incMMP": 5,
+					"incPDD": 17
+				}
+			},
+			"shoes": {
+				"id": 1072064,
+				"scrolls": 0,
+				"slots": 5,
+				"stats": {
+					"incPDD": 14
+				}
+			},
+			"top": {
+				"id": 1040002,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPDD": 3
+				}
+			},
+			"weapon": {
+				"id": 1462000,
+				"scrolls": 0,
+				"slots": 7,
+				"stats": {
+					"incPAD": 44
+				}
+			}
+		}
+	},
+	"exp": 415,
+	"format": 2,
+	"fortune": 0.0,
+	"job_id": 320,
+	"job_mp": 212.0,
+	"level": 31,
+	"look": {},
+	"mesos": 127036,
+	"player_mods": {},
+	"potions": {
+		"hp": {
+			"count": 24,
+			"item_id": 2000002
+		},
+		"mp": {
+			"count": 4,
+			"item_id": 2000006
+		}
+	},
+	"scrolls": {},
+	"skill_order": [
+		"three_snails",
+		"arrow_blow",
+		"bow_double_shot",
+		"critical_shot",
+		"power_knockback_crossbow",
+		"iron_arrow"
+	],
+	"skills": {
+		"arrow_blow": {
+			"mods": {
+				"count": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 20
+		},
+		"bow_double_shot": {
+			"mods": {
+				"count": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 9
+		},
+		"critical_shot": {
+			"mods": {},
+			"rank": 1
+		},
+		"iron_arrow": {
+			"mods": {},
+			"rank": 2
+		},
+		"power_knockback_crossbow": {
+			"mods": {},
+			"rank": 2
+		},
+		"three_snails": {
+			"mods": {
+				"cooldown": [
+					0.0,
+					0.7744
+				],
+				"count": [
+					4.0,
+					1.0
+				],
+				"pierce": [
+					3.0,
+					1.0
+				]
+			},
+			"rank": 3
+		}
+	},
+	"weapon_path": "bow"
+}

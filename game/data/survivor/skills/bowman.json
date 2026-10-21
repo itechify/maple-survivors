@@ -1,0 +1,651 @@
+{
+	"_doc": "Bowman first job (#166/#199), Hunter (#202) and Crossbowman (#203; five crossbow-only skills, all v83 levels). Ranks match every canonical v83 level; canonical prerequisites ignored (tier C, owner #31). Double Shot uses bow_double_shot because Pirate owns double_shot. Soul Arrow 3101004/3201004 is never added: endless ammo makes it redundant (owner #166). Hunter and Crossbowman append their entries here in that order.",
+	"skills": {
+		"blessing_of_amazon": {
+			"skill_id": 3000000,
+			"book": "300",
+			"job": 300,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "The Blessing of Amazon",
+			"desc": "Increases accuracy, which also raises critical chance.",
+			"icon": "Skill.wz/300.img/skill/3000000/icon",
+			"damage": "none",
+			"weapon_families": ["any"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+			"action": "",
+			"action_time": 0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "", "hit": ""},
+			"passive": {"stat": "acc", "field": "x"}
+		},
+		"critical_shot": {
+			"skill_id": 3000001,
+			"book": "300",
+			"job": 300,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "Critical Shot",
+			"desc": "Increases critical chance and critical damage with bows and crossbows.",
+			"icon": "Skill.wz/300.img/skill/3000001/icon",
+			"damage": "none",
+			"weapon_families": ["bow", "crossbow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "",
+			"action_time": 0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "", "hit": ""},
+			"passive": {
+				"stat": "crit_chance",
+				"field": "prop",
+				"effects": [
+					{"stat": "crit_damage", "field": "damage"}
+				]
+			},
+			"_tier": "Tier A: canonical prop/damage and 20 levels. Tier C: bow/crossbow family tag; tier B: additive critical damage (shared physical passive)."
+		},
+		"eye_of_amazon": {
+			"skill_id": 3000002,
+			"book": "300",
+			"job": 300,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "The Eye of Amazon",
+			"desc": "Extends bow and crossbow attacks.",
+			"icon": "Skill.wz/300.img/skill/3000002/icon",
+			"damage": "none",
+			"weapon_families": ["bow", "crossbow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8],
+			"action": "",
+			"action_time": 0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "", "hit": ""},
+			"passive": {"stat": "range", "field": "range"},
+			"_tier": "Tier A: canonical range +15 to +120, eight levels. Tier C: bow/crossbow family tag and range interpreted as additive pixels to ranged basic reach and family-gated attack-skill range; no effect on melee or Magician skills."
+		},
+		"focus": {
+			"skill_id": 3001003,
+			"book": "300",
+			"job": 300,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Focus",
+			"desc": "Temporarily increases accuracy and avoidability.",
+			"icon": "Skill.wz/300.img/skill/3001003/icon",
+			"damage": "none",
+			"weapon_families": ["any"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/300.img/skill/3001003/effect",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/3001003/Use", "hit": ""},
+			"buff": {
+				"duration_field": "time",
+				"effects": [
+					{"stat": "acc", "field": "acc"},
+					{"stat": "avoid", "field": "eva"}
+				]
+			},
+			"_tier": "Tier A: canonical mpCon, time, acc (including string values), eva, action, art and sound. Tier C: self-only auto-cast, recast on expiry, 0.8s hold."
+		},
+		"arrow_blow": {
+			"skill_id": 3001004,
+			"book": "300",
+			"job": 300,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Arrow Blow",
+			"desc": "Fires a powerful arrow at the nearest monster.",
+			"icon": "Skill.wz/300.img/skill/3001004/icon",
+			"damage": "physical",
+			"weapon_families": ["bow", "crossbow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/300.img/skill/3001004/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/3001004/Use", "hit": ""},
+			"cast": {"rule": "nearest"},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"char_level": {
+				"thresholds": [10, 15, 20, 25],
+				"hit": "Skill.wz/300.img/skill/3001004/CharLevel/{cl}/hit/0"
+			},
+			"_tier": "Tier A: canonical mpCon, damage, bulletCount (Double Shot), hit art and Arrow Blow Use sound. Tier C: bow/crossbow tag, nearest targeting, 1s cooldown, 300px base range (no WZ range), 600px/s speed, 8px radius, no base pierce, 0.6s hold and held weapon shooting stance. Current arrow sprite replaces skill ball. Double Shot splits over targets like Pirate Double Shot and reuses Arrow Blow Use sound because Sound.wz has no3001005 node; neither skill has a Hit sound. Untuned."
+		},
+		"bow_double_shot": {
+			"skill_id": 3001005,
+			"book": "300",
+			"job": 300,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Double Shot",
+			"desc": "Fires two arrows at nearby monsters.",
+			"icon": "Skill.wz/300.img/skill/3001005/icon",
+			"damage": "physical",
+			"weapon_families": ["bow", "crossbow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/300.img/skill/3001005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {"use": "Sound.wz/Skill.img/3001004/Use", "hit": ""},
+			"cast": {"rule": "nearest"},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"ammo_shot": true,
+			"char_level": {
+				"thresholds": [10, 15, 20, 25],
+				"hit": "Skill.wz/300.img/skill/3001005/CharLevel/{cl}/hit/0"
+			},
+			"_tier": "Tier A: canonical mpCon, damage, bulletCount (Double Shot), hit art and Arrow Blow Use sound. Tier C: bow/crossbow tag, nearest targeting, 1s cooldown, 300px base range (no WZ range), 600px/s speed, 8px radius, no base pierce, 0.6s hold and held weapon shooting stance. Current arrow sprite replaces skill ball. Double Shot splits over targets like Pirate Double Shot and reuses Arrow Blow Use sound because Sound.wz has no3001005 node; neither skill has a Hit sound. Untuned."
+		},
+		"bow_mastery": {
+			"skill_id": 3100000,
+			"book": "310",
+			"job": 310,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "Bow Mastery",
+			"desc": "Increases bow mastery and accuracy.",
+			"icon": "Skill.wz/310.img/skill/3100000/icon",
+			"damage": "none",
+			"weapon_families": ["bow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "",
+			"action_time": 0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			},
+			"passive": {
+				"stat": "mastery",
+				"field": "mastery",
+				"effects": [
+					{
+						"stat": "acc",
+						"field": "x"
+					}
+				]
+			},
+			"_tier": "Tier A: canonical mastery, x ACC and 20 levels. Tier B: mastery encoding (10+5N)%. Tier C: bow-only family tag, as String.wz describes."
+		},
+		"final_attack_bow": {
+			"skill_id": 3100001,
+			"book": "310",
+			"job": 310,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "Final Attack: Bow",
+			"desc": "A chance to follow a bow hit with another powerful arrow.",
+			"icon": "Skill.wz/310.img/skill/3100001/icon",
+			"damage": "physical",
+			"weapon_families": ["bow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/310.img/skill/3100001/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			},
+			"final_attack": {
+				"chance_field": "prop"
+			},
+			"_tier": "Tier A: prop 2..60%, damage 105..250%, 30 levels and hit art. Tier C: bow-only tag; shared deferred stream-12 follow-up per physical line; held weapon shooting stance 0.6s; current arrow presentation (#200)."
+		},
+		"bow_booster": {
+			"skill_id": 3101002,
+			"book": "310",
+			"job": 310,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Bow Booster",
+			"desc": "Uses HP and MP to temporarily increase bow attack speed.",
+			"icon": "Skill.wz/310.img/skill/3101002/icon",
+			"damage": "none",
+			"weapon_families": ["bow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/310.img/skill/3101002/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3101002/Use",
+				"hit": ""
+			},
+			"buff": {
+				"duration_field": "time",
+				"effects": [
+					{
+						"stat": "attack_speed",
+						"field": "x",
+						"scale": -1
+					}
+				]
+			},
+			"_tier": "Tier A: x=-2, hpCon/mpCon 29..10, time 10..200s, 20 levels, alert2, effect and Use sound. Tier C: bow-only tag, sign conversion, self-only auto-cast/recast while affordable, 0.8s hold. Shared HP admission never allows the cost to kill."
+		},
+		"power_knockback_bow": {
+			"skill_id": 3101003,
+			"book": "310",
+			"job": 310,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Power Knock-Back",
+			"desc": "Swings the bow at nearby monsters, with a chance to push them away.",
+			"icon": "Skill.wz/310.img/skill/3101003/icon",
+			"damage": "physical",
+			"weapon_families": ["bow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20],
+			"action": "swingT1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/310.img/skill/3101003/hit/0",
+			"effect": "Skill.wz/310.img/skill/3101003/afterimage/bow/swingT1/2",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3101003/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "range_around"
+			},
+			"cooldown": 1,
+			"knockback": {
+				"chance_field": "prop",
+				"distance": 120
+			},
+			"physical_formula": {
+				"primary": "dex",
+				"secondary": "str",
+				"max_mult": 3.4,
+				"divisor": 150,
+				"mastery": 0.1
+			},
+			"_tier": "Tier A: weapon45, canonical range130..150, damage105..200%, mobCount2..6, prop13..70%, mpCon8..15, hit and afterimage art and Use sound. Tier B: (DEX*3.4+STR)*W.Att/150, fixed mastery0.1. Tier C: shared range_around nearest-facing auto-cast, 120px push on stream1 (bosses resist), 1s cooldown/0.6s hold; swingT1 selected from canonical afterimage actions because no WZ action exists. The canonical afterimage is a 1x1 frame; no replacement trail is invented. Untuned.",
+			"text": {
+				"h": "MP -{mp_cost}; damage {damage}%, up to {mob_count|monster|monsters} within {range} px"
+			}
+		},
+		"arrow_bomb": {
+			"skill_id": 3101005,
+			"book": "310",
+			"job": 310,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Arrow Bomb: Bow",
+			"desc": "Fires an explosive arrow that damages a group and may stun each monster.",
+			"icon": "Skill.wz/310.img/skill/3101005/icon",
+			"damage": "physical",
+			"weapon_families": ["bow"],
+			"ranks": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/310.img/skill/3101005/ball",
+			"hit": "Skill.wz/310.img/skill/3101005/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3101005/Use",
+				"hit": "Sound.wz/Skill.img/3101005/Hit"
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 0,
+			"impact_blast": {
+				"damage_field": "x",
+				"visual": "hit"
+			},
+			"on_hit": {
+				"status": "stun",
+				"chance_field": "prop",
+				"duration_field": "time"
+			},
+			"text": {
+				"h": "MP -{mp_cost}; damage {x}%; {prop}% chance to stun for {time} sec."
+			},
+			"_tier": "Tier A: weapon45, x72..130% (no damage field), mpCon14..28, canonical lt/rb blast box, mobCount6, prop31..60%, time2..6s, ball/hit art, Use/Hit sounds and 30 levels. Tier C: nearest auto-cast, 1s cooldown/300px base reach/600px per second/8px radius/no base pierce/0.6s held weapon stance, same defaults as first-job arrows; first impact consumes the shot and blasts around the primary, on-hit stun on stream1 (bosses resist). Untuned."
+		},
+		"crossbow_mastery": {
+			"skill_id": 3200000,
+			"book": "320",
+			"job": 320,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "Crossbow Mastery",
+			"desc": "Increases your crossbow mastery and accuracy while a crossbow is in hand.",
+			"icon": "Skill.wz/320.img/skill/3200000/icon",
+			"weapon_families": [
+				"crossbow"
+			],
+			"damage": "none",
+			"passive": {
+				"stat": "mastery",
+				"field": "mastery",
+				"effects": [
+					{
+						"stat": "acc",
+						"field": "x"
+					}
+				]
+			},
+			"_passive": "Tier A: canonical mastery step (1 to 10, shown as 10 + 5N percent; levels 1 and 2 are both 15%) and accuracy x (+1 to +20), 20 levels. Tier C: applies only while a crossbow is held, listed explicitly because the WZ node has no weapon field.",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"action": "",
+			"action_time": 0,
+			"ball": "",
+			"hit": "",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"final_attack_crossbow": {
+			"skill_id": 3200001,
+			"book": "320",
+			"job": 320,
+			"kind": "passive",
+			"slot": "passive",
+			"name": "Final Attack: Crossbow",
+			"desc": "A far deadlier second blow follows a hit with a crossbow, with a given success rate.",
+			"icon": "Skill.wz/320.img/skill/3200001/icon",
+			"weapon_families": [
+				"crossbow"
+			],
+			"damage": "physical",
+			"final_attack": {
+				"chance_field": "prop"
+			},
+			"_final": "Tier A: canonical prop (2 to 60 percent), damage (105 to 250 percent), 30 levels and the hit art; the node has no action, effect or sound. Tier C: only a crossbow triggers it, listed explicitly because the WZ node has no weapon field; the follow-up plays the held weapon's first basic-attack stance (action weapon) for 0.6 s; one base target, extra nearby targets only from the Spread card, with generic current-ammo arrow flights; stream-12 timing and damage unchanged.",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30
+			],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/320.img/skill/3200001/hit/0",
+			"effect": "",
+			"rotate": false,
+			"sounds": {
+				"use": "",
+				"hit": ""
+			}
+		},
+		"crossbow_booster": {
+			"skill_id": 3201002,
+			"book": "320",
+			"job": 320,
+			"kind": "buff",
+			"slot": "passive",
+			"name": "Crossbow Booster",
+			"desc": "Uses HP and MP to temporarily boost the attack speed of your crossbow.",
+			"icon": "Skill.wz/320.img/skill/3201002/icon",
+			"weapon_families": [
+				"crossbow"
+			],
+			"damage": "none",
+			"buff": {
+				"duration_field": "time",
+				"effects": [
+					{
+						"stat": "attack_speed",
+						"field": "x",
+						"scale": -1
+					}
+				]
+			},
+			"_buff": "Tier A: canonical x (-2: v83 speed steps, a negative number is faster, so the entry negates it for +2 steps), hpCon, mpCon, time (10 to 200 s), 20 levels, the alert2 action, effect art and sound. Tier C: applies only while a crossbow is held, listed explicitly because the WZ node has no weapon field; self-only auto-cast while inactive and affordable, recast on expiry; effects snapshot until expiry; 0.8 s cast hold.",
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"action": "alert2",
+			"action_time": 0.8,
+			"ball": "",
+			"hit": "",
+			"effect": "Skill.wz/320.img/skill/3201002/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3201002/Use",
+				"hit": ""
+			}
+		},
+		"power_knockback_crossbow": {
+			"skill_id": 3201003,
+			"book": "320",
+			"job": 320,
+			"kind": "instant",
+			"slot": "active",
+			"name": "Power Knock-Back",
+			"desc": "Swings a crossbow at nearby monsters, with a chance to push them away.",
+			"icon": "Skill.wz/320.img/skill/3201003/icon",
+			"damage": "physical",
+			"weapon_families": [
+				"crossbow"
+			],
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20
+			],
+			"action": "swingT1",
+			"action_time": 0.6,
+			"ball": "",
+			"hit": "Skill.wz/320.img/skill/3201003/hit/0",
+			"effect": "Skill.wz/320.img/skill/3201003/afterimage/crossBow/swingT1/2",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3201003/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "range_around"
+			},
+			"cooldown": 1,
+			"knockback": {
+				"chance_field": "prop",
+				"distance": 120
+			},
+			"physical_formula": {
+				"primary": "dex",
+				"secondary": "str",
+				"max_mult": 3.4,
+				"divisor": 150,
+				"mastery": 0.1
+			},
+			"_tier": "Tier A: canonical weapon 46, range 130..150, mobCount 2..6, prop 13..70%, damage 105..200%, mpCon 8..15, hit/afterimage art and sounds; 20 levels. Tier B: Power Knock-Back formula (DEX*3.4+STR)*PAD/150, mastery fixed 0.1 (v83-facts 5; shared Hunter keys #202). Tier C: range_around targeting, 120px push, 1s cooldown, 0.6s swingT1 hold (no canonical action); uses the canonical crossBow/swingT1/2 afterimage (1x1 transparent in v83). Extra targets only from cards. Untuned."
+		},
+		"iron_arrow": {
+			"skill_id": 3201005,
+			"book": "320",
+			"job": 320,
+			"kind": "projectile",
+			"slot": "active",
+			"name": "Iron Arrow: Crossbow",
+			"desc": "Fires a piercing arrow that loses damage with each monster struck.",
+			"icon": "Skill.wz/320.img/skill/3201005/icon",
+			"damage": "physical",
+			"weapon_families": [
+				"crossbow"
+			],
+			"ranks": [
+				1,
+				2,
+				3,
+				4,
+				5,
+				6,
+				7,
+				8,
+				9,
+				10,
+				11,
+				12,
+				13,
+				14,
+				15,
+				16,
+				17,
+				18,
+				19,
+				20,
+				21,
+				22,
+				23,
+				24,
+				25,
+				26,
+				27,
+				28,
+				29,
+				30
+			],
+			"action": "weapon",
+			"action_time": 0.6,
+			"ball": "Skill.wz/320.img/skill/3201005/ball",
+			"hit": "Skill.wz/320.img/skill/3201005/hit/0",
+			"effect": "Skill.wz/320.img/skill/3201005/effect",
+			"rotate": false,
+			"sounds": {
+				"use": "Sound.wz/Skill.img/3201005/Use",
+				"hit": ""
+			},
+			"cast": {
+				"rule": "nearest"
+			},
+			"cooldown": 1,
+			"range": 300,
+			"speed": 600,
+			"radius": 8,
+			"pierce": 5,
+			"pierce_falloff": 0.1,
+			"_tier": "Tier A: canonical crossbow weapon 46, mobCount 6 (pierce 5), mpCon 23..28, damage 122..180%, ball/effect/hit and sounds, all 30 levels. Tier C: nearest target, 1s cooldown, 300px reach, 600px/s flight, 8px radius, 0.6s held-weapon shooting hold; one base arrow; linear 0.1 fall-off per contact, floor 0.1 (sixth mob 50%); extra counts only from cards. Untuned."
+		}
+	}
+}

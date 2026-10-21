@@ -1,0 +1,44 @@
+{
+	"_doc": "Scroll families of the Warrior line: the one-handed sword, axe and blunt weapon slots (2043xxx), the two-handed sword, axe and blunt weapon, spear and polearm slots (2044xxx) and the shield slot (2040900-2040933). Each weapon slot has the two v83 families a Warrior wants, ATT and ACC (accuracy); the shield slot DEF, STR, HP, LUK and ATT (v83 has no 100% shield ATT scroll). Slots are named by the item kind (the scroll category, Scrolls.category_of_scroll, is what ties a scroll to an item); the weapon kinds are the weapon_slots of ../shops/warrior.json (priced as weapons), the shield is priced as armour. Rate keys and tier rules: see ../scrolls.json _doc. Out, as there: the 65%/15%, 50% and anniversary event series, the strong 100% scrolls, King Pepe's 60% scrolls, the 2/3 DEF 100% shield scroll and the Magic Att. weapon and shield scrolls (Magician gear). tier C: our selection; ids, stats and rates are v83 Item.wz/Consume/0204.img.",
+	"families": {
+		"sword": {
+			"ATT": {"100": 2043000, "60": 2043001, "10": 2043002, "dark70": 2043004, "dark30": 2043005},
+			"ACC": {"100": 2043015, "60": 2043017, "10": 2043019, "dark70": 2043016, "dark30": 2043018}
+		},
+		"axe": {
+			"ATT": {"100": 2043100, "60": 2043101, "10": 2043102, "dark70": 2043104, "dark30": 2043105},
+			"ACC": {"100": 2043110, "60": 2043112, "10": 2043114, "dark70": 2043111, "dark30": 2043113}
+		},
+		"blunt": {
+			"ATT": {"100": 2043200, "60": 2043201, "10": 2043202, "dark70": 2043204, "dark30": 2043205},
+			"ACC": {"100": 2043210, "60": 2043212, "10": 2043214, "dark70": 2043211, "dark30": 2043213}
+		},
+		"two_handed_sword": {
+			"ATT": {"100": 2044000, "60": 2044001, "10": 2044002, "dark70": 2044004, "dark30": 2044005},
+			"ACC": {"100": 2044010, "60": 2044012, "10": 2044014, "dark70": 2044011, "dark30": 2044013}
+		},
+		"two_handed_axe": {
+			"ATT": {"100": 2044100, "60": 2044101, "10": 2044102, "dark70": 2044104, "dark30": 2044105},
+			"ACC": {"100": 2044110, "60": 2044112, "10": 2044114, "dark70": 2044111, "dark30": 2044113}
+		},
+		"two_handed_blunt": {
+			"ATT": {"100": 2044200, "60": 2044201, "10": 2044202, "dark70": 2044204, "dark30": 2044205},
+			"ACC": {"100": 2044210, "60": 2044212, "10": 2044214, "dark70": 2044211, "dark30": 2044213}
+		},
+		"spear": {
+			"ATT": {"100": 2044300, "60": 2044301, "10": 2044302, "dark70": 2044304, "dark30": 2044305},
+			"ACC": {"100": 2044310, "60": 2044312, "10": 2044314, "dark70": 2044311, "dark30": 2044313}
+		},
+		"polearm": {
+			"ATT": {"100": 2044400, "60": 2044401, "10": 2044402, "dark70": 2044404, "dark30": 2044405},
+			"ACC": {"100": 2044410, "60": 2044412, "10": 2044414, "dark70": 2044411, "dark30": 2044413}
+		},
+		"shield": {
+			"DEF": {"100": 2040900, "60": 2040901, "10": 2040902, "dark70": 2040904, "dark30": 2040905},
+			"STR": {"100": 2040929, "60": 2040931, "10": 2040933, "dark70": 2040930, "dark30": 2040932},
+			"HP": {"100": 2040926, "60": 2040927, "10": 2040928, "dark70": 2040908, "dark30": 2040909},
+			"LUK": {"100": 2040923, "60": 2040924, "10": 2040925, "dark70": 2040906, "dark30": 2040907},
+			"ATT": {"60": 2040914, "10": 2040915, "dark70": 2040916, "dark30": 2040917}
+		}
+	}
+}

@@ -12,6 +12,12 @@ const INFO := {
 	1082019: {"reqLevel": 20, "reqJob": 2, "reqINT": 40, "incPAD": 2, "incMMP": 15, "tuc": 5}, # gloves
 	1302000: {"reqLevel": 0, "reqJob": 0, "incPAD": 17, "tuc": 7, "attackSpeed": 4, "price": 1}, # weapon
 	1372005: {"reqLevel": 8, "reqJob": 0, "incPAD": 15, "incMAD": 23, "tuc": 7, "attackSpeed": 6}, # wand
+	# Warrior shields and two-handed weapons, shaped like the v83 Character.wz info (Shield/01092005 and 01092000,
+	# Weapon/01402000: reqJob 1 = the Warrior bit).
+	1092005: {"reqLevel": 10, "reqJob": 1, "reqSTR": 0, "incPDD": 10, "incMDD": 3, "tuc": 7}, # wooden shield
+	1092000: {"reqLevel": 15, "reqJob": 1, "reqSTR": 40, "incPDD": 15, "tuc": 7}, # shield
+	1402000: {"reqLevel": 20, "reqJob": 1, "reqSTR": 70, "incPAD": 40, "tuc": 7, "attackSpeed": 6}, # two-handed sword
+	1432000: {"reqLevel": 20, "reqJob": 1, "reqSTR": 70, "incPAD": 41, "tuc": 7, "attackSpeed": 6}, # spear
 }
 
 
@@ -22,6 +28,14 @@ func _state(worn: Array, inventory: Array) -> Dictionary:
 
 func _magician(level := 30, int_stat := 60) -> Dictionary:
 	return {"level": level, "job_id": 200, "str": 4, "dex": 4, "int": int_stat, "luk": 4}
+
+
+func _warrior(level := 30, str_stat := 80) -> Dictionary:
+	return {"level": level, "job_id": 100, "str": str_stat, "dex": 4, "int": 4, "luk": 4}
+
+
+func _ids(items: Array) -> Array:
+	return items.map(func(i: Dictionary) -> int: return i.id)
 
 
 func test_a_fresh_instance_takes_its_nonzero_inc_stats_and_upgrade_slots_from_info() -> void:
@@ -160,3 +174,103 @@ func test_state_validation_accepts_json_and_rejects_malformed_instances() -> voi
 			{"worn": {}, "inventory": [{"id": 1302000}]},
 			{"worn": {}, "inventory": [{"id": 1302000, "stats": {"incPAD": "x"}, "slots": 0, "scrolls": 0}]}]:
 		assert_ne(Equipment.validation_error(bad), "", str(bad))
+
+
+# --- shield slot (#158) ---------------------------------------------------------------------------------------------
+
+func test_the_shield_is_an_equip_slot_of_the_shield_category() -> void:
+	assert_eq(Equipment.SLOTS[-1], "shield", "appended last: every earlier slot keeps its order")
+	for id: int in [1092000, 1092005, 1092062]:
+		assert_eq(Equipment.slot_of(id), "shield", str(id))
+	assert_eq(Equipment.slot_of(1102000), "", "capes are still not an equip slot")
+
+
+func test_a_shield_is_worn_beside_a_one_handed_weapon_and_its_stats_count() -> void:
+	var state := _state([1040002, 1302000], [1092005])
+	assert_eq(Equipment.equip(state, 0, INFO[1092005], _warrior(), 24), "")
+	assert_eq(state.worn.shield.id, 1092005)
+	assert_eq(state.worn.weapon.id, 1302000, "a one-handed weapon stays")
+	assert_eq(state.inventory, [])
+	assert_eq(Equipment.total(state.worn, "incPDD"), 13.0, "top 3 + shield 10")
+	assert_eq(Equipment.total(state.worn, "incMDD"), 3.0)
+	assert_eq(Equipment.worn_ids(state.worn), [1040002, 1302000, 1092005], "drawn after the weapon")
+	assert_eq(Equipment.unequip(state, "shield", 24), "")
+	assert_eq(_ids(state.inventory), [1092005])
+
+
+func test_a_shield_takes_the_v83_requirements() -> void:
+	for spec: Array in [[1092005, _warrior(9), "reqLevel"], [1092005, _magician(30), "reqJob"],
+			[1092000, _warrior(30, 39), "reqSTR"], [1092000, _warrior(30, 40), ""]]:
+		var state := _state([1302000], [spec[0]])
+		var before := state.duplicate(true)
+		var reason := Equipment.equip(state, 0, INFO[spec[0]], spec[1], 24)
+		assert_eq(reason, spec[2], "%d %s" % [spec[0], spec[1]])
+		if reason != "":
+			assert_eq(state, before, "a refusal changes nothing")
+
+
+func test_a_two_handed_weapon_moves_the_worn_shield_to_the_inventory() -> void:
+	var state := _state([1040002, 1302000, 1092005], [1402000])
+	assert_eq(Equipment.equip(state, 0, INFO[1402000], _warrior(), 24), "")
+	assert_eq(state.worn.weapon.id, 1402000)
+	assert_false(state.worn.has("shield"), "the shield is off")
+	assert_eq(_ids(state.inventory), [1302000, 1092005], "the old weapon takes the item's place, the shield follows")
+	var bare := _state([1092005], [1432000])
+	assert_eq(Equipment.equip(bare, 0, INFO[1432000], _warrior(), 24), "")
+	assert_eq(_ids(bare.inventory), [1092005], "with no weapon worn the shield takes the item's place")
+
+
+func test_a_shield_moves_the_held_two_handed_weapon() -> void:
+	var state := _state([1040002, 1402000], [1092005])
+	assert_eq(Equipment.equip(state, 0, INFO[1092005], _warrior(), 24), "")
+	assert_eq(state.worn.shield.id, 1092005)
+	assert_false(state.worn.has("weapon"), "bare-handed now")
+	assert_eq(_ids(state.inventory), [1402000], "the weapon took the shield's place")
+
+
+func test_a_full_inventory_refuses_the_two_handed_rule_and_changes_nothing() -> void:
+	# A two-handed sword over a one-handed sword and a shield: one item leaves the tab, two come in.
+	var sword_over_shield := _state([1302000, 1092005], [1402000])
+	var before := sword_over_shield.duplicate(true)
+	assert_eq(Equipment.equip(sword_over_shield, 0, INFO[1402000], _warrior(), 1), "inventory_full")
+	assert_eq(sword_over_shield, before, "refused: nothing moved")
+	assert_eq(Equipment.equip(sword_over_shield, 0, INFO[1402000], _warrior(), 2), "", "room for both")
+	# The same with the tab holding other things.
+	var tab_full := _state([1302000, 1092005], [1402000, 1002001, 1040002])
+	var tab_before := tab_full.duplicate(true)
+	assert_eq(Equipment.equip(tab_full, 0, INFO[1402000], _warrior(), 3), "inventory_full")
+	assert_eq(tab_full, tab_before)
+	# A shield over a held spear swaps place for place, so even a full tab takes it.
+	var shield_over_spear := _state([1432000], [1092005])
+	assert_eq(Equipment.equip(shield_over_spear, 0, INFO[1092005], _warrior(), 1), "", "swap place for place")
+
+
+func test_a_one_handed_weapon_over_a_shield_needs_no_room() -> void:
+	var state := _state([1302000, 1092005], [1372005])
+	assert_eq(Equipment.equip(state, 0, INFO[1372005], _warrior(), 1), "")
+	assert_eq(state.worn.shield.id, 1092005, "the shield stays under a one-handed weapon")
+	assert_eq(_ids(state.inventory), [1302000])
+
+
+func test_a_two_handed_grant_moves_the_shield_or_leaves_everything() -> void:
+	var state := _state([1040002, 1092005], [])
+	assert_eq(Equipment.grant(state, Equipment.create(1402000, INFO[1402000]), 24), "")
+	assert_eq(state.worn.weapon.id, 1402000)
+	assert_eq(_ids(state.inventory), [1092005])
+	var full := _state([1302000, 1092005], [1002001])
+	var before := full.duplicate(true)
+	assert_eq(Equipment.grant(full, Equipment.create(1402000, INFO[1402000]), 2), "inventory_full")
+	assert_eq(full, before)
+
+
+func test_a_two_handed_weapon_is_never_worn_with_a_shield_in_validation_or_outfits() -> void:
+	var state := _state([1302000, 1092005], [])
+	assert_eq(Equipment.validation_error(state), "")
+	state.worn.weapon = Equipment.create(1402000, INFO[1402000])
+	assert_ne(Equipment.validation_error(state), "", "a two-handed weapon beside a shield is invalid")
+	var outfit := Equipment.worn_from_ids([1302000, 1092005, 1402000], INFO)
+	assert_eq(outfit.weapon.id, 1402000)
+	assert_false(outfit.has("shield"), "the two-handed weapon wins, as in equip")
+	var reverse := Equipment.worn_from_ids([1402000, 1092005], INFO)
+	assert_false(reverse.has("weapon"), "a shield after a two-handed weapon replaces it, as in equip")
+	assert_eq(reverse.shield.id, 1092005)

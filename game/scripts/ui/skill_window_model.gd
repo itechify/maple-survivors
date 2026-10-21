@@ -2,21 +2,14 @@ class_name SkillWindowModel
 extends RefCounted
 ## What the v83 Skill window (SkillWindow, #86) shows, built from plain run data so it can be tested without nodes or
 ## the cache: one tab per job on the character's path (Beginner, 1st job, the 2nd-job branch reached), each listing
-## every skill of that job the game implements, then the star tab of job-neutral cards taken. Read-only: it never
-## changes the loadout.
+## every skill of that job the game implements (spec #225: there are no job-neutral cards, so no star tab). Read-only:
+## it never changes the loadout.
 ##
 ##   var m := SkillWindowModel.new(world.book, world.upgrades, world.loadout, world.jobs, job_id, run.skill_text)
-##   m.tabs        # [{kind: "job"|"star", name, job_id, tier, book_name, book_icon, rows: [...]}]
+##   m.tabs        # [{name, job_id, tier, book_name, book_icon, rows: [...]}]
 ##
 ## Tabs: `tier` picks the v83 tab glyph (UIWindow.img/Skill/Tab/<state>/<tier>: the Beginner mark, I, II, ...);
 ## `book_name` is String.wz/Skill.img/<book>/bookName ("" without it), `book_icon` Skill.wz/<book>.img/info/icon.
-
-## Tab kinds.
-const JOB := "job"
-const STAR := "star"
-## tier C (ours): the star tab's name and its banner text (v83 has no such tab).
-const STAR_NAME := "Star"
-const STAR_BANNER := "Job-neutral Cards"
 
 var book: SkillBook
 var pool: UpgradePool
@@ -24,12 +17,16 @@ var loadout: Loadout
 var jobs: JobTree
 var job_id := 0
 var text: SkillText
+## Returns the family of the weapon held now (RunWorld.held_weapon_family; "" = bare hands). Without one (not valid) no
+## weapon is held, which only matters for skills that name a weapon.
+var held_family: Callable
 ## The tabs, left to right (see the class doc).
 var tabs: Array[Dictionary] = []
 
 
 func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: JobTree, p_job_id: int,
-		p_text: SkillText) -> void:
+		p_text: SkillText, p_held_family: Callable = Callable()) -> void:
+	held_family = p_held_family
 	book = p_book
 	pool = p_pool
 	loadout = p_loadout
@@ -42,31 +39,29 @@ func _init(p_book: SkillBook, p_pool: UpgradePool, p_loadout: Loadout, p_jobs: J
 		var j := jobs.job(id)
 		var bk := String(j.get("book", ""))
 		var names: Variant = text.strings.get(bk, {}) if text != null else {}
-		tabs.append({"kind": JOB, "name": String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
+		tabs.append({"name":String(j.get("name", str(id))), "job_id": id, "tier": int(j.get("tier", 0)),
 			"book_name": String(names.get("bookName", "")) if names is Dictionary else "",
 			"book_icon": "Skill.wz/%s.img/info/icon" % bk if bk != "" else "", "rows": _skill_rows(id)})
-	tabs.append({"kind": STAR, "name": STAR_NAME, "job_id": -1, "tier": -1, "book_name": STAR_BANNER, "book_icon": "",
-		"rows": _star_rows()})
 
 
-## The star tab's rows: every job-neutral card taken (no `skill`; not a filler such as the one-off Elixir), in card
-## order.
-func _star_rows() -> Array[Dictionary]:
-	var rows: Array[Dictionary] = []
-	for c: Dictionary in pool.cards:
-		var id := String(c.get("id", ""))
-		if String(c.get("skill", "")) != "" or String(c.get("kind", "")) == "filler":
-			continue
-		var r := int(loadout.card_ranks.get(id, 0))
-		if r > 0:
-			rows.append({"id": id, "name": String(c.get("name", id)), "icon": String(c.get("icon", "")), "rank": r,
-				"max_rank": int(c.get("max_rank", 1))})
-	return rows
+## True when the weapon held now can use skill `key` (SkillBook.usable_with); the window greys the row otherwise.
+func usable(key: String) -> bool:
+	return book.usable_with(key, String(held_family.call()) if held_family.is_valid() else "")
+
+
+## The weapon a skill needs for the tooltip: "Claw", "Knuckle / Gun" ("" when any weapon works).
+func weapon_needed(key: String) -> String:
+	var names := PackedStringArray()
+	for family in book.weapon_families(key):
+		names.append(WeaponInfo.family_label(family))
+	return " / ".join(names)
 
 
 ## The tooltip of skill `key`: {name, icon, desc, level (0 when unlearned), current (the owned level's line, "" when
 ## unlearned), next_level (0 at the cap), next (that level's line), cooldown (s between casts:
-## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), upgrades: [{id, name, steps, effect, text}] (every behaviour
+## SkillRunner.restart_cooldown; -1 for a passive), mp_cost (-1 for a passive), hp_cost (only for an active skill that
+## pays HP, Slash Blast), needs (the weapon it needs, "" for any;
+## weapon_needed), usable (the held weapon can use it), upgrades: [{id, name, steps, effect, text}] (every behaviour
 ## card taken for the skill, in card order: "Twin Claw ×2: +2 targets")}. Lines come from SkillText filled with the
 ## effective stats, so cards show in the numbers.
 func skill_tooltip(key: String) -> Dictionary:
@@ -76,7 +71,7 @@ func skill_tooltip(key: String) -> Dictionary:
 	var kind := book.kind(key)
 	var tip := {"key": key, "name": String(d.get("name", key)), "icon": String(d.get("icon", "")),
 		"desc": text.desc(key), "level": loadout.level(key), "current": "", "next_level": 0, "next": "",
-		"cooldown": -1.0, "mp_cost": -1, "upgrades": []}
+		"cooldown": -1.0, "mp_cost": -1, "needs": weapon_needed(key), "usable": usable(key), "upgrades": []}
 	if r > 0:
 		tip.current = text.level_line(key, loadout.level(key), st)
 	if r < book.max_rank(key):
@@ -84,6 +79,7 @@ func skill_tooltip(key: String) -> Dictionary:
 		tip.next = text.level_line(key, tip.next_level, loadout.stats(key, r + 1))
 	if kind != "passive":
 		tip.mp_cost = int(st.mp_cost)
+		tip.hp_cost = int(st.hp_cost)
 		tip.cooldown = SkillRunner.restart_cooldown(st)
 	var upgrades: Array[Dictionary] = []
 	for c: Dictionary in pool.cards:
@@ -97,14 +93,6 @@ func skill_tooltip(key: String) -> Dictionary:
 			"text": "%s ×%d: %s" % [cname, steps, effect]})
 	tip.upgrades = upgrades
 	return tip
-
-
-## The tooltip of star-tab card `id`: {id, name, icon, desc (the card text for every step taken), rank, max_rank}.
-func card_tooltip(id: String) -> Dictionary:
-	var c := pool.card(id)
-	var r := int(loadout.card_ranks.get(id, 0))
-	return {"id": id, "name": String(c.get("name", id)), "icon": String(c.get("icon", "")),
-		"desc": pool.describe(id, maxi(1, r)), "rank": r, "max_rank": int(c.get("max_rank", 1))}
 
 
 ## The total effect of `steps` steps of skill_mod card `c` on a skill of `skill_kind`, stacked as UpgradePool.apply

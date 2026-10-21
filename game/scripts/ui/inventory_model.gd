@@ -12,8 +12,8 @@ extends RefCounted
 ## "stats": [[inc key, value], ...] in v83 order (non-zero only), "slots" (upgrade slots left), "scrolls"}.
 
 ## Item category (id / 10000) -> ToolTip/Equip/ItemCategory canvas (tier A: the v83 label art reads HAT, TOP,
-## LONGCOAT, BOTTOM, SHOES, GLOVE; the mapping to categories is ours, tier C).
-const CATEGORY_LABELS := {100: 1, 104: 5, 105: 21, 106: 6, 107: 7, 108: 8}
+## LONGCOAT, BOTTOM, SHOES, GLOVE, SHIELD (10); the mapping to categories is ours, tier C).
+const CATEGORY_LABELS := {100: 1, 104: 5, 105: 21, 106: 6, 107: 7, 108: 8, 109: 10}
 ## Tooltip requirement rows: ToolTip/Equip/Can|Cannot label -> (info field, character stat; "" = the level).
 const REQ_ROWS := [["reqLEV", "reqLevel", "level"], ["reqSTR", "reqSTR", "str"], ["reqDEX", "reqDEX", "dex"],
 	["reqINT", "reqINT", "int"], ["reqLUK", "reqLUK", "luk"]]

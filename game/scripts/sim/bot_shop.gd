@@ -16,11 +16,14 @@ const DEFAULT_WEIGHTS := {"incPAD": 1.0, "incMAD": 1.0}
 const EQUIP_GUARD := 32
 
 
-## The stat weights for `job_id` (balance.bot.equipment_weights by job branch `job_id / 100`, else its "default").
-@warning_ignore("integer_division")
-static func weights_for(balance: Dictionary, job_id: int) -> Dictionary:
+## The stat weights for `job_id`: balance.bot.equipment_weights keyed by job id ("0" Beginner, "200" Magician, ...),
+## the entry of the job or its nearest ancestor (JobTree.lineage), else "default", else DEFAULT_WEIGHTS.
+static func weights_for(balance: Dictionary, job_id: int, jobs: JobTree) -> Dictionary:
 	var table: Dictionary = balance.get("bot", {}).get("equipment_weights", {})
-	return table.get(str(job_id / 100), table.get("default", DEFAULT_WEIGHTS))
+	for j in jobs.lineage(job_id):
+		if table.has(str(j)):
+			return table[str(j)]
+	return table.get("default", DEFAULT_WEIGHTS)
 
 
 ## What `stats` ({"incMAD": 23, ...}) is worth under `weights`.
@@ -55,18 +58,24 @@ static func equip_after(w: RunWorld, events: Array) -> int:
 ## Wears, for every equip slot, the best wearable item of the Equip tab: one that scores higher than what it replaces (an
 ## overall against the top and bottom it displaces, an empty slot against nothing) and that the v83 requirements and the
 ## tab's room allow. Repeats until nothing improves (a better top can raise INT enough for a wand). Returns how many items
-## it put on. No RNG.
+## it put on. A character with a weapon path upgrades only its recorded family (or a shared drop family) while its
+## job line can use that family, including when the weapon was swapped or destroyed; otherwise it keeps the held
+## weapon's family. No RNG.
 static func auto_equip(w: RunWorld) -> int:
-	var weights := weights_for(w.balance, w.progression.job_id)
+	var weights := weights_for(w.balance, w.progression.job_id, w.jobs)
 	var worn_count := 0
 	for _pass in EQUIP_GUARD:
+		var loyal := _loyal_family(w)
 		var candidates: Array = []
 		for index in w.equipment.inventory.size():
 			var instance: Dictionary = w.equipment.inventory[index]
 			var slot := Equipment.slot_of(int(instance.id))
 			if slot == "":
 				continue
-			var gain := item_score(instance, weights) - _displaced_score(w.equipment.worn, slot, weights)
+			if slot == "weapon" and loyal != "" \
+					and not EquipmentDrops.family_allows(int(instance.id), loyal, w.data.get("equipment_drops", {})):
+				continue
+			var gain := item_score(instance, weights) - _displaced_score(w.equipment.worn, int(instance.id), weights)
 			if gain > 1e-9:
 				candidates.append(Vector2(gain, index))
 		candidates.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x > b.x or (a.x == b.x and a.y < b.y))
@@ -81,14 +90,22 @@ static func auto_equip(w: RunWorld) -> int:
 	return worn_count
 
 
-## Score of what wearing an item for `slot` takes off (a top or bottom displaces an overall, an overall both).
-static func _displaced_score(worn: Dictionary, slot: String, weights: Dictionary) -> float:
-	var gone: Array = ["top", "bottom", "overall"] if slot == "overall" \
-		else [slot, "overall"] if slot in ["top", "bottom"] else [slot]
+## The weapon family the bot stays loyal to ("" = none). tier C (#226): the recorded advancement path while the current
+## job's line can use it; else the held weapon's family (the earlier rule), which a bare-handed bot does not filter by.
+static func _loyal_family(w: RunWorld) -> String:
+	if w.weapon_path == "":
+		return ""
+	if JobTree.has_path(w.jobs.line_paths(w.progression.job_id), w.weapon_path):
+		return w.weapon_path
+	return w.held_weapon_family()
+
+
+## Score of what wearing item `id` takes off (Equipment.displaced_slots: a top or bottom displaces an overall, an overall
+## both, a two-handed weapon the shield, a shield a held two-handed weapon).
+static func _displaced_score(worn: Dictionary, id: int, weights: Dictionary) -> float:
 	var sum := 0.0
-	for s: String in gone:
-		if worn.has(s):
-			sum += item_score(worn[s], weights)
+	for s: String in Equipment.displaced_slots(worn, id):
+		sum += item_score(worn[s], weights)
 	return sum
 
 
@@ -100,7 +117,7 @@ const POLICY_CARELESS := "careless"
 ## tier C: the sensible bot buys only the 100% and 60% scrolls (never the dark ones, whose failure destroys the item).
 const SENSIBLE_RATES := ["100", "60"]
 ## tier C: the order a sensible bot spends on: weapon, overall and gloves first (the owner's rule), then the rest.
-const SLOT_PRIORITY := ["weapon", "overall", "gloves", "hat", "top", "bottom", "shoes"]
+const SLOT_PRIORITY := ["weapon", "overall", "gloves", "hat", "top", "bottom", "shoes", "shield"]
 ## Most plans one visit applies: a plan is redone after a dark scroll destroys an item, nothing else changes it.
 const MAX_PASSES := 8
 ## Most scrolls a careless plan buys (31 upgrade slots on a full set of seven-slot items is far below it).
@@ -136,7 +153,7 @@ static func stock_of(w: RunWorld) -> Array:
 ## The canonical facts plan() needs: {equipment_info, scroll_info (from the setup), weights (the job's stat weights)}.
 static func facts_of(w: RunWorld) -> Dictionary:
 	return {"equipment_info": w.setup.get("equipment_info", {}), "scroll_info": w.setup.get("scroll_info", {}),
-		"weights": weights_for(w.balance, w.progression.job_id)}
+		"weights": weights_for(w.balance, w.progression.job_id, w.jobs)}
 
 
 ## The shop plan for a visit: `{"sell": [Equip-tab indices, last first], "steps": [...]}` where steps run in order,
@@ -232,7 +249,7 @@ static func _keeps(instance: Dictionary, character: Dictionary, equipment_info: 
 	var slot := Equipment.slot_of(id)
 	if slot == "":
 		return false
-	if item_score(instance, weights) - _displaced_score(character.equipment.worn, slot, weights) <= 1e-9:
+	if item_score(instance, weights) - _displaced_score(character.equipment.worn, id, weights) <= 1e-9:
 		return false
 	var who := {"level": int(character.get("level", 1)), "job_id": int(character.get("job_id", 0))}
 	who.merge(character.get("stats", {}))

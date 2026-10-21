@@ -23,11 +23,44 @@ const HIT_DEFENSE_FACTOR := 0.75
 ## tier B (weakly sourced): pre-Big-Bang avoid-versus-monster-accuracy percentage from a single private-server wiki
 ## page (owner-provided); no second RE source corroborates it.
 const AVOID_PERCENT_FACTOR := 21.6
+## tier B: pre-Big-Bang SouthPerry/HS.net accuracy coefficients (DEX, LUK); nearest job ancestor wins.
+const ACCURACY_FACTORS := {
+	0: Vector2(0.8, 0.5), 100: Vector2(0.8, 0.5), 200: Vector2(0.8, 0.5),
+	300: Vector2(0.6, 0.3), 400: Vector2(0.6, 0.3), 500: Vector2(0.6, 0.3), 510: Vector2(0.9, 0.3),
+}
+
+
+## Damage kinds of a hit line, as the byte a pooled array stores (DAMAGE_TYPE_NAMES is the string a hit dictionary carries).
+const DAMAGE_FIXED := 0
+const DAMAGE_MAGIC := 1
+const DAMAGE_PHYSICAL := 2
+const DAMAGE_TYPE_NAMES := ["fixed", "magic", "physical"]
+
+
+## The damage type of a hit line: the explicit `damage_type` when set, else the legacy `magic` flag picks magic or fixed
+## (the one place that default lives; callers with a spec dictionary pass its two keys).
+static func damage_type_of(damage_type: String, is_magic: bool) -> String:
+	return damage_type if damage_type != "" else "magic" if is_magic else "fixed"
+
+
+## The DAMAGE_* byte of a damage type name (an unknown name, e.g. "none", counts as fixed).
+static func damage_type_code(damage_type: String) -> int:
+	return maxi(DAMAGE_FIXED, DAMAGE_TYPE_NAMES.find(damage_type))
 
 
 ## Mastery fraction for a canonical `mastery` field value: (10 + 5 x m) / 100 (Energy Bolt L1 m=1 -> 0.15).
 static func mastery_fraction(mastery_field: int) -> float:
 	return (10.0 + 5.0 * mastery_field) / 100.0
+
+
+## Job-base accuracy from a JobTree lineage (nearest first), before equipment and skills.
+static func base_accuracy(dex_stat: float, luk_stat: float, lineage: PackedInt32Array) -> float:
+	var factors: Vector2 = ACCURACY_FACTORS[0]
+	for job: int in lineage:
+		if ACCURACY_FACTORS.has(job):
+			factors = ACCURACY_FACTORS[job]
+			break
+	return dex_stat * factors.x + luk_stat * factors.y
 
 
 ## Vector2(min, max) magic damage before defence. `mastery` is the fraction (0.15 = 15%).
@@ -55,15 +88,31 @@ static func heal_damage_range(int_stat: float, luk: float, matk: float, recovery
 	return Vector2((int_stat * 0.3 + luk) * factor, (int_stat * 1.2 + luk) * factor)
 
 
-## Physical swing bounds after level difference and PDD, minimum 1 (tier B: pre-Big-Bang formula compilation).
-static func basic_damage_range(str_stat: int, dex_stat: int, watk: float, weapon_id: int, action: String,
-		player_level: int, mob_level: int, pdd: float) -> Vector2:
-	var k := WeaponInfo.swing_k(weapon_id, action)
-	var hi := (str_stat * k + dex_stat) * watk / 100.0
-	var lo := (str_stat * k * 0.9 * 0.1 + dex_stat) * watk / 100.0
+## Pre-defence weapon bounds (tier B: SouthPerry/HS.net). Formula overrides are survivor skill data.
+static func physical_damage_range(str_stat: float, dex_stat: float, luk_stat: float, watk: float,
+		weapon_id: int, attack_kind: String, job_id: int = 0, mastery: float = 0.10,
+		formula: Dictionary = {}) -> Vector2:
+	var row := WeaponInfo.physical_formula(weapon_id, job_id)
+	var mult := float(row[1] if attack_kind == "stab" else row[0])
+	var values := {"str": str_stat, "dex": dex_stat, "luk": luk_stat, "str+dex": str_stat + dex_stat, "": 0.0}
+	var primary := float(values.get(String(formula.get("primary", row[2])), 0.0))
+	var secondary := float(values.get(String(formula.get("secondary", row[3])), 0.0))
+	var max_mult := float(formula.get("max_mult", mult))
+	var min_mult := float(formula.get("min_mult", max_mult))
+	# tier B: Power Knock-Back uses fixed 10% mastery and divides by 150 (ticket #202, pre-BB formula).
+	# Optional overrides keep the ordinary /100 and live mastery for every existing physical attack.
+	var minimum_mastery := 1.0 if bool(formula.get("ignore_mastery", false)) else 0.9 * float(formula.get("mastery", mastery))
+	var divisor := float(formula.get("divisor", 100.0))
+	var hi := (max_mult * primary + secondary) * watk / divisor
+	var lo := (min_mult * primary * minimum_mastery + secondary) * watk / divisor
+	return Vector2(minf(lo, hi), hi)
+
+
+## Physical bounds after level gap and live PDD (tier B: AGF/Stereo), each floored at 1 before rolling.
+static func physical_defense(bounds: Vector2, player_level: int, mob_level: int, pdd: float) -> Vector2:
 	var level_factor := 1.0 - 0.01 * maxi(0, mob_level - player_level)
-	hi = maxf(1.0, hi * level_factor - 0.5 * pdd)
-	lo = maxf(1.0, lo * level_factor - 0.6 * pdd)
+	var hi := maxf(1.0, bounds.y * level_factor - 0.5 * pdd)
+	var lo := maxf(1.0, bounds.x * level_factor - 0.6 * pdd)
 	return Vector2(minf(lo, hi), hi)
 
 
@@ -84,7 +133,7 @@ static func apply_defense(dmg: float, mdd: float, k: float = MAGIC_DEFENSE_K) ->
 	return dmg * (1.0 - mdd / (mdd + k))
 
 
-## True with probability `chance` (0..1). Never consumes a roll when chance <= 0 (Beginner/Magician cannot crit).
+## True with probability `chance` (0..1). Never consumes a roll when chance <= 0.
 static func roll_crit(chance: float, rng: RandomNumberGenerator) -> bool:
 	if chance <= 0.0:
 		return false

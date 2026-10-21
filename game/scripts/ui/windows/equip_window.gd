@@ -3,11 +3,11 @@ extends InventoryWindow
 ## The v83 Equip window (hotkey E, or Menu -> Equip; #108) with the Cash tab and the Pet page (spec #34, #122).
 ##
 ## Equip page: UI.wz/UIWindow.img/Equip `backgrnd` (EQUIPMENT INVENTORY, the slot grid with the character outline) with
-## each worn item's icon in its v83 slot: CAP, CLOTHES (a top or an overall), PANTS, SHOES, GLOVES and WEAPON; the other
-## slots of the art have no equipment in this game. BtUIClose in the bottom strip closes the window.
+## each worn item's icon in its v83 slot: CAP, CLOTHES (a top or an overall), PANTS, SHOES, GLOVES, WEAPON and SHIELD (#158;
+## a two-handed weapon empties it); the other slots of the art have no equipment in this game. BtUIClose in the bottom strip closes the window.
 ##
-## The bottom strip also switches the page (`set_page`): the Equip and Cash glyphs of the Item window's tab art, and the
-## v83 BtPetEquipShow ("PET EQUIP.") button for the Pet page.
+## The bottom strip also switches the page (`set_page`): the Equip and Cash tabs (the Item window's glyphs on grey / pink
+## Basic.img/Tab3 tab shapes from TabStrip, #219) and the v83 BtPetEquipShow ("PET EQUIP.") button for the Pet page.
 ##
 ## Cash page (tier C: v83's Equip art has no cash tab, so the page reuses the `backgrnd` grid): the character's 11 cash
 ## slots in the cells their labels name (CAP hat, FOREHEAD face, EYE ACC eye, EAR ACC earrings, CLOTHES top, PANTS
@@ -43,14 +43,15 @@ const PET_SIZE := Vector2(177, 181)
 ## tier C (ours, measured on the v83 backgrnd; cross-checked tier B against JourneyClient's slot offsets): the 32 px
 ## slot cells of the equip slots this game has. The top and the overall share the CLOTHES cell.
 const SLOT_POS := {"hat": Vector2(38, 35), "top": Vector2(38, 134), "overall": Vector2(38, 134),
-	"bottom": Vector2(38, 167), "shoes": Vector2(71, 200), "gloves": Vector2(5, 167), "weapon": Vector2(104, 134)}
+	"bottom": Vector2(38, 167), "shoes": Vector2(71, 200), "gloves": Vector2(5, 167), "weapon": Vector2(104, 134),
+	"shield": Vector2(137, 134)}
 ## The cells in hit-test order (the CLOTHES cell answers "top" or "overall", see slot_at).
-const CELLS := ["hat", "top", "bottom", "shoes", "gloves", "weapon"]
+const CELLS := ["hat", "top", "bottom", "shoes", "gloves", "weapon", "shield"]
 ## tier C (ours): the close button in the bottom strip.
 const CLOSE_BUTTON_POS := Vector2(10, 281)
 ## tier C (ours): the slot labels drawn without the cache.
 const LABELS := {"hat": "CAP", "top": "CLOTHES", "bottom": "PANTS", "shoes": "SHOES", "gloves": "GLOVES",
-	"weapon": "WEAPON"}
+	"weapon": "WEAPON", "shield": "SHIELD"}
 
 ## The pages (`page`).
 const PAGES := ["equip", "cash", "pet"]
@@ -78,9 +79,11 @@ const PANEL_FILL := Color8(220, 228, 240)
 const PANEL_EDGE := Color8(99, 147, 183)
 const CELL_FILL := Color8(176, 196, 222)
 const WORN_EDGE := Color8(255, 170, 0)
-## tier C (ours): the strip's controls, relative to the art's bottom edge.
-const TAB_EQUIP := Rect2(46, -23, 28, 17)
-const TAB_CASH := Rect2(76, -23, 24, 17)
+## tier C (ours): the strip's controls, relative to the art's bottom edge. The two tabs fill the blue strip's 19 rows
+## (x 44-102); their grey / pink shapes are the grey-base Basic.img/Tab3 set (TabStrip.GREY_BASE_SET, #219), the glyphs on top.
+const TAB_BOUNDS := [42.0, 74.0, 103.0]
+const TAB_TOP := -24.0
+const TAB_H := 19.0
 const PET_BUTTON_POS := Vector2(104, -22)
 
 ## The page shown ("equip", "cash" or "pet").
@@ -144,8 +147,8 @@ func panel_rect() -> Rect2:
 
 ## The strip controls' local rects: "equip" and "cash" tabs.
 func tab_rect(which: String) -> Rect2:
-	var r: Rect2 = TAB_EQUIP if which == "equip" else TAB_CASH
-	return Rect2(r.position + Vector2(0, art_size().y), r.size)
+	var i := 0 if which == "equip" else 1
+	return TabStrip.tab_rect_at(TabStrip.bounds_of(TAB_BOUNDS), i, art_size().y + TAB_TOP, TAB_H)
 
 
 func _layout() -> void:
@@ -462,7 +465,7 @@ func _draw() -> void:
 func _draw_plain_background() -> void:
 	var art := art_size()
 	draw_rect(Rect2(Vector2.ZERO, art), Color8(220, 228, 240))
-	draw_rect(Rect2(Vector2.ZERO, art), Color8(99, 147, 183), false)
+	PixelDraw.outline(self, Rect2(Vector2.ZERO, art), Color8(99, 147, 183))
 	MapleText.draw(self, Vector2(8, 4), "EQUIPMENT INVENTORY", MapleText.BLACK, MapleText.SMALL, true)
 	match page:
 		"equip":
@@ -484,13 +487,13 @@ func _draw_plain_background() -> void:
 
 ## The Equip and Cash glyphs (the Item window's tab art; lit for the shown page); the PET EQUIP. button is a child.
 func _draw_tabs() -> void:
+	TabStrip.draw_or_fallback(self, TabStrip.GREY_BASE_SET, art_size().y + TAB_TOP, TAB_H,
+		TabStrip.bounds_of(TAB_BOUNDS), 0 if page == "equip" else (1 if page == "cash" else -1))
 	for which: String in ["equip", "cash"]:
 		var on := page == which
 		var glyph := UiArt.frame(TAB_ART + "%s/%d" % ["enabled" if on else "disabled", 0 if which == "equip" else 4])
 		var r := tab_rect(which)
-		if glyph != null:
-			UiArt.blit(self, glyph, r.position + Vector2(3, floorf((r.size.y - glyph.region.size.y) * 0.5)))
-		else:
+		if not TabStrip.blit_centred(self, glyph, r):
 			MapleText.draw(self, r.position + Vector2(1, 3), "Equip" if which == "equip" else "Cash",
 				MapleText.BLACK if on else MapleText.GREY, 9, on)
 
@@ -537,7 +540,7 @@ func _draw_pet() -> void:
 func _draw_panel() -> void:
 	var p := panel_rect()
 	draw_rect(p, PANEL_FILL)
-	draw_rect(p, PANEL_EDGE, false)
+	PixelDraw.outline(self, p, PANEL_EDGE)
 	var title := "Cash equipment" if page == "cash" else "Pets"
 	MapleText.draw(self, p.position + Vector2(8, 5), title, MapleText.BLACK, MapleText.SMALL, true)
 	var catalog := _cash_catalog()

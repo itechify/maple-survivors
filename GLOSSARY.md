@@ -104,20 +104,32 @@ _Avoid_: class (reserved for the five Explorer lines: Warrior, Magician, Bowman,
 **Job tier**:
 How many advancements a job is from Beginner: 0 Beginner, 1 first job, 2 second job, and so on.
 
+**Job line**:
+A first job and every job below it, named after it (warrior, magician, bowman, thief, pirate), plus beginner for
+job 0 and common for job-neutral data. Survivor data and the asset manifest keep one file per line
+(`survivor/<name>/<line>.json`, `asset_manifest.d/<line>.json`), and a per-job table resolves a job through its
+lineage to the nearest listed ancestor.
+_Avoid_: class line, family (a weapon family is a kind of weapon)
+
 **Job advancement**:
 The player's choice in the job window of a child job once the character level allows it. It grants no skills; the
-new job's skills come only from cards.
+new job's skills come only from cards. An advancement grants and wears only the chosen weapon family's weapon.
 _Avoid_: job change, promotion
+
+**Advancement weapon**:
+A weapon a job advancement hands the character for its chosen family; the previous weapon goes to the Equip tab
+or lies at the character's feet when the tab is full.
+_Avoid_: job reward, starter weapon
 
 **Branch**:
 One of the second-job paths a first job splits into, e.g. the Magician's Fire/Poison (210), Ice/Lightning (220)
 and Cleric (230).
-_Avoid_: path (on its own; a weapon path is the first-job weapon choice), specialisation, subclass
+_Avoid_: path (on its own; a weapon path is a weapon-family choice), specialisation, subclass
 
 **Weapon path**:
-A first-job choice that fixes the weapon a class starts with, for lines whose first-job skills split by weapon:
-Thief – Claw or Thief – Dagger, Pirate – Knuckle or Pirate – Gun. The job window offers each path as its own entry and
-hands the character that weapon. It is not a job: both Thief paths are job 400.
+A weapon-family choice at a job advancement with more than one family: Warrior Sword/Spear/Blunt Weapon, Bowman
+Bow/Crossbow, Thief Claw/Dagger, Pirate Knuckle/Gun, and the two-family Warrior branches at second job. It chooses
+the advancement weapon; later weapon swaps still decide which skills and cards can be used.
 _Avoid_: branch (that is the second-job choice), build, stance
 
 ## Skills
@@ -127,10 +139,36 @@ A skill the run casts for the player when its trigger holds and MP allows: attac
 inactive, heals below an HP threshold, Slow when enough monsters are near.
 
 **Manual skill**:
-A skill the player triggers with its own key, such as Teleport.
+A skill the player triggers with its own skill key, such as Teleport or Dash.
+
+**Hidden**:
+A timed state in which monsters, bosses included, neither chase nor attack the character, and the character cannot
+attack; Oak Barrel and Dark Sight put the character in it.
+_Avoid_: stealth, invisible, cloaked
+
+**Morph**:
+A buff that draws the character as a `Morph.wz` figure instead of its avatar for as long as it lasts, such as Oak
+Barrel's barrel (Morph 1002); the game's movement and stats are unchanged.
+_Avoid_: transformation, disguise
+
+**Skill key**:
+The Key Config binding of one manual skill the character has learned.
+_Avoid_: hotkey, quickslot
 
 **Passive skill**:
 A skill that is always in effect once learned and is never cast, such as MP Eater.
+
+**Attack skill**:
+A skill whose cards raise the character's damage output: an auto-cast or manual attack, and a passive that strikes
+on its own, such as Final Attack.
+
+**Final Attack**:
+A passive that sometimes follows one of the character's hits with an extra strike, only while its weapon family is
+held. It is a Warrior branch's attack skill.
+_Avoid_: follow-up skill, proc
+
+**Party buff**:
+A v83 buff that also covered party members (Rage, Iron Will, Hyper Body); here it affects the character only.
 
 ## Cards and rarity
 
@@ -142,6 +180,11 @@ _Avoid_: skill level (in card text), tier
 A card that changes how one owned skill behaves (more projectiles, pierce, targets, area, a shorter cooldown)
 without adding a rank.
 _Avoid_: stacking card, mod card, upgrade card (that means any card)
+
+**Carried attack**:
+A first-job attack skill of a physical class (Warrior, Bowman, Thief, Pirate) whose cards stay on offer after the
+second job, though never in the advancement draw. A Magician's earlier-job cards stop at each advancement.
+_Avoid_: legacy skill, kept skill
 
 **Advancement draw**:
 The extra card draw a job advancement opens before that level's normal draw: every new attack skill of the new job,
@@ -160,8 +203,14 @@ _Avoid_: Quality, grade, card tier (tier is the run's difficulty step)
 ## Monsters
 
 **Status effect**:
-A timed condition a skill puts on a monster: slowed, poisoned or frozen.
+A timed condition a skill puts on a monster: slowed, poisoned, frozen, threatened (weaker attacks and defence) or
+stunned (neither moving nor attacking). Bosses take none.
 _Avoid_: debuff, ailment
+
+**Stolen**:
+A monster a successful Steal has already taken an extra drop from; Steal can't take from it again. It is not a
+status effect, so a boss can be stolen from.
+_Avoid_: robbed, looted
 
 **Element attribute**:
 A monster's canonical weakness (x1.5), resistance (x0.5) or immunity (x0) to an attack element: fire, ice,
@@ -183,6 +232,22 @@ _Avoid_: monster skill (that is a mob skill)
 A canonical Skill.wz/MobSkill.img skill a boss casts, such as Slow or a summon. Ordinary monsters cast none, so
 status effects on the character only ever come from bosses.
 
+**Knock-back**:
+A skill effect that pushes a struck monster away from the character, by a chance per hit. Bosses are never knocked
+back. It is not the small push any hit gives a monster whose damage reaches its canonical `pushed` threshold.
+_Avoid_: push-back, knockdown
+
+**Hit window**:
+The short time after the character is hit during which it can't be hit again. It shrinks with repeated hits, and
+boss attacks ignore it.
+_Avoid_: i-frames, invincibility (Invincible is a skill)
+
+**Alive cap**:
+How many monsters a stage keeps alive at once at a given moment of the round. It rises over the round and keeps
+rising slowly after the last boss arrives; bursts, elites and boss summons may go past it, up to the stage's hard
+limit.
+_Avoid_: mob cap, max mobs
+
 ## Mesos and equipment
 
 **Mesos**:
@@ -192,7 +257,7 @@ _Avoid_: Gold, coins, money; not to be confused with NX, which outlives runs
 
 **Equipment**:
 The v83 items a character can wear, each with its real stats and its level, job and stat requirements. Equipment
-comes only from monster drops, never from shops.
+comes only from monster drops (plus the weapon a job advancement hands over), never from shops.
 _Avoid_: Gear (in player-visible text), armour, loot
 
 **Equip slot**:
@@ -202,8 +267,10 @@ _Avoid_: Equipment slot, gear slot
 
 **Weapon family**:
 The weapon kind a mastery, booster or weapon-gated skill refers to: sword, axe, blunt weapon, spear, polearm, bow,
-crossbow, claw, dagger, knuckle, gun, wand or staff, each with its one- and two-handed variants. Skills cast and cards
-are offered only for the family of the weapon held, and weapon drops come only from it.
+crossbow, claw, dagger, knuckle, gun, wand or staff; swords, axes and blunt weapons count their one- and two-handed
+versions as one family. A skill that names a family casts, and its cards are offered, only while the weapon held belongs
+to it (a skill that names none works with any weapon, bare hands included); weapon drops come only from the held
+family (a wand and a staff count as one for drops).
 _Avoid_: weapon type (in docs; that is the v83 item-id prefix), weapon class
 
 **Ammo tier**:

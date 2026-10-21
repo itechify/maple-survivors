@@ -6,7 +6,9 @@ extends RefCounted
 ##
 ## advancements(job, level) lists every child job of `job` as `{job_id, name, available, reason}`: available when it
 ## is playable and `level` reached its effective advancement level; otherwise `reason` says why ("Lv. 10" while the
-## level is too low, else the survivor reason such as "Not in this build"). should_offer() decides whether a window
+## level is too low, else the survivor reason such as "Not in this build"). Each child job has one entry carrying
+## its weapon `paths` [{id, label, item_id, family}] in page order (tier C: spec #226).
+## should_offer() decides whether a window
 ## opens at a level: whenever an option is available (so "Not now" asks again next level), and once at exactly the
 ## tier's first advancement level even when nothing is available (the Lv 30 window of GAME_DESIGN 9).
 
@@ -52,7 +54,54 @@ func job(id: int) -> Dictionary:
 	d["playable"] = bool(s.get("playable", false))
 	d["reason"] = String(s.get("reason", _default_reason))
 	d["grants"] = s.get("grants", {})
+	d["paths"] = paths_of(id)
 	return d
+
+
+## The weapon paths of job `id`: [{id, label, item_id, family}], [] when it has none.
+func paths_of(id: int) -> Array:
+	return clean_paths(_survivor.get(id, {}).get("paths", []))
+
+
+## Normalises a raw path list ([{id, label, item_id, family}], tolerant of missing keys; rows without an id are dropped).
+static func clean_paths(raw: Variant) -> Array:
+	var out: Array = []
+	if raw is Array:
+		for p: Variant in raw:
+			if p is Dictionary and String(p.get("id", "")) != "":
+				out.append({"id": String(p.id), "label": String(p.get("label", p.id)),
+					"item_id": int(p.get("item_id", 0)), "family": String(p.get("family", ""))})
+	return out
+
+
+## Paths in weapon-page order (tier C: spec #226): tier-2 jobs put the held family first; first jobs always keep data order.
+func page_paths(job_id: int, held_family := "") -> Array:
+	var paths := paths_of(job_id)
+	if int(_jobs.get(job_id, {}).get("tier", 0)) == 2:
+		for i in paths.size():
+			if String(paths[i].family) == held_family:
+				paths.push_front(paths.pop_at(i))
+				break
+	return paths
+
+
+## Whether `paths` (a paths_of list) holds the path `id`.
+static func has_path(paths: Array, id: String) -> bool:
+	return paths.any(func(p: Dictionary) -> bool: return String(p.id) == id)
+
+
+## The default path id of `paths`: the first one in its order, "" when empty.
+static func default_path(paths: Array) -> String:
+	return String(paths[0].id) if not paths.is_empty() else ""
+
+
+## The paths of the deepest job on `job_id`'s line that has any (the job itself, else its nearest ancestor); [] when none.
+func line_paths(job_id: int) -> Array:
+	for j in lineage(job_id):
+		var paths := paths_of(j)
+		if not paths.is_empty():
+			return paths
+	return []
 
 
 ## Display name of a job ("" when unknown).
@@ -65,8 +114,8 @@ func children(id: int) -> Array:
 	return _children.get(id, []).duplicate()
 
 
-## The options of the advancement window for a player of `job_id` at `level`: [{job_id, name, available, reason}].
-func advancements(job_id: int, level: int) -> Array:
+## One option per child job: [{job_id, name, available, reason, paths}]. Locked jobs carry no paths.
+func advancements(job_id: int, level: int, held_family := "") -> Array:
 	var out: Array = []
 	for c: int in _children.get(job_id, []):
 		var j := job(c)
@@ -78,7 +127,8 @@ func advancements(job_id: int, level: int) -> Array:
 			reason = j.reason
 		else:
 			available = true
-		out.append({"job_id": c, "name": j.name, "available": available, "reason": reason})
+		out.append({"job_id": c, "name": j.name, "available": available, "reason": reason,
+			"paths": page_paths(c, held_family) if j.playable else []})
 	return out
 
 
@@ -129,3 +179,63 @@ func lineage(job_id: int) -> PackedInt32Array:
 		j = int(_jobs[j].parent)
 		guard += 1
 	return out
+
+
+## The survivor-data field `key` of `job_id`, else of its nearest ancestor that has it; `fallback` when no job in the
+## line does (the same lineage walk as RunWorld's per-job balance tables).
+func lineage_value(job_id: int, key: String, fallback: Variant = null) -> Variant:
+	for j in lineage(job_id):
+		var s: Dictionary = _survivor.get(j, {})
+		if s.has(key):
+			return s[key]
+	return fallback
+
+
+## The second job (tier 2) on `job_id`'s line, else 0: 210 -> 210, 230 -> 230, 200 and 0 -> 0.
+func second_job(job_id: int) -> int:
+	for j in lineage(job_id):
+		if int(_jobs[j].tier) == 2:
+			return j
+	return 0
+
+
+## Splits a `--job=<id>[:<path>]` value into {job: int, path: String} (`400:claw` -> 400 and "claw"; `210` -> 210 and "").
+static func parse_forced(spec: String) -> Dictionary:
+	var parts := spec.strip_edges().split(":", true, 1)
+	return {"job": int(parts[0]), "path": parts[1].strip_edges() if parts.size() > 1 else ""}
+
+
+## Parses a `--job=<id>[:<path>]` value into run `options` (`job`, and `job_path` when a path is named): the one parser
+## the run flags (SceneFlow), the launcher and the balance tool share. Returns {job, path}.
+static func put_forced(options: Dictionary, spec: String) -> Dictionary:
+	var forced := parse_forced(spec)
+	options["job"] = int(forced.job)
+	if String(forced.path) != "":
+		options["job_path"] = String(forced.path)
+	return forced
+
+
+## Why the tools cannot force `job_id` ("" when they can): it must be a first or second job of the canonical tree
+## (tier 1 or 2) and every job on its line below the Beginner must be playable in this build. A forced `path` must be
+## on this job's own row when it has multiple paths, otherwise on the line's first job.
+func forced_job_error(job_id: int, path := "") -> String:
+	if not _jobs.has(job_id):
+		return "job %d is not in the canonical job tree" % job_id
+	var tier := int(_jobs[job_id].tier)
+	if tier < 1 or tier > 2:
+		return "job %d (%s) is not a first or second job" % [job_id, name_of(job_id)]
+	for j in lineage(job_id):
+		var rec := job(j)
+		if int(rec.tier) > 0 and not bool(rec.playable):
+			return "job %d (%s) is not playable in this build (%s)" % [j, name_of(j), rec.reason]
+	if path != "":
+		var paths := paths_of(job_id)
+		if paths.size() < 2:
+			paths = []
+			for j in lineage(job_id):
+				if int(_jobs[j].tier) == 1:
+					paths = paths_of(j)
+					break
+		if not has_path(paths, path):
+			return "job %d (%s) has no weapon path '%s'" % [job_id, name_of(job_id), path]
+	return ""

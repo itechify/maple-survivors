@@ -17,16 +17,16 @@ func _cards(w: RunWorld, ids: Array) -> Array:
 func test_pick_card_for_prefers_attack_skills() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	var cards := _cards(w, ["improved_max_mp", "magnet", "energy_bolt_new"])
+	var cards := _cards(w, ["improved_max_mp", "recovery", "energy_bolt_new"])
 	assert_eq(BotInput.pick_card_for(w, cards), "energy_bolt_new", "a new attack skill first")
 	assert_eq(BotInput.pick_card(cards), "improved_max_mp", "the first-card policy takes the first")
 	w.upgrades.apply("energy_bolt_new", w)
-	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "magnet", "energy_bolt_count"])),
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["energy_bolt_pierce", "recovery", "energy_bolt_count"])),
 		"energy_bolt_count", "more bolts before pierce")
 	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_count", "energy_bolt_count"])), "energy_bolt_count",
 		"the current job's skill before the Beginner's")
-	assert_eq(BotInput.pick_card_for(w, _cards(w, ["magnet", "improved_max_mp"])), "improved_max_mp",
-		"an owned passive skill before a general utility modifier")
+	assert_eq(BotInput.pick_card_for(w, _cards(w, ["three_snails_speed", "improved_max_mp"])), "improved_max_mp",
+		"an owned passive skill before a Beginner utility skill")
 	assert_eq(BotInput.pick_card_for(w, []), "", "nothing to pick")
 
 
@@ -126,16 +126,13 @@ func test_a_card_score_override_is_the_base_and_the_gain_is_added_without_a_job_
 	assert_eq(BotInput.card_score(w, cards[0]), 70.0 + step * float(_magnitude(cards[0]) - 1))
 
 
-func test_potion_tier_and_elixir_scores_ignore_tier_and_magnitude() -> void:
+func test_elixir_score_ignores_tier_and_magnitude() -> void:
 	var w := RF.quiet_world()
 	RF.change_job_bare(w, 200)
-	w.balance["potions"]["bot"] = {"tier_score": 112}
 	for m: int in [-1, 0, 1, 3, 9]:
-		assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": m}), 112.0, "potion tier, magnitude %d" % m)
 		assert_eq(BotInput.card_score(w, {"id": "elixir", "magnitude": m}), BotInput.SCORE_MOD_OTHER, "the Elixir fallback keeps its old score")
 		assert_eq(BotInput.card_score(w, {"id": "not_a_card", "magnitude": m}), 0.0, "an unknown card scores 0")
-	w.balance["potions"]["bot"].erase("tier_score")
-	assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": 4}), BotInput.SCORE_POTION_TIER)
+		assert_eq(BotInput.card_score(w, {"id": "orange_potion", "magnitude": m}), 0.0, "a removed potion card scores 0")
 
 
 func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:

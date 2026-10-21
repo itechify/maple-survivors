@@ -3,6 +3,9 @@
 Tree boss manifest additions: Mob9300003 and6220000 automatically include their original Sound.wz/Mob.img
 entries; Effect.wz/Summon.img/3 accompanies King Slime's canonical skill200/2. The existing whole MobSkill.img
 and UIWindow.img include Dyle's repeat-marked immunity icon and both MobGage icons. No decoded art is committed.
+The stunned-mob stars (#187): `Skill.wz/111.img` with `paths: ["skill/1111008/mob"]` in the main manifest (Hero's Shout;
+the same three frames are the `mob` node of every v83 stunning skill, e.g. 510.img 5101002, so a later Pirate fragment
+that imports a whole stunning-skill book need not repeat it).
 
 The game renders the player's own MapleStory v83 data. Nothing proprietary is in this repository. A local, offline
 importer (`tools/wzimport`, Rust) reads the original `.wz` archives and writes an **asset cache** that the Godot runtime
@@ -12,7 +15,8 @@ loads. This document is the contract between the two.
 
 A GMS v83 install, i.e. the `.wz` files from the official v83 installer `MapleGlobal-v83-setup.exe`
 (Feb 2010, `Wizet` PKG1 archives, encrypted version `0x00AC`). These files are needed:
-`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz`.
+`Base.wz Character.wz Effect.wz Etc.wz Item.wz Map.wz Mob.wz Morph.wz Npc.wz Skill.wz Sound.wz String.wz UI.wz` (`Morph.wz` since
+#194: Oak Barrel's barrel).
 
 **How to get them.** Install with the official installer, or extract them without running it: the installer is a
 Nexon Game Manager stub followed by a two-volume CAB set. On the dev machine this worked:
@@ -217,7 +221,7 @@ address, and the page requests nothing from any address the player has not enter
 
 The archives an import needs are derived from the manifest (`requiredArchives` in `web/lib.js`): the archive of every
 named img, `Map.wz` and `Sound.wz` when there are maps (backs, tiles, objs, music), `Mob.wz` and `Sound.wz` for mobs,
-`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 12 archives the desktop
+`Character.wz` for characters, `Item.wz` for items. For the shipped manifest that is the same 13 archives the desktop
 import reads. The sink only queues (`createDir`, `writeFile`); after `importWz` returns the worker deletes the old cache
 records and writes the new ones into IndexedDB (cache.json last), so a failed import leaves the old cache untouched
 until the write phase, and an interrupted write leaves no `cache.json`. Scratch storage for deflated zips was measured
@@ -293,8 +297,80 @@ The manifest says what to import. The importer expands convenience entries into 
 | `maps[]` (9-digit id) | `Map.wz/Map/Map<d>/<id>.img` (d = first digit of the zero-padded id) + every `Map.wz/Back/<bS>.img` (sub-paths `back/<no>` or `ani/<no>` used), `Map.wz/Tile/<tS>.img`, `Map.wz/Obj/<oS>.img` (sub-paths `<l0>/<l1>/<l2>` used), the BGM `Sound.wz/<Bgm..>.img/<name>`, `Map.wz/MapHelper.img/mark/<mapMark>` (not for `"None"`, v83's "no mark"), and every mob in `life` (as a `mobs[]` entry) |
 | `mapimgs[]` (full WZ path) | a map-structured img outside `Map.wz/Map` (the v83 login scene `UI.wz/MapLogin.img`: `back`, layers `0`-`7` with `obj`/`tile`, `info/bgm`): the whole img plus exactly the dependencies a `maps[]` entry gets (backs, tiles, objs, BGM, map mark, life mobs). A missing img is an error |
 | `mobs[]` | `Mob.wz/<7-digit>.img` + its `info/link` target(s) + `Sound.wz/Mob.img/<7-digit>` |
-| `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon; the spec #33 equipment drop list (`survivor/equipment_drops.json`, #109) adds every dropped cap, coat, longcoat, pants, shoes, glove, wand and staff here, whole imgs (info, `iconRaw` for the ground icon, and the drawing frames) |
+| `character[]` | body `00002000` -> `Character.wz/00002000.img`; head `12000`; face `2xxxx` -> `Character.wz/Face/000xxxxx.img`; hair `3xxxx` -> `Hair/`; equips by `id/10000`: 100 Cap, 101-103 Accessory, 104 Coat, 105 Longcoat, 106 Pants, 107 Shoes, 108 Glove, 109 Shield, 110 Cape, 111 Ring, 130-170 Weapon; the spec #33 equipment drop list (`survivor/equipment_drops/<line>.json`, #109) adds every dropped cap, coat, longcoat, pants, shoes, glove, wand and staff here, whole imgs (info, `iconRaw` for the ground icon, and the drawing frames) |
 | `items[]` | `Item.wz/<Type>/<id/10000 as 4 digits>.img/<8-digit id>` (Type by id/1000000: 2 Consume, 3 Install, 4 Etc, 5 Cash, 9 Special: the meso coins) |
+
+### 4.1 Include fragments (`game/data/asset_manifest.d/<line>.json`)
+
+Bowman equipment (#201): `bowman.json` adds every drop-list item as a whole `character` img (including `info/icon`
+and `info/iconRaw`): regular bows/crossbows and reqJob-4 armour through Lv70. Its ten scrolls already use the shared
+whole `Item.wz/Consume/0204.img`, including UOL icon targets. No extra `items` selections are necessary for scrolls.
+Both export presets already ship all Bowman survivor line files via `data/survivor/*/*.json`.
+
+Thief (#207): `thief.json` owns whole Skill.wz 400/410/420 books, all their active-skill sound nodes, Dark Lord
+1052001 (moved from main), claws/daggers and stars (moved from common), both first-job path gifts, second-job
+Steel Guards 1472008 and Reef Claw 1332012, and the curated Thief drop roster. Shared afterimages and Weapon.img
+sounds stay in common. The five survivor Thief line files use the existing export filter. The manifest golden is updated.
+
+Pirate (#186): `pirate.json` owns whole Skill.wz 500/510/520 books, their active-skill Sound.wz nodes, Kyrin
+1090000 and her String.wz name, regular knuckles/guns 1482000-9 / 1492000-9, and bullets 2330000-2. Kyrin moved
+from the main manifest; the first knuckle, gun and bullets moved from `common`. Shared afterimages and Weapon.img
+sounds remain in `common`. The five survivor `pirate.json` line files ship through the existing export filter.
+
+Morph.wz (#194): Oak Barrel's barrel is `{"img": "Morph.wz/1002.img"}` in `pirate.json`, exported whole by the
+generic img export (no importer change; the Rust `real_import_of_the_oak_barrel_morph` test checks it against real
+data). A Morph img has `info` (`hide`, `speed`, `jump`, `morphEffect`) and the actions `stand` (14 frames), `walk` (6),
+`prone` (6), `sit` (6), `ladder` (2), `rope` (2), `fly` (2) and `jump` (1), each frame one canvas with `origin` on the
+feet (55 x ~70 px for 1002), `lt`/`rb`/`head` and an optional `delay`; there are no attack actions and no `map`
+anchors. `Morph.wz` is a thirteenth archive an import needs (it was already in the owner's v83 install; the web
+import screen and `requiredArchives` derive it from the manifest, so a cache or source without it is reported
+incomplete or missing it). `AvatarRenderer.set_morph(id)` reads `Morph.wz/<id>.img` through the asset library.
+
+`asset_manifest.json` keeps the job-neutral entries (maps, mobs, UI, effects, the creation weapons,
+items, the shared equipment). Everything that belongs to one job line lives in a fragment beside it, so parallel class
+specs each add their own file and do not conflict on the main manifest. A fragment has the same shape as the main file,
+plus a `_doc` saying what it holds; `format` may be left out (when present it must be 1) and unknown keys are errors.
+
+| File | Holds |
+|---|---|
+| `asset_manifest.json` | shared: everything not listed below |
+| `asset_manifest.d/common.json` | shared non-Warrior `Character.wz/Afterimage` imgs (`swordOL`, `mace`, `bow`, `crossBow`, `gun`, `knuckle`; variant `0`), `hit.img` sparks (sword1/2, mace1/2), whole `Sound.wz/Weapon.img`, representative dagger 1332000 and claw 1472000, and throwing stars 2070001-2070006 / 2070015; the potion steps of `potions.schedule` beyond the three card gates (#229: items 2022003 Unagi, 2022000 Pure Water, 2001001 Ice Cream Pop, 2001002 Red Bean Sundae, from `Consume/0200.img` and `0202.img`, and their `Sound.wz/Item.img` `Use` paths; Pure Water's `Use` is a UOL to `../02012002/Use`, exported under that node's name). Bowman weapons/arrows moved to `bowman.json` (#199); Pirate weapons/bullets moved to `pirate.json` (#186). Creation weapons stay in the main file, wands/staves in `magician.json`, Warrior weapons in `warrior.json`. |
+| `asset_manifest.d/bowman.json` | #199: whole `Skill.wz/300.img`, `310.img`, `320.img`; existing active sound nodes `3001003`, `3001004`, `3101002`, `3101003`, `3101005`, `3201002`, `3201003`, `3201005` (3001005 has no Sound.wz node; Soul Arrow omitted by owner); Hunter advancement bow Ryden 1452005 (#202), Beginner bow 1452051 and spare Crossbow 1462001, representative weapons 1452000/1462000 and eight arrows 2060000-2060003 / 2061000-2061003 moved out of common. Bow/crossbow afterimages and shared Weapon.img sounds remain in common, as with Pirate. |
+| `asset_manifest.d/beginner.json` | `Skill.wz/000.img`; `Sound.wz/Skill.img` `0001000`/`0001001`/`0001002` and `1001004` (Three Snails' UOL target) |
+| `asset_manifest.d/magician.json` | `Skill.wz/200.img`, `210`, `220`, `230`; their `Sound.wz/Skill.img` paths (`2001002`-`2301005`); instructor Grendel (`String.wz/Npc.img` `1032001`, `Npc.wz/1032001.img`); the Teleport effect (`Effect.wz/BasicEff.img` `Teleport`); the 212 `character[]` equipment ids whose canonical `reqJob` is the Magician bit (wands, staves, robes, hats, gloves, shoes; all in `survivor/equipment_drops/magician.json`) |
+| `asset_manifest.d/warrior.json` | spec #151 #158: the 37 non-cash `Character.wz/Shield` items a Warrior can wear (`reqJob` 1, or 0 for any job); #159: the 88 Warrior-bit weapons of `survivor/equipment_drops/warrior.json` (sword 130xxxx/140xxxx, axe 131/141, blunt 132/142, spear 143, polearm 144), which includes the Two-handed Sword `Weapon/01402000` the shield's two-handed rule is tested with, and the `Afterimage` imgs those weapons name that no other fragment lists (`swordOS`, `swordTS`, `swordTL`, `axe`, `spear`, `poleArm`, variant 0; #154 left them here, so `common.json` does not list them); #163: the skill book `Skill.wz/100.img` whole (the five Warrior skills with icons, effects and hit art) and `Sound.wz/Skill.img` `1001003` and `1001005` (Power Strike's `1001004` sound is in `beginner.json`) and, for the second job (spec #165 #180), `Skill.wz/110.img`, `120.img` and `130.img` whole plus the `Sound.wz/Skill.img` nodes of the 12 active second-job skills (`1101004`-`1101007`, `1201004`-`1201007`, `1301004`-`1301007`; the 12 passives have no sound node, and the importer errors on a requested path that does not exist) (the five advancement weapons `1302008`, `1312005`, `1322014`, `1432002` and `1442001` are in the 88-weapon list); and the two Lv 10 advancement grants (owner change after the spec): the Beginner Warrior's sword `Weapon/01302077` and the Steel Pipe `Weapon/01322006` (the granted Spear `01432000` is in the 88-weapon list) (a later ticket that needs the same item moves or removes it: duplicates across files are an error) |
+
+Why some Beginner-ish entries stay shared: the creation weapons are used by every weapon line, the instructors (Warrior `1022000`, Bowman `1012100`, Thief `1052001`, Pirate `1090000`; the job window draws all four
+while it lists them) stay in the main file, and equipment with `reqJob` 0 (any job) is shared. Move an entry to its line's fragment when that line
+becomes playable.
+
+- **Merge:** `wzimport import --manifest M` (and every other reader: `AssetManifest` in GDScript, `wzimport manifest` for
+  the web export) reads `M` and then every `*.json` in the sibling folder named after it (`asset_manifest.json` ->
+  `asset_manifest.d/`, a missing folder is fine), sorted by file name, appending each file's lists after the main
+  file's. `Manifest::load` / `Manifest::merge` in `tools/wzimport/src/manifest.rs` define the rules; the GDScript
+  (`game/scripts/assets/asset_manifest.gd`) and JS (`web/dev/manifest_files.mjs`) twins follow them and are tested the same.
+- **Duplicates:** a key listed in two *different* files is an error naming both files, so two specs cannot silently
+  claim the same entry. Keys: an `imgs[]` entry with `paths` is keyed per (img, path), a whole-img entry by img (a whole-img
+  entry in one file and sub-paths of the same img in another also conflict); `maps`/`mobs`/`character`/`items` by id;
+  `mapimgs` by path. Different paths of the same img in different files are fine (the importer unions them, which is how
+  each line adds its own `Sound.wz/Skill.img` skill ids). A repeat inside one file is tolerated, as it always was.
+- **Adding a line (a class spec):** create `game/data/asset_manifest.d/<line>.json` with a `_doc`, put the line's skill
+  books (`Skill.wz/<job>.img`), its `Sound.wz/Skill.img` paths, instructor NPC and line-only equipment in it, and delete
+  any of those ids from the shared file in the same change. If the importer reports `listed in both`, the entry is already
+  claimed: leave it in the owner's file, or move it to the shared file when both lines use it.
+- **Golden:** `tools/wzimport/tests/fixtures/manifest_golden.txt` is the sorted list of every selection the shipping
+  manifest makes (`img <img> *`, `img <img> <path>`, `map|mapimg|mob|character|item <id>`), captured from the single-file
+  manifest before the split; `cargo test` fails if `asset_manifest.json` plus its fragments select anything else (and
+  `web/dev/test/manifest_merge.test.mjs` checks the same file from JS). The import output of the split manifest was
+  compared with the single-file manifest's on the real v83 data and was byte-identical except `cache.json`'s timestamp
+  and seconds. When a class spec intentionally adds assets, regenerate the golden in the same change:
+  `UPDATE_MANIFEST_GOLDEN=1 cargo test --manifest-path tools/wzimport/Cargo.toml shipping_manifest`, then review the diff:
+  it must contain only the added lines.
+- **Where fragments must travel:** the Windows build merges them inside the pck (`import_screen.gd` writes the merged
+  `user://import/asset_manifest.json` for the child importer), so `game/export_presets.cfg` must include
+  `data/asset_manifest.d/*.json` (`scripts/export.sh` warns when it does not mention `asset_manifest.d`). The web build ships ONE file: `export.sh --web`
+  writes the merged manifest with `wzimport manifest --manifest game/data/asset_manifest.json --out <dir>/asset_manifest.json`
+  because the page cannot list a folder; `web/shell.js` is unchanged.
 
 The 116 curated cash equipment ids of `game/data/survivor/cash_items.json` (spec #34) are in `character[]` (caps,
 accessories, coats, longcoats, pants, shoes, gloves, shields, capes and `Weapon/01702xxx` covers). The importer resolves
@@ -308,7 +384,10 @@ three pet species (`Item.wz/Pet/5000000-5000002.img` `info`: icons) and `String.
 `Character.wz/PetEquip/01812002-01812005.img` (`info`: icons; their names are already in `String.wz/Eqp.img`).
 
 The manifest explicitly selects `Sound.wz/Item.img` paths `02000000/Use` through `02000006/Use` for potion
-items 2000000–2000006. Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
+items 2000000–2000006, and (`asset_manifest.d/common.json`, #229) `02001001/Use`, `02001002/Use`, `02022000/Use` and
+`02022003/Use` for the scheduled steps Ice Cream Pop, Red Bean Sundae, Pure Water and Unagi (the sim reads their
+recovery from `Consume/0200.img` / `0202.img`, chosen by `DataRepo.potion_img_path`; `Use` of `02022000` links to
+`../02012002/Use`, so the audio file is `02012002/Use.mp3`). Verified in original v83 data (tier A): `02000000/Use` is an MP3 Sound_DX8 node;
 the other six `Use` nodes are UOLs to `../02000000/Use`. The importer resolves these links and exports the
 shared audio once. RunScene plays the consumed item's eight-digit path from `potion_used.item_id`, including
 after tier upgrades; missing sounds remain silent and enter the normal playtest `missing` list.
@@ -467,7 +546,7 @@ and the evidence character can wear a hat, an overall and gloves. Equipment name
 ## Scrolls (#110)
 
 The manifest adds whole `Item.wz/Consume/0204.img` (the scrolls: `info/success`, `info/cursed` for the dark ones, the
-`inc*` stats and the icons; 754 entries, only the ids in `game/data/survivor/scrolls.json` are used) and
+`inc*` stats and the icons; 754 entries, only the ids in `game/data/survivor/scrolls/<line>.json` are used) and
 `Enchant` to the `Effect.wz/BasicEff.img` paths (`Enchant/Success` and `Enchant/Failure`, 21 and 16 frames at 50 ms).
 `Sound.wz/Game.img` (`EnchantSuccess`, `EnchantFailure`) and `String.wz/Consume.img` (scroll names and descriptions)
 were already whole. No scroll in the 0204 img carries `info/slotMax`; stacks use 100. `DataRepo.scroll_info` copies

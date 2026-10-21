@@ -80,7 +80,7 @@ func _ready() -> void:
 	_check(missing.is_empty(), "missing assets")
 	var boundary: Dictionary = flow.save.slot(0)
 	# #115: a death in the next tier credits its NX with the archive and the results screen shows it.
-	flow.finish_run({"stage": "dark_cave", "map_id": 0, "map_name": "Dark Cave", "street_name": "Victoria Road",
+	flow.finish_run({"stage": "dark_cave", "map_id": 0, "region": "Sleepywood", "continent": "Victoria Island", "map_name": "Dark Cave", "street_name": "Victoria Road",
 		"cleared": false, "time": 412.0, "duration": 900.0, "level": 41, "job_id": 210,
 		"job_name": "Wizard (Fire, Poison)", "kills": 1500, "damage_dealt": 80000, "seed": 2,
 		"bosses_killed": 1, "levels_gained": 6, "nx_awarded": 70}, character)

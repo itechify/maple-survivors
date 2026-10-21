@@ -1,0 +1,4 @@
+{
+	"_doc": "Pirate knuckles and guns (#186): tier C curated regular v83 progression, Steel Knuckler/Pistol through the Lv70 weapons (1482000-9 / 1492000-9). Event, Maple and upgraded variants excluded. Tier A: Character.wz reqLevel, reqJob and stats are read unchanged. The generic held-family filter admits only the wielded family; no shared_families entry.",
+	"items": [1482000, 1482001, 1482002, 1482003, 1482004, 1482005, 1482006, 1482007, 1482008, 1482009, 1492000, 1492001, 1492002, 1492003, 1492004, 1492005, 1492006, 1492007, 1492008, 1492009]
+}

@@ -8,14 +8,18 @@ extends RefCounted
 ## the SpatialHash (mob feet points; the query is padded by the largest body box). Mobs are hit in the order the
 ## segment enters them; a shot hits each mob at most once (per-shot already-hit list) and dies after 1 + pierce hits.
 ## The list stores logical identities, so relocation retains exclusion and a fresh occupant of a reused slot does not.
-## Each hit rolls its damage (`dmg_min`..`dmg_max`, mob MDD when `magic`, crit) with `rng`, applies it through
+## Each hit resolves live defence (PDD physical, MDD magic, none fixed), rolls damage and crit with `rng`, applies it through
 ## MobSwarm.apply_hit (pushed along the shot's direction), appends a `mob_hit` event, and records killed mob slots in
 ## `kills` for RunWorld (mob_died, EXP drop). `paths` is RunWorld.visual_paths (the `visual` and hit-visual indices
 ## point into it); `skill_names` maps the per-shot `skill` index to the survivor skill key.
 ##
 ## spawn(spec) keys: x, y, vx, vy (px/s), range, radius, visual (index into paths), hit_visual (index or -1),
-## rotate (bool), dmg_min, dmg_max, magic (bool), element (canonical elemAttr), crit (chance), crit_mult, pierce,
-## skill (survivor key), level (canonical level at cast).
+## rotate (bool), dmg_min, dmg_max, damage_type (fixed/magic/physical; defaults from legacy magic bool), damage_pct
+## (skill% / 100, default 1), player_level, element, crit, crit_mult, crit_damage_bonus (skill-% points), pierce,
+## skill (survivor key), level (canonical skill level at cast), alt_rng (bool: roll this shot on `alt_rng`, the basic-attack
+## stream 5, instead of `rng`; the ranged basic attack of #155). Defence and target level are live at impact.
+## Optional pierce_falloff is linear damage lost per previous contact (floor set by survivor combat data). impact_blast is a
+## cast-time {box: Rect2, count: int, visual: String} that explodes at the first contact instead of piercing.
 
 ## Most mobs one shot can hit (1 + pierce is clamped to this).
 const MAX_HITS := 16
@@ -35,7 +39,11 @@ var range_left := PackedFloat32Array()
 var radius := PackedFloat32Array()
 var dmg_min := PackedFloat32Array()
 var dmg_max := PackedFloat32Array()
-var magic := PackedByteArray()
+## Per shot CombatMath.DAMAGE_FIXED / DAMAGE_MAGIC / DAMAGE_PHYSICAL (CombatMath.DAMAGE_TYPE_NAMES gives the name).
+var damage_kind := PackedByteArray()
+var damage_pct := PackedFloat64Array()
+var player_level := PackedInt32Array()
+var crit_damage_bonus := PackedFloat64Array()
 ## Canonical attacking skill elemAttr; resistance is resolved against each target at impact.
 var element := PackedStringArray()
 var crit := PackedFloat32Array()
@@ -43,6 +51,13 @@ var crit_mult := PackedFloat32Array()
 ## Hits left before the shot dies (1 + pierce at spawn).
 var hits_left := PackedInt32Array()
 var hit_count := PackedInt32Array()
+## Optional linear damage lost per earlier contact; 0 keeps the shipped full-damage pierce behaviour.
+var pierce_falloff := PackedFloat64Array()
+## Cast-time blast state; a zero target cap marks an ordinary shot. Rect2 components retain Vector2 precision.
+var blast_position := PackedVector2Array()
+var blast_size := PackedVector2Array()
+var blast_count := PackedInt32Array()
+var blast_visual := PackedStringArray()
 ## MAX_HITS logical mob identities per shot; slot reuse must not inherit a previous occupant's hit exclusion.
 var hit_list := PackedInt64Array()
 var hit_visual := PackedInt32Array()
@@ -55,8 +70,14 @@ var paths: Array = []
 ## Survivor skill keys referenced by `skill`.
 var skill_names := PackedStringArray()
 var rng: RandomNumberGenerator
+## The stream shots spawned with `alt_rng` roll on (RunWorld: the basic-attack stream); `rng` when unset.
+var alt_rng: RandomNumberGenerator
+## 1 when the shot rolls on `alt_rng`.
+var uses_alt := PackedByteArray()
 var bounds := Rect2()
 var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
+## tier C: minimum per-contact multiplier, configured from balance.combat.pierce_floor by RunWorld.
+var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
 ## Total damage dealt by every hit so far.
@@ -68,6 +89,9 @@ var _count := 0
 var _buf := PackedInt32Array()
 var _cand := PackedInt32Array()
 var _cand_t := PackedFloat32Array()
+## High-water scratch storage; only the nearest blast_count - 1 targets are retained, sorted by body distance/slot.
+var _blast_targets := PackedInt32Array()
+var _blast_distance := PackedFloat64Array()
 
 
 func _init(capacity: int = 64, p_rng: RandomNumberGenerator = null) -> void:
@@ -103,12 +127,27 @@ func spawn(spec: Dictionary) -> int:
 	radius[i] = float(spec.get("radius", 10.0))
 	dmg_min[i] = float(spec.get("dmg_min", 1.0))
 	dmg_max[i] = float(spec.get("dmg_max", spec.get("dmg_min", 1.0)))
-	magic[i] = 1 if bool(spec.get("magic", false)) else 0
+	damage_kind[i] = CombatMath.damage_type_code(
+		CombatMath.damage_type_of(String(spec.get("damage_type", "")), bool(spec.get("magic", false))))
+	damage_pct[i] = float(spec.get("damage_pct", 1.0))
+	player_level[i] = int(spec.get("player_level", 1))
+	crit_damage_bonus[i] = float(spec.get("crit_damage_bonus", 0.0))
 	element[i] = String(spec.get("element", ""))
 	crit[i] = float(spec.get("crit", 0.0))
 	crit_mult[i] = float(spec.get("crit_mult", 1.5))
 	hits_left[i] = clampi(1 + int(spec.get("pierce", 0)), 1, MAX_HITS)
 	hit_count[i] = 0
+	pierce_falloff[i] = maxf(0.0, float(spec.get("pierce_falloff", 0.0)))
+	blast_count[i] = 0
+	blast_visual[i] = ""
+	if spec.has("impact_blast"):
+		var blast: Dictionary = spec.impact_blast
+		if not blast.is_empty():
+			var box: Rect2 = blast.box
+			blast_position[i] = box.position
+			blast_size[i] = box.size
+			blast_count[i] = maxi(1, int(blast.count))
+			blast_visual[i] = String(blast.visual)
 	hit_visual[i] = int(spec.get("hit_visual", -1))
 	var key := String(spec.get("skill", ""))
 	var si := skill_names.find(key)
@@ -117,6 +156,7 @@ func spawn(spec: Dictionary) -> int:
 		skill_names.append(key)
 	skill[i] = si
 	level[i] = int(spec.get("level", 0))
+	uses_alt[i] = 1 if bool(spec.get("alt_rng", false)) else 0
 	_count += 1
 	_hi = maxi(_hi, i + 1)
 	return i
@@ -137,7 +177,8 @@ func despawn(i: int) -> void:
 ## appends mob_hit events and fills `kills`. Optional defense/immunity arrays describe this impact tick.
 ## on_hit(slot, hit) runs once per damaging contact before apply_hit, with skill/level/magic/damage/element.
 func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array(),
-		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable()) -> void:
+		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable(),
+		live_pdd: PackedFloat32Array = PackedFloat32Array()) -> void:
 	kills.resize(0)
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
@@ -176,7 +217,10 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			var m := _cand[c]
 			if swarm.active[m] == 0:
 				continue
-			_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit)
+			if blast_count[i] > 0:
+				_blast(i, m, swarm, grid, events, live_mdd, physical_allowed, on_hit, live_pdd)
+			else:
+				_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -217,35 +261,104 @@ static func segment_enter(ax: float, ay: float, bx: float, by: float, r: Rect2) 
 	return t0 if t0 <= t1 else -1.0
 
 
-## Rolls one hit of shot i's damage spec on mob m: Vector2i(damage, crit 0/1). Shared with instant skills through
-## roll_damage().
-static func roll_damage(lo: float, hi: float, is_magic: bool, mdd: float, k: float, crit_chance: float, cmult: float,
-		r: RandomNumberGenerator, element_mult: float = 1.0) -> Vector2i:
+## Shared instant/projectile hit: physical defence on bounds, roll, skill%, crit, element, final rounding.
+## Legacy calls infer fixed/magic from is_magic; explicit damage_type selects physical. Returns damage and crit0/1.
+static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k: float, crit_chance: float, cmult: float,
+		r: RandomNumberGenerator, element_mult: float = 1.0, damage_type: String = "", damage_pct: float = 1.0,
+		player_level: int = 1, mob_level: int = 1, crit_damage_bonus: float = 0.0,
+		damage_multiplier: float = 1.0) -> Vector2i:
 	if element_mult <= 0.0:
 		return Vector2i.ZERO
+	var dtype := CombatMath.damage_type_of(damage_type, is_magic)
+	if dtype == "physical":
+		var defended := CombatMath.physical_defense(Vector2(lo, hi), player_level, mob_level, defense)
+		lo = defended.x
+		hi = defended.y
 	var dmg := r.randf_range(lo, hi) if hi > lo else lo
-	if is_magic:
-		dmg = CombatMath.apply_defense(dmg, mdd, k)
+	if dtype == "magic":
+		dmg = CombatMath.apply_defense(dmg, defense, k)
 	var is_crit := CombatMath.roll_crit(crit_chance, r)
-	if is_crit:
-		dmg *= cmult
+	# tier B: Critical Shot/Throw add skill-% points instead of multiplying the skill's damage (SouthPerry).
+	if is_crit and crit_damage_bonus > 0.0:
+		dmg *= damage_pct + crit_damage_bonus / 100.0
+	else:
+		dmg *= damage_pct
+		if is_crit:
+			dmg *= cmult
 	# tier A: element weakness/resistance is 1.5/0.5 (Cold Beam String.wz); round the final hit once.
-	return Vector2i(maxi(1, roundi(dmg * element_mult)), 1 if is_crit else 0)
+	return Vector2i(maxi(1, roundi(dmg * element_mult * damage_multiplier)), 1 if is_crit else 0)
 
 
 func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray,
-		on_hit: Callable) -> void:
+		on_hit: Callable, live_pdd: PackedFloat32Array) -> void:
 	if hit_count[i] < MAX_HITS:
 		hit_list[i * MAX_HITS + hit_count[i]] = swarm.identity[m]
 		hit_count[i] += 1
 	hits_left[i] -= 1
+	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd,
+		maxf(pierce_floor, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
+
+
+## A blast consumes the projectile at its first contact. Select before hits move or kill any targets.
+## tier C: the primary always takes one slot; splash is nearest to its body, then slot. No recursive blasts.
+func _blast(i: int, primary: int, swarm: MobSwarm, grid: SpatialHash, events: Array,
+		live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray, on_hit: Callable,
+		live_pdd: PackedFloat32Array) -> void:
+	var anchor := Vector2(swarm.x[primary], swarm.y[primary])
+	var box := Rect2(blast_position[i] + anchor, blast_size[i])
+	var n := grid.query_radius(box.get_center(), box.size.length() * 0.5 + max_body_extent(swarm.kinds), _buf)
+	var limit := mini(maxi(0, blast_count[i] - 1), n)
+	if _blast_targets.size() < limit:
+		var size := maxi(limit, maxi(16, _blast_targets.size() * 2))
+		_blast_targets.resize(size)
+		_blast_distance.resize(size)
+	var count := 0
+	var centre := swarm.mob_kind(primary).hitbox_at(anchor.x, anchor.y, swarm.facing[primary]).get_center()
+	for c in n:
+		var m := _buf[c]
+		if m == primary or swarm.active[m] == 0:
+			continue
+		var body := swarm.mob_kind(m).hitbox_at(swarm.x[m], swarm.y[m], swarm.facing[m])
+		if not box.intersects(body):
+			continue
+		var distance := centre.distance_squared_to(body.get_center())
+		var at := count
+		while at > 0 and (_blast_distance[at - 1] > distance or
+				(_blast_distance[at - 1] == distance and _blast_targets[at - 1] > m)):
+			at -= 1
+		if at >= limit:
+			continue
+		var end := mini(count, limit - 1)
+		while end > at:
+			_blast_targets[end] = _blast_targets[end - 1]
+			_blast_distance[end] = _blast_distance[end - 1]
+			end -= 1
+		_blast_targets[at] = m
+		_blast_distance[at] = distance
+		count = mini(count + 1, limit)
+	events.append({"type": "skill_impact", "skill": skill_names[skill[i]], "pos": anchor,
+		"effect": blast_visual[i]})
+	_damage(i, primary, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+	for k in count:
+		_damage(i, _blast_targets[k], swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+	hits_left[i] = 0
+
+
+func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array,
+		physical_allowed: PackedByteArray, on_hit: Callable, live_pdd: PackedFloat32Array,
+		multiplier: float = 1.0) -> void:
 	# tier C: immune contact consumes a shell/pierce hit, without a damage roll or mob_hit event.
-	if magic[i] == 0 and m < physical_allowed.size() and physical_allowed[m] == 0:
+	var kind := damage_kind[i]
+	var is_magic := kind == CombatMath.DAMAGE_MAGIC
+	if not is_magic and m < physical_allowed.size() and physical_allowed[m] == 0:
 		return
 	var mk: MobKind = swarm.kinds[swarm.kind[m]]
-	var defense := float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd)
-	var roll := roll_damage(dmg_min[i], dmg_max[i], magic[i] != 0, defense, magic_defense_k, crit[i],
-		crit_mult[i], rng, mk.element_multiplier(element[i]))
+	var defense := (float(live_pdd[m]) if m < live_pdd.size() else float(mk.pdd)) \
+		if kind == CombatMath.DAMAGE_PHYSICAL else (float(live_mdd[m]) if m < live_mdd.size() else float(mk.mdd))
+	var roll := roll_damage(dmg_min[i], dmg_max[i], is_magic, defense, magic_defense_k, crit[i],
+		crit_mult[i], alt_rng if uses_alt[i] != 0 and alt_rng != null else rng, mk.element_multiplier(element[i]),
+		CombatMath.DAMAGE_TYPE_NAMES[kind], damage_pct[i], player_level[i], mk.level, crit_damage_bonus[i],
+		multiplier)
 	var dir := 1 if vx[i] >= 0.0 else -1
 	var head := Vector2(swarm.x[m], swarm.y[m] + mk.hitbox.position.y)
 	var hv := hit_visual[i]
@@ -256,8 +369,8 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 	})
 	dealt += roll.x
 	if roll.x > 0 and on_hit.is_valid():
-		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": magic[i] != 0,
-			"damage": roll.x, "element": element[i]})
+		on_hit.call(m, {"skill": skill_names[skill[i]], "level": level[i], "magic": is_magic,
+			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
 
@@ -283,14 +396,17 @@ func _grow(n: int) -> void:
 	var old := capacity()
 	if n <= old:
 		return
-	for arr: Variant in [active, rotate, magic]:
+	for arr: Variant in [active, rotate, damage_kind, uses_alt]:
 		arr.resize(n)
-	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult]:
+	for arr: Variant in [x, y, vx, vy, range_left, radius, dmg_min, dmg_max, crit, crit_mult, damage_pct, crit_damage_bonus, pierce_falloff]:
 		arr.resize(n)
-	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level]:
+	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level, blast_count]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
 	element.resize(n)
+	blast_position.resize(n)
+	blast_size.resize(n)
+	blast_visual.resize(n)
 	for i in range(n - 1, old - 1, -1):
 		active[i] = 0
 		_free.append(i)

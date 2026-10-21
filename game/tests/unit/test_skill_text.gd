@@ -83,7 +83,7 @@ func test_level_up_cards_show_the_skill_text_at_the_offered_level() -> void:
 		"h1": "MP -6; replace 11%", "h2": "MP -6; replace 14%"}})
 	var learn := w.upgrades.choice_card("magic_guard_new", w)
 	var mod := w.upgrades.choice_card("three_snails_count", w)
-	var magnet := w.upgrades.choice_card("magnet", w)
+	var magnet := w.upgrades.choice_card("elixir", w)
 	var cards := text.dress([learn, mod, magnet], w.loadout)
 	assert_eq([cards[0].desc, cards[0].detail], ["Pays damage with MP.", "MP -6; replace 11%"],
 		"a learn card: the skill's desc and its level-1 line")
@@ -125,7 +125,7 @@ func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 
 ## Fields a v83 skill level node can carry, so every override template can resolve without the cache.
 const LEVEL_FIELDS := ["mpCon", "mad", "mastery", "attackCount", "fixdamage", "x", "y", "time", "prop", "pdd", "mdd",
-	"acc", "eva", "mobCount", "range", "speed", "cooltime", "hp"]
+	"acc", "eva", "mobCount", "range", "speed", "cooltime", "hp", "mp", "jump", "damage", "hpCon"]
 
 
 func test_no_skill_or_card_text_says_canonical_or_leaves_markup_or_placeholders() -> void:

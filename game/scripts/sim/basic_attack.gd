@@ -3,18 +3,30 @@ extends RefCounted
 ## One player's automatic physical swing: canonical weapon interval, body-frame impact timing and afterimage box.
 ## Starts only in a skill-free standing/airborne tick; pending swings complete without locking player movement.
 
-## tier B: the five standard one-handed swing/stab actions (pre-Big-Bang client descriptions).
-const ACTIONS := ["swingO1", "swingO2", "swingO3", "stabO1", "stabO2"]
+## The five one-handed swing/stab actions (WeaponInfo.ACTIONS_ONE_HANDED, tier B): the bare-handed punch and the
+## Beginner/Magician weapons use them in this order. Other weapons ask WeaponInfo.basic_actions.
+const ACTIONS := WeaponInfo.ACTIONS_ONE_HANDED
 ## The bare-handed punch when no weapon is worn (v83 lets a character fight without one). tier A: the sound is
 ## Sound.wz/Weapon.img/barehands. tier C: normal attack speed 6, the same five body actions, no afterimage.
-const BARE_HANDS := {"attackSpeed": 6, "sfx": "barehands"}
+const BARE_HANDS := {"attackSpeed": WeaponInfo.NORMAL_SPEED, "sfx": "barehands"}
 ## tier C: the punch's reach, feet-relative and facing left (shorter than the starter Sword's swing).
 const BARE_HANDS_BOX := Rect2(-55, -55, 50, 50)
 
 var cooldown := 0.0
+## The action and damage kind (swing, stab, shoot) of the latest swing started; "" before the first.
+var last_action := ""
+var last_kind := ""
+## Ammo projectiles fired so far (one per ranged attack that found its target at the impact; endless ammo never runs out).
+var shots := 0
 var _body: Dictionary
 var _images: Dictionary
 var _pending := {}
+## weapon id -> reach(); the afterimage and body data never change during a run.
+var _reach := {}
+## weapon id -> envelope(), cached like _reach.
+var _envelope := {}
+## weapon id -> the boxes of its playable stances (Array[Rect2]) that gate starting a swing, cached like _reach.
+var _reach_boxes := {}
 var _buffer := PackedInt32Array()
 
 
@@ -27,6 +39,10 @@ func _init(body: Dictionary = {}, images: Dictionary = {}) -> void:
 ## Advances the existing swing, then starts one when its interval and the shared action gate allow it.
 func step(dt: float, world: RunWorld) -> void:
 	cooldown -= dt
+	if world.is_hidden():
+		# Hidden (#194): the character cannot attack; a swing still in its windup is dropped, and a new one waits.
+		_pending = {}
+		return
 	if not _pending.is_empty():
 		_pending.left = float(_pending.left) - dt
 		if float(_pending.left) <= 1e-9:
@@ -40,64 +56,160 @@ func step(dt: float, world: RunWorld) -> void:
 	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
 	if info.is_empty():
 		return
-	var action: String = ACTIONS[world.basic_rng.randi_range(0, ACTIONS.size() - 1)]
-	var spec := _spec(info, action)
-	if spec.is_empty() or not _target_in_reach(world, info):
+	var actions := WeaponInfo.basic_actions(weapon)
+	var action: String = actions[world.basic_rng.randi_range(0, actions.size() - 1)]
+	var spec := _spec(weapon, info, action, world.loadout.speed_steps)
+	if spec.is_empty() or not _target_in_reach(world, weapon, info):
 		return
+	var range_bonus := _range_bonus(world)
+	spec.box = _extended_box(spec.box, range_bonus)
+	spec["range_bonus"] = range_bonus
 	_pending = spec
 	_pending["weapon_id"] = weapon
 	_pending["action"] = action
 	_pending["facing"] = world.player.facing
-	_pending["str"] = int(world.player_state.str)
-	_pending["dex"] = int(world.player_state.dex)
-	_pending["level"] = int(world.player_state.level)
-	_pending["watk"] = world.weapon_attack()
+	var caster := world.loadout
+	var kind := WeaponInfo.basic_kind(weapon, action)
+	last_action = action
+	last_kind = kind
+	var damage := CombatMath.physical_damage_range(caster.str_stat, caster.dex_stat, caster.luk_stat,
+		world.weapon_attack(kind == "shoot"), weapon, kind, caster.job_id, caster.mastery)
+	var mult := caster.player_stat("damage", 1.0)
+	_pending.merge({"skill": "basic_attack", "damage_type": "physical", "attack_kind": kind, "defense": "pdd",
+		"damage_min": damage.x * mult, "damage_max": damage.y * mult, "damage_pct": 1.0, "magic": false,
+		"player_level": caster.char_level, "crit": caster.player_stat("crit",
+			caster.crit_chance + caster.acc * caster.crit_per_acc + caster.crit_bonus),
+		"crit_mult": caster.crit_mult, "crit_damage_bonus": caster.crit_damage_bonus})
 	_pending["left"] = float(spec.hit_after)
 	cooldown = maxf(cooldown, -dt) + float(spec.interval)
-	world.start_action(action, float(spec.action_time), true)
+	world.start_action(action, float(spec.action_time), true, float(spec.scale))
 	_emit(world, "start")
 
 
-func _target_in_reach(world: RunWorld, info: Dictionary) -> bool:
+## Horizontal reach in px of the held weapon's swing: its farthest box edge, or the punch's box bare-handed; 0 when the
+## weapon cannot swing. Base reach is cached per weapon; a ranged weapon adds its currently usable passive range.
+func reach(world: RunWorld) -> float:
+	var weapon := world.weapon_id()
+	if _reach.has(weapon):
+		return float(_reach[weapon]) + _range_bonus(world)
+	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
+	var far := 0.0
+	if not info.is_empty():
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
+			if not spec.is_empty():
+				far = maxf(far, -(spec.box as Rect2).position.x)
+	_reach[weapon] = far
+	return far + _range_bonus(world)
+
+
+## The held weapon's swing envelope: the union of the afterimage boxes of the stances reach() looks at (feet-relative,
+## facing left), the box a "weapon_reach" skill (Warrior Power Strike) strikes inside; an empty Rect2 when the weapon
+## cannot swing. Its far edge is reach(). Base boxes are cached per weapon; passive range is added live.
+func envelope(world: RunWorld) -> Rect2:
+	var weapon := world.weapon_id()
+	if _envelope.has(weapon):
+		return _extended_box(_envelope[weapon], _range_bonus(world))
+	var info := world.weapon_info() if weapon > 0 else BARE_HANDS
+	var union := Rect2()
+	var any := false
+	if not info.is_empty():
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
+			if spec.is_empty():
+				continue
+			union = (spec.box as Rect2) if not any else union.merge(spec.box as Rect2)
+			any = true
+	_envelope[weapon] = union
+	return _extended_box(union, _range_bonus(world))
+
+
+func _range_bonus(world: RunWorld) -> float:
+	return world.loadout.passive_total(Loadout.RANGE) if WeaponInfo.is_ranged(world.weapon_id()) else 0.0
+
+
+## tier C (#199): grow only the far horizontal edge, preserving the vertical and point-blank reach.
+static func _extended_box(box: Rect2, bonus: float) -> Rect2:
+	if not box.has_area() or bonus == 0.0:
+		return box
+	return Rect2(box.position - Vector2(bonus, 0.0), box.size + Vector2(bonus, 0.0))
+
+
+func _target_in_reach(world: RunWorld, weapon: int, info: Dictionary) -> bool:
 	# Reach gates the opportunity, not its uniformly selected stance. Shorter stances may miss at impact.
-	for action: String in ACTIONS:
-		var spec := _spec(info, action)
-		if not spec.is_empty() and _nearest(world, spec.box, world.player.facing) >= 0:
+	if not _reach_boxes.has(weapon):
+		var boxes: Array[Rect2] = []
+		for action: String in WeaponInfo.basic_actions(weapon):
+			var spec := _spec(weapon, info, action)
+			if not spec.is_empty():
+				boxes.append(spec.box)
+		_reach_boxes[weapon] = boxes
+	for box: Rect2 in _reach_boxes[weapon]:
+		if _nearest(world, _extended_box(box, _range_bonus(world)), world.player.facing) >= 0:
 			return true
 	return false
 
 
-func _spec(info: Dictionary, action: String) -> Dictionary:
+## The timing, box and effect paths of one action of `weapon` ({} when it cannot be played); what a swing starts with.
+## For tools and tests (the weapon gallery draws exactly this); the automatic attack calls the same code.
+func action_spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dictionary:
+	return _spec(weapon, info, action, boost)
+
+
+## One action's timing, box and effect paths for the weapon, or {} when the body or the afterimage cannot play it. `boost`
+## Booster steps shorten the interval by the speed table and the body timing (hit_after, action_time) by `scale`
+## (WeaponInfo.speed_factor; 1.0 without a Booster). A
+## melee weapon needs the afterimage's lt/rb box and lands on the afterimage's first frame. A ranged family (bow,
+## crossbow, claw, gun) picks its target inside WeaponInfo.ranged_box and then fires an ammo projectile at it (#155),
+## lands (releases the shot) on the afterimage's first frame when it has one (the Bow's draw frame) else on the body's
+## last frame, and shows no afterimage when the node is a melee trail with a box (a Claw's swordOL) or missing (the Gun's).
+## The shot is released at the boosted hit_after, so a ranged attack keeps #160's attack-speed timing.
+func _spec(weapon: int, info: Dictionary, action: String, boost: int = 0) -> Dictionary:
 	var body: Dictionary = _body.get(action, {})
 	if is_same(info, BARE_HANDS):
-		return _bare_spec(body, action)
+		return _bare_spec(body, action, boost)
 	var name := WeaponInfo.afterimage_name(info)
 	var node: Dictionary = _images.get(name, {}).get(WeaponInfo.AFTERIMAGE_VARIANT, {}).get(action, {})
-	if node.is_empty() or body.is_empty() or not node.has("lt") or not node.has("rb"):
+	var ranged := WeaponInfo.is_ranged(weapon)
+	var boxed := node.has("lt") and node.has("rb")
+	if body.is_empty() or (not ranged and (node.is_empty() or not boxed)):
 		return {}
 	var frame := 999
 	for key: String in node:
 		if key.is_valid_int():
 			frame = mini(frame, int(key))
-	if frame == 999:
+	if frame == 999 and not ranged:
 		return {}
+	var last := -1
+	for key: String in body:
+		if key.is_valid_int():
+			last = maxi(last, int(key))
+	if last < 0:
+		return {}
+	var impact := frame if frame != 999 else last
 	var before := 0.0
 	var total := 0.0
 	for key: String in body:
 		if key.is_valid_int():
 			var delay := absf(float(body[key].get("delay", 100))) / 1000.0
 			total += delay
-			if int(key) < frame:
+			if int(key) < impact:
 				before += delay
-	var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
-	var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
-	return {"box": Rect2(lt, rb - lt).abs(), "hit_after": before, "action_time": total,
-		"interval": WeaponInfo.attack_interval(info), "afterimage": WeaponInfo.afterimage_frame_path(name, action, frame),
+	var box := WeaponInfo.ranged_box(weapon)
+	if not ranged:
+		var lt := Vector2(float(node.lt["$v"][0]), float(node.lt["$v"][1]))
+		var rb := Vector2(float(node.rb["$v"][0]), float(node.rb["$v"][1]))
+		box = Rect2(lt, rb - lt).abs()
+	var trail := frame != 999 and not (ranged and boxed)
+	var scale := WeaponInfo.speed_factor(int(info.get("attackSpeed", 0)), boost)
+	return {"box": box, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+		"interval": WeaponInfo.attack_interval(info, boost),
+		"afterimage": WeaponInfo.afterimage_frame_path(name, action, frame) if trail else "",
 		"hit_visual": WeaponInfo.hit_spark_path(name, action), "sound": WeaponInfo.sound_path(info)}
 
 
 ## tier C: a punch lands when the body action's last frame starts; reach BARE_HANDS_BOX, no afterimage or spark.
-func _bare_spec(body: Dictionary, action: String) -> Dictionary:
+func _bare_spec(body: Dictionary, action: String, boost: int = 0) -> Dictionary:
 	var last := -1
 	for key: String in body:
 		if key.is_valid_int():
@@ -112,8 +224,9 @@ func _bare_spec(body: Dictionary, action: String) -> Dictionary:
 			total += delay
 			if int(key) < last:
 				before += delay
-	return {"box": BARE_HANDS_BOX, "hit_after": before, "action_time": total,
-		"interval": WeaponInfo.attack_interval(BARE_HANDS), "afterimage": "", "hit_visual": "",
+	var scale := WeaponInfo.speed_factor(int(BARE_HANDS.attackSpeed), boost)
+	return {"box": BARE_HANDS_BOX, "hit_after": before * scale, "action_time": total * scale, "scale": scale,
+		"interval": WeaponInfo.attack_interval(BARE_HANDS, boost), "afterimage": "", "hit_visual": "",
 		"sound": WeaponInfo.sound_path(BARE_HANDS)}
 
 
@@ -145,11 +258,53 @@ func _impact(world: RunWorld) -> void:
 	var mob := _nearest(world, _pending.box, int(_pending.facing))
 	if mob < 0:
 		return
-	var kind: MobKind = world.mob_kinds[world.swarm.kind[mob]]
-	var damage := CombatMath.basic_damage_range(int(_pending.str), int(_pending.dex), float(_pending.watk),
-		int(_pending.weapon_id), String(_pending.action), int(_pending.level), kind.level, world.mob_defense(mob, false))
-	world.hit_mob(mob, {"skill": "basic_attack", "damage_min": damage.x, "damage_max": damage.y,
-		"magic": false, "crit": 0.0, "crit_mult": 1.0}, world.visual_index(String(_pending.hit_visual)))
+	if String(_pending.attack_kind) == "shoot":
+		_shoot(world, mob)
+		return
+	world.hit_mob(mob, _pending, world.visual_index(String(_pending.hit_visual)), world.basic_rng)
+
+
+## A ranged weapon's attack: one projectile of the current ammo (never consumed) flies from the hand at the chosen target.
+## It carries the swing's physical damage (W.Att includes the ammo's incPAD), rolls on the basic-attack stream and ends
+## after the family's reach plus the ammo data's overshoot. Shot numbers: survivor/ammo.json (tier C).
+func _shoot(world: RunWorld, mob: int) -> void:
+	var aim := world.mob_center(mob)
+	var origin := world.cast_origin()
+	var start := world.shot_origin(aim)
+	var dir := (aim - start).normalized()
+	if dir == Vector2.ZERO or signf(aim.x - start.x) != signf(aim.x - origin.x):
+		# A target inside the reach of the hand: fly straight at it from the body instead.
+		start = origin
+		dir = (aim - origin).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2(int(_pending.facing), 0.0)
+	var spec := shot_spec(_pending, world.held_weapon_family(), world.data.get("ammo", {}), start, dir,
+		world.visual_index(Ammo.bullet_path(world.ammo_id())), world.visual_index(String(_pending.hit_visual)))
+	if spec.is_empty():
+		return
+	world.projectiles.spawn(spec)
+	shots += 1
+
+
+## The ProjectileSystem.spawn spec of one ranged shot of `family` from `start` along `dir`: the swing's physical damage
+## (`swing`: a started swing's damage and crit fields), the ammo data's speed, radius and rotation, and a range of the
+## family's reach plus the data's overshoot. {} for a family without ammo. The weapon gallery fires the same spec.
+static func shot_spec(swing: Dictionary, family: String, ammo: Dictionary, start: Vector2, dir: Vector2, visual: int,
+		hit_visual: int) -> Dictionary:
+	var shot := Ammo.projectile(ammo, family)
+	if shot.is_empty():
+		return {}
+	var speed := float(shot.speed)
+	return {
+		"x": start.x, "y": start.y, "vx": dir.x * speed, "vy": dir.y * speed,
+		"range": float(WeaponInfo.RANGED_REACH.get(family, 0.0)) + float(shot.overshoot)
+			+ float(swing.get("range_bonus", 0.0)),
+		"radius": float(shot.radius), "rotate": bool(shot.rotate), "visual": visual, "hit_visual": hit_visual,
+		"dmg_min": float(swing.damage_min), "dmg_max": float(swing.damage_max), "damage_type": "physical",
+		"damage_pct": float(swing.damage_pct), "player_level": int(swing.player_level), "crit": float(swing.crit),
+		"crit_mult": float(swing.crit_mult), "crit_damage_bonus": float(swing.crit_damage_bonus),
+		"skill": "basic_attack", "level": 0, "alt_rng": true,
+	}
 
 
 func _emit(world: RunWorld, phase: String) -> void:

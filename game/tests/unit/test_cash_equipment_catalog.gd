@@ -17,7 +17,7 @@ func _equip_items() -> Array:
 
 
 func _manifest_ids() -> Array:
-	var manifest: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://data/asset_manifest.json"))
+	var manifest: Variant = AssetManifest.load_merged("res://data/asset_manifest.json")
 	return manifest.character.map(func(id: Variant) -> int: return int(id))
 
 

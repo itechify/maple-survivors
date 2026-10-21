@@ -20,7 +20,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    continue past 15:00; reaching the timer alone does not clear a stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
-5. **Advance** to Magician at level 10 (survivor override). Further Explorer jobs are planned (section 9).
+5. **Advance** to Warrior, Magician, Thief or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
    their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
@@ -49,7 +49,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Use a same-map portal | Hold Up in its entrance |
 | Down-jump through a platform | Down + Jump |
 | Prone | Down (on the ground) |
-| Teleport (after learning it) | X + direction; no direction uses facing; hold X to repeat |
+| Skill key of a learned manual skill | Teleport: X + direction; no direction uses facing; hold X to repeat. Dash: X starts its timed buff (hold X to cast it again when it ends). Each manual skill has its own key in Key Config (see 7.15) |
 | Pick an upgrade | Mouse, or 1 / 2 / 3, or arrows + Enter |
 | Stat window | S (also Menu -> Stat) |
 | Skill window | K (also Menu -> Skill); inside it Up / Down select a skill, Left / Right or 1-n switch tabs |
@@ -61,7 +61,7 @@ character's worn equipment (spec #33, #105). Hub movement never changes the save
 | Pause | Esc (closes the front window first; pauses only when none is open). Pause menu: 1 Resume, 2 Key Config, 3 Options, 4 Quit round (asks to confirm; 4 again quits). In the Free Market: 1 Resume, 2 Save & quit |
 | Key Config / Options | Menu -> Key Config / Options, or the pause menu (they open over it; Esc returns to it) |
 
-There is no attack key: attacks cast automatically. Teleport is manual on X.
+There is no attack key: attacks cast automatically. Manual skills (Teleport, Dash) are cast on their own skill keys, both X by default.
 
 Movement keys are a setting (`Settings` `[controls] movement`: `arrows`, the default, or `wasd`). Only the chosen set
 drives `move_*`, so the other set is free to bind; switching to WASD takes W/A/S/D off every other action (S stops
@@ -69,12 +69,13 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
-Teleport, Equip, Item, Stat, Skill; fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+Equip, Item, Stat, Skill, NPC Chat and the **skill key** of each manual skill the character has learned (#188: Teleport
+or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
 volume (sliders and MUTE), the frame cap and the movement setting; each change applies and saves at once. Every HUD
-key label (potion quickslots, Teleport) shows the current binding.
+key label (the quick slot's captions, the manual skills' icons) shows the current binding.
 
 Space and jump (#111): as in v83, **Space is the NPC Chat key** and jump defaults to **Left Alt and C** (Space was jump's
 second key before the shops). A settings file saved earlier is not rewritten: if one of its rebound actions already
@@ -104,6 +105,17 @@ String.wz description). Every change goes through the character's RunWorld, so t
 (hat, top, bottom, overall, shoes, gloves, weapon, on character select too) and, in the hub, the save slot follow at
 once.
 
+Tab shapes (#219): the tabs of the Item, Skill, Shop (sell side and the Buy label) and Equip windows (its Equip / Cash
+tabs in the bottom strip) are drawn like the v83 client's tab control, a grey tab for each hidden tab and a pink one
+for the shown tab, with the white glyphs of `<window>/Tab/enabled|disabled` centred on top. The shapes are the
+`Basic.img/Tab5` piece set (19 rows plus the 2 red rows that continue the red rule under the strip; the Equip window's
+blue strip has no rule and uses `Tab3`, whose base is grey), laid out by `TabStrip` (`scripts/ui/widgets/tab_strip.gd`).
+The click areas are the drawn tabs. Item tabs: five equal tabs over the strip (tier C widths, from the 34 px
+`Item/New/Tab0` flash sprites); Skill: 28 px per tab from x 8; Shop: five equal tabs over the sell panel's strip and
+one Buy tab; Equip: 32 + 29 px between the CLOSE and PET EQUIP. buttons (the v83 Equip window has no such tabs; ours
+are an invention, tier C). The Skill window's star tab is still code-drawn on its tab shape. Without the asset cache the
+shown tab is a flat pink box and the glyphs are text. Findings: `docs/research/wz-inventory.md` "Tab backgrounds".
+
 Scrolling (#110): dragging a scroll stack from the Use tab onto a **worn** item in the Equip window reads it (any
 time the windows are open, so a round is held meanwhile; spare items in the inventory cannot be scrolled). The scroll
 must be for that kind of item and the item needs an upgrade slot, else a message shows and the scroll is kept. The
@@ -112,7 +124,7 @@ spends the slot, and a failed **dark** scroll destroys the item at its `cursed` 
 and the scroll are used up. A destroyed weapon leaves the character bare-handed. Success plays
 `Effect.wz/BasicEff.img/Enchant/Success` with `Sound.wz/Game.img/EnchantSuccess` over the character, failure and
 destruction `Enchant/Failure` with `EnchantFailure`; the tooltip then shows the new upgrade slots and "(+N)". Which
-scrolls exist is `game/data/survivor/scrolls.json` (below); they are bought in the Free Market's scroll shops (#111,
+scrolls exist is `game/data/survivor/scrolls.json` plus `scrolls/<line>.json` (below); they are bought in the Free Market's scroll shops (#111,
 next) and never dropped (`RunWorld.grant_scrolls` stays as a test hook).
 
 Hand-testing tool (tool-only, not part of the game): `bash scripts/run.sh -- --hub [--character=<abs JSON>] [--mesos=N]`
@@ -139,8 +151,8 @@ it is taken off. Every purchase and sale is saved into the character slot at onc
 The Skill window (#86) is the v83 one (`UIWindow.img/Skill`), read-only (no SP, no level buttons). It has a tab per
 job on the character's path (Beginner, 1st job, the 2nd-job branch once reached, with the v83 tab glyphs) listing
 every skill of that job a card can offer, by skill id: icon, name and level / max, unlearned skills greyed at 0 / max.
-A last tab with a star lists the job-neutral cards taken (Magnet, potion tiers, later Fortune) with their rank; the
-one-off Elixir is not listed. Hovering a row, or selecting it with the keyboard, shows a v83-style tooltip: icon, name,
+There is no star tab: since spec #225 every card is a skill of a job, and the one-off Elixir is used, not learned.
+Hovering a row, or selecting it with the keyboard, shows a v83-style tooltip: icon, name,
 the SkillText desc, the current and next level lines (effective values), cooldown and MP cost (none for passives),
 and an orange "Upgrades" list of the behaviour cards taken for the skill with their steps ("Twin Claw ×2: +2
 targets"). The cooldown is the one the auto-cast uses: a buff's is the longer of its duration and its canonical
@@ -212,7 +224,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   (at a wall) keeps counting and is moved as soon as it leaves the screen. The player can still climb away for a
   while: the mobs below stay where they are while on screen, and the swarm re-forms around the new platform as the
   off-screen ones are moved.
-- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing).
+- **Contact:** touching a mob with `bodyAttack=1` deals touch damage (section 6), unless the player is inside the hit window (#88: shrinking while hits keep landing). A landed hit knocks the player back at most once per knockback guard (#223: the first window length, 1.5 s; section 6).
 - **Mob attacks (#76):** an ordinary mob whose Mob.wz img lists `attackN` (Tauromacis 7130100 `attack1`, Taurospear
   7130101 `attack1`/`attack2`: type 0 magic) uses them exactly like a boss attack (4.3): the canonical windup stance,
   the hit at `attackAfter` in the canonical range box mirrored by facing, magic attacks with MADamage against M.DEF
@@ -221,7 +233,8 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
   attacks only grounded, fully faded in, not frozen, with its feet on screen and the character in a range; it tries its
   attacks in canonical order. Its wait counts only that on-screen time: the first is 50-100% of its interval (by spawn
   identity, so a wave spawned together does not attack in unison), the next the full interval (5 s for both Tauros).
-  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); boss
+  Hits are `source_kind` `mob_attack` and share the shrinking hit window with contact damage (#88, section 11); an
+  attack the window turns away shows no hit art either (#144, tier C); boss
   `attack`/`projectile` hits ignore it. All cadence values are tier C.
 - **Mob skills (#76):** ordinary mobs cast none. Character statuses (Slow and the like) come only from bosses (owner,
   #76); Jr. Boogie 3230300 lists Seal (120) and Curse (124) in Mob.wz but deals contact damage only, and both are skipped
@@ -246,7 +259,7 @@ Each monster is the original mob: its WZ animations (`stand`, `move`, `jump`, `h
 ### Monster statuses and elements (#54)
 
 `MobSwarm.apply_status(slot, status, params, events)` is the shared sim entry point for sibling skills. `status`
-is `slow`, `poison` or `freeze` (`MobSwarm.STATUS_NAMES`); parameters contain the canonical `time` in seconds, signed
+is `slow`, `poison`, `freeze`, `threatened` or `stun` (`MobSwarm.STATUS_NAMES`, indices 0-4; `STATUS_COUNT = 5`); parameters contain the canonical `time` in seconds, signed
 `x` for Slow, or the applying canonical skill `level` for poison (plus an optional survivor `skill` key for damage
 events), and optionally the applying skill's canonical `element`. Each status is a row of one packed per-slot status
 table, refreshes without stacking, and clears on death, release or relocation. Application and natural expiry emit
@@ -264,8 +277,21 @@ table, refreshes without stacking, and clears on death, release or relocation. A
   new-skill suppression has **tier B evidence from a later v95 client reconstruction**, extrapolated to v83. Owner
   choices (**tier C**): a frozen monster deals **no touch damage**, a monster frozen mid-air still falls straight down
   and lands, and a fading-in monster keeps fading in.
-- **Bosses reject every status**: scheduled bosses (`steady`) and canonical `info/boss` monsters refuse Slow, Poison
-  and Freeze, matching the inspected v83 server reference (**tier C**, Cosmic `Monster.applyStatus` boss gate; owner
+- **Stun** (#187, spec #168) is a generic status for player skills (Pirate Backspin Blow, Double Uppercut, Blank Shot;
+  later Bowman's Arrow Bomb). A stunned monster stands where it is (a flyer hovers without its bob), starts no
+  attack or mob skill and deals **no touch damage** (the frozen rule: `MobSwarm.can_act` also reads it, and
+  `MobAttacks` skips it), but still takes damage, can be killed and keeps its animation clocks. It does not flinch or
+  slide from hits while stunned, and one stunned mid-air or mid-jump falls straight down and lands. A new stun on a
+  stunned monster keeps the **longer** of the remaining and the new time (the shorter one changes nothing, the art
+  clock included). Stun has no element: elemental resistance never rejects it, whatever element the applying skill
+  passes. A skill requests it through `on_hit: {"status": "stun", "chance_field": "prop", "duration_field": "time"}`
+  (Skill.wz `prop` and `time`, tier A; a missing `chance_field` always lands, e.g. a 1 s Backspin Blow); the roll is
+  the same combat stream as the other `on_hit` statuses. The movement hold, the no-flinch rule, the longer-duration
+  refresh and the elementless rule are **tier C** choices; stun on the player is out of scope.
+- **Threatened** (#183, spec #165) lowers weapon attack and weapon defence by the flat signed canonical `x` / `y`
+  (floored at zero), refreshes without stacking and coexists with every other status (7.11).
+- **Bosses reject every status**: scheduled bosses (`steady`) and canonical `info/boss` monsters refuse Slow, Poison,
+  Freeze, Threaten and Stun, matching the inspected v83 server reference (**tier C**, Cosmic `Monster.applyStatus` boss gate; owner
   decision replacing #54's boss-poison permission).
 - **Elemental status immunity**: a status fails on a monster whose Mob.wz digit for its element is 1 (immune), 2
   (strong) or 4 (neutral), as in the same reference (**tier C**; digit 4 still takes ×1 hit damage). Poison
@@ -277,13 +303,34 @@ table, refreshes without stacking, and clears on death, release or relocation. A
   exposes the original flag for skill code; it does not imply an automatic element weakness.
 
 Presentation reads the status table. Slow plays its cached 2101003/mob animation once and retains an amber tint;
-Poison loops cached 2101005/mob. Cold Beam has no persistent mob overlay, so Freeze uses a cyan tint. A violet
+Poison loops cached 2101005/mob. Threaten loops cached 1201006/mob at the body top (7.11).
+Stun loops the three-frame stars every v83 stunning skill shares as its `mob` node
+(cached from Hero's Shout 1111008, `Skill.wz/111.img/skill/1111008/mob`, anchored at the body top like Poison; a
+yellow tint stands in when it is absent). Cold Beam has no persistent mob overlay, so Freeze uses a cyan tint. A violet
 poison tint is the fallback when its cached cue is absent. Anchors and tints are tier C; original art/timings are A.
 The formulas, source limitations, pinned citations and the performance/visual validation record are in
 [the status research](research/monster-status-effects.md). The applying Slow/Poison Breath/Cold Beam skill
 implementations remain sibling work.
 
 ### 4.1 Pacing (`stages.json`)
+
+Stage display names (#221, 2026-10-18, tier C, owner choice from the playtest-3 grilling): the player sees a stage as
+the town or region it belongs to, not its v83 map name, because a region may later pick among several maps. Each stage
+in `stages.json` carries a required `region` and `continent` (checked by `DataRepo.stage_label_errors` on load and by
+`test_data_files`); `name` stays only as a fallback. The WZ `mapName`/`streetName` are no longer displayed (WZ's street
+for Henesys Hunting Ground I is "Victoria Road", so the region cannot come from WZ). Keys, map ids, saves and run
+history are unchanged.
+
+| Stage key | Map id | Region | Continent |
+|---|---|---|---|
+| `henesys_hg1` | 104040000 | Henesys | Victoria Island |
+| `tree_that_grew_1` | 101010100 | Ellinia | Victoria Island |
+| `dark_cave` | 105050400 | Sleepywood | Victoria Island |
+
+The stage-select list shows the region; its details panel and the results screen show the region with the continent
+under it; the in-run banner shows the continent small above the region. Run summaries carry `region` and `continent`
+(they still carry the WZ `map_name`/`street_name` for tools); a summary saved before the fields existed reads the
+stage's region from `stages.json`, and a stage no longer in the file keeps its saved map and street name.
 
 Dark Cave (`dark_cave`, v83 105050400, Dungeon) is tier 2 in the zero-based run tier list:
 `[[henesys_hg1, tree_that_grew_1], [dark_cave]]` (tier C, owner choice, #32/#72).
@@ -456,12 +503,532 @@ and any fresh held-out assessment. **601–630 is consumed** by #30's frozen ass
 Pacing is measured with `bash scripts/balance.sh [seeds | a..b] [--policy=...]` (whole headless runs on the real map,
 `game/tools/balance_run.gd`). Movement is always the autoplay bot (`BotInput`): it kites on the ground (dueling a
 lone ordinary mob with the basic attack while no attack skill can fire), walks to EXP drops and climbs a ladder or
-rope to drops left on a platform above, and picks a seeded-random available branch (override with `--branch=210|220|230`). Card
-policies: `bot` uses `BotInput.pick_card_for`, prioritizing eligible potion tiers, then Guard learning/ranks through
+rope to drops left on a platform above, and picks a seeded-random available branch (override with `--job=<first or second job id>`; `--branch` is the deprecated alias). Card
+policies: `bot` uses `BotInput.pick_card_for`, prioritizing Guard learning/ranks through
 survivor score overrides, then the existing attack, shot, damage, pierce and defence scores, each plus
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #226 weapon specialization: regression smoke (#232, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both `bot` / `random` policies, plus one seed-1 Henesys
+bot run per new `--job` family flag (11): **23 runs, all DEAD as before**, with no crashes, world warnings, missing
+assets or skipped bosses. Private read-only cache, no PATCH, tuning or held-out seeds. Unforced rows match #204's smoke;
+the forced runs reach Lv11 and Mano and die at 331-342 s (they prove startup acceptance, not second-job attainment).
+Seeds 1 / 2 / 2026:
+
+| Stage / policy | Death seconds | Final levels | First jobs |
+|---|---|---|---|
+| Henesys / bot | 339.6 / 455.4 / 323.4 | 11 / 13 / 11 | 200 / 200 / 100 |
+| Henesys / random | 450.6 / 325.4 / 316.3 | 19 / 11 / 12 | 200 / 200 / 100 |
+| Tree / bot and random | 128.9 / 63.6 / 51.5 | 3 / 2 / 2 | none |
+
+**Seeded records intentionally change** where a multi-family advancement draws a family on job stream 8 (a forced
+single-family branch without a path takes its own family and draws nothing); the 72,000-tick seed-1 synthetic event
+golden was `b4b22cfe...` after #230 and is `bd2a2328...` after merging main (#225, playtest-3), re-captured once
+more. Historical character fixtures stay valid saves (migration; rationale in
+`game/tests/fixtures/characters/README.md`).
+
+**Scenario QA: 14/14 passed** (`warrior`, `warrior2 --job=110/120/130`, `bowman --branch=310/320`,
+`thief --path=claw/dagger`, `pirate --path=knuckle/gun`, `full`, `rounds`, `account`, `economy`), screenshots checked by
+eye under `evidence/s226/t232/`. `rounds`, `account` and `economy` use **diagnostic staging** (invulnerability and
+diagnostic boss hits after the stage timer, through the real boss death and reward choices) because their old natural
+staging already fails on `main` (d1cdb16): `rounds` seed 4 dies at about 200 s (Lv6) before a first job, and the Lv38
+F/P `economy` fixture dies in its warp. That baseline was re-run for this review. This is flow QA, not natural clears or
+balance evidence. Cargo: 46 synthetic tests run; the 18 real-WZ tests return early without `MAPLE_WZ_ROOT` (no real-WZ
+validation).
+
+#### Spec #225 (#228): no job-neutral cards, automatic potion tiers: regression smoke (2026-10-18)
+
+Feature smoke only, no tuning (AGENTS.md): `bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1>
+--policy=<bot|random>` (4 invocations, 12 runs), default job pick, before = `8e417fb` (the spec integration branch, which
+is main `d1cdb16` plus a research doc) in a detached worktree, after = this branch, both with the read-only cache
+`caches/s167-main` and the same `BALANCE_OUT` layout. **Seeded records change by design**: Magnet and the three
+potion-tier cards are no longer offered, so every level-up draw, and everything after it, differs (events gain
+`potion_tier_up` at Lv 10 / 20 / 25). All 12 runs ended DEAD, with `warnings: []` and `missing: []` and no crash or
+script error; no run was cleared before or after. The latest earlier smoke (#215's default-pick row, Henesys bot D 8:15
+Lv24 / 5:32 Lv12 / 5:14 Lv11) predates the Bowman merge into main, so its stream-8 job draws differ (that smoke drew
+Gun Pirate / Warrior / Dagger Thief; the `8e417fb` baseline draws Bowman / Crossbowman / Gun Pirate), hence the fresh
+baseline here. D = death time, then final level (seeds 1 / 2 / 2026):
+
+| Stage, policy | before | after |
+|---|---|---|
+| Henesys bot | D 5:39 Lv11 / 10:19 Lv32 / 5:13 Lv11 | D 5:36 Lv11 / 6:42 Lv14 / 5:05 Lv10 |
+| Henesys random | D 7:20 Lv19 / 5:29 Lv10 / 5:05 Lv11 | D 7:42 Lv23 / 5:58 Lv13 / 5:06 Lv12 |
+| Tree bot, random | D 2:08 / 1:03 / 0:51, Lv3 / Lv2 / Lv2 | the same (seeds 1 and 2026 byte-identical; seed 2's record differs, outcome the same) |
+
+The Henesys rounds still reach the first job (Lv 10 at 4:25-4:34 before, 4:26-4:42 after) and meet Mano at 5:00, with no
+clear before or after; the Tree stays record-only. The one large move, bot seed 2 (a Crossbowman reaching Lv 32 before, a
+Lv14 Bowman after), comes from different cards in the same seeded draw (n = 3 per cell); it is a record, not a finding.
+Raw records: ignored `_scratch/smoke_base/` and `_scratch/smoke_after/`.
+
+**Goldens recaptured by this ticket** (the draws changed, nothing else): `test_character_baseline` (`GOLDEN`, 20-minute
+bot event bytes, seed 1) and `test_tick_cost_identity` (`GOLDEN` and `TOTALS`, seed 146: exp 5133 -> 4196, kills 276 ->
+208, casts 249 -> 183, level 14 -> 13).
+
+#### Spec #225 (#229): researched potion steps: regression smoke (2026-10-18)
+
+Feature smoke only, no tuning (AGENTS.md): `bash scripts/balance.sh 1 2 2026 --tier=2 --policy=<bot|random>` (default
+job pick, 6 chains), private cache `s225-t229` (imported with the new manifest). **No chain reached tier 2**: every
+tier-1 Henesys round ended DEAD (4:41-7:45, Lv 9-19), so no tier-2 run started and **no run reached Lv 40 or Lv 60**; the chain smoke
+alone cannot show the new steps fire. All six: `warnings: []`, `missing: []`, no crash. D = death time, final level
+(seeds 1 / 2 / 2026), against the #228 smoke above:
+
+| Policy | #228 smoke (Henesys) | #229 chain (tier-1 round) |
+|---|---|---|
+| bot | D 5:36 Lv11 / 6:42 Lv14 / 5:05 Lv10 | D 5:21 Lv11 / 4:41 Lv9 / 5:05 Lv10 |
+| random | D 7:42 Lv23 / 5:58 Lv13 / 5:06 Lv12 | D 7:45 Lv19 / 5:50 Lv11 / 5:06 Lv12 |
+
+The records differ a little from #228 (bot seeds 1 and 2, random seeds 1 and 2) because the bot waste guard now caps
+the restore at the pool (it only changes a drink when a potion restores more than the pool holds); the new steps start
+at Lv 40 and cannot touch these rounds, and a plain `--stage=henesys_hg1 --policy=bot` run gives the same records as the
+chain's tier-1 round. n = 3 per cell, a record not a finding. Goldens recaptured by this ticket: `test_character_baseline`
+`GOLDEN` only (with `potions.bot.pool_floor` 1.0, the old guard, the #228 hash is reproduced exactly). To show the steps fire, the committed Lv 38
+Magician fixture (`lv35_magician_2nd.json`) was copied to ignored `_scratch/` files with `level` 39 and `exp` just below
+the next level (a diagnostic copy, Red/Blue potions held, 30 of each) and run on `--stage=dark_cave --policy=bot --cap=600`
+(seeds 1 and 2): both TIMED OUT at 10:00 at Lv 72 / 70 with no warnings and nothing missing; the character is Lv 60
+within the first minute (Dark Cave pays a lot of EXP), so Unagi / Pure Water (Lv 40) and Ice Cream Pop / Red Bean
+Sundae (Lv 60) were all applied in turn, and the bot drank Red Bean Sundae (MP, seed 1 first at 0:20) and Ice Cream Pop
+(HP, seed 1 at 5:13, Lv 63). A playtest of the same copy (`evidence/spec225/t229/lv39_unagi/`) shows the four notices
+("Your White Potions are now Unagis." ... "Your Pure Waters are now Red Bean Sundaes.") and the quick slots with the
+new icons. A second copy at Lv 59 ended at Lv 101-ish (Dark Cave EXP is huge) and drank Red Bean Sundae; it is not evidence of pacing.
+
+#### Spec #225 merged with playtest-3 (#235): `test_full_run` guard relaxed (2026-10-19)
+
+Merging main (#223's knockback guard, #222's auto-equip) into spec #225 moved `test_full_run`'s Henesys seeds 2 and
+2026 to Beginner deaths at 4:34 / 4:19 (Lv 8 / Lv 7), a few seconds before Lv 10, so the guard "Lv 8, Lv 10 and
+Magician on 2/3 predetermined runs" failed (each side alone passed it). Diagnosis on training seeds only,
+`balance.sh 1..24 --policy=bot --job=200 --cap=420`, same cache: main `0e8b216` vs the merge `8047007` both reach Lv 10
+21/24 (median 4:33 / 4:35) and Magician at 267-300 s / 266-290 s; deaths before 7:00 are 4 / 8 (mostly after Lv 10, at
+Mano) and potions collected HP 354 / 304, MP 464 / 414 (no Magnet card). Early pacing is unchanged; the failure is a
+reshuffle. The owner relaxed the guard until the balance pass (#77): Lv 8 on 2/3, Lv 10 / Magician on 1/3.
+
+#### #223 knockback guard regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, default job pick, read-only
+cache `s167-main` (complete through spec #167, tier-1 data), no PATCH or tuning, 12 runs per side. "Before" is main
+`d1cdb16` run from a clean worktree on the same cache; "now" adds the knockback guard (section 6, tier C owner). All 24 runs
+ended DEAD with `warnings: []` and `missing: []`; no crash or script error, no clear. The records are not byte-identical to
+main, as the issue expects: a player pushed less often takes another path, so from the first guarded hit every later field
+moves (`time`, `kills`, `spawned`, `mesos_*`, `exp_collected`, `boss_hits`, ...; `hits_by_min`, `cards`, `level_*` and
+`job_times` when the run lasts longer or shorter). The `hit_window` fields themselves are untouched. D = death time, then final
+level; the previous smoke's Tree row (D 2:09 / 1:04 / 0:52) matches the "before" column.
+
+| Stage, policy | Seeds 1 / 2 / 2026 before | Seeds 1 / 2 / 2026 now |
+|---|---|---|
+| Henesys, bot | D 5:40 Lv11 / 10:19 Lv32 / 5:14 Lv11 | D 5:43 Lv11 / 6:24 Lv12 / 5:08 Lv11 |
+| Henesys, random | D 7:20 Lv19 / 5:30 Lv10 / 5:05 Lv11 | D 5:53 Lv12 / 5:36 Lv11 / 4:50 Lv9 |
+| Tree, bot | D 2:09 Lv3 / 1:04 Lv2 / 0:52 Lv2 | D 9:53 Lv23 / 1:34 Lv3 / 0:48 Lv1 |
+| Tree, random | D 2:09 Lv3 / 1:04 Lv2 / 0:52 Lv2 | D 5:36 Lv13 / 1:34 Lv2 / 0:48 Lv1 |
+
+Henesys still reaches its first job at the same time in every run that had one (265.7-274.0 s; random seed 2026 now dies
+at 4:50 before advancing) and five of six runs still take Mano hits (random seed 2026 dies first; before: five of six too, random seed 1 had none). No Henesys run reaches the second boss now (before: bot seed 2 died at 10:19 after Mushmom spawned). Henesys bot seed 2 no longer reaches the
+second job (before: Crossbowman at 577.7 s, Lv32); that run, and Tree bot / random seed 1 (now past the first job at
+203.6 s / 215.0 s), are single-seed outcomes of a different position history, not a measured effect of the guard (n=3 per
+cell). Tree stays record-only. No smoke exists for main `d1cdb16` itself (the #215 rows above ran on integration `628223f` with cache `s167-int`), so the "before" column is a fresh baseline: Tree matches #215, Henesys differs from it for that reason, not because of the guard. Raw records: ignored `_scratch/p3-223/{base,new}` (outside the repo).
+
+#### #222 auto-equip on pickup: regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` (12 runs) on
+`t3/playtest3-222` against the same 12 runs on its base `main` (`d1cdb16`), same private cache
+(`caches/p3-main`, the current manifest), no PATCH, no tuning, no held-out seeds. No crash, script error, world warning or
+missing asset; every run dies, as in the previous smoke (#204, 2026-10-18, below). **All 12 records are byte-identical to
+main's** (outcome, times, hits, levels, drops, `equipment_worn`): the bot already wore an eligible drop on the tick it was
+picked up (`BotShop.equip_after` runs right after each step), so the sim now doing it first changes nothing the bots can
+see. The only difference the rule can show is the bookkeeping: `equips_worn` ("put on mid-round") now also counts the
+sim's `auto_equip` events (`balance_run.gd`), so the metric keeps its meaning; without that, bot seed 2 read 3 instead of
+4 and random seed 1 read 0 instead of 1 (the wears moved from the bot to the sim). A record changes where a drop is worn
+earlier than the bot would have worn it (a drop picked up with a free slot that the bot scores at 0 or defers); none of
+these seeds has one. Death seconds (final level), seeds 1 / 2 / 2026:
+
+| Stage, policy | this branch = main control | #204 default-pick row (earlier revision) |
+|---|---|---|
+| Henesys, bot | 339.5 / 619.3 / 313.8 (11 / 32 / 11) | 339.6 / 455.4 / 323.4 (11 / 13 / 11) |
+| Henesys, random | 440.0 / 329.5 / 305.0 (19 / 10 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Tree, bot and random | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | 128.9 / 63.6 / 51.5 (3 / 2 / 2) |
+
+The Henesys rows differ from #204's by the unforced job pick, which reshuffled when Thief joined main (#204 notes the
+same; its forced-`320` bot row reads 339.5 / 619.3 / 360.0, matching seeds 1 and 2 here). Tree is unchanged and record-only.
+Bot equipment per run (seeds 1 / 2 / 2026): dropped 0 / 5 / 1, picked up 0 / 4 / 1, put on 0 / 4 / 1.
+
+#### Spec #166 Bowman (#199-#203): QA regression smoke and fixtures (#204, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and
+with `--job=300`, `310`, `320`: **48 runs**, integration `730467c` plus QA-only changes, private cache `s166-int`,
+no PATCH, balance edits or held-out seeds. Another **21 Henesys controls** force `100`, `510`, `520` under both
+policies and `210` under bot. All 69 runs die, with no crashes, script errors, world warnings, missing assets or
+skipped bosses. Raw seed records, exact console/SYSTEMS output and aggregates remain ignored in
+`_scratch/t204-smoke/<job>/<stage>/<policy>/`; `_scratch/t204-audit.json` preserves the configuration/outcome audit.
+Death seconds and final levels below are in seed order **1 / 2 / 2026**; no timeout or clear is implied.
+
+| Stage / forced job | bot: death seconds (final levels) | random: death seconds (final levels) |
+|---|---|---|
+| Henesys, default pick | 339.6 / 455.4 / 323.4 (11 / 13 / 11) | 450.6 / 325.4 / 316.3 (19 / 11 / 12) |
+| Henesys, `300` or `310` | 339.5 / 610.0 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Henesys, `320` | 339.5 / 619.3 / 360.0 (11 / 32 / 13) | 440.0 / 329.5 / 342.8 (19 / 10 / 12) |
+| Tree, every job choice above | 128.9 / 63.6 / 51.5 (3 / 2 / 2) | same |
+
+The unforced picks reshuffled (Magician / Magician / Warrior), so historical comparisons use forced controls:
+Warrior `100` matches #185's `110/120/130`, Pirates `510/520` match #195, and Magician `210` bot matches the
+spec #151 forced record, all to the earlier tables' whole-second precision. The forced `210` controls reach Magician
+and spawn Mano in 3/3; Tree remains unchanged and record-only, dying before any job. Bowman advances at
+265.7-274.0 s in all six runs per forced configuration. Mano dies in 2/6 (bot seed 2, random seed 1); only bot
+seed 2 reaches second job, at 577.7 s (Hunter for `300/310`, Crossbowman for `320`). It dies shortly after Mushmom
+spawns. MP-short totals are 104.617 / 118.100 / 136.950 s (bot), 117.850 / 86.717 / 96.367 s (random), identical
+across the three forced configurations. These deaths resemble the existing physical-line bot weakness, without
+the before-first-boss failure pattern or any code error that would justify stopping for a bug. No tuning followed.
+
+The two committed fixtures, `hunter_2nd.json` (Lv30) and `crossbowman_2nd.json` (Lv31), reproduce byte for byte with
+`tools/character_fixture.gd --job=<310|320> --seed=1 --god --seconds=600 --label=spec166/ticket-204
+--revision=730467c36fb3312637733d722a009aa1512d8998 --out=<abs JSON>` on that revision and cache. These are real
+headless Henesys bot rounds, capped alive with invulnerability, natural EXP and no EXP multiplier; every aid and
+provenance field is in `_doc`. `test_bowman_fixtures` checks loading, branch skills, weapon family, restoration of
+ranks and Bronze arrows, and 600 fixed ticks on the real map without warnings.
+
+`flow_driver --scenario=bowman --branch=310|320` passes both branches: real Lv10/Lv30 windows, bow worn and spare
+crossbow in Equip, crossbow worn by input at Lv12, branch advancement weapon, Bronze notice, Save & quit/Continue
+with identical job, level, path, equipment, skills and cards plus the same derived arrow tier. Its invulnerability,
+EXP-drop climb and Free Market boundary shortcut are diagnostic, not survival evidence. It holds the branch's
+family before advancement because #155 intentionally keeps family swaps silent. Fresh passing evidence is in
+`C:/Users/itech/.t3/worktrees/maple-survivors/t3-3420113e/evidence/s166/t204/flow-310-verified/` and `flow-320-retry/`.
+The same root's `bowman/`, `hunter/` and `crossbowman/` shots were checked by eye: both first-job weapon poses,
+Power Knock-Back's swing and displacement, Arrow Bomb's blast then three visibly stunned mobs, Iron Arrow piercing
+six of seven lined-up targets, and Bronze/Steel upgrade notices (Steel arrow visible in flight). All driver
+missing-asset lists are empty. GLOSSARY's Knock-back entry agrees with the shipped chance-based push and boss immunity;
+7.21-7.24 now describe the merged consumers rather than pending tickets. No golden was re-captured.
+
+Final full Godot suite: **2,030 passed / 0 failed / 0 skipped**, 172 files, 659927 ms, exit 0, with
+`MAPLE_SURVIVORS_CACHE=C:/Users/itech/Coding/maple-survivors-refs/caches/s166-int ISOLATE=s166-t204
+TEST_TIMEOUT_S=3000`; integration was fetched/merged before validation and remained at `730467c`.
+The same two previously recorded RendererDummy texture RID shutdown leaks remain. Rust: **64 passed / 0 failed /
+0 ignored**, including all 18 real-data tests with `MAPLE_WZ_ROOT`. Web shell: **51 passed / 0 failed / 0 skipped**.
+The evidence root also preserves `smoke/` raw records and `logs/` verification output, including the full suite.
+
+#### Spec #168 integration with main's spec #165 (2026-10-18)
+
+Merged main `4ec2f0d` (PR #197) into Pirate tip `0352877`: Threaten retains status index 3, stun moves to 4,
+and both use the five-status table. Warrior sections retain 7.9-7.12; Pirate sections are 7.13-7.20.
+The fixture tool uses `--god` for both lines, with `--job=<id>[:<path>]` and `--exp-mult` retained; fixture state was not regenerated.
+Private cache `s168-mainmerge`: 731 imgs, 22 unresolved original-data UOL warnings, zero import errors.
+Full Godot suite: **1,974 passed / 0 failed / 0 skipped** (166 files, real private cache), including a new seeded
+stun/Threaten coexistence and independent-expiry regression across slots. Rust: **64 passed / 0 failed / 0 ignored**
+with `MAPLE_WZ_ROOT`; manifest golden regenerated and plain `cargo test` also passed. Web shell: **51 passed / 0 failed / 0 skipped**.
+`flow_driver --scenario=pirate` (knuckle -> Brawler) and `--scenario=keys` passed; Pirate missing assets `[]`, both restored settings.
+Screenshots of the job windows, weapons, Dash, Continue, keys/options and stun expiry were checked by eye under
+`evidence/s168/mainmerge/`. The full suite still reports the previously recorded DummyTexture RID leak at shutdown (exit 0).
+No balance tuning, new balance smoke or fixture-data changes; both historical smoke records below are retained.
+
+#### Spec #167 Thief (#207-#214): QA regression smoke and fixtures (#215, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, default job pick
+and `--job=400:claw`, `--job=400:dagger`, `--job=410`, `--job=420`: 20 invocations / 60 runs on integration
+`628223f` with QA tools only, read-only cache `caches/s167-int`, absolute `BALANCE_OUT`, no PATCH or tuning.
+All 60 ended DEAD with `warnings: []` and `missing: []`; no crashes or script errors. Six additional Henesys
+`--job=200` control runs use the same seeds/policies, since the new default draws do not sample Magician.
+Those six also have empty warnings/missing. D = death time (nearest second), then final level; seeds 1 / 2 / 2026.
+The comparison is the preceding #168 QA smoke, retained below.
+
+| Henesys (seeds 1 / 2 / 2026) | bot | random |
+|---|---|---|
+| before, default pick (#195) | D 5:40 Lv11 / 5:32 Lv12 / 7:54 Lv21 | D 7:31 Lv19 / 8:40 Lv27 / 5:43 Lv13 |
+| now, default pick | D 8:15 Lv24 / 5:32 Lv12 / 5:14 Lv11 | D 7:41 Lv20 / 8:40 Lv27 / 5:34 Lv13 |
+| `--job=400:claw` and `--job=410` (same outcomes) | D 5:41 Lv11 / 6:14 Lv12 / 5:47 Lv13 | D 17:44 Lv24 / 5:24 Lv10 / 5:12 Lv11 |
+| `--job=400:dagger` | D 5:19 Lv11 / 12:23 Lv31 (Assassin) / 5:14 Lv11 | D 15:10 Lv21 / 5:17 Lv10 / 5:34 Lv13 |
+| `--job=420` | D 5:19 Lv11 / 11:11 Lv31 (Bandit) / 5:14 Lv11 | D 15:10 Lv21 / 5:17 Lv10 / 5:34 Lv13 |
+| Magician control, `--job=200` | D 5:40 Lv11 / 7:35 Lv13 / 5:11 Lv11 | D 7:31 Lv19 / 5:25 Lv11 / 5:44 Lv12 |
+
+The unforced pool now includes both Thief paths: default seed 1 draws Gun Pirate, seed 2 Warrior, seed 2026 Dagger
+Thief in both policies. Warrior seed 2 matches the previous smoke; Gun Pirate seed 1 matches #195's forced-gun row.
+Magician control seed 1 matches #195's default Magician (5:40 bot / 7:31 random); all six controls reach job200,
+and Mano dies in bot seed 2 and random seed 1. Every Tree cell still dies before first job, D 2:09 / 1:04 / 0:52,
+Lv3 / Lv2 / Lv2, matching the previous smoke; Tree remains record-only.
+
+Thief first job arrives at 265.7-274.0 s. Of the 12 distinct first-job path/policy/seed cases, only Dagger bot seed 2
+reaches Lv30 (546.2 s); forcing 400 leaves the second-job draw random, so it becomes Assassin and receives its claw.
+Forcing 420 instead makes it Bandit at the same time. Claw never reaches Lv30; `--job=410` repeats its first-job
+outcomes. Mano dies in three of those 12 cases (random seed 1 on each path, Dagger bot seed 2); there are no clears.
+Claw MP-wait is 73.6-124.5 s/run; Dagger 67.5-87.8 s/run. These are observations of the existing bot, not a balance
+assessment or a blocker (owner, #215); no bot or balance data was changed.
+
+Fixtures `tests/fixtures/characters/assassin_2nd.json` (Lv49, job410, claw) and `bandit_2nd.json` (Lv50, job420,
+dagger) are real headless bot rounds, seed1, Henesys, generated at `6a350f8d1d926460cf82e5c3ea5b64d304b8c25b`:
+`tools/character_fixture.gd --out=<absolute JSON> --revision=<that SHA> --label=spec167/ticket-215
+--job=410:claw|420:dagger --god --exp-mult=3 --seconds=600`. Each `_doc` records seed, policy, path, revision,
+time cap and both diagnostic aids. Both were independently regenerated byte for byte. The aids accelerate diagnostic
+coverage and prove no natural clear. `test_thief_fixtures.gd` checks provenance, job/path/weapon, learned branch attack,
+casting order/rank/modifier restoration (six-decimal fixture tolerance), and 600 fixed ticks on the real map.
+
+`flow_driver --scenario=thief --path=claw|dagger [--branch=410|420]` passes for both default branches: real Lv10
+window with both paths, both gifts checked through Equip/Item UI, durable-target first-job combat, invulnerable EXP-drop
+climb through the real Lv30 window, exact advancement weapon worn, original path and both gifts retained, and Free Market
+Save & quit / disk reload / Continue preserving job, path, equipment, skills and mesos. Like the Pirate template, the
+Free Market boundary itself is diagnostic setup, not a claimed natural clear. Both flows report missing `[]`.
+
+All 71 final screenshots (plus the 14 superseded combat-probe frames) were checked by eye under
+`C:/Users/itech/.t3/worktrees/maple-survivors/t3-e820a09f/evidence/s167/t215/`: `flow-claw/`, `flow-dagger/`,
+`combat-final/`, `dark-sight/`, `disorder/`, `bandit/`, `playtest-assassin/` and `playtest-bandit/`.
+The new `thief_combat_driver` checks actual flight paths for starter stars, Wolbi, Mokbi and Ilbi; Lucky Seven and
+Drain use the current star, and the Lv35/Lv55 upgrades emit the proper notices. Hidden standing/walking is visibly
+see-through (alpha0.5), recovery opaque; Disorder's green mob art, six-hit Savage Blow and a successful Steal with one
+extra drop from a living mob are visible. `playtest.sh --job=410|420 --character=<matching fixture> --minutes=0.3
+--speed=1` both report missing `[]`; these are 18-second branch rendering probes, not fresh-character progression evidence.
+
+**UI findings, left for follow-up:** the shared first-available-instructor policy retains Dances with Balrog's portrait
+and name on both Lv10 Thief confirmations (`flow-{claw,dagger}/06_thief_lv10_job_confirm.png`), rather than Dark Lord;
+the Lv30 Assassin confirmation says "a Assassin" (`flow-claw/11_thief_lv30_job_confirm.png`). Both are existing shared
+dialog behavior, not missing assets. No missing sprites, incorrect upgraded star sprites, opaque Hidden avatar or
+missing Disorder art were found. Rust `cargo test`: 64 passed / 0 failed / 0 ignored, including all 18 real-data tests
+with `MAPLE_WZ_ROOT`. Full Godot suites before/after integration sync: **2,057 passed / 0 failed / 0 skipped** each,
+176 files, 590571 / 531423 ms, exit0, `ISOLATE=s167-t215` / `s167-t215-final`, `TEST_TIMEOUT_S=3000`.
+Existing character/event and tick-cost goldens pass unchanged. Both runs have the previously documented two
+DummyTexture RID allocations warning at shutdown. No acceptance criteria were dropped; no golden was recaptured.
+
+#### Spec #168 Pirate (#186-#194): QA regression smoke and fixtures (#195, 2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` with the default job
+pick and with `--job=500:knuckle`, `--job=500:gun`, `--job=510` and `--job=520` (20 invocations, 60 runs), a private real
+cache built from the integration manifest, on `24183ee` (every #168 ticket) plus #195's tool changes, no PATCH or tuning.
+No crashes, script errors or world warnings: all 60 records have `warnings: []` and `missing: []`. "Before" is the
+spec #151 physical-combat foundation smoke below (`b3599ba`, default pick), the historical comparison used by this Pirate smoke.
+D = death time, then level at the end; Lv 30 = the Lv 30 advancement was reached.
+
+| Henesys (seeds 1 / 2 / 2026) | bot | random |
+|---|---|---|
+| before, default pick | D 5:40 / 5:36 / 5:11 | D 7:31 / 5:16 / 5:44 |
+| now, default pick | D 5:40 Lv11 / 5:32 Lv12 / 7:54 Lv21 | D 7:31 Lv19 / 8:40 Lv27 / 5:43 Lv13 |
+| `--job=500:knuckle` and `--job=510` (identical) | D 5:28 Lv11 / 5:35 Lv12 / 5:14 Lv11 | D 7:16 Lv21 / 5:14 Lv10 / 5:05 Lv11 |
+| `--job=500:gun` | D 8:15 Lv24 / 10:15 Lv32 (Brawler at Lv 30) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+| `--job=520` | D 8:15 Lv24 / 10:05 Lv31 (Gunslinger) / 7:54 Lv21 | D 7:41 Lv20 / 5:29 Lv10 / 5:43 Lv13 |
+
+- **Non-Pirate runs are not worse.** Default-pick seed 1 is a Magician (200) and seed 2 a Warrior (100) in both policies,
+  and they match "before" or beat it (Magician bot 5:40 and random 7:31 unchanged; Warrior bot 5:32 against 5:36, random
+  8:40 against 5:16, the Warrior second-job work being in this branch). Default seed 2026 now draws a Gun Pirate
+  (the unforced pool includes Pirate), which is why it moved. Tree is byte-identical to before in every cell
+  (D 2:09 / 1:04 / 0:52, Lv 2-3, no job reached, both policies): it dies before Lv 10, so the Pirate never exists
+  there. Tree stays record-only.
+- **How far Pirates get.** The first job always arrives at 4:25-4:34. The knuckle bot never reaches Lv 30
+  (0 of the 6 distinct runs; best D 7:16 at Lv 21, Mano killed in 1 of 6). The gun bot reaches it in 1 of 6 distinct runs:
+  bot seed 2 (a Brawler in `--job=500:gun`, because a forced first job takes a seeded branch at Lv 30, a Gunslinger in
+  `--job=520`). Gun runs kill Mano in 4 of 6 and always die between 5:29 and 10:15. `--job=510` with no path names
+  the knuckle path, so it repeats `--job=500:knuckle` exactly; `--job=520` repeats `--job=500:gun` apart from the
+  Lv 30 choice. The two known early deaths reproduce: `--job=510` D 5:14 at Lv 11 (seed 2026), `--job=520` D 7:54 at Lv 21
+  (seed 2026) and D 8:15 at Lv 24 (seed 1).
+- **Likely cause, recorded not fixed.** The deaths read like the Warrior's: damage is too low for what the swarm becomes
+  and the pool is small (326 HP at Lv 11). Knuckle runs die to Mano's touch (about 26 % of max HP per hit, 3 to 4
+  hits) before enough levels; the gun runs that pass Mano die at 7:54-8:15 (seeds 2026 and 1) under 40-110 live mobs, taking 500-850
+  damage a minute while the bot kites a short-ranged character (mp-short 65-120 s per run; Flash Fist and Double Shot starve the pool). The bot
+  does take and rank the Pirate attacks (Double Shot 4-6, Somersault Kick 9-12 in the gun runs) and no skill walks it
+  into mobs, so no bot change was made. It never takes Dash or Bullet Time under the `bot` card policy (only
+  `random` does). Pirate tuning and bot work belong to the balance pass.
+- **A god-mode probe shows the knuckle line is slow, not broken.** The same bot made invulnerable on knuckles (the
+  fixture tool's `--god`, 45 sim minutes) is still Lv 18: Mano takes 392 s to kill and the second boss is never
+  killed, so it never levels again; the Gunslinger kills all three bosses by 1412 s and is Lv 42.
+- Death times are of single seeds: the 3-seed smoke is bimodal per seed (see the Warrior record) and cannot judge pacing.
+- **Fixtures.** `tests/fixtures/characters/lv37_brawler_2nd.json` and `lv36_gunslinger_2nd.json` come from the character
+  fixture tool (`ISOLATE=<name> bash scripts/godot.sh --headless --path _scratch/godot_runs/<name>/game --script
+  res://tools/character_fixture.gd -- --out=<abs> --revision=<sha> --label=spec168/ticket-195 --job=510:knuckle
+  --god --exp-mult=3 --seconds=480` and `--job=520:gun --god --seconds=780`; seed 1, bot, `henesys_hg1`). Because the
+  bot cannot reach Lv 30 by itself, the tool got two documented aids (tier C, diagnostic only): `--god` (invulnerable)
+  and `--exp-mult` (EXP multiplier, used only for the knuckle line). Both are written into each `_doc`
+  (`diagnostic`, `exp_mult`, `forced_path`). The Brawler is Lv 37 (Brawler from 412.9 s), the Gunslinger Lv 36 (520
+  from 636.8 s, natural EXP).
+- `flow_driver --scenario=pirate [--path=knuckle|gun] [--branch=510|520]` (injected input; debug setup: invulnerable EXP-drop warp
+  to Lv 30, the Dash card applied) passes for both paths: the Lv 10 window offers both Pirate paths, the chosen path's
+  weapon is worn and the other path's weapon and the creation weapon are in the Equip tab, the Lv 30 window offers
+  both second jobs and the Lv 30 weapon (Prime Hands / Cold Mind) is worn, Dash on X raises speed and spends MP, and
+  Save & quit then Continue keeps job, path, equipment, skills and mesos.
+- Screenshots (evidence, not committed) were taken with `flow_driver --scenario=pirate` (job windows, Equip tab with both weapons, Dash,
+  Save & quit / Continue), the new `scenes/debug/pirate_combat_driver.tscn` (both first-job paths, Brawler attacks, basic /
+  Split / Mighty bullets: summary.json records ammo 2330000 / 2330001 / 2330002) and the earlier drivers `dash_driver`,
+  `morph_driver --job=510` (Oak Barrel), `stun_driver` and `gunslinger_driver`; each was looked at.
+- Full suite 1891 tests, 0 failed, 0 skipped (real private cache, merged tip `65992b4`); `cargo test` 64 passed with the real-data tests on (`MAPLE_WZ_ROOT`). The feature-ticket rule held: no balance data changed.
+
+#### Spec #165 Warrior second job (#180-#184, QA #185): regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, unforced and with
+`--job=110`, `--job=120` and `--job=130`, real cache, no PATCH, no tuning, training seeds only, at the integration tip
+`bf6c42b` (every ticket #180-#184) plus #185's tooling. "Before" is `b6af314`, main as it stood before this spec, rerun with
+the same commands (`--job=100` for the forced rows: the first job a Warrior takes). No crash, script error, world warning
+or `missing` entry in any of the 72 records (16 smoke, 6 fixture and 2 chain configurations, three seeds each).
+
+| Deaths (m:ss, seeds 1 / 2 / 2026) | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| before, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, default pick | D 5:39 / 5:31 / 5:11 | D 7:30 / 8:39 / 5:43 | D 2:08 / 1:03 / 0:51 | same |
+| after, `--job=110` = `120` = `130` | D 5:39 / 5:31 / 5:23 | D 5:21 / 8:39 / 5:16 | D 2:08 / 1:03 / 0:51 | same |
+
+- **Nothing moved.** Every one of the 12 default-pick records and the 36 forced ones (`--job=110`, `120`, `130`) is byte-identical to the "before"
+  rerun (the forced `--job=110/120/130` records equal the `--job=100` ones once the `forced_branch` field is masked), so the
+  spec changes no Magician, Beginner or first-job Warrior seeded record, as the decisions require. The older rows of
+  4.2 (spec #151's smoke, `b3599ba`) reproduce at `b3599ba` with this cache (rerun `--job=100`: bot D 5:29 / 5:36 / 5:27,
+  random D 5:41 / 5:15 / 5:15 by truncated seconds) and differ from this "before" by the content `b6af314` gained from
+  main when #176 was squash-merged (#173 Legendary ranks, #177, #175); that was not bisected further, and this smoke's own
+  `b6af314` rerun is the comparison.
+- **The smoke cannot reach the second job.** A forced Warrior is Lv 11-12 when it dies at the first boss (Mano, 5:11-5:40;
+  the bot never kills it, as in spec #151's record); the one exception is the careless `random` policy's seed 2 (Lv 27, dies
+  at 8:39 after killing Mano). No run reaches Lv 30, so `--job=110/120/130` only forces the first job (every Warrior takes job
+  100 at 4:25-4:34) and these rows do not exercise the second-job code. Henesys: 0 clears, every run dies; Mano is killed in
+  2 of 6 default-pick runs and 1 of 6 forced ones (all unchanged from "before"). The Tree That Grew dies before the first job
+  in every run (record only, as the owner's rework is pending).
+- **`--tier=2` chain** (seeds 1 2 2026, default pick and `--job=110`): no tier-1 clear exists to feed it (0/3 and 0/3), so
+  tier 2 never starts. The chain code is covered by `test_balance_chain.gd`; there is no real clear-fed Warrior chain to record.
+- **Branch fixtures on `--stage=dark_cave`** (`--character=`, 3 seeds, bot and random). These do run second-job code:
+  the fixtures carry the Final Attack, Booster and Mastery cards the bot took in the advancement draw and later levels
+  (the other second-job skills are exercised by the playtests below, not by these records):
+
+| Fixture (Lv 34) | Dark Cave bot, deaths | Dark Cave random, deaths | first boss (6300005) killed |
+|---|---|---|---|
+| `lv34_fighter_2nd.json` (110) | D 5:27 / 5:19 / 3:51 | D 5:15 / 5:19 / 3:24 | 0 of 4 spawned fights |
+| `lv34_page_2nd.json` (120) | D 5:10 / 6:41 / 5:07 | D 5:19 / 5:28 / 3:28 | 1 of 5 |
+| `lv34_spearman_2nd.json` (130) | D 10:03 / 10:12 / 3:54 | D 5:20 / 9:27 / 3:46 | 3 of 4 (the second boss spawns, not killed) |
+
+  No clears; every run dies (seed 2026 before the first boss in five of its six runs). The two longest
+  Dark Cave runs are the bot Spearman seeds 1 and 2 (10 minutes, Lv 59-60). Recorded for the balance pass, not tuned; no
+  run clears without a death and not every run dies before the first boss, so the stop-and-ask conditions do not apply.
+- **Fixtures.** `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: real headless Henesys bot rounds,
+  seed 1, policy `bot`, `--job=<110|120|130> --god --seconds=600` (`tools/character_fixture.gd`, revision in each `_doc`).
+  `--god` is new and the fixtures need it: a Warrior bot dies at the first boss near Lv 12, so only an invulnerable round
+  reaches the Lv 30 advancement (Mano is killed at 6:07 by the invulnerable Fighter; Lv 34 at 10:00; `_doc.invulnerable`
+  says so). Regenerating each one twice with the same revision reproduces it byte for byte.
+- **Flow driver** `--scenario=warrior2 --job=110|120|130` (invulnerable climb through the real Lv 10 and Lv 30 job windows,
+  advancement weapons, a real advancement-draw skill, the Skill window with the unheld family greyed, Save & quit, Continue)
+  passes for all three branches; see its header in `flow_driver.gd`. Playtest evidence shots are
+  `<final attack key>_followup.png` and `reflect_first.png` (RunScene, `_shots_dir` only). The in-action shots (Final Attack follow-up, Rage, Power Guard, Threaten, Hyper Body)
+  come from three-minute `playtest.sh --stage=dark_cave --character=` runs of evidence-only copies of the fixtures with
+  every branch skill at rank 10 (not committed); on Henesys a Lv 34 Warrior one-shots everything, so no follow-up fires there.
+- **Full suite** (cache `spec165`): 1752 tests, 0 failed, 0 skipped, 154 files; the tests that need the cache ran, none SKIPped.
+  The three fixtures were regenerated from the committed code with their recorded revision and are byte-identical to the
+  committed files.
+
+#### Spec #151 physical combat foundation and Warrior first job: regression smoke (2026-10-18)
+
+`bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, once with the default
+job pick and once with `--job=100`, real cache, no PATCH or tuning. "Before" is `82cf212` (the #152 tip plus the
+WeaponInfo family prefactor; identical to the #152 record above); "after" is the integration tip `b3599ba` (every ticket,
+the review fixes and #164). No crashes, script errors, world warnings or `missing` entries in any record.
+
+| | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| before, seeds 1 / 2 / 2026 | D 14:10 / 15:07 / 4:48 | D 8:22 / 5:39 / 5:21 | D 9:34 / 1:17 / 0:48 | D 5:39 / 1:24 / 0:48 |
+| after, default pick | D 5:40 / 5:36 / 5:11 | D 7:31 / 5:16 / 5:44 | D 2:09 / 1:04 / 0:52 | D 2:09 / 1:04 / 0:52 |
+| after, `--job=100` | D 5:30 / 5:36 / 5:27 | D 5:42 / 5:16 / 5:16 | D 2:09 / 1:04 / 0:52 | D 2:09 / 1:04 / 0:52 |
+
+- **First job.** The unforced bot now draws Warrior or Magician on the job stream (8): seed 2 takes Warrior (100) in
+  both Henesys policies, the others Magician (200). Every Henesys run reaches its first job at 4:26-4:34 (Magician
+  265.7-274.0 s); Mano (5:00) is killed in 1 of 6 default runs (before: 3 of 6) and no run reaches the second boss.
+- **Why the Magician seeds moved: random-stream reshuffles, not a damage change.** The whole shift arrives with #153
+  (a per-merge bisect: every earlier merge is byte-identical to "before", every later one to #153, apart from #163's
+  seeded first-job draw). Two intended changes consume random numbers differently: hits now roll a crit once the chance
+  is above 0 (ACC x `crit.per_acc`, every job and damage type, owner decision), and basic-attack damage and crits roll
+  on the basic-attack stream (5), which also picks the swing stance. Reverting only those two on `92307b7` gives runs
+  bit-identical to before (Tree seed 1 for 120 s; Henesys seeds 1, 2 and 4 for 600 s, including the Magician
+  advancement), so the damage formulas are unchanged. A headless probe (refs `research/spec151/diag/`, not
+  `balance.sh` records) over Henesys bot seeds 1..24 to 600 s finds the old and new builds equal (10 vs 9 alive at 600 s, mean end 477 vs 476 s): seeds 1 and 2 were two of the long survivors before and
+  land on a short branch now. The 3-seed smoke is bimodal per seed and cannot judge pacing on its own.
+- **Beginner deltas (expected).** Crit rolls (above) and #159's drop rule: a Beginner holding the creation sword no
+  longer draws the any-job Wooden Wand (only the held family drops).
+- **Warrior (`--job=100`, untuned tracer).** Every forced Henesys run takes Warrior at 4:26-4:34 and dies at the first
+  boss (5:16-5:42). Over Henesys bot seeds 1..24: 24 of 24 die (4:38-10:05), Mano is killed in 6 of 22 spawned
+  fights, the second boss spawns once. The playtests show the bot MP-starved (0-4 of 100 MP at 5:14), never ranking a
+  Warrior skill and never learning Iron Body; ACC is about 6 (all AP in STR), so crits add about 0.3%. Recorded for
+  the balance pass and the Warrior second-job spec, not tuned.
+- **The Tree That Grew:** recorded only (seed 1 now dies at 2:09 before the first job).
+- **One forced-Warrior seed moved after the review fixes:** Henesys random seed 1 with `--job=100` was D 7:13 (Mano
+  killed) at `f86ea37` and is D 5:42 at `b3599ba`. Of the review fixes only the Warrior facing change (Power Strike and
+  Slash Blast turn to the nearest mob in every movement state) changes a Warrior run without Final Attack, a weapon grant
+  or Teleport; every other fix left the records and goldens unchanged.
+- `--job=210` (Henesys bot): D 5:40 / 7:35 / 5:11, Magician at 4:26-4:29, matching the default-pick Magician seeds.
+- Full suite 1623 tests, 0 failed, 0 skipped; `cargo test` and the web dev tests pass. `test_character_baseline`'s
+  Windows golden was re-captured twice (#153 crits and stream 5; #163 the Warrior option in the Lv 10 window and the
+  seeded first-job draw).
+
+#### #160 weapon attack speed and Boosters: timing deltas (spec #151)
+
+No smoke was run for this ticket (the lead runs the spec's smokes). The deltas follow from the design in 7.7: every
+timing is computed relative to the held weapon's own speed step, and only an active, family-matching Booster moves it.
+- **Beginner and Magician (wand, staff): none.** There is no Booster in any shipped skill, so
+  `WeaponInfo.speed_factor(base, 0)` is exactly 1.0 and the swing interval, impact time, stance length, skill cooldowns
+  and action times are byte-identical to before. The 20-minute event digest of `test_character_baseline` is unchanged.
+- **Why weapon speed does not rescale skills (decision to confirm).** Skill action times and cooldowns are not scaled by
+  the weapon's speed *relative to the normal step 6*. In the real data the Wooden Wand is 6 but the staves are mostly
+  8 (slow) and the starter Sword is 4: that reading would have slowed every Staff Magician's skills by 1.125x and sped up
+  the Beginner's Three Snails by 0.875x, deltas in every record that nothing in the spec asks the balance owner to accept.
+  The weapon's own speed still sets its swing interval (6.1.1), as before; the tier C skill numbers (0.8 s stance, the
+  cooldowns) are read as "at the held weapon's speed". If the owner wants weapon speed to matter to skills, it is a
+  small change (`Loadout.stats` and `BasicAttack._spec` take `WeaponInfo.NORMAL_SPEED` as the reference step instead of
+  the weapon's own) and the Beginner/Staff records and the baseline digest must be re-captured.
+
+#### #173 fixed Legendary magnitudes regression smoke (2026-10-18)
+
+`ISOLATE=s173_smoke bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`,
+real cache, on `b1e18d3` plus #173, no PATCH or tuning. All 12 runs finish without crashes, script errors or world
+warnings; every record has `missing: []` and `warnings: []`. Every outcome and end time matches the latest combined
+#142/#143/#144/#146/#148 smoke below. All are deaths (0/3 clears per row); Henesys still reaches Magician in 5/6
+runs at 265.0–281.8 s and spawns bosses in those five. Bot seed 2026 still dies at Lv9 before Magician, as before.
+Tree remains record-only. Death times are in seed order 1 / 2 / 2026; boss counts include every spawned encounter.
+Legendary counts are displayed tiers after equal-gain relabelling, rather than raw Legendary rolls.
+
+| Stage / policy | Death seconds (unchanged) | Magician reached | Bosses dead / spawned | Legendary offered / picked |
+|---|---|---|---|---|
+| Henesys bot | 849.7 / 906.6 / 287.9 | 2/3 | 4/5 | 1/1 |
+| Henesys random | 501.7 / 339.4 / 321.4 | 3/3 | 1/3 | 1/0 |
+| Tree bot | 574.3 / 76.6 / 47.9 | 1/3 | 1/1 | 0/0 |
+| Tree random | 339.3 / 84.3 / 47.9 | 1/3 | 0/1 | 0/0 |
+
+The synthetic character-event and tick-cost digests also retain their existing goldens. The new seam tests cover
+Legendary +8 ranks, clamping to six ranks, +5 stacking steps (including unlimited cards), equal-gain Epic +3,
+and the actual descriptions, previews, applied gains and bot scores. No balance values beyond #173's specified
+Legendary magnitudes changed. Raw smoke records and logs are in the ignored `_scratch/s173_balance/` directory.
+Full suite: 1,417 tests, 0 failed, 0 skipped; Godot reports two DummyTexture RID leaks at shutdown after TESTS_PASSED.
+
+#### #142 / #143 / #144 / #146 / #148 combined regression smoke (2026-10-18)
+
+`ISOLATE=lead_bal bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>` on
+#177's merged branch (`b1e18d3`, before spec #151; all five tickets plus their review fixes), real cache, no PATCH or tuning. All 12 runs finish with no
+crashes, script errors or world warnings; every record has `missing: []` and `warnings: []`. Every outcome and end time
+agrees to the second with the #152 smoke on `39276ef` below (which rounds to whole seconds; here to 0.1 s): Henesys
+bot D 849.7 / 906.6 / 287.9 s, random D 501.7 / 339.4 / 321.4 s; Tree bot D 574.3 / 76.6 / 47.9 s, random D 339.3 / 84.3 / 47.9 s. Magician is reached at
+265.0-281.8 s in the same five Henesys runs, and bot seed 2026 still dies at Lv 9 before advancing. #146's tick-cost work
+is output-identical by construction (`test_tick_cost_identity.gd`), and #144 only withholds the `hit` art of attacks
+the hit window already turned away, so no change was expected. MP-short seconds per run (SYSTEMS line): Henesys bot
+83.1 / 90.7 / 150.5, random 68.7 / 86.4 / 112.8.
+
+The spec #151 merge of #177 re-captured the binary goldens on Windows against the unoptimised integration tip
+`19ca0a8`, then matched them on the merged code: character baseline `b4526877...`, busy-round identity `cb554e31...`.
+Their differences from #177's goldens are the accepted spec #151 crit RNG, physical combat, Warrior choice and
+player-state changes. The character baseline now uses `var_to_bytes` on every platform, without the Linux guard.
+The busy-round comparison includes all events, per-tick player state, drop pools and totals; bulk defense oracle
+coverage includes live PDD as well as MDD, and Warrior admission is checked on both facing sides. No new balance
+smoke or tuning was run for this merge.
+Validation: `ISOLATE=s151mm TEST_TIMEOUT_S=3000 bash scripts/test.sh` with the shared cache: 1647 tests, 0 failed,
+0 skipped. `cargo test`: 63 reported passes (17 real-WZ cases returned early without `MAPLE_WZ_ROOT`, so those prove
+nothing); web dev tests: 51 passed, 0 failed. The manifest did not change, so no import was run.
+
+#### #152 job-generic prefactor regression smoke (2026-10-17)
+
+`ISOLATE=final bash scripts/balance.sh 1 2 2026 --stage=<henesys_hg1|tree_that_grew_1> --policy=<bot|random>`, plus
+`--job=210` and `--branch=210` (Henesys bot), no PATCH or tuning. #152 first regroups `upgrades.json` cards by job line
+(common, beginner, magician: the per-line merge order; owner choice) in a data-only commit, `11664d2`. The roll walks
+the pool in array order, so that commit alone changes which cards a seed draws. The same smoke on `main` (`bb6eee9`)
+equals the web audio smoke below; on `11664d2` it gives:
+
+| | Henesys bot | Henesys random | Tree bot | Tree random |
+|---|---|---|---|---|
+| seeds 1 / 2 / 2026 | C 16:16 / T 30:00 / D 18:07 | D 13:09 / 6:40 / 11:18 | D 16:32 / 12:52 / 2:08 | D 8:52 / 3:10 / 2:15 |
+
+(Henesys bot seed 2 kills two bosses and is still fighting the third at the 30:00 cap; Magician 265.0–290.1 s.) Every
+later #152 commit (per-line data files, manifest fragments, job-generic plumbing, `--job`) gives per-seed records
+byte-identical to `11664d2` apart from the new `job_times` key, `job_t` equals `job_times["200"]` in every record, and
+`--job=210` equals `--branch=210`. No crashes, script errors or world warnings. Full suite 1379 tests, 0 failed,
+0 skipped; `cargo test` and the web dev tests pass.
+
+After merging `main` with spec #88 (`39276ef`), the same smoke on the merge equals `39276ef` plus the regroup commit
+record for record (again apart from `job_times`; `--job=210` equals `--branch=210`): Henesys bot D 14:10 / 15:07 / 4:48,
+random D 8:22 / 5:39 / 5:21; Tree bot D 9:34 / 1:17 / 0:48, random D 5:39 / 1:24 / 0:48. Bot seed 2026 now dies at Lv 9
+before advancing, so the #88 guard that every Henesys seed reaches Magician no longer holds. The owner chose
+(2026-10-17) to relax it to the 2/3 early-milestone majority until the balance pass. The other five Henesys runs reach
+Magician at 265.0–281.8 s.
 
 #### Spec #88 hit-window pressure regression smoke (2026-10-17)
 
@@ -1619,8 +2186,8 @@ earlier targets, which #29 replaces as specified in 4.1.1. Historical Tree pacin
 #### Magician at Lv10 (#40)
 
 The only gameplay data change in this pass is Magician's survivor advancement level, 8 → 10. The sensible bot's
-actual `job_changed` time is reported as `magician_seconds` (min/median/max/count) in the balance aggregate and
-as "Magician seconds" in its console report. Missing or negative `job_t` records are excluded, with no observations
+actual `job_changed` time of every job id is reported as `job_seconds` (per job id: min/median/max/count; record key `job_times`, the Magician's also stays `job_t`) in the balance aggregate and
+as "Job <id> seconds" in its console report. Missing or negative times are excluded, with no observations
 reported as `none (n=0)`. This measures advancement rather than assuming a level milestone is a job change.
 
 Training seeds **1–6 and 2026**, both stages, `--policy=bot --cap=420`, no patches:
@@ -2534,8 +3101,42 @@ skill in its single-shot vanilla form at canonical MP, Blue Potions are the main
 10 s) runs out; boss bundles stay 3 rather than 6. These choices and starter stock
 are tier C data in `balance.potions`; potion rolls use a separate seeded stream. Potions never expire or enter the
 EXP cap/absorption path. Both card policies drink a potion only when the missing HP or MP is at least half of one
-current potion's canonical restore (`balance.potions.bot.min_restore_fraction`, tier C), so a sip never mostly
-overflows the pool; a five-MP Beginner never drinks a 100-MP Blue.
+current potion's canonical restore, capped at the max HP/MP pool (`balance.potions.bot.min_restore_fraction`, tier C;
+the cap is #229). The restore counts as at least `balance.potions.bot.pool_floor` (0.25, tier C) of the potion, so a
+five-MP Beginner never drinks a 100-MP Blue; above that floor a sip may overflow a small pool by up to the guard's slack
+(a drink must restore at least half of the lesser of the potion and the pool, or of the floor share).
+
+**Automatic potion tiers (spec #225, #228).** No card changes the potion any more. `balance.potions.schedule` lists
+`{level, kind, item}` steps (tier C, ours; sorted by level): HP Red (2000000) → Orange (2000001) at Lv 10, MP Blue
+(2000003) → Mana Elixir (2000006) at Lv 20, HP Orange → White (2000002) at Lv 25. When the character reaches a
+level (level-up, including several levels in one tick), every step of that kind at or below it that the character
+does not hold yet is applied in order through `PotionInventory.upgrade`: the whole stock count is kept, all later
+drops are the new item, the current item drives canonical restoration and the HUD icon, a step never downgrades, and
+an item without a restore spec is skipped. Nothing is stored: each level-up and each snapshot load re-scans the steps up
+to the level, so a character saved at Lv 38 holding Red and Blue is caught up to White and Mana Elixir **silently** on
+load, and an older save needs no migration. Each applied level-up step emits the existing `potion_tier_up` event and the
+HUD shows the v83 item names from String.wz, e.g. "Your Red Potions are now Orange Potions." (name + "s";
+`balance.potions.plural_names`, `{"<item id>": plural}`, tier C, overrides it for names that are their own plural:
+Unagi 2022003, Pure Water 2022000). The Power Elixir is not a
+potion tier (it is the card filler, section 8).
+
+**Researched steps (#229).** The schedule continues with the table of `docs/research/v83-potion-progression.md`
+section 6 (tier C: items and recovery are tier A from the v83 `Item.wz`, the levels are our own reading of thin
+sources): HP Unagi (2022003, 1000 HP) and MP Pure Water (2022000, 800 MP) at Lv 40, then HP Ice Cream Pop (2001001, 2000
+HP) and MP Red Bean Sundae (2001002, 2000 MP) at Lv 60. The Lv 60 pair has no source for its level; it is an extrapolation
+the spec lead accepted. Melting Cheese, Reindeer Milk, Sunrise Dew, Sunset Dew, the Elixirs and the dual-pool foods stay out. The
+recovery of each item is read from its canonical `spec` (`Consume/0200.img`, `0202.img`; `DataRepo.potion_img_path`
+picks the img from the id) and is never typed into survivor data; the items, icons, String.wz names and `Use` sounds
+come through `asset_manifest.d/common.json` (Pure Water's sound is a canonical link to `02012002/Use`, resolved by the
+importer). Mob and boss potion drops follow the current item, so they drop the new items with no other change.
+A cache imported before #229 has none of the four items: the sim skips an unresolvable step, so such a character
+stops at White / Mana Elixir (no error, no notice; `build_setup` lists the absent entries in `missing`, so
+re-run `scripts/import.sh` or the web re-import). The 1000 and 2000 point steps exceed most pools at their levels
+(research section 6, "How the restores compare"), so the overheal is wasted by design; the bot's waste guard compares the
+missing share with the restore **capped at the max HP/MP pool** (`BotInput.worth_drinking`, tier C), otherwise a 2000-point
+potion would never be worth drinking and the bot would die with stock. The capped amount never counts as less than
+`potions.bot.pool_floor` (0.25) of the potion, so the owner rule that a 5-MP Beginner never drinks a 100-MP Blue still
+holds (`test_bot_input`); setting `pool_floor` to 1.0 gives the pre-#229 guard back exactly.
 
 The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level-up refills MP to the new maximum
 (#80, tier B) but adds no HP (tier C). Between level-ups, Three
@@ -2549,7 +3150,7 @@ of card policy. Normal MP has no stage field (owner, 2026-10-16, #80: 3% flat, n
 `normal_mp_drop_chance` curve and its reader are removed). Changing the global MP chance also changes which ground
 pickups the bot approaches during the opening.
 
-Potion-tier score 112 prioritizes a useful permanent supply upgrade above Guard and attack cards. Learning a new
+(The old potion-tier card score 112 is gone with the cards, spec #225.) Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
 Only sensible choices use these scores; careless choices use their separate seeded card RNG.
 Optional final card-score overrides set Guard learning to 110 and ranks to 109, without adding a job bonus. Missing
@@ -2561,7 +3162,7 @@ Normal MP is 3% flat on every stage (owner, 2026-10-16, #80), elite MP 60%, with
 0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
 chances do not suppress elite or boss-bundle HP drops. Elite chances remain
 global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
-The quickslot shows each kind's current icon, stock count and keys; balance/perf records report collected and used
+The quick slot (HUD, below) shows each kind's current icon and stock count with its first key; balance/perf records report collected and used
 quantities per kind.
 
 - Mobs drop their **signature Etc item** as an EXP pickup (icon from `Item.wz/Etc/0400.img/<id>/info/iconRaw`), with
@@ -2595,6 +3196,7 @@ quantities per kind.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
+  Every per-job table (`ap_stat`, `ap_secondary`, `growth`, the bot's equipment weights) resolves through the job's lineage, so a new job line is data rows only. Planned rows use the v83 midpoints (tier B): Warrior +26 HP / +5 MP, Bowman and Thief +22 HP / +15 MP, Pirate +25 HP / +20.5 MP (rounded like the Magician's); rows are added only when the job becomes playable (Warrior with #163).
   Level-ups raise the maxima, then refill MP to the new maximum (`level_up_refill.mp` = 1, tier B: v83 servers
   refill both pools, Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)`) but add no HP
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
@@ -2604,9 +3206,9 @@ quantities per kind.
   modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
 - **Worn equipment (spec #33, #105)**: one equipment instance per equip slot (hat, top, bottom, overall, shoes,
-  gloves, weapon; an overall fills top and bottom). Every worn `inc*` stat counts: main stats add to the base (the
+  gloves, weapon, shield; an overall fills top and bottom; the shield, spec #151 #158, is described below). Every worn `inc*` stat counts: main stats add to the base (the
   Stat window shows "total (base+bonus)"), W.ATT is `incPAD` summed over every worn item, M.ATT adds `incMAD`,
-  accuracy `incACC` (shown; no player hit-chance rule exists yet), max HP/MP `incMHP`/`incMMP` (flat, after card
+  accuracy `incACC` (shown, and it raises the critical chance, 6.1; no player attack ever misses), max HP/MP `incMHP`/`incMMP` (flat, after card
   modifiers and the MaxMP passive, tier C), speed `incSpeed` and jump `incJump` capped at 140 / 123 (tier B).
   Equipping checks v83 `reqLevel`, `reqJob` (bit mask 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate; 0 all)
   and `reqSTR/DEX/INT/LUK` against total stats; a failure changes nothing. The creation top, bottom, shoes and
@@ -2615,6 +3217,18 @@ quantities per kind.
   moves the previous weapon to the inventory (`balance.player.weapon_grants`, tier C); with a full inventory the grant is skipped and nothing is destroyed. Without a weapon the basic
   attack is a bare-handed punch (`BasicAttack.BARE_HANDS`: v83 `barehands` sound, tier C speed 6, reach box and
   impact on the action's last frame); with no W.ATT it deals the swing formula's minimum, 1.
+- **Shield slot (spec #151, #158)**: `shield` is the last of `Equipment.SLOTS`, filled from Character.wz `Shield`
+  (109xxxx) with the same requirement check as any equipment (`reqJob`, `reqLevel`, `reqSTR`...), and its `inc*` stats
+  (mostly `incPDD`/`incMDD`) count like any worn item. A two-handed weapon (`WeaponInfo.is_two_handed`: every weapon
+  type from 140) never shares the hands with a shield: wearing one moves the worn shield to the Equip tab, wearing a
+  shield moves a held two-handed weapon (`Equipment.displaced_slots`; the job-weapon grant follows the same rule). When
+  the Equip tab has no room for what moves, the change is refused with `inventory_full`, the v83 notice "You can't get
+  anymore items." shows, and nothing changes. The Equip window shows the shield in its v83 SHIELD cell (right of
+  WEAPON); the avatar draws the shield layers of the worn item. The snapshot gains no key beyond a `shield` entry in
+  `equipment.worn` (format stays 2; a snapshot saved without one loads unchanged; a two-handed weapon beside a shield
+  is invalid). The autoplay bot treats the shield as a slot: it wears a shield when its score beats what the change
+  moves off (a two-handed weapon must beat the one-handed weapon plus the shield it displaces), and may scroll it last.
+  Shield drops and scrolls are #159.
 - **Scrolls (spec #33, #110)**: `Scrolls` (pure) applies a scroll to the item worn in an equip slot. Fit: `(scroll id
   / 100) % 100 == (item id / 10000) % 100` (tier A, the v83 id convention) and at least one upgrade slot. Roll 0-99
   below `info/success` adds every `inc*` of the scroll to the instance (`scrolls` + 1); success or not, `slots` - 1;
@@ -2659,13 +3273,30 @@ quantities per kind.
   `MAX = ((MAG²/1000 + MAG)/30 + INT/200) × spellAttack`, `MIN = ((MAG²/1000 + MAG×mastery×0.9)/30 + INT/200) ×
   spellAttack`, where `MAG = INT + magic attack`, `spellAttack` = the skill's canonical `mad`, `mastery` =
   (10 + 5×`mastery` field)%. Rolled uniformly.
-- **Critical hits:** base 0% (Beginner/Magician cannot crit in v83); upgrades may add crit (×1.5) as survivor modifiers.
-  Crits use the `NoCri` digits and the `NoCri1/effect` burst.
+- **Physical skills** use weapon bounds (tier B, SouthPerry/HS.net):
+  `MAX = (mult × primary + secondary) × W.Att / 100`,
+  `MIN = (mult × primary × 0.9 × mastery + secondary) × W.Att / 100`.
+  Mastery defaults to 10%; a canonical mastery field N means (10 + 5N)%.
+  Survivor skill and player damage multipliers scale these bounds. At impact, with
+  `D = max(0, mobLevel - playerLevel)`, apply `MAX × (1 - 0.01D) - 0.5PDD` and
+  `MIN × (1 - 0.01D) - 0.6PDD`, each at least 1; roll uniformly, multiply by the canonical
+  Skill.wz `damage` / 100, apply crit, element, then round once. Live PDD includes monster defence buffs.
+  `attackCount` gives the number of instant hit lines. Per-skill `physical_formula` overrides select primary,
+  secondary, max/min multipliers and whether to ignore mastery: Lucky Seven is
+  `{"primary":"luk","max_mult":5.0,"min_mult":2.5,"secondary":"","ignore_mastery":true}` (tier B).
+- **Critical hits (#153):** every job, including Beginner, can crit on fixed, magic, physical and basic attacks
+  (owner decision, spec #151; overrides the old Beginner-phase equivalence criterion). Chance is
+  `balance.crit.chance + ACC × balance.crit.per_acc + crit_bonus`, plus existing survivor crit modifiers.
+  The untuned tier C coefficient is 0.0005 (+0.05 percentage points per ACC); base chance stays 0, multiplier 1.5.
+  With a passive `crit_damage_bonus > 0`, its skill-percentage points add to the skill multiplier instead
+  (`150% + 100 = 250%`, tier B Critical Shot/Throw); otherwise crit multiplies the hit by `crit_mult`.
+  Skill crits use combat stream 1; basic damage/crit rolls use basic stream 5. Crits use the `NoCri` digits and
+  the `NoCri1/effect` burst. The lead records the Beginner/Magician smoke deltas in 4.2; no balance tuning here.
 - Mob defence: magic damage × (1 - MDD/(MDD+150)) (tier C, keeps early mobs readable).
-- **Player accuracy (#33 review):** worn equipment's `incACC` (and Bless) is stored in `player_state.acc` and shown in the
-  Stat window, but the player's attacks never roll a hit chance: the v83 player-versus-monster hit roll is not modelled,
-  and no hit model is invented for it (tier C). Accuracy therefore has no combat effect; only mob attacks roll a hit
-  against the player's avoid (6.2).
+- **Player accuracy:** job base (tier B) plus equipment `incACC` and active buff `acc`, stored in `player_state.acc`
+  and consumed by crit chance. The nearest listed job ancestor supplies coefficients: Beginner/Warrior/Magician
+  DEX×0.8 + LUK×0.5; Bowman/Thief/Pirate DEX×0.6 + LUK×0.3; Brawler 510 DEX×0.9 + LUK×0.3.
+  Player attacks never MISS (ADR 0005). Monster attacks still roll against player avoid (6.2).
 
 ### 6.1.1 Basic weapon attacks
 
@@ -2675,21 +3306,119 @@ info supplies Sword W.ATT17/speed4 and Wand W.ATT15/M.ATT23/speed6. Magic attack
 
 After skill priority, a standing or airborne player automatically attacks when a monster intersects any of its
 five facing stance afterimage boxes. Walking, climbing, a skill fired this tick or no reachable target prevents a new swing.
-There is no movement lock. Each swing chooses uniformly among swingO1/O2/O3 and stabO1/O2 on its own seeded stream.
+There is no movement lock. Each swing chooses uniformly among the held weapon family's actions (`WeaponInfo.basic_actions`,
+below; swingO1/O2/O3 and stabO1/O2 for every one-handed melee weapon, the Beginner's and Magician's included) on its own
+seeded stream.
 The chosen stance retains its own impact box: a shorter stance can miss an outer-range target. One live monster in
 that box is hit: a scheduled boss first (#83), otherwise the nearest; a moving target may leave before impact. The interval is
-`ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B). The first numbered afterimage
+`ceil(800 * (10 + attackSpeed) / 16 / 30) * 30 ms`: Sword720ms, Wand810ms (tier B); an active Booster lowers the
+`attackSpeed` step used (7.7). The first numbered afterimage
 body frame supplies impact timing, summing earlier canonical body delays (tier A): Sword swingO1 frame2 starts at
 450ms; stabO2 frame1 starts at350ms. Body delays remain canonical. Pending swings finish without locking motion.
 
-Physical bounds (tier B, owner-provided pre-Big-Bang formula) are `MAX=(STR*k+DEX)*WATT/100` and
-`MIN=(STR*k*0.9*0.1+DEX)*WATT/100`. Sword k=4; Wand swing k=4.4, stab k=3.2. With
-`D=max(0,mobLevel-playerLevel)`, apply `MAX*(1-0.01D)-0.5PDD` and `MIN*(1-0.01D)-0.6PDD`, clamp each to1,
-roll uniformly and round once. Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
+Basic attacks use the same physical bounds, live PDD and crit rule as physical skills (6.1), with skill multiplier 1.
+W.Att sums every worn item's `incPAD` plus active `watk` buffs; `weapon_attack(ranged)` adds the current ammo's `incPAD`
+for a ranged attack (6.1.2).
+The action prefix chooses swing/stab/shoot; weapon facts are `WeaponInfo.PHYSICAL` (tier B, except the preserved
+wand/staff and bare-hands fallback, tier C):
+
+| Weapon | Swing / stab multiplier | Primary / secondary |
+|---|---|---|
+| 1H sword | 4.0 / 4.0 | STR / DEX |
+| 1H axe, blunt | 4.4 / 3.2 | STR / DEX |
+| 2H sword | 4.6 / 4.6 | STR / DEX |
+| 2H axe, blunt | 4.8 / 3.4 | STR / DEX |
+| Spear | 3.0 / 5.0 | STR / DEX |
+| Polearm | 5.0 / 3.0 | STR / DEX |
+| Bow | 3.4 / 3.4 | DEX / STR |
+| Crossbow, gun | 3.6 / 3.6 | DEX / STR |
+| Claw, Thief dagger | 3.6 / 3.6 | LUK / STR+DEX |
+| Other dagger | 4.0 / 4.0 | STR / DEX |
+| Knuckle | 4.8 / 4.8 | STR / DEX |
+| Wand, staff, bare hands | 4.4 / 3.2 | STR / DEX |
+
+The three creation weapons and bare hands keep their old non-critical bounds. Bare hands still use equipment-only
+PAD (usually zero, so defence floors the hit to 1); the Pirate unarmed formula is outside this ticket.
+Starting STR12/DEX5 reaches STR22/DEX5 at Beginner Lv3 without balance changes;
 Sword bounds then are 2.1964..15.81, so rounding to at least the unscaled Snail's 8HP has about61% probability.
-The fixed-seed 1000-swing test checks at least50%. Variant0 for both below-Lv10 starter weapons, and normal sword/mace
+The fixed-seed 1000-swing test checks at least50%. Variant0 for every weapon, and normal sword/mace
 spark family1 for swings / family2 for stabs, are tier C selections. Bounds, canvases, origins, alpha and sound
 come directly from the imported v83 afterimage and Weapon images (tier A). Effects use the existing pooled renderer.
+
+**Weapons on the avatar (#154).** The held weapon decides three things, all from `WeaponInfo`:
+
+- **Stances.** The character stands in `stand<info/stand>` and walks in `walk<info/walk>` of the weapon item
+  (`stand_stance`, `walk_stance`; tier A). Most two-handed weapons have `stand2`/`walk2`; the two-handed swords stand with
+  `stand2` but walk with `walk1`, so the two numbers are read separately. `PlayerMotion.stand_stance`/`walk_stance` hold
+  them (`RunWorld._refresh_caster` refreshes them whenever the weapon changes), and `AvatarRenderer.play` turns the generic
+  `stand1`/`walk1` into the worn weapon's variant for every screen that has no `PlayerMotion` (slots, shop, Free Market).
+  Alert, jump, prone and the ladders are shared by every weapon.
+- **Actions.** `WeaponInfo.BASIC_ACTIONS` lists the stances of each weapon type, in selection order; each action must also
+  exist in the weapon item, the body and (melee) the afterimage, which `test_weapon_assets` checks against the real cache:
+
+  | Family | Actions | Kind |
+  |---|---|---|
+  | one-handed sword, axe, blunt, dagger, wand, staff | swingO1/O2/O3, stabO1/O2 | swing / stab |
+  | two-handed sword, axe, blunt | swingT1/T2/T3, stabO1/O2 | swing / stab |
+  | spear | stabT1, stabT2, swingP1 | stab / swing |
+  | polearm | swingP1, swingP2, swingT2 | swing |
+  | knuckle | stabO1, stabO2 | stab |
+  | bow / crossbow | shoot1 / shoot2 | shoot |
+  | claw | swingO1/O2/O3 | shoot |
+  | gun | shoot1 | shoot |
+
+  Which stances a family uses is tier C (the item imgs list many more). `WeaponInfo.basic_kind(weapon, action)` is what the
+  damage model (#153) reads: a ranged family always `shoot` (a claw throws with a swing stance, and `weapon_attack(true)`
+  adds the ammo W.Att, 6.1.2), any other weapon the prefix of the action (`swing`, `stab`; `attack_kind`, which also
+  maps the Gun's own `shot` stance to `shoot`). `BasicAttack.last_action` / `last_kind` expose the latest swing.
+- **Effects.** The afterimage name, the sound (`info/sfx`) and the impact timing come from the weapon item and its
+  afterimage (tier A); the hit spark is the sword family for every `sword*` afterimage and the mace family for all the others
+  (tier C: `hit.img` has only those two). A melee weapon swings into its afterimage's `lt`/`rb` box. A ranged family has no
+  such box: it starts when a target is inside `WeaponInfo.ranged_box` (bow, crossbow 300 px, claw, gun 250 px, tier C) and
+  fires an ammo projectile (6.1.2), releases it on the afterimage's first frame when it has one (the Bow's and Crossbow's
+  draw frame, else the body's last frame) and shows that frame as its trail only when it is not a melee box (a claw's `swordOL` trail
+  and the Gun, which has no `shoot1` node, show none).
+
+`scenes/debug/weapon_gallery.tscn` (tool-only; `bash scripts/run.sh res://scenes/debug/weapon_gallery.tscn -- --shots=<abs dir>`,
+`--mode=cash` for a cash weapon cover over a two-handed sword and a claw) draws one sheet per family: stand and walk
+facing both ways, and every basic-attack action frozen on its impact frame with the afterimage, spark and swing box.
+`--mode=ammo` fires real ammo projectiles (6.1.2).
+
+#### 6.1.2 Ranged basic attack and endless ammo (#155)
+
+A bow, crossbow, claw or gun (`WeaponInfo.RANGED_FAMILIES`) starts its basic attack when a target is inside the family's
+reach (6.1.1) and, at the release frame, spawns **one** projectile through `ProjectileSystem` at the nearest target
+(a scheduled boss first, as for every basic attack). The shot carries the swing's physical damage (6.1), rolls on the
+basic-attack stream 5 (`alt_rng`), is aimed at the target's centre at release, and ends after the family's reach plus
+`overshoot` (`survivor/ammo.json`). A target that left the box before release gets no shot; the attack is not refunded
+or consumed either way.
+
+- **Ammo is endless.** It is never consumed, never an inventory stack, a card or a drop, and it is not saved: the
+  current ammo is derived from the held weapon family, the job and the character level (`Ammo.item_for`).
+- **W.Att.** The current ammo's Item.wz `incPAD` adds to W.Att for ranged attacks (`weapon_attack(true)`): Throwing Stars
+  +15..+27, Bullet +10..+14, arrows +0..+4. A melee attack never adds it.
+- **Starting ammo** (tier A ids): claw A Beginner Thief's Throwing Stars 2070015 (+15), bow Arrow for Bow 2060000 (+0),
+  crossbow Arrow for Crossbow 2061000 (+0), gun Bullet 2330000 (+10).
+- **Upgrade schedules** (the specialist branch and its advancements; a different branch, a first job, or a weapon of another
+  family keeps the starting ammo; the highest step reached applies, also when the character advances into the branch past it,
+  so Lv 37 straight into the Assassin is Mokbi):
+
+  | Branch | level -> ammo |
+  |---|---|
+  | Assassin 410 | 30 Wolbi 2070001, 35 Mokbi 2070002, 40 Kumbi 2070003, 45 Tobi 2070004, 50 Steely 2070005, 55 Ilbi 2070006 (tier C levels) |
+  | Hunter 310 | 30 Bronze 2060001, 40 Steel 2060002, 50 Red 2060003 (tier C) |
+  | Crossbowman 320 | 30 Bronze 2061001, 40 Steel 2061002, 50 Blue 2061003 (tier C) |
+  | Gunslinger 520 | 30 Split Bullet 2330001, 50 Mighty Bullet 2330002 (v83 `reqLevel`, tier A) |
+
+- **Event and notice.** Reaching a higher tier with the same weapon family emits `ammo_upgraded` (ARCHITECTURE 4.4.3); a
+  weapon swap is silent. `RunScene` shows the one-line system notice "Your throwing stars are now Ilbi Throwing-Stars"
+  (the v83 String.wz item name).
+- **Presentation.** The projectile sprite is the ammo item's own `Item.wz/Consume/<0206|0207|0233>.img/<id>/bullet`
+  animation (arrows and bullets turn to their direction, stars spin in their frames). The Equip and Item windows' weapon
+  tooltip has an `AMMO` line with the current ammo and its W.Att, e.g. "Kumbi Throwing-Stars (+21)".
+- **Tool.** `weapon_gallery.tscn --mode=ammo` draws one sheet per family with a cell per tier (the avatar at release, the
+  real projectile 0.1 s later, the sprite at 3x); `--branch=<job id> --level=<n>` shows the single ammo that job and
+  level would fire. `ui_gallery.tscn --window=ammo` shows the upgrade notice and the Equip tooltip.
 
 ### 6.2 Damage to the player
 
@@ -2707,6 +3436,13 @@ come directly from the imported v83 afterimage and Weapon images (tier A). Effec
 - On a landed hit: `NoViolet` digits over the player, knockback 187.5 px/s away and a small hop (tier C), 0.3 s of no input,
   invincibility with blinking for the current hit window, 1.5 s for a lone hit and shrinking to 0.4 s in a swarm
   (#88, tier C; section 11).
+- **Knockback guard (#223, tier C owner).** A hit that knocks the player back starts a guard of the first hit-window
+  length (`balance.hit_window.lengths[0]`, 1.5 s; no new constant). Hits that land inside the guard (the shrinking
+  window can end sooner) do their damage as usual (avoid roll, Power Guard, Magic Guard, `player_hit`, damage number,
+  window chain step) but call no knockback: no shove, no input lock, no new alert stance, and they do not restart the
+  guard, which is counted from the last knockback, so a swarm pushes the player at most once per 1.5 s. A boss skill
+  attack or ball (the hits that bypass the window) always knocks back and restarts the guard. A MISS changes nothing.
+  The timer lives in `PlayerUpkeep` (`knockback_guard_t`, per round, not saved); `RunWorld.take_hit` asks it.
 - **Active Magic Guard** moves `x`% (canonical 11-80% by level) of damage to MP while MP lasts.
 - Regeneration is a 10 s pulse: +10 HP (tier C, owner choice) and +3 MP (tier B, v83 recovery rule), capped at each
   maximum. Improved MP Recovery 2000000 adds `floor(character level × canonical skill level / 10)` MP (tier B).
@@ -2755,12 +3491,15 @@ bosses_2220000.json confirms the same fields. The real-import test checks the ca
 
 Shared skill-definition seams for spec #31 (no second-job content is enabled by these fields):
 
-- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` resolves to
+- Optional `cast: {"rule": "nearest"|"box"|"manual", "min_targets": 1}` (also `crowd`, `hp_or_undead`, the Warrior's
+  `weapon_reach` and `range_around`, 7.8, and `self`, 7.16) resolves to
   `Loadout.stats().cast_rule` (empty when absent) and `cast_params` (the whole block). Absent/`nearest` keeps
   nearest-in-range attacks and `can_start_buff` admission. `manual` never auto-casts; unknown rules wait too.
   `box` admits at `min_targets` (tier C default 1), then hits up to `mob_count` targets once per `attack_count` line.
   Admission prepares targets before the existing single MP payment/cooldown/cast; later rules extend the same
   `SkillRunner._admit_cast` / `_resolve_cast` dispatches with their own admission/resolution functions.
+- Optional `displacement: {"direction", "when", "field" | "distances" | "distance"}` makes an attack move the character
+  (7.13); it resolves to `Loadout.stats().displacement` (`{}` when absent).
 - Canonical level `lt`/`rb` resolve to `has_box` and `box: Rect2`; `area` starts at 1.0 and scales both offsets.
   `skill_mod` effects with `stat: "area", op: "mul"` multiply that scale (the planned ×1.2 card step is tier C).
   `mob_count` reads canonical `mobCount` then applies existing `count` modifiers; legacy `count` stays unchanged.
@@ -2769,7 +3508,7 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   matches with scheduled bosses first (#83), then by body-centre distance from the cast origin, then slot. Minimum
   edges include touching bodies;
   maximum edges exclude them. Optional `filter(slot) -> bool` runs before sorting/capping.
-- Optional `on_hit: {"status": "poison"|"freeze"|"slow", "chance_field": "prop", "duration_field": "time"}`
+- Optional `on_hit: {"status": "poison"|"freeze"|"slow"|"stun", "chance_field": "prop", "duration_field": "time"}`
   reads canonical fields at the cast level (missing `chance_field`: guaranteed attempt; signed Slow `x` stays
   canonical). Projectiles retain that level in a packed array. Both impact paths call `RunWorld._on_player_hit`
   once per damaging line, apply the status through `MobSwarm.apply_status`, then invoke registered
@@ -2793,7 +3532,7 @@ Shared skill-definition seams for spec #31 (no second-job content is enabled by 
   recovery remains tier C because the cache does not prove usage. Without Blue, tinted Violet is the tier C
   fallback. RunScene draws restoration events above the player's head using the existing number pool/timing.
 
-Survivor behaviour is in `data/survivor/skills.json`; the canonical numbers per skill level come from `Skill.wz`.
+Survivor behaviour is in `data/survivor/skills.json` (base) and `skills/<line>.json` (the skills); the canonical numbers per skill level come from `Skill.wz`.
 A skill's **rank equals its canonical skill level**: every rank table covers levels 1 through the v83 maximum,
 without skips. Learning starts at level 1 and each rank card adds one level. Energy Bolt, Magic Claw, Magic Guard
 and Magic Armor have 20 levels, Improved MP Recovery has 16, Fire Arrow has 30, and the Beginner skills have 3.
@@ -2827,7 +3566,7 @@ existing shots finish separately from carry-over projectile kills.
 | Fire Arrow (2101004) | F/P Wizard | Nearest-target fire (`elemAttr f`) projectile every 1 s within 480 px, 520 px/s, radius 12 px, `shoot1` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`, ball/hit/effect and Use sound | ranks 1–30 = levels 1–30 | learn/rank; Extra Fire Arrow (+1 shot, ×3), Fire Arrow Pierce (+1 pierce, ×2), Quick Fire Arrow (cooldown ×0.88, ×3) |
 | Poison Breath (2101005) | F/P Wizard | Nearest-target poison (`elemAttr s`) projectile every 1.25 s within 450 px, 400 px/s, radius 14 px, `swingO3` stance 0.8 s; canonical `mad`/`mastery`/`mpCon`; `on_hit` applies poison with canonical `prop`% for `time`; cached ball/hit/effect and Use/Hit sounds | ranks 1–30 = levels 1–30 | learn/rank; Poison Breath Pierce (+1 pierce, ×3), Quick Poison Breath (cooldown ×0.88, ×3) |
 | Meditation (2101001 / 2201001) | F/P / I/L Wizard | Self-only timed canonical `mad` -> magic attack; invalidates cached attack ranges on start/expiry | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
-| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy is stored with no outgoing combat effect yet | ranks 1–20 = levels 1–20 | learn/rank only |
+| Bless (2301004) | Cleric | One timed buff: canonical `pdd`, `mdd`, `acc`, `eva` -> weapon/magic defence, accuracy, avoid; accuracy joins the player's ACC and raises the critical chance (6.1) | ranks 1–20 = levels 1–20 | learn/rank only |
 | Invincible (2301003) | Cleric | Canonical `x`% reduction of physical/touch damage before Magic Guard; magic damage unaffected | ranks 1–20 = levels 1–20 | learn/rank only |
 | Slow (2101003 / 2201003) | F/P / I/L Wizard | At least 3 eligible unslowed mobs in canonical `lt`/`rb`; nearest-first up to `mobCount`, signed canonical `x` for `time`, 1 s recast delay | ranks 1–20 = levels 1–20 | branch-specific learn/rank only |
 
@@ -2889,7 +3628,8 @@ Second-job support (#58): `buff.effects` accepts multiple canonical stat/field p
 Invincible use their canonical `alert2`, effect and Use sound. Their self-only auto-cast, expiry, affordable recast
 and climbing gate follow Guard/Armor. Bless's active avoid feeds each miss roll; active PDD/MDD feed hit defence.
 Invincible scales the already-resolved whole weapon hit, rounds to nearest and keeps minimum 1 before Guard.
-No player-accuracy formula is introduced: Bless `acc` is exposed in buff effects/player state, with no combat effect.
+Bless's `acc` joins the player's ACC (`player_state.acc`), which raises the critical chance (6.1, #153; before #153 it
+had no combat effect).
 
 Slow uses the shared box query with a status-eligible, unslowed filter before charging MP. Canonical or scheduled
 bosses cannot count toward the crowd. It applies through `MobSwarm.apply_status`, deals no hit damage and does not
@@ -2902,19 +3642,1095 @@ Crowd threshold 3, cooldown 1 s, stance hold 0.8 s and card learn/rank weights 3
 All six skills retain the existing support bot scores (learn 50, rank 42 + current/ancestor job bonus 12), below
 damaging attack cards. No behaviour cards are added.
 
+### 7.5 Weapon-gated skills (#156)
+
+Shipping Thief first job (#207):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Nimble Body 4000000 | any, including bare hands | A: no canonical restriction |
+| Double Stab 4001334 | dagger | A: canonical weapon 33 |
+| Lucky Seven 4001344 | claw | A: canonical weapon 47 |
+
+Shipping Bowman first job (#199):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| The Blessing of Amazon 3000000, Focus 3001003 | any, including bare hands | A: no canonical restriction; #199 explicit skill table |
+| Critical Shot 3000001, The Eye of Amazon 3000002 | bow or crossbow | C: family tag from v83 skill descriptions |
+| Arrow Blow 3001004, Double Shot 3001005 | bow or crossbow | C: survivor family tags (no canonical weapon field) |
+
+Shipping Hunter (#202):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Bow Mastery 3100000, Final Attack: Bow 3100001, Bow Booster 3101002 | bow | C: family tags from String.wz descriptions |
+| Power Knock-Back 3101003, Arrow Bomb: Bow 3101005 | bow | A: canonical weapon45 |
+
+Shipping Crossbowman (#203):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Crossbow Mastery 3200000, Final Attack: Crossbow 3200001, Crossbow Booster 3201002 | crossbow | C: explicit family tags; String.wz descriptions name crossbow |
+| Power Knock-Back 3201003, Iron Arrow: Crossbow 3201005 | crossbow | A: canonical weapon 46 |
+
+Shipping Pirate first job (#186):
+
+| Skill | Held weapon | Source |
+|---|---|---|
+| Bullet Time 5000000 | any, including bare hands | A: no canonical restriction |
+| Flash Fist 5001001 | knuckle | C: survivor override |
+| Somersault Kick 5001002 | any, including bare hands | C: explicit survivor override |
+| Double Shot 5001003 | gun | A: canonical `"weapon "` = 49 |
+| Improve MaxHP 5100000 | any | A: no canonical restriction |
+| Knuckler Mastery 5100001, Knuckler Booster 5101006 | knuckle | C: survivor tag (String.wz text names the Knuckler) |
+| Gun Mastery 5200000, Gun Booster 5201003 | gun | C: survivor tag (String.wz text names the Gun) |
+
+A skill may need a weapon family (`WeaponInfo.FAMILIES`: sword, axe, blunt, dagger, wand, staff, spear, polearm, bow,
+crossbow, claw, knuckle, gun; `""` = bare hands). `SkillBook.weapon_families(key)` returns the families that can use it
+(empty = any weapon, bare hands included) and `SkillBook.usable_with(key, family)` answers for the held family
+(`RunWorld.held_weapon_family()`). The requirement comes from, in order:
+
+1. Survivor `skills.json` `weapon_families` (tier C): an array of family names, or `["any"]` for a skill that is
+   explicitly any weapon. It overrides the canonical value, so a class spec tags untagged skills (Somersault Kick and
+   Grenade: `["any"]`; Flash Fist and the Brawler attacks: `["knuckle"]`; Masteries, Boosters and Final Attacks: their
+   named family) and can retag a canonical one.
+2. The Skill.wz `weapon` code (tier A), mapped with `WeaponInfo.family_of_skill_code` (type - 100: 30 and 40 are both
+   "sword", 47 is "claw"). The reader also accepts the key `"weapon "` with a trailing space (tier A: the WZ typo that
+   only 5001003 Pirate Double Shot has). A missing field or an unknown code means no requirement.
+
+Where it applies (all read the same two functions, never a second rule):
+
+- **Casting.** `SkillRunner.cast_ready` skips an owned active skill the held weapon cannot use: no MP is spent, no
+  shortage is signalled, and the cooldown keeps running, so the skill casts on the first tick a matching weapon is held
+  again. A manual skill is refused the same way (no manual cast exists yet). Buffs already running keep running
+  (tier C). A passive's weapon check is done where its effect is read (`Loadout.passive_total`, see 7.6).
+- **Cards.** `UpgradePool.is_eligible` rejects every card with a `skill` (learn, rank and behaviour cards) while the
+  weapon held when the draw rolls cannot use that skill; the advancement draw reads the same eligibility. Taking a card
+  does not re-check it.
+- **Skill window.** A skill the held weapon cannot use is drawn like an unlearned one (the v83 `skill0` plate, its own
+  `iconDisabled`, grey text), and its tooltip adds "Weapon : Claw" (red "(not held)" while unusable; tier C text).
+  `SkillWindowModel.usable(key)` is read live, so swapping weapons with the Equip window open updates it.
+- **Swapping** weapons by hand in the Equip window takes effect at once (nothing caches the family). The bot never
+  swaps weapons by hand.
+
+No shipping Magician or Beginner skill has a requirement (wand and staff skills are untagged), so their records are
+unchanged. Tier C summary: the `weapon_families` override and its `"any"` marker, the "buffs keep running" rule and the
+tooltip wording; tier A: the `weapon` field and its typo key.
+
+### 7.6 Shared passives, W.Att buffs and Final Attack (#161)
+
+These are the consumers every job line's passives use; the class specs only add data. All of them are skipped while the
+held weapon family fails the skill's `weapon_families` (7.5), and none of them changes a record until such a skill is owned.
+
+| Passive `stat` | Skill.wz field | Effect |
+|---|---|---|
+| `mastery` | `mastery` N | replaces the untrained 10% with (10 + 5N)%, raising the minimum damage of every physical line; the best owned value counts |
+| `acc` | `x` (a Mastery's second effect) | added to ACC, so also to crit chance (`balance.crit.per_acc`) and the Stat window's ACC |
+| `crit_chance` | `prop` | percent chance added to the crit chance of every damage type and the basic attack |
+| `crit_damage` | `damage` | the critical hit's total percent: on a crit the skill multiplier gains `damage - 100` points (additive, 7.5/6.1) instead of x`crit_mult`; best owned value counts |
+| `max_hp_per_level` | `x` | Max HP gained at every level-up after learning, at the skill's rank at that moment; never retroactive |
+
+A skill declares them in skills.json as `passive: {"stat": "mastery", "field": "mastery", "effects": [{"stat": "acc",
+"field": "x"}]}`: the first stat as before, the rest in the optional `effects` list. **Buffs.** `watk` (Rage's `pad`) adds to
+W.Att while active, refreshing the physical bounds the tick it starts or ends; a buff `effects` entry takes an optional
+`scale` (default 1). The real Rage needs none: Skill.wz already stores its `pdd` negative (-3 to -12), so the entry is
+`{"stat": "pdd", "field": "pdd"}` and lowers `hit_defense().pdd` while it lasts (7.10).
+
+**Final Attack.** A passive skill with `final_attack: {"chance_field": "prop"}`, `damage: "physical"` (the canonical
+`damage` is the follow-up's skill percent) and an `action` (the stance whose swing/stab/shoot kind picks the bounds).
+After a damaging physical line (basic attack, instant skill or shot) while a matching family is held, it rolls `prop`
+percent on RNG stream 12; on a hit it queues one follow-up on the same mob, played at the end of that tick's attacks
+(`final_attack` event, then a normal `mob_hit` of the skill with live PDD, level gap and crits, all rolled on stream 12).
+Magic and fixed lines never trigger it, a follow-up never triggers another, and a target the trigger killed gets none.
+Stream 12 is only drawn when a Final Attack is owned and a line lands, so other records are unchanged. Tier B: mastery
+encoding, additive crit damage, Mastery ACC, Improved MaxHP per level-up without retroactive HP. Tier C: one proc roll
+per damaging line, deferral to the end of the tick, no follow-up on a killed target, stream 12, the `scale` and
+`effects` data shape.
+
+### 7.7 Attack speed and Boosters (#160)
+
+**Speed step.** The held weapon's Item.wz `info/attackSpeed` (tier A) is the character's attack speed step: 2 is the
+fastest, 6 normal (bare hands, `WeaponInfo.NORMAL_SPEED`), 9 the slowest. A Booster adds steps (see below); the step
+in effect is `WeaponInfo.effective_speed(base, boost)` = base - boost, never faster than 2 (a weapon already faster
+keeps its own) nor slower than 9. The v83 speed table (tier B, `WeaponInfo.SPEED_DELAY_MS`) gives each step's action
+time, 800 x (10 + step) / 16 ms: 2 = 600, 3 = 650, 4 = 700, 5 = 750, 6 = 800, 7 = 850, 8 = 900, 9 = 950 ms.
+
+**What it shortens.** `WeaponInfo.speed_factor(base, boost)` is the ratio of the table delays at the step in effect and
+at the weapon's own step: exactly 1.0 without a Booster, 700/800 for a Wand (6) under a Booster, 600/700 for a Sword (4).
+- Basic attack: the swing interval uses the step in effect (`attack_interval(info, boost)`, quantized upward to 30 ms);
+  the impact time (`hit_after`), the stance length (`action_time`) and the avatar's frame speed
+  (`player_state.action_scale`, `BasicAttack.action_spec(..., boost)`'s `scale`) shrink by the factor.
+- Attack skills (active kind, damaging; not buffs, passives or damage-none casts such as Teleport or Heal): the data's
+  `action_time` and `cooldown` (tier C numbers, read as "at the held weapon's speed") are multiplied by the factor in
+  `Loadout.stats()` (`speed_factor`), so the auto-cast gate, the stance and the cooldown sweep all follow. A card's
+  cooldown modifier applies first. Buffs are timed by their duration and keep it.
+- Weapon speed itself keeps setting the swing interval as in 6.1.1, and does not rescale skills: see 4.2 "#160" for why
+  and what changing that would move.
+
+**Booster buff.** A buff declares `{"stat": "attack_speed", "field": "x"}` in its `buff.effects` (7.6): the effect is the
+number of steps *faster* (positive; the v83 Boosters are 2). Skill.wz stores `x` as -2 (a smaller speed number is faster),
+so the real Boosters declare `scale: -1` (7.9). It is an ordinary auto-cast buff: cast when inactive, ready and
+affordable, recast the tick after it expires (its cooldown is its duration), with the duration from Skill.wz `time`. It is
+gated like a passive: `RunWorld.attack_speed_boost()` counts a running Booster only while the held weapon family fits
+the skill's `weapon_families` (`SkillBook.usable_with`, 7.5). A weapon swap does not cancel the buff, it just stops
+counting (a Sword Booster does nothing to a Wand) until a sword is held again. `Loadout.weapon_speed` and
+`Loadout.speed_steps` are the two caster inputs, assembled in `RunWorld._refresh_caster` (a buff starting, expiring or a
+weapon change refreshes them and the cached skill stats). `test_attack_speed.gd` tests the consumer with a synthetic
+Booster; the six Warrior second-job Boosters are the first real ones (7.9).
+
+### 7.8 Warrior first job (100, #163)
+
+Five v83 skills from `Skill.wz/100.img` (book 100; canonical level counts, MP/HP costs, icons, effects and sounds), all in
+`skills/warrior.json`. Rank equals canonical level as everywhere (7); WZ prerequisites are ignored (tier C, #31). Endure
+1000002 is not in the build: the owner dropped it after spec #151 (it only healed on ropes and ladders), so it has no
+entry, cards or rope-regeneration clock.
+
+**Weapons at the advancement** (*amended 2026-10-18, #226*). Warrior 100 chooses Sword 1302077,
+Spear 1432000 or Steel Pipe 1322006 (Blunt Weapon); only that weapon is granted and worn without requirements.
+The sword is the v83 instructor gift (tier B); the spear and pipe are the existing plain early shop choices
+(tier C; item stats tier A). The displaced weapon joins the Equip tab or spills at the feet when full. The recorded
+path also keeps the bot's equipment planner in the recorded family. Magician advancement is unchanged. Details: section 9.
+
+| Skill | Kind | Behaviour | Tiers |
+|---|---|---|---|
+| Power Strike 1001004 (20) | attack | auto-casts at the nearest mob inside the held weapon's swing envelope; hits `mob_count` mobs (1; only the Cleaving Strike card adds); damage 165-260 % of the physical weapon damage | A: damage %, mpCon 4-12, attackCount 1, art, sound; B: damage formula; C: Warrior melee families only (sword, axe, blunt, spear, polearm), 1.0 s cooldown, 0.6 s stance |
+| Slash Blast 1001005 (20) | attack | auto-casts when a mob's body centre is within `range` (130, 150 from level 16) of the body; hits up to `mobCount` 6 nearest, bosses first, both sides; pays hpCon 8-16 and mpCon 6-14; never casts when the HP cost would leave 0 HP (and then pays nothing) | A: damage 72-130 %, range, mobCount, hpCon, mpCon; C: weapon families, 1.6 s cooldown, 0.6 s stance, wider range / more targets only from cards |
+| Iron Body 1001003 (20) | buff | auto-cast, recast on expiry; adds canonical pdd (2-40) to weapon defence for 75-300 s | A: pdd, time, mpCon, action alert2 (no effect art in the WZ node); C: auto-cast, 0.8 s stance |
+| Improved HP Recovery 1000000 (16) | passive | adds canonical `hp` (3-50) to every regeneration pulse (`regen: {pool: hp, field: hp}`, `Loadout.regen_bonus`) | A: hp; C: v83 only while standing still, here always (HP regeneration is always on) |
+| Improved MaxHP Increase 1000001 (10) | passive | `max_hp_per_level` (canonical `x`, 4-40) at every later level-up (7.6) | B: Cosmic level-up rule |
+
+- **Cast rules.** `weapon_reach` and `range_around` are `SkillRunner` rules beside `nearest`/`box`/`crowd`. `weapon_reach`
+  uses `BasicAttack.envelope(world)`, the union of the held weapon's afterimage boxes (its far edge is the basic
+  attack's `reach`, tier A), so Power Strike strikes exactly where a swing can. `range_around` reads the canonical `range`
+  of the level (`Loadout.stats().range`, which the Wider Blast card scales). Both are instant, use `mob_count` as the
+  target cap (`SkillRunner.strike_count`) and their `attackCount` lines per target. `SkillRunner.reach_of` returns the
+  weapon reach and the range, so the bot engages them.
+- **Stance.** The data says `"action": "weapon"`: the cast stance, and so the swing/stab multiplier of the physical
+  formula, is the held weapon's first basic-attack action (`WeaponInfo.skill_action`: swingO1 for a one-handed sword, stabT1
+  for a spear, swingP1 for a polearm, swingT1 for a two-handed sword). Tier C: the WZ nodes have no action.
+- **HP cost.** `Loadout.stats().hp_cost` is the canonical `hpCon`. `SkillRunner.cast_ready` skips a skill whose HP cost
+  `RunWorld.can_pay_hp` refuses (HP must stay above 0; no `mp_short`, nothing paid), then pays MP and HP together
+  (`RunWorld.spend_hp`). The bot counts a skill ready only when both costs are payable.
+- **Facing.** Both attacks turn the character toward the target before the cast in every movement state (Power Strike
+  toward the side with the nearer first target inside the envelope, ties keep the facing; Slash Blast toward its first
+  target). A held direction sets a walking or airborne character's facing again on the next motion step, so the turn lasts
+  for the cast only (tier C). The `cast` event carries the new facing.
+- **Weapon gating** (7.5). Power Strike and Slash Blast list the five Warrior melee families (`weapon_families`, tier C: the
+  WZ nodes name no weapon and the String text says a sword). With a wand, a bare hand or any other family they are not
+  cast, their cards are not offered, the bot ignores them (`BotInput._reach_profile`, `_can_duel` and the teleport reserve
+  skip a skill `SkillBook.usable_with` refuses), and the Skill window greys them. Iron Body and the passives need no weapon.
+- **Cards** (`upgrades/warrior.json`, all `requires.jobs: [100]`, shared rarity): a learn and a rank card per skill, plus
+  Power Strike: Cleaving Strike (+1 target, 3 steps), Crushing Strike (+20 % damage), Quick Strike (-12 % cooldown); Slash
+  Blast: Whirling Blast (+2 targets, 3 steps, 6 to 12), Wider Blast (range x1.2, 3 steps), Quick Blast. Tier C weights and
+  steps. Attack cards are `power: true`, so the advancement draw (every eligible power `skill_new` card of the job, then
+  other new skills) offers Power Strike and Slash Blast. The bot needs no Warrior card scores; whether a card is never
+  taken is a smoke finding, not tuned here.
+- **Previews.** Rank cards show `damage` (percent) and `hpCon` beside the existing fields; the two passives show their
+  own number (Max HP per level-up, HP per pulse) instead of the canonical field name
+  (`UpgradePool.PASSIVE_*`). The skill tooltip adds "HP cost" for an HP-paying skill.
+- **Fixture.** `tests/fixtures/characters/lv11_warrior_1st.json`: a real headless Henesys bot round, forced job 100, seed 1,
+  stopped at 295 s, just before the first boss (`tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior`, re-captured when the Warrior advancement began to grant the sword 1302077 and the Spear and Steel Pipe in the Equip tab; capped rounds of
+  seeds 1 and 2 that ran past 5:00 ended with the Warrior bot dead to that boss's touch hits; recorded for the balance
+  pass, not tuned).
+
+### 7.9 Warrior second job: Masteries, Boosters and Final Attack (#181)
+
+Eighteen v83 skills from `Skill.wz/110.img`, `120.img` and `130.img` (canonical level counts and numbers, icons, effect
+and hit art, Booster sounds), all appended to `skills/warrior.json` and `upgrades/warrior.json` (spec #165). A second job
+gets no attack skill of its own (7.8, `requires.carry_jobs`): the Final Attack is the branch's *attack skill*
+(GLOSSARY), the Mastery and Booster support it, and Power Strike and Slash Blast stay on offer.
+
+| Branch | Mastery (20) | Final Attack (30) | Booster (20) |
+|---|---|---|---|
+| Fighter 110 | `sword_mastery_fighter` 1100000, `axe_mastery` 1100001 | `final_attack_sword_fighter` 1100002, `final_attack_axe` 1100003 | `sword_booster_fighter` 1101004, `axe_booster` 1101005 |
+| Page 120 | `sword_mastery_page` 1200000, `bw_mastery` 1200001 | `final_attack_sword_page` 1200002, `final_attack_bw` 1200003 | `sword_booster_page` 1201004, `bw_booster` 1201005 |
+| Spearman 130 | `spear_mastery` 1300000, `polearm_mastery` 1300001 | `final_attack_spear` 1300002, `final_attack_polearm` 1300003 | `spear_booster` 1301004, `polearm_booster` 1301005 |
+
+A name two branches share takes the branch suffix; a unique name stays plain. Each skill works only while its own family
+is held: sword, axe and blunt cover the one- and two-handed weapons, spear and polearm are separate families
+(`weapon_families`, 7.5). The WZ nodes carry no `weapon` field, so every entry lists its family (tier C, v83-facts 3).
+
+- **Mastery** (`passive: {stat: mastery, field: mastery, effects: [{stat: acc, field: x}]}`, 7.6). Skill.wz `mastery` is a
+  step 1..10 (`ceil(level / 2)`: levels 1 and 2 are both step 1), shown as (10 + 5N)% = 15% to 60%; the accuracy is `x`
+  (+1 to +20 at level N), there is no `acc` key. Raises the minimum damage of every physical line and ACC only while its
+  family is held.
+- **Booster** (kind `buff`, auto-cast, recast on expiry, `time` 10 s per level up to 200 s, 7.7). The WZ `x` is -2 at every
+  level (v83 speed steps: negative is faster), so the entry reads it with `scale: -1` and the consumer gets +2 steps.
+  It pays canonical `hpCon` and `mpCon` together (29 at level 1 down to 10 at 20), and is not cast when the HP cost would
+  leave 0 HP (7.8). A swap to another family stops the speed-up without cancelling the buff.
+- **Final Attack** (`final_attack: {chance_field: prop}`, 7.6): `prop` = 2% per level (2 to 60%), follow-up damage
+  `damage` = 100 + 5 x level percent (105 to 250%). The WZ node has no follow-up action and no sound, so the follow-up
+  plays the held weapon's attack stance (`action: "weapon"`, 7.8; 0.6 s, tier C) and uses the `hit/0` art. Only a hit
+  with its own family triggers it; the Fighter holding an axe never rolls the sword Final Attack. RNG stream 12 as in 7.6.
+- **Spread** (one `skill_mod` card per Final Attack, `<final attack key>_spread`, name "Spreading Blow"; effect
+  `count` +1, three steps, a power card, weight 2). "The follow-up also strikes +N monsters next to the target": after the
+  follow-up hits the original target, up to N other live monsters whose body centre is within the held weapon's swing
+  reach (`BasicAttack.reach`, the far edge of its afterimage envelope, tier A) of the *struck target's* body centre are hit
+  by the same follow-up (the same stats, one `mob_hit` each). Candidates are ordered like every player targeting rule
+  (`RunWorld.targets_before`): a scheduled boss first, then the nearest to the target, then the lower slot. Spread
+  uses no RNG: the proc roll stays on stream 12 and the extra hits roll their damage and crits on it as the primary
+  follow-up does. Extra hits never trigger another Final Attack. This is also the hit-more-mobs card of the Final Attack
+  (the #84 rule in `test_data_files`), which is why only these six need it; Masteries and Boosters are damage-less passives.
+
+**Cards** (`upgrades/warrior.json`; each skill has a learn and a rank card, rank cards cap at the canonical level count;
+every card lists only its own branch in `requires.jobs`; weights are tier C): Final Attack and Booster learn and rank
+cards and the Spread cards are `power: true`; Masteries are not. A card is offered only while the held weapon family is
+the skill's (7.5), so a sword-holding Fighter sees Sword Mastery, Sword Booster and Final Attack: Sword cards and never the
+axe's, and after wielding the axe the reverse. Because the Final Attack and Booster learn cards are power cards listing the
+new job, the advancement draw (7.8, section 8) offers the held family's Final Attack and Booster. A Mastery appears
+among the other new skills of that draw.
+
+**Bot.** `balance.json` `bot.card_scores` scores the new and rank cards of all eighteen skills as attack cards: learn 100
+(the `SCORE_NEW_ATTACK`), rank 74 (`SCORE_RANK_ATTACK` 62 plus the current-job bonus 12), because the generic scoring
+treats a buff or a passive as non-attack. Spread scores as a targets card (75 plus the job bonus). No cast rules: the
+Booster is an ordinary auto-cast buff.
+
+**Presentation.** Skill and level text is the v83 String.wz text (no overrides: none of these strings says "party" or
+"canonical"; the Blunt Booster says "mace", as v83 does). The rank cards preview `Accuracy` for a Mastery (its `x`) and
+`Success rate` (`prop`) beside `Damage` for a Final Attack (`UpgradePool.PREVIEW_FIELDS`, `LevelUpWindow`).
+
+**Tests.** `tests/unit/test_warrior2_weapon_skills.gd` (RF skill fixtures carry the exact v83 level formulas; one test
+reads the real Skill.wz and SKIPs without the cache): every Mastery's minimum damage and ACC only for its family,
+every Booster's cost, speed steps, family gate and recast, every Final Attack's proc rate per family, Spread's
+count, reach, order and determinism, the cards by held family, the advancement draw and the bot scores.
+
+### 7.10 Rage and Power Guard (#182)
+
+Three buffs from `Skill.wz/110.img` and `120.img` (spec #165): **Rage** 1101006 (Fighter, 20 levels, key `rage`) and
+**Power Guard** 1101007 (Fighter, `power_guard_fighter`) / 1201007 (Page, `power_guard_page`), 30 levels each. All three
+are ordinary self-only auto-cast buffs (cast when inactive and affordable, recast the tick after expiry, effects
+snapshot at the cast, 0.8 s `alert2` stance, canonical `mpCon`, `time`, effect art and `Use` sound). The cards are
+not `power`: `rage_new`/`rage_rank` (Fighter, 110), `power_guard_fighter_*` (110) and `power_guard_page_*` (Page, 120),
+weights 3 and 2.
+
+- **Rage.** W.Att +`pad` (3 to 12) and weapon defence +`pdd` (the WZ number is already negative, -3 to -12; no `scale`),
+  46 to 160 s. Any held weapon. The WZ node is a party buff: here it affects you only, and its text says so (the
+  `text.desc` override, 8.2). The WZ `affected` art (what party members see) is not used.
+- **Power Guard.** While active, **contact damage** (glossary: a monster's body touching you; `source_kind` "touch")
+  is reflected. Mob attacks, boss attacks, projectiles and magic never are. The reflect is
+  `floor(damage x x% / 100)` (x = 11 to 40, the buff's snapshot), halved against a boss (tier C: `MobKind.boss`, the canonical info/boss flag, or a scheduled boss slot,
+  so an unscheduled boss kind also gets the half rate), and at most `floor(10% of that monster's Max HP)`. The same amount comes off the damage the character
+  receives. No RNG.
+- **Where it sits.** `RunWorld.take_hit`: hit window and god/dead guard, then avoid (a miss reflects nothing), then the
+  defence formula, then the Invincible reduction, then **Power Guard** (`_power_guard_reflect`), then Magic Guard's
+  MP split on what is left, then HP/MP, the `player_hit` event (its damage is the reduced hit), the window and the
+  reflect (`_apply_reflect`). So Magic Guard's percentage applies to the already-reduced damage, and the hit window
+  still allows one touch per window, hence one reflect per window. The knockback guard (#223, section 6) is decided
+  after the damage and events and changes none of this. The step is a pure no-op without the buff:
+  no RNG, no event, so every earlier record stays byte-identical.
+- **The reflect is the character's damage.** It emits a `mob_hit` (the Power Guard key as `skill`, no hit art, never a
+  crit), counts in `damage_dealt`, and a kill goes through `_on_kill` (EXP, drops, boss rewards, kill count) like
+  any player kill. It does not go through the hit listeners: no Final Attack, no on-hit status, no MP Eater.
+  Frozen or immune monsters are not special-cased (the reflect ignores physical immunity). A non-boss is staggered and
+  pushed by it like by any player hit (`MobSwarm.apply_hit`). It resolves before the player's death check, so a lethal
+  touch still reflects and its `mob_hit` / `mob_died` come before `player_died`.
+- **Not done.** Prerequisite skills in the WZ `req` nodes (Power Guard needs Rage 3 / Threaten 3) are ignored (#31).
+  Both Power Guards feed the one `power_guard` stat; branch exclusivity means a run owns one.
+- **Bot.** `balance.json` `bot.card_scores`: `rage_new` 100 and `rage_rank` 74 (what an attack card scores), so Rage is
+  picked like an attack. Power Guard has no entry: it scores as the other defensive buffs without one (Iron Body), 50
+  for the learn card and 42 plus the current-job bonus for the rank card. Tests: `test_power_guard.gd`.
+
+### 7.11 Threaten (#183)
+
+Page (120) learns Threaten 1201006 (20 levels, `skills/warrior.json` `threaten`): it puts the **threatened** status on
+the monsters around the player, lowering their weapon attack and weapon defence by flat amounts for a while. It is the
+player-inflicted monster status beside slow, poison, freeze and stun (`MobSwarm.THREATENED = 3`, same flattened table, same
+refresh-without-stacking and boss rules) and it coexists with all three.
+
+- **Numbers (tier A, Skill.wz/120.img).** `x` is the weapon-attack change and `y` the weapon-defence change, both flat and
+  negative (-1 at level 1 to -20 at level 20, always equal); `time` 44 s to 120 s (+4 s per level); `mpCon` 12 (levels
+  1-10) or 20; `mobCount` 6; the box `lt`/`rb` (-250,-150)/(250,150), widening to (-300,-200)/(300,200) at level 11. The
+  node has **no `prop`**: every target takes it, nothing is rolled and Threaten draws no random number (RNG stream 13 stays
+  reserved for this spec and unused). The alert2 action, the cast effect, the `mob` overlay (eight frames, pos 2, repeat 1:
+  it repeats above a threatened monster's head like the poison cue) and the `Use` sound are the WZ art.
+- **Cast (tier C).** The `crowd` rule with `cast.status: "threatened"` (`SkillRunner.crowd_status`; "slow" when a crowd
+  skill names none, so Slow is unchanged): auto-cast when at least 3 monsters in the box can take it (live, not a boss, not
+  resisting statuses, not threatened yet), 1 s cooldown, pays the canonical MP once, targets the nearest `mobCount` of them.
+  Slow's "two consecutive casts per monster" history is Slow's own; a Threaten cast does not touch it, and a slowed monster
+  is still a Threaten target (and the reverse).
+- **Effect.** While threatened a monster's weapon attack falls by `-x` and its weapon defence by `-y`, each floored at 0
+  (`MobSwarm.threatened_pad` / `threatened_pdd`; a reapplication replaces the cut and restarts the clock, it never adds up).
+  Weapon attack is lowered where a monster's PAD becomes damage: contact damage (`RunWorld._player_hit`) and physical
+  ordinary attacks and their balls (`MobAttacks._impact`), before the stage's damage multipliers and the player's defence;
+  magic attack is untouched. Weapon defence is lowered in `RunWorld.mob_defense` and in the bulk projectile fill
+  (`MobSwarm.lower_threatened_pdd`), so the player's physical hits, shots and Final Attacks all see it; magic defence is
+  untouched. Death, release and relocation end the status silently, as for the other statuses.
+- **Cards and bot.** `threaten_new` / `threaten_rank` (`requires.jobs: [120]`, not power cards, weights 3 / 2); the rank
+  preview shows `x` as "Monster weapon ATT / DEF". The bot scores them by default, like Iron Body
+  (no `balance.bot.card_scores` entry: the crowd rule is not an attack, tier C) and needs no cast rule (every skill auto-casts).
+
+### 7.12 Iron Will and Hyper Body (#184)
+
+The Spearman's (130) two buffs, `skills/warrior.json` keys `iron_will` (1301006, 20 levels) and `hyper_body` (1301007, 30
+levels). Both are `buff` skills in the passive slot like Iron Body: auto-cast while inactive and affordable, recast on
+expiry, 0.8 s `alert2` stance, effect art and the `Use` sound, effects snapshot at cast. The WZ skills are party buffs;
+here they affect the character only and the text says so (`text.desc` overrides, never "party").
+
+| Skill | Effect | Source |
+|---|---|---|
+| Iron Will | WDEF `pdd` +1..+20 and MDEF `mdd` +1..+20 for 15..300 s (15 s per level), MP 12 (Lv 1-10) / 24 (Lv 11-20) | A: Skill.wz 130.img |
+| Hyper Body | Max HP `x` +2..+60 % and Max MP `y` +2..+60 % for 10..300 s (10 s per level), MP 20 (Lv 1-10) / 40 (11-20) / 60 (21-30), Lv 25 costs 50 as the WZ node says | A: Skill.wz 130.img |
+
+- **Iron Will** uses the existing buff consumers only: `pdd` and `mdd` go through `RunWorld.hit_defense()`, so contact
+  hits, ordinary mob attacks and balls lose `floor(0.75 x defence)` (`CombatMath.monster_damage`) physically and, for
+  magic attacks, by the M.DEF side.
+- **Hyper Body** adds two buff stats, `max_hp_pct` (field `x`) and `max_mp_pct` (field `y`)
+  (`RunWorld.MAX_HP_PCT`/`MAX_MP_PCT`), folded into `refresh_player_stats`: `Max HP = round((player_stat(max_hp) + worn
+  incMHP) x (1 + x/100))` and `Max MP = round((player_stat(max_mp) x (1 + MaxMP passive) + worn incMMP) x (1 + y/100))`, so
+  the percentage covers base, level growth (Improved MaxHP Increase), passives and worn equipment (tier B, v83). With no
+  buff the factor is exactly 1.0 and the formulas equal the ones before. It is deliberately not the `max_mp_percent`
+  passive: that path rescales current MP to the new maximum, Hyper Body leaves current HP and MP unchanged at cast
+  (nothing is granted, only the maximum rises), and when it ends HP and MP above the normal maximum drop to it
+  (`refresh_player_stats` clamps); HP and MP below it are untouched.
+- **Refresh.** `RunWorld._refresh_max_buffs()` compares the active percentages with the ones already inside `_max_hp`/
+  `_max_mp` (`_max_buff_applied`) on every cast (`start_buff`) and every timer tick, so a cast, an expiry (also the same
+  tick a recast follows) and any later `refresh_player_stats` agree. `player_state.max_hp/max_mp` carry the raised
+  maximum, so the HUD bars and the Stat window show it while active.
+- **Cards** (`upgrades/warrior.json`): learn and rank cards per skill, `requires.jobs: [130]`, not `power`; weights 3 (learn)
+  and 2 (rank), tier C. The WZ prerequisites (Hyper Body needs Iron Will Lv 3) are ignored, as for every skill (owner #31).
+  The bot scores them like Iron Body (default BotInput scoring, no `card_scores` entries; the Magic Guard 110/109 values
+  are Magician-specific and not copied; lead decision, tier C, not tuned).
+- **Tests.** `tests/unit/test_hyper_body.gd`: defence on both consumers and the seeded damage difference (physical and
+  magic), the percent per level, unchanged current HP/MP at cast, expiry clamping, stacking with Improved MaxHP Increase
+  and worn equipment HP/MP, recast with the MP cost, the card/text rules; one test compares the real cache's 130.img with
+  the synthetic level tables (SKIPs without the cache). The synthetic tables are in `RF.skill_imgs()` too.
+
+### 7.13 Moving attacks (generic, #190, spec #168)
+
+An auto-cast attack may move the character: away from the mob it faces (Backspin Blow, Recoil Shot) or toward it (a
+Corkscrew Blow charge). The mechanism is generic and data-driven; Backspin Blow and Corkscrew Blow (7.19, #191) use it, and
+#192 adds the Gunslinger's Recoil Shot. Owner rules (#168 grilling, tier C): the character moves along the footholds of its current platform,
+stops at the platform's edge or at a wall, never walks off and never passes a wall; the cast never fails because of
+terrain, it only moves less; while airborne (and on a rope, where nothing casts) the attack casts without moving.
+
+**The `displacement` block** (optional, in the skill's definition in `skills/<line>.json`, any cast rule, any non-buff
+kind):
+
+```json
+"displacement": {
+  "direction": "away" | "toward",      // default "away"; relative to the mob the cast faces
+  "when": "before" | "after" | "during",   // default "after"
+  "field": "x"                         // the distance in px: a canonical Skill.wz level field of this rank's level, or
+  // "distances": [60, 90, 120]        // survivor px per rank (rank r uses entry r, the last one repeats), or
+  // "distance": 80                    // one survivor px value. Precedence: field, distances, distance.
+}
+```
+
+`Loadout.stats(key)` resolves it to `displacement`: `{}` for a skill without the block, otherwise
+`{"direction", "when", "distance"}` with `distance` in px, never negative. A distance of 0 means no move.
+
+- **Direction.** The reference mob is the first admitted target (bosses first, then nearest: the order every rule
+  uses); with no target, or one within 0.5 px of the character's x, the character's facing stands in for it. `toward` is
+  the side of that mob, `away` the opposite side. A moving attack turns the character toward its reference mob in every
+  movement state (like Power Strike), so `away` backs off while still facing the mob and `toward` charges at it.
+- **Distance** is horizontal px (the way ground walking integrates), not path length along a slope.
+- **Terrain** (`FootholdMap.slide_along`, called through `PlayerMotion.displace` and `RunWorld.displace_player`): follows
+  the platform's chain of floors, so slopes carry the feet up and down; stops at the end of the chain (the platform
+  edge), 0.01 px (`FootholdMap.EPS`) short of a wall standing across the surface on the way (a wall hanging below the
+  surface is walked past, as on foot), and inside the map's horizontal limits. A blocked move is simply shorter or zero.
+- **Result.** The move is instant (the character is placed, at rest on its foothold); input, knockback, the hit window and
+  the pet follow as after any attack, from the next tick. Presentation that wants a glide reads the `cast` event's `pos`
+  (where the cast began, before any displacement, for every `when`) and the player's position afterwards; no extra event.
+- **`when`.** MP, HP and the cooldown are paid first, and the targets are chosen at the start position. `after`: the
+  hits (or shots) resolve, then the character moves. `before`: the character moves, then the hits resolve on the same
+  targets (they are not re-chosen after the move, so a `before` melee hit does not miss because it moved), and shots leave
+  from the moved position. `during` (a charge): the character moves, then strikes up to the skill's `mob_count` mobs
+  inside the swept path instead of the admitted targets. On a projectile skill `during` acts as `before`.
+- **The swept path** of a charge is the skill's attack box (the canonical `lt`/`rb` scaled by `area`, mirrored for the
+  facing; the player's body box when the level has none) at the start and at the end of the move, and everything between,
+  so a mob that triggered the cast is still struck when the charge stops short of it. Hits go to the mobs in it ordered
+  scheduled bosses first, then nearest to where the charge began; each takes `attackCount` lines. A cast admitted by a
+  mob outside the path strikes nothing (tier C: the admission rule and the path belong to the skill's data).
+- **Determinism.** No new RNG stream and no new events; the same seed gives the same run
+  (`tests/unit/test_moving_attacks.gd`: slides on synthetic footholds, then whole casts with a synthetic skill).
+
+### 7.14 Pirate first job (#186)
+
+All four skills have their 20 original Skill.wz levels; the runtime reads canonical numbers rather than copying
+them into survivor balance. The Pirate owns `skills/pirate.json`, `upgrades/pirate.json`,
+`equipment_drops/pirate.json`, `scrolls/pirate.json` and `shops/pirate.json`. Dash arrived with #188 (7.15); the second
+jobs open in 7.17 (#189). Wings is never offered.
+
+| Skill | Cast / effect | Canonical L1 → L20 | Survivor behavior (tier C) |
+|---|---|---|---|
+| Bullet Time 5000000 | passive ACC / avoid | +1 → +20 each | ACC feeds the shared crit coefficient |
+| Flash Fist 5001001 | front box, one mob | damage 156→270%; MP 6→14; box (-74,-30)..(-20,10) | knuckle only; 0.9 s cooldown; 0.6 s action hold |
+| Somersault Kick 5001002 | surrounding box, 3→6 mobs | damage 114→190%; MP 8→16; box (-81,-71)..(-5,0) | any weapon; `cast.around` mirrors far reach to ±81; 1.6 s cooldown; 0.6 s hold |
+| Double Shot 5001003 | nearest targets, two bullets | damage 61→80%; MP 4→7; range 215→350 | 1 s cooldown; 0.6 s hold; 600 px/s; radius 8; no base pierce |
+
+Actions (`straight`, `somersault`, `doublefire`), CharLevel art at levels 10/15/20/25 and use sounds come from WZ
+(tier A). Box reach/height, target caps, costs and shot range retain canonical values. `cast.around` fills the
+horizontal span between the mirrored far edges to meet the surrounding-kick behavior. Cards follow the weapon held
+at the draw: each skill has learn/rank cards; Flash Fist and Somersault Kick have +1 target, Double Shot +1 pierce.
+Modifier cards allow three steps. Attack learn/rank weights are 4/3, Bullet Time 2/2, behavior 2; shared Potential
+magnitudes apply. These are initial tier-C choices, with no balance tuning in #186.
+
+Equipment drops use the regular Lv10–70 knuckle/gun progression (1482000–9 / 1492000–9), only in the held family.
+Scroll rosters use ordinary 100/60/10 and dark 70/30: knuckle ATT and ACC, gun ATT (tier A ids/rates/stats;
+tier C selection). Free Market uses existing weapon pricing for both slots.
+
+Verification (#186, 2026-10-18, private cache, integration #187/#190 included): full Godot suite 1,699 passed,
+0 failed, 0 skipped; Rust 63 passed, 0 failed, 0 ignored, including the real-data importer checks and manifest golden.
+The 18 Pirate tests also pass after freeing their temporary asset-library node. Both forced-path playtests report
+`missing: []`; the real Lv10 job window and both paths fighting were checked by eye. Existing event and Magician
+pacing regressions retain their pre-Pirate job pool and unchanged goldens/bounds. No balance smoke or tuning here;
+#195 owns that pass.
+
+### 7.15 Skill keys and Dash (#188, spec #168)
+
+**Skill key** (GLOSSARY): the Key Config binding of one manual skill the character has learned. A manual skill
+(`cast.rule: "manual"`, never auto-cast) names its key in a `skill_key` field of its definition; the id is also the
+input action (`project.godot` has `teleport` and `dash`, both X) and is listed in `KeyBindings.SKILL_KEYS`. A new
+manual skill adds its id there, an action in `project.godot` and a `skill_key` in its skill file. The three Teleports
+share `teleport`, so an existing `settings.cfg` `[input] teleport` binding is simply Teleport's skill key and
+Teleport behaves exactly as before.
+
+- **Key Config lists only learned manual skills.** `RunWorld.manual_skill_keys()` returns one
+  `{action, name, icon, skill}` per learned skill key; `KeyConfigWindow` takes it when it opens and ends its tray with
+  those icons (the skill's own icon and name, not the F/P Teleport icon for everyone). `KeyBindings` drafts the fixed
+  actions plus those ids; an unlearned skill key cannot be bound. Teleport and Dash both default to X; no character learns
+  both (different job lines). Saved bindings are global, so a key rebound for one skill key stays for that id.
+- **Input.** `MoveInput.skills_pressed` / `skills_held` (id -> true; `press_skill`, `hold_skill`) replace the old
+  `teleport_pressed` / `teleport_held`. `RunScene` latches presses of learned skill keys (a held key requests repeats).
+  `RunWorld.manual_skill(id)` finds the learned skill (weapon-gated like any skill). Teleport keeps its handler
+  (`_try_teleport`); a manual buff goes through `_try_manual_buffs` -> `SkillRunner.cast_manual_buff`, which casts only
+  when casting is free, the buff is not running, its cooldown (the buff's duration, as for an auto-cast buff) is over and
+  MP (and HP) can be paid; otherwise the press does nothing: no event, no MP spent. The HUD icon shows the key caption,
+  the buff countdown as its cooldown sweep, and the blue waiting-for-MP tint while the key could be pressed but MP is short.
+- **Dash 5001005** (Pirate first job, ranks 1-10 = Skill.wz levels 1-10): pressing its key starts a buff with canonical
+  speed `x` +12 -> +30 and jump `y` +1 -> +10 for `time` 4 -> 20 s, costing canonical `mpCon` 14 -> 5 (tier A). It replaces
+  v83's double-tap (tier C, owner), works with any weapon, has no cast hold (the character keeps moving) and plays the
+  canonical cast effect and Use sound. Speed is added to the speed stat before the existing cap (140); jump is added to
+  the jump stat (`100 + incJump + buff`) before the existing cap (123), so Dash obeys the same movement limits as
+  equipment. Cards: `dash_new`, `dash_rank` (max rank 10), weight 2 each, Pirate line only, no modifier.
+- **Bot.** Dash's `manual` block holds the flee rule (survivor data, tier C): `bot_flee_hp` 0.5, `bot_surround_count` 3,
+  `bot_surround_distance` 120 px. `BotInput` presses the key when HP is below that fraction of its maximum with a mob
+  inside the existing 160 px flee distance, or when that many mobs on its level (the duel band, feet +/-40 px) are within
+  the surround distance, and the skill is ready, usable, affordable and keeps the attack/Magic Guard MP reserve of
+  Teleport (`BotInput._keeps_mp_reserve`). It never presses while the buff runs.
+
+Evidence (#188): `dash_driver.tscn` (`scenes/debug`) on the real Henesys map, rank 10: `key_config_dash.png` (Dash on X
+and at the end of the tray), `dash_cast.png` (the buff icon with its countdown, MP 42 -> 37, speed 100 -> 130, jump
+100 -> 110) and `dash_run.png`; the real X key and arrow key drive it.
+
+### 7.16 HP-to-MP conversion and pool conditions (generic, #193, spec #168)
+
+A skill may cast on the character's own pools instead of a monster, and turn HP into MP. It is data-driven and generic;
+the Brawler's MP Recovery 5101005 (`skills/pirate.json`, `mp_recovery`, book 510) is its only user, learned from
+`mp_recovery_new` / `mp_recovery_rank` cards (`upgrades/pirate.json`, `requires.jobs: [510]`, `"power": false`,
+weight 2/2, 10 ranks, tier C) that Brawlers are offered once #189 makes job 510 playable.
+
+**The `self` cast rule.** `cast: {"rule": "self", "mp_below": 0.30, "hp_at_least": 0.75}`. No monster is needed. The
+skill is admitted when every condition that is present and above 0 holds (an absent key is not checked):
+
+- `mp_below`: MP is strictly below this fraction of MaxMP (30% means 299 of 1000 casts, 300 does not);
+- `hp_at_least`: HP is at least this fraction of MaxHP *before* paying (750 of 1000 casts, 749 does not; about 65% is
+  left after the 10% payment);
+- the conversion's HP payment would leave the character alive (`RunWorld.can_pay_hp`, HP must stay above 0);
+- the usual gates: cooldown ready, held weapon allowed (none required for MP Recovery), not on a rope, MP for `mpCon`
+  (none for this skill). Both thresholds live in the skill's survivor data (`RunWorld.self_cast_ready`).
+
+**The `convert` block** (optional, `"convert": {"pay_field": "x", "gain_field": "y"}`) names two canonical level
+fields, percent numbers. `Loadout.stats(key).conversion` is `{}` or `{pay, gain}` as fractions: `pay` of MaxHP is paid
+as HP, `gain` of the HP paid comes back as MP. A cast pays `max(1, round(MaxHP x pay))` HP (`RunWorld.conversion_hp`) and
+restores `floor(paid x gain)` MP, clamped to MaxMP; `player_restored` (stat `mp`, the skill key) reports the MP actually
+gained. The cooldown is the level's canonical `cooltime`, named by the definition's optional `cooldown_field`
+(`Loadout.stats().cooldown`; cards that change cooldown still scale it).
+
+| Rank | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| HP paid (x, % of MaxHP) | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 | 10 |
+| MP gained (y, % of HP paid) | 55 | 60 | 65 | 70 | 75 | 80 | 85 | 90 | 95 | 100 |
+| Cooldown (cooltime, s) | 70 | 65 | 60 | 55 | 50 | 45 | 40 | 35 | 30 | 25 |
+
+Action `recovery` and the effect come from WZ; the action holds 0.6 s (tier C). The cast fires through the ordinary
+`cast` event (effect and sound as any skill), so no new event type exists. Recovery's HP-threshold buff
+(`buff.hp_threshold`, `can_start_buff`) is untouched, and no RNG stream is drawn. Skill-window text names the shares
+and the cooldown (`text.h`); the rank-card preview shows the cooldown change. The bot needs no handling: the condition
+admits the cast by itself, and its card scores like any other active skill's. Not in scope: any other pool-threshold
+skill, potions. Tests: `tests/unit/test_mp_recovery.gd` (a synthetic 510 book at Skill.wz's ten levels, seeded ticks;
+the real-cache test checks the original numbers).
+
+### 7.17 Brawler and Gunslinger: advancement, passives and boosters (#189)
+
+Brawler 510 and Gunslinger 520 are playable at the canonical Lv 30, from either first-job path (the window lists both
+for a knuckle-path and a gun-path Pirate alike). Advancing adds +325 Max HP and +175 Max MP (tier B: fixed midpoints of
+the v83 second-job ranges +300-350 and +150-200; the Magician second jobs keep +475 Max MP). Growth stays the Pirate's
+25 HP / 20.5 MP per level. Each branch hands **one** advancement weapon (section 9, "Second-job grants"; tier C
+choices): Brawler Prime Hands 1482004 (Lv 30 knuckle, PAD 34, STR 60 / DEX 30) and Gunslinger Cold Mind 1492004 (Lv 30
+gun, PAD 31, DEX 70 / STR 30). A branch has one family, so the grant is always worn, even when the other family was
+held; the previous weapon goes to the Equip tab or to the feet when it is full. As for every grant, the advancement does
+not check the weapon's requirements; the auto-AP rows below meet them at Lv 30.
+
+**Auto-AP.** `balance.json` `ap_stat` / `ap_secondary` carry plain `510` and `520` rows that copy the first-job
+path rows of their weapon (Brawler = `500:knuckle`: STR primary, DEX secondary at the level; Gunslinger = `500:gun`: DEX
+primary, STR secondary at the level), and a branch row wins over a path row. The AP therefore follows the branch, not the
+recorded path: a knuckle-path Gunslinger switches to DEX with an STR secondary when it advances (tier C; only earned
+AP move).
+
+**Ammo.** The Gunslinger's schedule (6.1.2: Split Bullet 2330001 at Lv 30, Mighty Bullet 2330002 at Lv 50) applies to job
+520 once it is playable: advancing at Lv 30 shows the one `ammo_upgraded` notice, advancing past Lv 50 goes straight to
+Mighty Bullet. A Brawler holding a gun keeps the basic Bullet 2330000.
+
+| Skill | Kind | Weapon | Canonical L1 → top | Survivor behaviour |
+|---|---|---|---|---|
+| Improve MaxHP 5100000 | passive `max_hp_per_level` | any | 10 levels; x +3 → +30 Max HP per level-up | the shared 7.6 consumer: the rank at the level-up counts, never retroactive; the AP half (`y`) has no meaning |
+| Knuckler Mastery 5100001 | passive `mastery` + ACC | knuckle | 20 levels; mastery N 1 → 10 = 15% → 60%; x ACC +1 → +20 | the shared 7.6 consumer, only while a knuckle is held |
+| Gun Mastery 5200000 | passive `mastery` + ACC | gun | same; `y` (bullets per recharge, +10 → +200) is not used: ammo is endless | only while a gun is held; its level text omits the bullet count |
+| Knuckler Booster 5101006 | buff `attack_speed` | knuckle | 20 levels; x = -2 (two steps faster, `scale` -1); time 10 → 200 s; hpCon and mpCon 29 → 10 | the 7.7 Booster: auto-cast when inactive, ready and affordable (it pays **both** HP and MP, tier A, and never casts if the HP would leave 0), counted only while a knuckle is held |
+| Gun Booster 5201003 | buff `attack_speed` | gun | same | the same, gun |
+
+The v83 prerequisites (the Booster needs Mastery level 5) are ignored as everywhere (tier C, owner choice #31). Each skill
+has learn and rank cards that require the exact branch (Improve MaxHP and the knuckle cards the Brawler, the gun cards
+the Gunslinger) and, through the skill, the matching held weapon (Improve MaxHP is weapon-free). They are not power
+cards; weights 2/2 (tier C, untuned). The first-job Pirate cards now list `requires.jobs` [500] with
+`requires.carry_jobs` [510, 520] (the section 8, rule 1 shape of the Warrior's Power Strike): they stay on offer to both
+branches but a second job's advancement draw offers that branch's own skills rather than Flash Fist, Somersault Kick or
+Double Shot. The Brawler's attacks are 7.19 (#191); the Gunslinger's are 7.20 (#192), MP Recovery with #193 and Oak Barrel with
+#194.
+
+### 7.18 Hidden state and Oak Barrel (#194, spec #168)
+
+**Hidden** is a generic player state (GLOSSARY): an active buff whose definition sets `"hidden": true` in its `buff`
+block makes `RunWorld.is_hidden()` true until the buff ends, at its duration or earlier when its source says so.
+Oak Barrel uses it now; Thief Dark Sight (#167) will reuse it. While Hidden (owner rules, #168 grilling):
+
+- **Monsters, bosses included, ignore the character.** `MobSwarm.step` gets `ctx.hidden` and no target: ground mobs
+  patrol their platform the way a mob with no route does (they walk the way they face and turn at walls and platform
+  ends), flyers hover where they are (tier C). Scheduled bosses neither stall nor teleport to the character
+  (`BossDirector`), and `SpawnDirector` does not recycle mobs as "gone" or "stalled".
+- **No hit of any kind lands:** contact damage (`_touch`), ordinary and boss attacks (`MobAttacks.plan` starts nothing;
+  a windup already under way plays its phases but lands nothing and launches no ball), mob skills aimed at the character
+  (Slow), and balls (they pass through; the ball is not used up and ends at its range). `take_hit` also returns 0 for
+  any source as the safety net.
+- **The character cannot attack:** `SkillRunner.cast_ready` skips every attack skill (active, not a buff, not manual,
+  damage type other than none; the cooldown keeps running), and `BasicAttack` starts no swing and drops one in its
+  windup. Buffs, potions, pickups, movement and manual movement skills (Teleport, Dash) still work. Shots already in
+  flight keep flying.
+- **Presentation:** `player_state.hidden` and `player_state.morph`.
+- **Edge cases (tier C):** a boss already fading out for a pursuit teleport when Hidden begins still finishes that teleport;
+  Cleric Heal still heals below its HP threshold but never strikes undead (it is an attack in this rule even though its
+  `damage` is `none`).
+
+**The buff block.** `buff`: `hidden` (bool), `morph_field` (the level number holding the Morph.wz id), `fail_field` (the
+level number holding the failure chance in percent), `end_hp_above` (an HP fraction above which the buff ends early),
+`cooldown_from_cast` (the cooldown is exactly the cooldown field from the cast, instead of at least the duration; the
+active buff alone blocks a recast). A cast with a failure chance rolls once on the Pirate stream 16 (`pirate_rng`,
+`randf() < fail_chance`); a failed cast pays MP, starts the cooldown, plays no effect and emits `buff_failed` instead
+of `buff_cast`. A skill's `cast` block may set `mob_within` (px): a buff with it needs a living mob within that distance of
+the cast origin (the same reach test as nearest-rule attacks).
+
+**Oak Barrel 5101007** (Brawler 510, ranks 1–10 = Skill.wz levels, no weapon requirement, `skills/pirate.json` entry
+`oak_barrel`, slot "passive" like the other buffs):
+
+| | rank 1 | rank 10 | source |
+|---|---|---|---|
+| MP | 11 | 20 | tier A `mpCon` |
+| Barrel time | 12 s | 30 s | tier A `time` |
+| Failure chance | 37% | 10% | tier A `prop` (read as the failure chance, as the #194 brief states) |
+| Cooldown | 35 s | 15 s | tier A `cooltime` |
+| Morph | 1002 | 1002 | tier A `morph` |
+
+It auto-casts when HP is below 30% of Max HP (`buff.hp_threshold` 0.3, tier C), a mob is within 250 px
+(`cast.mob_within`, tier C) and the cooldown is ready; the barrel ends early once HP is above 60% (`end_hp_above` 0.6,
+tier C). Cards (`upgrades/pirate.json`, `requires.jobs: [510]`, so only Brawlers are offered them): `oak_barrel_new`
+(weight 3) and `oak_barrel_rank` (max rank 10, weight 2), neither a power card (tier C, untuned).
+
+**The morph.** While `player_state.morph` is set, `AvatarRenderer` draws `Morph.wz/<id>.img` instead of the avatar: the
+`stand` action for standing and for any attack or cast stance, `walk`, `jump`, `prone`, `ladder`, `rope`, `sit` and `fly` for
+their stances, one canvas on the feet, mirrored for facing. Morph 1002 is the v83 oak barrel. A morph missing from the cache
+keeps the avatar and lists the path in `missing`. The morph's `info` speed and jump (100) are not applied (the character
+keeps its own movement). Tests: `tests/unit/test_hidden.gd` (the generic state with a synthetic buff),
+`test_oak_barrel.gd` (the shipped definition: conditions, stream-16 failure, duration, early end, cards),
+`test_morph_render.gd` (synthetic and real barrel frames), Rust `real_import_of_the_oak_barrel_morph`; evidence from
+`scenes/debug/morph_driver.tscn`.
+
+### 7.19 Brawler attacks: Backspin Blow, Double Uppercut, Corkscrew Blow (#191, spec #168)
+
+Three knuckle attacks in `skills/pirate.json` (book 510, job 510, between the Knuckler Booster and the Gun Booster), each
+with a learn card, a rank card (20 ranks, canonical level = rank) and a "hits +1 more monster" card (`count`, at most 3
+steps) in `upgrades/pirate.json`: `<skill>_new`, `<skill>_rank`, `<skill>_targets`. The cards are `"power": true`
+(the advancement draw offers power cards first, so a new Brawler is offered all three attacks) and `requires.jobs: [510]`
+(exact branch); through the skill's `weapon_families: ["knuckle"]` they are offered, and the skills cast, only while a
+knuckle is held (a Brawler wielding a gun casts none of them and sees none of their cards). Learn weight 4, rank weight 3,
+targets weight 2: tier C, untuned like every Pirate card.
+
+| Skill | Canonical L1 -> L20 (Skill.wz 510.img) | Survivor behaviour |
+|---|---|---|
+| Backspin Blow 5101002 | damage 88 -> 240% (+8 per level), mpCon 12 -> 30 (+2 every 2 levels), mobCount 3, stun `time` 1 s, box (0,-50)..(140,0), `backspin` action | cast rule `box` with `cast.around`: any mobs within 140 px on either side admit it, the 3 nearest (bosses first) are struck once each; the character turns to the nearest one and slides 100 px **away** from it after the hits (7.13, `when: after`, tier C distance), stopping at platform edges and walls; every landed hit stuns for 1 s |
+| Double Uppercut 5101003 | damage 100 -> 290% (+10 per level), `attackCount` 2, mpCon 15 -> 30 (+5 every 5 levels), stun `time` 1 s, no box, no mobCount, `doubleupper` action | cast rule `weapon_reach` (the Power Strike rule, 7.8): one mob inside the held knuckle's swing envelope is struck twice; more mobs only from cards; no movement; every landed line stuns for 1 s (two stuns keep the one second) |
+| Corkscrew Blow 5101004 | damage 135 -> 420% (+15 per level), mpCon 20 -> 36 (+4 every 4 levels), mobCount 3, box (-100..-200, -50)..(0,0), `screw` action | cast rule `box` (the facing side only, canonical): a mob within the reach starts a full charge **toward** it (`when: during`, 7.13) of the same 100 -> 200 px as the box reach, striking up to 3 mobs along the swept path; stops at platform edges and walls; no stun |
+
+**Stun.** Skill.wz gives Backspin Blow and Double Uppercut no `prop`, so `on_hit: {"status": "stun", "duration_field": "time"}`
+has no `chance_field` and every damaging line stuns (the ticket's "at its Skill.wz chance" is therefore 100%, tier A by
+absence). The status is the generic stun of "Monster statuses and elements" (bosses and steady bosses resist; the mob
+`mob` stars play over stunned mobs). A hit that does 0 damage does not stun.
+
+**Choices that are ours (tier C).** All three need a knuckle (the WZ nodes name no weapon). Backspin Blow's canonical box
+(0..140 on the positive side) lies **behind** the facing in the left-facing convention, while the owner's rule is that it
+slides away from "the faced mob": `cast.around` mirrors the reach to both sides (the Somersault Kick approach), so it
+fires when any mob is within 140 px, faces the nearest and backs off from it, and its hits include mobs on both sides.
+Corkscrew Blow's charge distance has no scalar Skill.wz field (the reach is the box's `lt.x`), so
+`displacement.distances` copies -`lt.x` per level and a private-cache test checks all 20 against Skill.wz. The charge is
+the full distance at once (no `prepare`/`keydown` wind-up, no Loop sound, the `dash` prepare action is not played), and
+its sweep never passes a wall: when a wall stops the charge, the swept hit box ends at that wall, so a mob just past it
+is not struck even where the end-of-charge box would reach it.
+Cooldowns 1.5 s (Backspin), 1.2 s (Double Uppercut), 2.0 s (Corkscrew); cast stance holds 0.8 s, 1.0 s, 0.8 s.
+Presentation: the skills' `effect`, `hit/0`, Use and Hit sounds and the body actions `backspin`, `doubleupper`,
+`screw` (Character.wz/00002000.img) play as for Flash Fist; the second effect layer `effect0` of Backspin Blow, the
+second hit variants (`hit/1..`) and Corkscrew's `keydown` aura are not drawn. MP Recovery is 7.16 and Oak Barrel 7.18.
+with #194.
+
+### 7.20 Gunslinger attacks (#192, spec #168)
+
+Four auto-cast attacks join the Gunslinger's book (`skills/pirate.json`, book 520, job 520, 20 canonical levels each; ranks equal
+levels). Owner rules (#168 grilling): Grenade is thrown as if fully charged with no wind-up; Wings is dropped. Costs, damage %,
+mob counts, boxes, stun chance and time and the hop distance are tier A Skill.wz 520.img values (WZ wins over String text where
+they disagree: Invisible Shot's MP is 10 to 25, Grenade's 15 to 27). Damage is the ordinary physical formula of the held
+weapon (gun formula with a gun, the weapon's own with anything else for Grenade); ammo is endless, so `bulletConsume` is unused.
+
+| Skill | Weapon | Cast | Canonical L1 → L20 | Survivor behaviour (tier C unless stated) |
+|---|---|---|---|---|
+| Invisible Shot 5201001 | gun (A) | `box`, `around` | damage 75 → 170%; MP 10 → 25; up to 3 mobs; box (-250,-80)..(-10,40) mirrored to both sides | strikes in front **and** behind; no bullet is drawn (the WZ has no ball); 1 s cooldown; held gun's first stance, 0.6 s; WZ Hit sound as its cast sound (it has no Use) |
+| Blank Shot 5201004 | gun (A) | `box` (front only) | damage 63 → 120%; MP 10 → 25; 3 mobs; box (-250,-80)..(-20,30); stun `prop` 43 → 100% for `time` 1 → 4 s | `on_hit` stun (#187: scheduled and canonical bosses resist; one roll per struck mob on the main stream, none when `prop` is 100); `fake` action (A); 1.4 s cooldown; 0.6 s |
+| Grenade 5201002 | any (C) | `cluster` | damage 45 → 140%; MP 15 → 27; 3 → 6 mobs; blast box (-50,-50)..(50,20) | see below; 2 s cooldown; the held weapon's first stance, 0.6 s |
+| Recoil Shot 5201006 | gun (A) | `nearest`, projectile | damage 70 → 260%; MP 14 → 26; `range` (recoil) 115 → 250 px | one bullet at the nearest mob, then `displacement` `away` / `after` with `field: "range"` (7.13): an instant hop away from the mob, cut short at platform edges and walls, none in the air; the bullet is the current ammo's own sprite (`ammo_shot`: `Ammo.bullet_path(ammo_id())`, so Split and Mighty Bullets show) at 1000 px/s, radius 6, rotating, reach 300 px, no base pierce; `backstep` action (A); 1.8 s cooldown; 0.6 s |
+
+**The `cluster` cast rule** (new, generic; Grenade is its only user). `cast: {"rule": "cluster"}` plus the skill's `range`
+(the throw range, 400 px) and `speed` (the ball, 600 px/s); the level needs a canonical `lt`/`rb` box, the blast.
+
+- *Admission and target.* The skill casts when any live mob is within `range` of the cast origin (`has_target` is the cheap
+  `_any_target`). Among the `CLUSTER_CANDIDATES` (12) nearest mobs in range, scheduled bosses first, the target is the first
+  whose blast box, centred on its feet, would strike the most mobs (up to `mob_count`); a scheduled boss in reach is the target
+  outright. A lone mob therefore draws the throw only when nothing better is in reach, and ties go to the nearest.
+- *No wind-up.* The cast tick pays MP, starts the cooldown, turns a standing character to the target, plays the stance and emits
+  `cast` and `skill_thrown` (ARCHITECTURE 4.4.3: `from` the hand, `to` the target's body centre, `seconds`, `ball`, `burst`).
+  The WZ `prepare` (`dash`) and `keydown` nodes are not used.
+- *Landing.* The ball flies `max(0.1 s, distance / speed)`; when it arrives the blast strikes up to `mob_count` live mobs whose
+  bodies intersect the blast box around the landing point (the target's feet at the cast), scheduled bosses first, then nearest to
+  the aim point, `attackCount` lines each, through the ordinary `hit_mob` path (listeners, Final Attack and `on_hit` apply). The
+  stats are the cast's snapshot; the blast ignores where the target moved to. Flights are `SkillRunner` state and count down
+  with the tick (also while casting is blocked, e.g. on a rope); they do not survive a restart of the round.
+- *Presentation.* `RunScene` loops the ball art along a short arc (`THROW_ARC` 40 px) for the flight, then plays the WZ `special`
+  blast art at `to`; each struck mob plays `hit/0` as usual. Sounds: the WZ `Use2` on the throw.
+- *Cards and reach.* `count` cards add targets to `mob_count`; the bot's approach/kiting reads `range` (`SkillRunner.reach_of`).
+
+**Cards** (`upgrades/pirate.json`; all `power`, `requires.jobs [520]` exactly, so the Lv 30 advancement draw, which offers every
+eligible new power skill of the job, shows all four): `<skill>_new` weight 4, `<skill>_rank` weight 3 (max rank 20), and one
+hit-more-mobs card with weight 2, three steps: `invisible_shot_targets`, `blank_shot_targets`, `grenade_targets` (+1 target) and
+`recoil_shot_pierce` (+1 pierce). Cards follow the weapon held at the draw (the skill's gun tag): with a knuckle in hand the three
+gun skills' cards are not offered, Grenade's are. Tests: `tests/unit/test_gunslinger_attacks.gd` (seeded, fixed ticks; the numbers
+by rank, behind and in front, stun chance and time, throw without wind-up and landing, cluster choice, knuckle, hop distance and
+edge/wall/air stops, the cards and the draw, and the original v83 tables, boxes, art and sounds in the private cache).
+
+Evidence (#192): `scenes/debug/gunslinger_driver.tscn -- --shots=<dir>` casts each attack once on the flat part of the real Henesys map with the real
+cache (`invisible_shot_a/b.png`, `blank_shot_a/b.png` with three stunned snails, `grenade_a/b.png` the ball in flight then the blast on the cluster,
+`recoil_shot_a/b.png` the hop) and writes `summary.json`; all four were looked at. `scripts/playtest.sh --job=520:gun` also runs them, but the
+Pirate bots die at about Lv 21-24 (tier 1, balance is #195's), before the Lv 30 branch.
+
+### 7.21 Thief first job (#207)
+
+The Thief owns the five `thief.json` survivor line files (skills, upgrades, equipment drops, scrolls, shops).
+Canonical costs and damage come from Skill.wz, with one survivor rank per canonical level:
+
+| Key / skill | Kind / cast | Levels | Canonical effect and cost (L1 → L20) |
+|---|---|---|---|
+| `nimble_body` 4000000 | passive, any weapon | 20 | ACC/avoid +1 → +20; ACC feeds existing crit chance |
+| `double_stab` 4001334 | instant, weapon_reach; dagger | 20 | 2 hits, 98 → 140%, MP 8 → 14 |
+| `lucky_seven` 4001344 | projectile, nearest; claw | 20 | 2 stars, 58 → 150%, MP 8 → 16 |
+
+Lucky Seven uses LUK×5.0/2.5×PAD/100, ignoring mastery (tier B, v83-facts §5). It has no canonical ball;
+`ammo_shot: true` selects the current star's Item.wz bullet, including the Assassin schedule after a later advancement.
+Its initial survivor reach is the basic claw's 250px, cooldown 1s, speed 600px/s, radius 8px, no pierce;
+Double Stab uses the dagger's swing envelope, one base target, cooldown 1.2s. Both hold their action for 0.6s
+(tier C untuned; Double Stab's stabO1 is canonical, Lucky Seven's shoot1 is our choice). Only Use sounds exist.
+
+Cards: `<key>_new` / `<key>_rank`, plus the parity lines below (#208). Each weapon path has **13 behaviour steps
+across five lines**, including the tracer's star/target line. Attack learn/rank weights 4/3, Nimble Body 2/2,
+behaviour weight 2 (tier C, untuned, shared Potential magnitudes). Attack cards require jobs [400] and
+carry_jobs [410,420]; Nimble Body requires jobs [400] only. Cards follow the held family at draw time and behaviour
+cards never enter an advancement draw; carried learn cards also stay out of branch advancement draws.
+
+| Skill | Behaviour card suffix | Effect per step | Maximum steps |
+|---|---|---|---|
+| Lucky Seven | `_count` | +1 star | 3 |
+| Lucky Seven | `_pierce` | +1 monster pierced per star | 2 |
+| Lucky Seven | `_damage` | damage ×1.2 | 3 |
+| Lucky Seven | `_cooldown` | cooldown ×0.88 | 3 |
+| Lucky Seven | `_range` | range ×1.2 | 2 |
+| Double Stab | `_targets` | +1 target | 3 |
+| Double Stab | `_hits` | +1 damage line per target (`attack_count`) | 2 |
+| Double Stab | `_damage` | damage ×1.2 | 3 |
+| Double Stab | `_cooldown` | cooldown ×0.88 | 3 |
+| Double Stab | `_reach` | skill swing envelope ×1.2 on both axes (`area`) | 2 |
+
+`attack_count` modifiers add to the canonical `attackCount`, independently of target count. The extra-hit card
+previews Hits before/after. A weapon-reach skill applies its own `area` modifier to a copy of the held weapon's
+feet-relative swing envelope; target admission, the short-MP probe and the bot's reach all use that scale.
+The basic attack and other skills keep their own envelope. Multipliers compound per step; rarity grants steps
+through the shared headroom/clamping rules, never exceeding a line's cap. These are tier C survivor choices,
+matching existing behaviour-card magnitudes; canonical v83 levels, counts and weapon data remain unchanged.
+
+**Keen Eyes (#209):** `keen_eyes` 4000001 is a passive with eight canonical ranks. Skill.wz's `range` adds
++25/+50/+75/+100/+125/+150/+175/+200px (tier A), only while holding a claw (tier C family tag, following the v83
+description). It reuses #199's generic `Loadout.RANGE` passive unchanged: the ranged basic attack extends its target
+search and shot travel; weapon-gated ranged attack skills add the passive to their resolved range. Lucky Seven thus
+grows from 250px to 450px at rank 8; Drain will use the same path when added. The basic attack's cached base boxes
+remain unchanged; only the far horizontal edge grows, preserving vertical and point-blank reach (tier C, #199).
+Swapping to a dagger or any other family disables the bonus immediately, including skill range. Magic is unaffected.
+The `keen_eyes_new` / `keen_eyes_rank` cards require exact job [400], no carry, a claw held, and stop at rank 8.
+Learn/rank weights are 2/2 and `power:false` (tier C, untuned, matching Nimble Body). A learned Keen Eyes remains
+effective in either second-job branch while a claw is held. Cards and the Skill window show the canonical pixel bonus.
+
+Drops are a curated ordinary Lv10–70 roster of Thief-bit claws/daggers, armour by tier/gender and Lv22 shields
+(tier C selection; canonical stats unchanged). Weapon drops follow the held family; Thief shield drops require a dagger
+through `equipment_drops.json`'s optional `shield_families` map (first-job id -> allowed held families),
+including the boss fallback. Claw/dagger ordinary and dark ATT scrolls and Free Market weapon slots use existing pricing.
+The export's existing `data/survivor/*/*.json` include filter covers these files.
+
+`RunWorld.thief_rng` registers stream 15 without drawing from it; only Steal's success roll (#214) will use it.
+Adding the two Thief window entries intentionally changes unforced bot records. The inherited event/pacing tests freeze
+their old job pool; existing combat and player-state goldens are retained. Full smoke belongs to #215; no balance tuning.
+
+### 7.22 Disorder (#210)
+
+`disorder` (4001002) is a status-only instant skill, usable with any weapon. It applies the existing **Threatened**
+status: signed canonical x/y lower PAD and WDEF by 1..20, floored at zero, for the canonical 7..60 seconds, costing
+5..10 MP across 20 ranks (tier A). The real table is stepwise; it is read as-is, without interpolation.
+
+It uses Threaten's crowd admission: at least three live ordinary mobs that accept the status and are not already
+threatened. Skill.wz gives Disorder no box or count, so `cast.box` supplies (-250,-150)..(250,150) and `cast.mob_count`
+supplies six, nearest first (tier C). Loadout uses these only as fallbacks when canonical lt/rb or mobCount are absent.
+The 1 s cooldown and 0.8 s alert2 stance are tier C survivor choices; v83 provides no action or player effect here.
+Disorder's canonical `mob` art plays once on each recipient, alongside the shared Threatened cue and its Use sound.
+
+`cast.interrupt: true` cancels a successfully affected mob's pending pre-impact ordinary attack and releases its
+authored stance. The next-attack wait keeps running on its original schedule. No stun is applied; movement and
+future attacks remain available. An attack already at impact or a projectile already launched is not undone
+(tier C interpretation of the v83 attack-interruption text). Threaten omits the flag and keeps its previous behavior
+and records. Neither skill rolls RNG. Bosses and already-threatened mobs cannot receive Disorder.
+
+Only `disorder_new` and `disorder_rank` cards exist, not power cards, with jobs [400] and no carry_jobs or behavior
+cards. Learn/rank weights 3/2 match Threaten (tier C). Deterministic tests cover crowd admission, nearest cap, canonical
+cuts/costs/durations and expiry, boss/duplicate exclusion, weapon freedom, attack interruption and the next attack's
+original schedule; paired Threaten coverage protects its unchanged behavior. A real-cache test checks all 20 levels.
+The `thief --disorder=1` flow-driver probe captures a real cast on an evidence-only prepared crowd.
+
+### 7.23 Dark Sight (#211, spec #167)
+
+`dark_sight` (4001003, book 400, ranks 1–20, any weapon) reuses the Hidden state in 7.18. It auto-casts below
+30% MaxHP with a living mob within 250 px (the same reach as Oak Barrel), when affordable and ready. It never fails
+and draws no failure RNG. Hidden blocks contact, mob and boss attacks and the character's attacks; movement, buffs,
+potions and pickups still work. It ends after the canonical duration or early above 60% MaxHP. The fixed 30-second
+cooldown starts at the cast; an active buff blocks recasting even after that cooldown finishes (tier C owner rules).
+
+Canonical Skill.wz/400.img values are MP 24→5, duration 10→200 seconds and speed −30→0. The speed table steps by two
+through rank 12 (−8), then by one through rank 20; no interpolation is used in play. The speed penalty is a normal
+buff contribution and disappears with Hidden. `buff.cooldown` optionally supplies a literal survivor cooldown;
+without it buffs retain their canonical `cooldown_field` (or `time`). This adds no state or snapshot fields.
+
+The renderer uses the existing avatar CanvasGroup at 50% opacity while Hidden without a morph; its invincibility
+blink can dim it further. Morph artwork keeps its own appearance. The canonical cast action `darksight`, effect and
+Use sound are retained; the action hold is 0.6 seconds (tier C). Learn/rank cards require job 400 only, with no carry,
+weights 3/2 and a 20-rank cap; neither is a power card (tier C weights, tier A cap).
+
+Seeded tests in `test_dark_sight.gd` cover conditions, costs, canonical speed, duration, early recovery, cooldown,
+ordinary/boss attacks, contact, attack suppression and card gates. Cache tests compare all 20 levels and cast art;
+`test_dark_sight_render.gd` checks transparency/recovery. `scenes/debug/dark_sight_driver.tscn` captures a real Thief
+among Henesys mobs before/while Hidden and after recovery, without save writes. No balance tuning; #215 owns smoke.
+
+### 7.24 Assassin and Bandit: passives, buffs and recovery (#212)
+
+Both Thief branches advance at canonical Lv30. They keep the Thief's growth and LUK/DEX auto-AP policy.
+Each adds +325 MaxHP / +175 MaxMP (tier B midpoints) and wears its advancement weapon without requirement checks:
+Assassin 410 gets Steel Guards 1472008 (claw, PAD18), Bandit 420 gets Reef Claw 1332012 (dagger, PAD45).
+The displaced weapon joins Equip, overflowing at the feet through the existing grant machinery (tier C weapon choices).
+
+All values below come from the branch's original Skill.wz book (tier A); ranks equal canonical levels.
+
+| Key / skill | Branch / weapon | Levels | Effect, first to last level |
+|---|---|---|---|
+| `claw_mastery` 4100000 | 410 / claw | 20 | mastery 15–60%, ACC +1–20; endless stars ignore recharge capacity |
+| `critical_throw` 4100001 | 410 / claw | 30 | crit chance 21–50%, total critical damage 113–200% |
+| `endure_assassin` 4100002 | 410 / any | 20 | HP +3–60 and MP +1–20 every 29–10 seconds |
+| `claw_booster` 4101003 | 410 / claw | 20 | attack speed +2; HP/MP cost 29–10 each, duration 10–200 seconds |
+| `haste_assassin` 4101004 | 410 / any | 20 | speed +2–40, jump +1–20, duration 10–200 seconds, MP15/30 |
+| `dagger_mastery` 4200000 | 420 / dagger | 20 | mastery 15–60%, ACC +1–20 |
+| `endure_bandit` 4200001 | 420 / any | 20 | same Endure recovery |
+| `dagger_booster` 4201002 | 420 / dagger | 20 | same Booster costs, duration and speed |
+| `haste_bandit` 4201003 | 420 / any | 20 | same Haste movement, duration and cost |
+
+Mastery, Critical Throw and Booster family tags follow the v83 descriptions (tier C tags; those nodes omit `weapon`).
+Boosters invert canonical x=-2 with scale=-1. Buffs auto-cast while inactive and affordable, without a target, holding
+alert2 for 0.8 seconds (tier C, existing Booster convention). Haste is self-only and respects speed140 / jump123 caps.
+Its text reads `buff_speed` / `buff_jump`, avoiding the projectile `speed` field of resolved skill stats.
+
+Endure heals anywhere, including while moving, with any weapon (owner #167). The additive skill definition is
+`periodic_recovery: {interval_field: "time", hp_field: "hp", mp_field: "mp"}`. PlayerUpkeep owns each skill's clock;
+RunWorld applies both pools, clamped to their maxima, independently of the shared regeneration pulse. The first pulse
+waits one full interval after learning, rank changes retain elapsed seconds, paused/dead worlds do not advance it,
+and a round boundary resets it (tier C clock lifecycle). Existing `regen` skills keep their shared-pulse semantics.
+
+Every skill has learn/rank cards, weight2, requiring its exact branch and held weapon through the skill (tier C).
+Lucky Seven and Double Stab remain carried attacks for both branches, gated by held weapon and excluded from the
+advancement draw. Assassin stars upgrade through Wolbi/Mokbi/Kumbi/Tobi/Steely/Ilbi at 30/35/40/45/50/55, with
+the existing notice and current-star sprite. A Bandit holding a claw keeps 2070015. Forced tools accept 410/420 and
+the bot draws the first-job family unless an offered family is explicitly forced (`410:claw`, `420:dagger`).
+Drain, Savage Blow and Steal are described below; no tuning here.
+
+### 7.25 Drain: the Assassin's healing star (#213)
+
+`drain` (4101005, book410) is a claw-only projectile attack with 30 canonical ranks. Skill.wz supplies damage
+102–160%, healing x=16–45%, and MP12 at ranks1–15 / MP24 at ranks16–30 (tier A). It auto-casts one star at the
+nearest target through the ordinary nearest/range path. `ammo_shot: true` draws the current Assassin star.
+The initial survivor values match Lucky Seven's delivery: range250px, cooldown1s, speed600px/s, radius8px,
+no base pierce and shoot1 held0.6s (tier C, untuned). Drain has a canonical effect and lowercase `use` sound,
+but no ball, hit animation or action node; the action choice is ours. It uses the normal claw damage formula,
+including mastery and Critical Throw, rather than Lucky Seven's special formula.
+
+The additive definition `damage_heal: {percent_field: "x", max_hp_fraction: 0.5, target_max_hp: true}` uses the
+shared resolved-hit listener. Every damaging impact restores x% of that line's post-defence/critical damage,
+capped separately at the character's MaxHP/2 and that target slot's MaxHP (tier A v83 description / owner #167).
+Healing truncates to whole points (tier C), uses the projectile's launch rank and includes lethal hits; current
+monster HP does not replace MaxHP. `restore_player` also clamps to missing HP and emits the existing
+`player_restored` event only for a positive actual gain. No new RNG, snapshot fields or event schema are needed.
+
+Only Assassin410 gets `drain_new` / `drain_rank` / `drain_pierce`, all power cards and held-weapon gated.
+Learn/rank weights4/3, pierce weight2 and +1 pierce per step up to three steps use the shared Potential magnitudes
+(tier C; owner behavior budget). A piercing star heals once for each struck monster. Keen Eyes (#209) can extend
+the skill through normal range resolution; Drain adds no special range path. No balance tuning is part of #213.
+
+### 7.26 Bandit attacks (#214, spec #167)
+
+Savage Blow 4201005 and Steal 4201004 have 30 ranks, each mapping directly to its canonical Skill.wz level (tier A).
+Savage Blow requires a dagger (weapon33), auto-casts in the held weapon's swing envelope, and strikes each target
+4 times at ranks1-10, 5 at11-20 and 6 at21-30. Damage follows the original stepped table (40% at1, 80% at30),
+including the lower per-line damage at each extra-hit threshold; MP is15/18/27 by those bands. It uses the canonical
+`savage` action, effect, hit art and Use/Hit sounds. Its cooldown1.2s, action hold1s and one base target are tier C.
+
+Steal has no weapon requirement, uses canonical `swingO2`, effect and Use sound, and makes one physical melee hit:
+42-100% damage, MP12 at ranks1-15 and24 at16-30 (tier A). The tier-C auto-cast uses the existing range-around rule
+within100px, one base target, cooldown1.2s and action hold0.6s. Each damaging Steal line on a mob not yet Stolen
+rolls canonical `prop`11-40% on `RunWorld.thief_rng` stream15. A failure leaves it eligible. A success immediately
+drops exactly one extra item and marks it Stolen before damage/kill resolution, so lethal hits work too. Bosses
+can be stolen from: this is a packed per-mob flag, independent of status immunity. Relocation preserves the flag;
+a fresh logical spawn, including a reused slot, resets it. Ordinary attacks and other skills never roll for Steal.
+
+`RunWorld.drop_mob_loot(m, single)` is shared by ordinary deaths and living-mob Steal. The normal path retains its
+meso-then-equipment rolls, probabilities and stream order. The tier-C single-item interpretation uses the ordinary
+equipment chance and job/level/held-family pool on stream10; if that produces no equipment, it guarantees one normal
+meso bundle on stream9. It grants no EXP, potions, boss reward shower or kill credit. Only the success roll draws
+stream15; a run without Steal retains its previous event/player-state bytes. No canonical drop tables are introduced.
+
+Each attack appends exact-job420 power cards: learn weight4, rank weight3 with30 levels, and targets +1 three times
+at weight2 (tier C, existing Potential magnitudes; untuned). Other jobs cannot draw these cards. #215 owns balance
+smokes and tuning; #214 performs deterministic mechanics, cache, replay and presentation checks only.
+
+### 7.27 Opt-in combat mechanics (#200, spec #166)
+
+These additive skill-definition keys are generic; this ticket adds no Bowman skill data. Skills without the keys keep
+their existing damage, RNG draws and seeded records. Tests use synthetic skill tables, seeded worlds and fixed 1/60 s ticks.
+
+- **`knockback: {"chance_field": "prop", "distance": <px>}`.** Every damaging line on a non-boss rolls once on
+  stream 1, including at 0% and 100%; the named canonical level field is a percent. Success slides the mob `distance`
+  horizontal px away from the character, following its current foothold chain over slopes and stopping at platform
+  edges, walls and map bounds through `FootholdMap.slide_along` (7.13). This is separate from ordinary threshold hit
+  push. Statuses survive. Canonical and scheduled bosses neither roll nor move. Airborne mobs and flyers have no
+  supporting foothold, so the roll has no displacement (tier C). The distance is survivor tuning (tier C); this ticket
+  ships no default distance. A synthetic fixture uses 120 px, not a balance choice for Power Knock-Back.
+- **`impact_blast: {"damage_field": "damage", "visual": "hit"}`.** A projectile explodes at its first mob contact,
+  consuming the projectile even if it has pierce. The struck mob takes one slot of the canonical `mobCount` cap;
+  remaining slots hit live mobs whose bodies intersect the canonical `lt`/`rb` box translated to the primary's feet.
+  The geometry is Grenade's shared `SkillRunner.blast_rect`, without facing mirroring. Splash is nearest to the
+  primary's body, then slot; selection and the anchor are captured before damage, deaths or knock-back. Each hit
+  independently resolves live defence, damage, crit, element, `on_hit` and knock-back through the ordinary callback.
+  Immunity still consumes the primary's cap slot. Blasts never recursively create blasts. `damage_field` selects the
+  canonical physical skill percent for primary and splash alike; Arrow Bomb must use `"x"` (72 to 130), as it has
+  no `damage`. `visual` selects a SkillBook visual (`hit` by default, `effect` also supported), resolved at cast time.
+  `skill_impact` plays this art once at the captured impact feet; ordinary per-target hit art also plays. The choice
+  of art/anchor, first-contact consumption and target order are tier C; box, cap and selected level values are tier A.
+- **`pierce_falloff: <fraction>`.** The n-th direct contact deals `max(floor, 1 - fraction * (n - 1))` of its fully
+  resolved damage, including crit bonuses, before final rounding. `balance.combat.pierce_floor` supplies the floor
+  to projectiles and skill previews (default 0.1). The schedule and 10% default floor are tier C: WZ has no
+  fall-off number. A fraction of 0.1 gives 100/90/80/70/60/50% across six mobs. An immune contact consumes a contact
+  index, as it already consumes pierce. Missing or zero means full damage on every mob. The value is captured at
+  launch; slot reuse resets it. Impact blasts consume the shot before piercing, so their splash has no fall-off.
+- **Ranged Final Attack.** With bow, crossbow, claw or gun held, every follow-up also emits `ammo_shot`, a visual
+  flight of the current ammo's `bullet` art from the hand to the same mob's captured body centre. It uses that
+  family's existing ammo speed and rotation and a straight line; it draws no RNG and causes no delayed damage.
+  The original hit timing, stream-12 rolls, crit and damage are unchanged (tier C presentation). If Spread is
+  available, it uses the greater of `BasicAttack.reach` and the family's ranged base reach around the primary.
+  Each extra target gets its own visual. Hunter and Crossbowman supply ranged Spread cards (7.29-7.30).
+
+**Previews and cards.** Loadout exposes `knockback_chance` (percent), `knockback_distance` (px), `blast_targets`,
+`pierce_falloff` and `pierce_floor` (fractions). SkillText automatically appends these mechanics to rank/learn cards and current/next
+Skill-window lines. Rank previews include changing knock-back chance and blast targets. A `skill_mod` effect with
+`stat: "blast_targets"` adds splash targets without adding projectiles; projectile `count` still means shots.
+`pierce_falloff` modifiers preview percentage points per later mob, and `blast_targets` modifiers preview targets.
+Existing `pierce` cards still increase contacts, independently of the fall-off fraction. Hunter and Crossbowman
+consume these keys in 7.29-7.30; the combined regression smoke is recorded in 4.2 (#204).
+
+### 7.28 Bowman first job (300, #199, spec #166)
+
+Bowman is playable at Lv 10 (tier C survivor override). The `bow` path wears the instructor's Beginner Bowman's bow
+1452051 (tier B gift, tier A stats), moves the creation weapon to Equip and adds Crossbow 1462001 (tier C: the plain
+early shop crossbow, Lv 12 / PAD 29 / no stat requirement). Full Equip tabs spill these items at the feet, following
+the existing advancement rule. The job grants +125 MaxHP / +37 MaxMP (tier B midpoints, MP truncated), and subsequent
+levels give 22 HP / 15 MP (tier B fixed midpoints). Tier-C automatic AP goes to DEX after filling STR to level + 5
+through Lv 30, holds STR 35 through Lv 34, then reaches STR 40 at Lv 35 and level + 5 through Lv 70 / STR 75
+(held thereafter). The original Lv 1/30 keyframes and allocation through Lv 34 stay unchanged, preserving the #204
+Lv 30/31 fixtures. Hunter and Crossbowman inherit this row. A cache-backed seeded level-up test checks all 22 shipped
+bows/crossbows against their canonical reqSTR/reqDEX at reqLevel, without equipment bonuses. Bot equipment weights
+prefer PAD, then DEX, then STR; other weights follow the existing physical baseline (tier C, untuned).
+
+`skills/bowman.json` and `upgrades/bowman.json` hold the first-job entries. Ranks map one-to-one to every canonical
+level (tier A); canonical prerequisite skills are ignored (tier C, shared rule). All values below come from Skill.wz:
+
+| Skill | Ranks | Behaviour |
+|---|---|---|
+| The Blessing of Amazon 3000000 | 16 | ACC +1..16; ACC also feeds the shared crit coefficient |
+| Critical Shot 3000001 | 20 | 12..40% critical chance, 105..200% total critical damage; shared additive critical bonus |
+| The Eye of Amazon 3000002 | 8 | +15..120 px range for bows/crossbows (tier C interpretation below) |
+| Focus 3001003 | 20 | Self buff: ACC/avoid +1..20, 70..300 s, MP 8..16; auto-cast and recast on expiry (tier C), 0.8 s hold |
+| Arrow Blow 3001004 | 20 | Nearest monster, one current-ammo arrow, 190..260%, MP 7..14 |
+| Double Shot 3001005 (`bow_double_shot`) | 20 | Two current-ammo arrows via canonical `bulletCount`, 92..130% each, MP 10..16 |
+
+Blessing and Focus allow any weapon, as the ticket's explicit skill table specifies; Critical Shot and Eye apply
+only with a bow or crossbow. Both attacks require those families and use the held weapon's shooting stance (tier C).
+Attacks use a 300 px base range (neither has canonical `range`), 1 s cooldown, 600 px/s projectiles, 8 px radius,
+no base pierce and 0.6 s hold (tier C placeholders, untuned). Double Shot splits over different nearest targets,
+reusing them when necessary, like Pirate Double Shot (tier C; original v83 puts both on one mob). Collinear shots
+can collide with the nearer monster. Ammo is endless and uses each held family's current arrow sprite.
+
+The generic passive stat `range` adds pixels to ranged basic reach (target box and projectile travel) and to the
+resolved range of attack skills explicitly gated to the held ranged family (tier C). The existing passive weapon
+gate controls which skills contribute. Melee boxes and untagged Magician skills stay unchanged. Cached basic boxes
+keep their base size; the bonus is read live, so rank changes and weapon swaps cannot leave stale reach. Ordinary
+skill `range` modifiers apply to the base first, then the passive adds pixels. Stream 14 remains reserved, unregistered;
+this feature adds no roll. The unforced job pool gains Bowman on stream 8. Spec #226 subsequently changes
+the pool to one entry per job with paths carried separately (section 9).
+
+Each skill has a learn card and a rank card capped at its canonical level count. Each attack also has a +1-shot
+behaviour card (up to three steps). Tier-C weights: attacks learn/rank 4/3, other learn/rank 2/2, behaviour 2;
+shared Potential rarity magnitudes apply, and cards follow the weapon held when drawn. First-job cards carry into
+310/320 through `carry_jobs`; their future advancement draws remain branch-only. Choosing Bowman offers both attacks.
+
+The manifest fragment exports Skill.wz 300/310/320, existing active skill sounds, the two grants, representative
+bow/crossbow weapons and all eight arrows moved out of common. CharLevel hit art uses 10/15/20/25 (tier A).
+Sound.wz has no 3001005 node, and 3001004 has only Use: Double Shot reuses Arrow Blow's Use sound (tier C fallback),
+and neither requests a missing Hit sound. Soul Arrow 3101004/3201004 is never added: endless ammo makes it redundant
+(owner decision, tier C). Hunter and Crossbowman are described in 7.29-7.30, equipment in 8.3 and generic impact mechanics in 7.27.
+
+### 7.29 Hunter (310, #202, spec #166)
+
+Hunter is playable at canonical Lv 30. Its one-family grant wears **Ryden 1452005** (Lv 30, PAD 45, STR 35 / DEX 95)
+and moves the old bow or crossbow to the Equip tab (overflow drops at the feet). The +325 MaxHP / +175 MaxMP grants
+are tier-B second-job midpoints; choosing the plain shop bow is tier C, owner #166. Growth/AP stay Bowman's.
+
+Five bow-only skills in `skills/bowman.json`, book 310, sit before Crossbowman entries. Rank equals every canonical
+level; prerequisites remain ignored (tier C, owner #31). WZ numbers, icons, art and sounds are used as-is.
+
+| Skill | Levels | Canonical effect | Survivor behaviour |
+|---|---|---|---|
+| Bow Mastery 3100000 | 20 | mastery N 1..10, ACC x 1..20 | shared mastery 15..60% and ACC, bow only |
+| Final Attack: Bow 3100001 | 30 | prop 2..60%, damage 105..250% | shared stream 12 follow-up; current arrow visibly flies to the same mob (#200); weapon stance held 0.6 s |
+| Bow Booster 3101002 | 20 | x=-2, hpCon/mpCon 29..10, time 10..200 s | self-only auto-cast/recast, both costs paid once, HP must remain above zero; alert2 held 0.8 s; only a held bow gets its two speed steps |
+| Power Knock-Back 3101003 | 20 | range 130..150, mobCount 2..6, damage 105..200%, prop 13..70%, mpCon 8..15 | `range_around`, faces the nearest admitted mob, 1s cooldown, swingT1 held 0.6 s; non-bosses roll stream 1 to move 120 px away, clamped to platform/wall edges |
+| Arrow Bomb: Bow 3101005 | 30 | x 72..130% (no damage field), mpCon 14..28, mobCount 6, box(-130,-100)..(130,100) to(-150,-100)..(150,100), prop 31..60%, time 2..6 s | nearest projectile, own WZ ball; first mob contact consumes the shot, blasts the canonical box around it including the primary; each hit can stun through shared on_hit; bosses resist |
+
+Power Knock-Back uses the tier-B pre-BB bounds: max `(DEX*3.4+STR)*W.Att/150`, min
+`(DEX*3.4*0.9*0.1+STR)*W.Att/150`, then canonical damage%, normal PDD/level/crit processing. Bow Mastery
+does not raise this swing's fixed 10% mastery. Generic optional `physical_formula` keys `divisor` (default 100)
+and `mastery` (default live mastery) express it; its entry sets primary dex, secondary str, max_mult 3.4,
+divisor 150, mastery 0.1. The same shape supports Crossbowman's Power Knock-Back. No WZ action exists: swingT1 is
+selected from the skill's canonical afterimage actions (tier C). Its afterimage frame is canonically 1x1; it is
+played as-is through `effect: .../afterimage/bow/swingT1/2`, with no invented visible trail.
+
+Arrow Bomb uses `impact_blast: {damage_field:"x",visual:"hit"}` and
+`on_hit: {status:"stun",chance_field:"prop",duration_field:"time"}`. Its impact plays canonical Hit sound.
+Untuned tier-C defaults match first-job arrows: 1s cooldown, 300px base reach, 600px/s, radius 8, no base pierce,
+0.6s held weapon stance. Eye of Amazon contributes its shared range passive to both attacks under #199's rule.
+
+The Hunter cards require exact job 310 and a bow, with learn/rank cards for all five skills and no survivor rank compression.
+Only the two attacks are power cards, so choosing Hunter guarantees Power Knock-Back and Arrow Bomb in its advancement
+draw (plus one seeded passive/Booster). Attack learn/rank weights 4/3; passives/Booster 2/2. Behaviour cards add +1 target
+to PKB (`count`), +1 arrow to Bomb (`count`), +1 blast target (`blast_targets`), or +1 nearby Final Attack target
+(`final_attack_bow_spread`, `count`), each max 3, weight 2, power. Spread uses the shared ranged Final Attack reach.
+Standard Potential rarity magnitudes apply; no vanilla extra counts are added outside cards. First-job Bowman carry
+cards remain eligible after advancement per binding #199/#180, outside the branch's advancement draw; this supersedes
+#202's stale first-job-card sentence. Crossbow held: all five Hunter skills grey in Skill window, passives/Booster
+stop contributing, attacks stop casting and Hunter cards disappear. The existing running buff can survive the swap.
+Soul Arrow 3101004 is deliberately absent from skills and cards: endless ammo makes it redundant (owner #166).
+
+The existing Hunter ammo schedule supplies Bronze2060001 at 30, Steel 2060002 at 40 and Red 2060003 at 50, including
+the highest reached tier when advancing late. Each upgrade changes the current arrow sprite and emits its notice.
+Tool `--job=310` follows Bowman at 10 and Hunter at 30. The combined untuned regression smoke is in 4.2 (#204).
+Deterministic tests: `test_hunter.gd`; real-cache diagnostic evidence: `scenes/debug/hunter_driver.tscn`.
+
+### 7.30 Crossbowman (320, #203, spec #166)
+
+Crossbowman opens at the canonical Lv 30 from Bowman. Advancement adds +325 MaxHP and +175 MaxMP (tier B fixed
+midpoints), wears Mountain Crossbow 1462000 even when a crossbow is already held, and moves the displaced weapon
+to Equip (overflow drops at the feet, ADR 0005). The weapon choice is tier C, the plain Lv 30-class shop crossbow;
+its Lv 28 requirement, PAD 44, STR 28 / DEX 80 are canonical. Growth and automatic AP inherit Bowman.
+
+Every skill below needs a held crossbow. A bow disables its casting/passive contribution, greys its Skill window
+row and removes its cards from new draws. Skill.wz 320 supplies all canonical level tables, icons and art.
+
+| Skill / survivor key | Levels | Behaviour |
+|---|---|---|
+| Crossbow Mastery 3200000 / `crossbow_mastery` | 20 | Mastery 15..60%, accuracy `x` +1..20 (accuracy also raises crit chance) |
+| Final Attack: Crossbow 3200001 / `final_attack_crossbow` | 30 | Physical hit follow-up, canonical `prop` 2..60% and `damage` 105..250%; stream 12, immediate damage and current-ammo arrow presentation (7.27) |
+| Crossbow Booster 3201002 / `crossbow_booster` | 20 | Self auto-cast, recast on expiry; canonical `x` -2 becomes two faster speed steps, `time` 10..200s, `hpCon`/`mpCon` 29..10; refuses lethal HP payment |
+| Power Knock-Back 3201003 / `power_knockback_crossbow` | 20 | `range_around` with canonical range 130..150, 2..6 mobs, damage 105..200%, MP 8..15; canonical `prop` 13..70% pushes non-bosses 120px away on stream 1, clamped at walls/platform edges (7.27) |
+| Iron Arrow: Crossbow 3201005 / `iron_arrow` | 30 | Nearest-target projectile using its own canonical `ball`, `effect` and `hit`; MP 23..28, damage 122..180%, canonical `mobCount` 6 represented by pierce 5; one base arrow |
+
+Power Knock-Back mirrors Hunter's data shape: `knockback: {chance_field: "prop", distance: 120}` and
+`physical_formula: {primary: "dex", secondary: "str", max_mult: 3.4, divisor: 150, mastery: 0.1}` (tier B formula,
+fixed mastery; shared implementation #202). It uses a tier C 1s cooldown, 0.6s `swingT1` hold (no canonical action)
+and canonical `afterimage/crossBow/swingT1/2` art, whose v83 canvas is transparent 1x1. Iron Arrow uses tier C
+`pierce_falloff: 0.1`: contacts take 100/90/80/70/60/50%, continuing linearly to the generic 10% floor past six.
+Its tier C defaults are 1s cooldown, 300px reach, 600px/s flight, 8px collision radius and 0.6s held-weapon shooting
+hold. Booster's hold is 0.8s. All three active skills have a canonical Use sound and no Hit sound.
+
+The Bowman upgrades file appends these five skills after Hunter's entries. Each has learn/rank cards requiring
+exact job 320. Attack learn/rank weights are 4/3; the passive/buff cards use 2/2. Behaviour cards add one target
+to Power Knock-Back (`count`), one piercing contact to Iron Arrow (`pierce`), or one Iron Arrow (`count`), max three
+steps, weight two, shared Potential rarities. Final Attack also has the shared Spreading Arrow card (+1 nearby
+target per step, max three, weight two), drawing a current-ammo follow-up arrow for each target (7.27); this keeps
+every damaging skill eligible for a hit-more-mobs card. Extra counts come only from cards; pierce fall-off continues
+after the sixth target. The advancement draw includes Power Knock-Back and Iron Arrow; inherited first-job Bowman
+cards remain available in ordinary draws through `carry_jobs`, outside the advancement draw.
+
+Soul Arrow: Crossbow 3201004 is deliberately absent, with no skill or card: endless ammo makes it redundant
+(owner #166, same decision as Hunter's Soul Arrow). Endless arrows upgrade to Bronze 2061001 at Lv 30, Steel
+2061002 at Lv 40 and Blue 2061003 at Lv 50, changing the projectile and emitting the existing upgrade notice.
+The tool flag `--job=320` forces Bowman then Crossbowman. These defaults are untuned; the regression smoke is in 4.2 (#204).
+
 ## 8. Upgrades
 
-`data/survivor/upgrades.json`. Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
-`stat`, `potion_tier`, `filler` for the separate fallback), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
+`data/survivor/upgrades.json` (base) and `upgrades/<line>.json` (the cards). Each upgrade card has: `id`, `kind` (`skill_new`, `skill_rank`, `skill_mod`, `passive`,
+`stat`, `filler` for the separate fallback; potions follow a level schedule, not cards, spec #225), `skill` (for skill cards), `icon` (a WZ path, e.g. `Skill.wz/000.img/skill/0001000/icon`), `name`,
 `desc` (with `{value}` placeholders), `max_rank`, `weight`, `requires` (job ids, owned skills, min skill rank, min
 level), `effects` (`{"stat": "count", "op": "add", "value": 1}`).
 
 Draw rules:
 
-1. Eligible = requirements met and rank < max. `requires.jobs` matches the **exact current job id**, never its
+1. Eligible = requirements met and rank < max, and the held weapon can use the card's skill (section 7, weapon-gated
+   skills). `requires.jobs` matches the **exact current job id**, never its
    ancestors or descendants. Beginner skill cards (Three Snails changes, Recovery and Nimble Feet) require job 0;
    Magician skill cards require job 200. Earlier-job skills stay learned and keep casting at their retained rank,
-   but their cards stop appearing. Job-neutral magnet and potion-tier cards omit `requires.jobs`.
+   but their cards stop appearing. There are no job-neutral cards (spec #225 removed Magnet and the potion-tier
+   cards); only the Power Elixir filler (item 3) omits `requires.jobs`.
+   **Carried physical attacks (ADR 0005, spec #165 #180 and #167):** the Warrior's second jobs have no attack skills, so
+   the ten Power Strike and Slash Blast cards (learn, rank, targets, damage, range, cooldown) also list
+   `requires.carry_jobs: [110, 120, 130]` and stay eligible after the second job. They keep `"power": true`, so they count
+   for pity, but the advancement draw matches `requires.jobs` only and never offers them. Iron Body and the two HP
+   passives still stop at Lv 30. **Pirate first-job cards** (spec #168 #189) use the same shape with `carry_jobs: [510, 520]`
+   (their `requires.jobs` is [500]): on offer to both Pirate branches, never in a branch's advancement draw.
+   **Thief attacks** (#207) use jobs [400] plus carry_jobs [410,420]; Nimble Body has no carry.
+   Magician cards retain the exact-job rule.
    `skill_new` needs an unowned skill. Active and passive skill counts have no caps; only job eligibility and each skill's maximum rank bound the pool.
 2. Three distinct cards are drawn by weight with the run's seeded RNG.
    **Pity:** cards that raise an attack skill's damage output carry `"power": true` (a new attack skill, its rank,
@@ -2924,7 +4740,10 @@ Draw rules:
    from the current pool; if no eligible power card exists, pity adds none.
 3. With fewer than three eligible cards, offer those cards plus **one Power Elixir** alternative (item 2000005).
    With no eligible cards, offer Power Elixir alone. This applies to normal level-ups and boss rewards; every
-   reward opens a window. `upgrades.fallback` holds the job-neutral Elixir definition outside the weighted pool,
+   reward opens a window. A boss reward keeps the Elixir as an always-Normal card (no Potential tier scaling), and an
+   exhausted pool can never soft-lock the run: the Elixir is always accepted, and a pool with no card at all (no
+   fallback in the data) consumes the level instead of opening an unanswerable window.
+   `upgrades.fallback` holds the Elixir definition, the only job-neutral card, outside the weighted pool,
    so it never displaces a normal card in a full draw. It uses the canonical Power Elixir name and icon and fully
    restores HP and MP immediately when chosen, without changing carried potion stock. This reward rule is tier C;
    the item identity, art and 100% restoration are tier A.
@@ -2954,6 +4773,8 @@ nor exempt.
 | Cold Beam | Spreading Frost (`cold_beam_targets`) |
 | Thunder Bolt | Forking Storm (`thunder_bolt_targets`): +2 targets per step, 3 steps (canonical `mobCount` 6 → 8 → 10 → 12), weight 2; tier C placeholder until the balance pass |
 | Holy Arrow | `holy_arrow_count`, `holy_arrow_pierce` |
+| Lucky Seven | `lucky_seven_count`, `lucky_seven_pierce` |
+| Double Stab | `double_stab_targets` (extra hits per target use the separate `double_stab_hits` line) |
 
 ### 8.1 Fortune and Potential tiers (#30 / #43)
 
@@ -2969,8 +4790,8 @@ and `magnitude` while pending; selecting its id applies that tier's ranks/steps.
 | Potential tier | Normal | Rare | Epic | Unique | Legendary |
 |---|---|---|---|---|---|
 | Base weight at Fortune 0 | 75 | 18 | 5 | 1.7 | 0.3 |
-| Skill rank gain | +1 | +2 | +3 | +5 | all remaining ranks |
-| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | all remaining steps |
+| Skill rank gain | +1 | +2 | +3 | +5 | +8, capped by ranks left |
+| Stacking steps (`skill_mod`, `stat`, `passive`) | +1 | +2 | +3 | +4 | +5, capped by steps left |
 | New skill starting rank | 1 | 2 | 3 | 4 | 5 |
 
 All numbers and rules in this table are tier C survivor choices. `upgrades.rarity.weights` stores the spec #30
@@ -2979,19 +4800,21 @@ the balance pass). Every non-Normal weight is multiplied by `1 + max(0, Fortune)
 (0.02), then weights normalize together: at Fortune 100 the weights total 150, i.e. 50/36/10/3.4/0.6%.
 `upgrades.magnitudes` holds the per-kind tables; every default tier gives more than the one below it (owner,
 2026-10-15). An individual card's `magnitudes` can override any tier, with unspecified tiers retaining their kind
-defaults. Legendary can max a 20-rank attack or buff in one pick.
+defaults. Legendary adds up to eight ranks to an owned attack or buff, or up to five stacking steps (owner decision
+#173, 2026-10-18); it learns a new skill at rank five as before.
 
-A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, and any tier whose
-gain equals a lower tier's (Legendary's `max` spending the last steps, or an equal per-card entry) wears the lowest
+A card whose requested magnitude exceeds remaining headroom drops to the highest fitting tier, except tiers listed
+in `upgrades.magnitudes.clamp` (Legendary), whose fixed request clamps to what is left. Any tier whose
+gain equals a lower tier's (a clamped Legendary spending the last steps, or an equal per-card entry) wears the lowest
 such label, so a label never overstates the card: a rank card at 17/20 rolling Legendary shows Epic (+3), at 15/20
 Unique (+5), at 16/20 Legendary (+4); an Epic at 18/20 shows Rare (+2). Stacking cards cap at 2–4 steps, so a fresh
 cap-2 card shows at most Rare, a cap-4 card at most Unique, and no current stacking card can show Legendary.
-Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card downgrades a `max` roll to
-its highest finite tier. All tier C.
+Nimble Feet and Recovery (3 ranks) learn at most at Epic. An unlimited stacking card would grant all five Legendary
+steps without clamping; no such card currently exists. All tier C.
 
 Boss bonus rolls promote Normal to Rare before clamping. Scalable cards that cannot retain at least Rare are
-omitted from boss draws (e.g. a skill rank card with only one rank remaining). Potion-tier cards and Power Elixir
-are always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
+omitted from boss draws (e.g. a skill rank card with only one rank remaining). The Power Elixir
+is always Normal, including at bosses; sparse or exhausted rewards still offer the Elixir. Tier C.
 
 Stacking magnitudes consume several card steps, preserving the card cap. Additive effects add their value once per
 step; multiplicative effects compound (four cooldown ×0.88 steps reduce cooldown by 40.03%). Card text shows
@@ -3021,8 +4844,9 @@ climbing; its active effect and cooldown keep advancing there. Its original effe
 is imposed because v83 provides no action node. Auto-casting and slot/lifecycle rules are tier C; the skill values
 and assets are tier A. The former flat +6 speed card and Max HP +10% card are removed.
 
-Magnet's Normal step is +25% radius and stays job-neutral. Magicians learn Improved MaxMP Increase (2000001) at
-their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
+The Magnet card (+25% pickup radius) was removed in spec #225: the radius stays at `magnet_radius` and the pet's VAC and
+Binocular upgrades are the only pickup-range upgrades; `magnet` ranks and modifiers in older snapshots are dropped on load.
+Magicians learn Improved MaxMP Increase (2000001) at their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
 Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant. The canonical
@@ -3040,13 +4864,12 @@ No cast starts on a rope, while an existing Recovery continues healing and expir
 sound and icon are used; rank previews show duration, HP per pulse, cooldown and MP cost. Learning/ranking Recovery
 never adds permanent HP regeneration, and the skill remains available after advancement.
 
-Potion tiers are one-time cards: HP Red (2000000) → Orange (2000001) from Lv 10 → White (2000002) from Lv 25;
-MP Blue (2000003) → Mana Elixir (2000006) from Lv 20. Each requires its previous item, preserves the entire stock
-count and changes all future drops of that kind. The current item drives canonical restoration and the HUD icon.
-The ladders, level gates and weights are tier C entries in `upgrades.json` (`potion_kind`, `item_id`,
-`requires.potions`, `requires.min_level`); no canonical item value is changed. The sensible bot scores tier cards at
-the configured `potions.bot.tier_score` (currently 112), with fallback 52 when absent; first/random policies can
-offer and take them normally.
+Research for the potion ladder and its Lv 1-70 schedule: `docs/research/v83-potion-progression.md` (spec #225, #227).
+
+Potion tiers are no longer cards (spec #225, #228): they follow the level schedule of section 5 (HP Red → Orange at
+Lv 10 → White at Lv 25 → Unagi at Lv 40 → Ice Cream Pop at Lv 60; MP Blue → Mana Elixir at Lv 20 → Pure Water at Lv 40
+→ Red Bean Sundae at Lv 60; #229), keep the whole stock count and change all future drops of that kind. No canonical item value is changed, and the bot has no potion-card scoring (`potions.bot.tier_score` is
+gone; the Elixir filler keeps its base score).
 
 Skill prerequisites (`Skill.wz` `req`) are ignored (tier C owner decision #31). Cards retain their exact
 job requirement and rank/modifier cards still require the skill they upgrade. Skills learned in an earlier job keep
@@ -3096,10 +4919,21 @@ MP Eaters, Invincible and both Slows):
 | Improved MP Recovery (2000000) | h | the WZ line has no number; states the floor(character level × skill level / 10) MP every 10 s |
 | Heal (2301002) | desc | party healing: here it heals you below half HP and strikes every undead in its box |
 | Meditation (2101001, 2201001) | desc, h | "party members": self-only |
-| Bless (2301004) | desc | "party members", "cannot be combined": self-only; accuracy has no effect yet |
+| Bless (2301004) | desc | "party members", "cannot be combined": self-only; its accuracy raises the critical chance (6.1) |
 | Teleport (2101002, 2201002, 2301001) | desc | "arrow keys": the Teleport key plus a direction, hold to repeat |
+| Rage (1101006) | desc | "everyone in the party around the area": it affects you only |
+| Power Guard (1101007, 1201007) | desc | the WZ text says "damage received" and "enemy": here only monster contact damage is returned, half against bosses (7.10) |
 
 ### 8.3 Mesos, equipment drops, scrolls and shops (spec #33)
+
+Bowman equipment (#166/#201) lives in its own `equipment_drops`, `scrolls` and `shops` line files. The curated
+regular progression has 12 bows (1452000-1452011), 10 crossbows (1462000-1462009) and 202 reqJob-4 armour items
+through Lv70: hats, tops, bottoms, overalls, shoes and gloves, with no shields. Selection is tier C; each item's
+canonical requirements, stats, icons and animation remain tier A. Cash, restricted, event/Maple and instructor-only
+variants are excluded. Only the held weapon's family drops; bow and crossbow never share a drop group.
+Both ATT scroll families stock ordinary 100/60/10 and dark 70/30 at the existing rate NPCs for the existing
+70,000-meso weapon price. The shop's job filter admits both families for Bowmen; applying a scroll still requires
+its matching held family. This adds no drop-rate, level-window, meso or price tuning. The regression smoke is in 4.2 (#204).
 
 The economy loop, in the order a character meets it (terms: `GLOSSARY.md` "Mesos and equipment"; decisions: ADR 0002;
 every constant, with its tier, is in section 11 under the tables named below):
@@ -3108,12 +4942,20 @@ every constant, with its tier, is in section 11 under the tables named below):
    each boss, with the v83 coin sprites; the magnet collects them like EXP. They are carried across rounds with the
    character and lost with the run. ("Meso rule", section 11.)
 2. **Equipment** drops from kills (0.2% per ordinary kill, one guaranteed from each boss): a v83 hat, top, bottom,
-   overall, shoes, gloves, wand or staff that the character's current job can wear, near its level, with v83's random
-   stat rolls. It goes to the Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".)
+   overall, shoes, gloves, shield or weapon that the character's current job can wear, near its level, with v83's random
+   stat rolls. A weapon drops only from the family of the weapon held when the drop rolls (a sword holder gets one- and
+   two-handed swords, an axe holder axes, ...; bare hands get no weapon; a Magician holding a wand or a staff gets both),
+   so a Warrior's weapon drops are of the one family it holds (sword, axe, blunt weapon, spear or polearm) and its armour
+   drops include Warrior shields (#159). It goes to the
+   Equip tab (24 slots; a full tab leaves the item on the ground). ("Equipment drop rule".) If its slot is empty and the
+   character meets its requirements it is worn at once instead, with an "Equipped <name>" notice (#222, "Auto-equip rule").
+   It still waits in the tab when the slot is occupied (an item is never replaced, even by a better one), a requirement
+   (level, job or a stat, the check the Item window uses) fails, it is a shield beside a two-handed weapon, or it is a top or
+   bottom beside an overall or an overall beside a top or bottom.
 3. The **Equip** (E) and **Item** (I) windows wear, take off and discard it, in a round (the run is held while they are
    open) and in the Free Market; worn equipment adds to the character's stats and is what is drawn. (Controls above.)
 4. In the **Free Market**, four NPCs sell scrolls only, one per success rate (100%, 60%, 10%, dark 70% / 30%), at 35,000
-   mesos (armour) or 70,000 (wand, staff); any shop buys spare equipment and scrolls back at their v83 sell price. NPC
+   mesos (armour, shield) or 70,000 (a weapon: wand, staff, sword, axe, blunt weapon, spear, polearm); any shop buys spare equipment and scrolls back at their v83 sell price. NPC
    Chat (Space) or a double-click opens a shop. ("Scroll NPCs", "Shop stock", "Sell rule" and the other #111 rows.)
 5. A **scroll** is dragged from the Use tab onto a worn item: it succeeds at its rate (adding its v83 stats and one to
    the "(+N)" count) or fails; either way it spends one upgrade slot, and a failed dark scroll can destroy the item.
@@ -3160,7 +5002,7 @@ It follows the character on the same platforms, teleports when left behind, and 
 Pouch and Meso Magnet are built in); it has no hunger, lifetime or commands. Upgrades belong to the account and apply to
 whichever pet is out: Auto HP / MP Potion Pouch drink from the character's stock below the HP / MP ALERT levels set in
 Options (defaults 30 % / 20 %), Wing Boots fetch resting drops, Binocular doubles the pickup radius, and VAC pulls every
-drop on the map to the pet while the Magnet card is no longer offered.
+drop on the map to the pet. Since spec #225 these are the only pickup-range upgrades (no card raises the radius).
 
 **Tools.** Tool rounds (balance, playtests, `--run`) start with an empty account; `--account=<json>` supplies owned items,
 worn cash equipment, a pet and ALERT levels (`game/tests/fixtures/accounts/full_pet.json` is the full set) and the round
@@ -3180,8 +5022,64 @@ At an advancement level the level-up window is preceded by the **Job Advancement
 book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` + `Game.img/JobChanged` on accept):
 
 - Levels 8–9: ordinary upgrade choices; no job window.
-- Level 10: Magician is playable; Warrior, Bowman, Thief and Pirate are shown as "not in this build".
+- **Window flow (spec #226, #231).** The window has two pages. Page 1 is a generic intro and one entry per job (a
+  Thief appears once, not once per weapon) plus "Not now."; the Lv 10 list has no NPC portrait (no single instructor
+  speaks for every job), the Lv 30 list has the line's instructor, who is every child's. Picking a job with two or three
+  weapon families (Warrior, Bowman, Thief, Pirate; Fighter, Page, Spearman) opens page 2, spoken by that job's instructor:
+  "Which weapon would you like to specialize in?", one row per family in the order the data gives (data order at
+  Lv 10, the held family first at Lv 30) with the weapon it hands over in brackets, and a "Cancel." row. Cancel,
+  Esc or the Prev button returns to page 1 with the job still highlighted (it never declines); END CHAT and "Not now."
+  on page 1 still defer. Magicians and single-family branches go straight to the confirmation, which the chosen job's
+  instructor speaks. Keyboard (Up/Down, Enter, digits) and mouse work on both pages. Wording on both pages is tier C (ours).
+- Level 10: Magician, Warrior (Dances with Balrog, #163), Bowman (#199), Thief (Dark Lord, #207) and Pirate (Kyrin, #186) are playable.
   "Not now" keeps you a Beginner and asks again next level.
+- Advancing to Warrior changes job to 100 and adds +225 Max HP (tier B: the v83 first-job +200-250, midpoint); it
+  teaches no skill. It wears only the chosen Sword 1302077, Spear 1432000 or Steel Pipe 1322006
+  (7.8; the displaced weapon joins the Equip tab or spills at the feet). Earned AP go to STR (the Warrior has no
+  secondary stat row: no Warrior weapon or shield in the cache needs DEX), growth is 26 HP / 5 MP per level (tier B,
+  Cosmic), and the extra advancement draw offers Power Strike and Slash Blast plus one other new Warrior skill.
+  The Warrior's second jobs open at Lv 30 (spec #165, below).
+- Advancing to Thief changes job to 400, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  only the chosen Beginner Thief Wrist Guard 1472061 or Beginner Thief's short sword 1332063.
+  Both paths use starting stars 2070015 when holding a claw. Growth is 22 HP / 15 MP per level; auto-AP uses LUK
+  primary and DEX target max(25, level), meeting LUK ≥80 / DEX ≥25 at Lv30 through the existing earned-AP calculation.
+  No new stat reset is added. Skills and cards: 7.21; the playable second jobs are in 7.24.
+- Level30, Thief (#212): Assassin410 and Bandit420 are offered from either first-job path, granting +325 MaxHP /
+  +175 MaxMP and Steel Guards1472008 / Reef Claw1332012 respectively. The new branch's weapon is worn even when
+  the old path differs; the old weapon moves to Equip. Growth and AP stay the Thief's. `--job=410` / `--job=420`
+  work in tools. Skills, carried attacks and star tiers: 7.24.
+- Advancing to Bowman changes job to 300, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  only the chosen Bow 1452051 or Crossbow 1462001 (tier B bow gift, tier C crossbow choice).
+  Growth is 22 HP / 15 MP per level (tier B); automatic AP is DEX with STR secondary: level + 5 through Lv 30,
+  STR 35 through Lv 34, STR 40 at Lv 35, then level + 5 through Lv 70 / STR 75 (tier C; 7.28).
+  The advancement draw offers Arrow Blow and Double Shot. Hunter (#202) and Crossbowman (#203) open at Lv 30.
+- Level 30, Crossbowman 320 (#203): +325 MaxHP / +175 MaxMP (tier B), with Mountain Crossbow 1462000 always worn
+  and the old weapon moved to Equip (tier C grant; Lv28, PAD44, STR28 / DEX80 tier A). Growth/AP inherit Bowman;
+  the advancement draw offers Power Knock-Back and Iron Arrow. Crossbow-only skills/cards and ammo tiers: 7.30.
+- Advancing to Pirate changes job to 500, adds +125 MaxHP / +37 MaxMP (tier B fixed midpoints, MP truncated), wears
+  only the chosen Steel Knuckler 1482000 or Pistol 1492000, moving the displaced creation weapon to Equip
+  (tier C chosen-only rule; overflow drops at the feet). Growth is 25 HP / 20.5 MP per level (tier B midpoints, accumulated
+  before rounding). Tier-C auto-AP uses STR with level-target DEX for knuckle, DEX with level-target STR for gun.
+  At Lv30 these meet Prime Hands (STR60/DEX30) or Cold Mind (DEX70/STR30).
+- Level 30, Pirate (spec #168 #189): Brawler 510 and Gunslinger 520 are selectable at their canonical level from either
+  path. Each adds +325 Max HP and +175 Max MP (tier B midpoints), keeps the Pirate's growth, hands its one advancement
+  weapon (below; always worn) and switches the auto-AP to its own weapon's rows. `--job=510`, `--job=520` (and
+  `--job=520:knuckle` for a knuckle-path Gunslinger) work in the tools; unforced, the bot draws its branch on the job
+  stream (8). Skills and cards: 7.17.
+
+  | Branch | Family | Advancement weapon |
+  |---|---|---|
+  | Brawler 510 | knuckle | Prime Hands 1482004 (Lv 30, PAD 34, STR 60 / DEX 30) |
+  | Gunslinger 520 | gun | Cold Mind 1492004 (Lv 30, PAD 31, DEX 70 / STR 30) |
+- Level 30, Bowman (#202): Hunter 310 is playable, adds +325 MaxHP / +175 MaxMP (tier B midpoints), and wears Ryden 1452005
+  (bow, Lv 30/PAD 45/STR 35 / DEX 95; tier C owner choice). The displaced bow or crossbow enters the Equip tab, spilling
+  at the feet when full. Its advancement draw offers Power Knock-Back and Arrow Bomb; skill/card rules are in 7.29.
+- An **unforced bot** (no `--job`) picks a seeded random available job on stream 8, then draws a family on the same
+  stream at every multi-family advancement. Adding Bowman, Thief and Pirate and the #226 path draws intentionally
+  change seeded records without changing any stream's initialization. `--job=100:spear`, `--job=120:blunt`,
+  `--job=400:claw` and `--job=500:gun` force the family when that advancement offers it. A forced single-family
+  branch without a path (`--job=410`, `320`, `510`...) takes the first-job path of its own family (no draw), as before #232;
+  a forced multi-family branch without a path (`--job=110`) still draws its Warrior family at Lv10.
 - Advancing to Magician changes job to 200 and keeps the existing +120 Max MP bonus; it teaches no skill.
   The extra advancement draw includes Energy Bolt, Magic Claw and one other new Magician skill before the normal draw.
 - The JobChanged pillar and sound play on the character first; the advancement draw opens once the effect has
@@ -3190,11 +5088,91 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   level. Each adds +475 Max MP and teaches no skill. This fixed tier C bonus is the midpoint of the 450-500 range
   in the v83 server reimplementation reference, **unverified against GMS** ([research](research/cosmic-data.md),
   job-change rewards, `client/Character.java:1204` in the local reference). It does not claim a tier B native-client fact.
+- Level 30, Warrior (spec #165 #180): Fighter 110, Page 120 and Spearman 130 are selectable at their canonical level.
+  Each adds +325 Max HP (tier B: the v83 second-job +300-350, midpoint; growth stays 26 HP / 5 MP per level, all earned AP
+  still go to STR) and grants only the chosen family's advancement weapon (tier C, below). The held family
+  is listed first when the branch uses it; the default is that first page path. The displaced equipment joins
+  the Equip tab or spills at the feet when full, so advancing never fails. The grant checks no requirement (an all-STR Warrior has about 150 STR at Lv 30, which meets the 95-100 these weapons need).
+  The Power Strike and Slash Blast cards stay on offer after the second job (section 8, rule 1 exception).
+  The advancement draw offers the held family's Final Attack and Booster (the branch's eligible power skills), topped
+  up to three with other new skills of the branch (seeded, tier C). `--job=110`, `--job=120` and `--job=130` work in the tools; unforced, the
+  bot draws its branch on the job stream (8) like the Magician's.
+
+  | Branch | First family (worn when the held family is not the branch's) | Second family |
+  |---|---|---|
+  | Fighter 110 | sword: Gladius 1302008 | axe: Fireman's Axe 1312005 |
+  | Page 120 | sword: Gladius 1302008 | blunt: War Hammer 1322014 |
+  | Spearman 130 | spear: Forked Spear 1432002 | polearm: Mithril Pole Arm 1442001 |
+
+  The data shape is `jobs.json` `paths`, one candidate item per family in default page order;
+  `JobTree.paths_of(job)` returns them in that order (`[]` when the row has none), and the
+  `DataRepo.starter_equipment_ids` preload reads `paths[].item_id`. The Pirate branches use the same shape with one entry
+  each (#189), as do Hunter `[1452005]` (#202), Crossbowman `[1462000]` (#203), Assassin `[1472008]` and Bandit `[1332012]` (#212).
 - The bot uses its independent seeded branch stream (8), leaving card and combat streams separate; a single available
-  job consumes no branch roll. `balance.sh` and `playtest.sh --branch=210|220|230` force an available branch. Run records
+  job consumes no branch roll. `balance.sh`, `playtest.sh` and `--run` take `--job=<id>` (any first or second job the build offers: a second job takes its first job at the first window and itself at the second; one that is not playable fails at startup; `--branch=<id>` is the deprecated alias). Run records
   store `branch` (0 before second job), and balance summaries group outcomes by branch; legacy records are unobserved.
 - Skill counts have no caps. The owned-skill HUD uses eight 24 px icons per row, 4 px gaps, so about fifteen icons
   fit left of the timer and boss bars at the minimum 800 px view (tier C layout).
+
+### Weapon paths and weapon grants (#230, spec #226)
+
+Every weapon-grant job except the Magician uses survivor `jobs.json` `paths: [{id, label, item_id, family}]`,
+with `id == family`. `JobTree.advancements(job_id, level, held_family)` returns one entry per child job:
+`{job_id, name, available, reason, paths}`. Locked jobs and jobs without paths carry `[]`; entries have no `path` key.
+`JobTree.page_paths` preserves data order for first jobs; for tier-2 jobs it puts the held family first, then the
+rest in data order. A Beginner's creation weapon cannot reorder the first-job page (tier C owner decision).
+The weapon question is needed only with two or more paths; the dialogue implementation belongs to #231.
+
+| Advancement | Families in default order | Item per family |
+|---|---|---|
+| Warrior 100 | Sword / Spear / Blunt Weapon | 1302077 / 1432000 / 1322006 |
+| Bowman 300 | Bow / Crossbow | 1452051 / 1462001 |
+| Thief 400 | Claw / Dagger | 1472061 / 1332063 |
+| Pirate 500 | Knuckle / Gun | 1482000 / 1492000 |
+| Fighter 110 | Sword / Axe | 1302008 / 1312005 |
+| Page 120 | Sword / Blunt Weapon | 1302008 / 1322014 |
+| Spearman 130 | Spear / Polearm | 1432002 / 1442001 |
+| Hunter 310 / Crossbowman 320 | Bow / Crossbow (one path each) | 1452005 / 1462000 |
+| Assassin 410 / Bandit 420 | Claw / Dagger (one path each) | 1472008 / 1332012 |
+| Brawler 510 / Gunslinger 520 | Knuckle / Gun (one path each) | 1482004 / 1492004 |
+
+`RunWorld.apply_job(id, path := "")` accepts an available job and one of its offered path ids. An empty path
+means the first path in page order. Only the chosen weapon is granted and worn, without requirements; displaced
+equipment joins the Equip tab, or spills at the feet as ordinary pickups when full. Single-family branches always
+wear their one grant. Magician 200 keeps its Wooden Wand in `balance.player.weapon_grants`; Warrior 100 has moved
+out of that table. The old `extra_items`, `grants.items`, `weapon_families` and `grant_items` grant shapes are gone.
+`DataRepo.starter_equipment_ids` reads every playable path's item so its canonical stats are loaded.
+
+A job with at least two paths records `weapon_path` on the character/snapshot, including a new Lv30 choice.
+Jobs with zero or one path preserve it. AP lookup tries `<job>:<path>` then the plain job row at each lineage step,
+so Warrior and Bowman use their plain AP rows, Pirate's path rows work, and a branch's own row wins. Advancing
+re-splits all earned AP, leaving creation attributes unchanged. Skills/cards still follow the weapon held.
+
+**Migration:** without a recorded path, the deepest multi-path job in the character's lineage supplies it: use the
+held weapon family when offered there, otherwise that job's first path. This applies after format-1 equipment
+migration too, without a format bump. Existing Equip-tab weapons are retained, and explicit paths are untouched.
+
+**Tools:** `JobTree.parse_forced` returns `{job, path}`. A forced multi-path job validates against its own paths
+(`100:spear`, `110:axe`, `120:blunt`); a single-family branch validates against its first job's paths
+(`410:claw`, `410:dagger`). Unknown paths fail at startup. The bot draws uniformly on job stream 8 at every multi-family advancement,
+using a forced path only when that advancement offers it; a forced single-family branch without a path takes its own
+family's first-job path instead of drawing (tier C, the pre-#232 behaviour). `110:axe` therefore draws a Warrior family at Lv10 and
+forces Axe at Lv30; it does not infer an earlier family from the branch. Zero/one-path jobs consume no path draw.
+BotShop weapon upgrades follow the recorded path while the current job's line can use that family (`JobTree.line_paths`), including after a manual swap or weapon destruction; otherwise the held weapon's family (an unforced Bandit with `weapon_path` claw keeps upgrading daggers). Seeded records intentionally change: fewer grants, one entry per job, recorded
+Warrior/Bowman paths, and the new bot draws. #230 re-captures the fixed-seed synthetic event digest
+(`test_character_baseline.gd`, seed 1, 72,000 ticks): `36805f00...` becomes `b4b22cfe...`. Historical character fixtures are retained under snapshot migration; their per-file rationale is in
+`game/tests/fixtures/characters/README.md`.
+
+**Melee-aware movement (#162).** The bot reads the reach of its attacks through `SkillRunner.reach_of(stats, world)`
+(a projectile or nearest-rule skill its range, a box skill its far edge with area cards, 0 for buffs, manual, status and
+heal casts) and `BasicAttack.reach(world)` (the farthest afterimage box edge of the held weapon's five stances, or the
+punch). When the longest attack it owns reaches under `bot.engage.kite_reach` (220 px; Beginner skills such as Three
+Snails only count while it owns no attack of its own job line) it stops kiting: it walks to 0.8 x the reach of its
+longest ready attack (off cooldown, affordable; the swing always counts) from the nearest on-level mob within 300 px and
+stands facing it. Below 35% HP, or while a boss attack winds up, it kites as before. Every Magician attack reaches
+260+ px, so Magician and Beginner inputs are unchanged (`test_bot_melee.gd` holds digests captured on main). The
+random policy shares the movement and the camper policies still override it after their warmup. Constants:
+`bot.engage` in `balance.json`, tier C (section 11).
 
 ## 10. Presentation
 
@@ -3202,17 +5180,222 @@ book name from `String.wz/Skill.img/<job>/bookName`, `BasicEff.img/JobChanged` +
   opt-in "fill window" setting fills large windows with more map instead of black bars (see View fit below).
 - HUD: independent status-bar, counter, skill-icon and message widgets receive state from RunScene. The original
   gauges, level, job name, timer, kill count and skill icons keep their layout. Decorative controls on the bar's
-  right side are removed to reserve a potion quickslot, except the Menu button at the bar's right end; separate buff and boss widgets reserve space below the
-  kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
+  right side are removed, except the Menu button at the bar's right end and the quick slot's collapse button above it; the **v83 quick slot** (#220,
+  `StatusBar.img/base/quickSlot`, 151 × 80, a 4 × 2 grid) stands above the bar's right end, display only. Its 8 cells are, in a fixed order, top row
+  **HP potion, MP potion, movement skill, Jump** and bottom row **Equip, Item, Stat, Skill**; each shows the icon Key Config uses for that
+  action (`KeyActionArt`) and a small caption of the **first key it is bound to** (nothing when unbound; web-reserved keys such as F11 are
+  captioned too); the potions show their current item's icon and stock (ItemNo digits, bottom-left of the cell); the movement cell shows Teleport
+  or Dash, whichever the character has learned, and stays empty until then. The v83 `QuickSlotD` arrow button (the `QuickSlot` up arrow while
+  folded) hides and shows the panel; the state is kept in `settings.cfg` `[hud] quick_slot_collapsed` (default shown). Captions update at
+  once after Key Config OK. Separate buff and boss widgets reserve space below the kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
   advancement, boss-only completion, late ordinary hits and no lost mobs (4.1.1).
-- Text uses the system's Arial-like font without antialiasing at MapleStory sizes (no fonts are shipped).
-- Map name and street name from `String.wz/Map.img` on the stage card and at run start.
+- Text uses the system's Arial (Tahoma, Dotum) at MapleStory sizes, or the bundled Arimo (SIL OFL, metric compatible
+  with Arial) where the system has none, as in browsers. Since #224 (2026-10-18) the window draws canvas items at its
+  own pixel size, so text is rasterised at the window's resolution (sharp at 2x/3x, in fill-window and below 800x600)
+  with the same logical size, line height and position; sprites, maps, UI art and WZ bitmap digits keep their
+  pixel-scaled look. Antialiasing is one constant, `MapleFonts.ANTIALIASED` (tier C; false by default, crisp hinted,
+  closest to v83; the owner chose crisp from the A/B screenshots, PR #235, 2026-10-19).
+- Stage region and continent (`stages.json`, #221) on the stage card, the results screen and at run start; the WZ map and street names are not shown.
 - Death: `Effect.wz/Tomb.img` tombstone falls on the character with `Game.img/Tombstone`.
 - Results: the login book's Back banner returns to character select; death/victory frees the ended character's slot.
 - Frame rate: vsync on and capped at the display's refresh rate (`Settings` `[display] max_fps`; 0 = refresh rate,
   -1 = uncapped); `--vsync=off` uncaps it for perf runs.
 
 ## 11. Constants and provenance
+
+| Constant / choice | Value | Tier | Source |
+|---|---|---|---|
+| Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
+| Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
+
+Drain (#213) additions:
+
+| Constant / choice | Value | Provenance |
+|---|---|---|
+| Drain canonical values | 30 ranks; damage102–160%, x16–45%, MP12/24 stepping at rank16, claw47, effect and lowercase use sound | A Skill.wz410.img/4101005 and Sound.wz |
+| Drain healing caps | each hit: at most character MaxHP/2 and target MaxHP | A v83 String.wz description; owner #167 |
+| Drain integer healing | truncate fractional HP after resolved damage, clamp to missing HP; launch rank applies | C integer interpretation and existing projectile/restore seams |
+| Drain cast | nearest, one star, range250px, cooldown1s, speed600px/s, radius8px, pierce0, shoot1 hold0.6s | C initial untuned Lucky Seven delivery convention; current ammo sprite via ammo_shot |
+| Drain cards | learn/rank weights4/3, exact410, power; pierce +1 ×3, weight2 | C owner #167 behavior budget and existing attack-card convention; A rank cap30 |
+
+| Bandit attacks (#214) | Values | Tier / source |
+|---|---|---|
+| Savage Blow | weapon33; ranks1-30, stepped damage40-80%, attackCount4/5/6, MP15/18/27, savage/action/effect/hit/sounds | A: Skill.wz/420.img/skill/4201005 and Sound.wz |
+| Steal | ranks1-30, damage42-100%, prop11-40%, MP12/24, swingO2/effect/Use, no weapon field | A: Skill.wz/420.img/skill/4201004 and Sound.wz |
+| Bandit auto-cast | Savage Blow weapon_reach, action hold1s; Steal range_around100px, hold0.6s; both cooldown1.2s, one base target | C: initial survivor choices, untuned |
+| Steal loot/lifecycle | stream15 once per damaging line until success, including lethal hits/bosses; one equipment roll on10 then meso fallback on9; preserve Stolen on relocation, reset on fresh spawn | C: owner #167 success/lifecycle, guaranteed-single-loot interpretation reuses ordinary content rules |
+| Bandit cards | exact job420, power, learn/rank weights4/3, target weight2, +1 target x3 | C: owner #167 target budget, existing card conventions/Potential |
+
+Disorder (#210) additions:
+
+| System | Values / rule | Tier and source |
+|---|---|---|
+| Disorder 4001002 | 20 levels; MP 5..10, signed PAD/WDEF x/y -1..-20, time 7..60 s; any weapon, mob art and Use sound | A: Skill.wz/400.img and Sound.wz/Skill.img/4001002; no canonical box/count/action/effect |
+| Disorder crowd | at least 3 eligible ordinary mobs; nearest 6 in (-250,-150)..(250,150); 1 s cooldown, alert2 held 0.8 s | C: survivor adaptation, matching low-rank Threaten's reach; untuned |
+| Disorder interrupt | cancel a recipient's pending pre-impact attack and stance, retain its existing next-attack wait; no stun, no undo of impacts or launched balls | C: our interpretation of v83 text "stunting the ongoing attacks"; Threaten remains unchanged |
+| Disorder presentation/cards | own mob animation once at recipient centre, shared Threatened cue while active; learn/rank weights 3/2, job400 only, no behavior cards | C: presentation and card choices; A: mob art and rank cap20 |
+
+Thief second job (#212) additions:
+
+| Constant / choice | Value | Provenance |
+|---|---|---|
+| Assassin / Bandit advancement | Lv30; +325 MaxHP / +175 MaxMP | A canonical level; B v83-facts section4 fixed midpoints |
+| Advancement weapons | Steel Guards1472008 / Reef Claw1332012 | C owner #167 selection, unconditional wear and existing Equip overflow; A item stats |
+| Branch passives / buffs | Table in7.24; Booster x=-2 scaled by -1 | A Skill.wz410/420 values; C family tags from descriptions where WZ omits weapon |
+| Branch buff casting | self auto-cast, 0.8s alert2 hold, Haste within existing caps | C existing Booster convention and owner self-only Haste |
+| Endure recovery lifecycle | skill clock starts at learning, retains elapsed seconds on rank change, resets per round | C fixed-tick timer lifecycle; A HP/MP/time, owner recovery anywhere |
+| Branch learn/rank cards | weight2, exact branch, weapon gated, caps20 (Critical Throw30) | C initial untuned weights/gates; A rank caps |
+
+Thief tracer (#207) additions:
+
+| Constant / choice | Value | Tier / source |
+|---|---|---|
+| First-job Thief | Lv10; +125 MaxHP / +37 MaxMP | C survivor level; B v83-facts section 4 midpoints, MP truncated |
+| Thief growth | 22 HP / 15 MP per level | B v83-facts section 4 midpoints; existing total rounding |
+| Thief AP | LUK primary, DEX target max(25, level) | C survivor policy; existing earned-AP redistribution, no new stat reset |
+| Thief equipment weights | PAD 10, LUK 6, DEX 3; other weights match Beginner | C initial selection, untuned |
+| Thief weapons | chosen 1472061/1332063 worn, opposite in Equip or overflow pickup; stars 2070015 | B Dark Lord gifts (v83-facts section 4); A item IDs/stats; C path/overflow presentation |
+| Thief RNG | stream 15, thief_rng, reserved for Steal success | C independent stream; existing streams unchanged |
+| Dark Sight values (#211) | 20 ranks; MP 24→5, duration 10→200 s, speed −30→0, any weapon, no failure, darksight action/effect/Use sound | A Skill.wz/400.img/skill/4001003 |
+| Dark Sight escape (#211) | casts below 30% HP with a mob within 250 px; ends above 60%; fixed 30 s cooldown from cast; action hold 0.6 s | C owner escape/cooldown rules; reach matches Oak Barrel; action hold ours, untuned |
+| Dark Sight cards and appearance (#211) | learn/rank weights 3/2, job 400 only, no carry; Hidden non-morph avatar opacity 0.5 (blink can dim further) | C survivor card/presentation choices; A rank cap 20 |
+| Thief attacks | Lucky Seven: 250px, 1s cooldown, 600px/s, radius8, pierce0; Double Stab: weapon reach, one target, 1.2s cooldown; both action0.6s | C initial untuned cast choices; A counts/costs/damage/action art; B LUK formula |
+| Thief cards | attack learn/rank 4/3, Nimble Body 2/2, behavior weight2/max3, +1 star/target; attacks carry to 410/420 | C initial untuned choices; A rank cap20 |
+| Thief roster | ordinary Lv10–70 Thief-bit gear; shields only for dagger; ordinary/dark ATT scrolls | C curated selection/filter; A IDs and WZ requirements/stats/rates |
+| Thief parity (#208) | Each attack: 13 steps / 5 lines, weight 2, all power cards, jobs [400], carry_jobs [410,420]. Lucky Seven: count +1 ×3, pierce +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, range ×1.2 ×2. Double Stab: targets +1 ×3, hits +1 ×2, damage ×1.2 ×3, cooldown ×0.88 ×3, reach ×1.2 ×2 | C owner step budgets; existing untuned card magnitudes and Potential scaling |
+| Skill-only melee reach (#208) | `area` scales both feet-relative swing-envelope axes and the bot reach; basic attack unchanged. `attack_count` adds damage lines per target, minimum 1 | C generic survivor card effects; A base attackCount retained |
+| Keen Eyes (#209) | 4000001; 8 ranks; +25/+50/+75/+100/+125/+150/+175/+200px | A Skill.wz/400.img range; C claw family tag follows the v83 description |
+| Generic range passive (#199, ported unchanged for #209) | `Loadout.RANGE`: additive pixels on ranged basics and weapon-gated ranged attacks; extends only the basic box's far horizontal edge | C shared consumer rule; no change to cached base boxes or unrelated ranges |
+| Keen Eyes cards (#209) | learn/rank weights 2/2; power false; exact jobs [400], no carry | C untuned, matching Nimble Body; A rank cap8 |
+
+
+Bowman (#166), QA #204:
+
+| Constant / choice | Value / rule | Tier | Source |
+|---|---|---|---|
+| Second-job Bowman fixtures | Hunter Lv30 / Crossbowman Lv31, Henesys seed1 bot, invulnerable, natural EXP, 600 s cap | C | `tools/character_fixture.gd --job=<310|320> --god --seconds=600 --label=spec166/ticket-204`; `_doc` and 4.2 |
+| Bowman flow staging (#226 amendment) | `Bowman204`, invulnerable EXP-drop climb through Lv10/30, chosen Bow/Crossbow only via injected input, held family matches the branch for its Bronze notice, diagnostic Free Market boundary | C | `flow_driver --scenario=bowman --branch=310|320`; ammo family swaps remain silent per #155 |
+| Weapon-page flow QA (#232) | Shared keyboard job selection, mouse family selection, Enter confirmation and exact equipment-delta check. `full`, `rounds`, `account`, `economy` probe Warrior/Sword; Warrior branches choose Axe/Blunt/Polearm. Rounds/account/economy invulnerable warps apply diagnostic boss hits after the stage timer; economy restores its historical fixture before the economy loop | C | #232 QA staging only; no survival/balance claim |
+
+Bowman (#166), equipment #201:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Drop roster | `equipment_drops/bowman.json`: regular bows 1452000-11, crossbows 1462000-9, and 202 reqJob-4 armour items, Lv10-70; no cash, restricted/event variants or shields | C (curated selection), A (ids, requirements, stats) | Original v83 Character.wz and String.wz; regular progression selected like the Pirate line |
+| Scroll roster and shops | Bow ATT 2044500/01/02/04/05; crossbow ATT 2044600/01/02/04/05, ordinary 100/60/10 and dark 70/30; slots `bow`/`crossbow` use the existing weapon price and rate NPCs | C (roster), A (ids, rates, effects) | Original v83 Item.wz/Consume/0204.img; no separate ACC family; strong 100%, event and item-specific variants excluded |
+
+Bowman (#166), Crossbowman #203:
+
+| Constant | Value | Tier | Source / reason |
+|---|---|---|---|
+| Advancement | Lv30, +325 HP / +175 MP | A level / B grants | canonical job tree; v83 +300..350 HP / +150..200 MP midpoints |
+| Advancement weapon | Mountain Crossbow 1462000 | C choice / A stats | owner #166, plain shop crossbow; Lv28, PAD44, STR28 / DEX80; ADR 0005 always grants/wears |
+| Skill caps / base counts | 20/30/20/20/30; PKB 2..6, Iron Arrow six contacts / one shot | A | Skill.wz 320; no extra base counts |
+| Power Knock-Back formula | (DEX*3.4+STR)*PAD/150, mastery0.1 | B | v83-facts section 5; shared `physical_formula` keys #202 |
+| Power Knock-Back behaviour | range_around, 120px push, 1s cooldown, 0.6s swingT1 | C | owner #166 rule / shared Hunter shape #202, untuned; range/prop from WZ |
+| Iron Arrow flight / cast | nearest, 300px, 600px/s, radius8px, 1s cooldown, 0.6s weapon hold | C | first-job arrow defaults, own WZ ball/effect/hit; untuned |
+| Iron Arrow fall-off | 0.1 per later contact, floor0.1; sixth50% | C | owner #166 default, generic #200; no canonical field |
+| Family tags / buff policy | crossbow only; Booster auto-recasts, 0.8s hold | C | String.wz restrictions on Mastery/Final Attack/Booster; WZ weapon46 on attacks (A) |
+| Cards | learn/rank4/3 attacks, 2/2 passive/buff; behaviours +1, max3, weight2 | C | exact job320, shared Potential rarities; no tuning |
+| Soul Arrow / sound omissions | no3201004 skill/cards; active Hit sound empty | C owner / A absence | endless ammo; Sound.wz contains only Use for3201002/3/5 |
+
+Bowman (#166), generic mechanics (#200):
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Skill knock-back distance | Per-skill `knockback.distance` in px; no shipped default in #200 (synthetic test: 120 px); follows the platform and clamps at walls/edges; airborne/flying mobs stay put, statuses stay | C | Survivor rule, owner #166; shared moving-attack slide |
+| Knock-back roll | One stream-1 roll per damaging line on a non-boss, even at 0/100%; canonical `chance_field` percent; canonical/scheduled bosses do not roll or move | A (canonical chance), C (stream, per-line rule, boss policy) | Skill.wz; #166 binding decisions |
+| Pierce fall-off schedule | Linear `max(floor, 1 - fraction * (n - 1))`; `balance.json/combat.pierce_floor` defaults to 0.1; 0.1 per mob means the sixth takes 50%; includes crit, rounded once | C | #166 binding decisions; WZ has no fall-off value; survivor data owns the floor |
+| Impact blast policy | First mob consumes shot; primary counts toward cap; box translated to primary feet, selected before hits; nearest body then slot; one `hit` animation at impact by default (`visual: "effect"` supported) | A (canonical box/cap/damage field), C (consumption, anchor/order/art choice) | Skill.wz; #200 |
+| Ranged Final Attack visual | Current ammo's art/speed/rotation, straight hand-to-target flight; no delayed damage, no RNG; ranged Spread uses at least the family's existing ranged reach | A (ammo art), C (presentation, Spread) | Current ammo data; #200 |
+
+Bowman (#166), Hunter #202:
+
+| Constant | Value | Tier | Source |
+|---|---|---|---|
+| Hunter advancement | canonical Lv 30; HP+325, MP+175 | A level, B grants | v83-facts 4 second-job midpoints |
+| Hunter weapon | Ryden 1452005, always worn; old weapon stored/overflow dropped | C selection, A stats | owner #166, Character.wz PAD 45/STR 35 / DEX 95 |
+| Hunter skill ranks and numbers | 20/30/20/20/30; mastery, ACC, costs, speed, durations, damage, chance, range, box/count | A | Skill.wz 310, tested at endpoints against private cache |
+| PKB formula | DEX3.4+STR; divisor 150; fixed mastery 0.1 (minimum has ordinary0.9 factor) | B | #202 pre-BB formula; optional divisor/mastery data keys retain default 100/live mastery |
+| PKB auto-cast / push | range_around, 1s cooldown, 0.6s swingT1, distance120px; stream1; bosses resist | C | untuned defaults; action selected from canonical afterimage, art itself A (1x1 frame) |
+| Arrow Bomb flight / stun | nearest, 1s cooldown/300px/600px per second/radius 8/no pierce/0.6s weapon action; impact_blast x/hit, on_hit prop/time | C scheduling/shape, A fields/art/sounds | first-job flight defaults; generic #200 blast and #187 stun |
+| Hunter passive/Booster presentation | bow-only tags, Final Attack 0.6 s weapon stance/current ammo, Booster auto-cast/recast 0.8 s alert2, scale -1 | C scheduling/tags, A Booster action/art | shared 7.6/7.7 consumers; never lethal HP cost |
+| Hunter cards | attacks power4/3, others2/2; +1 count/blast_targets max 3 weight 2 power; exact job 310 | C | untuned, shared rarity magnitudes; first-job carry preserved per binding notes |
+| Hunter Soul Arrow | 3101004 absent | C | owner #166: endless ammo makes it redundant |
+
+Bowman (#166), first job #199:
+
+| Constant / rule | Value | Tier | Source |
+|---|---|---|---|
+| Advancement / gifts | Lv 10; wear 1452051, spare 1462001; HP +125 / MP +37 | C level/spare, B bow and pool midpoints, A item stats | owner #166, v83-facts 4 |
+| Level growth | 22 HP / 15 MP | B | v83-facts 4 midpoints |
+| Automatic AP | DEX primary; STR level + 5 through Lv 30, 35 through Lv 34, 40 at Lv 35, then level + 5 through Lv 70 / 75 STR (held thereafter); `balance.player.ap_secondary.300`, inherited by 310/320 | C | equipment requirement policy; all 22 shipped bows/crossbows checked against canonical reqSTR/reqDEX; early allocation/QA fixtures retained |
+| Equipment weights | PAD 10, DEX 6, STR 3; PDD 1.5, MDD 1, ACC/EVA .3, HP/MP .03, speed .5, jump .3 | C | existing physical baseline with Bowman primary; untuned |
+| Skill levels and effects | 16/20/8/20/20/20; canonical costs, damage, prop, range, time, ACC/eva | A | Skill.wz/300.img, string Focus acc cast by SkillBook |
+| Eye range interpretation | Add canonical +15..120 px to ranged basic targeting/travel and family-gated attack-skill range; melee and Magician unchanged | C | owner #166 and binding NOTES |
+| Weapon gates | Critical Shot, Eye and attacks bow/crossbow; Blessing/Focus any | C tags, A no canonical restriction on Blessing/Focus | #199 skill table and String.wz descriptions |
+| Arrow targeting / movement | nearest; base range 300 px, speed 600 px/s, radius 8 px, cooldown 1 s, hold .6 s, pierce 0 | C | survivor placeholders; split Double Shot targets as Pirate, current ammo sprite |
+| Focus casting | automatic, recast on expiry, .8 s hold | C | existing buff rule |
+| Double Shot sound | reuse Arrow Blow Use; no Hit sound | C reuse, A node absence | Sound.wz/Skill.img lacks 3001005; 3001004 has only Use |
+| Cards | learn/rank attack weights 4/3, other 2/2; behaviour +1 shot, cap 3, weight 2; shared rarity gains | C | survivor placeholders, no tuning |
+| RNG | 14 reserved, unregistered; job choices on 8 | C | owner #166; no new random roll |
+| Soul Arrow omission | never add 3101004/3201004 | C | owner #166, endless ammo |
+
+Pirate tracer (#186) additions:
+
+| Constant / rule | Value | Tier / source |
+|---|---|---|
+| First-job level / grants | Lv10; +125 HP, +37 MP | C level override; B v83-facts §4 reward midpoints (MP truncated) |
+| Pirate growth | 25 HP / 20.5 MP per level | B v83-facts §4 midpoints; existing accumulated-total rounding |
+| Per-path AP | knuckle STR + DEX target level; gun DEX + STR target level | C owner choice; `ap_stat` / `ap_secondary` keys `500:knuckle`, `500:gun`; nearer branch wins |
+| Pirate weapon gifts (#226 amendment) | only chosen 1482000/1492000 worn; displaced equipment to Equip or feet | B v83-facts section 4 Kyrin item choices; C chosen-only rule |
+| First-job skill values | 20 levels, original costs / damage / counts / boxes / range / ACC / avoid | A Skill.wz 500.img; canonical `bulletCount`/`range` fallback |
+| Flash Fist / kick weapon overrides | knuckle / any | C owner choice |
+| Kick surrounding box | ±canonical far edge, original vertical bounds | C `cast.around`, owner surrounding-kick behavior |
+| Attack timing | fist 0.9 s, kick 1.6 s, shot 1 s cooldown; each 0.6 s action hold | C initial untuned survivor values |
+| Double Shot flight | 600 px/s, radius 8 px, base pierce 0 | C initial untuned survivor values |
+| Pirate cards | attack learn/rank weight 4/3; Bullet Time 2/2; behavior weight 2, +1 target/pierce, max 3 steps | C initial untuned choices; A rank cap 20 |
+| Pirate drop / scroll rosters | regular Lv10–70 knuckles/guns; ordinary and dark scrolls | C curated selection; A item ids, requirements, rates and stats |
+| Pirate RNG | stream 16, `pirate_rng`; 13 Threaten (unused without prop), 14 reserved, 15 Thief | C independent owner; drawn by Oak Barrel's failure roll (#194, `buff.fail_field`); a future non-Pirate failure chance needs its own stream |
+| Brawler / Gunslinger advancement (#189) | the canonical Lv 30; +325 Max HP and +175 Max MP (`jobs.json` `grants`); Pirate growth unchanged | B v83-facts §4 midpoints (+300-350, +150-200); C level (canonical stays) |
+| Backspin Blow (#191, 7.19) | Skill.wz damage 88-240%, mpCon 12-30, mobCount 3, stun time 1 s, box 140 px / 50 px high; no `prop` so every landed hit stuns; knuckle only; `cast.around` (both sides), cooldown 1.5 s, action hold 0.8 s; slides 100 px away from the nearest struck mob after the hits | A tables / C weapon, around, cooldown, hold, distance | Skill.wz 510.img 5101002; owner (#168): moves away from the faced mob and stops at edges and walls |
+| Double Uppercut (#191, 7.19) | Skill.wz damage 100-290%, attackCount 2, mpCon 15-30, stun time 1 s, no prop (every landed line stuns, longer time kept); knuckle only; `weapon_reach` rule (one mob in the knuckle's envelope), cooldown 1.2 s, action hold 1.0 s | A tables / C weapon, rule, cooldown, hold | Skill.wz 510.img 5101003 (no box or mobCount: Power Strike's rule, 7.8) |
+| Corkscrew Blow (#191, 7.19) | Skill.wz damage 135-420%, mpCon 20-36, mobCount 3, reach 100-200 px = charge distance (`distances` copy of -lt.x); full charge at once, no wind-up; knuckle only; cooldown 2.0 s, action hold 0.8 s; the swept hit box ends at the wall that stops the charge (nothing past it is struck) | A tables, reach / C weapon, no wind-up, cooldown, hold | Skill.wz 510.img 5101004; owner (#168): charges its full distance toward the faced mob |
+| Brawler attack cards (#191) | learn 4, rank 3 (20 ranks), +1 target weight 2 (max 3 steps); power cards, exact branch 510 | C | same shape as the Flash Fist cards (7.14) |
+| Pirate advancement weapons | Brawler Prime Hands 1482004 (PAD 34), Gunslinger Cold Mind 1492004 (PAD 31), one `paths` entry each; always worn | C owner choice (ADR 0005 as amended); A item stats |
+| Branch AP rows | plain `510` / `520` rows in `ap_stat` / `ap_secondary` copy `500:knuckle` / `500:gun` (secondary target = level) | C owner choice; the branch row wins over the recorded path |
+| Second-job passives and boosters | Improve MaxHP x +3..+30 per level-up; Masteries N and x ACC; Boosters x -2 (`scale` -1), time, hpCon and mpCon, all per level | A Skill.wz 510/520; B mastery encoding and Max HP per level-up (7.6); C weapon-family tags |
+| Gun Mastery recharge | `y` unused, text omits it | C: ammo is endless |
+| Second-job cards | learn/rank weights 2/2, not power, exact branch job; first-job cards `requires.jobs` [500] + `carry_jobs` [510, 520] | C initial untuned choices |
+| Path bot equipment (#226 amendment) | auto-equip upgrades only the recorded weapon family (shared drop families allowed), including after swaps or destruction; a candidate must still improve the worn score | C owner rule: bot loyalty follows the recorded path; no RNG |
+| Gunslinger attack numbers (#192, 7.20) | costs, damage %, mob counts, boxes, stun prop/time, recoil range per level 1-20 | A Skill.wz 520.img (WZ over String text) |
+| Gunslinger attack weapons | Invisible Shot, Blank Shot, Recoil Shot: gun; Grenade: any | A WZ weapon 49 for the three; C Grenade (owner) |
+| Invisible Shot both sides | `cast.around` mirrors the box's far edge (250 px) across the player; no bullet drawn | C owner behaviour |
+| Gunslinger timing | cooldowns Invisible 1 s, Blank 1.4 s, Grenade 2 s, Recoil 1.8 s; each 0.6 s action hold; Invisible Shot plays the WZ Hit sound as its cast sound | C initial untuned survivor values |
+| Grenade throw (`cluster`) | thrown with no wind-up; range 400 px; ball 600 px/s, flight at least 0.1 s; blast on arrival at the target's feet; target = the first of the 12 nearest mobs in range (bosses first) with the largest blast, a scheduled boss outright | C owner (no wind-up, nearest cluster) + ours (range, speed, candidates) |
+| Minimum grenade flight | `SkillRunner.MIN_FLIGHT` 0.1 s: the shortest time a thrown grenade is in the air, so a point-blank throw still shows the ball before the blast | C ours (#192) |
+| Stun tint | `MobRenderer.STUN_TINT` (1.0, 0.95, 0.55), a pale yellow modulate on a stunned mob when the cached stun stars (`Skill.wz/111.img/skill/1111008/mob`) are absent; presentation only | C ours (#187) |
+| Grenade arc | presentation only: 40 px mid-flight arc, ball art loops | C ours |
+| Recoil Shot shot | current ammo bullet sprite, 1000 px/s, radius 6, rotating, reach 300 px, no base pierce | C ours; A ammo ids (6.1.2) |
+| Recoil Shot hop | the canonical `range` 115 to 250 px away from the faced mob after the shot; edge/wall stops and no air hop per 7.13 | A distance; C owner rule |
+| Gunslinger attack cards | learn weight 4, rank weight 3 (max 20), hit-more weight 2 (+1 target or pierce, 3 steps); power cards, job 520 exactly | C initial untuned choices |
+
+| Physical combat rule (#153) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Weapon formulas | `WeaponInfo.PHYSICAL`, Thief dagger row; multipliers and stats in 6.1.1 | B | SouthPerry/HS.net pre-Big-Bang compilation; Cosmic WeaponType corroborates max bounds; refs `class-specs/v83-facts.md` §5 |
+| Wand/staff and bare formula | Retain 4.4 swing / 3.2 stab, STR/DEX, equipment-only PAD for bare hands | C | Existing game behavior; no verified wand/staff physical row in §5 |
+| Physical mastery | Default 0.10; canonical N → (10+5N)% | B | SouthPerry compilation, WZ mastery/String corroboration |
+| Physical defence | Level factor 1−0.01×positive level gap, max−0.5PDD/min−0.6PDD, each at least 1 | B | AGF/Stereo formula, refs §5; existing basic-attack rule |
+| Lucky Seven override | LUK×5 max / LUK×2.5 min, no secondary/mastery | B | SouthPerry compilation; WZ String says independent of Claw Mastery |
+| Job base accuracy | `CombatMath.ACCURACY_FACTORS`: DEX/LUK .8/.5, .6/.3, Brawler .9/.3, nearest ancestor | B | SouthPerry/HS.net, refs §5 |
+| Accuracy → crit | Base 0, +0.0005 per ACC, default ×1.5; all jobs and damage types including basic | C | Owner spec #151 / ADR 0005; small placeholder, no tuning |
+| Passive crit damage | Add `crit_damage_bonus` skill-% points when positive, otherwise ×`crit_mult` | B | SouthPerry Critical Shot/Throw additive rule |
+
+| Weapon family rule (#154, #156, #158) | Value / behavior | Tier | Source |
+|---|---|---|---|
+| Family display names | `WeaponInfo.FAMILY_LABELS`: Sword, Axe, Blunt weapon, Dagger, Wand, Staff, Spear, Pole Arm, Bow, Crossbow, Claw, Knuckle, Gun; "Bare hands" for none. The Skill window and its tooltip name the weapon a skill needs with them | C | ours; the wording follows the v83 item names |
+| Two-handed weapons | `WeaponInfo.FIRST_TWO_HANDED_TYPE` 140: every weapon type from 140 (two-handed swords, axes, blunt weapons, spears, polearms, bows, crossbows, claws, knuckles, guns) blocks the shield slot | B | Cosmic `isTwoHanded` (server reimplementation; facts only) |
+| Basic-attack stance table | `WeaponInfo.ACTIONS_ONE_HANDED`, `ACTIONS_TWO_HANDED` and `BASIC_ACTIONS` (the table under "Weapons on the avatar"): every listed stance exists in the type's representative weapon item, the body and (melee) the afterimage; which of them a family uses for the automatic attack, and their order (the basic-attack stream indexes it), is our choice | A (the stances exist), C (the selection and order), B (the five one-handed stances) | `Character.wz/Weapon` and `Afterimage`; ours; pre-Big-Bang client descriptions |
 
 | Free Market rule | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -3240,16 +5423,31 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Equipment rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Equip slots | Item category: Cap 100 hat, Coat 104 top, Longcoat 105 overall, Pants 106 bottom, Shoes 107, Glove 108, Shield 109, Weapon 130-169; an overall fills top and bottom (`Equipment.CATEGORY_SLOTS`) | A | v83 Character.wz folders |
+| Shield and two-handed weapons | Weapon types from 140 block the shield slot; wearing either moves the other to the Equip tab (`Equipment.displaced_slots`, `WeaponInfo.FIRST_TWO_HANDED_TYPE`) | B | Cosmic `isTwoHanded` |
+| Shield swap refusal message | "You can't get anymore items." when the Equip tab cannot hold what moves (`InventoryWindow.MESSAGES.equip_full`) | B | Cosmic `InventoryManipulator.equip` (overall, shield and two-handed cases) sends the inventory-full status 0xff, the pickup notice's string; it also applies to an overall over a top and bottom |
+| Equip window SHIELD cell | (137, 134) on the 175x304 `backgrnd`, right of WEAPON (`EquipWindow.SLOT_POS`); tooltip category art `ToolTip/Equip/ItemCategory/10` (SHIELD) | C / A | measured on the v83 art / v83 UI.wz |
 | Fresh instance | Every non-zero `info/inc*` value; upgrade slots `info/tuc` | A | v83 Character.wz |
 | `reqJob` bits | 0 all jobs, 1 Warrior, 2 Magician, 4 Bowman, 8 Thief, 16 Pirate (`Equipment.JOB_BITS`) | A | v83 Character.wz |
 | Speed / jump caps | 140 / 123 (`Equipment.SPEED_CAP`, `JUMP_CAP`), after equipment, cards and buffs; the area slow applies after the cap | B | v83 client/server movement limits (emulator RE) |
 | Default outfit | 1040002, 1060002, 1072001, 1302000: the first MakeCharInfo CharMale options (`Equipment.DEFAULT_OUTFIT`) | A | v83 Etc.wz/MakeCharInfo.img |
 | Equip tab | 24 slots (`balance.player.inventory_slots`) | A | v83 new character |
-| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full the grant is skipped (the character keeps its weapon, a `grant_blocked` event shows the full-inventory HUD notice) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage |
-| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive | C | Ours |
+| Magician weapon grant | Advancing to 200 wears the Wooden Wand 1372005; the previous weapon moves to the inventory; when the inventory is full it is dropped at the player's feet as a normal pickup (#157; it was a skipped grant with a `grant_blocked` notice before) and nothing is ever destroyed (`balance.player.weapon_grants`; review fix of #33) | C | Owner #33 triage; #157 |
+| Weapon path grants (#226 amendment) | Only the chosen family item is worn without requirements; paths exist at multi-family first and second jobs. >=2 paths records `weapon_path`, 0/1 preserves it | B (instructor item choices), C (selection, data shape, defaults) | Owner spec #226; jobs.json |
+| Branch weapon grant (#226 amendment) | One chosen item, from `paths`; tier-2 page order puts held family first. Single-family grants stay worn; displaced equipment goes to Equip or feet | C | Owner spec #226; ADR 0005 |
+| Warrior advancement weapons | Fighter 110: Gladius 1302008 (sword), Fireman's Axe 1312005 (axe); Page 120: Gladius, War Hammer 1322014 (blunt); Spearman 130: Forked Spear 1432002 (spear), Mithril Pole Arm 1442001 (polearm); plain Lv 30 weapons, stat needs STR 95-100 (#180) | C | Ours |
+| Warrior second-job advancement | Fighter, Page and Spearman at the canonical Lv 30, +325 Max HP (`jobs.json` `grants.max_hp`), growth 26 HP / 5 MP per level unchanged (#180) | B (HP midpoint of +300-350), A (Lv 30) | Cosmic changeJob, v83-facts 4 |
+| Power Strike / Slash Blast after second job | Their ten cards list `requires.carry_jobs` [110, 120, 130]: eligible, still `power`, never in the advancement draw; Iron Body and the HP passives stop at Lv 30 (#180) | C | Owner decision, spec #165 |
+| Equipment max HP/MP | Flat, added after card modifiers and the MaxMP passive (an active Hyper Body then scales the whole total, 7.12) | C | Ours |
 | Bare hands | Punch with the five one-handed actions, attack speed 6, reach box (-55,-55) 50x50, impact on the action's last frame, no afterimage; W.ATT from other worn items only (minimum damage 1) (`BasicAttack.BARE_HANDS`) | C (A: `Sound.wz/Weapon.img/barehands`) | Ours |
-| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else 1302000 / 1372005 by job line (`CharacterSnapshot.FORMAT1_WEAPONS`) | C | Frozen spec #32 rule |
+| Format-1 weapon rule | Migration only: Beginner `beginner_weapon`, else the job line's `format1_weapon` from `data/survivor/jobs.json` (1302000 for the Beginner, 1372005 for the Magician line; nearest ancestor via `JobTree.lineage_value`) | C | Frozen spec #32 rule |
+| Regen passive field | A skill with `"regen": {"pool": "hp" or "mp", "divisor": n}` adds `floor(character level x skill level / n)` to each regeneration pulse of that pool (`Loadout.regen_bonus`); Improved MP Recovery is `{"pool": "mp", "divisor": 10}`, Improved HP Recovery will be data only | B | Pre-Big-Bang Improved MP / HP Recovery rule (formula compilations, refs/research/v83-mechanics); the field shape is ours |
+| Job `grants.max_hp` | Advancing adds it to base Max HP (`_base_hp`, saved as the snapshot's `base_hp`, so no format change) alongside `grants.max_mp` (`_job_mp`); data rows only for playable jobs | C | Ours; Warrior rows come with #163 |
+| Rage (#182) | W.Att +`pad` 3-12, weapon defence +`pdd` -3 to -12 (negative in the WZ, no `scale`), 46-160 s, `mpCon` 12/20; self only; auto-cast, recast on expiry, any weapon | A (values); C (self only, auto-cast) | Skill.wz/110.img/skill/1101006 |
+| Power Guard values (#182) | reflect `x` 11-40 %, `time` 3-90 s, `mpCon` 15/30; the Page node is the same table | A | Skill.wz/110.img 1101007, 120.img 1201007 |
+| Power Guard rule (#182) | contact damage only, half the rate against a boss, capped at 10 % of the monster's Max HP, the same amount subtracted from the damage taken | B | third-party v83 server reimplementation; the cap is only in the String desc (no WZ field) |
+| Power Guard details (#182) | amounts floored (a cap that floors to 0 reflects nothing and does not reduce the hit); applied after Invincible and before Magic Guard's split; boss = canonical boss kind or scheduled slot; the reflect is the character's own damage (damage number, a kill gives EXP and drops, `damage_dealt`), never a crit, no Final Attack or on-hit status; ignores physical immunity; one reflect per hit window; no RNG | C | ours |
+| Rage / Power Guard cards and bot (#182) | `rage_*`, `power_guard_fighter_*`, `power_guard_page_*` learn/rank cards, not power, weights 3/2; `bot.card_scores` `rage_new` 100, `rage_rank` 74 (attack-like), Power Guard unscored (defensive-buff default) | C | ours, untuned |
 
 | Meso rule (spec #33, #107) | Value / behavior | Tier | Source |
 |---|---|---|---|
@@ -3268,7 +5466,9 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 
 | Equipment drop rule (spec #33, #109) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Eligible list | `survivor/equipment_drops.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
+| Eligible list | `survivor/equipment_drops/<line>.json` `items`, ids only (reqLevel, reqJob, stats stay in the Character.wz info of the asset cache): v83 caps, coats, longcoats, pants, shoes, gloves, wands (137xxxx) and staves (138xxxx), not cash, reqLevel 0-70, reqJob 0 or a Magician bit, that a regular v83 server gave out: dropped by an ordinary mob (id 100000-7999999) or sold by a regular NPC shop (shop id below 9000000, not 1337). That keeps quest, event, GM and boss-only items out | B | Cosmic `drop_data` and `shopitems` rows used as facts; reqLevel/reqJob/cash read from v83 Character.wz (A) |
+| Warrior list (#159) | `equipment_drops/warrior.json`: the same selection for the sword (130xxxx, 140xxxx), axe (131, 141), blunt (132, 142), spear (143) and polearm (144) weapons and the shields (109xxxx) whose reqJob has the Warrior bit (88 weapons, 17 shields; some weapons are shared with Thieves and Bowmen). reqJob 0 weapons and shields are left out on purpose: a Beginner and a Magician would otherwise draw them, and their drops stay as they were | B (selection rule), C (the reqJob 0 exclusion) | Cosmic `drop_data` / `shopitems`; v83 Character.wz |
+| Weapon family rule (#159) | A weapon is eligible only when its family (`WeaponInfo.family`) is the family of the weapon held when the drop rolls (`RunWorld.held_weapon_family`, read per drop, ordinary and boss): one- and two-handed swords, axes and blunt weapons share a family; bare hands get no weapon; armour and shields do not depend on the held weapon (`EquipmentDrops.family_allows`). `equipment_drops.shared_families` `[["wand", "staff"]]` lets a Magician holding either see both, so Magician drops stay as before; a Beginner holding the creation sword no longer sees the reqJob 0 wands | C (ours; the ticket's rule, with the wand/staff group) | Ticket #159 |
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
 | Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
 | Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
@@ -3278,10 +5478,11 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
 | Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
 | Notices | "You have gained an item (Name)" on pickup (name from String.wz/Eqp.img) and "You can't get anymore items." when a full tab refuses a drop, in the system-message queue | B | v83 client string pool (open client reimplementations) |
+| Auto-equip rule (#222; `Equipment.auto_wear_error`, `RunWorld._step_pickups`) | A collected equipment drop is worn at once when wearing it displaces nothing (its slot is empty; no overall beside a top or bottom, no top or bottom beside an overall, no shield beside a two-handed weapon) and the character passes `Equipment.requirement_error` (level, job, total STR/DEX/INT/LUK incl. equipment), through the same `Equipment.equip` as the Item window. The world emits `equipment_changed` "pickup" and then "auto_equip" (slot, item), the stats refresh and the HUD shows "Equipped <name>". Otherwise it stays in the Equip tab. A weapon qualifies only for an empty weapon slot (never past Lv10); cash equipment is out of scope. Runs in the sim, so bots and headless runs get it; `BotShop.auto_equip` keeps its upgrade logic for occupied slots. No RNG | C | Owner brief (playtest 3 grilling, 2026-10-18); the "Equipped <name>" wording is ours |
 
 | Bot shopping rule (spec #33, #112; `BotShop`, bots only, never the player) | Value / behavior | Tier | Source |
 |---|---|---|---|
-| Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job branch `job_id / 100`, else `default`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; default (Beginner): W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
+| Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job id, `"0"` Beginner and `"200"` Magician; a job uses its nearest ancestor's entry through `JobTree.lineage`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; Beginner: W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
 | Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the v83 requirements and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
 | Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP, potion and meso drops are unchanged | C | Follow-up of #109 (lead) |
 | Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item that only fails the level requirement); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
@@ -3292,11 +5493,11 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Review-fix rule (spec #33) | Value / behavior | Tier | Source |
 |---|---|---|---|
 | Discard / sell confirmation | The non-modal YesNo box remembers the exact instance it asked about and acts only when the same Equip-tab index still holds an equal instance (id, stats, slots, scrolls); a swapped-in copy of the same id is neither destroyed nor sold | C | Review of #108 / #111 |
-| Weapon grant with a full tab | If the previous weapon has no room in the Equip tab the Magician wand grant is skipped (the character keeps its weapon, `grant_blocked` shows "You can't get anymore items."); nothing is ever destroyed | C | Lead decision, review |
+| Weapon grant with a full tab | If the previous weapon has no room in the Equip tab it is dropped at the player's feet as a normal equipment pickup (`pickup_blocked` shows "You can't get anymore items." until a slot frees); the grant itself always happens and nothing is ever destroyed (#157; before it the Magician wand grant was skipped) | C | Lead decision, review; #157 |
 | Numeric-string scroll info | `DataRepo.scroll_info` casts numeric strings (hat Accuracy 10% 2040016 stores `success` as `"10"`) | A (WZ data), C (cast) | v83 Item.wz/Consume/0204.img |
 | Hub scroll seed | The Free Market's scroll rolls are seeded by `FreeMarket.scroll_seed(snapshot)`: the saved run seed `round_seed` x 1000003 plus a hash of the character's equipment, scrolls and mesos, re-applied after every change; the same save always rolls the same, every scroll changes the next seed, quitting cannot reroll. `bot_shop(policy, seed)` rolls its scrolls from its own stream `hash("scrolls-shop-hub-<seed>")` | C | Lead decision, review |
 | Autoplay in the hub | With the `autoplay` option the Free Market runs `bot_shop("bot", round_seed)` once on entry | C | Ticket #112 text |
-| Player accuracy | Worn `incACC` (plus Bless) is stored in `player_state.acc` and shown in the Stat window only: the player's attacks never roll a hit chance in this game (no v83 player-hit roll is modelled), so accuracy has no combat effect | C | Lead decision, review of #105 |
+| Player accuracy | The job base (above) plus worn `incACC`, active buff `acc` and passive ACC is stored in `player_state.acc`, shown in the Stat window, and feeds the crit chance (row "Accuracy → crit"). The player's attacks never roll a hit chance (no v83 player-hit roll is modelled), so accuracy has no other combat effect | C | Lead decision, review of #105; owner spec #151 |
 
 The 4-12 ASCII letters/digits and living-name uniqueness rule is tier C, owner #32; matching is case-insensitive.
 Character select (#70 rework) keeps the v83 MapLogin character-select area and signboard. It has three
@@ -3312,16 +5513,15 @@ Basic/YesNo3 notice family and requires confirmation before calling SceneFlow.de
 |---|---|---|
 | Login book, signboard, option-row labels, character/empty art, nameTag pieces, details cells, animation origins/delays | A | Original v83 Login.img, MapLogin.img and Map.wz/Obj/login.img; runtime lookups, no exported art committed |
 | Character-select camera / signboard | C | Camera (28,-1208), signboard anchor (625,250), canvas TL(559,131), matched to v0.83 charselect_1.png in private spec32/v83-login-refs/wz-layout-notes.md; no stored WZ camera table |
-| Title camera | C | (28,-11), matched to localized v0.62 title_1.png forest/mushrooms, mean channel error 0.004 over the comparison patch. Screenshot placement inference, not a WZ camera value |
 | Explorer creation camera | C | (37,-3007), matched to period 2009 newchar_1.png mushroom cap/branch; compressed/rescaled capture, approximate |
 | NewChar layout | C | Matched to period newchar_1.png: settings(470,95), rows(481,198), pitch19, arrows539/667, OK(508,425), Cancel(582,425), roughly +/-2px. Name canvas(480,95), input(510,198,140,24), OK/Cancel(508,273)/(582,273), matched to newchar_name_1.png +/-2-3px. Preview feet(398,335) eyeballed; option value box x556,width109 authored. Sources: private v83-login-refs/layout.md and wz-layout-notes.md |
 | Selection stance / tags | C | walk1/stand1 selection integration and tags starting at feet y370 matched to charselect_1.png; width58 minimum / padding18 are reimplementation choices |
 | Roster / action anchors | C | Adventure lamps at(252,370)/(377,370)/(502,370), shared by characters, shadows and tags; Create(576,185), Delete(576,234), Select(576,149), matched to charselect_1.png (Select wording differs) |
 | Selected details / light | C (placement/policy), A (canvas/origin) | Scroll follows feet+(-108,-235), label inset(17,20), value cells and unavailable ranking matched to period charselect_2.png. Light/sparkle anchor feet-(0,337) uses WZ beam height but unverified effect registration. Fame0 and unavailable online ranking are offline policy |
 | Page arrows / left navigation | C (placement/copy), A (art) | pageL(155,330), pageR(604,331), Back(0,425), history(0,375), Step(0,33) and Tab hint(270,40,220,40) matched to charselect_1.png. Back has zero sampled channel error; that remains screenshot inference. Select step Common/step/2 and creation /3 identities are verified in WZ. ViewAllChar/BtVAC frame/arrow are original art; patch vertices(10,17)/(102,8)/(104,30)/(12,39), label(12,19), angle-0.10,width88, colours, hint copy and pale-blue alpha0.8/4px corners are authored |
-| Creation flow / gender placement | C | Gender -> name OK validation -> appearance; name Cancel returns to gender, appearance Cancel to name. Centered Gender parchment(219,174), text(245,198), native dropdown over baked field(378,270,48,19), OK/Cancel(355,346)/(430,346). WZ text field is at local(133,72); no trustworthy period gender capture, so absolute placement and native OptionButton interaction remain C. Appearance Gender row still changes it; AP automatic, Beginner only |
+| Creation flow / gender placement | C | Name -> name OK validation -> appearance; name Cancel closes creation back to character select, appearance Cancel returns to name (spec #218, 2026-10-18: the separate Gender step and its Login.img Gender/* art are no longer drawn; creation opens on Name). Gender is chosen only on the appearance Gender row and defaults to Male; changing it resets the other looks. AP automatic, Beginner only. The earlier Gender parchment layout (219,174)/(245,198)/(355,346)/(430,346) with a native dropdown over the baked field was tier C and is retired |
 | Creation advisory / weapon / feedback | C | Advisory rectangle(120,160,195,200) matched to period newchar_1.png; offline facts, 8px padding and pale-blue alpha0.8 plate are authored. Weapon strip(120,380,195,45), feedback(475,365,215,45) avoid preview/settings/buttons |
-| Offline title controls | C | Start TL(590,243) substitutes for Login at the right of the top plank; Re-import uses the middle plank (sign-local center183,106), Quit TL(590,354) the right of the lower plank. Sign-local centers315,44 and307,159; account ink covered with original wood. title_1.png/title_2.png establish composition, no dated GMS v83 title capture proves these offline substitutions |
+| Title screen | C | Ours, replacing the v83 login title: the Maple Survivors key art (`game/assets/branding/title.png`, 1672x941, logo baked in; also the boot splash) scaled to cover the view and resized with Lanczos to its on-screen size (`KeyArt`); BGM BgmUI/Title kept. `TitleButton`s drawn from code in the art's palette (gold bevel, red PRIMARY / dark stone SECONDARY fill, bold cream label 17/13 px): Start 168x34 at 8 px under the logo's tip (art y 785), then one row of 24 px buttons 8 px lower, 6 px apart, centred; both rows move up to stay 10 px above the view's bottom |
 | Map-select roster names (#90, #32r) | C | 2px inner gutter per 58px cell, two lines; wrap only at spaces, ellipsize words wider than the cell. Survivor-only screen, no canonical stats/name changes |
 | Results skill grid (#32r) | C | 232px column above a 6px gap before NEW BEST; up to eight skills retain 58px named cells, larger loadouts use at least six columns and compact icons/ranks, scaling to the available 150px height |
 | Terminal death history (#32r) | C | Death requires no outgoing CharacterSnapshot; RunScene supplies none, so history retains the last saved boundary character's level/job. Results and the best-score record retain actual round-end summary stats; the slot is freed regardless of pending rewards/jobs/cards |
@@ -3412,17 +5612,24 @@ items) reaches a round as the setup key `account`, never inside the character.
 |---|---|---|---|
 | Teleport costs, range, effect and sound | canonical `mpCon`/`range` at owned rank; BasicEff/Teleport four 80 ms frames; branch Skill Use sound | A | local v83 cache and `docs/research/wz-inventory.md` section 7 |
 | Teleport repeat and destination policy | 0.3 s between successful blinks; vertical input wins diagonals, opposite directions cancel to facing; horizontal chooses furthest supported point, snaps at most one canonical range vertically, closest height breaks ties; stops EPS (0.01 px) before walls; landing resets velocity | C | ours; `skills.json.teleport`, FootholdMap and RunWorld |
+| Moving attacks (#190, 7.13) | A skill's `displacement` block (`direction` away/toward the faced mob, `when` before/after/during, `field`/`distances`/`distance` in horizontal px) moves the grounded character along its platform: instant placement, stops at the platform edge, 0.01 px (`FootholdMap.EPS`) short of a wall, inside the map limits; the cast never fails for terrain; no move while airborne; `during` (a charge) strikes up to `mob_count` bosses-first/nearest mobs in the swept attack box (start to end; the body box without a skill box); `before`/`after` keep the targets admitted at the start; the character turns to the mob first; `cast` event `pos` is the pre-move position | C | owner decisions (#168 grilling) + ours; `FootholdMap.slide_along`, `PlayerMotion.displace`, `SkillRunner._resolve_cast` |
+| MP Recovery numbers (#193, 7.16) | pays `x` = 10% of MaxHP, returns `y` = 55 → 100% of it as MP (5% per rank), cooldown `cooltime` 70 → 25 s (5 s per rank), 10 ranks, no MP cost, no weapon requirement, action `recovery` and its effect | A | Skill.wz 510.img skill 5101005; Sound.wz/Skill.img/5101005 |
+| MP Recovery auto-cast condition (#193, 7.16) | casts only while MP < 30% of MaxMP (`cast.mp_below` 0.30) and HP >= 75% of MaxHP before paying (`cast.hp_at_least` 0.75, about 65% after); no monster needed; never leaves 0 HP | C | owner decisions (#168 grilling); both thresholds in `skills/pirate.json` |
+| MP Recovery rounding and timing (#193, 7.16) | HP paid = max(1, round(MaxHP x 10%)); MP gained = floor(paid x y%), clamped to MaxMP; 0.6 s action hold; cards `mp_recovery_new`/`_rank` weight 2/2, `power` false, Brawler (510) only | C | ours; untuned |
 | Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD: the shared blue waiting-for-MP tint (#82; was 0.35 grey); 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
 | HUD skill cooldown sweep and MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82); HudSkills (SWEEP_STEPS), RunWorld.skill_readiness / read_skill_cooldowns |
-| Bot Teleport MP reserve | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.TELEPORT_MP_RESERVE_FRACTION` / `TELEPORT_ATTACK_RESERVE_CASTS` |
+| Bot manual-skill MP reserve (Teleport, Dash) | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.MANUAL_SKILL_MP_RESERVE_FRACTION` / `MANUAL_SKILL_ATTACK_RESERVE_CASTS` |
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
+| Skill keys (#188) | a manual skill's `skill_key` is its input action; Key Config lists only learned ones after the fixed actions; Teleport and Dash both default to X (a character never learns both); the three Teleports share `teleport`, so a saved `teleport` binding is Teleport's skill key; a press that cannot pay (MP) does nothing | C | ours (owner); `KeyBindings.SKILL_KEYS`, `RunWorld.manual_skill_keys`, `project.godot` |
+| Dash (#188) | canonical mpCon 14-5, speed x 12-30, jump y 1-10, time 4-20 s over ranks 1-10 (tier A); manual on its skill key instead of the v83 double-tap, any weapon, no cast hold, no cooldown beyond the running buff, speed and jump under the existing 140 / 123 caps, card weights 2/2 | A (numbers), C (manual key, no hold, weights) | Skill.wz 500.img 5001005; owner decision on #168; `skills/pirate.json`, `upgrades/pirate.json` |
+| Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable, affordable and the Teleport MP reserve | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
 | Potion stock, drop chances and bot drinking | start 5 Red/0 Blue; normal HP .012 fallback (stage curve in §5)/MP .03 flat, no per-map values (owner, 2026-10-16, #80; was .10), elite HP .15/MP .60; the bot drinks only when the missing amount is at least half of one current potion's restore; persistent drops, unlimited stock, no drink cooldown | C | ours; balance.potions |
 | Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Ordinary MP supply | 3% flat on every stage, no per-map values; the #30 stage MP curve and its reader are removed; elite rolls and boss bundles unchanged | C | owner, 2026-10-16, 3% flat, no per-map values; balance.potions.drops.normal.mp; #80 |
-| Potion quickslot geometry | two slots, 104 px apart within the 221 × 59 area | C | ours; HudPotionQuickslot |
+| Quick slot cell geometry (#220) | white cell interiors 27 × 25 at (10, 9) of the 151 × 80 `base/quickSlot` canvas, pitch (35, 34); 32 px icon box at (7, 6); 9 px key caption at the cell's top-left, potion stock at its bottom-left | C (measured on the art) | ours; HudQuickSlot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
 | Vertical air drag | none (apex 555²/4000 = 77 px) | C | ours; NoLifeStory's 100 px/s² vertical float drag would give ~73 px |
@@ -3451,9 +5658,15 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Mob poison cadence | 1 s; first after 1 s, final pulse at expiry when due | B v95 display / C sim boundary policy | native-derived v95 CMob::Update; Cosmic schedules 1 s; [status research](research/monster-status-effects.md) |
 | Mob Freeze behavior | no walking, facing changes, attacks, skills, stun/push or animation advance; lethal hits still die; an airborne monster still falls straight down and a fading-in one keeps fading in | B v95 extrapolation / C animation-hit integration and owner fall/fade choice | native-derived IsImmovable, TryDoingSkill, DoAttack; [status research](research/monster-status-effects.md) |
 | Frozen touch damage | a frozen monster deals no touch damage (MobSwarm.can_act gates touch) | C | owner decision; no native v83 contact gate verified either way; [status research](research/monster-status-effects.md) |
-| Boss status immunity | scheduled steady or canonical boss: reject Slow, Poison and Freeze | C | v83 server reference (Cosmic Monster.applyStatus boss gate), owner decision replacing #54's boss-poison permission |
+| Boss status immunity | scheduled steady or canonical boss: reject Slow, Poison, Freeze and Stun | C | v83 server reference (Cosmic Monster.applyStatus boss gate), owner decision replacing #54's boss-poison permission |
 | Elemental status immunity | a status fails on Mob elemAttr digit 1 (immune), 2 (strong) or 4 (neutral) for its element: Poison S, Freeze I (or the applying skill's element); Slow elementless | A element letters / C rejection rule | Poison Breath elemAttr s and Cold Beam i in Skill.wz; rejection per Cosmic Monster.applyStatus; [status research](research/monster-status-effects.md) |
 | Player elemental hits / undead | Mob elemAttr digit1 ×0, digit2 ×0.5, digit3 ×1.5; absent/elementless ×1; final rounding; undead exposed independently | A factors/flags; C rounding integration | original Cold Beam String.wz text and Mob.wz; [status research](research/monster-status-effects.md) |
+| Mob Stun behavior | no walking, route/jump/flyer pursuit, new attacks or mob skills, touch damage or hit flinch/push while stunned; animation clocks and damage continue; an airborne mob still falls straight down; a new stun keeps the longer remaining time; elementless (never rejected by an element); `on_hit` `prop`/`time` from Skill.wz | C | #187 owner brief; the stunned look and the `prop`/`time` fields are Skill.wz (tier A) |
+| Hidden state (#194, 7.18) | while a `hidden` buff is active: mobs and bosses neither chase nor attack (ground mobs patrol, flyers hover, bosses do not pursue-teleport), no contact damage, no mob attack, mob skill aimed at the character or ball hits it (balls pass through; a windup in progress lands nothing), and the character starts no attack or auto-cast (buffs, potions, pickups, movement and manual movement skills still work) | C | owner decisions (#168 grilling); the patrol/hover choice and the director rules are ours |
+| Oak Barrel values (#194) | MP 11-20, time 12-30 s, failure chance 37-10% (`prop`), cooldown 35-15 s, morph 1002; the cooldown counts from the cast even when the barrel outlasts it | A | Skill.wz/510.img/skill/5101007 (`prop` read as the failure chance per the #194 brief) |
+| Oak Barrel conditions (#194) | casts below 30% HP with a mob within 250 px and the cooldown ready; the barrel ends early above 60% HP; a failed cast still pays MP and the cooldown, rolled once per cast on stream 16; cards: learn weight 3, rank weight 2, max rank 10, Brawlers only | C | owner decisions (30%, 60%, mob near, stream 16) + ours (250 px, card weights) |
+| Morph rendering (#194) | the avatar is replaced by one `Morph.wz` canvas per frame, feet on the origin; attack and cast stances show `stand`; the morph's `info` speed/jump are not applied | A art / C mapping | Morph.wz/1002.img; stance-to-action mapping is ours |
+| Mob Stun cue | the v83 stun stars (`mob` node of Backspin Blow, Shout, Blank Shot ...: 3 frames, 100 ms, repeat), looped over the body top (pos2); yellow (1,.95,.55) tint fallback | A art / C anchor and fallback tint | Skill.wz 111.img skill 1111008 mob (identical to 5101002/5101003/5201004); manifest entry in asset_manifest.json |
 | Mob status cues | Slow one-shot cached mob art, Poison repeat art; pos3 centre/pos2 top; Slow amber (1,.72,.40), Freeze cyan (.45,.80,1), fallback Poison violet (.72,.45,.90) | A art / C anchors and tint choices | original Skill.wz/210.img, Cold Beam has no mob overlay; [status research](research/monster-status-effects.md) |
 | Default frame delay | 100 ms | C | HeavenClient |
 | Background scroll | rx × 5 px/s | B | 3 reimplementations agree |
@@ -3463,13 +5676,22 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Hit window chain gap (#88) | `balance.hit_window.chain_gap` 2.5 s: a landed hit this soon after the previous landed hit steps to the next shorter window; between 2.5 s and the reset the step holds | C | ours |
 | Hit window reset (#88) | `balance.hit_window.reset_after` 3.0 s without a landed hit restores the full window (and starts the chain over) | C | ours |
 | Boss skill attacks ignore the hit window (#88) | A boss skill attack (`source_kind` `attack`, `projectile` from a scheduled boss) lands during the window, hits at most once per attack instance (a ball is used up only when it hits), starts the full `lengths[0]` window without advancing the chain and counts as a landed hit for the reset. Boss body touch and every ordinary mob attack respect the window; an ordinary ball that the window turns away flies on, with no hit and no hit art, and can land once the window ends (also from inside the body box). Misses give no window and do not touch the chain; god and death still block everything | C | ours |
+| Ordinary mob attacks and the hit window (#144) | An ordinary mob's area or targeted (type 0/1) attack that the hit window turns away at impact does nothing: no damage, no `player_hit`, no `hit` phase and no hit art, as an ordinary ball already behaves (#88). A rolled MISS is not blocked: it emits the MISS `player_hit` and keeps its hit art. Boss attacks bypass the window as before; dead and god-mode attacks are still no-ops for damage and keep their hit art, as before. No v83 evidence settles the window rule: Cosmic does no invincibility check (the client decides hits), the HeavenClient-family clients skip collisions while invincible but have no mob-attack hit art, and Harepacker's later-client simulator draws hit art regardless (weak evidence) | C | ours; owner decision 2026-10-17 |
+| Knockback guard (#223) | A hit that knocks the player back starts a guard of `balance.hit_window.lengths[0]` (1.5 s today, read from the data, no new constant), ticked by `PlayerUpkeep`. Landed hits inside it (after the shrinking damage window) do damage, Power Guard/Magic Guard, `player_hit`, damage number and chain stepping as usual but no `PlayerMotion.knockback` (no shove, input lock or alert stance) and do not restart the guard. Boss skill attacks/balls (window bypass) still knock back and restart it. Misses change nothing; the timer is per round and not in the `CharacterSnapshot` | C | ours; owner decision 2026-10-18 playtest grilling |
 | Mano slow / defense interpretation | x80 retains 80% speed; x85 adds flat PDD/MDD, refreshed without stacking | C | owner-selected slow; explicit defense arithmetic interpretation, not verified client code |
 | Boss skill first use | every enabled boss skill (all six bosses) first becomes ready one canonical `interval` after the boss arrives, then one interval after each cast; never on the arrival tick | C (timing rule), A (intervals) | ours; MobSkillRunner; original v83 MobSkill.img intervals |
 | Boss defense buff recipients | MobSkill 112/113 give their flat PDD/MDD to every living mob inside the canonical area (ordinary mobs included) for the canonical time | A (area, x, time), C (flat arithmetic) | v83 MobSkill.img area buffs; MobSkillRunner |
 | Mano skill scheduling / summons | first use after interval, one canonical stance at a time; omitted hp100%; 24 px symmetric spawn spacing | C (policy/spacing), A (intervals/list/limit/art) | ours; original v83 WZ |
 | MobSkill effect anchors / summon family | affected pos1 at body top, effect pos3 at mob center; summonEffect1 selects Effect.wz/Summon.img/1 | C (mapping/placement), A (art/origins/delays) | ours; original v83 WZ |
 | Basic physical damage / interval | §6.1.1; Sword k4, Wand swing4.4/stab3.2, mastery0.1; quantized speed interval | B | owner-provided pre-Big-Bang mechanics |
-| Starter afterimage / sparks | variant0; sword/mace normal spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
+| Starter afterimage / sparks | variant0 for every weapon (`WeaponInfo.AFTERIMAGE_VARIANT`); sword* afterimages use the sword spark, the rest the mace spark; spark1 swing / spark2 stab | C (selection), A (art/bounds/delays) | ours; original v83 WZ |
+| Weapon stances / actions (#154) | `stand<info/stand>`, `walk<info/walk>`; `WeaponInfo.BASIC_ACTIONS` per weapon type; `basic_kind` (ranged families shoot) | A (stance numbers, stances in the items), C (which stances a family attacks with) | v83 `Character.wz/Weapon`; ours |
+| Ranged basic-attack reach (#154) | `WeaponInfo.RANGED_REACH` bow/crossbow 300, claw/gun 250 px, box 65 px tall: when the attack starts; the shot flies this plus `overshoot` | C | ours |
+| Ammo ids, incPAD and names (#155) | starting ammo per family (2070015, 2060000, 2061000, 2330000) and every scheduled item; incPAD from Item.wz, names from String.wz | A | v83 `Item.wz/Consume` 0206/0207/0233 (refs `class-specs/v83-facts.md` 1) |
+| Ammo upgrade levels (#155) | Assassin 30/35/40/45/50/55, Hunter 30/40/50, Crossbowman 30/40/50 (`survivor/ammo.json`) | C | ours; the Gunslinger's 30/50 are the items' v83 `reqLevel` (A) |
+| Endless ammo (#155) | never consumed, never an item, derived from family/job/level; v83 consumes `bulletCount` per attack | C | owner spec #151 |
+| Ammo projectile numbers (#155) | speed 800 (claw), 900 (bow), 1000 (crossbow), 1200 (gun) px/s; radius 8/6/6/5 px; range = reach + 80 px; arrows and bullets rotate | C | ours; `survivor/ammo.json` |
+| Ammo W.Att on ranged attacks (#155) | the current ammo's incPAD adds to W.Att | B | Cosmic Character.recalcLocalStats / RangedAttackHandler (v83-facts 1) |
 | Magic damage formula | §6.1 | C | community formula |
 | Monster-to-player damage | attack × uniform[0.85,1] − floor(0.75 × defense), elemental resistance, explicit source multipliers, rounded, minimum 1 (§6.2) | C | owner's choice; not verified in the v83 client |
 | Monster miss chance | 21.6 × player avoid / mob accuracy percent, clamped 0–100% | B | weak: a single private-server wiki page describing pre-Big-Bang RE (owner-provided), not corroborated by a second source |
@@ -3513,9 +5735,12 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Thunder Bolt target card (#84) | Forking Storm: `count` +2 per step, max 3 steps (canonical `mobCount` 6 → 12), weight 2, power, exact job 220; bot scores it as a `count` mod (75 + job bonus 12) | C (placeholder until the balance pass) | #84 hit-more-mobs rule; upgrades.json `thunder_bolt_targets` |
 | Shots with fewer targets than projectiles | the extra shots reuse targets, aimed 8 px apart | C | ours |
 | Pity / power cards | after 1 draw without a power card the next draw starts with one | C | ours |
-| Potion tier gates and sparse draws | HP Orange from Lv 10, White from Lv 25 after Orange; MP Mana Elixir from Lv 20; one-time cards, preserve stock, future drops current tier; 3 choices when full; otherwise eligible cards plus one Elixir | C | owner choice; upgrades.json |
+| Potion schedule (#225, #228) | `balance.potions.schedule`: HP Orange @ Lv 10, MP Mana Elixir @ Lv 20, HP White @ Lv 25; applied at level-up with a notice and silently on snapshot load, stock kept, never downgrades; replaces the potion-tier cards | C | owner choice (the old card gates); balance.json |
+| Researched potion steps (#229) | `balance.potions.schedule`: HP Unagi 2022003 and MP Pure Water 2022000 @ Lv 40, HP Ice Cream Pop 2001001 and MP Red Bean Sundae 2001002 @ Lv 60 (items, recovery, names: tier A from v83 `Item.wz`/`String.wz`; shop stock tier B/C; levels tier C, the Lv 60 pair an extrapolation) | C | `docs/research/v83-potion-progression.md` section 6; balance.json |
+| Potion notice plurals (#225 review) | `balance.potions.plural_names`: `{"2022003": "Unagi", "2022000": "Pure Water"}`; any other scheduled item reads String.wz name + "s" | C | our own wording; balance.json |
+| Bot waste guard cap (#229) | `BotInput.worth_drinking`: the potion's restore counts up to the max HP/MP pool, and at least `potions.bot.pool_floor` = 0.25 of the potion (drink when missing >= `min_restore_fraction` x max(min(restore, pool), 0.25 x restore)) | C | our own policy so the 1000-2000 point steps stay drinkable |
+| Sparse draws | 3 choices when full; otherwise eligible cards plus one Elixir, alone at 0 | C | owner choice; upgrades.json |
 | Current-job cards and Elixir reward | strict job equality, Beginner cards require 0; learned earlier-job skills retained; one Power Elixir alternative below 3 eligible cards, alone at 0; fully restores both pools | C (reward/pool rule), A (2000005 identity/art/restoration) | owner choice, #38; upgrades.json fallback |
-| Bot potion tier score | 112 (above Guard and attack cards); fallback 52 when absent | C | survivor balance.potions.bot.tier_score; random card policy unaffected |
 | Bot potion waste guard | drink when missing HP/MP >= 0.5 x one current potion's canonical restore (`min_restore_fraction`) | C | owner review of #29; BotInput, shared by sensible and random card policies |
 | Bot sword duel | a lone ordinary mob within 160 px and 40 px of the feet while no attack skill is ready and affordable: stand facing it so the basic attack swings; flee from two or more | C | owner review of #29; BotInput, shared by every movement policy that uses it |
 | Bot Guard preference / offers | base-score overrides learn 110, rank 109 (the #63 gain term is added on top); no job bonus added; learn/rank offer weights 8/8 | C | balance.bot.card_scores; upgrades.json; random choices uniform |
@@ -3537,22 +5762,54 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Weapon cover type | the cover draws the `<type>/<stance>` art of the real weapon's type, type = weapon id / 10000 - 100 (30 sword, 37 wand, 38 staff, ...); no art for the type or stance leaves the real weapon, no real weapon draws no cover | B | third-party RE of the official client for the type selection; the fallback is ours (C) |
 | Cash replaces regular equipment | a worn cash item draws instead of the regular equip of its slot, and also of any regular equip whose whole `info/vslot` it holds (a MaPn vest replaces the pants, an overall both) | C | v83 shows the cash item in place of the regular one; the vslot-subset rule is ours |
 | vslot hiding | a layer is hidden when one other drawn item's `info/vslot` codes cover every code of the layer's `Base.wz/smap.img` entry (hat CpH1H5 hides hairOverHead, a full-head hat the head, hair and accessories); face accessories follow the face expression; hats, eye accessories and earrings use their `default` frame for stances they lack | C | codes are tier A (smap.img, `info/vslot`); the all-codes-of-one-item reading is ours (any-code or pooled readings hide the sleeves, pants and shoes wrongly) |
-| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); while a pet with VAC is out the Magnet card (any card raising the `magnet` stat) is never offered, in normal, boss and advancement draws | C | spec #34, ADR 0003; our design |
+| VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); with the Magnet card removed (#225) VAC and Binocular are the only pickup-range upgrades | C | spec #34, ADR 0003; our design |
 | Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). A pet brought out (round start, the Pet page, the Free Market) stands `beside_offset` 30 px behind the way the player faces, else in front, on the same flat floor, else on the player (#126: on the player it was hidden behind or over the avatar while the player stood still; a teleport still lands on the player and the pet walks off) Three more constants live in the same `pet` block rather than in code: `speed_stat_floor` 100 (the pet's speed stat is the player's but never below the 100 % base), `stuck_move_px` 0.2 (it counts as pushing against a wall when it moved less than this in a tick) and `floor_tolerance` 2 px (a floor within this of the player's feet is the same floor, for standing beside). `cash_items.json` `pet` is the only place the numbers live; `PetSystem` has no defaults. The pet upgrade item ids in `PetSystem` are tier A (1812002-1812005 are v83 items) except VAC 9990000 (tier C, survivor-only). A drop flying to the pet when it is dismissed falls and lands as an ordinary drop. State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
 | Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, potions; mesos with B2) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
 | Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
 | Pet drawing (#120) | `PetRenderer` draws `RunWorld.pet_state()` (and the Free Market's `FreeMarketMotion.pet_state()`, the same `PetSystem` follower with no drops) from `Item.wz/Pet/<species>.img` (`stand0 stand1 move jump hang fly` and `info/icon`, `info/iconRaw` in the manifest; no `Pet.wz` in v83) at the real frame delays and origins; the art faces left so facing right mirrors; no name tag or chat balloon. Action to animation: stand -> `stand0`, move -> `move`, jump -> `jump`, hang -> `hang` (tier A: the WZ names); a pet running to a drop in the air (Wing Boots, `fetching` and `jump`) uses `fly`, and a hanging pet is drawn 22 px beside the climber instead of exactly behind (C: ours, the sim keeps it on the player's position). Drawn in the actor layer of the foothold it stands on, just behind the avatar when that is the avatar's layer. `stand1` is imported but not used | A (animations) / C (mapping, offset) | v83 `Item.wz/Pet`; ours |
 | HP / MP ALERT defaults (#121) | HP ALERT 30 %, MP ALERT 20 % of max (`Settings` `[alert]` hp/mp; 0 = do not alert; 5 % steps on the Options sliders). A persistent round takes them from the settings at launch and follows changes at once; tool rounds ignore the settings and take `--account`'s `alert` (default 0) | C | ours, low enough to be safe and on so a new pouch works at once; the v83 SysOpt rows are the slider style |
-| Card tier magnitudes | rank +1/+2/+3/+5/max; stacking +1/+2/+3/+4/max; new skill 1/2/3/4/5; per-card overrides | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; Legendary deliberately maxes even 20-rank skills |
-| Card honesty / boss floor | highest fitting tier; a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43; headroom interpretation and exceptions in §8.1 |
+| Card tier magnitudes | rank +1/+2/+3/+5/+8; stacking +1/+2/+3/+4/+5; new skill 1/2/3/4/5; per-card overrides; Legendary clamps to ranks/steps left | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; fixed Legendary gains and data-driven clamp: owner decision #173, 2026-10-18 |
+| Card honesty / boss floor | highest fitting tier except configured clamped tiers (Legendary); a gain equal to a lower tier wears the lowest such label; boss promotes Normal to Rare and omits scalable cards unable to retain Rare; potion/Elixir always Normal | C | spec #30 / #43 / #173; headroom interpretation and exceptions in §8.1 |
 | Tier text precision / telemetry | compounded percentages rounded to 0.01 for text; application full precision; offered/picked count each displayed card once; legacy records are unobserved | C | ours; choice_card, RunWorld counters, balance report |
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
-| Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10, Magnet ×1.25; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
+| Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10; Magnet ×1.25 removed in #225; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
 | Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
-| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks and above Magnet | C | survivor integration, existing BotInput defaults; #59 |
+| MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks | C | survivor integration, existing BotInput defaults; #59 |
 | MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
+| Mastery passive | WZ `mastery` N gives (10 + 5N)% (the same encoding as magic masteries); the best owned Mastery of the held family replaces the 10% base; its `x` adds ACC | B | Cosmic and String.wz agree (v83-facts section 3); #161 |
+| Crit passives | `crit_chance` = `prop` percent added to the crit chance; `crit_damage` = `damage` total percent, so a crit adds `damage - 100` points to the skill % instead of multiplying | B (additive rule), C (data shape) | SouthPerry Critical Shot/Throw (v83-facts section 5); #161 |
+| Improved MaxHP per level-up | `max_hp_per_level` adds the skill's `x` HP at each level-up after learning, never retroactively; persists through `base_hp` | B | v83 Cosmic level-up HP rule (v83-facts section 3); #161 |
+| Final Attack proc | canonical `prop`% chance after a damaging physical line of a matching family, follow-up at canonical `damage`% on the same mob, RNG stream 12, played at the end of the tick, none on a killed target or after a follow-up | A (prop, damage), C (per-line roll, timing, stream, no chains) | v83 Skill.wz; #161 |
+| Attack speed table (#160) | speed step 2..9 (lower is faster) takes 800 x (10 + step) / 16 ms (600..950); normal step 6 = 800 ms; the swing interval is that rounded up to 30 ms (`WeaponInfo.SPEED_DELAY_MS`, `attack_interval`) | B | v83 weapon-speed words and delays, emulator RE; same formula as before #160 |
+| Booster steps (#160) | buff effect `attack_speed` = steps faster (v83 Boosters: 2), clamped to speed 2..9; counted only while the skill's weapon family is held; skill cooldowns/action times and basic-attack impact/stance scale by the table ratio to the weapon's own step | A (+2 steps, duration: Skill.wz), C (relative-to-own-step scaling, skill cooldown scaling, gating) | v83-facts section 3; ours |
+| Buff `scale` | a buff effect entry may multiply its canonical number (the Boosters' negative speed steps use `-1`; Rage's WZ pdd is already negative and takes none) | C | data shape; #161 |
+| Warrior advancement (#163) | job 100 at Lv 10, +225 Max HP (`jobs.json` grants), growth 26 HP / 5 MP per level, all earned AP into STR | B (HP grant midpoint of +200-250 and the growth midpoints: Cosmic changeJob / levelUp); C (Lv 10, no DEX row) | v83-facts 4; owner choice (spec #151) |
+| Warrior weapon grants (#226 amendment) | Choose Sword 1302077, Spear 1432000 or Steel Pipe 1322006; only chosen item is worn; displaced equipment to Equip or feet | B (sword gift), A (item stats), C (spear/pipe choices, chosen-only rule) | v83-facts 4; owner #226 2026-10-18 |
+| Warrior melee families (#163) | Power Strike and Slash Blast need sword, axe, blunt, spear or polearm (`skills/warrior.json` `weapon_families`) | C | the WZ nodes name no weapon; String text says "sword"; v83-facts 2 |
+| Weapon-reach and range-around casts (#163) | `weapon_reach`: nearest mob inside `BasicAttack.envelope` (the union of the held weapon's afterimage boxes, far edge = `reach`); `range_around`: body centres within the level's canonical `range` of the body, `mobCount` cap | A (afterimage boxes, `range`, `mobCount`); C (the rules, auto-cast) | Skill.wz 100.img; ours |
+| Skill stance `"action": "weapon"` (#163) | the held weapon's first basic-attack action (`WeaponInfo.skill_action`), so a spear stabs and a polearm swings | C | the Warrior nodes have no `action` |
+| Power Strike / Slash Blast pacing (#163) | cooldowns 1.0 s / 1.6 s, 0.6 s cast stance | C | ours, untuned until the balance pass |
+| HP cost (#163) | Slash Blast pays canonical `hpCon`; never cast when HP would not stay above 0, then nothing is paid and no MP shortage is signalled | A (hpCon); C (the refusal rule) | Skill.wz; ours |
+| Improved HP Recovery (#163) | adds canonical `hp` (3-50) to every regeneration pulse, always (not only standing still) | A (hp); C (always) | Skill.wz; String text says "while standing still" |
+| Iron Body (#163) | auto-cast buff, recast on expiry, canonical pdd/time/mpCon, 0.8 s stance | A (values); C (auto-cast) | Skill.wz |
+| Warrior cards (#163) | learn/rank cards for all five; Cleaving Strike +1 target x3, Crushing Strike x1.2 damage x3, Quick Strike -12 % x3, Whirling Blast +2 targets x3, Wider Blast range x1.2 x3, Quick Blast -12 % x3; weights 1-4 | C | ours, untuned |
+| Warrior bot fixture (#163) | `lv11_warrior_1st.json`: forced job 100, seed 1, stopped at 295 s | C | `tools/character_fixture.gd --job=100 --seconds=295 --label=spec151/owner-warrior` |
+| Pirate second-job fixtures (#195) | `lv37_brawler_2nd.json` (510 knuckle, seed 1, 480 s cap, `--god --exp-mult=3`) and `lv36_gunslinger_2nd.json` (520 gun, seed 1, 780 s cap, `--god`); the aids are diagnostic and recorded in each `_doc` | C | `tools/character_fixture.gd --label=spec168/ticket-195` (GAME_DESIGN 4.2) |
+| Thief QA fixtures and evidence (#215) | Seed1 bot, Henesys, job410:claw / 420:dagger, `--god --exp-mult=3 --seconds=600`; combat probe seed215, fixed1/60 ticks, rank10 attacks, stationary mobs at 45/180px with HP multiplier10000; flow uses invulnerable EXP drops and a diagnostic Free Market boundary | C | `character_fixture.gd`, `thief_combat_driver.gd`, `flow_driver.gd`; aids only, no balance data changes (4.2) |
+| Second-job weapon skill families (#181) | each of the 18 Masteries, Boosters and Final Attacks lists its one family in `weapon_families` (sword, axe, blunt, spear, polearm; sword/axe/blunt cover one- and two-handed) | C | the Skill.wz nodes have no `weapon` field; String text and v83-facts 3 |
+| Second-job Mastery (#181) | `mastery` step 1..10 (15-60%, levels 1 and 2 both 15%) and ACC `x` 1..20, only while the family is held | A (numbers), B (the (10 + 5N)% encoding) | Skill.wz 110/120/130; v83-facts 3 |
+| Second-job Booster (#181) | WZ `x` -2 read with `scale: -1` as +2 speed steps; `hpCon` = `mpCon` 29 down to 10, `time` 10 s per level (10-200 s); auto-cast, recast on expiry, 0.8 s stance | A (numbers), C (the sign convention, auto-cast, stance) | Skill.wz; ours |
+| Second-job Final Attack (#181) | `prop` 2 x level percent, `damage` 100 + 5 x level percent, follow-up in the held weapon's attack stance for 0.6 s, no sound, `hit/0` art | A (prop, damage, art), C (stance and action time: the node has no action) | Skill.wz; ours |
+| Spread (#181) | `skill_mod` `count` +1 per step, 3 steps: the follow-up also hits up to N other live monsters whose body centre is within `BasicAttack.reach` (a circle) of the struck target's, bosses first, then nearest to the target, then slot; no RNG | C | ours (owner decision 1 of spec #165) |
+| Weapon-skill cards (#181) | learn weights Mastery 3 / Final Attack 4 / Booster 3, rank weights 2 / 3 / 2, Spread 2; Final Attack, Booster and Spread are `power`, Masteries are not | C | ours, untuned |
+| Weapon-skill bot scores (#181) | `bot.card_scores`: learn 100, rank 74 for the 18 skills (attack-card values); Spread scores through `SCORE_MOD.count` | C | ours, untuned |
+| Iron Will (#184) | auto-cast self buff, recast on expiry; canonical pdd and mdd (1-20), time (15-300 s), mpCon, 0.8 s stance; the WZ party effect is self only | A (values); C (auto-cast, self only) | Skill.wz 130.img |
+| Hyper Body (#184) | auto-cast self buff, recast on expiry; Max HP +x % and Max MP +y % (2-60) of the whole maximum (base, growth, passives, equipment), time 10-300 s, mpCon 20/40/60 (Lv 25: 50); current HP/MP unchanged at cast, clamped to the normal maximum on expiry; a buff stat of its own, not the MaxMP passive | A (values); B (percent of the whole maximum, current HP/MP unchanged at cast, clamp on expiry: v83 behaviour); C (auto-cast, self only) | Skill.wz 130.img; v83-facts 3 |
+| Iron Will / Hyper Body cards and bot scores (#184) | learn weight 3, rank weight 2, Spearman only, not power; bot default scoring like Iron Body (no card_scores entries) | C | ours, untuned |
+| Second-job Warrior fixtures (#185) | `lv34_fighter_2nd.json`, `lv34_page_2nd.json`, `lv34_spearman_2nd.json`: Henesys, seed 1, bot, forced 110 / 120 / 130, invulnerable, stopped at 600 s (Lv 34) | C | `tools/character_fixture.gd --job=<id> --god --seconds=600 --label=spec165/ticket-185`; `--god` (RunWorld.god) because a Warrior bot never reaches Lv 30 otherwise; `_doc.invulnerable` |
+| Playtest evidence shots (#185) | `<final attack key>_followup.png` 0.12 s after its first follow-up, `reflect_first.png` 0.1 s after the first Power Guard reflect | C | presentation only, written only with a shots directory |
 | Nimble Feet values and lifecycle | speed +10/15/20 for 4/8/12 s, costs 4/7/10 MP; cooldown 60 s from cast; auto-cast when inactive/ready/affordable, passive slot, no new cast while climbing | A (values), C (auto-cast/slot/lifecycle) | v83 Skill.wz/000.img/skill/0001002; owner casting rule |
 | Recovery HoT | canonical levels 1–3 cost 5/10/15 MP, heal x=4/8/12, last 30 s, cooldown 120 s from cast; trigger below 50% HP, six 5 s pulses including the expiry tick | A (values); C (trigger/pulse interpretation) | v83 Skill.wz/000.img; survivor skill buff rules |
 | Regeneration | 10 s pulses, base 3 MP + floor(character level × MP Recovery skill level / 10); always 10 HP; `balance.regen` | B (MP rule); C (HP choice) | pre-Big-Bang formula compilation; owner choice |
@@ -3567,6 +5824,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bursts / elites | bursts may exceed max_alive up to `hard_cap` 400; first elite at 1:15 (Henesys 4:00), then every 60 s; first burst at 1:30 (Henesys 5:00), then every 90 s | C | ours; the Henesys delays keep them out of the sword-paced Beginner phase |
 | Henesys stage EXP | 2.5x canonical mob EXP for ordinary kills (`stages.henesys_hg1.exp_mult`) | C | coarse #29 pass so a sword-paced Beginner reaches Magician near 4:40 |
 | Job window | at every queued level while an option is available; once at the tier's first level when none is | C | ours |
+| Job window pages (#226, #231) | page 1: generic intro, one entry per job, no portrait when the options span several lines; weapon page for jobs with 2+ families, spoken by the chosen job's instructor; Cancel (Esc, Prev) returns to page 1 | C | ours; `job_advance_window.gd` |
 | Magician advancement level | survivor level 10; canonical level 8 and INT 20 stay unchanged | C | owner choice, #40; `data/survivor/jobs.json` |
 | Background auto-scroll axis | types 4-7: no camera term on the scrolling axis (screen x = x + rx·5·t + W/2), parallax on the other | C | ours (reading of "auto-scroll X, parallax Y") |
 | Negative frame delay | used by magnitude (`magic1/0` = -900 ms) | C | ours |
@@ -3581,7 +5839,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Fire/Poison attacks (#55) | Fire Arrow: cooldown 1 s, range 480 px, speed 520 px/s, count 1, pierce 0, radius 12 px, stance 0.8 s, rotates; Poison Breath: 1.25 s, 450 px, 400 px/s, count 1, pierce 0, radius 14 px, stance 0.8 s, no rotation; both target nearest | C | survivor skills.fire_arrow / poison_breath; untuned; canonical elements, level numbers, actions and assets remain tier A |
 | Fire/Poison cards (#55) | Fire Arrow +1 shot ×3, +1 pierce ×2, cooldown ×0.88 ×3; Poison Breath +1 pierce ×3, cooldown ×0.88 ×3; weights learn/rank/mod 4/3/2; exact job 210, all power; existing bot scores learn 100, rank 62, count 75, pierce 58, cooldown 54 plus 12 job bonus on rank/mod | C | issue #55 / owner #31; first-job modifier steps and score defaults; no rarity overrides or tuning |
 | Second-job support values and casts | Meditation mad/time/mpCon; Bless pdd/mdd/acc/eva/time/mpCon; Invincible x/time/mpCon; Slow signed x/time/mobCount/lt/rb; alert2, effect, Use sounds, 20 levels each | A | original v83 Skill.wz/210.img, 220.img, 230.img; cache checked at levels 1/20 |
-| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence (accuracy stored only); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
+| Support auto-casts / hit integration | self only, one snapshot timer/icon; 0.8 s stance; Meditation invalidates caster stats, Bless live avoid/defence and ACC (crit chance, #153); Invincible whole physical hit ×(1−x/100), nearest rounding/minimum 1 before Guard | C lifecycle/arithmetic, A effects | #58; section 7; existing timed-buff rules |
 | Slow crowd / consecutive uses | at least 3 eligible unslowed mobs, 1 s cooldown; 2 consecutive successful Slow casts per logical mob, reset by a successful cast excluding it; preserve across relocation, reset on fresh spawn | A text, C interpretation/trigger/cooldown | original String.wz/Skill.img Slow description; #58; survivor cast data and section 7 |
 | Support cards / bot | learn/rank only, weights 3/2; learn 50, rank 42 + job bonus 12 (including Slow); below attacks | C | #58 survivor cards; existing support score defaults |
 | Restoration gain digits | HP NoBlue1/0; MP same art tinted RGB (0.65,1,1); absent Blue falls back to Violet (HP tint 0.55,1,0.55; MP cyan) | A (cached digit art), C (selection/tints/fallback) | original v83 BasicEff cache; HP-use inference remains unverified (prior-art.md); existing number timing/stacking reused |
@@ -3591,7 +5849,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Pickup drawing | iconRaw centred on x, bottom on the drop point; bob 2 px over 1.2 s | C | ours |
 | BGM fade / volumes | 0.8 s cross-fade; defaults master 1.0, BGM 0.8, SFX 0.9; 16 SFX voices (oldest stolen) | C | ours |
 | HUD layout | gauge at (216, 37) of the 800×71 bar, fills measured from `gauge/bar`; button/key positions and top timer/kills/skills layout | A (measured art) / C (buttons, top HUD) | ours |
-| Reserved HUD areas | quickslot (571, 8), 221×59 inside the bar; buffs 212×44 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
+| Reserved HUD areas | buffs 212×44 at (view width −224, 42); boss bars 300 px wide centred at y=42 with 42 px row pitch (37 px canonical icon frame) | C (layout), A (art size) | ours, difficulty overhaul |
 | Starter equipment selection | Coat 1040002, Pants 1060002, Shoes 1072001; Sword 1302000 and Wooden Wand 1372005 loaded for job weapon selection | C (selection), A (info) | existing avatar look and v83 Character.wz |
 | Elite name tag | mob name (String.wz) in the white 12 px system font on a black 60% box, 3 px padding, 15 px high, 2 px below the feet; hidden while dying | C | ours (v83 draws the default tag in code; `UI.wz/NameTag.img` holds only cash styles 3-28) |
 | System messages | "+N EXP" in yellow (#FFFF00) with a black outline above the left end of the status bar, newest at the bottom; 4 s each (last 0.5 s fading), at most 6 lines | C | ours |
@@ -3604,19 +5862,25 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Run end holds | results 2 s after the tombstone has landed; on a clear the party-quest `CLEAR` field effect (`Map.wz/Effect.img/quest/party/clear`, `Sound.wz/Field.img/Party1/Clear`) at the screen centre for 3.5 s | C | ours (art/sound A) |
 | Invincibility blink, hit face | the whole character (one CanvasGroup) alternates alpha 1.0 / 0.4 every 0.08 s while invincible; face `hit` for 1 s after a hit | C | ours |
 | Drop draw order | EXP drops are drawn after the mobs and the character of the character's foothold layer (never hidden in a crowd) | C | ours |
-| Run start title | street name + map name (String.wz) under the timer for 3.5 s, the last 1 s fading | C | ours |
+| Run start title | continent (small) above the region (`stages.json`, #221) under the timer for 3.5 s, the last 1 s fading | C | ours |
 | Sound throttle | each sound path plays at most once per frame (a piercing shell through 20 mobs is one Damage sound) | C | ours |
 | Character name tag | the character name under the feet in the elite name-tag style | C | ours |
 | UI windows (level-up, job, pause) | open: 0.15 s fade-in while dropping 10 px; close: 0.12 s fade-out; keys ignored for 0.2 s after opening; the job dialog's confirmation line stays 1.8 s (any key/click skips) before `job_chosen` | C | ours (art A: UI.wz SkillUp, Skill rows, UtilDlgEx, Basic.img YesNo3) |
 | In-run windows (#85) | stacked above the modal windows (CanvasLayer 11); 20 px title strip drags; 40 px of a window always stay in the view; first open centred above the status bar, then reopened where it was dragged; sim held while any is open | C | ours |
 | Stat window layout (#85) | detail panel (`Stat/backgrnd2`) on the main panel's right edge with bottoms aligned, (175, 144); value text 61 px (main) / 80 px (detail) into the fields; BtDetail (120, 324) and BtUIClose (10, 325) in the bottom strip; attack = held weapon `incPAD`, magic = INT + magic attack, accuracy = buff accuracy only, speed/jump as v83 percentages, AP 0 | C (layout, stat mapping), A (art) | ours; `UIWindow.img/Stat` |
-| Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 20) of the 800 px bar, past the potion quickslot labels; popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
-| Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; star tab: a drawn five-point star, banner "Job-neutral Cards"; tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, star, tooltip), A (art) | ours; `UIWindow.img/Skill` |
+| Quick slot position and collapse button (#220) | the 151 × 80 `base/quickSlot` panel at (649, −76) of the 800 px bar (flush with its right end, 76 px above its top, overlapping the bar by 4 px); `QuickSlotD` (shown) / `QuickSlot` (folded) button at (765, 8); state in `[hud] quick_slot_collapsed` | C (position derived from a third-party v83-era fan client that places the panel at (875, 622) on a 1024 × 768 screen whose bar is at y 698 and the button at x 765, y 8 of the bar, right-aligned to 800 px; not verified against the official client), A (art) | ours; Elem8100 GM client layout (facts only) |
+| Menu button and popup (#85) | `StatusBar.img/BtMenu` at (744, 36) of the 800 px bar (moved down from y 20 by #220 so the quick slot's collapse button sits above it; v83 keeps Menu on the bar's lower half), popup in the `UIWindow.img/ContextMenu` style (`t`, a `c` row per entry, `s`; entries on BtInfo plates widened past the dot, our labels) right-aligned above the button | C (layout), A (art) | ours (the cache has no art for v83's Menu list) |
+| Skill window layout (#86) | tab cells 27x17 from (8, 24), 28 px apart, the selected one a white plate; skill book icon at (9, 53), book name at (47, 64); rows (`skill1` learned, `skill0` not) from (11, 95), 40 px apart, 4 shown, `Basic.img/VScr5` scrollbar at (155, 95); SP box shows 0; BtUIClose at (134, 266); the selected / hovered row gets an orange outline; no star tab (removed in #225); tooltip a drawn dark box 290 px wide (v83 `UIToolTip.img` is not imported) placed beside the cursor or the selected row and kept above the status bar | C (layout, tooltip), A (art) | ours; `UIWindow.img/Skill` |
 | Movement keys (#85) | Arrows by default (v83), WASD as an option; the chosen set's keys are taken off every other action | A (Arrows) / C (WASD option) | v83 client defaults; ours |
-| Key Config window (#87) | bindable: jump, HP / MP potion, Teleport, Stat, Skill (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, F/P Teleport | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
+| Key Config window (#87) | bindable: jump, HP / MP potion, Stat, Skill, plus (#188) one skill key per learned manual skill at the end of the tray, with the skill's own icon (Teleport, Dash) (#108: Equip E and Item I too, with KeyConfig `icon/0` EQUIPMENT and `icon/1` ITEMS; E left the MP potion); fixed: the movement set, Esc, 1-3; a key holds one action, an action may sit on several keys; Default = project keys less the movement set (WASD leaves Stat without a key); key rects measured on `KeyConfig/backgrnd`, tray slots (8 + 34i, 267 + 34r); Tab / Scroll Lock / Win / Menu are no drop targets; Default, Delete left and OK, Cancel right in the strip at y 237, BtClose (611, 6); icons: KeyConfig `icon/53` JUMP, `icon/2` ABILITY (Stat), `icon/3` SKILL, Red / Blue Potion, the learned skill's icon | C (rules, layout), A (art, JUMP / ABILITY / SKILL icons) | ours; `UIWindow.img/KeyConfig` |
 | Options window (#87) | `SysOpt/backgrnd` title, BGM and SOUND rows and bottom strip, two blank rows relabelled FRAME CAP and MOVE KEYS; slider track x 93-209 between the baked SOFT / LOUD; MUTE box (243, 9) restores the volume it had (else the default); frame caps: screen refresh, 60, 144, off | C (layout, choices), A (art) | ours; `UIWindow.img/SysOpt`, `Basic.img/Slider`, `Basic.img/CheckBox` |
-| UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum without antialiasing at 11-12 px | C | ours, matched to v83 screenshots |
-| Web profile UI (#134) | title: Fullscreen / Export save / Import save plates (the re-import plate treatment) in one row, 4 px apart, centred on x 212 of the bottom signboard plank where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
+| UI text colours | NPC dialog black text, options #0000FF (#b), unavailable grey #888888, system yellow #FFFF00; Arial/Tahoma/Dotum at 11-12 px, antialiasing per `MapleFonts.ANTIALIASED` (#224) | C | ours, matched to v83 screenshots |
+| Sharp text (#224, 2026-10-18) | the window draws canvas items at its own pixels (`window/stretch/mode="canvas_items"`, integer scale, nearest, 2D snapping kept); glyphs rasterised at window pixels, metrics in logical px unchanged; `MapleFonts.ANTIALIASED = false` (crisp hinted, no AA, closest to v83; the owner chose crisp from the A/B screenshots, PR #235, 2026-10-19); 1 px outlines drawn as the 800x600 render lit them (`PixelDraw.outline`: top row above, left column outside, right/bottom inside) and downscaled HUD skill icons copy the texels it picked (`PixelDraw.blit_scaled`, texel floor((i + 0.5) * src / dst)) | C (AA choice: owner) / A (outline and texel footprints measured on GL compatibility) | ours; docs/ARCHITECTURE.md 4.5 "Fonts and sharp text" |
+| Tab strip geometry (#219) | `TabStrip` cuts a row at n + 1 x bounds over 19-row shapes: Item `TAB_BOUNDS` 4 / 37 / 71 / 104 / 137 / 171 at y 23 (five equal 33-34 px tabs over the baked pill); Shop sell `TAB_BOUNDS` 235 / 279 / 324 / 368 / 412 / 457 and `BUY_TAB_BOUNDS` 5 / 41 at `TAB_TOP` 97, `TAB_H` 19; Skill tabs 28 px wide from (8, 23); Equip `TAB_BOUNDS` 42 / 74 / 103 at `TAB_TOP` −24 from the art's bottom, `TAB_H` 19 (Tab3 grey base; Item, Skill and Shop use Tab5's red base); glyphs centred in each tab (no-cache text too); `TabStrip.FALLBACK_SHOWN` (236, 112, 144) fills the shown tab without the cache | C (bounds measured on the v83 backgrounds; the Item tab width matches the 34 px `Item/New/Tab0` sprites), A (shapes: `Basic.img/Tab3`, `Tab5`) | ours |
+| Stage region and continent (#221) | `stages.json` `region` / `continent` per stage: henesys_hg1 Henesys / Victoria Island, tree_that_grew_1 Ellinia / Victoria Island, dark_cave Sleepywood / Victoria Island; a summary without them falls back to the stage's old `name` and the map and street name it was saved with (`DataRepo.stage_labels`, `summary_stage_lines`) | C | owner choice (playtest 3); not WZ strings |
+| Quick slot captions (#220) | key captions at size 9 (`CAPTION_SIZE`), white (`CAPTION_COLOR` 255, 255, 255) with a dark blue-grey outline (`CAPTION_OUTLINE` 40, 59, 76), shortened with ".." beyond `CAPTION_MAX_W` 29 px (a cell's interior) | C | ours, matched to v83 screenshots |
+| "Equipped <name>" notice (#222) | `HudMessages` pushes "Equipped <item name>" ("Equipped an item" when the name is empty) as a system line in the usual yellow | C | ours |
+| Web profile UI (#134) | title: Fullscreen / Export save / Import save lead the second button row (before Re-import WZ data) where desktop has Quit; Options: a FULLSCREEN check box in the FRAME CAP row; F11 and F12 not bindable on web (browser fullscreen / developer tools), Ctrl+W/T/N noted in the Key Config strip; text in the bundled Arimo (Arial metrics) because browsers have no system fonts | C | ours; docs/ARCHITECTURE.md 10 "Web profile" |
 | Skill and card text | v83 String.wz `desc`/`hN` (A); survivor `skills.json` `text` overrides, the dropped Master Level / Required Skill lines, mod-card value labels and the rewritten card texts (C) | A / C | §8.2; SkillText (dress for level-up cards), LevelUpWindow |
 | Best result per stage | a clear beats a death, then longer survival, then higher level, more kills, more damage (`user://save.json`) | C | ours |
 | NX award per round (#115, spec #34) | a clear pays `clear_bonus[tier] + per_level x levels gained in the round + per_boss x scheduled bosses killed in the round`; a death pays the same without the clear bonus (bosses killed before dying count); the final tier's clear pays its normal clear award; deletion, Quit round and tool/one-off rounds pay nothing. Placeholders in `balance.json` `nx_award`: `clear_bonus` [100, 250] by 0-based tier (later tiers reuse the last), `per_level` 5, `per_boss` 40. The balance pass sets the numbers | C | ours; owner #34 triage (ADR 0003) |
@@ -3625,19 +5889,20 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Cash Shop screen (#118, spec #34) | `scenes/ui/cash_shop.gd`: the v83 `UI.wz/CashShop.img` screen, 800x600 centred, EQUIP. (Hat, Face, Eye, Overall, Top, Bottom, Shoes, Glove, Weapon, Cape) and PET (Pet, Pet Equip.) tabs, ten cards per page. Items are filed by Commodity SN (`CashShop.listing`: category 2 equipment, 6 pets; earrings under Face and shields under Weapon as in v83; VAC, which has no SN, last under Pet Equip.). Card art positions and the buy dialog are WZ/capture-measured (tier A/B, `CashShop` constants); other tabs, GIFT/RESERVE, Search Item, Best Item contents, Charge/Check Cash/Code, the family tabs and ON toggle, the Item Inventory tabs and slot buttons are not drawn (out of scope). Click = try on (`CashShop.try_on`), BUY = confirm dialog (NX CREDIT line checked, the only currency) then `CashShop.buy`, which deducts, adds, saves in one write and removes the item from the list; locked cards show "Needs a pet." / "Needs Wing Boots, Binocular and a pet." instead of BUY; too little NX shows the notice "You don't have enough NX."; BUY EQUIPPED ITEM is disabled (one purchase per card), RETURN TO DEFAULT / REMOVE ALL reset / strip the preview; the Cash Inventory lists owned items read-only. SHOP buttons: map select (every tier, the v83 `StatusBar.img/BtShop` beside Save & quit, centred on its plank) and the Free Market status bar (`StatusBar.img/BtShop` at bar +(688, 20)); Leave = EXIT or Esc, back to where it was opened | A for art and prices; B/C for positions, wording, SHOP button placement | cashshop-refs/layout.md (private), v83 WZ; owner rule: match the real client layout |
 | Equip window layout (#108) | `UIWindow.img/Equip/backgrnd` 175x304; 32 px slot cells hat (38, 35), top / overall (38, 134), bottom (38, 167), shoes (71, 200), gloves (5, 167), weapon (104, 134); BtUIClose at (10, 281); opens left of the view's centre, the Item window right of it | C (measured on the v83 art; the cells cross-checked B against JourneyClient's slot offsets), A (art) | ours; `UIWindow.img/Equip` |
 | Equip window Cash tab and Pet page (#122, spec #34) | the Equip window gains pages (`EquipWindow.set_page`): Equip (unchanged), Cash and Pet. v83's `UIWindow.img/Equip` has no Cash tab art, so the Cash page re-uses the `backgrnd` grid with the 11 cash slots in the cells their baked labels name (hat CAP (38, 35), face FOREHEAD (38, 68), eye EYE ACC (71, 101), earrings EAR ACC (104, 101), top CLOTHES (38, 134), bottom PANTS (38, 167), shoes (71, 200), gloves (5, 167), cape MANTLE (5, 134), weapon (104, 134), shield (137, 134)); an overall shows in CLOTHES and dimmed in PANTS, a two-handed cover in WEAPON and dimmed in SHIELD. The page switch is the Equip / Cash glyphs of `Item/Tab` at (46, strip) / (76, strip) and the v83 `Equip/BtPetEquipShow` ("PET EQUIP.") button at (104, strip), in the art's bottom strip. The Pet page is `Equip/pet` (177x181): owned upgrades sit read-only in HP POC (1812002), MP POC (1812003), ITEM POC (1812001, base pet), MESO MAG (1812000, base pet), POS (Binocular 1812005), PET EQUIP (VAC 9990000) and MOVE UP (Wing Boots 1812004), the character's own HP / MP potion shows in PET HP / PET MP when the matching pouch is owned. A drawn panel (152 px wide, 4 columns of 36 px, wheel or arrows page it) beside the page lists the account's owned cash equipment (slot order) or pets; a double-click wears / takes off / brings out / puts away. `RunWorld.wear_cash` / `take_off_cash` / `set_pet` apply it (`CashCatalog.wear`: an overall clears top and bottom, wearing a top or bottom takes it off, a two-handed cover takes weapon and shield); the world's Fortune follows at once, so the next card draw uses it. Persistent rounds now receive the saved account (`SceneFlow._resume_round` sets `options.account`), so the owned list and worn items count in a round | C (the page layout, the panel, the upgrade-to-label mapping and the glyph tabs are ours; the art and cells are A / measured on the v83 images) | ours; `UIWindow.img/Equip`, `UIWindow.img/Item/Tab` |
-| Item window layout (#108) | `UIWindow.img/Item/backgrnd` 175x289; tab glyphs (`Tab/enabled` shown, `Tab/disabled` the rest) at x 10 / 42 / 74 / 108 / 139 in the 19 px strip at y 23; slots 4 x 6 from (8, 50), 36 px apart horizontally and 34 vertically; stack counts in `Basic.img/ItemNo` digits at the slot's (1, 21); mesos right-aligned in the field (25, 267, 113x14) beside the baked MESOS; `BtCoin` shown disabled (mesos are never dropped) | C (measured on the v83 art; tab offsets B from JourneyClient), A (art) | ours; `UIWindow.img/Item` |
+| Item window layout (#108) | `UIWindow.img/Item/backgrnd` 175x289; tab glyphs (`Tab/enabled` shown, `Tab/disabled` the rest) centred in the five tabs of the 19 px strip at y 23 (see Tab strip geometry); slots 4 x 6 from (8, 50), 36 px apart horizontally and 34 vertically; stack counts in `Basic.img/ItemNo` digits at the slot's (1, 21); mesos right-aligned in the field (25, 267, 113x14) beside the baked MESOS; `BtCoin` shown disabled (mesos are never dropped) | C (measured on the v83 art), A (art) | ours; `UIWindow.img/Item` |
 | Inventory mouse protocol (#108) | a double-click wears / takes off; a press that moves 4 px starts a drag drawn under the cursor; the release resolves against the window stack (another inventory window takes the drop, no window = discard after the YesNo box, anything else nothing); a drop anywhere on the Equip window wears the item in its own slot | C (ours; v83 drags onto the exact slot) | ours |
 | Item tooltip (#108) | drawn dark box 262 px wide (v83 UI.wz has no UIToolTip.img); `ToolTip/Equip/Can` / `Cannot` label and digit art for REQ LEV / STR / DEX / INT / LUK (three digits, 6 px cells) and the job words; `Property` labels 3 CATEGORY, 4 ATTACK SPEED, 6-11 and 13-14 the attack / defence / accuracy / avoid / speed / jump lines, 16 NUMBER OF UPGRADES AVAILABLE; `ItemCategory` 1 HAT, 5 TOP, 6 BOTTOM, 7 SHOES, 8 GLOVE, 21 LONGCOAT; `WeaponCategory` by item id / 10000 - 100; `Speed` 0-6 FASTEST..SLOWEST from attackSpeed 2, 3, 4-5, 6, 7, 8, 9; STR / DEX / INT / LUK / MaxHP / MaxMP as text; "(+N)" after the name for N successful scrolls | A (art, read), B (speed words, scroll count: RE clients), C (layout, mapping) | ours; `UIWindow.img/ToolTip` |
 | Inventory messages (#108) | "You do not meet the requirements to equip this item." / "Your inventory is full. Make room before taking an item off." as HUD notices; the YesNo box asks "Are you sure you want to drop this item?" | C (the v83 client's wording is unverified) | ours |
 | Cap hair cover (#108, corrected in #126) | `hairOverHead` is `Base.wz/smap.img` code H1, so it is hidden exactly by a cap whose `info/vslot` holds H1 (CpH1H5 half-cover, the full-head covers); a CpH5 headband (68 real caps) leaves it drawn over the band (the bangs fall over the headband: `zmap` puts `hairOverHead` in front of `cap`). Without a cap the `*BelowCap` hair layers are not drawn. #108 had it the other way round (CpH5 hid hairOverHead); `AvatarRenderer.hair_layers_skipped` and the smap hiding above now agree. Evidence: `hair_cap_probe.tscn` sheets on hairs 30000 / 30002 / 30020 with the CpH5 caps 1002067 and 1002317 and the CpH1H5 cap 1002001 (the old rule strips the bangs and leaves the headband on a bare forehead); the ladder stances show no difference (the hair covers the cap from behind) | A (smap codes, cap vslot, zmap order) / B (agreement) | `Base.wz/smap.img` + `zmap.img`, `Character.wz/Cap/*/info/vslot`; the v83 clients in the prior-art clones map CpH1H5 to half-cover (overhead hair not drawn) and CpH5 to headband (overhead hair drawn over the cap), re-implemented from prose |
 | Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
-| Scroll roster (#110) | `game/data/survivor/scrolls.json`: slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
+| Scroll roster (#110) | `game/data/survivor/scrolls/<line>.json` (common = armour slots, magician = wand and staff): slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
 | Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
 | Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
 | Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |
 | Scroll NPCs (#111) | El Moth 1032103 (100%), Barun 2022002 (60%), Tulcus 1052104 (10%), Vega 2041016 (dark 70% / 30%), standing on the Free Market floor at x -380, -280, -180 and 40 (`shops.json`); all four have art in v83 `Npc.wz`, so none is replaced; names from `String.wz/Npc.img` | A (ids, art, names; they are v83's own scroll sellers), C (which NPC sells which rate, the positions) | Owner #33; `Npc.wz`, `String.wz/Npc.img` |
-| Scroll prices (#111) | 35,000 mesos for an armour scroll, 70,000 for a wand or staff scroll, at every rate (`shops.json` `prices`, `weapon_slots`) | B (100% scrolls: v83 NPC prices), C (applied to the 60%, 10% and dark rates) | Owner #33; v83 server shop data |
+| Warrior scroll roster (#159) | `scrolls/warrior.json`: slots `sword`, `axe`, `blunt` (2043xxx), `two_handed_sword`, `two_handed_axe`, `two_handed_blunt`, `spear`, `polearm` (2044xxx), each with families ATT (x000-x005) and ACC (accuracy), and `shield` (2040900-2040933) with DEF, STR, HP, LUK and ATT (no 100% ATT in v83), by rate like the others; the strong 100%, 65% / 15%, 50%, anniversary, King Pepe's and Magic Att. scrolls are out. A slot is tied to its items by the scroll category (`(id / 100) % 100` equals `(item / 10000) % 100`: 30 sword, 31 axe, 32 blunt, 40-42 their two-handed kinds, 43 spear, 44 polearm, 9 shield); stock follows the shop rule below, so a Warrior sees all nine slots and a Magician or Beginner none | C (selection), A (ids, stats, rates) | ours; `Item.wz/Consume/0204.img` |
+| Scroll prices (#111) | 35,000 mesos for an armour scroll, 70,000 for a weapon scroll (`shops.json` `prices`; the weapon-priced slots are the `weapon_slots` of the line files: wand, staff, and the eight Warrior weapon kinds, #159), the shield priced as armour, at every rate | B (100% scrolls: v83 NPC prices, checked for the sword, axe, blunt, two-handed, spear, polearm and shield scrolls), C (applied to the 60%, 10% and dark rates) | Owner #33; v83 server shop data |
 | Shop stock (#111) | each NPC sells its rates of every scroll family whose equipment (a drop-list item) the character's job can wear; unlimited, fixed, the same at every tier; no filter tabs, no random stock | C | Owner #33 |
 | Sell rule (#111) | any shop buys spare equipment at its `info/price` and scrolls at their `info/price` (1 meso); worn equipment cannot be sold; potions are not bought (the Use tab lists scrolls only) | B (price = sell price), C (potions) | v83 sell rule (server reimplementations); ours |
 | Shop messages (#111) | "You do not have enough mesos." / "Please check if your inventory is full or not." / "You can't sell it anymore.", "How many are you willing to buy?" / "...sell?", "Are you sure you want to sell it?" | B (GMS v95 client string pool; the v83 wording is unverified) | open client reimplementations' string pool dump |
@@ -3645,6 +5910,18 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Shop talk reach (#111) | within 100 px horizontally and 90 px vertically of an NPC's feet (`shops.json` `talk_range`); a double-click on an NPC opens its shop from any distance | C | ours |
 | Shop window layout (#111) | `UIWindow.img/Shop/backgrnd` 463x339, two panels 230 px apart: five rows at y 127 + 40 x n (icon slot x 6, `select` 162x35 at x 43), the strip at y 91 (pink Buy label left, `TabSell` Equip / Use / Set-up / Etc / Cash glyphs right, 44 px each), NPC feet (54, 76), character feet (285, 76), Buy (126, 32), Exit (126, 56), Sell (356, 32), meso text right-aligned in the baked field (361, 63, 90x15), scrollbar `Basic.img/VScr5` at x 208; the `TabBuy` All / Must filter tabs are not drawn | C (measured on the v83 art; art and origins A) | ours |
 | Shop dialogs (#111) | quantity box = `Basic.img/YesNo` with a typed number (1 to 100, or the stack), refusal box = `Basic.img/Notice` with BtOK, sale confirmation = the YesNo box | C | ours |
+| Skill weapon requirement (#156) | Skill.wz `weapon` (type - 100) read as a weapon family; the key `"weapon "` with a trailing space (5001003 only) is read too | A | original v83 Skill.wz |
+| `weapon_families` override (#156) | survivor skills.json array of family names or `["any"]`, wins over the canonical field; untagged skills (Somersault Kick, Grenade: any; Flash Fist, Brawler: knuckle; Masteries, Boosters, Final Attacks: their family) are tagged by the class specs | C | ours (v83-facts.md section 2: no WZ field for these) |
+| Gated skill behaviour (#156) | an unusable owned skill does not auto-cast and its cooldown keeps running; running buffs are not cancelled by a swap; its cards are not offered; the Skill window greys it with `iconDisabled` and the tooltip adds "Weapon : X" | C | ours |
+
+| Bot engage kite_reach (#162) | `balance.bot.engage.kite_reach` 220 px: a build whose longest attack reaches less walks up to mobs instead of kiting; below every Magician attack (shortest Magic Claw 260) and above one-handed swings | C | ours |
+| Bot engage distance (#162) | `reach_fraction` 0.8 of the longest ready attack's reach (`SkillRunner.reach_of`, `BasicAttack.reach`), `chase_range` 300 px on the bot's level; stands facing the mob; `deadzone` 6 px (keeps its facing when closer) | C | ours |
+| Bot engage retreat (#162) | `retreat_hp` 0.35 of max HP, or a boss attack winding up (`BossAttacks.telegraph_up`): the melee bot kites like any other | C | ours |
+| Threaten numbers (#183) | canonical `x`/`y` (-1..-20 flat weapon attack / weapon defence), `time` 44..120 s, `mpCon`, `mobCount` 6, `lt`/`rb`, action, effect, `mob` overlay, sound | A | Skill.wz/120.img/skill/1201006 and Sound.wz/Skill.img/1201006 |
+| Threaten success chance (#183) | the node has no `prop`: always succeeds, no roll, no RNG (RNG stream 13 stays reserved for this spec, never drawn); a run without Threaten is byte-identical | A (absence) | Skill.wz/120.img level nodes; owner decision 5 of spec #165 |
+| Threaten cast (#183) | `crowd` rule with `cast.status: threatened`: at least 3 eligible (live, non-boss, not already threatened) monsters in the box, nearest `mobCount` first, 1 s cooldown, 0.8 s alert2 stance; Slow's two-consecutive-cast history stays Slow-only | C | ours |
+| Threatened status (#183) | flat PAD and PDD cut floored at 0 on contact damage, physical ordinary attacks (and their balls) and the player's physical hits; refreshes without stacking; bosses and status-resistant kinds never take it; coexists with slow, poison and freeze; magic attack and defence untouched | C | ours; the v83 text only says weapon attack and weapon def. fall |
+| Threaten cards (#183) | learn weight 3, rank weight 2, `requires.jobs` [120], not power; no bot score entry (default scoring, like Iron Body) | C | ours |
 
 ## 12. Later phases
 
