@@ -17,4 +17,4 @@ class ThreeTests extends TestCase:
 
 
 func test_discovers_only_declared_instance_tests() -> void:
-	assert_eq(TestRunner._discover_methods(ThreeTests), [&"test_a", &"test_b", &"test_c"])
+	assert_eq(TestRunner._discover_methods(ThreeTests), ["test_a", "test_b", "test_c"])

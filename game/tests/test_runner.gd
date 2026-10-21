@@ -26,6 +26,9 @@ func run(filters: PackedStringArray) -> int:
 	var skipped := 0
 	var guard := ScriptErrorGuard.new()
 	guard.attach()
+	if files.is_empty():
+		print("FAIL no test files selected in %s (filters: %s)" % [UNIT_DIR, filters])
+		failed += 1
 	for path in files:
 		var script: GDScript = load(path) if ResourceLoader.exists(path) else null
 		if script == null or not script.can_instantiate():
@@ -34,6 +37,9 @@ func run(filters: PackedStringArray) -> int:
 			total += 1
 			continue
 		var methods := _discover_methods(script)
+		if methods.is_empty():
+			print("FAIL %s: no non-static test_* methods found" % path)
+			failed += 1
 		for m in methods:
 			var tc: TestCase = script.new()
 			tc.current_test = "%s::%s" % [path.get_file().get_basename(), m]
@@ -62,7 +68,8 @@ func run(filters: PackedStringArray) -> int:
 static func _discover_methods(script: GDScript) -> Array:
 	var methods: Array = []
 	for m in script.get_script_method_list():
-		if String(m.name).begins_with("test_") and not (m.name in methods):
+		if String(m.name).begins_with("test_") and not (int(m.flags) & METHOD_FLAG_STATIC) \
+				and not (m.name in methods):
 			methods.append(m.name)
 	methods.sort()
 	return methods
