@@ -105,6 +105,7 @@ func test_invalid_primary_recovers_backup_without_rotating_rejected_bytes() -> v
 	assert_eq(save.create_slot(snapshot()), 0)
 	assert_eq(save.save_file(), OK)
 	var good := FileAccess.get_file_as_string(save_path)
+	assert_eq(DirAccess.copy_absolute(save_path, save_path + ".bak"), OK)
 	var file := FileAccess.open(save_path, FileAccess.WRITE)
 	file.store_string('{"format":2,"best":{},"runs":{},"slots":[{},null,null],"history":[]}')
 	file.close()

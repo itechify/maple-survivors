@@ -16,7 +16,8 @@ extends RefCounted
 ## died/victory/deleted. Dates are nonempty caller-supplied strings; SaveData never reads the clock or picks seeds.
 ## A round summary's `nx_awarded` is added to the account inside the same write as update_slot (clear boundary) or
 ## end_run (death/victory); deletion never credits. set_account replaces the whole block (Cash Shop spending).
-## Corrupt/unsupported files are copied to .bad[.N]; .bak recovers a missing primary after interrupted replacement.
+## Corrupt/unsupported files are copied to .bad[.N]; valid .bak recovers a missing or rejected primary.
+## Web imports are staged at .import and fully validated here before promotion; rejection leaves committed files alone.
 ##
 ## Best result rule (tier C, ours): a clear beats a death; then the longer survival; then the higher level, more kills,
 ## more damage.
@@ -46,6 +47,7 @@ var account: Dictionary:
 ## Most recent persistence error; creation returns -1 on failure and other mutators return Error.
 var last_error: Error = OK
 var _preserve_error: Error = OK
+var _primary_valid := false
 var _slots: Array = [null, null, null]
 var _history: Array = []
 var _account: Dictionary = Account.empty()
@@ -56,7 +58,7 @@ func _init(p_path: String = PATH) -> void:
 	load_file()
 
 
-## Re-reads/converts the file; invalid files start empty and are preserved, missing primaries recover from .bak.
+## Re-reads/converts the file, recovers a valid backup, then validates any shell-staged import before promotion.
 func load_file() -> void:
 	best = {}
 	runs = {}
@@ -65,52 +67,81 @@ func load_file() -> void:
 	_account = Account.empty()
 	last_error = OK
 	_preserve_error = OK
-	var source := path
-	if not FileAccess.file_exists(source):
-		source = path + ".bak"
-	if not FileAccess.file_exists(source):
-		return
+	_primary_valid = false
+	for source: String in [path, path + ".bak"]:
+		if not FileAccess.file_exists(source):
+			continue
+		var parsed := _read_valid_file(source)
+		if _preserve_error != OK:
+			return
+		if parsed.is_empty():
+			continue
+		_primary_valid = source == path
+		_apply_file(parsed)
+		last_error = OK
+		if source != path or int(parsed.format) == 1:
+			last_error = save_file()
+		break
+	_load_import()
+
+
+func _read_valid_file(source: String) -> Dictionary:
 	var file := FileAccess.open(source, FileAccess.READ)
 	if file == null:
 		_preserve_error = FileAccess.get_open_error()
 		last_error = _preserve_error
-		return
+		return {}
 	var text := file.get_as_text()
 	var read_error := file.get_error()
 	file.close()
 	if read_error != OK and read_error != ERR_FILE_EOF:
 		_preserve_error = read_error
 		last_error = read_error
-		return
+		return {}
 	var json := JSON.new()
-	if json.parse(text) != OK:
+	if json.parse(text) != OK or not _valid_file(json.data):
 		_preserve_bad_file(source)
-		return
-	var parsed: Variant = json.data
-	if not _valid_file(parsed):
-		_preserve_bad_file(source)
-		return
+		return {}
+	return json.data
+
+
+func _apply_file(parsed: Dictionary) -> void:
+	best = {}
+	runs = {}
 	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
 	var stages: Dictionary = stage_data.get("stages", {}) if stage_data is Dictionary else {}
-	var b: Variant = parsed.get("best", {})
-	if b is Dictionary:
-		for k: Variant in b:
-			if stages.has(String(k)) and b[k] is Dictionary:
-				best[String(k)] = b[k]
-	var r: Variant = parsed.get("runs", {})
-	if r is Dictionary:
-		for k: Variant in r:
-			if stages.has(String(k)):
-				runs[String(k)] = int(r[k])
-	if int(parsed.format) == 1:
-		last_error = save_file()
+	for k: String in parsed.best:
+		if stages.has(k) and parsed.best[k] is Dictionary:
+			best[k] = parsed.best[k]
+	for k: String in parsed.runs:
+		if stages.has(k):
+			runs[k] = int(parsed.runs[k])
+	_slots = parsed.get("slots", [null, null, null])
+	_history = parsed.get("history", [])
+	_account = Account.normalized(parsed.get("account", Account.empty()))
+
+
+func _load_import() -> void:
+	var source := path + ".import"
+	if not FileAccess.file_exists(source):
+		return
+	var parsed := _read_valid_file(source)
+	if _preserve_error != OK:
+		return
+	if parsed.is_empty():
+		# The rejected candidate is retained as .import.bad; do not retry it on every launch.
+		var error := DirAccess.remove_absolute(source)
+		if error != OK:
+			_preserve_error = error
+			last_error = error
+		return
+	var previous := _state()
+	_apply_file(parsed)
+	last_error = save_file()
+	if last_error == OK:
+		last_error = DirAccess.remove_absolute(source)
 	else:
-		_slots = parsed.get("slots", [null, null, null])
-		_history = parsed.get("history", [])
-		if parsed.has("account"):
-			_account = Account.normalized(parsed.account)
-		if source != path:
-			last_error = save_file()
+		_apply_file(previous)
 
 
 ## Writes through .tmp with a .bak recovery copy (creating its folder); returns any persistence error.
@@ -362,22 +393,27 @@ func _write(data: Dictionary) -> Error:
 		var error := DirAccess.make_dir_recursive_absolute(dir)
 		if error != OK:
 			return error
+	var text := JSON.stringify(data, "\t", true, true)
+	if _primary_valid and JSON.parse_string(FileAccess.get_file_as_string(path)) == JSON.parse_string(text):
+		return OK # No state change: retain both committed byte sequences, including the older backup.
 	var temporary := path + ".tmp"
 	var f := FileAccess.open(temporary, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
-	f.store_string(JSON.stringify(data, "\t", true, true))
+	f.store_string(text)
 	f.flush()
 	var error := f.get_error()
 	f.close()
 	# Windows DirAccess.rename removes the destination before moving. Keep a complete previous save so
 	# load_file can recover if the process stops in that gap. Never move the only complete copy aside.
-	if error == OK and FileAccess.file_exists(path):
+	if error == OK and _primary_valid and FileAccess.file_exists(path):
 		error = DirAccess.copy_absolute(path, path + ".bak")
 	if error == OK:
 		error = DirAccess.rename_absolute(temporary, path)
 	if error != OK:
 		DirAccess.remove_absolute(temporary)
+	else:
+		_primary_valid = true
 	return error
 
 

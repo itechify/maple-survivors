@@ -354,7 +354,7 @@ const isWhole = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /**
- * A light check of a save file before it replaces the player's save: it parses, has SaveData's top-level shape
+ * A light check before staging a candidate: it parses, has SaveData's top-level shape
  * (format 1 or 2, best and runs objects; for format 2 exactly 3 slots and a history array). The game still validates
  * the contents in full when it loads the file. Returns {ok: true, slots} or {ok: false, error}.
  */
@@ -376,6 +376,13 @@ export function validateSaveText(text) {
 		return { ok: false, error: 'That file is not a Maple Survivors save (slots or history missing).' };
 	}
 	return { ok: true, slots: s.slots.filter((x) => x !== null).length };
+}
+
+/** Stage only. SaveData validates all nested data before promoting this sibling to the persistent save. */
+export async function stageSaveImport(text, writeFile) {
+	const check = validateSaveText(text);
+	if (check.ok) await writeFile(SAVE_PATH + '.import', new TextEncoder().encode(text));
+	return check;
 }
 
 /** `maple-survivors-save-20261017-142530.json` (local time). */

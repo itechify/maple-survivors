@@ -139,9 +139,11 @@ The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helper
 #69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
 
 Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
-Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation
-failure blocks writes. Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`,
-copy the previous file to `.bak`, then replace the primary. In-memory mutations commit only after success.
+Malformed or unsupported saves are copied to `.bad`, `.bad.1`, etc.; preservation failure blocks writes. A valid
+`.bak` recovers a missing **or rejected** primary; only when neither validates does the save start empty.
+Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`, copy a previously
+validated primary to `.bak`, then replace the primary. A rejected primary is never rotated over the backup.
+Saving unchanged state leaves both committed byte sequences alone. In-memory mutations commit only after success.
 Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/windows/dir_access_windows.cpp#L288-L327)
 removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
 A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
@@ -1180,7 +1182,7 @@ uses the thread pool, `onExit(0)` fires and the saves reach IndexedDB.
 
 `request` is one of `reimport` (show the import screen), `export_save` (download `user://save.json` as
 `maple-survivors-save-YYYYMMDD-HHMMSS.json`, then restart the engine) or `import_save` (ask for a save file, validate it,
-keep the old file as `save.json.bak` the way `SaveData` does, write `save.json`, restart). The game writes the file,
+stage it as `save.json.import`, restart for full game validation). The game writes the file,
 closes it in a normal frame, stops its audio players, pauses the tree and calls `get_tree().quit()` (the game side is the
 web profile ticket, #134). When the engine exits the shell reads the marker from IndexedDB, deletes it, handles it and
 starts a **new** `Engine` on a fresh canvas element. An unknown `request`, a wrong `format` or invalid JSON is logged,
@@ -1190,7 +1192,11 @@ teardown after a quit with audio alive; the final IndexedDB sync has already hap
 
 Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
 or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
-contents when it loads the file.
+contents of the staged `.import` file before promotion. An invalid candidate is preserved as `.import.bad[.N]`
+and consumed without touching the primary or `.bak`; no second nested validator lives in JavaScript. A valid
+candidate goes through SaveData's normal temporary/backup write, then the staging file is removed. The shell's
+toast says "staged", since it cannot claim validation succeeded before the game loads it. A failed promotion keeps
+the prior in-memory state and staged file for recovery.
 
 **Network.** The shell requests its own static bundle and, when the player enters an address, that address (`fetch`
 for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`
