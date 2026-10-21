@@ -1779,7 +1779,7 @@ func _update_hud() -> void:
 func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	var buffs: Array = ps.buffs
 	var sig := _hud_sig_scratch
-	sig.resize(16 + buffs.size() * 2)
+	sig.resize(18 + buffs.size() * 2)
 	sig[0] = int(ps.hp)
 	sig[1] = int(ps.mp)
 	sig[2] = int(ps.max_hp)
@@ -1796,9 +1796,11 @@ func _hud_snapshot_changed(ps: Dictionary) -> bool:
 	sig[13] = int(ps.potions.hp.item_id)
 	sig[14] = int(ps.potions.mp.item_id)
 	sig[15] = int(bool(ps.get("mp_short", false)))
+	sig[16] = world.state
+	sig[17] = int(_end_kind != "")
 	for i in buffs.size():
-		sig[16 + i * 2] = int(buffs[i].skill_id)
-		sig[17 + i * 2] = ceili(float(buffs[i].remaining))
+		sig[18 + i * 2] = int(buffs[i].skill_id)
+		sig[19 + i * 2] = ceili(float(buffs[i].remaining))
 	if sig == _hud_sig:
 		return false
 	_hud_sig = sig.duplicate()
@@ -1840,7 +1842,7 @@ func run_info() -> Dictionary:
 		skills.append({"icon": String(world.book.def(key).get("icon", "")), "rank": world.loadout.rank(key),
 			"key_label": label, "cooldown_left": float(ready.left), "cooldown_total": float(ready.total),
 			"mp_short": bool(ready.mp_short), "blocked": bool(ready.blocked)})
-	return {"time": run_time(), "kills": world.kills, "name": _player_name(),
+	return {"time": run_time(), "kills": world.kills, "name": _player_name(), "state": world.state, "ending": _end_kind != "",
 		"job_name": world.jobs.name_of(int(world.player_state.job_id)),
 		"exp_next": int(world.player_state.exp_next), "skills": skills,
 		"movement_skill": HudQuickSlot.movement_skill_of(world.manual_skill_keys())}

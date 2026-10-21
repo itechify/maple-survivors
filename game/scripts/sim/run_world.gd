@@ -2638,7 +2638,7 @@ func _write_player_state(dt: float) -> void:
 		_action_t += dt
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
 	player_state["mp"] = floori(_mp)
-	player_state["mp_short"] = runner.waiting_mp
+	player_state["mp_short"] = _waiting_for_mp()
 	player_state["buffs"] = buffs.snapshot()
 	player_state["hidden"] = is_hidden()
 	player_state["morph"] = 0 if _dead else morph_id()
@@ -2663,3 +2663,13 @@ func _write_player_state(dt: float) -> void:
 	player_state["action_scale"] = upkeep.action_scale
 	player_state["dead"] = _dead
 	player_state["potions"] = potions.snapshot()
+
+
+## The latest cast scan's shortages, checked against current MP after pickups, refills or held-window changes.
+func _waiting_for_mp() -> bool:
+	if _dead or state in [DEAD, CLEARED] or not runner.waiting_mp:
+		return false
+	for key: String in loadout.order:
+		if runner.is_waiting_mp(key) and book.usable_with(key, held_weapon_family()) and _mp_short(key):
+			return true
+	return false
