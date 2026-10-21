@@ -848,7 +848,7 @@ func _sync_modal_input() -> void:
 
 ## Loads what the first level-up / job / pause window and the level-up effect draw (the UI imgs, the Magician
 ## instructor NPC and its name, the fonts), and what a job advancement or a skill rank swaps in at once (the job's
-## weapon and every skill rank's projectile / hit / effect art), so none of it is decoded in the middle of a run.
+## weapon and every skill rank's projectile / hit / effect art), plus victory art, so none is decoded mid-run.
 func _warm_ui() -> void:
 	for path: String in [LevelUpWindow.ART, LevelUpWindow.ROW, LevelUpWindow.ROW_FOCUS, LevelUpWindow.LEVEL_DIGITS + "2",
 			LevelUpWindow.KEY_DIGITS + "1", JobAdvanceWindow.DLG + "t", PauseMenu.BOX + "t",
@@ -860,7 +860,7 @@ func _warm_ui() -> void:
 		if npc > 0 and bool(world.jobs.job(first_job).get("playable", false)):
 			UiArt.anim("Npc.wz/%07d.img/stand" % npc)
 			UiArt.text("String.wz/Npc.img/%d/name" % npc)
-	for path: String in [FX_LEVEL_UP, FX_JOB_CHANGED]:
+	for path: String in [FX_LEVEL_UP, FX_JOB_CHANGED, FX_CLEAR]:
 		if library != null:
 			library.find_anim(path)
 	MapleText.width("Lv.", MapleText.SMALL, true)
@@ -892,13 +892,13 @@ func _warm_ui() -> void:
 
 
 ## Loads what the job advancement and the scheduled bosses first show or play, so their first appearance does not
-## decode atlas pages or audio mid-run: the level-up / job-change sounds; per boss its skill and attack stances, the
+## decode atlas pages or audio mid-run: the level-up / job-change / victory sounds; per boss its skill and attack stances, the
 ## enabled MobSkill effect / recipient / affected / status / summon art, attack effect, ball and hit art, its sounds,
 ## its String.wz name and boss-bar MobGage icon and colour strips; and the BasicEff Summoned arrival effect.
 func _warm_stage() -> void:
 	if library == null:
 		return
-	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED, LevelUpWindow.SND_HIGH_TIER]:
+	for path: String in [SND_LEVEL_UP, SND_JOB_CHANGED, SND_CLEAR, LevelUpWindow.SND_HIGH_TIER]:
 		_warm_sound(path)
 	library.find_anim("Effect.wz/BasicEff.img/Summoned")
 	for frame: String in ["backgrnd", "backgrnd2", "backgrnd3", "backgrnd4"]:
