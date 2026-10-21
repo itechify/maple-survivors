@@ -68,6 +68,9 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+## Production stage names for the optional clock-free instrumentation callback, in execution order.
+const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
+	"player_state", "end_tick"]
 ## read_skill_cooldowns states of a skill icon: waiting for MP, or blocked by the held weapon (0 = normal).
 const SKILL_STATE_MP_WAIT := 1
 const SKILL_STATE_BLOCKED := 2
@@ -693,23 +696,42 @@ func emit(type: String, fields: Dictionary) -> void:
 	events.append(e)
 
 
-## Advances the run by dt seconds with the player's input (no-op unless PLAYING).
-func step(dt: float, input: MoveInput) -> void:
+## Advances the run by dt seconds (no-op unless PLAYING). Optional after_stage(name) observes production boundaries;
+## timing stays with the caller. Observers must not mutate the world or draw RNG.
+func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> void:
 	if state != PLAYING:
 		return
 	time += dt
 	refresh_player_speed()
 	_step_player(dt, input)
+	if after_stage.is_valid():
+		after_stage.call("player")
 	_step_monsters(dt)
+	if after_stage.is_valid():
+		after_stage.call("monsters")
 	_step_player_attacks(dt)
+	if after_stage.is_valid():
+		after_stage.call("player_attacks")
 	if pet_system != null:
 		_step_pet(dt)
+	if after_stage.is_valid():
+		after_stage.call("pet")
 	var got := _step_pickups(dt)
+	if after_stage.is_valid():
+		after_stage.call("pickups")
 	_touch()
+	if after_stage.is_valid():
+		after_stage.call("touch")
 	if got > 0 and not _dead:
 		_gain_exp(got)
+	if after_stage.is_valid():
+		after_stage.call("gain_exp")
 	_write_player_state(dt)
+	if after_stage.is_valid():
+		after_stage.call("player_state")
 	_end_tick()
+	if after_stage.is_valid():
+		after_stage.call("end_tick")
 
 
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.

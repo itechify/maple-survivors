@@ -10,16 +10,14 @@ extends SceneTree
 ##
 ## The player is in god mode (RunWorld.god: no damage) so the bot reaches the late, crowded minutes; --mortal turns it
 ## off (the round then ends where the bot dies).
-## The timed tick replays RunWorld.step part by part (keep _timed_step in step with RunWorld.step / _step_monsters /
-## _step_player_attacks); it calls the same functions in the same order, so the round is the same one RunWorld.step
-## would play. Timings are wall-clock on this machine (Time.get_ticks_usec around each part, which adds a little
+## The timed tick calls RunWorld.step with a stage observer: the same production code owns every subsystem call.
+## The breakdown follows its coarse stages (monsters, player attacks, etc.), including all follow-up work.
+## Timings are wall-clock on this machine (Time.get_ticks_usec around each part, which adds a little
 ## overhead per part); compare shares, and raw numbers only on a quiet machine.
 
 const BR := preload("res://tools/balance_run.gd")
 const DT := 1.0 / 60.0
-const PARTS := ["player", "swarm.step", "bosses", "mob_skills", "boss_attacks", "mob_attacks", "mob_projectiles",
-	"director", "sync_slots", "mob_grid", "runner", "basic", "live_mdd", "projectiles", "kills", "pet", "pickups",
-	"touch", "gain_exp", "player_state", "end_tick"]
+const PARTS := RunWorld.STEP_PARTS
 
 
 func _init() -> void:
@@ -91,11 +89,11 @@ func _init() -> void:
 			continue
 		bot_us += b1 - b0
 		var s0 := Time.get_ticks_usec()
-		var runner0 := acc[10]
+		var attacks0 := acc[2]
 		_timed_step(w, DT, input, acc)
 		if w.runner.waiting_mp:
 			wait_ticks += 1
-			wait_us += acc[10] - runner0
+			wait_us += acc[2] - attacks0
 		step_us += Time.get_ticks_usec() - s0
 		BotShop.equip_after(w, w.drain_events())  # the bot wears its best drops, as RunScene and balance_run do
 		ticks += 1
@@ -143,75 +141,29 @@ func _init() -> void:
 		var n := float(r.n)
 		print("%4d:00 %6.1f %7.1f (%5.1f %6.1f %4.1f %4.1f | %6.1f %4.1f %4.1f) %7.1f" % [m, r.alive / n, r.drops / n,
 			r.exp / n, r.meso / n, r.equip / n, r.potion / n, r.rest / n, r.air / n, r.magnet / n, r.hi / n])
-	print("job %d, level %d, skills %s; MP-short ticks %d of %d, runner %.1f us/tick in them, %.1f in the others" % [
+	print("job %d, level %d, skills %s; MP-short ticks %d of %d, player attacks %.1f us/tick in them, %.1f in the others" % [
 		w.progression.job_id, w.progression.level, w.loadout.order, wait_ticks, ticks,
 		float(wait_us) / maxf(1.0, wait_ticks),
-		float(acc[10] - wait_us) / maxf(1.0, ticks - wait_ticks)])
+		float(acc[2] - wait_us) / maxf(1.0, ticks - wait_ticks)])
 	print("collected: exp %d, mesos %d, equips %d, kills %d" % [w.pickups.collected_exp, w.mesos, w.equips_collected,
 		w.kills])
 	quit()
 
 
-## RunWorld.step, part by part, adding each part's microseconds to acc (indexed like PARTS).
+## Times the actual production stages; no copied simulation order or arguments live in this tool.
 static func _timed_step(w: RunWorld, dt: float, input: MoveInput, acc: PackedInt64Array) -> void:
-	if w.state != RunWorld.PLAYING:
-		return
-	w.time += dt
-	w.refresh_player_speed()
-	var t := Time.get_ticks_usec()
-	w._step_player(dt, input)
-	t = _lap(acc, 0, t)
-	w._ctx.target = w.player.pos
-	w._ctx.target_fh = w.player.fh
-	w._ctx.speed_mult = w.director.value_at("speed", w.time)
-	w._ctx["boss_actions"] = w.mob_actions.view(w.bosses.prepare_actions(w), w.bosses, w.swarm, w.time)
-	w._ctx["events"] = w.events
-	w.swarm.step(dt, w._ctx)
-	t = _lap(acc, 1, t)
-	w.bosses.step(w, dt)
-	t = _lap(acc, 2, t)
-	w.mob_skills.step(w)
-	t = _lap(acc, 3, t)
-	w.boss_attacks.step(w)
-	t = _lap(acc, 4, t)
-	w.mob_attacks.step(w, dt)
-	t = _lap(acc, 5, t)
-	w.mob_projectiles.step(dt, w)
-	t = _lap(acc, 6, t)
-	w.director.step(dt, w)
-	t = _lap(acc, 7, t)
-	w._sync_slots()
-	t = _lap(acc, 8, t)
-	w.mob_grid.rebuild(w.swarm.x, w.swarm.y, w.swarm.active, w.swarm.capacity())
-	t = _lap(acc, 9, t)
-	w.runner.step(dt, w)
-	t = _lap(acc, 10, t)
-	w.basic.step(dt, w)
-	t = _lap(acc, 11, t)
-	w._fill_live_defense()
-	t = _lap(acc, 12, t)
-	w.projectiles.step(dt, w.swarm, w.mob_grid, w.events, w._live_mdd, w._live_physical_allowed, w._on_player_hit)
-	t = _lap(acc, 13, t)
-	for m in w.projectiles.kills:
-		w._on_kill(m)
-	t = _lap(acc, 14, t)
-	if w.pet_system != null:
-		w._step_pet(dt)
-	t = _lap(acc, 15, t)
-	var got := w._step_pickups(dt)
-	t = _lap(acc, 16, t)
-	w._touch()
-	t = _lap(acc, 17, t)
-	if got > 0 and not w._dead:
-		w._gain_exp(got)
-	t = _lap(acc, 18, t)
-	w._write_player_state(dt)
-	t = _lap(acc, 19, t)
-	w._end_tick()
-	_lap(acc, 20, t)
+	var timer := StageTimer.new(acc)
+	w.step(dt, input, timer.lap)
 
 
-static func _lap(acc: PackedInt64Array, part: int, t0: int) -> int:
-	var t1 := Time.get_ticks_usec()
-	acc[part] += t1 - t0
-	return t1
+class StageTimer extends RefCounted:
+	var _acc: PackedInt64Array
+	var _last: int
+	func _init(acc: PackedInt64Array) -> void:
+		_acc = acc
+		_last = Time.get_ticks_usec()
+	func lap(part: String) -> void:
+		var now := Time.get_ticks_usec()
+		_acc[PARTS.find(part)] += now - _last
+		_last = now
+

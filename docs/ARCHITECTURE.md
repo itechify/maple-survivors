@@ -161,6 +161,9 @@ numbers, hit effects and sounds, and reads the struct-of-arrays state directly t
 
 Benefits: every gameplay rule is testable headless with a seeded RNG; the presentation can be swapped (debug view,
 recording) without changing the rules; and a full simulated run can be benchmarked without rendering.
+`RunWorld.step` optionally calls `after_stage(name)` at its production stage boundaries (`STEP_PARTS`); observers
+must be read-only and draw no RNG. `profile_run.gd` supplies the external clock and reports those coarse stages,
+including Final Attack inside player attacks. It no longer maintains a separate copy of tick orchestration.
 
 ### 4.4 Module contracts (sim core, `game/scripts/sim/`)
 
