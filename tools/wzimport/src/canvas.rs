@@ -11,7 +11,9 @@ use flate2::{Decompress, FlushDecompress, Status};
 
 // tier C: defensive import limits, measured margin over original v83 in ASSET_PIPELINE section 2.4.
 pub const MAX_CANVAS_EDGE: u32 = 32768;
+// tier C: per-canvas decoded bytes, 14.26x the largest measured original v83 canvas.
 pub const MAX_CANVAS_BYTES: usize = 128 * 1024 * 1024;
+// tier C: per-img decoded bytes, 1.79x the largest measured original v83 img aggregate.
 pub const MAX_IMG_DECODE_BYTES: usize = 512 * 1024 * 1024;
 
 /// Validate dimensions before any pixel allocation, including refs supplied without the parser.

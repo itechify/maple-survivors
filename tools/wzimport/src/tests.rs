@@ -257,13 +257,13 @@ fn corrupt_canvas_data_is_an_error() {
 
 #[test]
 fn canvas_resource_limits_reject_headers_without_allocating_pixels() {
-    for (w, h) in [(i32::MAX as u32, i32::MAX as u32), (65536, 65536), (0, i32::MAX as u32)] {
+    for (w, h) in [(i32::MAX as u32, i32::MAX as u32), (65536, 65536), (8192, 8192), (0, i32::MAX as u32)] {
         let bytes = write_img(&[p("giant", canvas(w, h, 2, vec![], false, vec![]))], false);
-        assert!(crate::property::parse_img("Test.img".into(), bytes, 0).is_err(), "accepted {w}x{h}");
+        assert!(matches!(crate::property::parse_img("Test.img".into(), bytes, 0), Err(crate::WzError::ResourceLimit(_))), "accepted {w}x{h}");
     }
     // Nine individually reasonable 64 MiB canvases exceed the img aggregate. Payloads stay tiny.
     let props = (0..9).map(|i| p(&i.to_string(), canvas(4096, 4096, 2, vec![], false, vec![]))).collect::<Vec<_>>();
-    assert!(crate::property::parse_img("Test.img".into(), write_img(&props, false), 0).is_err());
+    assert!(matches!(crate::property::parse_img("Test.img".into(), write_img(&props, false), 0), Err(crate::WzError::ResourceLimit(_))));
 }
 
 #[test]
@@ -272,15 +272,34 @@ fn canvas_decoder_rejects_overflow_even_for_injected_refs() {
     let mut c = canvas_of(&i, "c");
     c.width = i32::MAX as u32;
     c.height = i32::MAX as u32;
-    assert!(canvas::decode(&i.bytes, &c).is_err());
-    assert!(canvas::pixels_to_rgba(&[], c.width, c.height, 2).is_err());
+    assert!(matches!(canvas::decode(&i.bytes, &c), Err(crate::WzError::ResourceLimit(_))));
+    assert!(matches!(canvas::pixels_to_rgba(&[], c.width, c.height, 2), Err(crate::WzError::ResourceLimit(_))));
+    assert!(canvas::raw_size(u32::MAX, u32::MAX, 2).is_none());
+    assert!(matches!(canvas::inflate(&[], usize::MAX), Err(crate::WzError::ResourceLimit(_))));
 }
 
 #[test]
 fn property_nesting_is_bounded() {
     let mut tree = W::Int(1);
     for _ in 0..65 { tree = sub(vec![p("nested", tree)]); }
-    assert!(crate::property::parse_img("Deep.img".into(), write_img(&[p("root", tree)], false), 0).is_err());
+    assert!(matches!(crate::property::parse_img("Deep.img".into(), write_img(&[p("root", tree)], false), 0), Err(crate::WzError::ResourceLimit(_))));
+}
+
+#[test]
+fn external_uol_canvases_share_the_export_decode_budget() {
+    let dir = TempDir::new("external-budget");
+    let mut entries = Vec::new();
+    let mut refs = Vec::new();
+    for i in 0..9 {
+        entries.push(WEntry::Img(format!("source{i}.img"), write_img(&[p("c", canvas(4096, 4096, 2, vec![], false, vec![]))], false)));
+        refs.push(p(&format!("ref{i}"), W::Uol(format!("../source{i}.img/c"))));
+    }
+    entries.push(WEntry::Img("all.img".into(), write_img(&refs, false)));
+    write_wz_root(dir.path(), &[("Test.wz", entries)]);
+    let out = dir.path().join("out");
+    let result = export_img(&WzRoot::new(dir.path()), "Test.wz/all.img", &ImgRequest { whole: true, ..Default::default() }, &out);
+    assert!(matches!(result, Err(crate::WzError::ResourceLimit(_))));
+    assert!(!out.exists(), "reject before decoding or writing any page");
 }
 
 // ---------------------------------------------------------------- sounds
