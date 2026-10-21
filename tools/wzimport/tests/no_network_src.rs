@@ -3,7 +3,30 @@
 
 use std::path::{Path, PathBuf};
 
-const FORBIDDEN: &[&str] = &["std::net", "TcpStream", "TcpListener", "UdpSocket", "ToSocketAddrs", "SocketAddr"];
+const FORBIDDEN: &[&str] = &[
+    "std::net", "TcpStream", "TcpListener", "UdpSocket", "ToSocketAddrs", "SocketAddr",
+    "std::process::Command", "process::Command", "Command::new", "Command as", "process::{",
+];
+
+fn forbidden_tokens(src: &str) -> Vec<&'static str> {
+    // Compact whitespace to catch qualified paths split over multiple lines.
+    let compact: String = src.chars().filter(|c| !c.is_whitespace()).collect();
+    FORBIDDEN.iter().copied().filter(|token| {
+        compact.contains(&token.chars().filter(|c| !c.is_whitespace()).collect::<String>())
+    }).collect()
+}
+
+#[test]
+fn subprocess_scan_rejects_synthetic_calls_without_running_them() {
+    for src in [
+        "std::process::Command::new(\"curl\")", "use std::process::Command as Runner;",
+        "use std::process::{Command};", "use std::process::*; Command::new(\"curl\");",
+        "std :: process :: Command :: new(\"curl\")",
+    ] {
+        assert!(!forbidden_tokens(src).is_empty(), "missed {src}");
+    }
+    assert!(forbidden_tokens("std::fs::read(path)").is_empty());
+}
 
 fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).expect("readable source dir") {
@@ -34,10 +57,8 @@ fn no_network_in_sources() {
             continue;
         }
         let src = std::fs::read_to_string(path).expect("readable source");
-        for token in FORBIDDEN {
-            if src.contains(token) {
-                bad.push(format!("{}: {token}", path.display()));
-            }
+        for token in forbidden_tokens(&src) {
+            bad.push(format!("{}: {token}", path.display()));
         }
     }
     assert!(bad.is_empty(), "networking in the importer's sources: {bad:?}");
