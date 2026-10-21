@@ -53,23 +53,25 @@ var _history: Array = []
 var _account: Dictionary = Account.empty()
 var _writer: WriterLock
 var _writer_required := false
+var _writer_clock: Callable
 ## Lock acquisition error; tool paths opt out, while the default persistent save always opts in on desktop.
 var writer_error: Error = OK
 
 
-func _init(p_path: String = PATH, persistent: bool = false) -> void:
+func _init(p_path: String = PATH, persistent: bool = false, clock: Callable = Callable()) -> void:
 	path = p_path
+	_writer_clock = clock
 	_writer_required = (persistent or path == PATH) and not OS.has_feature("web")
 	if _writer_required:
-		_writer = WriterLock.new()
+		_writer = WriterLock.new(clock)
 		writer_error = _writer.acquire(ProjectSettings.globalize_path(path + ".lock"))
 	load_file()
 
 
 ## Re-reads/converts the file, recovers a valid backup, then validates any shell-staged import before promotion.
 func load_file() -> void:
-	if _writer_required and not _writer.owns():
-		last_error = writer_error if writer_error != OK else ERR_ALREADY_IN_USE
+	if renew_writer() != OK:
+		last_error = writer_error
 		return
 	best = {}
 	runs = {}
@@ -164,6 +166,25 @@ func _load_import() -> void:
 func save_file() -> Error:
 	last_error = _write(_state())
 	return last_error
+
+
+## Renews desktop ownership; a lost lease permanently refuses writes until a fresh SaveData reloads committed state.
+func renew_writer() -> Error:
+	if _writer_required and writer_error == OK:
+		writer_error = _writer.renew()
+	return writer_error
+
+
+## A retry always reloads committed state in a fresh session, retaining an injected clock for deterministic tools.
+func reopen() -> SaveData:
+	return SaveData.new(path, _writer_required, _writer_clock)
+
+
+## Releases only this desktop lease on clean exit; tools and browser-owned stores have no desktop lease.
+func release_writer() -> void:
+	if _writer_required:
+		_writer.release()
+		writer_error = ERR_ALREADY_IN_USE
 
 
 ## The run snapshot in a slot, detached from the save; {} for an empty or out-of-range slot.
@@ -399,8 +420,8 @@ func _preserve_bad_file(source: String) -> void:
 
 
 func _write(data: Dictionary) -> Error:
-	if _writer_required and not _writer.owns():
-		return writer_error if writer_error != OK else ERR_ALREADY_IN_USE
+	if renew_writer() != OK:
+		return writer_error
 	if not _valid_file(data):
 		return ERR_INVALID_DATA
 	# Never overwrite a save whose bytes could not be read or preserved.
@@ -416,7 +437,8 @@ func _write(data: Dictionary) -> Error:
 		var previous := JSON.new()
 		if previous.parse(FileAccess.get_file_as_string(path)) == OK and previous.data == JSON.parse_string(text):
 			return OK # No state change: retain both committed byte sequences, including the older backup.
-	var temporary := path + ".tmp"
+	# An old owner waking mid-write must not truncate or remove its replacement's staging file.
+	var temporary := path + ".tmp" + ("." + _writer._session if _writer_required else "")
 	var f := FileAccess.open(temporary, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
@@ -424,28 +446,46 @@ func _write(data: Dictionary) -> Error:
 	f.flush()
 	var error := f.get_error()
 	f.close()
+	# A session may have slept while preparing the file. Check ownership again before touching committed bytes.
+	if error == OK:
+		error = renew_writer()
 	# Windows DirAccess.rename removes the destination before moving. Keep a complete previous save so
 	# load_file can recover if the process stops in that gap. Never move the only complete copy aside.
 	if error == OK and _primary_valid and FileAccess.file_exists(path):
 		error = DirAccess.copy_absolute(path, path + ".bak")
+	if error == OK:
+		error = renew_writer()
 	if error == OK:
 		error = DirAccess.rename_absolute(temporary, path)
 	if error != OK:
 		DirAccess.remove_absolute(temporary)
 	else:
 		_primary_valid = true
+		# Refresh after successful writes as well as before them (unchanged saves already renewed on entry).
+		# The bytes are already committed: keep the successful result even if renewal now fails; writer_error
+		# makes all later writes read-only and the flow shows the notice on its next heartbeat.
+		renew_writer()
 	return error
 
 
-## Atomic directory creation is the exclusive lock; its owner file records a PID for crash recovery.
+## Atomic directory creation grants a renewable wall-clock lease without launching another process.
 ## Only the real save uses it. No simulation, test/tool save, or web engine needs a desktop session lock.
 class WriterLock extends RefCounted:
-	# tier C: allow an interrupted mkdir/owner-file pair five seconds before recovering an empty lock.
-	const EMPTY_GRACE_SECONDS := 5
+	# tier C: renew every five real seconds; thirty seconds without renewal permits crash/sleep takeover.
+	const RENEW_SECONDS := 5.0
+	const STALE_SECONDS := 30.0
 	var directory := ""
 	var owner := ""
+	# tier C: a random 128-bit session id keeps owner generations distinct across independent game processes.
+	var _session := Crypto.new().generate_random_bytes(16).hex_encode()
+	var _generation := 0
+	var _lost := false
+	var _clock: Callable
 
-	## Claims the sibling lock directory, or recovers it only when its prior process is gone.
+	func _init(clock: Callable = Callable()) -> void:
+		_clock = clock if clock.is_valid() else func() -> float: return Time.get_unix_time_from_system()
+
+	## Claims an empty directory, or removes only expired owner generations before retrying exclusive mkdir.
 	func acquire(lock_path: String) -> Error:
 		directory = lock_path
 		var error := DirAccess.make_dir_recursive_absolute(directory.get_base_dir())
@@ -457,59 +497,86 @@ class WriterLock extends RefCounted:
 				return error
 			var removed := false
 			for name: String in DirAccess.get_files_at(directory):
-				if not name.ends_with(".owner") or not name.get_slice(".", 0).is_valid_int():
-					continue # Unknown debris fails closed rather than stealing a possibly live lock.
-				var pid := int(name.get_slice(".", 0))
-				if pid > 0 and not _process_alive(pid):
+				if name.ends_with(".owner") and _now() - _renewed_at(name) >= STALE_SECONDS:
+					# Renewal always uses a new filename, so this never deletes a concurrently renewed generation.
 					removed = DirAccess.remove_absolute(directory.path_join(name)) == OK or removed
 			var empty := DirAccess.get_files_at(directory).is_empty() and DirAccess.get_directories_at(directory).is_empty()
-			var expired := Time.get_unix_time_from_system() - FileAccess.get_modified_time(directory) >= EMPTY_GRACE_SECONDS
+			var expired := _now() - FileAccess.get_modified_time(directory) >= STALE_SECONDS
 			if empty and (removed or expired):
 				DirAccess.remove_absolute(directory)
 			error = DirAccess.make_dir_absolute(directory)
 			if error != OK:
 				return ERR_ALREADY_IN_USE
-		# Unique filenames make even a race with recovery of an empty lock fail closed: two markers never authorize a write.
-		owner = "%d.%d.owner" % [OS.get_process_id(), get_instance_id()]
-		var file := FileAccess.open(directory.path_join(owner), FileAccess.WRITE)
-		if file == null:
-			return FileAccess.get_open_error()
-		file.store_string(owner)
-		file.flush()
-		error = file.get_error()
-		file.close()
+		owner = _next_owner()
+		error = _publish(owner)
 		if error != OK:
 			return error
 		return OK if owns() else ERR_ALREADY_IN_USE
 
 	## True only while this marker is the sole owner; ambiguous initialization/recovery races refuse writes.
 	func owns() -> bool:
-		return not owner.is_empty() and DirAccess.get_files_at(directory) == PackedStringArray([owner])
+		if _lost or owner.is_empty():
+			return false
+		if DirAccess.get_files_at(directory) != PackedStringArray([owner]) \
+				or not DirAccess.get_directories_at(directory).is_empty():
+			_lost = true
+		return not _lost
 
-	static func _process_alive(pid: int) -> bool:
-		if pid == OS.get_process_id():
-			return true
-		if OS.get_name() != "Windows":
-			var processes: Array = []
-			var result := OS.execute("ps", PackedStringArray(["-p", str(pid), "-o", "pid="]), processes, true)
-			if result != 0 and result != 1:
-				return true
-			return "".join(processes).strip_edges() == str(pid)
-		# Godot 4.7.2 on Windows only checks its own child-process map. A different game instance is not a child.
-		# tasklist is an offline Windows system utility; query the numeric PID only, with no shell interpolation.
-		var output: Array = []
-		if OS.execute("tasklist", PackedStringArray(["/FI", "PID eq %d" % pid, "/FO", "CSV", "/NH"]), output, true) != 0:
-			return true # Liveness could not be established: do not steal a possibly live save.
-		for chunk: String in output:
-			for line: String in chunk.split("\n"):
-				if line.contains('\",\"%d\",' % pid):
-					return true
-		return false
+	## Publishes a unique generation before retiring the old one; races fail closed instead of reviving a stale lease.
+	func renew() -> Error:
+		if not owns():
+			return ERR_ALREADY_IN_USE
+		var next := _next_owner()
+		var error := _publish(next)
+		if error == OK:
+			error = DirAccess.remove_absolute(directory.path_join(owner))
+		if error != OK:
+			DirAccess.remove_absolute(directory.path_join(next))
+			_lost = true
+			return error
+		owner = next
+		return OK if owns() else ERR_ALREADY_IN_USE
+
+	## Removes only this generation; an old session can never release its replacement's lease.
+	func release() -> void:
+		if not owner.is_empty():
+			DirAccess.remove_absolute(directory.path_join(owner))
+			DirAccess.remove_absolute(directory) # Removal succeeds only when empty.
+		owner = ""
+		_lost = true
+
+	func _next_owner() -> String:
+		_generation += 1
+		return "%s.%d.owner" % [_session, _generation]
+
+	func _publish(name: String) -> Error:
+		var file := FileAccess.open(directory.path_join(name), FileAccess.WRITE)
+		if file == null:
+			return FileAccess.get_open_error()
+		file.store_string(JSON.stringify({"owner": _session, "renewed_at": _now()}))
+		file.flush()
+		var error := file.get_error()
+		file.close()
+		return error
+
+	func _renewed_at(name: String) -> float:
+		var marker := directory.path_join(name)
+		var json := JSON.new()
+		if json.parse(FileAccess.get_file_as_string(marker)) == OK and json.data is Dictionary:
+			var value: Variant = json.data.get("renewed_at")
+			if json.data.get("owner") is String and (value is float or value is int) and is_finite(float(value)):
+				return float(value)
+		# Interrupted/legacy marker creation is recoverable too; malformed bytes never count as a fresh renewal.
+		return float(FileAccess.get_modified_time(marker))
+
+	func _now() -> float:
+		return float(_clock.call())
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_PREDELETE and not owner.is_empty():
+			# RefCounted is already at zero here; calling another instance method cannot retain self.
 			DirAccess.remove_absolute(directory.path_join(owner))
-			DirAccess.remove_absolute(directory) # Only an empty directory is removed; another owner's marker survives.
+			DirAccess.remove_absolute(directory)
 
 
 ## The best record of a stage ({} when none).

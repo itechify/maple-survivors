@@ -77,6 +77,35 @@ var autoplay := false
 var hub_tool := false
 var last_summary: Dictionary = {}
 var last_new_best := false
+var _lease_timer: Timer
+
+
+func _ready() -> void:
+	_lease_timer = Timer.new()
+	_lease_timer.wait_time = SaveData.WriterLock.RENEW_SECONDS
+	_lease_timer.ignore_time_scale = true
+	_lease_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_lease_timer.timeout.connect(_renew_save_lease)
+	add_child(_lease_timer)
+	_lease_timer.start()
+
+
+func _exit_tree() -> void:
+	if save != null:
+		save.release_writer()
+
+
+func _renew_save_lease() -> void:
+	if save != null and save.renew_writer() != OK and not current is SaveBusyScreen:
+		active_slot = -1
+		_show_save_busy()
+
+
+func _show_save_busy() -> void:
+	var message := "Save open in another window. Close it, or wait 30 seconds if it stopped, then try again."
+	if save.writer_error != ERR_ALREADY_IN_USE:
+		message = "Could not renew the save lock. Check your save folder, then try again."
+	_swap_to(SaveBusyScreen.new(self, message), "error")
 
 
 ## Shows the title screen.
@@ -89,12 +118,9 @@ func goto_character_select() -> void:
 	active_slot = -1
 	# Retrying after closing the other window must load fresh state, never promote this session's stale view.
 	if save != null and save.writer_error != OK:
-		save = SaveData.new(save.path, true)
+		save = save.reopen()
 	if save_data().writer_error != OK:
-		var message := "Save open in another window. Close it, then try again."
-		if save.writer_error != ERR_ALREADY_IN_USE:
-			message = "Could not open the save lock. Check your save folder, then try again."
-		_swap_to(SaveBusyScreen.new(self, message), "error")
+		_show_save_busy()
 		return
 	var screen := _instance(CHARACTER_SELECT)
 	screen.configure(self)

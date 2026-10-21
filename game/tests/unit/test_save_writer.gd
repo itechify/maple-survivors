@@ -121,3 +121,54 @@ func test_clean_release_allows_immediate_takeover() -> void:
 	var next := persistent_save()
 	assert_eq(next.writer_error, OK)
 	assert_eq(next.slot(0).get("name"), "TabOne")
+
+
+func test_flow_heartbeat_renews_through_pauses_and_releases_on_exit() -> void:
+	var save := persistent_save()
+	var flow := SceneFlow.new()
+	flow.save = save
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(flow)
+	var timer: Timer = flow.get("_lease_timer")
+	assert_ne(timer, null)
+	assert_eq(timer.wait_time, 5.0)
+	assert_true(timer.ignore_time_scale, "heartbeat uses real time at every gameplay speed")
+	assert_eq(timer.process_mode, Node.PROCESS_MODE_ALWAYS, "paused scenes keep their lease")
+	now += 25.0
+	timer.timeout.emit() # Advance the injected wall clock, not real time.
+	now += 25.0
+	assert_eq(persistent_save().writer_error, ERR_ALREADY_IN_USE)
+	flow.free()
+	assert_false(DirAccess.dir_exists_absolute(save_path + ".lock"), "tree exit releases even a retained SaveData")
+	assert_eq(save.save_file(), ERR_ALREADY_IN_USE)
+	assert_eq(persistent_save().writer_error, OK)
+
+
+func test_interrupted_empty_or_partial_lock_expires_after_ttl() -> void:
+	var lock_path := ProjectSettings.globalize_path(save_path + ".lock")
+	assert_eq(DirAccess.make_dir_absolute(lock_path), OK)
+	now = float(FileAccess.get_modified_time(lock_path)) + 29.0
+	assert_eq(persistent_save().writer_error, ERR_ALREADY_IN_USE)
+	now += 1.0
+	var recovered := persistent_save()
+	assert_eq(recovered.writer_error, OK, "crash between mkdir and marker publication is recoverable")
+	recovered = null
+	assert_eq(DirAccess.make_dir_absolute(lock_path), OK)
+	var marker := lock_path.path_join("interrupted.owner")
+	var file := FileAccess.open(marker, FileAccess.WRITE)
+	file.store_string("{partial")
+	file.close()
+	now = float(FileAccess.get_modified_time(marker)) + 29.0
+	assert_eq(persistent_save().writer_error, ERR_ALREADY_IN_USE)
+	now += 1.0
+	assert_eq(persistent_save().writer_error, OK, "crash during marker publication is recoverable")
+
+
+func test_unknown_debris_does_not_authorize_a_write() -> void:
+	var lock_path := ProjectSettings.globalize_path(save_path + ".lock")
+	assert_eq(DirAccess.make_dir_absolute(lock_path), OK)
+	var file := FileAccess.open(lock_path.path_join("unknown"), FileAccess.WRITE)
+	file.store_string("keep")
+	file.close()
+	now = float(FileAccess.get_modified_time(lock_path)) + 60.0
+	assert_eq(persistent_save().writer_error, ERR_ALREADY_IN_USE)
+	assert_eq(FileAccess.get_file_as_string(lock_path.path_join("unknown")), "keep")

@@ -152,17 +152,24 @@ Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/god
 removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
 A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
 
-The default persistent `SaveData` acquires a desktop single-writer lock **before loading, migrating, recovering or
+The default persistent `SaveData` acquires a desktop single-writer lease **before loading, migrating, recovering or
 writing**. Atomic creation of the sibling `save.json.lock` directory grants ownership; a uniquely named `.owner`
-file inside records the process ID. A live owner blocks the second session with `ERR_ALREADY_IN_USE`; the roster
-entry shows the existing v83 Notice box and can be retried from the title after closing the other window. Retry
-constructs a fresh SaveData. Ownership is checked before every write. Releasing SaveData removes only its own marker;
-dead-PID markers are recoverable on the next attempt. A crash between mkdir and marker creation is recoverable after
-five seconds. Ambiguous/unknown debris fails closed. This is a lock directory so creation is exclusive on Windows
-as well as POSIX; a normally opened file would not provide exclusivity in GDScript.
-Liveness uses the local system process listing (`tasklist` on Windows, `ps` on POSIX), because Godot 4.7.2's
-`OS.is_process_running` only recognizes child processes ([engine source](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/os_windows.cpp#L1516-L1539)).
-No shell command is constructed; only a validated integer PID is passed. Failure to query liveness refuses takeover.
+file records a random session id and `renewed_at` wall-clock timestamp. SceneFlow's always-processing Timer renews
+every **5 real seconds**, independently of pause and gameplay speed; writes renew before staging, before touching
+committed bytes, before promotion and after success (including unchanged saves). **30 seconds** without renewal
+permits takeover (tier C safety constants, not v83 facts). No process is launched or queried. Clock reads stay in
+core/ and tests inject the clock; simulation remains deterministic. System clock rollback can delay stale recovery.
+A live lease blocks the second session with `ERR_ALREADY_IN_USE`; the existing v83 Notice tells the player to close
+the other window or wait 30 seconds after it stops responding, then retry from the title. Retry constructs a fresh
+SaveData and reloads committed state. A session waking after takeover becomes permanently read-only and shows the
+same Notice; it cannot reacquire ownership with its old in-memory state, even after the new owner exits.
+Each renewal publishes a new unique generation before retiring its previous marker; stale cleanup removes only the
+expired generation it inspected. Ambiguous ownership or unknown debris fails closed. Clean tree exit and SaveData
+destruction remove only their own marker, never the replacement's marker. Empty/partially written locks from an
+interrupted acquisition also expire after 30 seconds (file modification time is the fallback for partial markers).
+Persistent writers use session-specific `.tmp.<session>` files so a resumed old writer cannot truncate or remove
+its replacement's staging file. Leftover temporary files are never loaded. The lock is a directory so creation is
+exclusive on Windows as well as POSIX; a normally opened file would not provide exclusivity in GDScript.
 Custom SaveData paths are unguarded unless explicitly opted in (`SaveData.new(path, true)`, for synthetic ownership
 tests). Tool-only `--run`, headless tools, balance/bench/playtest and injected `flow_driver` saves never acquire the
 real-save lock. Web ownership is held by the shell for the whole storage lifecycle, below, rather than by game code.
