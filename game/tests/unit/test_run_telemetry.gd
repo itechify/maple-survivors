@@ -27,6 +27,10 @@ func test_ordinary_paused_play_does_not_retain_full_frame_history() -> void:
 	s._record_frame(1000.0 / 164.0, 12)
 	assert_true(s.perf_lines()[0].contains("6.10"), "F3 has recent frame data immediately")
 	assert_eq(s.perf_summary().frames, 0, "toggling F3 does not enable unbounded retention")
+	assert_true(s._frames.recent_ms.size() <= RunFrameRecorder.RECENT_CAPACITY)
+	for frame in 10060:
+		s._frames.record(0.0, 0, s.world.time, 0)
+	assert_eq(s._frames.recent_ms.size(), RunFrameRecorder.RECENT_CAPACITY, "zero-delta samples also stay bounded")
 	_free(s)
 
 
@@ -49,4 +53,8 @@ func test_explicit_recording_preserves_warmup_skip_and_summary_grouping() -> voi
 		assert_eq(report.frame_ms_by_minute[1].alive_mean, 200)
 		assert_eq(report.frame_ms_100plus.frames, 1)
 		assert_eq(report.frame_ms_200plus.frames, 1)
+		s._frames.skip_frames = 2
+		for frame in 2:
+			s._record_frame(999.0, 9999)
+		assert_eq(s.perf_summary(), report, "screenshot exclusions preserve all retained statistics")
 		_free(s)

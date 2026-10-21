@@ -812,6 +812,11 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
 
+`RunScene` owns a `RunFrameRecorder` for frame samples. Full history is retained only when configure options request
+`perf`, `quit_after` or `shots_dir`; automated summaries keep their warmup, screenshot exclusions, percentile and
+minute/crowd grouping semantics. Ordinary play keeps only the last two seconds, capped at 2048 samples even if frame
+deltas are zero. F3 reads this bounded window immediately when toggled mid-round and does not enable full recording.
+
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
 exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
 it carries progression, original attributes/earned AP, accumulated HP/MP growth and advancement grants, ordered

@@ -115,9 +115,8 @@ const TITLE_FADE := 1.0
 ## Damage-number stacking key of the player (mob slots use their slot index).
 const PLAYER_KEY := 1 << 20
 ## Perf overlay window (s) and refresh interval (s); frames ignored at the start of the perf summary.
-const PERF_WINDOW := 2.0
+const PERF_WINDOW := RunFrameRecorder.WINDOW_SECONDS
 const PERF_REFRESH := 0.25
-const PERF_WARMUP_FRAMES := 60
 ## Real seconds an automated run waits for a drawn frame to save final.png before quitting without it (an occluded or
 ## minimized window draws nothing, so RenderingServer.frame_post_draw never fires). Ignores Engine.time_scale.
 const FINAL_SHOT_TIMEOUT := 5.0
@@ -251,18 +250,9 @@ var _first_shots := {}
 ## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
 var _last_delta := 0.0
-var _skip_perf_frames := 0
 var _last_frame_us := 0
-var _frame_count := 0
-var _frame_ms := PackedFloat32Array()
-## Run time and alive mobs of every recorded frame (perf_summary's per-minute and per-crowd breakdown).
-var _frame_t := PackedFloat32Array()
-var _frame_alive := PackedInt32Array()
+var _frames := RunFrameRecorder.new()
 var _warped := 0.0
-var _recent_t := PackedFloat32Array()
-var _recent_ms := PackedFloat32Array()
-var _wall := 0.0
-var _present_us := PackedFloat32Array()
 var _sim_us := 0
 var _sim_ticks := 0
 var _max_alive := 0
@@ -293,6 +283,8 @@ func configure(p_stage_key: String, p_seed: int = -1, p_options: Dictionary = {}
 	stage_key = p_stage_key
 	run_seed = p_seed
 	options = p_options.duplicate()
+	_frames.full_history = option_flag(options, "perf") or float(options.get("quit_after", 0.0)) > 0.0 \
+		or String(options.get("shots_dir", "")) != ""
 
 
 func _ready() -> void:
@@ -1965,62 +1957,21 @@ func _quit_without_final_shot() -> void:
 
 ## Frame-time and sim statistics of this run plus its summary (written to summary.json by automated runs).
 func perf_summary(summary: Dictionary = {}) -> Dictionary:
-	var s := _frame_ms.duplicate()
-	s.sort()
-	var pr := _present_us.duplicate()
-	pr.sort()
 	var out := {
-		"summary": summary, "frames": s.size(), "frame_ms": {"p50": _pct(s, 0.5), "p95": _pct(s, 0.95),
-			"p99": _pct(s, 0.99), "max": s[s.size() - 1] if not s.is_empty() else 0.0, "avg": _avg(s)},
-		"frame_work_us": {"p50": _pct(pr, 0.5), "p95": _pct(pr, 0.95), "avg": _avg(pr)},
+		"summary": summary,
 		"sim_us_per_tick": float(_sim_us) / maxf(1.0, _sim_ticks), "ticks": _sim_ticks, "max_alive": _max_alive,
 		"level_by_minute": Array(_level_by_minute), "job_id": int(world.player_state.job_id), "kills": world.kills,
 		"state": world.state_name(), "time": world.time, "speed": _speed, "counters": counters.duplicate(),
 		"potions_collected": world.potions.collected.duplicate(), "potions_used": world.potions.used.duplicate(),
 		"missing": Array(library.missing) if library != null else [], "warped_to": _warped,
-		"frame_ms_by_minute": _perf_by_minute(), "frame_ms_100plus": _perf_where(100), "frame_ms_200plus": _perf_where(200),
 	}
+	out.merge(_frames.summary())
 	if _account_name != "":
 		out["account"] = _account_name # spec #34: the output names the tool account file; absent without --account.
 	if world.pet_system != null:
 		out["pet"] = {"species": world.pet_system.species, "pickups": world.pet_system.pickups,
 			"potions_used": world.potions.pet_used.duplicate()} # #119: pet drinks and pickups, apart from the player's
 	return out
-
-
-## Frame-time percentiles per run minute with the mean / max alive mobs of those frames.
-func _perf_by_minute() -> Array:
-	var groups := {}
-	for i in _frame_ms.size():
-		var m := int(_frame_t[i] / 60.0)
-		if not groups.has(m):
-			groups[m] = [PackedFloat32Array(), 0, 0]
-		var g: Array = groups[m]
-		var v0: PackedFloat32Array = g[0]
-		v0.append(_frame_ms[i])
-		g[0] = v0
-		g[1] = int(g[1]) + _frame_alive[i]
-		g[2] = maxi(int(g[2]), _frame_alive[i])
-	var out: Array = []
-	var keys := groups.keys()
-	keys.sort()
-	for m: int in keys:
-		var v: PackedFloat32Array = groups[m][0]
-		v.sort()
-		out.append({"minute": m, "frames": v.size(), "p50": _pct(v, 0.5), "p95": _pct(v, 0.95), "p99": _pct(v, 0.99),
-			"max": v[v.size() - 1], "alive_mean": roundi(float(groups[m][1]) / v.size()), "alive_max": groups[m][2]})
-	return out
-
-
-## Frame-time percentiles of the frames drawn with at least `min_alive` mobs alive.
-func _perf_where(min_alive: int) -> Dictionary:
-	var v := PackedFloat32Array()
-	for i in _frame_ms.size():
-		if _frame_alive[i] >= min_alive:
-			v.append(_frame_ms[i])
-	v.sort()
-	return {"frames": v.size(), "p50": _pct(v, 0.5), "p95": _pct(v, 0.95), "p99": _pct(v, 0.99),
-		"max": v[v.size() - 1] if not v.is_empty() else 0.0}
 
 
 ## Schedules a screenshot `delay` presentation seconds from now (automated runs with shots_dir only).
@@ -2058,30 +2009,14 @@ func _capture() -> void:
 		for n in _shot_queue:
 			img.save_png(_shots_dir.path_join(n))
 	_shot_queue.clear()
-	_skip_perf_frames = 2
+	_frames.skip_frames = 2
 	if _quit_after_capture:
 		_quit_after_capture = false
 		_exit_app()
 
 
 func _record_frame(frame_ms: float, work_us: int) -> void:
-	_frame_count += 1
-	_wall += frame_ms / 1000.0
-	if _skip_perf_frames > 0:
-		_skip_perf_frames -= 1
-	elif _frame_count > PERF_WARMUP_FRAMES:
-		_frame_ms.append(frame_ms)
-		_present_us.append(float(work_us))
-		_frame_t.append(world.time)
-		_frame_alive.append(world.swarm.alive_count())
-	_recent_t.append(_wall)
-	_recent_ms.append(frame_ms)
-	var cut := 0
-	while cut < _recent_t.size() and _recent_t[cut] < _wall - PERF_WINDOW:
-		cut += 1
-	if cut > 0:
-		_recent_t = _recent_t.slice(cut)
-		_recent_ms = _recent_ms.slice(cut)
+	_frames.record(frame_ms, work_us, world.time, world.swarm.alive_count())
 	_perf_refresh -= frame_ms / 1000.0
 	if _perf_on and _perf_refresh <= 0.0:
 		_perf_refresh = PERF_REFRESH
@@ -2094,12 +2029,12 @@ func _record_frame(frame_ms: float, work_us: int) -> void:
 
 ## The perf overlay text: FPS, frame ms avg/p95 over PERF_WINDOW s, sim ms per tick, counts and state.
 func perf_lines() -> PackedStringArray:
-	var s := _recent_ms.duplicate()
+	var s := _frames.recent_ms.duplicate()
 	s.sort()
-	var avg := _avg(s)
+	var avg := RunFrameRecorder.average(s)
 	var tick_ms := float(_sim_us) / maxf(1.0, _sim_ticks) / 1000.0
 	return PackedStringArray([
-		"FPS %d   frame %.2f ms avg  %.2f p95 (%.0f s)" % [Engine.get_frames_per_second(), avg, _pct(s, 0.95),
+		"FPS %d   frame %.2f ms avg  %.2f p95 (%.0f s)" % [Engine.get_frames_per_second(), avg, RunFrameRecorder.percentile(s, 0.95),
 			PERF_WINDOW],
 		"sim %.3f ms/tick   x%d" % [tick_ms, _speed],
 		"mobs %d   shots %d   drops %d" % [world.swarm.alive_count(), world.projectiles.active_count(),
@@ -2148,16 +2083,3 @@ func _sfx_service() -> AudioService:
 	return get_node_or_null("/root/Sfx") as AudioService
 
 
-static func _pct(sorted: PackedFloat32Array, q: float) -> float:
-	if sorted.is_empty():
-		return 0.0
-	return sorted[clampi(int(sorted.size() * q), 0, sorted.size() - 1)]
-
-
-static func _avg(v: PackedFloat32Array) -> float:
-	if v.is_empty():
-		return 0.0
-	var t := 0.0
-	for x in v:
-		t += x
-	return t / v.size()
