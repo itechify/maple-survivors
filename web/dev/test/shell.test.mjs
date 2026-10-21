@@ -72,6 +72,14 @@ test('shell boot blocks a second tab before storage/engine work and retry takes 
 	await vm.runInContext('storeOwnership.release()', second.context);
 });
 
+test('overlapping shell retry clicks share one startup operation', async () => {
+	const p = await page(lockService());
+	assert.equal(p.calls.engine, 1);
+	await Promise.all([vm.runInContext('boot()', p.context), vm.runInContext('boot()', p.context)]);
+	assert.equal(p.calls.engine, 2, 'only one additional startup passes the gate');
+	await vm.runInContext('storeOwnership.release()', p.context);
+});
+
 test('shell import stages semantically invalid candidates without touching committed saves or claiming promotion', async () => {
 	const p = await page(lockService());
 	vm.runInContext('startOrImport = async () => { window.restarted = true; }', p.context);
