@@ -291,7 +291,8 @@ fn external_uol_canvases_share_the_export_decode_budget() {
     let mut entries = Vec::new();
     let mut refs = Vec::new();
     for i in 0..9 {
-        entries.push(WEntry::Img(format!("source{i}.img"), write_img(&[p("c", canvas(4096, 4096, 2, vec![], false, vec![]))], false)));
+        // Unsupported format avoids large allocations even if the export preflight regresses.
+        entries.push(WEntry::Img(format!("source{i}.img"), write_img(&[p("c", canvas(4096, 4096, 999, vec![], false, vec![]))], false)));
         refs.push(p(&format!("ref{i}"), W::Uol(format!("../source{i}.img/c"))));
     }
     entries.push(WEntry::Img("all.img".into(), write_img(&refs, false)));
