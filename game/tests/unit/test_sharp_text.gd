@@ -140,8 +140,9 @@ func test_tool_fill_override_is_never_saved() -> void:
 	# main.gd --fill (evidence of the fill-window mode) must not persist into the player's settings.cfg.
 	var path := TestCase.test_dir("sharp_text_settings.cfg")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path + suffix))
 	var s := GameSettings.new(path)
 	s.fill_override = true
 	s.set_volume("master", 0.5)

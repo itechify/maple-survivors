@@ -55,3 +55,22 @@ func test_corrupt_primary_recovers_preferences_and_keeps_the_valid_backup() -> v
 	var reloaded := GameSettings.new(cfg_path)
 	assert_eq(reloaded.bgm_volume, 0.25)
 	reloaded.free()
+
+
+func test_key_config_stays_open_and_does_not_report_saved_after_a_write_failure() -> void:
+	var settings := GameSettings.new(cfg_path)
+	var window := KeyConfigWindow.new(settings)
+	var seen := {"saved": 0, "closed": 0}
+	window.saved.connect(func() -> void: seen.saved += 1)
+	window.close_requested.connect(func() -> void: seen.closed += 1)
+	assert_eq(DirAccess.make_dir_absolute(ProjectSettings.globalize_path(cfg_path + ".tmp")), OK)
+	window.ok()
+	assert_eq(seen.saved, 0)
+	assert_eq(seen.closed, 0)
+	assert_ne(settings.last_error, OK)
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path + ".tmp")), OK)
+	window.ok()
+	assert_eq(seen.saved, 1)
+	assert_eq(seen.closed, 1)
+	window.free()
+	settings.free()

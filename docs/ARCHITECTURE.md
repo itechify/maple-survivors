@@ -156,9 +156,20 @@ constructs a fresh SaveData. Ownership is checked before every write. Releasing 
 dead-PID markers are recoverable on the next attempt. A crash between mkdir and marker creation is recoverable after
 five seconds. Ambiguous/unknown debris fails closed. This is a lock directory so creation is exclusive on Windows
 as well as POSIX; a normally opened file would not provide exclusivity in GDScript.
+Liveness uses the local system process listing (`tasklist` on Windows, `ps` on POSIX), because Godot 4.7.2's
+`OS.is_process_running` only recognizes child processes ([engine source](https://github.com/godotengine/godot/blob/ed1daf0bf/platform/windows/os_windows.cpp#L1516-L1539)).
+No shell command is constructed; only a validated integer PID is passed. Failure to query liveness refuses takeover.
 Custom SaveData paths are unguarded unless explicitly opted in (`SaveData.new(path, true)`, for synthetic ownership
 tests). Tool-only `--run`, headless tools, balance/bench/playtest and injected `flow_driver` saves never acquire the
 real-save lock. Web ownership is held by the shell for the whole storage lifecycle, below, rather than by game code.
+
+`GameSettings` also writes through a flushed/closed `.tmp`, backs up a parseable primary to `.bak`, then renames.
+A missing or malformed primary reads the backup without writing during load; corrupt bytes are never rotated over
+that backup. Unrelated ConfigFile sections and InputMap/default-binding semantics remain unchanged. `save_settings`
+returns its `Error`, records `last_error` and emits `save_failed(error)` for every failed setter persistence attempt.
+The live values still apply to the session. Options displays "Not saved" in its footer; Key Config keeps its draft
+open with that message and emits neither `saved` nor close until persistence succeeds. Tests clean all three
+process-private config siblings, retaining #103's isolation from the player's real preferences.
 
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain

@@ -12,8 +12,9 @@ var _saved_map: Dictionary = {}
 
 func before_each() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(cfg_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(cfg_path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path + suffix))
 	# Settings writes the global InputMap that the live Settings autoload also uses: restored after every test.
 	_saved_map = {}
 	for a: StringName in InputMap.get_actions():

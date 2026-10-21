@@ -280,6 +280,8 @@ func _draw() -> void:
 		UiArt.blit_part(self, bg, Rect2(0, SRC_BOTTOM_Y, WIDTH, BOTTOM_H), Vector2(0, bottom))
 	else:
 		draw_rect(Rect2(0, bottom + 8.0, WIDTH, BOTTOM_H - 10.0), Color8(153, 187, 204))
+	if settings != null and settings.last_error != OK:
+		MapleText.draw(self, Vector2(10, bottom + 14), "Not saved. Check your save folder.", MapleText.BLACK, MapleText.SMALL)
 
 
 func _draw_label(y: float, text: String) -> void:

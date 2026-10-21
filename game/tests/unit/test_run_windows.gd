@@ -379,8 +379,9 @@ func test_pause_menu_opens_key_config_and_options_over_the_paused_run() -> void:
 		return
 	var cfg := TestCase.test_dir("run_windows_settings.cfg")
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(cfg):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(cfg + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + suffix))
 	var temp := GameSettings.new(cfg)
 	var s: RunScene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
 	s.library = lib

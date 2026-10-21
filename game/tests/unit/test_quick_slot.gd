@@ -16,8 +16,9 @@ const DASH := {"action": "dash", "name": "Dash", "icon": "Skill.wz/500.img/skill
 
 func before_each() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(cfg_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(cfg_path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path + suffix))
 	# The live InputMap may hold the developer's rebinds: tests start from the project defaults and put it back.
 	_saved_map = {}
 	for a: StringName in InputMap.get_actions():
