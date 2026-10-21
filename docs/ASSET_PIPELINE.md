@@ -178,6 +178,26 @@ checks, not browser/storage/UI QA (owned by #133/#136).
 Rust synthetic tests compare complete caches from folder, stored-zip and deflated-zip sources and check the physical
 img traversal order.
 
+### 2.4 Decode limits and failure boundary
+
+Native and wasm use the same tier C defensive limits: each canvas edge at most 32,768 pixels, each decoded RGBA8
+canvas at most 128 MiB, and at most 512 MiB of decoded canvases per parsed img. The selected, UOL-expanded export
+is checked again against that aggregate before decoding; packed atlas pages also have a 512 MiB aggregate limit.
+These are per-img budgets, not a whole-process memory cap (native jobs may run in parallel). Pixel and offset
+arithmetic is checked before allocation; canvas buffer reservation is fallible. Rejections return
+`WzError::ResourceLimit` on native and wasm. Property/Canvas/Convex nesting is limited to 64 extended objects.
+
+Measured with `MAPLE_WZ_ROOT` on the owner's original v83 install on 2026-10-21: all 16,821 imgs in the PKG1
+archives parsed with zero errors (the separate, non-PKG1 `List.wz` is excluded). Largest canvas:
+`Effect.wz/Direction1.img/effect/aran/rien/0/0`, 2941 x 800 = 9,411,200 RGBA bytes; the 128 MiB budget is 14.26 times
+that size. Largest sum of canvas RGBA bytes in an img: `Mob.wz/8830007.img`, 300,091,076 bytes; 512 MiB is 1.79
+times that sum. Maximum property depth was 8, versus the limit of 64. Measurements read headers without decoding
+or exporting proprietary assets. Limits are importer safeguards, not canonical WZ facts or gameplay tuning.
+
+Native output replacement remains atomic per file, not per import: another img may already have been written when
+one fails. A failed img is not indexed and normal re-import retries it. Portable hosts must retain their staging /
+promotion boundary and discard a failed import; a successful index alone is not permission to ignore report errors.
+
 Follow-up #132b timing (2026-10-17, Ryzen 7 7800X3D, Windows, Node 24.21.0, release builds): the full current
 manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal compression (`-tzip -mm=Deflate -mx=5`),
 1,907,592,640 bytes uncompressed / 1,694,345,144 bytes zipped. Each run imports all 157 imgs, synchronously compares

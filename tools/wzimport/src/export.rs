@@ -116,6 +116,11 @@ pub fn export_img_to(wz: &WzRoot, img_path: &str, request: &ImgRequest, sink: &d
         _ => {}
     });
 
+    // Recheck the selected, UOL-expanded set: external canvases bypass this img's parser budget.
+    let mut decoded_bytes = 0;
+    for (c, _) in &uniq {
+        canvas::add_decode_bytes(&mut decoded_bytes, canvas::rgba_size(c.width, c.height)?)?;
+    }
     #[cfg(all(feature = "parallel", not(target_arch = "wasm32")))]
     let iter = uniq.par_iter();
     #[cfg(not(all(feature = "parallel", not(target_arch = "wasm32"))))]
@@ -134,6 +139,10 @@ pub fn export_img_to(wz: &WzRoot, img_path: &str, request: &ImgRequest, sink: &d
         }
     }
     let layout = atlas::pack(&sizes, PAGE_MAX, GAP);
+    let mut page_bytes = 0;
+    for &(w, h) in &layout.pages {
+        canvas::add_decode_bytes(&mut page_bytes, canvas::rgba_size(w, h)?)?;
+    }
     let images: Vec<&[u8]> = decoded.iter().map(|d| d.as_deref().unwrap_or(&[])).collect();
     let page_pixels = atlas::compose(&layout, &images);
     drop(decoded);

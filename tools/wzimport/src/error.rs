@@ -5,6 +5,8 @@ use thiserror::Error;
 /// Everything that can go wrong while reading WZ data or writing the cache.
 #[derive(Debug, Error)]
 pub enum WzError {
+    #[error("resource limit exceeded: {0}")]
+    ResourceLimit(String),
     #[error("unexpected end of data at 0x{pos:X} (needed {need} bytes)")]
     Eof { pos: u64, need: usize },
     #[error("format error at 0x{pos:X}: {msg}")]
