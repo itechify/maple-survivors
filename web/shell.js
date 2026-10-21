@@ -790,9 +790,21 @@ function wire() {
 	});
 }
 
+const storeOwnership = lib.createStoreOwnership(navigator.locks);
+
 async function boot() {
-	wire();
 	setScreen('boot', 'Maple Survivors');
+	try {
+		if (!await storeOwnership.acquire()) {
+			showError('Maple Survivors is already open in another tab. Close that tab, then choose Try again to play here.', () => boot());
+			$('btn-retry').textContent = 'Try again';
+			return;
+		}
+	} catch (e) {
+		showError(e.message, () => boot());
+		return;
+	}
+	$('btn-retry').textContent = 'Back';
 	state.persistReady = requestPersistence();
 	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
 	if (missing.length) {
@@ -811,6 +823,7 @@ async function boot() {
 	await startOrImport();
 }
 
+wire();
 boot().catch((e) => {
 	console.error(e);
 	showError(String(e && e.message ? e.message : e), () => location.reload());

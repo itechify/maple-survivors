@@ -148,6 +148,18 @@ Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/god
 removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
 A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
 
+The default persistent `SaveData` acquires a desktop single-writer lock **before loading, migrating, recovering or
+writing**. Atomic creation of the sibling `save.json.lock` directory grants ownership; a uniquely named `.owner`
+file inside records the process ID. A live owner blocks the second session with `ERR_ALREADY_IN_USE`; the roster
+entry shows the existing v83 Notice box and can be retried from the title after closing the other window. Retry
+constructs a fresh SaveData. Ownership is checked before every write. Releasing SaveData removes only its own marker;
+dead-PID markers are recoverable on the next attempt. A crash between mkdir and marker creation is recoverable after
+five seconds. Ambiguous/unknown debris fails closed. This is a lock directory so creation is exclusive on Windows
+as well as POSIX; a normally opened file would not provide exclusivity in GDScript.
+Custom SaveData paths are unguarded unless explicitly opted in (`SaveData.new(path, true)`, for synthetic ownership
+tests). Tool-only `--run`, headless tools, balance/bench/playtest and injected `flow_driver` saves never acquire the
+real-save lock. Web ownership is held by the shell for the whole storage lifecycle, below, rather than by game code.
+
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
 independent of new casting. A ready skill can cast on the tick movement leaves the climbing state.
@@ -1135,7 +1147,15 @@ subpath). The Web preset has `html/export_icon=false`, so Godot adds no icon lin
 `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
 picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
 
-**Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
+**Ownership.** Before reading shared IndexedDB or starting any engine/import worker, boot takes an exclusive
+Web Lock named `maple-survivors-userfs` with `ifAvailable`. It holds that lock for the page lifetime, including
+engine quit/restart and shell import/export screens. A second tab shows "already open in another tab" and a
+Try again button. Close the owner tab, then retry: the browser releases ownership on exit/crash and the new tab
+loads current storage. There is no force-steal of a mounted engine, heartbeat expiry or network coordination.
+Browsers without Web Locks refuse to mount and explain the requirement (current browser on HTTPS/localhost).
+The shell never releases a running engine's lock on visibility change or `pagehide`.
+
+**Boot.** Once ownership is acquired, the shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
 IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
 check is exact for what the manifest names and nothing else: every `imgs[]` entry, every `mapimgs` entry and the imgs
 the `maps`/`mobs`/`character`/`items` ids resolve to (the formulas of `tools/wzimport/src/manifest.rs`), plus

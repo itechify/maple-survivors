@@ -385,6 +385,41 @@ export async function stageSaveImport(text, writeFile) {
 	return check;
 }
 
+/** One exclusive browser owner for all /userfs mounts, shell operations and workers. Held until page exit. */
+export function createStoreOwnership(locks) {
+	let held = false;
+	let pending = null;
+	let finished = null;
+	let release = null;
+	return {
+		acquire() {
+			if (held) return Promise.resolve(true);
+			if (pending) return pending;
+			pending = new Promise((resolve, reject) => {
+				if (!locks || typeof locks.request !== 'function') {
+					reject(new Error('This browser needs Web Locks to protect your save. Use a current browser over HTTPS or localhost.'));
+					return;
+				}
+				finished = locks.request('maple-survivors-userfs', { ifAvailable: true, mode: 'exclusive' }, async (lock) => {
+					if (!lock) { resolve(false); return; }
+					held = true;
+					const lifetime = new Promise((done) => { release = done; });
+					resolve(true);
+					await lifetime;
+					held = false;
+				});
+				finished.catch(reject);
+			}).finally(() => { pending = null; });
+			return pending;
+		},
+		// For deterministic tests. The shell never releases a mounted engine's lock; the browser does so on page exit/crash.
+		async release() {
+			if (release) release();
+			if (finished) await finished;
+		},
+	};
+}
+
 /** `maple-survivors-save-20261017-142530.json` (local time). */
 export function saveFileName(date) {
 	const p = (n, w = 2) => String(n).padStart(w, '0');

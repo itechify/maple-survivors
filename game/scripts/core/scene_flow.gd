@@ -87,6 +87,15 @@ func goto_title() -> void:
 ## Shows the three living character slots. No round progress is saved here.
 func goto_character_select() -> void:
 	active_slot = -1
+	# Retrying after closing the other window must load fresh state, never promote this session's stale view.
+	if save != null and save.writer_error != OK:
+		save = SaveData.new(save.path, true)
+	if save_data().writer_error != OK:
+		var message := "Save open in another window. Close it, then try again."
+		if save.writer_error != ERR_ALREADY_IN_USE:
+			message = "Could not open the save lock. Check your save folder, then try again."
+		_swap_to(SaveBusyScreen.new(self, message), "error")
+		return
 	var screen := _instance(CHARACTER_SELECT)
 	screen.configure(self)
 	_swap_to(screen, "character_select")
@@ -471,6 +480,36 @@ static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).
 static func error_screen(message: String) -> Control:
 	return ErrorScreen.new(message)
+
+
+## Persistent-save refusal uses the existing v83 Notice art and login backdrop; OK/Esc returns to the title.
+class SaveBusyScreen extends Control:
+	var message := ""
+	var flow: SceneFlow
+	var notice: ShopNotice
+
+	func _init(p_flow: SceneFlow, p_message: String) -> void:
+		flow = p_flow
+		message = p_message
+		name = "SaveBusy"
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	func _ready() -> void:
+		add_child(LoginBackdrop.new(LoginBackdrop.CHAR_SELECT))
+		notice = ShopNotice.new(message)
+		notice.close_requested.connect(flow.goto_title)
+		add_child(notice)
+		resized.connect(_place_notice)
+		_place_notice()
+
+	func _place_notice() -> void:
+		if notice != null:
+			notice.position = ((size - notice.size) * 0.5).floor()
+
+	func _unhandled_input(event: InputEvent) -> void:
+		if MapleWindow.is_cancel(event) or MapleWindow.is_confirm(event):
+			flow.goto_title()
+			get_viewport().set_input_as_handled()
 
 
 ## Black screen with a centred message; Esc or a click returns to the title.

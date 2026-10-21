@@ -51,15 +51,26 @@ var _primary_valid := false
 var _slots: Array = [null, null, null]
 var _history: Array = []
 var _account: Dictionary = Account.empty()
+var _writer: WriterLock
+var _writer_required := false
+## Lock acquisition error; tool paths opt out, while the default persistent save always opts in on desktop.
+var writer_error: Error = OK
 
 
-func _init(p_path: String = PATH) -> void:
+func _init(p_path: String = PATH, persistent: bool = false) -> void:
 	path = p_path
+	_writer_required = (persistent or path == PATH) and not OS.has_feature("web")
+	if _writer_required:
+		_writer = WriterLock.new()
+		writer_error = _writer.acquire(ProjectSettings.globalize_path(path + ".lock"))
 	load_file()
 
 
 ## Re-reads/converts the file, recovers a valid backup, then validates any shell-staged import before promotion.
 func load_file() -> void:
+	if _writer_required and not _writer.owns():
+		last_error = writer_error if writer_error != OK else ERR_ALREADY_IN_USE
+		return
 	best = {}
 	runs = {}
 	_slots = [null, null, null]
@@ -383,6 +394,8 @@ func _preserve_bad_file(source: String) -> void:
 
 
 func _write(data: Dictionary) -> Error:
+	if _writer_required and not _writer.owns():
+		return writer_error if writer_error != OK else ERR_ALREADY_IN_USE
 	if not _valid_file(data):
 		return ERR_INVALID_DATA
 	# Never overwrite a save whose bytes could not be read or preserved.
@@ -415,6 +428,59 @@ func _write(data: Dictionary) -> Error:
 	else:
 		_primary_valid = true
 	return error
+
+
+## Atomic directory creation is the exclusive lock; its owner file records a PID for crash recovery.
+## Only the real save uses it. No simulation, test/tool save, or web engine needs a desktop session lock.
+class WriterLock extends RefCounted:
+	# tier C: allow an interrupted mkdir/owner-file pair five seconds before recovering an empty lock.
+	const EMPTY_GRACE_SECONDS := 5
+	var directory := ""
+	var owner := ""
+
+	func acquire(lock_path: String) -> Error:
+		directory = lock_path
+		var error := DirAccess.make_dir_recursive_absolute(directory.get_base_dir())
+		if error != OK:
+			return error
+		error = DirAccess.make_dir_absolute(directory)
+		if error != OK:
+			if not DirAccess.dir_exists_absolute(directory):
+				return error
+			var removed := false
+			for name: String in DirAccess.get_files_at(directory):
+				if not name.ends_with(".owner") or not name.get_slice(".", 0).is_valid_int():
+					continue # Unknown debris fails closed rather than stealing a possibly live lock.
+				var pid := int(name.get_slice(".", 0))
+				if pid > 0 and not OS.is_process_running(pid):
+					removed = DirAccess.remove_absolute(directory.path_join(name)) == OK or removed
+			var empty := DirAccess.get_files_at(directory).is_empty() and DirAccess.get_directories_at(directory).is_empty()
+			var expired := Time.get_unix_time_from_system() - FileAccess.get_modified_time(directory) >= EMPTY_GRACE_SECONDS
+			if empty and (removed or expired):
+				DirAccess.remove_absolute(directory)
+			error = DirAccess.make_dir_absolute(directory)
+			if error != OK:
+				return ERR_ALREADY_IN_USE
+		# Unique filenames make even a race with recovery of an empty lock fail closed: two markers never authorize a write.
+		owner = "%d.%d.owner" % [OS.get_process_id(), get_instance_id()]
+		var file := FileAccess.open(directory.path_join(owner), FileAccess.WRITE)
+		if file == null:
+			return FileAccess.get_open_error()
+		file.store_string(owner)
+		file.flush()
+		error = file.get_error()
+		file.close()
+		if error != OK:
+			return error
+		return OK if owns() else ERR_ALREADY_IN_USE
+
+	func owns() -> bool:
+		return not owner.is_empty() and DirAccess.get_files_at(directory) == PackedStringArray([owner])
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_PREDELETE and not owner.is_empty():
+			DirAccess.remove_absolute(directory.path_join(owner))
+			DirAccess.remove_absolute(directory) # Only an empty directory is removed; another owner's marker survives.
 
 
 ## The best record of a stage ({} when none).
