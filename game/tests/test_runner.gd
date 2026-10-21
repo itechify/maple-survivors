@@ -33,11 +33,7 @@ func run(filters: PackedStringArray) -> int:
 			failed += 1
 			total += 1
 			continue
-		var methods: Array = []
-		for m in script.get_script_method_list():
-			if String(m.name).begins_with("test_") and not (m.name in methods):
-				methods.append(m.name)
-		methods.sort()
+		var methods := _discover_methods(script)
 		for m in methods:
 			var tc: TestCase = script.new()
 			tc.current_test = "%s::%s" % [path.get_file().get_basename(), m]
@@ -61,6 +57,15 @@ func run(filters: PackedStringArray) -> int:
 		Time.get_ticks_msec() - t0])
 	print("TESTS_PASSED" if failed == 0 else "TESTS_FAILED")
 	return 0 if failed == 0 else 1
+
+
+static func _discover_methods(script: GDScript) -> Array:
+	var methods: Array = []
+	for m in script.get_script_method_list():
+		if String(m.name).begins_with("test_") and not (m.name in methods):
+			methods.append(m.name)
+	methods.sort()
+	return methods
 
 
 ## The Settings autoload already applied the developer's user://settings.cfg (rebinds, volumes): restart it from a
