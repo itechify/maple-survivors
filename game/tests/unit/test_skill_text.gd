@@ -121,6 +121,25 @@ func test_templates_pick_the_singular_and_leave_unknown_names() -> void:
 	assert_eq(SkillText.fill("{nope} stays", {}), "{nope} stays", "an unknown name is left for the tests to find")
 
 
+func test_bless_text_explains_the_accuracy_bonus_that_raises_critical_chance() -> void:
+	var world := RF.quiet_world(400.0, 1)
+	world.change_job(230)
+	world.learn_skill("energy_bolt")
+	world.learn_skill("bless")
+	var before := float(world.loadout.stats("energy_bolt").crit)
+	world.start_buff("bless", world.loadout.stats("bless"))
+	assert_true(float(world.loadout.stats("energy_bolt").crit) > before, "ADR 0005: Bless ACC contributes to crit")
+	var text := SkillText.new(world.book, {})
+	var card := world.upgrades.choice_card("bless_new", world)
+	var descriptions := [String(world.book.def("bless").desc), text.desc("bless"), String(card.desc),
+		String(text.dress([card], world.loadout)[0].desc)]
+	for description: String in descriptions:
+		assert_true("accuracy" in description.to_lower(), "the accuracy bonus stays visible")
+		assert_true("critical" in description.to_lower(), "the tooltip and card explain its combat benefit")
+		assert_false("no effect" in description.to_lower() or "no combat effect" in description.to_lower())
+		assert_false("canonical" in description.to_lower(), "plain player-visible wording")
+
+
 # --- every player-visible skill and card text ----------------------------------------------------------------------
 
 ## Fields a v83 skill level node can carry, so every override template can resolve without the cache.
