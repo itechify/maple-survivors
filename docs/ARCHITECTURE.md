@@ -602,8 +602,8 @@ What the table above leaves open; the class doc comments have the rest.
 in `balance.regen.interval` pulses (`PlayerUpkeep` keeps the clock; RunWorld applies each pulse to its pools): HP/MP
 base amounts plus `Loadout.regen_bonus(pool, character level)`: every owned skill with a `regen` field (`{"pool": "hp"|"mp", "divisor": n}`, e.g. Improved MP Recovery) adds `floor(character level x skill level / divisor)` to that pool; a `regen` of the shape
 `{"pool", "field"}` (Improved HP Recovery, #163) adds the canonical level field instead. `hp_regen` / `mp_regen` modifiers add
-to each pulse. Level growth calls `refresh_player_stats(false, level)` to allocate AP at each intermediate level of
-a batch before the next level's growth, then applies the level-up refill. Equipment calls `refresh_player_stats(false)`
+to each pulse. Level growth calls `refresh_player_stats(false, level, true)` to allocate AP at each intermediate level
+of a batch and preserve the MaxMP passive's MP fraction before the separate level-up refill. Equipment calls `refresh_player_stats(false)`
 to clamp current pools only; explicit pool upgrades retain the normal granted-growth behavior.
 
 Skills with `periodic_recovery: {interval_field, hp_field, mp_field}` (#212 Endure) have independent clocks in

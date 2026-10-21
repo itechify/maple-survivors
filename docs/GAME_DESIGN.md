@@ -3202,7 +3202,7 @@ quantities per kind.
   refill both pools, Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)`) but add no HP
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
   the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
-  Max MP grows through passive learning/ranks or job grants. Equipment refreshes only clamp current HP/MP to the
+  Max MP grows through passive learning/ranks, level growth (before the refill) or job grants. Equipment refreshes only clamp current HP/MP to the
   computed maxima, even with that passive. It never restores HP.
 - **Defense and avoid**: W.DEF and M.DEF sum the worn equipment's `incPDD` and `incMDD`, plus active defense
   modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
@@ -4851,7 +4851,7 @@ Binocular upgrades are the only pickup-range upgrades; `magnet` ranks and modifi
 Magicians learn Improved MaxMP Increase (2000001) at their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
-Current MP keeps its ratio when the maximum grows from learning/ranking or a job grant; level-ups refill MP and
+Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant; level-ups then refill MP and
 equipment refreshes only clamp it. The canonical
 skill instead raises MP gained per level; no canonical values are edited. The old flat +25 Max MP card is removed.
 Rank previews show the survivor Max MP percentage rather than the canonical per-level gain.
@@ -5777,7 +5777,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10; Magnet ×1.25 removed in #225; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
-| Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio on passive learning/ranks and job grants; level-ups refill MP, equipment refreshes only clamp | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
+| Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio on passive learning/ranks, level growth and job grants; level-ups then refill MP, equipment refreshes only clamp | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
 | MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks | C | survivor integration, existing BotInput defaults; #59 |
 | MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
