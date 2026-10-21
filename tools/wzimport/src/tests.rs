@@ -255,6 +255,34 @@ fn corrupt_canvas_data_is_an_error() {
     assert!(canvas::decode(&raw, &c).is_err());
 }
 
+#[test]
+fn canvas_resource_limits_reject_headers_without_allocating_pixels() {
+    for (w, h) in [(i32::MAX as u32, i32::MAX as u32), (65536, 65536), (0, i32::MAX as u32)] {
+        let bytes = write_img(&[p("giant", canvas(w, h, 2, vec![], false, vec![]))], false);
+        assert!(crate::property::parse_img("Test.img".into(), bytes, 0).is_err(), "accepted {w}x{h}");
+    }
+    // Nine individually reasonable 64 MiB canvases exceed the img aggregate. Payloads stay tiny.
+    let props = (0..9).map(|i| p(&i.to_string(), canvas(4096, 4096, 2, vec![], false, vec![]))).collect::<Vec<_>>();
+    assert!(crate::property::parse_img("Test.img".into(), write_img(&props, false), 0).is_err());
+}
+
+#[test]
+fn canvas_decoder_rejects_overflow_even_for_injected_refs() {
+    let i = img(vec![p("c", canvas(1, 1, 2, vec![0; 4], false, vec![]))]);
+    let mut c = canvas_of(&i, "c");
+    c.width = i32::MAX as u32;
+    c.height = i32::MAX as u32;
+    assert!(canvas::decode(&i.bytes, &c).is_err());
+    assert!(canvas::pixels_to_rgba(&[], c.width, c.height, 2).is_err());
+}
+
+#[test]
+fn property_nesting_is_bounded() {
+    let mut tree = W::Int(1);
+    for _ in 0..65 { tree = sub(vec![p("nested", tree)]); }
+    assert!(crate::property::parse_img("Deep.img".into(), write_img(&[p("root", tree)], false), 0).is_err());
+}
+
 // ---------------------------------------------------------------- sounds
 
 #[test]
