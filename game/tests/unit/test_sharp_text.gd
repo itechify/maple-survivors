@@ -156,7 +156,7 @@ func test_capture_rect_scales_logical_crops_to_the_capture() -> void:
 	# A capture holds the view at the window's integer scale (bars excluded): 800x600 view, 1600x1200 capture.
 	var vp := SubViewport.new()
 	vp.size = Vector2i(800, 600)
-	(Engine.get_main_loop() as SceneTree).root.add_child(vp)
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(vp)
 	assert_true(vp.is_inside_tree(), "capture viewport is attached to the test scene")
 	var img := Image.create(1600, 1200, false, Image.FORMAT_RGBA8)
 	assert_eq(GameSettings.capture_rect(img, vp, Rect2(10, 20, 100, 50)), Rect2i(20, 40, 200, 100))
