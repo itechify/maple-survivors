@@ -90,6 +90,38 @@ func test_stat_hotkey_holds_the_run_and_esc_closes_it_before_the_pause_menu() ->
 	assert_false(scene.handle_hotkey(_key(KEY_S)) and scene.ui_windows.has_windows(), "no Stat window while paused")
 
 
+func test_reserved_f3_dispatch_toggles_performance_and_the_valid_window_key_still_opens() -> void:
+	if not require_cache():
+		return
+	var saved := InputMap.action_get_events("stat_window").duplicate()
+	var cfg := TestCase.test_dir("run_f3_settings.cfg")
+	var file := ConfigFile.new()
+	file.set_value("input", "stat_window", [KEY_F3, KEY_F])
+	file.save(cfg)
+	var temp := GameSettings.new(cfg)
+	temp.apply_bindings()
+	scene = (load(RunScene.SCENE_PATH) as PackedScene).instantiate()
+	scene.library = lib
+	scene.settings = temp
+	scene.configure("henesys_hg1", 13, {"use_flow": false})
+	(Engine.get_main_loop() as SceneTree).current_scene.add_child(scene)
+	assert_eq(temp.binding_keys("stat_window"), PackedInt32Array([KEY_F]), "F3 is removed before input dispatch")
+	assert_false(bool(scene.get("_perf_on")))
+	scene._unhandled_input(_key(KEY_F3))
+	assert_true(bool(scene.get("_perf_on")), "the dispatch path toggles the reserved overlay")
+	assert_false(scene.ui_windows.has_windows(), "F3 opens no inspection window")
+	scene._unhandled_input(_key(KEY_F))
+	assert_true(scene.ui_windows.top() is StatWindow, "the retained binding reaches window dispatch")
+	scene._unhandled_input(_key(KEY_F3))
+	assert_false(bool(scene.get("_perf_on")), "F3 toggles off while Stat holds the run")
+	scene.free()
+	scene = null
+	temp.free()
+	InputMap.action_erase_events("stat_window")
+	for event: InputEvent in saved:
+		InputMap.action_add_event("stat_window", event)
+
+
 func test_stat_opens_over_a_level_up_choice_and_closing_it_returns_to_the_choice() -> void:
 	if not require_cache():
 		return
