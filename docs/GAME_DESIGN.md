@@ -515,6 +515,24 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
 
+#### Audit follow-up (MS-04..MS-42): regression smoke (2026-10-21)
+
+Feature smoke only, no tuning or data changes: `bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both
+`bot` / `random` policies (12 runs), integrated branch `66a798e`, private read-only cache imported from the current
+manifest. Baseline: the same command on `a68e74f` during the audit (`docs/audits/maple-survivors-skill-audit.md`
+4.2). All 12 runs: `warnings: []`, `missing: []`, no crash or script error. Death times, levels at death and boss
+counts are **identical** to the baseline on every seed. The one difference is the intended MS-08 clear sweep: Henesys
+bot seed 1 still CLEARS at 15:58, but ends at **Lv50 instead of Lv44**, because the remaining EXP drops on the map are
+now collected at the clear and their level-ups are resolved before the carry. MS-05/MS-32 (MP growth) and MS-07 did
+not move any seeded outcome here. D = death time, final level (seeds 1 / 2 / 2026):
+
+| Stage / policy | Baseline `a68e74f` | After `66a798e` |
+|---|---|---|
+| Henesys / bot | CLEARED 15:58 Lv44 / D 4:34 Lv8 / D 4:19 Lv7 | CLEARED 15:58 **Lv50** / D 4:34 Lv8 / D 4:19 Lv7 |
+| Henesys / random | D 9:16 Lv27 / D 10:02 Lv25 / D 4:56 Lv9 | the same |
+| Tree / bot | D 9:04 Lv21 / D 16:10 Lv29 / D 0:48 Lv1 | the same |
+| Tree / random | D 9:29 Lv18 / D 2:56 Lv6 / D 0:48 Lv1 | the same |
+
 #### Spec #226 weapon specialization: regression smoke (#232, 2026-10-18)
 
 `bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both `bot` / `random` policies, plus one seed-1 Henesys
