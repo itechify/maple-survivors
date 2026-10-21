@@ -24,6 +24,7 @@ class FxSink extends FxRenderer:
 class ClockScene extends RunScene:
 	var landed := 0
 	var hits := 0
+	var landing_tick := -1
 	func _read_input(_first: bool) -> MoveInput:
 		return MoveInput.new()
 	func handle_events(batch: Array) -> void:
@@ -32,6 +33,7 @@ class ClockScene extends RunScene:
 				super.handle_events([event])
 			if event.type == "skill_landed":
 				landed += 1
+				landing_tick = roundi(world.time / DT)
 			elif event.type == "mob_hit":
 				hits += 1
 	func _present(delta: float) -> void:
@@ -40,7 +42,7 @@ class ClockScene extends RunScene:
 		pass
 
 
-func _scene(speed: int) -> ClockScene:
+func _scene(speed: int, flight_speed: float = 0.0) -> ClockScene:
 	var s := ClockScene.new()
 	s.fx = FxSink.new()
 	s._speed = speed
@@ -48,6 +50,8 @@ func _scene(speed: int) -> ClockScene:
 	RF.put_mob(s.world, 1110100, 350, 190, 10000)
 	s.world.mob_grid.rebuild(s.world.swarm.x, s.world.swarm.y, s.world.swarm.active)
 	var st := s.world.runner.stats_of(s.world, "synthetic")
+	if flight_speed > 0.0:
+		st.speed = flight_speed
 	s.world.runner._throw(s.world, "synthetic", st,
 		{"landing": Vector2(350, 190), "aim": Vector2(350, 170)})
 	s.handle_events(s.world.drain_events())
@@ -57,12 +61,13 @@ func _scene(speed: int) -> ClockScene:
 
 
 func test_grenade_burst_waits_for_sim_landing_after_a_hitch_and_choice_hold() -> void:
+	var landing_tick := -1
 	for speed in [1, 4, 8]:
-		var s := _scene(speed)
+		var s := _scene(speed, 200.0)
 		s.advance_frame(0.5 * speed)
 		assert_near(s.world.time, 4 * speed * DT, 1e-6, "catch-up cap unchanged")
-		if not s.world.runner._flights.is_empty():
-			assert_eq((s.fx as FxSink).bursts, 0, "hitch cannot burst a pending flight")
+		assert_eq(s.world.runner._flights.size(), 1, "flight remains pending at every tested speed")
+		assert_eq((s.fx as FxSink).bursts, 0, "hitch cannot burst a pending flight")
 		var before := s.world.time
 		var anchor := (s.fx as FxSink).anchor
 		s.world.state = RunWorld.CHOOSING_UPGRADE
@@ -77,9 +82,25 @@ func test_grenade_burst_waits_for_sim_landing_after_a_hitch_and_choice_hold() ->
 			assert_eq((s.fx as FxSink).bursts, s.landed)
 			assert_eq(s.hits, s.landed, "damage and burst are on the same authoritative tick")
 		assert_eq(s.landed, 1)
+		if landing_tick < 0:
+			landing_tick = s.landing_tick
+		assert_eq(s.landing_tick, landing_tick, "render speed preserves the authoritative landing tick")
 		assert_eq(s._throws.size(), 0)
 		s.fx.free()
 		s.free()
+
+
+func test_grenade_lands_and_stops_its_ball_even_if_no_targets_remain() -> void:
+	var s := _scene(1)
+	s.world.swarm.despawn(0)
+	for frame in 60:
+		s.advance_frame(DT)
+	assert_eq(s.hits, 0)
+	assert_eq(s.landed, 1, "landing is independent of the damage target list")
+	assert_eq((s.fx as FxSink).bursts, 1)
+	assert_eq(s._throws.size(), 0)
+	s.fx.free()
+	s.free()
 
 
 func test_final_attack_ammo_keeps_its_visual_only_frame_clock() -> void:
