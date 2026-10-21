@@ -1153,8 +1153,8 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 
 
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. The MaxMP passive preserves the MP ratio on growth; other explicit pool modifiers grant the
-## difference, while ordinary level growth passes grant_growth=false and grants nothing.
+## modifiers. Granted MaxMP passive growth preserves the MP ratio; other explicit pool modifiers grant the
+## difference. Equipment refreshes and ordinary level growth pass grant_growth=false and only clamp pools.
 func refresh_player_stats(grant_growth: bool = true) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
@@ -1189,7 +1189,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		+ equipment_bonus("incMMP")) * (1.0 + _max_buff_applied.y / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
+	if grant_growth and mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
 		_mp = (_mp / old_mp) * _max_mp
 	elif grant_growth and _max_mp > old_mp:
 		_mp += _max_mp - old_mp
