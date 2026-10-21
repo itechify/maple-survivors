@@ -43,23 +43,37 @@ deploy job fails until that is set.
 
 ## Controls
 
-| Action | Keys |
+Defaults below use arrow-key movement. Options can switch to W/A/S/D; only one movement set is active at a time.
+Key Config remaps jump, potions, window keys, NPC Chat and learned manual skills. With W/A/S/D active, S moves down
+and Stat needs another binding (or Menu -> Stat).
+
+| Action | Default keys |
 |---|---|
-| Move | Left / Right arrows (or A / D) |
+| Move | Left / Right arrows (A / D in W/A/S/D mode) |
 | Jump | Left Alt (or C) |
 | Talk to a scroll NPC (Free Market) | Space (or double-click it) |
-| Climb a ladder or rope | Up / Down next to it (or W / S) |
-| Use a same-map portal | Hold Up inside its entrance |
-| Drop through a platform | Down + Jump |
+| Climb a ladder or rope | Up / Down next to it (W / S in W/A/S/D mode) |
+| Use a same-map portal / leave the Free Market | Hold Up inside its entrance (W in W/A/S/D mode) |
+| Drop through a platform | Down + Jump (S + Jump in W/A/S/D mode) |
+| Prone | Down on the ground (S in W/A/S/D mode) |
 | Drink HP potion | Delete (or Q) |
-| Drink MP potion | End (or E) |
+| Drink MP potion | End |
 | Teleport (after learning it) | X + direction; hold X to repeat; facing if no direction |
+| Dash (after learning it) | X starts its timed buff; hold X to cast again when it ends |
+| Stat / Skill windows | S / K; Skill uses Up / Down to select and Left / Right or number keys to switch tabs |
+| Equip / Item windows | E / I (also in the Free Market) |
 | Pick an upgrade / job | Mouse, 1 / 2 / 3, or Up / Down + Enter |
-| Pause (Resume / Quit to stage select) | Esc |
-| Performance overlay | F3 |
+| Pause / close a window | Esc closes the front window first; with none open, it pauses |
+| Key Config / Options | Status bar Menu, or the pause menu |
+| Performance overlay | F3 (fixed, shown as Perf in Key Config) |
 
-Attacks cast on their own; Teleport uses X after you learn it. You choose where to stand, what to pick up and which upgrades to take. Hanging on a rope
-stops new casts and weapon swings; active buffs and Recovery continue. Job skills spend MP and wait when it is short.
+Opening an inspection window pauses the round. The pause menu offers Resume, Key Config, Options and Quit round.
+Quit round asks for confirmation: Continue replays the saved round from its beginning with the same seed and starting
+character. In the Free Market, Esc instead offers Resume / Save & quit.
+
+Attacks cast on their own; Teleport and Dash use their skill keys after you learn them. You choose where to stand,
+what to pick up and which upgrades to take. Hanging on a rope stops new casts and weapon swings; active buffs and
+Recovery continue. Job skills spend MP and wait when it is short.
 
 ## For developers
 
