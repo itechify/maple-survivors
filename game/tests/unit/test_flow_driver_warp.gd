@@ -53,6 +53,8 @@ func test_diagnostic_warp_delivers_clear_from_final_answer_with_and_without_swep
 		assert_eq(w.progression.level, 2 if sweep else 1)
 		assert_eq(run.received.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1,
 			"the choice-generated clear reaches RunScene presentation exactly once (sweep=%s)" % sweep)
+		assert_false(run.received.any(func(e: Dictionary) -> bool: return e.type == "choice_pending"),
+			"answered warp cards must not reopen over the clear presentation")
 		assert_true(run.is_processing(), "presentation resumes after the diagnostic warp")
 		driver.free()
 		flow.free()

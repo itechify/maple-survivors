@@ -442,7 +442,12 @@ func _warp_round() -> bool:
 			while run.world.state == RunWorld.CHOOSING_UPGRADE:
 				run.world.apply_choice(BotInput.pick_card_for(run.world, run.world.pending_cards))
 			var choice_events := run.world.drain_events()
-			if run.world.state == RunWorld.CHOOSING_JOB:
+			# Settlement can clear inside the last answer, without another tick to emit the end event.
+			# Earlier card requests in the batch have already been answered; do not reopen them over CLEAR.
+			if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
+				run.handle_events(choice_events.filter(func(e: Dictionary) -> bool:
+					return String(e.type) in ["player_died", "stage_cleared"]))
+			elif run.world.state == RunWorld.CHOOSING_JOB:
 				run.handle_events(choice_events)
 		if run.world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
 			run.handle_events(run.world.drain_events())
@@ -475,8 +480,9 @@ func _warp_round() -> bool:
 	_rounds.append(run.build_summary())
 	if not _expect(run.world.warnings.is_empty(), "world warnings during warp"):
 		return false
-	await _shot("round_" + run.world.state_name().to_lower())
 	run.set_process(true)
+	# Let the end effect advance before capturing it; the warp held presentation while settling choices.
+	await _shot("round_" + run.world.state_name().to_lower(), 1.0 if run.world.state == RunWorld.CLEARED else 0.35)
 	return true
 
 
