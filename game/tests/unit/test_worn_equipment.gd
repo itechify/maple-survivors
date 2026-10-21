@@ -99,6 +99,58 @@ func test_weapon_attack_and_magic_attack_come_from_every_worn_item() -> void:
 	assert_near(world.loadout.matk - matk, 28.0, 1e-6)
 
 
+func test_max_mp_equipment_swaps_only_clamp_current_mp_with_a_passive() -> void:
+	var world := _world([1002001])
+	world.change_job(200)
+	world.learn_skill("improved_max_mp")
+	assert_eq(world.equip_item(0), "")
+	world.spend_mp(int(world.player_state.max_mp) - 10)
+	var before := world._mp
+	for swap in 5:
+		assert_eq(world.unequip_item("hat"), "")
+		assert_near(world._mp, before, 1e-6, "taking off gear preserves MP below the smaller pool")
+		assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
+		assert_near(world._mp, before, 1e-6, "putting it back grants no MP")
+	assert_eq(world.time, 0.0, "equipment windows hold simulation time")
+	world.restore_player("mp", int(world.player_state.max_mp), "test")
+	assert_eq(world.unequip_item("hat"), "")
+	assert_near(world._mp, world._max_mp, 1e-6, "taking off gear clamps MP above the smaller pool")
+	var clamped := world._mp
+	assert_eq(world.equip_item(world.equipment.inventory.size() - 1), "")
+	assert_near(world._mp, clamped, 1e-6, "the clamped MP is not refunded")
+
+
+func test_max_mp_passive_rank_growth_still_preserves_current_mp_ratio() -> void:
+	var world := _world([1002001])
+	world.change_job(200)
+	world.learn_skill("improved_max_mp")
+	assert_eq(world.equip_item(0), "")
+	world.spend_mp(int(world.player_state.max_mp) - 10)
+	var before := world._mp / world._max_mp
+	var old_max := world._max_mp
+	world.loadout.set_rank("improved_max_mp", 2)
+	world.refresh_player_stats()
+	assert_true(world._max_mp > old_max)
+	assert_near(world._mp / world._max_mp, before, 1e-6, "#41 passive growth keeps the fraction")
+
+
+func test_max_mp_equipment_and_passive_restore_full_pools_at_a_round_boundary() -> void:
+	var source := _world([1002001])
+	source.change_job(200)
+	source.learn_skill("improved_max_mp")
+	assert_eq(source.equip_item(0), "")
+	source.spend_mp(int(source.player_state.max_mp) - 10)
+	var character: Dictionary = JSON.parse_string(JSON.stringify(source.character_snapshot()))
+	assert_false(character.has("mp"), "spec #32 snapshots carry growth, not current pools")
+	var restored := RunWorld.new(_setup(character))
+	assert_eq(restored.character_snapshot(), source.character_snapshot())
+	assert_eq(restored._max_mp, source._max_mp, "the worn gear and passive still count on restore")
+	assert_near(restored._mp, restored._max_mp, 1e-6, "Continue refills the computed pool under spec #32")
+	restored.spend_mp(int(restored.player_state.max_mp) - 10)
+	restored.refresh_player_stats(false)
+	assert_near(restored._mp, 10.0, 1e-6, "refreshing restored equipment grants no MP")
+
+
 func test_speed_and_jump_are_capped_at_the_v83_limits() -> void:
 	var world := _world([1002001, 1072999])
 	assert_eq(world.equip_item(0), "")
