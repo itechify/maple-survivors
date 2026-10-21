@@ -137,7 +137,6 @@ func test_elixir_score_ignores_tier_and_magnitude() -> void:
 
 func test_a_tiny_pool_never_wastes_a_blue_potion_on_a_shortage() -> void:
 	var data := RF.quiet_data()
-	data.balance.potions.mp.start = 2
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
 	RF.place_player(w, 400)

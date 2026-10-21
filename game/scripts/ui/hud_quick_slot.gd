@@ -66,7 +66,7 @@ static func cells(captions: Dictionary, potions: Dictionary, movement_skill: Dic
 		if POTION_KINDS.has(slot):
 			var stock: Dictionary = potions.get(POTION_KINDS[slot], {})
 			cell.item_id = int(stock.get("item_id", 0))
-			cell.count = int(stock.get("count", 0))
+			cell.count = int(stock.get("count", -1))
 			if cell.item_id > 0:
 				cell.icon_path = AssetLibrary.item_icon_path(cell.item_id, false)
 		cell.caption = String(captions.get(cell.action, ""))

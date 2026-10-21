@@ -91,12 +91,8 @@ func test_sweep_collects_every_pickup_kind_once_and_conserves_capped_exp() -> vo
 	w.pickups.spawn(far, 2, 4000000, w.player.pos)
 	w.pickups.spawn(far, 3, 4000000, w.player.pos)
 	w.spawn_meso(far, 123)
-	w.spawn_potion("hp", far, 2)
-	w.spawn_potion("mp", far, 3)
 	var item := Equipment.create(1002001, {"reqLevel": 200, "incPDD": 7})
 	w.spawn_equipment(far, item)
-	var hp := int(w.potions.stock.hp.count)
-	var mp := int(w.potions.stock.mp.count)
 	var mesos := w.mesos
 	w.drain_events()
 	_answer(w)
@@ -106,8 +102,6 @@ func test_sweep_collects_every_pickup_kind_once_and_conserves_capped_exp() -> vo
 	assert_eq(w.pickups.expired_exp, 0)
 	assert_eq(w.progression.exp, 5)
 	assert_eq(w.mesos, mesos + 123)
-	assert_eq(int(w.potions.stock.hp.count), hp + 2)
-	assert_eq(int(w.potions.stock.mp.count), mp + 3)
 	assert_true(w.equipment.inventory.has(item) or w.equipment.worn.get("hat", {}) == item,
 		"the exact equipment instance carries, with the ordinary auto-wear rule")
 	assert_eq(w.equips_collected, 1)
@@ -216,8 +210,6 @@ func test_distant_final_boss_shower_and_ordinary_drops_are_paid_together() -> vo
 	assert_eq(w.pickups.active_count(), 0)
 	assert_eq(w.pickups.collected_exp, expected_exp)
 	assert_eq(w.mesos, expected_mesos)
-	assert_eq(w.potions.collected.hp, 2)
-	assert_eq(w.potions.collected.mp, 3)
 
 
 func test_warp_keeps_clear_emitted_by_the_last_answer_before_another_tick() -> void:

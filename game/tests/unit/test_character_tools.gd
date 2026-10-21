@@ -60,8 +60,8 @@ func test_balance_character_flag_uses_fixture_in_one_off_round() -> void:
 	assert_eq(int(record.job), int(character.job_id))
 	for key: String in character.skills:
 		assert_eq(int(record.skills.get(key, 0)), int(character.skills[key].rank))
-	for kind: String in ["hp", "mp"]:
-		assert_eq(int(record.potions_start[kind]), int(character.potions[kind].count))
+	assert_false(record.has("potions_start"))
+	assert_false(record.start_character.has("potions"))
 	assert_eq(record.warnings, [])
 
 

@@ -56,17 +56,17 @@ func test_the_player_still_collects_with_the_magnet_and_the_event_says_so() -> v
 	assert_eq(got[0].collector, "player")
 
 
-func test_the_pet_collects_potions_into_the_shared_stock() -> void:
+func test_the_pet_collects_mesos_into_the_shared_wallet() -> void:
 	var w := _far_pet_world()
-	var before := int(w.potions.stock.hp.count)
-	var slot := w.pickups.spawn_potion(Vector2(FAR.x + 20.0, 0.0), 2, 2000000, "hp")
+	var before := w.mesos
+	var slot := w.pickups.spawn_meso(Vector2(FAR.x + 20.0, 0.0), 123)
 	w.pickups.state[slot] = PickupSystem.REST
 	var events := PF.run(w, 2)
-	assert_eq(int(w.potions.stock.hp.count), before + 2)
+	assert_eq(w.mesos, before + 123)
 	var got := PF.of_type(events, "pickup_collected")
 	assert_eq(got[0].collector, "pet")
-	assert_eq(got[0].kind, "potion")
-	assert_eq(w.potions.collected.hp, 2)
+	assert_eq(got[0].kind, "meso")
+	assert_eq(w.pickups.collected_mesos, 123)
 
 
 func test_binocular_widens_the_radius() -> void:
@@ -125,8 +125,8 @@ func test_vac_pulls_every_drop_on_the_map_to_the_pet() -> void:
 	PF.put_pet(w, Vector2(300.0, 0.0))
 	for x: float in [20.0, 140.0, 600.0, 900.0, 1180.0]:
 		_rest_drop(w, x, 1)
-	var potion := w.pickups.spawn_potion(Vector2(1000.0, -60.0), 1, 2000000, "mp")
-	w.pickups.state[potion] = PickupSystem.REST
+	var meso := w.pickups.spawn_meso(Vector2(1000.0, -60.0), 123)
+	w.pickups.state[meso] = PickupSystem.REST
 	var events := PF.run(w, 360)
 	var got := PF.of_type(events, "pickup_collected")
 	assert_eq(got.size(), 6, "all six drops, wherever they lay")

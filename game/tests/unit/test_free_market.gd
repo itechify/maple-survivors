@@ -257,8 +257,6 @@ func _old_potion_character() -> Dictionary:
 	character.level = 45
 	character.card_ranks["magnet"] = 3
 	character.player_mods["magnet"] = [0.0, 1.953125]
-	character.potions.hp.item_id = 2000000
-	character.potions.mp.item_id = 2000003
 	return character
 
 
@@ -281,6 +279,6 @@ func test_hub_boundary_of_an_old_save_has_no_magnet_and_shows_the_caught_up_poti
 	var loadout := FreeMarket._boundary_loadout(hub.snapshot.character, DataRepo.load_all())
 	assert_false(loadout.player_mods.has("magnet"), "no magnet radius modifier in the hub")
 	assert_false(hub.snapshot.character.card_ranks.has("magnet"))
-	assert_eq(hub.inventory.potions.stock.hp.item_id, 2022003, "Lv 45 shows Unagi in the hub Item window")
-	assert_eq(hub.inventory.potions.stock.mp.item_id, 2022000, "and Pure Water")
+	assert_eq(hub.inventory.potions.item_id("hp"), 2022003, "Lv 45 shows Unagi in the hub Item window")
+	assert_eq(hub.inventory.potions.item_id("mp"), 2022000, "and Pure Water")
 	hub.free()

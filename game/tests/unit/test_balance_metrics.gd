@@ -197,10 +197,9 @@ func test_magic_claw_counts_each_landed_line_but_a_scheduled_boss_is_excluded() 
 	assert_eq(r.ordinary_kill_hits_by_min[0].kills, 0, "scheduled bosses do not require canonical info/boss")
 
 
-func test_late_waits_have_observation_time_and_final_stock_includes_starters() -> void:
+func test_late_waits_have_observation_time_without_stock_metrics() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.mp = 0
-	data.balance.potions.mp.start = 3
 	data.balance.run_time_cap = 480.5
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	w.god = true
@@ -213,9 +212,9 @@ func test_late_waits_have_observation_time_and_final_stock_includes_starters() -
 		return
 	assert_near(r.late_mp_short_seconds, 0.5, DT)
 	assert_near(r.late_observed_seconds, 0.5, DT)
-	assert_eq(r.potions_left.mp, 3, "starting stock is not counted as collection")
-	assert_eq(r.potions_collected.mp, 0)
-	assert_eq(r.potions_start.mp, 3)
+	assert_false(r.has("potions_left"))
+	assert_false(r.has("potions_collected"))
+	assert_false(r.has("potions_start"))
 	var early := r.duplicate(true)
 	early.late_mp_short_seconds = 0.0
 	early.late_observed_seconds = 0.0
@@ -223,7 +222,6 @@ func test_late_waits_have_observation_time_and_final_stock_includes_starters() -
 	assert_eq(summary.late_mp_observed_runs, 1)
 	assert_eq(summary.late_mp_short_runs, 1)
 	assert_eq(summary.late_mp_short_seconds.count, 1, "unobserved late time is excluded from shortage samples")
-	assert_eq(summary.potions_left.mp.median, 3.0)
 
 
 func test_summary_counts_clears_deaths_and_timeouts_separately() -> void:
@@ -374,7 +372,7 @@ func test_summary_reports_observed_times_per_job() -> void:
 	assert_true("Job 220 seconds 900.00/900.00/900.00 (n=1)" in text, text)
 
 
-func test_run_records_each_potion_kind_collected_and_drunk() -> void:
+func test_run_records_unlimited_potion_drinks_and_restore_amounts() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
 	data.balance.run_time_cap = 1.0
@@ -382,15 +380,10 @@ func test_run_records_each_potion_kind_collected_and_drunk() -> void:
 	data.balance.potions.bot.min_restore_fraction = 0.01
 	var w := RunWorld.new(RF.setup("quiet", 26, data))
 	RF.place_player(w, 400)
-	w.spawn_potion("hp", w.player.pos-Vector2(0, 25), 2)
-	w.spawn_potion("mp", w.player.pos-Vector2(0, 25), 4)
 	w.spend_mp(int(w.player_state.mp))
 	w.drink_potion("hp")
 	var r: Dictionary = BR.run_one(w, "bot", 26)
-	assert_eq(r.potions_collected, {"hp": 2, "mp": 4})
 	assert_eq(r.potions_used, {"hp": 1, "mp": 1})
-	assert_eq(r.potions_start.hp, 5, "starting stock includes the potion consumed before harness observation")
-	assert_eq(r.potions_left.hp, 6, "five starters plus two collected minus one used")
 	assert_true(r.has("potion_uses"), "actual restored amounts expose early potion clipping")
 	if r.has("potion_uses"):
 		var mp_uses: Array = r.potion_uses.filter(func(use: Dictionary) -> bool: return use.kind == "mp")
