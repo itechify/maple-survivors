@@ -11,6 +11,7 @@ extends Node
 ##           plays to death, deletes the spare character and checks both history entries. --diagnostic-victory=1
 ##           also makes tier 2 invulnerable and applies diagnostic lethal boss hits after 15:00 to inspect victory;
 ##           tier 1 always uses invulnerability/EXP drops and diagnostic boss hits after its timer (#232).
+##           Unavailable later jobs show their configured reason and are declined through the real OK button.
 ##           This is presentation evidence, not balance evidence. Bosses/rewards still finish through RunWorld.
 ##   full    title -> character select -> Explorer creation -> tier-1 map select -> keyboard-steered round -> job/cards ->
 ##           pause/resume -> death -> results -> character select -> new character -> Quit round confirmation ->
@@ -77,14 +78,15 @@ extends Node
 ##           botshop_after_item.
 ##   economy the whole spec-#33 loop (#113): title -> new character -> Warrior weapon-page probe -> Lv38 F/P fixture -> Henesys
 ##           round; four meso sprites and two items (Metal Gear, a Dark Calas) lie on the ground, the character walks
-##           over them (HUD notices); E and I, the tooltips, Metal Gear worn by double-click; the bot's fixed-tick warp
+##           over them (HUD notices); Metal Gear auto-equips (#222), the Calas stays in Item; E and I show their tooltips;
+##           the bot's fixed-tick warp
 ##           clears the round into the Free Market (saved boundary checked: worn hat, inventory, mesos); the
 ##           character walks past the four scroll NPCs, Space opens El Moth's shop, a 100% hat INT scroll is bought
 ##           (quantity box) and the spare Calas sold (YesNo box), Space at Tulcus buys three 10% hat scrolls; they are
 ##           dragged from the Use tab onto the worn hat (Enchant success, then until one fails); Save & quit,
 ##           Continue: mesos, worn equipment, inventory and scrolls equal the snapshot before quitting. The warp
 ##           takes a few minutes. Shots: economy_drops_on_the_ground, economy_pickup_notices, economy_picked_up,
-##           economy_item_window_tooltip, economy_tooltip_unmet, economy_equip_window_hat_worn, economy_scroll_npcs,
+##           economy_worn_hat_tooltip, economy_tooltip_unmet, economy_equip_window_hat_worn, economy_scroll_npcs,
 ##           economy_shop_open, economy_shop_buying, economy_shop_sell_selected, economy_shop_selling,
 ##           economy_shop_sold, economy_shop_tulcus, economy_scroll_success, economy_scrolled_tooltip, economy_scroll_failure, economy_character_scrolled,
 ##           economy_save_and_quit, economy_character_select, economy_continue_restored; summary.json.
@@ -122,8 +124,9 @@ extends Node
 ##   bowman  Bowman -> Hunter/Crossbowman (#166 QA #204, --branch=310|320): real Lv10/Lv30 job windows via diagnostic
 ##           invulnerable EXP drops, chosen Bow/Crossbow weapon only, Lv30 advancement weapon and Bronze arrow notice;
 ##           Free Market boundary shortcut, Save & quit -> Continue restores job, weapons, skills and derived arrow tier.
-##   import  for a cache-less start (point MAPLE_SURVIVORS_CACHE / APPDATA at an empty folder): the import screen,
+##   import  a cache-less start, or the title's Re-import link when a cache exists: the import screen,
 ##           types --wz=<folder> into the path field, clicks Import, waits for the importer and the title.
+##           Without --wz this checks the screen only and never writes the cache.
 ##   cash_shop  the Cash Shop (#118) from a prepared test save (5,000 NX): title -> new character -> map select SHOP -> Equip tab
 ##           (try-on, sub-tab, buy dialog, OK, a purchase that costs too much, Pet tab with locked upgrades) -> EXIT back to map
 ##           select -> the saved boundary is turned into a Free Market one, Save & quit, Continue -> status bar SHOP -> EXIT
@@ -399,6 +402,8 @@ func _scenario_rounds() -> void:
 		return
 	_collect_missing(flow.current)
 	if not _expect(_missing.is_empty(), "missing assets: %s" % _missing):
+		return
+	if not _expect(not _failed, "rounds contains failed checks"):
 		return
 	var report := {"scenario": "rounds", "diagnostic_victory": ending == "victory", "rounds": _rounds,
 		"replayed_seed": saved.round_seed, "history": history, "missing": Array(_missing), "failures": []}
@@ -2056,7 +2061,7 @@ func _climb_job_windows(run: RunScene, target: int, want_job: int, want_path: St
 	return {}
 
 
-## Selects the job and (when offered) family through injected keyboard/mouse input, then verifies chosen-only grants.
+## Selects the job/family or declines through injected input, then verifies grants or the unavailable notice.
 func _choose_job_ui(run: RunScene, want_job: int, want_path: String, shot_prefix: String) -> Dictionary:
 	var jw := run.window as JobAdvanceWindow
 	if jw == null or jw.state != "choose":
@@ -2069,6 +2074,32 @@ func _choose_job_ui(run: RunScene, want_job: int, want_path: String, shot_prefix
 	for id: int in job_ids:
 		unique[id] = true
 	_check(unique.size() == job_ids.size(), "page 1 lists each job once")
+	if want_job < 0:
+		var job_before := run.world.progression.job_id
+		var equipment_before := run.world.equipment.duplicate(true)
+		if not jw.any_available():
+			_check(not jw.entries.is_empty() and jw.entries.all(func(e: Dictionary) -> bool:
+				return (e.kind == "job" and not e.available and not String(e.reason).is_empty()
+					and e.reason == run.world.jobs.job(int(e.job_id)).reason)),
+				"unavailable jobs show their configured reason")
+			_check(jw._bt_ok.is_visible_in_tree() and not jw.body.is_empty(), "the unavailable notice shows OK")
+			await _shot(shot_prefix + "_unavailable")
+			await _click(jw._bt_ok)
+		else:
+			var decline := -1
+			for i in jw.entries.size():
+				if jw.entries[i].kind == "decline" and jw.entries[i].available:
+					decline = i
+			if not _expect(decline >= 0, "the job window offers Not now."):
+				return {}
+			await _shot(shot_prefix + "_not_now")
+			await _key((KEY_1 + decline) as Key)
+		if not await _until(func() -> bool: return run.world.state != RunWorld.CHOOSING_JOB,
+				3.0, "job declined through the window"):
+			return {}
+		_check(run.world.progression.job_id == job_before and run.world.equipment == equipment_before,
+			"declining keeps the job and equipment")
+		return {"entries": texts, "declined": true}
 	var idx := -1
 	for i in jw.entries.size():
 		if jw.entries[i].kind == "job" and int(jw.entries[i].job_id) == want_job and jw.entries[i].available:
@@ -3047,10 +3078,12 @@ func _scenario_economy() -> void:
 			await _shot("economy_pickup_notices")
 		await get_tree().process_frame
 	_release_all()
-	_check(w.equipment.inventory.size() == inventory0 + 2, "both items went into the Equip tab")
+	_check(w.equipment.worn.has("hat") and int(w.equipment.worn.hat.id) == 1002001,
+		"Metal Gear auto-equipped on pickup")
+	_check(w.equipment.inventory.size() == inventory0 + 1, "only the unwearable drop went into the Equip tab")
 	await _sleep(0.6)
 	await _shot("economy_picked_up")
-	# 2. The Item window: tooltip of the drop, wear it by double-click; the Calas is refused (red requirements).
+	# 2. The worn drop's Equip tooltip and the unwearable Calas's Item tooltip (red requirements).
 	await _key(KEY_E)
 	await _key(KEY_I)
 	if not await _until(func() -> bool: return run.ui_windows.find_window("item") != null, 3.0, "Item window (I)"):
@@ -3068,18 +3101,20 @@ func _scenario_economy() -> void:
 				hat = i
 			1050049:
 				calas = i
-	_check(hat >= 0 and calas >= 0, "the drops are in the Item window's Equip tab")
-	_hover(io + iw.slot_rect(hat).get_center())
+	_check(hat < 0 and calas >= 0 and ew.worn_id("hat") == 1002001,
+		"the hat is worn and only the Calas waits in the Item window's Equip tab")
+	# Bring Equip forward so Item cannot cover the worn item's tooltip.
+	await _click_at(eo + ew.slot_rect("hat").get_center())
 	await _sleep(0.4)
-	_check(bool(iw.tooltip().get("can_equip", false)), "the hat's tooltip is wearable")
-	await _shot("economy_item_window_tooltip")
-	_hover(io + iw.slot_rect(calas).get_center())
+	var hat_tip := ew.tooltip()
+	_check(String(hat_tip.get("name", "")) == "Metal Gear" and bool(hat_tip.get("can_equip", false)),
+		"the worn hat's tooltip is Metal Gear and wearable")
+	await _shot("economy_worn_hat_tooltip")
+	await _click_at(io + iw.slot_rect(calas).get_center())
 	await _sleep(0.4)
 	_check(not bool(iw.tooltip().get("can_equip", true)), "the Calas's tooltip shows unmet requirements")
 	await _shot("economy_tooltip_unmet")
-	await _double_click_at(io + iw.slot_rect(hat).get_center())
-	await _sleep(0.4)
-	_check(ew.worn_id("hat") == 1002001, "Metal Gear was worn by double-click")
+	_check(ew.worn_id("hat") == 1002001, "the picked-up Metal Gear stays worn for scrolling")
 	_hover(eo + ew.slot_rect("hat").get_center())
 	await _sleep(0.4)
 	await _shot("economy_equip_window_hat_worn")
@@ -3380,6 +3415,10 @@ func _scenario_title() -> void:
 
 
 func _scenario_import() -> void:
+	if not await _until(func() -> bool: return flow.current_name in ["title", "import"], 20.0, "import or title"):
+		return
+	if flow.current_name == "title":
+		await _click(flow.current.get("reimport") as Control)
 	if not await _until(func() -> bool: return flow.current_name == "import", 20.0, "import screen"):
 		return
 	await _sleep(1.0)
