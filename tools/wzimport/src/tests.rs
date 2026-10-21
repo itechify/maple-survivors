@@ -654,7 +654,7 @@ fn synthetic_world(dir: &Path) {
                         write_img(
                             &[
                                 p("CavaBien", W::Sound(WSound { duration_ms: 128000, header: SoundHeader::Mp3 { channels: 2, rate: 22050 }, data: vec![0xFF, 0xF2, 0, 0] })),
-                                p("Other", W::Sound(WSound { duration_ms: 1, header: SoundHeader::Mp3 { channels: 2, rate: 22050 }, data: vec![0xFF, 0xF2, 9, 9] })),
+                                p("Other", W::Sound(WSound { duration_ms: 1, header: SoundHeader::Pcm { channels: 1, rate: 22050, bits: 16 }, data: vec![0, 1, 2, 3] })),
                             ],
                             false,
                         ),
@@ -866,7 +866,7 @@ fn import_writes_cache_and_skips_up_to_date_imgs() {
     assert_eq!(idx["imgs"]["Mob.wz/0100100.img"]["paths"], serde_json::Value::Null);
     assert_eq!(idx["imgs"]["Sound.wz/Bgm01.img"]["paths"], serde_json::json!(["CavaBien"]));
     assert!(out.join("Sound.wz/Bgm01.img/CavaBien.mp3").is_file());
-    assert!(!out.join("Sound.wz/Bgm01.img/Other.mp3").exists());
+    assert!(!out.join("Sound.wz/Bgm01.img/Other.wav").exists());
     let bgm = read_json(&out.join("Sound.wz/Bgm01.img.json"));
     assert_eq!(bgm, serde_json::json!({"CavaBien": {"$sound": "Sound.wz/Bgm01.img/CavaBien.mp3", "$ms": 128000}}));
     let helper = read_json(&out.join("Map.wz/MapHelper.img.json"));
@@ -886,7 +886,23 @@ fn import_writes_cache_and_skips_up_to_date_imgs() {
     std::fs::write(&manifest, r#"{"format":1,"maps":[104040000],"items":[4000019],"imgs":[{"img":"Map.wz/MapHelper.img","paths":["mark"]},{"img":"Sound.wz/Bgm01.img","paths":["Other"]}]}"#).unwrap();
     let r3 = run_import(&opts).unwrap();
     assert_eq!(r3.written, vec!["Sound.wz/Bgm01.img".to_string()]);
-    assert!(out.join("Sound.wz/Bgm01.img/Other.mp3").is_file());
+    assert!(out.join("Sound.wz/Bgm01.img/Other.wav").is_file());
+
+    // Missing MP3 and WAV payloads must each repair without --force, including an older index.
+    for file in ["CavaBien.mp3", "Other.wav"] {
+        let path = out.join("Sound.wz/Bgm01.img").join(file);
+        let original = std::fs::read(&path).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        let repaired = run_import(&opts).unwrap();
+        assert!(repaired.errors.is_empty());
+        assert_eq!(repaired.written, ["Sound.wz/Bgm01.img"]);
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+        assert!(run_import(&opts).unwrap().written.is_empty());
+    }
+    let mut legacy = read_json(&out.join("cache.json"));
+    legacy["imgs"]["Sound.wz/Bgm01.img"].as_object_mut().unwrap().remove("sound_files");
+    std::fs::write(out.join("cache.json"), serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert_eq!(run_import(&opts).unwrap().written, ["Sound.wz/Bgm01.img"]);
 
     // a deleted page forces a rewrite of that img; --force rewrites everything
     std::fs::remove_file(out.join("Mob.wz/0100100.img.0.png")).unwrap();

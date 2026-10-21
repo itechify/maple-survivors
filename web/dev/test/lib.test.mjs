@@ -69,6 +69,20 @@ test('assessCache: none, invalid, ok and incomplete', () => {
 	assert.deepEqual(r.missing, [{ img: 'Mob.wz/0100100.img', reason: 'not in the cache index' }]);
 });
 
+test('assessCache: audio payloads and legacy sound entries need repair', () => {
+	const img = 'Sound.wz/Test.img';
+	const manifest = { format: 1, imgs: [{ img }] };
+	const sound_files = [`${img}/music.mp3`, `${img}/effect.wav`];
+	const entry = { json: img + '.json', sounds: 2, sound_files };
+	const assess = (entry, files) => lib.assessCache({ manifest, root: '/cache',
+		indexText: JSON.stringify({ format: 1, imgs: { [img]: entry } }),
+		keys: [entry.json, ...files].map((p) => '/cache/' + p) });
+	assert.equal(assess(entry, sound_files).state, 'ok');
+	for (const file of sound_files) assert.equal(assess(entry, sound_files.filter((p) => p !== file)).state, 'incomplete');
+	const { sound_files: _, ...legacy } = entry;
+	assert.equal(assess(legacy, sound_files).state, 'incomplete');
+});
+
 test('assessCache: a listed img whose files are gone is missing', () => {
 	const root = lib.CACHE_ROOT;
 	const text = indexFor({ 'Base.wz/zmap.img': 0, 'Mob.wz/0100100.img': 2, 'Sound.wz/Mob.img': 0 });
