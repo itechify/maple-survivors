@@ -324,6 +324,23 @@ func test_a_charge_blocked_at_once_by_a_wall_strikes_nothing_beyond_it() -> void
 	assert_false(past in _hit_slots(events), "the wall is between the character and the mob")
 
 
+func test_wall_clipping_keeps_the_rear_edge_of_the_charge_sweep_in_both_directions() -> void:
+	for side: int in [-1, 1]:
+		var wall_x := 600.0 + side * 20.0
+		var world := _world({"direction": "toward", "when": "during", "distance": 300.0}, 600.0, "instant",
+			[GROUND, {"x1": wall_x, "y1": 0, "x2": wall_x, "y2": -80}])
+		world.player.facing = side
+		var near := _mob(world, 600.0 + side * 10.0)
+		var rear := _mob(world, 600.0 - side * 75.0)
+		var past := _mob(world, wall_x + side * 20.0)
+		var events := _cast(world)
+		assert_eq(_of(events, "cast").size(), 1)
+		assert_eq(_hit_slots(events), [near], "clip the wall edge without extending the rear edge, side %d" % side)
+		assert_false(rear in _hit_slots(events) or past in _hit_slots(events))
+		assert_near(world.player.pos.x, wall_x - side * FootholdMap.EPS, 1e-4, "movement is unchanged")
+		assert_eq(world.player_state.mp, 93, "one cast cost")
+
+
 func test_a_charge_boxes_the_sweep_by_the_players_body_without_a_skill_box() -> void:
 	var w := _world({"direction": "toward", "when": "during", "distance": 200.0})
 	for level in ["1", "2", "3"]:
