@@ -105,7 +105,11 @@ wasm target and the `wasm-bindgen-cli` version read from `Cargo.lock`, so the gl
 wasm-only crates (`wasm-bindgen`, `js-sys` and their build macros) are in `WZIMPORT_LICENSES.txt` beside the site, which
 `export.sh --web` refuses to finish without. No WZ data and no decoded cache is ever part of the export:
 `scripts/check_web_artifact.sh` fails the build on a `.wz`, `.img`, `*.img.json`, atlas `*.N.png`, `.mp3`/`.wav` or any
-file starting with the WZ signature.
+file starting with the WZ signature. It also requires an explicit top-level shipping-file allowlist derived from
+`export.sh --web` and Godot 4.7.2 (engine bundle/worklets/icons, web shell/branding, merged manifest, wasm importer
+and licences). Unexpected files, directories and symlinks fail; ZIP/gzip/7z/RAR signatures fail even under an
+approved filename. This is a loose-file guard: it does not inspect the Godot PCK or establish the provenance of
+approved branding assets; those still require source/provenance review.
 
 The ES module exports default async `init` and synchronous **`importWz`** (the JS name avoids the `import` keyword):
 
