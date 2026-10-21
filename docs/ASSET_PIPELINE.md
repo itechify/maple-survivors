@@ -54,7 +54,8 @@ or `--force` is given.
 be nested (`83/Mob.wz`); archive basenames must be unique. ZIP and ZIP64 stored/deflated entries are supported.
 Encrypted entries, other compression methods and multi-disk ZIPs fail with readable errors. ZIP imports are fresh
 imports (no mtime-based skip); folder imports keep their existing incremental behaviour. Nothing changes the manifest
-or the cache format. Any PKG1 archive with the GMS v83 version hash is accepted, including edited archives; there
+or the cache format. Folder, ZIP, injected-reader and wasm imports all require the GMS v83 version hash; edited v83
+PKG1 archives are accepted too. There
 is no known-file hash list. Native inspection commands retain version autodetection for other WZ versions.
 
 The public Rust boundaries are `ReadAt` (`len() -> u64`, `read_exact_at(offset, &mut [u8]) -> io::Result<()>`),

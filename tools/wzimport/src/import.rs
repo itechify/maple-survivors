@@ -48,7 +48,7 @@ pub fn run_import(opts: &ImportOptions) -> Result<ImportReport> {
     // The main manifest plus the include fragments beside it (asset_manifest.d/*.json).
     let manifest = Manifest::load(&opts.manifest).map_err(WzError::Other)?;
     let wz = if opts.wz.is_dir() {
-        WzRoot::new(&opts.wz)
+        WzRoot::v83_folder(&opts.wz)
     } else if opts.wz.is_file() {
         let file = std::fs::File::open(&opts.wz).map_err(|e| WzError::io(&opts.wz, e))?;
         WzRoot::from_sources(crate::zip::zip_sources(std::sync::Arc::new(file))?)
