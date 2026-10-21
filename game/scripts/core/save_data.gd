@@ -153,6 +153,9 @@ func _load_import() -> void:
 		last_error = DirAccess.remove_absolute(source)
 	else:
 		_apply_file(previous)
+	if last_error != OK:
+		# Do not allow later mutations while an unconsumed candidate could replay over them on restart.
+		_preserve_error = last_error
 
 
 ## Writes through .tmp with a .bak recovery copy (creating its folder); returns any persistence error.
@@ -438,6 +441,7 @@ class WriterLock extends RefCounted:
 	var directory := ""
 	var owner := ""
 
+	## Claims the sibling lock directory, or recovers it only when its prior process is gone.
 	func acquire(lock_path: String) -> Error:
 		directory = lock_path
 		var error := DirAccess.make_dir_recursive_absolute(directory.get_base_dir())
@@ -452,7 +456,7 @@ class WriterLock extends RefCounted:
 				if not name.ends_with(".owner") or not name.get_slice(".", 0).is_valid_int():
 					continue # Unknown debris fails closed rather than stealing a possibly live lock.
 				var pid := int(name.get_slice(".", 0))
-				if pid > 0 and not OS.is_process_running(pid):
+				if pid > 0 and not _process_alive(pid):
 					removed = DirAccess.remove_absolute(directory.path_join(name)) == OK or removed
 			var empty := DirAccess.get_files_at(directory).is_empty() and DirAccess.get_directories_at(directory).is_empty()
 			var expired := Time.get_unix_time_from_system() - FileAccess.get_modified_time(directory) >= EMPTY_GRACE_SECONDS
@@ -474,8 +478,29 @@ class WriterLock extends RefCounted:
 			return error
 		return OK if owns() else ERR_ALREADY_IN_USE
 
+	## True only while this marker is the sole owner; ambiguous initialization/recovery races refuse writes.
 	func owns() -> bool:
 		return not owner.is_empty() and DirAccess.get_files_at(directory) == PackedStringArray([owner])
+
+	static func _process_alive(pid: int) -> bool:
+		if pid == OS.get_process_id():
+			return true
+		if OS.get_name() != "Windows":
+			var processes: Array = []
+			var result := OS.execute("ps", PackedStringArray(["-p", str(pid), "-o", "pid="]), processes, true)
+			if result != 0 and result != 1:
+				return true
+			return "".join(processes).strip_edges() == str(pid)
+		# Godot 4.7.2 on Windows only checks its own child-process map. A different game instance is not a child.
+		# tasklist is an offline Windows system utility; query the numeric PID only, with no shell interpolation.
+		var output: Array = []
+		if OS.execute("tasklist", PackedStringArray(["/FI", "PID eq %d" % pid, "/FO", "CSV", "/NH"]), output, true) != 0:
+			return true # Liveness could not be established: do not steal a possibly live save.
+		for chunk: String in output:
+			for line: String in chunk.split("\n"):
+				if line.contains('\",\"%d\",' % pid):
+					return true
+		return false
 
 	func _notification(what: int) -> void:
 		if what == NOTIFICATION_PREDELETE and not owner.is_empty():

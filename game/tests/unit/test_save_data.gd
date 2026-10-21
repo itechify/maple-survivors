@@ -167,6 +167,26 @@ func test_valid_staged_import_is_validated_and_promoted_once() -> void:
 	assert_eq(SaveData.new(save_path).slot(0), loaded.slot(0))
 
 
+func test_failed_import_promotion_blocks_mutations_until_the_candidate_is_consumed() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	var primary := FileAccess.get_file_as_string(save_path)
+	var candidate: Dictionary = JSON.parse_string(primary)
+	candidate.slots[0].name = "Import1"
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(candidate))
+	file.close()
+	assert_eq(DirAccess.make_dir_absolute(ProjectSettings.globalize_path(save_path + ".tmp")), OK)
+	var loaded := SaveData.new(save_path)
+	assert_ne(loaded.last_error, OK)
+	assert_eq(loaded.slot(0).get("name"), "Maple1")
+	assert_eq(FileAccess.get_file_as_string(save_path), primary)
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path + ".tmp")), OK)
+	assert_ne(loaded.set_account({"nx": 12, "owned": []}), OK, "pending import must not replay over subsequent mutations")
+	assert_eq(FileAccess.get_file_as_string(save_path), primary)
+	assert_eq(SaveData.new(save_path).slot(0).get("name"), "Import1", "a restart can retry the promotion safely")
+
+
 static func snapshot(name: String = "Maple1") -> Dictionary:
 	return {"name": name, "look": {"skin": 0, "face": 20000, "hair": 30030, "equips": [1040002]},
 		"created": "2026-10-16T12:00:00Z", "character": RF.quiet_world().character_snapshot(),
