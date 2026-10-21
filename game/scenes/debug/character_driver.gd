@@ -97,7 +97,7 @@ func _ready() -> void:
 			character.job_id = 200 if i == 1 else 220
 			character.level = 10 if i == 1 else 35
 			# As after the Magician advancement: the granted Wooden Wand is worn, the creation weapon kept.
-			var wand := SceneFlow.new_character({}, 1372005, loader).equipment.worn.weapon
+			var wand: Dictionary = SceneFlow.new_character({}, 1372005, loader).equipment.worn.weapon
 			Equipment.grant(character.equipment, wand, 24)
 		flow.save.create_slot({"name": ["SwordMaple", "MapleGirl", "AxeMaple"][i], "character": character,
 			"created": "2026-10-16T12:00:00", "tier": 0, "phase": "map_select",
