@@ -248,7 +248,7 @@ var _timed_shots: Array = []
 ## Keys of the one-off playtest evidence shots already queued by _first_event_shot (a skill key, a shot file name or an
 ## event name).
 var _first_shots := {}
-## Grenades in flight (#192): {slot (fx), from, to, seconds, t, burst art}; the sim strikes when they land.
+## Flight FX: Grenades carry skill + cast_time and wait for skill_landed; Final Attack ammo is visual-only.
 var _throws: Array = []
 var _last_delta := 0.0
 var _skip_perf_frames := 0
@@ -1072,6 +1072,8 @@ func handle_events(events: Array) -> void:
 				_on_cast(e)
 			"skill_thrown":
 				_on_skill_thrown(e)
+			"skill_landed":
+				_on_skill_landed(e)
 			"skill_impact":
 				fx.play(String(e.effect), e.pos)
 				_sound(String(world.book.def(String(e.skill)).get("sounds", {}).get("hit", "")))
@@ -1278,12 +1280,24 @@ func _on_cast(e: Dictionary) -> void:
 	_sound(use)
 
 
-## A thrown grenade (#192): the ball art loops along a short arc from the hand to the target for the flight's seconds,
-## then the blast art plays there (the sim strikes the mobs at the same moment).
+## A thrown grenade (#192): the ball follows consumed sim time; only skill_landed starts its blast.
 func _on_skill_thrown(e: Dictionary) -> void:
 	var seconds := float(e.seconds)
-	var slot := fx.play_repeating(String(e.ball), e.from, seconds + 0.5)
-	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0, "burst": String(e.burst)})
+	var slot := fx.play_repeating(String(e.ball), e.from, INF)
+	_throws.append({"slot": slot, "from": e.from, "to": e.to, "seconds": seconds, "t": 0.0,
+		"skill": String(e.skill), "cast_time": world.time})
+
+
+## The authoritative impact tick stops the matching flight and plays the captured blast, even with no victims.
+func _on_skill_landed(e: Dictionary) -> void:
+	for i in _throws.size():
+		var flight: Dictionary = _throws[i]
+		if flight.get("skill", "") == e.skill and flight.get("cast_time", -1.0) == e.cast_time:
+			fx.stop(int(flight.slot))
+			_throws.remove_at(i)
+			break
+	if String(e.effect) != "":
+		fx.play(String(e.effect), (e.pos as Vector2).round(), false)
 
 
 ## Final Attack's ammo flies straight to its original target; damage has already landed in the sim.
@@ -1300,16 +1314,19 @@ func _update_throws(delta: float) -> void:
 	var i := 0
 	while i < _throws.size():
 		var t: Dictionary = _throws[i]
-		t.t = float(t.t) + delta
+		if t.has("cast_time"):
+			# Interpolate only inside the last consumed tick. Never spend discarded hitch time or a choice hold.
+			var elapsed := maxf(0.0, world.time - float(t.cast_time))
+			t.t = maxf(float(t.t), clampf(elapsed - DT + _acc, 0.0, elapsed))
+		else:
+			t.t = float(t.t) + delta # Final Attack's damage already landed; this is a cosmetic flight.
 		var f := minf(float(t.t) / maxf(float(t.seconds), 0.001), 1.0)
-		if f < 1.0:
+		if f < 1.0 or t.has("cast_time"):
 			var at: Vector2 = (t.from as Vector2).lerp(t.to, f) - Vector2(0.0, sin(f * PI) * float(t.get("arc", THROW_ARC)))
 			fx.place(int(t.slot), at.round(), float(t.get("angle", 0.0)))
 			i += 1
 			continue
 		fx.stop(int(t.slot))
-		if String(t.burst) != "":
-			fx.play(String(t.burst), (t.to as Vector2).round(), false)
 		_throws.remove_at(i)
 
 

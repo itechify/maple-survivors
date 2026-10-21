@@ -134,6 +134,7 @@ const EVENT_FIELDS := {
 	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
+	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 
 }
 
