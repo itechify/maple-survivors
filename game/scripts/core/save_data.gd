@@ -127,9 +127,11 @@ func _apply_file(parsed: Dictionary) -> void:
 	for k: String in parsed.runs:
 		if stages.has(k):
 			runs[k] = int(parsed.runs[k])
-	_slots = parsed.get("slots", [null, null, null])
-	_history = parsed.get("history", [])
-	_account = Account.normalized(parsed.get("account", Account.empty()))
+	# Format 1 validates only bests/counts: later fields must be ignored, not adopted without validation.
+	var current := int(parsed.format) == FORMAT
+	_slots = parsed.get("slots", [null, null, null]) if current else [null, null, null]
+	_history = parsed.get("history", []) if current else []
+	_account = Account.normalized(parsed.get("account", Account.empty())) if current else Account.empty()
 
 
 func _load_import() -> void:
@@ -410,8 +412,10 @@ func _write(data: Dictionary) -> Error:
 		if error != OK:
 			return error
 	var text := JSON.stringify(data, "\t", true, true)
-	if _primary_valid and JSON.parse_string(FileAccess.get_file_as_string(path)) == JSON.parse_string(text):
-		return OK # No state change: retain both committed byte sequences, including the older backup.
+	if _primary_valid and FileAccess.file_exists(path):
+		var previous := JSON.new()
+		if previous.parse(FileAccess.get_file_as_string(path)) == OK and previous.data == JSON.parse_string(text):
+			return OK # No state change: retain both committed byte sequences, including the older backup.
 	var temporary := path + ".tmp"
 	var f := FileAccess.open(temporary, FileAccess.WRITE)
 	if f == null:
