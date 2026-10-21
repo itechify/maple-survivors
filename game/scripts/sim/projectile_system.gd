@@ -27,6 +27,8 @@ const MAX_HITS := 16
 const BOUNDS_MARGIN := 200.0
 
 var active := PackedByteArray()
+## Draw identity: increments on every spawn, including reuse between presentation frames.
+var generation := PackedInt64Array()
 var x := PackedFloat32Array()
 var y := PackedFloat32Array()
 var vx := PackedFloat32Array()
@@ -117,6 +119,7 @@ func spawn(spec: Dictionary) -> int:
 	var i := _free[_free.size() - 1]
 	_free.resize(_free.size() - 1)
 	active[i] = 1
+	generation[i] += 1
 	x[i] = float(spec.get("x", 0.0))
 	y[i] = float(spec.get("y", 0.0))
 	vx[i] = float(spec.get("vx", 0.0))
@@ -403,6 +406,7 @@ func _grow(n: int) -> void:
 	for arr: Variant in [visual, hits_left, hit_count, hit_visual, skill, level, player_level, blast_count]:
 		arr.resize(n)
 	hit_list.resize(n * MAX_HITS)
+	generation.resize(n)
 	element.resize(n)
 	blast_position.resize(n)
 	blast_size.resize(n)

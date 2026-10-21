@@ -181,6 +181,10 @@ export function assessCache({ manifest, indexText, keys, root = CACHE_ROOT }) {
 			const json = `${root}/${entry.json || img + '.json'}`;
 			let bad = !present.has(json);
 			for (let i = 0; !bad && i < (entry.pages || 0); i++) bad = !present.has(`${root}/${img}.${i}.png`);
+			if (entry.sounds > 0) {
+				bad ||= !Array.isArray(entry.sound_files) || entry.sound_files.length !== entry.sounds
+					|| entry.sound_files.some((file) => typeof file !== 'string' || !present.has(`${root}/${file}`));
+			}
 			if (bad) missing.push({ img, reason: 'files missing' });
 		}
 	}
@@ -350,7 +354,7 @@ const isWhole = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /**
- * A light check of a save file before it replaces the player's save: it parses, has SaveData's top-level shape
+ * A light check before staging a candidate: it parses, has SaveData's top-level shape
  * (format 1 or 2, best and runs objects; for format 2 exactly 3 slots and a history array). The game still validates
  * the contents in full when it loads the file. Returns {ok: true, slots} or {ok: false, error}.
  */
@@ -372,6 +376,48 @@ export function validateSaveText(text) {
 		return { ok: false, error: 'That file is not a Maple Survivors save (slots or history missing).' };
 	}
 	return { ok: true, slots: s.slots.filter((x) => x !== null).length };
+}
+
+/** Stage only. SaveData validates all nested data before promoting this sibling to the persistent save. */
+export async function stageSaveImport(text, writeFile) {
+	const check = validateSaveText(text);
+	if (check.ok) await writeFile(SAVE_PATH + '.import', new TextEncoder().encode(text));
+	return check;
+}
+
+/** One exclusive browser owner for all /userfs mounts, shell operations and workers. Held until page exit. */
+export function createStoreOwnership(locks) {
+	let held = false;
+	let pending = null;
+	let finished = null;
+	let release = null;
+	return {
+		acquire() {
+			if (held) return Promise.resolve(true);
+			if (pending) return pending;
+			pending = new Promise((resolve, reject) => {
+				if (!locks || typeof locks.request !== 'function') {
+					reject(new Error('This browser needs Web Locks to protect your save. Use a current browser over HTTPS or localhost.'));
+					return;
+				}
+				finished = locks.request('maple-survivors-userfs', { ifAvailable: true, mode: 'exclusive' }, async (lock) => {
+					if (!lock) { resolve(false); return; }
+					held = true;
+					const lifetime = new Promise((done) => { release = done; });
+					resolve(true);
+					await lifetime;
+					held = false;
+				});
+				finished.catch(reject);
+			}).finally(() => { pending = null; });
+			return pending;
+		},
+		// For deterministic tests. The shell never releases a mounted engine's lock; the browser does so on page exit/crash.
+		async release() {
+			if (release) release();
+			if (finished) await finished;
+		},
+	};
 }
 
 /** `maple-survivors-save-20261017-142530.json` (local time). */

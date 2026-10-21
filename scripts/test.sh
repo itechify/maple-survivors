@@ -24,7 +24,8 @@ fi
 GODOT_CMD=(bash "$REPO/scripts/godot.sh")
 # An import pass registers new class_name scripts before the runner loads them.
 "${GODOT_CMD[@]}" --headless --path "$PROJECT" --import >/dev/null 2>&1 || true
-timeout --kill-after=10 "${TEST_TIMEOUT_S:-900}" "${GODOT_CMD[@]}" --headless --path "$PROJECT" \
+# The whole suite takes 13-16 min on the dev PC (2026-10-21) and longer while other agents share it; CI sets 1500 s.
+timeout --kill-after=10 "${TEST_TIMEOUT_S:-1800}" "${GODOT_CMD[@]}" --headless --path "$PROJECT" \
   res://tests/test_runner.tscn -- "$@" 2>&1 \
   | grep -vE '^(Godot Engine v|WARNING: .*leaked|   at: |Leaked instance|ERROR: .*ObjectDB instances leaked|ERROR: .* resources still in use)'
 exit "${PIPESTATUS[0]}"

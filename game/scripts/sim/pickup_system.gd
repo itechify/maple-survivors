@@ -221,6 +221,60 @@ func alpha(i: int) -> float:
 	return clampf((life - age[i]) / f, 0.0, 1.0) if f > 0.0 else 1.0
 
 
+## Collects all remaining drops without motion or expiry (tier C: owner finale policy, 2026-10-21).
+## Equipment still obeys equip_room: blocked items stay on the ground with the usual inventory_full notice.
+func collect_all(events: Array, equip_room: int = -1) -> int:
+	_reset_collected()
+	var got := 0
+	var room := equip_room
+	for i in _hi:
+		if active[i] == 0:
+			continue
+		if kind[i] == EQUIP and room == 0:
+			if full_noted[i] == 0:
+				full_noted[i] = 1
+				events.append({"type": "pickup_blocked", "pickup": i, "item_id": item_id[i],
+					"pos": Vector2(x[i], y[i]), "reason": "inventory_full"})
+			continue
+		var is_equip := kind[i] == EQUIP
+		got += _collect(i, false, events)
+		if is_equip and room > 0:
+			room -= 1
+	collected_exp += got
+	collected_mesos += step_mesos
+	return got
+
+
+func _reset_collected() -> void:
+	collected_potions = {"hp": 0, "mp": 0}
+	collected_equipment = []
+	pet_collected = 0
+	step_mesos = 0
+
+
+func _collect(i: int, by_pet: bool, events: Array) -> int:
+	var got := exp[i]
+	if by_pet:
+		pet_collected += 1
+	var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
+	if potion_kind != "":
+		collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
+	var is_meso := kind[i] == MESO
+	if is_meso:
+		step_mesos += meso[i]
+	var is_equip := kind[i] == EQUIP
+	var kind_name: String = KIND_NAMES[kind[i]]
+	# A meso event carries its amount in count; the equipment instance goes to collected_equipment.
+	if is_equip:
+		collected_equipment.append(equip_instance[i])
+	events.append({"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": got,
+		"pos": Vector2(x[i], y[i]), "kind": kind_name, "potion_kind": potion_kind,
+		"count": meso[i] if is_meso else (1 if is_equip else potion_count[i]),
+		"collector": "pet" if by_pet else "player"})
+	despawn(i)
+	return got
+
+
 ## Moves every drop by dt (pop/fall/land, magnet, collect, expiry). Returns the EXP collected this tick.
 ## `equip_room` is how many more equipment items the Equip tab holds (-1: no limit); it counts down as items are collected.
 ## A pet out (spec #34) is a second collector: a drop within `pet_r` of `pet_center` is collected by it (the EXP and
@@ -231,11 +285,8 @@ func alpha(i: int) -> float:
 func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, events: Array, equip_room: int = -1,
 		pet_center := Vector2.ZERO, pet_r := 0.0, pet_vac := false) -> int:
 	var got := 0
-	collected_potions = {"hp": 0, "mp": 0}
-	collected_equipment = []
-	pet_collected = 0
+	_reset_collected()
 	var pr2 := pet_r * pet_r
-	step_mesos = 0
 	var room := equip_room
 	var grav := float(tuning.gravity)
 	var fall := float(tuning.fall_speed)
@@ -357,28 +408,10 @@ func step(dt: float, player_pos: Vector2, magnet_r: float, fhm: FootholdMap, eve
 				reached = true
 				by_pet = true
 		if reached:
-			if by_pet:
-				pet_collected += 1
-			got += exp[i]
-			var potion_kind := "hp" if kind[i] == HP_POTION else ("mp" if kind[i] == MP_POTION else "")
-			if potion_kind != "":
-				collected_potions[potion_kind] = int(collected_potions[potion_kind]) + potion_count[i]
-			var is_meso := kind[i] == MESO
-			if is_meso:
-				step_mesos += meso[i]
 			var is_equip := kind[i] == EQUIP
-			var kind_name: String = KIND_NAMES[kind[i]]
-			# A meso event carries its amount in `count`; the instance of equipment goes to `collected_equipment`.
-			var event := {"type": "pickup_collected", "pickup": i, "item_id": item_id[i], "exp": exp[i],
-				"pos": Vector2(x[i], y[i]), "kind": kind_name,
-				"potion_kind": potion_kind, "count": meso[i] if is_meso else (1 if is_equip else potion_count[i]),
-				"collector": "pet" if by_pet else "player"}
-			if is_equip:
-				collected_equipment.append(equip_instance[i])
-				if room > 0:
-					room -= 1
-			events.append(event)
-			despawn(i)
+			got += _collect(i, by_pet, events)
+			if is_equip and room > 0:
+				room -= 1
 	collected_exp += got
 	collected_mesos += step_mesos
 	return got

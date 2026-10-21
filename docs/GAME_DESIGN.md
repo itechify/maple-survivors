@@ -22,7 +22,10 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    an empty pool opens no window.
 5. **Advance** to Warrior, Magician, Thief or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
-   their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
+   all mandatory choices answered. The last answer settles the clear without another combat tick. All remaining
+   map drops are collected once, subject to the existing full Equip tab rule; any resulting level, job and card
+   choices finish with combat frozen before the character carries (tier C owner choices, 2026-10-21).
+   A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
 Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
@@ -70,7 +73,9 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
 Equip, Item, Stat, Skill, NPC Chat and the **skill key** of each manual skill the character has learned (#188: Teleport
-or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted,
+refuse drops): the movement set, Esc, F3 (Perf overlay) and the card keys 1-3. Previously saved F3 bindings lose F3 and
+keep their other keys. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX
@@ -509,6 +514,24 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Audit follow-up (MS-04..MS-42): regression smoke (2026-10-21)
+
+Feature smoke only, no tuning or data changes: `bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both
+`bot` / `random` policies (12 runs), integrated branch `66a798e`, private read-only cache imported from the current
+manifest. Baseline: the same command on `a68e74f` during the audit (`docs/audits/maple-survivors-skill-audit.md`
+4.2). All 12 runs: `warnings: []`, `missing: []`, no crash or script error. Death times, levels at death and boss
+counts are **identical** to the baseline on every seed. The one difference is the intended MS-08 clear sweep: Henesys
+bot seed 1 still CLEARS at 15:58, but ends at **Lv50 instead of Lv44**, because the remaining EXP drops on the map are
+now collected at the clear and their level-ups are resolved before the carry. MS-05/MS-32 (MP growth) and MS-07 did
+not move any seeded outcome here. D = death time, final level (seeds 1 / 2 / 2026):
+
+| Stage / policy | Baseline `a68e74f` | After `66a798e` |
+|---|---|---|
+| Henesys / bot | CLEARED 15:58 Lv44 / D 4:34 Lv8 / D 4:19 Lv7 | CLEARED 15:58 **Lv50** / D 4:34 Lv8 / D 4:19 Lv7 |
+| Henesys / random | D 9:16 Lv27 / D 10:02 Lv25 / D 4:56 Lv9 | the same |
+| Tree / bot | D 9:04 Lv21 / D 16:10 Lv29 / D 0:48 Lv1 | the same |
+| Tree / random | D 9:29 Lv18 / D 2:56 Lv6 / D 0:48 Lv1 | the same |
 
 #### Spec #226 weapon specialization: regression smoke (#232, 2026-10-18)
 
@@ -2990,6 +3013,23 @@ consumption. Final clear waits for the choices to finish. The bonus window reads
 header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
 reward defaults for tuning.
 
+Finale settlement (MS-07/MS-08, tier C owner choices, 2026-10-21): **clear wins** once every scheduled boss is dead
+and all mandatory choices are answered. No subsequent monster, projectile or contact-damage tick runs. Death in
+the active tick that kills a boss still wins, including a kill that queues an unanswered reward; ordinary earlier
+deaths are unchanged. **Collect everything** then sweeps every remaining map pickup, ordinary and boss alike,
+independently of distance, height or current attraction: EXP, mesos, HP/MP potion bundles and equipment (the complete
+set of current pickup kinds). They use ordinary pickup accounting and equipment auto-wear, exactly once. Swept EXP
+opens the normal level/job/advancement/card queue; combat and simulation time remain frozen through those answers.
+Only then does the clear complete and produce the outgoing CharacterSnapshot. Job grants can spill equipment;
+settlement retries the remaining pickups after the resulting choices too. No live map or settlement state is saved.
+
+The existing full Equip tab rule remains the capacity exception: a blocked equipment instance stays on the ground,
+emits the usual `pickup_blocked` / `inventory_full` notice and is left behind when the clear finishes. Settlement
+does not overflow the tab, sell or replace equipment, or wait indefinitely for space. Other drops are still credited.
+EXP cap absorption continues to conserve the full value; settlement collects the merged value without expiry.
+Quit round during a settlement choice retains the original round-boundary character and seed; Continue replays
+that start. A completed non-final clear saves the fully settled character in the hub, so Continue never pays it twice.
+
 Presentation uses the original `UIWindow.img/MobGage` icon frame, gauge borders and colour strips, centred below
 the timer; multiple surviving bosses keep separate rows. Names come from `String.wz`, HP comes from the swarm,
 and colour indices come from canonical `info/hpTagColor` and `info/hpTagBgcolor`. Blue Mushmom lacks a v83 icon and
@@ -3192,7 +3232,8 @@ quantities per kind.
   its base value's target for the character's level, and the rest goes to the primary stat. The Magician's LUK target
   is about level + 2 (tier C; v83 reqLUK 15 at Lv13 ... 70 at Lv68), so a Magician meets the Lv68 equipment LUK and
   its INT is lower by exactly the points moved to LUK (Lv70: INT 281 instead of 349). The split is recomputed from
-  earned AP and the level, so existing snapshots need no format change.
+  earned AP and the level, so existing snapshots need no format change. A multi-level EXP award uses each intermediate
+  level for its AP split before the next level's INT-dependent MP growth; collection grouping does not change growth.
   All starting values, AP gains and primary-stat choices are in `balance.json/player`.
 - **Stats per level** (tier C for HP/MP base growth): Beginner +14 HP / +10 MP; Magician +12 HP / +22 MP, plus
   `floor(INT/10)` MP using INT before that level's AP (tier B). Magic skill damage uses the resulting INT.
@@ -3201,7 +3242,8 @@ quantities per kind.
   refill both pools, Cosmic `Character.levelUp` calls `changeHpMp(maxhp, maxmp)`) but add no HP
   (`level_up_refill.hp` = 0, tier C owner choice for difficulty). Several level-ups from one EXP gain leave MP at
   the final maximum. The owned Improved MaxMP Increase passive preserves current MP's fraction of the maximum when
-  Max MP grows outside a level-up (job grants). It never restores HP.
+  Max MP grows through passive learning/ranks, level growth (before the refill) or job grants. Equipment refreshes only clamp current HP/MP to the
+  computed maxima, even with that passive. It never restores HP.
 - **Defense and avoid**: W.DEF and M.DEF sum the worn equipment's `incPDD` and `incMDD`, plus active defense
   modifiers. The default creation outfit is W.DEF 7 (3 + 2 + 2), M.DEF 0 (tier A, v83 Character.wz).
   Avoidability is DEX × 0.25 + LUK × 0.5 + equipment `incEVA` (tier B, pre-Big-Bang formula compilations).
@@ -4849,7 +4891,8 @@ Binocular upgrades are the only pickup-range upgrades; `magnet` ranks and modifi
 Magicians learn Improved MaxMP Increase (2000001) at their card's starting rank and rank it through level 10 with the tier gains above. Its tier C, owner-selected reinterpretation multiplies the computed Max MP
 (level growth, Magician INT/10 growth and job grant included) by `1 + 0.02 × skill level`, rounded once to whole MP.
 This is +2% through +20%, recalculated from the base on every recompute rather than compounded or granted once.
-Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant. The canonical
+Current MP keeps its ratio when the maximum grows from learning/ranking, level growth or a job grant; level-ups then refill MP and
+equipment refreshes only clamp it. The canonical
 skill instead raises MP gained per level; no canonical values are edited. The old flat +25 Max MP card is removed.
 Rank previews show the survivor Max MP percentage rather than the canonical per-level gain.
 
@@ -5205,6 +5248,10 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
+| Desktop save lease (MS-02) | Renew every 5 real seconds and on successful writes; takeover after 30 seconds without renewal; lost owners refuse writes until a fresh committed-state reload | C | Persistence safety policy, not gameplay tuning; `SaveData.WriterLock`, `SceneFlow`, ARCHITECTURE 4.2 |
+| Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
+| Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
+| Finale collection (MS-08) | Sweep all remaining pickup kinds once using normal pickup accounting; resolve resulting level/job/card choices with combat frozen before carry. Full-tab equipment retains the existing blocked-on-ground rule and is left behind at clear | C | Owner decision, 2026-10-21; existing Equip pickup capacity rule |
 | Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 
@@ -5774,7 +5821,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Tier reward presentation | white/blue/purple/gold/green accents `#FFFFFF/#77BBFF/#CC99FF/#FFCC44/#77DD88`, dark `#17344F` 16px label band tinted 30% with the tier colour and a 2px frame; rows start at 140px in blanked notice, 4px gaps, target view height minus 128px; prose compacts before changed values | C | #30 / #44; Potential ladder semantics on original v83 window art |
 | High-tier offer cue | one `Sound.wz/Game.img/mCardGet` per displayed Unique/Legendary level-up or boss-reward window; prewarmed; no cue for invisible autopicks or focus/pick | A (v83 2664ms audio), C (reward use) | implementation selection after owner reserved EnchantSuccess for future scrolling; existing whole Game.img manifest; actual WASAPI playback verified by agent, fit auditioned and approved by owner on 2026-10-15 |
 | Upgrade card values | `upgrades.json`: Recovery/Nimble Feet ranks 1–3, MP Recovery ranks 1–16, MaxMP Increase ranks 1–10; Magnet ×1.25 removed in #225; old Max HP/flat-speed/flat-MP cards removed | C (card tuning); A (canonical levels) | ours; original WZ |
-| Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio whenever this maximum grows, including later levels/jobs | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
+| Improved MaxMP Increase percentage | computed Max MP (level/INT growth + job grant) × (1 + .02 × skill level), rounded once; +2–20% across 10 levels; preserve current MP ratio on passive learning/ranks, level growth and job grants; level-ups then refill MP, equipment refreshes only clamp | C | owner reinterpretation; skills.improved_max_mp.passive; canonical 2000001 instead improves MP gained per level |
 | MP Eater monster pools and level values | canonical `Mob.wz/info/maxMP`, never HP-scaled; spawn full, relocation preserves depletion, fresh reuse refills; `prop` 11–30%, `x` 21–40% over levels 1–20 for all three IDs; depleted monsters give no MP | A (data and exhaustion), C (survivor slot lifecycle) | original v83 Mob.wz, Skill.wz and String.wz; #59 |
 | MP Eater cards and bot priority | learn/rank weights 2/2, no behaviour cards; existing passive bot scores learn 50, current-job rank 42 + 12 = 54, below attacks | C | survivor integration, existing BotInput defaults; #59 |
 | MP Eater hit and presentation rules | whole-MP truncation; current passive level at impact, proc only on damaging magic lines; full player MP still drains monster MP, effect accompanies every absorb, gain number uses actual capped restoration; evidence shot at 0.12 s | C (integer interpretation and survivor integration), A (700 ms effect art/timing) | #59; shared Foundations hook/restoration, original v83 Skill.wz effects |
@@ -5896,7 +5943,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Cap hair cover (#108, corrected in #126) | `hairOverHead` is `Base.wz/smap.img` code H1, so it is hidden exactly by a cap whose `info/vslot` holds H1 (CpH1H5 half-cover, the full-head covers); a CpH5 headband (68 real caps) leaves it drawn over the band (the bangs fall over the headband: `zmap` puts `hairOverHead` in front of `cap`). Without a cap the `*BelowCap` hair layers are not drawn. #108 had it the other way round (CpH5 hid hairOverHead); `AvatarRenderer.hair_layers_skipped` and the smap hiding above now agree. Evidence: `hair_cap_probe.tscn` sheets on hairs 30000 / 30002 / 30020 with the CpH5 caps 1002067 and 1002317 and the CpH1H5 cap 1002001 (the old rule strips the bangs and leaves the headband on a bare forehead); the ladder stances show no difference (the hair covers the cap from behind) | A (smap codes, cap vslot, zmap order) / B (agreement) | `Base.wz/smap.img` + `zmap.img`, `Character.wz/Cap/*/info/vslot`; the v83 clients in the prior-art clones map CpH1H5 to half-cover (overhead hair not drawn) and CpH5 to headband (overhead hair drawn over the cap), re-implemented from prose |
 | Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
 | Scroll roster (#110) | `game/data/survivor/scrolls/<line>.json` (common = armour slots, magician = wand and staff): slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
-| Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market world is seeded per visit with `randi()` and saves after every scroll so a reload cannot redo a roll | C | ours |
+| Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market derives its seed from the saved round seed, equipment, scrolls and mesos, normalizing JSON numbers before hashing; construction and each saved inventory action use the same stream derivation, so Continue or Cash Shop return preserves the next roll | C | ours |
 | Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
 | Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |

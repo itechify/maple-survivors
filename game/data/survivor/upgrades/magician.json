@@ -245,7 +245,7 @@
 			"kind": "skill_new",
 			"skill": "bless",
 			"name": "Bless",
-			"desc": "Learn Bless: Temporarily increases defence, accuracy and avoid. Accuracy has no combat effect yet.",
+			"desc": "Learn Bless: Temporarily increases defence, accuracy and avoid. Accuracy increases your critical hit chance.",
 			"icon": "Skill.wz/230.img/skill/2301004/icon",
 			"max_rank": 1,
 			"weight": 3,

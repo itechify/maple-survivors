@@ -133,6 +133,12 @@ no frames, so screenshots are not saved; the run still quits at `--quit-after` (
 `final.png skipped` after 5 real seconds without a drawn frame. F3 toggles the perf overlay in any run. Look at the
 screenshots; numbers alone do not show a broken sprite.
 
+For performance captures, add `--require-window --min-frames-100=120 --min-frames-200=60` (choose sample minima for
+the workload). Qualification exits non-zero with `UNQUALIFIED` unless `warped_to` reached the requested `--warp`,
+`ticks` is positive and both crowd frame counts meet their minima. Defaults are one frame per density; zero disables
+one density check, and at least one must stay positive. This verifies coverage; it makes no frame-time claim. Ordinary
+playtests retain their existing behavior on a valid early-death summary.
+
 `bash scripts/run.sh -- --hub [--character=<absolute CharacterSnapshot JSON>] [--mesos=N]` (tool-only, `HubTestKit`) skips
 the title and opens the real Free Market to hand-test the scroll shops with the Lv38 F/P fixture (or `--character`) plus
 a test kit (mesos, scrolls, spare equipment: `HubTestKit` constants) in a throwaway `user://tool_hub_save.json`

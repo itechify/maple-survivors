@@ -5,6 +5,8 @@ extends RefCounted
 ## tier C: projectile contact radius when WZ ball art has no collision box; survivor data may override it.
 const DEFAULT_RADIUS := 8.0
 var active := PackedByteArray()
+## Draw identity: increments on every spawn, including reuse between presentation frames.
+var generation := PackedInt64Array()
 var x := PackedFloat32Array()
 var y := PackedFloat32Array()
 var vx := PackedFloat32Array()
@@ -46,6 +48,7 @@ func spawn(spec: Dictionary) -> int:
 	var slot := _free[_free.size() - 1]
 	_free.resize(_free.size() - 1)
 	active[slot] = 1
+	generation[slot] += 1
 	x[slot] = spec.pos.x
 	y[slot] = spec.pos.y
 	vx[slot] = spec.velocity.x
@@ -117,7 +120,7 @@ func despawn(slot: int) -> void:
 
 func _grow(size: int) -> void:
 	var old := active.size()
-	for property: String in ["active", "x", "y", "vx", "vy", "visual", "rotate", "range_left", "radius",
+	for property: String in ["active", "generation", "x", "y", "vx", "vy", "visual", "rotate", "range_left", "radius",
 		"mob", "mob_id", "damage", "multiplier", "accuracy", "magic", "element", "hit_visual", "source_pos",
 		"ordinary", "elite"]:
 		var array: Variant = get(property)

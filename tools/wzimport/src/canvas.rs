@@ -9,24 +9,56 @@ use crate::error::{Result, WzError};
 use crate::property::CanvasRef;
 use flate2::{Decompress, FlushDecompress, Status};
 
+// tier C: defensive import limits, measured margin over original v83 in ASSET_PIPELINE section 2.4.
+pub const MAX_CANVAS_EDGE: u32 = 32768;
+// tier C: per-canvas decoded bytes, 14.26x the largest measured original v83 canvas.
+pub const MAX_CANVAS_BYTES: usize = 128 * 1024 * 1024;
+// tier C: per-img decoded bytes, 1.79x the largest measured original v83 img aggregate.
+pub const MAX_IMG_DECODE_BYTES: usize = 512 * 1024 * 1024;
+
+/// Validate dimensions before any pixel allocation, including refs supplied without the parser.
+pub fn rgba_size(width: u32, height: u32) -> Result<usize> {
+    let size = (width as usize).checked_mul(height as usize).and_then(|n| n.checked_mul(4));
+    if width > MAX_CANVAS_EDGE || height > MAX_CANVAS_EDGE || size.is_none_or(|n| n > MAX_CANVAS_BYTES) {
+        return Err(WzError::ResourceLimit(format!("canvas {width}x{height} exceeds edge/decoded-byte budget")));
+    }
+    Ok(size.unwrap())
+}
+
+/// Add decoded pixels (or atlas pages) to one img's aggregate allocation budget.
+pub fn add_decode_bytes(total: &mut usize, bytes: usize) -> Result<()> {
+    *total = total.checked_add(bytes).filter(|n| *n <= MAX_IMG_DECODE_BYTES)
+        .ok_or_else(|| WzError::ResourceLimit("img aggregate decoded-byte budget".into()))?;
+    Ok(())
+}
+
+fn zeroed(bytes: usize) -> Result<Vec<u8>> {
+    let mut out = Vec::new();
+    out.try_reserve_exact(bytes).map_err(|e| WzError::ResourceLimit(format!("canvas allocation: {e}")))?;
+    out.resize(bytes, 0);
+    Ok(out)
+}
+
 /// Bytes of decompressed pixel data for a canvas, or None for an unsupported format.
 pub fn raw_size(width: u32, height: u32, format: i32) -> Option<usize> {
     let (w, h) = (width as usize, height as usize);
     match format {
-        1 | 513 => Some(w * h * 2),
-        2 => Some(w * h * 4),
-        517 => Some(w.div_ceil(16) * h.div_ceil(16) * 2),
+        1 | 513 => w.checked_mul(h)?.checked_mul(2),
+        2 => w.checked_mul(h)?.checked_mul(4),
+        517 => w.div_ceil(16).checked_mul(h.div_ceil(16))?.checked_mul(2),
         _ => None,
     }
 }
 
 /// Decode a canvas whose data lives in `bytes` (the img blob named by `c.src`) to RGBA8 (`w * h * 4` bytes).
 pub fn decode(bytes: &[u8], c: &CanvasRef) -> Result<Vec<u8>> {
+    rgba_size(c.width, c.height)?;
     let format = c.format();
     let expected = raw_size(c.width, c.height, format)
         .ok_or_else(|| WzError::Other(format!("unsupported canvas format {} + {}", c.fmt, c.fmt2)))?;
     let start = c.data_off as usize;
-    let end = start + c.data_len as usize;
+    let end = start.checked_add(c.data_len as usize)
+        .ok_or_else(|| WzError::ResourceLimit("canvas payload offset overflow".into()))?;
     if end > bytes.len() {
         return Err(WzError::Other("canvas data out of range".into()));
     }
@@ -78,7 +110,10 @@ pub fn decrypt_blocks(data: &[u8]) -> Result<Vec<u8>> {
 
 /// Inflate a zlib stream to exactly `expected` bytes (trailing data and a missing checksum are tolerated).
 pub fn inflate(data: &[u8], expected: usize) -> Result<Vec<u8>> {
-    let mut out = vec![0u8; expected];
+    if expected > MAX_CANVAS_BYTES {
+        return Err(WzError::ResourceLimit("inflated canvas byte budget".into()));
+    }
+    let mut out = zeroed(expected)?;
     let mut d = Decompress::new(true);
     loop {
         let before_in = d.total_in();
@@ -107,12 +142,13 @@ fn expand565(p: u16) -> [u8; 4] {
 
 /// Convert decompressed pixel data to straight-alpha RGBA8.
 pub fn pixels_to_rgba(raw: &[u8], width: u32, height: u32, format: i32) -> Result<Vec<u8>> {
+    let rgba_bytes = rgba_size(width, height)?;
     let (w, h) = (width as usize, height as usize);
     let need = raw_size(width, height, format).ok_or_else(|| WzError::Other(format!("unsupported format {format}")))?;
     if raw.len() < need {
         return Err(WzError::Other(format!("pixel data is {} bytes, expected {need}", raw.len())));
     }
-    let mut out = vec![0u8; w * h * 4];
+    let mut out = zeroed(rgba_bytes)?;
     match format {
         1 => {
             for (px, o) in raw.as_chunks::<2>().0.iter().zip(out.as_chunks_mut::<4>().0.iter_mut()) {

@@ -1,9 +1,9 @@
 class_name ProjectileRenderer
 extends Node2D
-## Draws projectiles from ProjectileSystem-like arrays (docs/ARCHITECTURE.md 4.4.3): `active x y vx vy visual rotate`,
+## Draws projectiles from ProjectileSystem-like arrays (docs/ARCHITECTURE.md 4.4.3): `active generation x y vx vy visual rotate`,
 ## with `visual_paths[visual]` the WZ path of the looping animation (e.g. Skill.wz/000.img/skill/0001000/level/1/ball).
 ##
-## Each slot keeps its own animation clock (restarted when the slot becomes active or changes visual). WZ projectile
+## Each slot keeps its own animation clock (restarted on a new spawn generation or visual). WZ projectile
 ## art faces left: a shot moving right is mirrored. With `rotate` set for the slot, the sprite is also turned to the
 ## velocity direction (around its origin).
 
@@ -14,6 +14,7 @@ var _pool: SpritePool
 var _age: PackedFloat32Array = []
 var _was_active: PackedByteArray = []
 var _was_visual: PackedInt32Array = []
+var _was_generation := PackedInt64Array()
 var _anims: Dictionary = {}
 
 
@@ -31,6 +32,8 @@ func update_from(proj: Object, visual_paths: Array, dt: float) -> void:
 	var vys: PackedFloat32Array = proj.vy
 	var vis: PackedInt32Array = proj.visual
 	var rot_v: Variant = proj.get("rotate")
+	# Synthetic draw sources may omit identity; both production projectile pools always supply it.
+	var generations: Variant = proj.get("generation")
 	var n := active.size()
 	_pool.ensure(n)
 	if _age.size() < n:
@@ -38,6 +41,7 @@ func update_from(proj: Object, visual_paths: Array, dt: float) -> void:
 		_age.resize(n)
 		_was_active.resize(n)
 		_was_visual.resize(n)
+		_was_generation.resize(n)
 		for i in range(old, n):
 			_was_visual[i] = -1
 	for i in n:
@@ -45,10 +49,12 @@ func update_from(proj: Object, visual_paths: Array, dt: float) -> void:
 			_was_active[i] = 0
 			_pool.hide(i)
 			continue
-		if _was_active[i] == 0 or _was_visual[i] != vis[i]:
+		var generation := int(generations[i]) if generations is PackedInt64Array else 0
+		if _was_active[i] == 0 or _was_visual[i] != vis[i] or _was_generation[i] != generation:
 			_age[i] = 0.0
 			_was_active[i] = 1
 			_was_visual[i] = vis[i]
+			_was_generation[i] = generation
 		else:
 			_age[i] += dt
 		var a := _anim(visual_paths, vis[i])

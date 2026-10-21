@@ -56,6 +56,7 @@ var _data: Dictionary = {}
 var _accumulator := 0.0
 var _jump_latch := false
 var _leaving := false
+var _hint: MapleText
 
 
 ## Supplies the saved boundary, owning flow and run options before entering the tree.
@@ -72,7 +73,9 @@ func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary 
 ## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
 static func scroll_seed(p_snapshot: Dictionary) -> int:
 	var character: Dictionary = p_snapshot.get("character", {})
-	var state := {"equipment": character.get("equipment", {}), "scrolls": character.get("scrolls", {}),
+	# JSON parses numbers as floats; hash the same integer-valued state live and after a save/load.
+	var state := {"equipment": Equipment.normalized(character.get("equipment", Equipment.empty_state())),
+		"scrolls": CharacterSnapshot.integers(character.get("scrolls", {})),
 		"mesos": int(character.get("mesos", 0))}
 	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
@@ -314,8 +317,8 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	status.update({"level": level, "exp": int(character.get("exp", 0)), "hp": hp, "mp": mp, "max_hp": hp, "max_mp": mp},
 		{"name": snapshot.get("name", ""), "job_name": JobTree.from_data(data.jobs, {}).name_of(int(character.get("job_id", 0))),
 		"exp_next": curve.exp_to_next(level)})
-	var help := MapleText.new("Free Market  /  Up at the exit: next map  /  Space: talk to a scroll NPC  /  Esc: Save & quit",
-		MapleText.SIZE, MapleText.WHITE, true)
+	var help := MapleText.new("", MapleText.SIZE, MapleText.WHITE, true)
+	_hint = help
 	help.position = Vector2(12, 12) # tier C: hub instruction inset in logical pixels.
 	var plate := StyleBoxFlat.new()
 	plate.bg_color = NameTags.BOX_COLOR
@@ -325,6 +328,10 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 	plate.content_margin_bottom = NameTags.GAP_Y
 	help.add_theme_stylebox_override("normal", plate)
 	layer.add_child(help)
+	var settings := get_node_or_null("/root/Settings") as GameSettings
+	if settings != null:
+		settings.changed.connect(_refresh_hint)
+	_refresh_hint()
 	if notice != "":
 		notice_label = MapleText.new(notice, MapleText.SIZE, Color8(255, 255, 102), true)
 		notice_label.position = Vector2(12, 38) # tier C: under the hub instruction line.
@@ -344,6 +351,15 @@ func _build_hud(character: Dictionary, data: Dictionary, loadout: Loadout) -> vo
 			_leaving = true
 			flow.save_and_quit())
 	layer.add_child(pause_menu)
+
+
+func _refresh_hint() -> void:
+	if _hint == null:
+		return
+	var chat := GameSettings.action_label("npc_chat")
+	var talk := "%s: talk to a scroll NPC" % chat if chat != "-" else "NPC Chat unbound: double-click NPC"
+	_hint.text = "Free Market  /  %s at the exit: next map  /  %s  /  %s: Save & quit" % [
+		GameSettings.action_label("move_up"), talk, GameSettings.action_label("pause")]
 
 
 ## tier C: BtShop sits left of where the run HUD puts BtMenu (744, 20), in the 800 px status bar.
@@ -408,7 +424,7 @@ func _on_item_action(_action: String) -> void:
 		if event.type == "scroll_used":
 			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
-	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
+	inventory.reseed_scroll_rng(scroll_seed(snapshot)) # the next scroll rolls from the state this action left
 	var owned: Array = flow.save_data().account.owned if flow != null else []
 	avatar.set_look(character_look(snapshot.character, _data, owned))
 	_sync_pet(owned)

@@ -169,6 +169,8 @@ func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll(
 		"equipment": {"worn": {"hat": {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0}}, "inventory": []}}}
 	var seed_a := FreeMarket.scroll_seed(base)
 	assert_eq(seed_a, FreeMarket.scroll_seed(base.duplicate(true)), "the same save always gives the same seed")
+	assert_eq(seed_a, FreeMarket.scroll_seed(JSON.parse_string(JSON.stringify(base))),
+		"JSON's float-valued numbers represent the same saved state")
 	var read := base.duplicate(true)
 	read.character.scrolls["2043700"] = 1
 	read.character.equipment.worn.hat.slots = 6
@@ -196,6 +198,41 @@ func test_two_hubs_from_the_same_save_read_the_same_scroll_results() -> void:
 		outcomes.append(results)
 		hub.free()
 	assert_eq(outcomes[0], outcomes[1])
+
+
+func test_live_scroll_rolls_after_an_inventory_action_match_a_rebuilt_saved_hub() -> void:
+	if not require_cache():
+		return
+	var live := _bot_hub(0, {}, 1)
+	live.inventory.grant_scrolls(2043701, 3)
+	# A real inventory action saves/reseeds through the handler used by Equip, Item and shops.
+	assert_eq(live.inventory.unequip_item("weapon"), "")
+	live._on_item_action("unequip")
+	assert_eq(live.inventory.equip_item(live.inventory.equipment.inventory.size() - 1), "")
+	live._on_item_action("equip")
+	for attempt in 3:
+		var saved: Dictionary = JSON.parse_string(JSON.stringify(live.snapshot))
+		var rebuilt := FreeMarket.new()
+		rebuilt.configure(saved, null)
+		(Engine.get_main_loop() as SceneTree).current_scene.add_child(rebuilt)
+		rebuilt.set_process(false)
+		var live_state := live.inventory.scroll_rng.state
+		var rebuilt_state := rebuilt.inventory.scroll_rng.state
+		var live_rolls := []
+		var rebuilt_rolls := []
+		for roll in 8:
+			live_rolls.append(live.inventory.scroll_rng.randi_range(0, 99))
+			rebuilt_rolls.append(rebuilt.inventory.scroll_rng.randi_range(0, 99))
+		assert_eq(live_rolls, rebuilt_rolls, "actual next rolls after saved action %d" % attempt)
+		live.inventory.scroll_rng.state = live_state
+		rebuilt.inventory.scroll_rng.state = rebuilt_state
+		assert_eq(live.inventory.use_scroll(2043701, "weapon"), "")
+		assert_eq(rebuilt.inventory.use_scroll(2043701, "weapon"), "")
+		assert_eq(live.inventory.character_snapshot(), rebuilt.inventory.character_snapshot(),
+			"the next 60% scroll has the same outcome live or after Continue/Cash Shop reconstruction")
+		live._on_item_action("scroll")
+		rebuilt.free()
+	live.free()
 
 
 func test_bot_shop_is_reproducible_for_a_seed_in_purchases_and_scroll_results() -> void:

@@ -12,8 +12,9 @@ var _saved_map: Dictionary = {}
 
 func before_each() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(cfg_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(cfg_path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path + suffix))
 	# Settings writes the global InputMap that the live Settings autoload also uses: restored after every test.
 	_saved_map = {}
 	for a: StringName in InputMap.get_actions():
@@ -109,6 +110,24 @@ func test_fixed_keys_cannot_be_bound() -> void:
 		assert_false(wasd.bind("jump", k))
 	assert_false(wasd.is_fixed(KEY_LEFT), "WASD: the arrows are free to bind")
 	assert_true(wasd.bind("jump", KEY_UP))
+
+
+func test_f3_is_reserved_for_performance_and_old_saved_bindings_lose_it() -> void:
+	var kb := _defaults()
+	assert_true(kb.is_fixed(KEY_F3), "F3 belongs to the performance overlay")
+	assert_eq(kb.fixed_label(KEY_F3), "Perf", "Key Config explains the reserved key")
+	for action: String in kb.actions():
+		assert_false(kb.bind(action, KEY_F3), "%s cannot take F3" % action)
+	var cfg := ConfigFile.new()
+	cfg.set_value("input", "stat_window", [KEY_S, KEY_F3])
+	cfg.set_value("input", "drink_mp", [KEY_F3])
+	cfg.save(cfg_path)
+	var s := GameSettings.new(cfg_path)
+	s.apply_bindings()
+	assert_eq(s.binding_keys("stat_window"), PackedInt32Array([KEY_S]), "legacy bindings keep their other keys")
+	assert_eq(s.binding_keys("drink_mp"), PackedInt32Array(), "F3 cannot also latch a potion")
+	assert_eq(GameSettings.action_label("stat_window"), "S", "live labels no longer advertise F3")
+	s.free()
 
 
 func test_default_restores_the_project_keys_less_the_movement_set() -> void:

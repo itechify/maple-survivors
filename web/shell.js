@@ -634,19 +634,21 @@ async function importSaveFile(file) {
 		fail('Could not read that file.');
 		return;
 	}
-	const check = lib.validateSaveText(text);
+	let check;
+	try {
+		check = await lib.stageSaveImport(text, (path, bytes) => IdbFs.writeFile(path, bytes));
+	} catch (e) {
+		fail('Could not stage that save. Your current save has been kept.');
+		return;
+	}
 	if (!check.ok) {
 		fail(check.error);
 		note('save import refused: ' + check.error);
 		return;
 	}
-	// Same rule as SaveData: the previous save.json is kept as save.json.bak, then the new file replaces it.
-	const old = await IdbFs.readBytes(lib.SAVE_PATH);
-	if (old) await IdbFs.writeFile(lib.SAVE_PATH + '.bak', old);
-	await IdbFs.writeFile(lib.SAVE_PATH, new TextEncoder().encode(text));
-	state.lastSaveImport = { name: file.name, slots: check.slots, hadBackup: !!old };
-	note(`save imported: ${file.name} (${check.slots} characters)`);
-	toast(`Save imported (${check.slots} character${check.slots === 1 ? '' : 's'})` + (old ? '. The old save is kept as save.json.bak.' : '.'));
+	state.lastSaveImport = { name: file.name, slots: check.slots, staged: true };
+	note(`save staged: ${file.name}`);
+	toast('Save staged. The game will check it before replacing your current save.');
 	await startOrImport();
 }
 
@@ -788,9 +790,27 @@ function wire() {
 	});
 }
 
-async function boot() {
-	wire();
+const storeOwnership = lib.createStoreOwnership(navigator.locks);
+let bootPending = null;
+
+function boot() {
+	if (!bootPending) bootPending = bootOwned().finally(() => { bootPending = null; });
+	return bootPending;
+}
+
+async function bootOwned() {
 	setScreen('boot', 'Maple Survivors');
+	try {
+		if (!await storeOwnership.acquire()) {
+			showError('Maple Survivors is already open in another tab. Close that tab, then choose Try again to play here.', () => boot());
+			$('btn-retry').textContent = 'Try again';
+			return;
+		}
+	} catch (e) {
+		showError(e.message, () => boot());
+		return;
+	}
+	$('btn-retry').textContent = 'Back';
 	state.persistReady = requestPersistence();
 	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
 	if (missing.length) {
@@ -809,6 +829,7 @@ async function boot() {
 	await startOrImport();
 }
 
+wire();
 boot().catch((e) => {
 	console.error(e);
 	showError(String(e && e.message ? e.message : e), () => location.reload());

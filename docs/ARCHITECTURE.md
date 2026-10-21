@@ -92,6 +92,10 @@ The outgoing CharacterSnapshot is required only on clears. Terminal death archiv
 character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
 bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
 for both RunWorld and the Free Market.
+On clear, RunWorld first settles every collectible ground drop and every resulting choice (4.4.2); `stage_cleared`
+is emitted only after that settlement. RunScene takes the outgoing snapshot after the clear presentation hold.
+Quit round during a settlement choice still leaves the starting round boundary unchanged. Continue either replays
+that original round or resumes the saved, fully settled hub character; no live pickups or settlement flags persist.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
 draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
@@ -139,12 +143,44 @@ The legacy `record`, `best_for`, `runs_for`, `is_better` and presentation helper
 #69 implements the scene-flow switch and skips every persistence call for tool-only one-off rounds.
 
 Format 1 converts on load and writes back with empty slots/history, retaining playable-stage bests/counts.
-Malformed or unsupported saves start empty after copying the original bytes to `.bad`, `.bad.1`, etc.; preservation
-failure blocks writes. Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`,
-copy the previous file to `.bak`, then replace the primary. In-memory mutations commit only after success.
+Malformed or unsupported saves are copied to `.bad`, `.bad.1`, etc.; preservation failure blocks writes. A valid
+`.bak` recovers a missing **or rejected** primary; only when neither validates does the save start empty.
+Writes validate all characters, preserve full-precision JSON numbers, flush/close `.tmp`, copy a previously
+validated primary to `.bak`, then replace the primary. A rejected primary is never rotated over the backup.
+Saving unchanged state leaves both committed byte sequences alone. In-memory mutations commit only after success.
 Godot 4.7.2's [Windows rename implementation](https://github.com/godotengine/godot/blob/ed1daf0bf/drivers/windows/dir_access_windows.cpp#L288-L327)
 removes the destination before moving the source, so a missing primary recovers the last complete `.bak` on load.
 A leftover `.tmp` is never loaded as a committed save. Tests use process-private paths, including backups.
+
+The default persistent `SaveData` acquires a desktop single-writer lease **before loading, migrating, recovering or
+writing**. Atomic creation of the sibling `save.json.lock` directory grants ownership; a uniquely named `.owner`
+file records a random session id and `renewed_at` wall-clock timestamp. SceneFlow's always-processing Timer renews
+every **5 real seconds**, independently of pause and gameplay speed; writes renew before staging, before touching
+committed bytes, before promotion and after success (including unchanged saves). **30 seconds** without renewal
+permits takeover (tier C safety constants, not v83 facts). No process is launched or queried. Clock reads stay in
+core/ and tests inject the clock; simulation remains deterministic. System clock rollback can delay stale recovery.
+A live lease blocks the second session with `ERR_ALREADY_IN_USE`; the existing v83 Notice tells the player to close
+the other window or wait 30 seconds after it stops responding, then retry from the title. Retry constructs a fresh
+SaveData and reloads committed state. A session waking after takeover becomes permanently read-only and shows the
+same Notice; it cannot reacquire ownership with its old in-memory state, even after the new owner exits.
+Each renewal publishes a new unique generation before retiring its previous marker; stale cleanup removes only the
+expired generation it inspected. Ambiguous ownership or unknown debris fails closed. Clean tree exit and SaveData
+destruction remove only their own marker, never the replacement's marker. Empty/partially written locks from an
+interrupted acquisition also expire after 30 seconds (file modification time is the fallback for partial markers).
+Persistent writers use session-specific `.tmp.<session>` files so a resumed old writer cannot truncate or remove
+its replacement's staging file. Leftover temporary files are never loaded. The lock is a directory so creation is
+exclusive on Windows as well as POSIX; a normally opened file would not provide exclusivity in GDScript.
+Custom SaveData paths are unguarded unless explicitly opted in (`SaveData.new(path, true)`, for synthetic ownership
+tests). Tool-only `--run`, headless tools, balance/bench/playtest and injected `flow_driver` saves never acquire the
+real-save lock. Web ownership is held by the shell for the whole storage lifecycle, below, rather than by game code.
+
+`GameSettings` also writes through a flushed/closed `.tmp`, backs up a parseable primary to `.bak`, then renames.
+A missing or malformed primary reads the backup without writing during load; corrupt bytes are never rotated over
+that backup. Unrelated ConfigFile sections and InputMap/default-binding semantics remain unchanged. `save_settings`
+returns its `Error`, records `last_error` and emits `save_failed(error)` for every failed setter persistence attempt.
+The live values still apply to the session. Options displays "Not saved" in its footer; Key Config keeps its draft
+open with that message and emits neither `saved` nor close until persistence succeeds. Tests clean all three
+process-private config siblings, retaining #103's isolation from the player's real preferences.
 
 Auto-actions share `RunWorld.can_cast()`: it rejects non-PLAYING/dead runs and `PlayerMotion.ST_LADDER` (ropes and
 ladders). `SkillRunner.step()` counts cooldowns before checking this gate; active effects and passives remain
@@ -161,6 +197,9 @@ numbers, hit effects and sounds, and reads the struct-of-arrays state directly t
 
 Benefits: every gameplay rule is testable headless with a seeded RNG; the presentation can be swapped (debug view,
 recording) without changing the rules; and a full simulated run can be benchmarked without rendering.
+`RunWorld.step` optionally calls `after_stage(name)` at its production stage boundaries (`STEP_PARTS`); observers
+must be read-only and draw no RNG. `profile_run.gd` supplies the external clock and reports those coarse stages,
+including Final Attack inside player attacks. It no longer maintains a separate copy of tick orchestration.
 
 ### 4.4 Module contracts (sim core, `game/scripts/sim/`)
 
@@ -285,13 +324,25 @@ The presentation layer shows the windows and calls back:
 |---|---|
 | `apply_job(job_id, path := "")` | advance (emits `job_changed`; a path records `weapon_path`, #157; the job grant is worn), open an extra advancement draw, then the normal upgrade choice for that level |
 | `decline_job()` | stay, then continue to the upgrade choice |
-| `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else back to `PLAYING` |
+| `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else settle a completed objective or return to `PLAYING` |
 
 Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
 `CHOOSING_UPGRADE` with `RunWorld.choice_bonus` and `pending_bonus_choices`; they take priority over the level queue.
 `apply_choice` consumes a bonus without changing the level or queue. Exhausted bonus draws offer Power Elixir
 and still require a choice before clear.
 The bonus window uses a "Boss Reward" title and omits the gained-level notice.
+
+Tier C owner finale policy (2026-10-21, MS-07/MS-08): after the last mandatory answer, an already completed objective
+settles synchronously, before any further `step()` can advance combat or time. `PickupSystem.collect_all(events,
+equip_room)` collects remaining drops in ascending pool-slot order without motion/expiry, using the same accounting,
+`pickup_collected` events and despawn path as `step()`. RunWorld credits them through its ordinary potion, meso,
+equipment and auto-wear paths, then feeds their EXP through `_gain_exp` and the existing choice queue.
+Auto-wear that frees inventory room triggers another sweep pass without advancing time. These choices
+keep the sim frozen; their final answer retries settlement (including equipment spilled by job grants), then enters
+`CLEARED` and emits one `stage_cleared`. Equipment without inventory room retains the ordinary blocked-on-ground
+rule and notice; it does not stall clear. Death during the active combat tick still takes priority over settlement.
+The duration fallback for bossless stages also waits for all choices. Warp mode drains terminal events emitted by
+auto-choice calls even when no subsequent sim step runs.
 
 ### 4.4.3 Event schema
 
@@ -322,14 +373,15 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
 | `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
-| `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): the player came within magnet range of an equipment drop while the Equip tab is full; once per approach, the drop stays on the ground |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
+| `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): an equipment drop meets a full Equip tab during magnet pickup or finale settlement; once per approach (or settlement attempt until room changes), the drop stays on the ground |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
 | `potion_tier_up` | `kind` (hp/mp), `from_item_id`, `item_id` (new current item), `count` (stock preserved): one per `potions.schedule` step applied at a level-up (never on a snapshot load). `RunScene` shows "Your Red Potions are now Orange Potions." from the String.wz item names |
 | `ammo_upgraded` | `family` (bow/crossbow/claw/gun), `from_item_id`, `item_id` (the new ammo, Item.wz id), `level` (character level): the held ranged weapon's endless ammo moved to a higher tier (#155) on a level-up or on advancing into the branch; a weapon swap and the first computation are silent. On a level-up it comes before `level_up` (the caster refresh runs inside the level-up). `RunScene` shows "Your throwing stars are now Ilbi Throwing-Stars" |
-| `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. The sim strikes the mobs when it lands (`mob_hit` events then); `RunScene` loops the ball along a short arc and plays `burst` at `to` on arrival |
+| `skill_thrown` | `skill`, `skill_id`, `from` (the hand), `to` (the aim point, the target mob's body centre), `seconds` (the flight), `ball` (the flight art path), `burst` (the blast art path): a Gunslinger Grenade (cast rule `cluster`, #192) left the hand on the cast tick. `RunScene` records that tick's world time, loops the ball indefinitely until landing, and interpolates its arc inside consumed sim ticks; hitches and choice holds cannot complete it |
+| `skill_landed` | `skill`, `cast_time` (float, authoritative throw tick; together they identify the flight), `pos` (captured aim point, Vector2), `effect` (captured burst art path): emitted immediately before Grenade damage resolution, including when no targets remain. Stops the matching ball and starts the blast; damage/RNG ordering is unchanged |
 | `skill_impact` | `skill`, `pos` (struck mob's feet before hits), `effect` (blast art path): an opt-in projectile impact blast (#200), followed by ordinary `mob_hit` events for the primary and splash targets. `RunScene` plays the effect at the captured position |
 | `ammo_shot` | `skill`, `from` (hand), `to` (target body centre), `seconds` (distance / current ammo speed), `ball` (current ammo sprite path), `rotate` (bool): a presentation-only ranged Final Attack flight (#200). Damage already lands during this tick on stream 12; the visual follows a straight line using pooled effects and cannot hit again |
 | `level_up` | `level` |
@@ -339,7 +391,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `upgrade_applied` | `id`, `rank`, `tier` (displayed Potential tier), `magnitude` (actual ranks/steps/starting rank) |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
-| `stage_cleared` | `time` |
+| `stage_cleared` | `time`; emitted once after objective, sweep and all mandatory choices finish, possibly directly inside `apply_choice`; follows the sweep's ordinary pickup/level/job/card events and admits no later combat tick |
 | `boss_warning` | `boss_index` (schedule index), `mob_id`, `time` (warning tick) |
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
@@ -367,7 +419,8 @@ and are exempt from ordinary recycling. Relocation preserves the schedule index 
 Every scheduled boss slot sets `MobSwarm.steady` (kept through relocation, cleared by a fresh spawn), which blocks
 stun/push whatever the kind's flags; canonical `MobKind.boss` and the survivor `no_flinch` override still block it for
 any mob of that kind. `RunWorld.can_clear()` waits for every scheduled boss death, with the
-duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
+duration rule retained for stages without bosses. Clears defer until all bonus and queued level choices finish,
+then sweep ground drops and resolve any additional choices without another combat tick (4.4.2).
 
 
 
@@ -464,12 +517,14 @@ ratio (`elite_interval_at`); ordinary alive targets still obey `hard_cap`.
 
 Swarm visuals are read from state, not events: `MobSwarm` arrays (`kind` -> `RunWorld.mob_kinds[kind].id`, `state`,
 `state_t`, `facing`, `alpha`, `x`, `y`), `ProjectileSystem` arrays (`active`, `x`, `y`, `vx`, `vy`, `visual` ->
-`RunWorld.visual_paths[visual]`, `rotate`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
+`RunWorld.visual_paths[visual]`, `rotate`, `generation`), `PickupSystem` arrays (`active`, `x`, `y`, `item_id`), and
 `RunWorld.player` / `RunWorld.player_state` (`hp`, `mp`, `mp_short` (bool, an eligible ready skill failed affordability), `max_hp`, `max_mp`, `exp`, `level`, `job_id`,
 `str`, `dex`, `int`, `luk` (integer attributes), `pdd`, `mdd`, `avoid` (equipment-derived defense and avoidability),
 `fortune` (survivor card-tier stat from `balance.player.fortune`, separate from LUK),
 `invincible_t`, `action`, `action_t`, `dead`, plus detached `buffs`, `slow` and `potions` snapshots described below).
 The snapshot's `pdd`/`mdd` are base equipment/stat defense; active Armor additions are applied by `hit_defense()`.
+Both player and monster projectile pools expose packed int64 `generation`, incremented on each slot spawn. The shared
+renderer restarts a slot's animation when its generation changes, even if despawn/respawn happened between draws.
 
 Player-inflicted monster statuses live in one `MobSwarm` status table: packed `status_left` (seconds left, doubles)
 and `status_elapsed` (art clock), indexed `slot * STATUS_COUNT + status` with `SLOW = 0`, `POISON = 1`, `FREEZE = 2`,
@@ -596,8 +651,9 @@ What the table above leaves open; the class doc comments have the rest.
 in `balance.regen.interval` pulses (`PlayerUpkeep` keeps the clock; RunWorld applies each pulse to its pools): HP/MP
 base amounts plus `Loadout.regen_bonus(pool, character level)`: every owned skill with a `regen` field (`{"pool": "hp"|"mp", "divisor": n}`, e.g. Improved MP Recovery) adds `floor(character level x skill level / divisor)` to that pool; a `regen` of the shape
 `{"pool", "field"}` (Improved HP Recovery, #163) adds the canonical level field instead. `hp_regen` / `mp_regen` modifiers add
-to each pulse. Level growth calls `refresh_player_stats(false)` so larger maxima do not restore current pools;
-explicit pool upgrades retain the normal granted-growth behavior.
+to each pulse. Level growth calls `refresh_player_stats(false, level, true)` to allocate AP at each intermediate level
+of a batch and preserve the MaxMP passive's MP fraction before the separate level-up refill. Equipment calls `refresh_player_stats(false)`
+to clamp current pools only; explicit pool upgrades retain the normal granted-growth behavior.
 
 Skills with `periodic_recovery: {interval_field, hp_field, mp_field}` (#212 Endure) have independent clocks in
 PlayerUpkeep. `periodic_recovery(dt, loadout) -> Vector2` reports the HP/MP due; RunWorld clamps both pools after
@@ -808,6 +864,11 @@ No additional packed projectile field, RNG stream, event or snapshot field is ne
   advancement level even when none is (Magician at 30 sees 210/220/230 as unavailable once).
 
 ### 4.5 Presentation (`game/scripts/render`, `ui`, `audio`, `run`)
+
+`RunScene` owns a `RunFrameRecorder` for frame samples. Full history is retained only when configure options request
+`perf`, `quit_after` or `shots_dir`; automated summaries keep their warmup, screenshot exclusions, percentile and
+minute/crowd grouping semantics. Ordinary play keeps only the last two seconds, capped at 2048 samples even if frame
+deltas are zero. F3 reads this bounded window immediately when toggled mid-round and does not enable full recording.
 
 `RunWorld` accepts an optional `setup.character` `CharacterSnapshot` (format 2; format 1 migrates on load) and
 exposes `character_snapshot()` at round boundaries. The schema is documented in `scripts/sim/character_snapshot.gd`:
@@ -1121,7 +1182,16 @@ subpath). The Web preset has `html/export_icon=false`, so Godot adds no icon lin
 `bash scripts/export.sh --web` copies them (`WASM_DIR=<dir>`
 picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (section 10.3).
 
-**Boot.** The shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
+**Ownership.** Before reading shared IndexedDB or starting any engine/import worker, boot takes an exclusive
+Web Lock named `maple-survivors-userfs` with `ifAvailable`. It holds that lock for the page lifetime, including
+engine quit/restart and shell import/export screens. A second tab shows "already open in another tab" and a
+Try again button. Close the owner tab, then retry: the browser releases ownership on exit/crash and the new tab
+loads current storage. Overlapping retry clicks share one startup operation. There is no force-steal of a mounted
+engine, heartbeat expiry or network coordination.
+Browsers without Web Locks refuse to mount and explain the requirement (current browser on HTTPS/localhost).
+The shell never releases a running engine's lock on visibility change or `pagehide`.
+
+**Boot.** Once ownership is acquired, the shell reads `cache.json` and the record keys below `/userfs/MapleSurvivors/asset_cache/v83` from
 IndexedDB and judges them against the bundled manifest. Valid: start the engine. Otherwise: the import screen. The
 check is exact for what the manifest names and nothing else: every `imgs[]` entry, every `mapimgs` entry and the imgs
 the `maps`/`mobs`/`character`/`items` ids resolve to (the formulas of `tools/wzimport/src/manifest.rs`), plus
@@ -1168,7 +1238,7 @@ uses the thread pool, `onExit(0)` fires and the saves reach IndexedDB.
 
 `request` is one of `reimport` (show the import screen), `export_save` (download `user://save.json` as
 `maple-survivors-save-YYYYMMDD-HHMMSS.json`, then restart the engine) or `import_save` (ask for a save file, validate it,
-keep the old file as `save.json.bak` the way `SaveData` does, write `save.json`, restart). The game writes the file,
+stage it as `save.json.import`, restart for full game validation). The game writes the file,
 closes it in a normal frame, stops its audio players, pauses the tree and calls `get_tree().quit()` (the game side is the
 web profile ticket, #134). When the engine exits the shell reads the marker from IndexedDB, deletes it, handles it and
 starts a **new** `Engine` on a fresh canvas element. An unknown `request`, a wrong `format` or invalid JSON is logged,
@@ -1178,7 +1248,13 @@ teardown after a quit with audio alive; the final IndexedDB sync has already hap
 
 Save import refuses, before writing anything, a file that is not JSON or lacks `SaveData`'s top-level shape (format 1
 or 2; `best` and `runs` objects; format 2: exactly 3 `slots` and a `history` array). The game still validates the
-contents when it loads the file.
+contents of the staged `.import` file before promotion. An invalid candidate is preserved as `.import.bad[.N]`
+and consumed without touching the primary or `.bak`; no second nested validator lives in JavaScript. A valid
+candidate goes through SaveData's normal temporary/backup write, then the staging file is removed. The shell's
+toast says "staged", since it cannot claim validation succeeded before the game loads it. A failed promotion keeps
+the prior in-memory state and staged file for recovery.
+SaveData remains lazy: in the normal menu flow, Start opens the roster and consumes the candidate. Until that
+first persistent-save use, Export save still downloads the committed primary, and the shell only claims "staged".
 
 **Network.** The shell requests its own static bundle and, when the player enters an address, that address (`fetch`
 for the probe, synchronous `XHR` with `Range` or a streamed whole-file download in the worker). Nothing else; `game/`

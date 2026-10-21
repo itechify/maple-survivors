@@ -5,13 +5,13 @@ extends RefCounted
 ##
 ## Per PLAYING tick: drinks -> portals/movement -> view/timers (regen/buffs) -> swarm -> boss lifecycle,
 ## skills/attacks/monster balls -> ordinary spawns/hash -> SkillRunner/BasicAttack -> player shots/kills/rewards ->
-## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death takes priority; bonus choices precede clear,
-## and can_clear requires all bosses dead and all bonus/level choices resolved. Normal queued levels open last.
+## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death during that tick takes priority. After all
+## bosses and choices finish, clear settlement sweeps drops and resolves their choices without another combat tick.
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
 ## cards drawn when the window opens. apply_job(id) adds an advancement draw; decline_job() skips it;
-## apply_choice(id) applies the card and moves to the next queued level or back to PLAYING. They return false (and
+## apply_choice(id) applies the card and moves to the next queued level, clear settlement or PLAYING. They return false (and
 ## change nothing) when called in the wrong state or with an id that is not on offer.
 ##
 ## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
@@ -68,6 +68,9 @@ const CHOOSING_UPGRADE := 2
 const DEAD := 3
 const CLEARED := 4
 const STATE_NAMES := ["PLAYING", "CHOOSING_JOB", "CHOOSING_UPGRADE", "DEAD", "CLEARED"]
+## Production stage names for the optional clock-free instrumentation callback, in execution order.
+const STEP_PARTS := ["player", "monsters", "player_attacks", "pet", "pickups", "touch", "gain_exp",
+	"player_state", "end_tick"]
 ## read_skill_cooldowns states of a skill icon: waiting for MP, or blocked by the held weapon (0 = normal).
 const SKILL_STATE_MP_WAIT := 1
 const SKILL_STATE_BLOCKED := 2
@@ -134,6 +137,7 @@ const EVENT_FIELDS := {
 	# #192: a Gunslinger Grenade thrown (a cluster skill): the ball flies from the hand `from` to `to` in `seconds`; the blast art
 	# `burst` plays at `to` on arrival, when the sim strikes the mobs (the mob_hit events).
 	"skill_thrown": ["skill", "skill_id", "from", "to", "seconds", "ball", "burst"],
+	"skill_landed": ["skill", "cast_time", "pos", "effect"],
 
 }
 
@@ -545,12 +549,11 @@ func nx_awarded() -> int:
 		state == CLEARED, levels_gained(), bosses_killed())
 
 
-## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
-## Reward/choice tickets may defer this decision until their pending rewards have been answered.
+## The objective is complete only after all mandatory choices; settlement may queue more from swept EXP.
 func can_clear() -> bool:
-	if bosses.has_bosses():
-		return bosses.all_dead() and pending_bonus_choices == 0 and not choice_bonus and not progression.has_pending()
-	return time >= duration - 1e-6
+	var objective := bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
+	return objective and pending_bonus_choices == 0 and not choice_bonus and not choice_advancement \
+		and not progression.has_pending() and pending_cards.is_empty() and pending_jobs.is_empty()
 
 
 ## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
@@ -692,23 +695,44 @@ func emit(type: String, fields: Dictionary) -> void:
 	events.append(e)
 
 
-## Advances the run by dt seconds with the player's input (no-op unless PLAYING).
-func step(dt: float, input: MoveInput) -> void:
+## Advances the run by dt seconds (no-op unless PLAYING). Optional after_stage(name) observes production boundaries;
+## timing stays with the caller. Observers must not mutate the world or draw RNG.
+func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> void:
 	if state != PLAYING:
+		return
+	if _settle_clear():
 		return
 	time += dt
 	refresh_player_speed()
 	_step_player(dt, input)
+	if after_stage.is_valid():
+		after_stage.call("player")
 	_step_monsters(dt)
+	if after_stage.is_valid():
+		after_stage.call("monsters")
 	_step_player_attacks(dt)
+	if after_stage.is_valid():
+		after_stage.call("player_attacks")
 	if pet_system != null:
 		_step_pet(dt)
+	if after_stage.is_valid():
+		after_stage.call("pet")
 	var got := _step_pickups(dt)
+	if after_stage.is_valid():
+		after_stage.call("pickups")
 	_touch()
+	if after_stage.is_valid():
+		after_stage.call("touch")
 	if got > 0 and not _dead:
 		_gain_exp(got)
+	if after_stage.is_valid():
+		after_stage.call("gain_exp")
 	_write_player_state(dt)
+	if after_stage.is_valid():
+		after_stage.call("player_state")
 	_end_tick()
+	if after_stage.is_valid():
+		after_stage.call("end_tick")
 
 
 ## Drinks, then a same-map portal warp or ordinary movement, the view, and the player's timers.
@@ -933,6 +957,11 @@ func _step_pickups(dt: float) -> int:
 		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room, pet_system.center(),
 			pet_system.pickup_radius(), pet_system.abilities.vac)
 		pet_system.pickups += pickups.pet_collected
+	_credit_pickups()
+	return got
+
+
+func _credit_pickups() -> void:
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
@@ -943,7 +972,6 @@ func _step_pickups(dt: float) -> int:
 		# tier C (ours, #222): an item for an empty slot that this character may wear is worn at once
 		if auto_wear_error(int(instance.id)) == "":
 			_wear(equipment.inventory.size() - 1, "auto_equip")
-	return got
 
 
 ## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
@@ -967,7 +995,7 @@ func pet_has(ability: String) -> bool:
 	return pet_system != null and bool(pet_system.abilities.get(ability, false))
 
 
-## After a living tick: boss bonus choices first, then the clear, then queued level-ups.
+## After a living tick: boss bonus choices first, then clear settlement, then queued level-ups.
 func _end_tick() -> void:
 	if _dead:
 		return
@@ -975,12 +1003,35 @@ func _end_tick() -> void:
 		_advance_queue()
 		if state != PLAYING:
 			return
-	if can_clear():
-		state = CLEARED
-		emit("stage_cleared", {"time": time})
+	if _settle_clear():
 		return
 	if progression.has_pending():
 		_advance_queue()
+
+
+## tier C: owner choices (2026-10-21), clear wins after the last answer and sweeps all map loot before carry.
+## Same-tick combat death still wins. Full-tab equipment uses the ordinary blocked-on-ground pickup rule.
+func _settle_clear() -> bool:
+	if _dead or state == CLEARED or not can_clear():
+		return false
+	var got := 0
+	while true:
+		var before := pickups.active_count()
+		got += pickups.collect_all(events, maxi(0, inventory_slots() - equipment.inventory.size()))
+		_credit_pickups()
+		if pickups.active_count() == 0 or pickups.active_count() == before \
+				or equipment.inventory.size() >= inventory_slots():
+			break
+		# Auto-wear may free a slot for another drop; reuse it without admitting a combat tick.
+	if got > 0:
+		_gain_exp(got)
+	_write_player_state(0.0)
+	if progression.has_pending():
+		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+	else:
+		state = CLEARED
+		emit("stage_cleared", {"time": time})
+	return true
 
 
 ## Takes an available job and one of its path ids; an empty path defaults to its first page path.
@@ -1130,9 +1181,11 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 
 
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
-## modifiers. The MaxMP passive preserves the MP ratio on growth; other explicit pool modifiers grant the
-## difference, while ordinary level growth passes grant_growth=false and grants nothing.
-func refresh_player_stats(grant_growth: bool = true) -> void:
+## modifiers. Granted MaxMP passive growth preserves the MP ratio; other explicit pool modifiers grant the
+## difference. Equipment refreshes pass grant_growth=false and only clamp pools. Level growth suppresses flat grants
+## too, but preserves the passive's MP fraction before the separate level-up refill (#41).
+## `attribute_level` lets a batch EXP gain allocate AP for each intermediate level; -1 uses the current level.
+func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1, preserve_mp_ratio: bool = false) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
 	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
@@ -1142,7 +1195,8 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		secondary = ""
 	var secondary_ap := 0
 	if secondary != "":
-		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level, float(_base_stats[secondary]),
+		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level if attribute_level < 0 else attribute_level,
+			float(_base_stats[secondary]),
 			secondary_cfg.get("keyframes", []))
 	for stat: String in _base_stats:
 		var ap := 0
@@ -1166,7 +1220,7 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		+ equipment_bonus("incMMP")) * (1.0 + _max_buff_applied.y / 100.0)))
 	if grant_growth and _max_hp > old_hp:
 		_hp += _max_hp - old_hp
-	if mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
+	if (grant_growth or preserve_mp_ratio) and mp_percent > 0.0 and old_mp > 0 and _max_mp > old_mp:
 		_mp = (_mp / old_mp) * _max_mp
 	elif grant_growth and _max_mp > old_mp:
 		_mp += _max_mp - old_mp
@@ -1968,8 +2022,17 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 
 
 func _stream(n: int) -> RandomNumberGenerator:
+	return _seeded_stream(seed_value, n)
+
+
+## Resets the scroll stream from a saved hub-state seed using the same derivation as world construction.
+func reseed_scroll_rng(p_seed: int) -> void:
+	scroll_rng = _seeded_stream(p_seed, 11)
+
+
+static func _seeded_stream(p_seed: int, n: int) -> RandomNumberGenerator:
 	var r := RandomNumberGenerator.new()
-	r.seed = seed_value * 1000003 + n * 7919
+	r.seed = p_seed * 1000003 + n * 7919
 	return r
 
 
@@ -2522,7 +2585,7 @@ func _on_level_up(level: int) -> void:
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	apply_potion_schedule(level, true)
-	refresh_player_stats(false)
+	refresh_player_stats(false, level, true)
 	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
 	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
 	_mp = minf(_max_mp, _mp + float(refill.get("mp", DEFAULT_LEVEL_UP_REFILL.mp)) * _max_mp)
@@ -2564,6 +2627,7 @@ func _advance_queue() -> void:
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		if bonus_cards.is_empty():
 			pending_bonus_choices -= 1 # no card at all (no filler in the data): never open an unanswerable window
+			choice_bonus = false
 			continue
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
@@ -2589,6 +2653,7 @@ func _advance_queue() -> void:
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
 		return
 	state = PLAYING
+	_settle_clear()
 
 
 func _write_player_state(dt: float) -> void:
@@ -2603,7 +2668,7 @@ func _write_player_state(dt: float) -> void:
 		_action_t += dt
 	player_state["hp"] = ceili(_hp) if _hp > 0.0 else 0
 	player_state["mp"] = floori(_mp)
-	player_state["mp_short"] = runner.waiting_mp
+	player_state["mp_short"] = _waiting_for_mp()
 	player_state["buffs"] = buffs.snapshot()
 	player_state["hidden"] = is_hidden()
 	player_state["morph"] = 0 if _dead else morph_id()
@@ -2628,3 +2693,13 @@ func _write_player_state(dt: float) -> void:
 	player_state["action_scale"] = upkeep.action_scale
 	player_state["dead"] = _dead
 	player_state["potions"] = potions.snapshot()
+
+
+## The latest cast scan's shortages, checked against current MP after pickups, refills or held-window changes.
+func _waiting_for_mp() -> bool:
+	if _dead or state in [DEAD, CLEARED] or not runner.waiting_mp:
+		return false
+	for key: String in loadout.order:
+		if runner.is_waiting_mp(key) and book.usable_with(key, held_weapon_family()) and _mp_short(key):
+			return true
+	return false

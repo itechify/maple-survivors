@@ -75,6 +75,8 @@ func test_final_boss_bonus_choice_precedes_clear_and_does_not_consume_a_queued_l
 	if not normal.is_empty():
 		assert_false(bool(normal[0].get("bonus", true)))
 	assert_true(w.apply_choice(String(w.pending_cards[0].id)))
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the loose boss EXP now queues its own level rewards")
+	RF.auto_choose(w)
 	w.step(DT, MoveInput.new())
 	assert_eq(w.state, RunWorld.CLEARED)
 
@@ -98,5 +100,7 @@ func test_exhausted_boss_and_level_rewards_each_offer_elixir_before_clear() -> v
 	assert_false(w.choice_bonus)
 	assert_eq(w.pending_cards.map(func(c: Dictionary) -> String: return c.id), ["elixir"])
 	assert_true(w.apply_choice("elixir"))
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "swept boss EXP also needs its fallback choices")
+	RF.auto_choose(w)
 	w.step(DT, MoveInput.new())
-	assert_eq(w.state, RunWorld.CLEARED, "clear waits until both rewards were chosen")
+	assert_eq(w.state, RunWorld.CLEARED, "clear waits for boss, queued and swept-EXP rewards")

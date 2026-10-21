@@ -120,3 +120,39 @@ func test_mob_projectile_pickup_survive_reparent() -> void:
 	assert_eq(pr.visible_count(), 1, "shot still drawn after reparent()")
 	pr.update_from(p, ["Mob.wz/0100100.img/move"], 0.016)
 	assert_eq(pr.visible_count(), 1)
+
+
+func test_projectile_animation_restarts_when_slot_is_reused_between_draws() -> void:
+	var shots := ProjectileSystem.new(1)
+	var spec := {"visual": 0}
+	var first := shots.spawn(spec)
+	var renderer := ProjectileRenderer.new()
+	renderer.library = lib
+	a.add_child(renderer)
+	var paths := ["Mob.wz/0100100.img/move"]
+	renderer.update_from(shots, paths, 0.0)
+	renderer.update_from(shots, paths, 0.2)
+	assert_near(renderer._age[first], 0.2)
+	shots.despawn(first)
+	assert_eq(shots.spawn(spec), first, "same slot and visual, with no inactive draw")
+	renderer.update_from(shots, paths, 0.01)
+	assert_eq(renderer._age[first], 0.0, "a new projectile starts at animation frame zero")
+
+
+func test_mob_projectile_animation_restarts_when_slot_is_reused_between_draws() -> void:
+	var shots := MobProjectileSystem.new(1)
+	var spec := {"pos": Vector2.ZERO, "velocity": Vector2.RIGHT, "range": 400.0, "visual": 0,
+		"mob": 0, "mob_id": 100100, "damage": 1.0, "multiplier": 1.0, "accuracy": 1.0,
+		"magic": false, "element": "", "hit": "", "source_pos": Vector2.ZERO}
+	var first := shots.spawn(spec)
+	var renderer := ProjectileRenderer.new()
+	renderer.library = lib
+	a.add_child(renderer)
+	var paths := ["Mob.wz/0100100.img/move"]
+	renderer.update_from(shots, paths, 0.0)
+	renderer.update_from(shots, paths, 0.2)
+	assert_near(renderer._age[first], 0.2)
+	shots.despawn(first)
+	assert_eq(shots.spawn(spec), first)
+	renderer.update_from(shots, paths, 0.01)
+	assert_eq(renderer._age[first], 0.0, "mob balls obey the same draw identity contract")

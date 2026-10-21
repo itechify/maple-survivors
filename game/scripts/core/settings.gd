@@ -30,6 +30,8 @@ extends Node
 
 ## Emitted after any value changes.
 signal changed
+## Emitted when a setter could not persist its change; the live settings and InputMap still apply for this session.
+signal save_failed(error: Error)
 
 const PATH := "user://settings.cfg"
 ## The logical view the game is designed for (v83's 800x600; the project viewport size).
@@ -78,6 +80,9 @@ var quick_slot_collapsed := false
 var bindings: Dictionary = {}
 
 var _path := PATH
+## Most recent settings write error (also returned by save_settings and emitted as save_failed).
+var last_error: Error = OK
+var _primary_valid := false
 ## The window size the view was last fitted for (fit_viewport).
 var _fitted_window := Vector2i.ZERO
 ## Events an action had before this object first rebound it (for actions without a project-settings entry).
@@ -195,9 +200,7 @@ func fit_viewport() -> void:
 
 ## Re-reads the file (keeps defaults for absent keys).
 func load_settings() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(_path) != OK:
-		return
+	var cfg := _read_config()
 	wz_root = String(cfg.get_value("assets", "wz_root", wz_root))
 	cache_dir = String(cfg.get_value("assets", "cache_dir", cache_dir))
 	master_volume = clampf(float(cfg.get_value("audio", "master", master_volume)), 0.0, 1.0)
@@ -220,6 +223,7 @@ func load_settings() -> void:
 				for k: Variant in v:
 					keys.append(int(k))
 				bindings[action] = keys
+	_drop_reserved_keys()
 	_yield_defaults()
 	_yield_skill_keys()
 
@@ -278,8 +282,7 @@ func _free_skill_keys(held: PackedInt32Array, except: Array) -> void:
 
 ## Writes only the keys that differ from the defaults, merged into the existing file (other sections are kept).
 func save_settings() -> Error:
-	var cfg := ConfigFile.new()
-	cfg.load(_path)
+	var cfg := _read_config()
 	_put(cfg, "assets", "wz_root", wz_root, "")
 	_put(cfg, "assets", "cache_dir", cache_dir, "")
 	_put(cfg, "audio", "master", master_volume, 1.0)
@@ -296,7 +299,40 @@ func save_settings() -> Error:
 		cfg.erase_section("input")
 	for action: String in bindings:
 		cfg.set_value("input", action, Array(bindings[action]))
-	return cfg.save(_path)
+	last_error = _write_config(cfg)
+	if last_error != OK:
+		save_failed.emit(last_error)
+	return last_error
+
+
+func _read_config() -> ConfigFile:
+	var cfg := ConfigFile.new()
+	_primary_valid = cfg.load(_path) == OK
+	if not _primary_valid:
+		cfg = ConfigFile.new()
+		cfg.load(_path + ".bak")
+	return cfg
+
+
+func _write_config(cfg: ConfigFile) -> Error:
+	var temporary := _path + ".tmp"
+	var file := FileAccess.open(temporary, FileAccess.WRITE)
+	if file == null:
+		return FileAccess.get_open_error()
+	file.store_string(cfg.encode_to_text())
+	file.flush()
+	var error := file.get_error()
+	file.close()
+	# As with SaveData, a corrupt primary must never replace the valid recovery copy.
+	if error == OK and _primary_valid:
+		error = DirAccess.copy_absolute(_path, _path + ".bak")
+	if error == OK:
+		error = DirAccess.rename_absolute(temporary, _path)
+	if error != OK:
+		DirAccess.remove_absolute(temporary)
+	else:
+		_primary_valid = true
+	return error
 
 
 ## Sets a volume ("master", "bgm" or "sfx", linear 0..1) and saves.
@@ -536,6 +572,7 @@ static func _live_keys(action: String) -> PackedInt32Array:
 ## Writes every rebound action into the InputMap (actions the project does not define are ignored, but kept in the
 ## file). Other actions keep their project events.
 func apply_bindings() -> void:
+	_drop_reserved_keys()
 	for action: String in bindings:
 		if not InputMap.has_action(action):
 			continue
@@ -546,6 +583,16 @@ func apply_bindings() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = code as Key
 			InputMap.action_add_event(action, ev)
+
+
+## Reserved diagnostics cannot also trigger a rebound action, including bindings saved before the reservation.
+func _drop_reserved_keys() -> void:
+	for action: String in bindings:
+		var kept := PackedInt32Array()
+		for code: int in bindings[action]:
+			if not KeyBindings.RESERVED.has(code):
+				kept.append(code)
+		bindings[action] = kept
 
 
 func _restore_default(action: String) -> void:

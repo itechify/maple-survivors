@@ -29,6 +29,7 @@ func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	resized.connect(_clamp_windows)
 
 
 ## Registers the factory that makes window `id` (a Callable returning a UiWindow).
@@ -48,6 +49,7 @@ func open(w: UiWindow) -> UiWindow:
 	if w.auto_place:
 		w.position = _positions.get(w.window_id, w.default_position(_view_size()))
 	add_child(w)
+	w.position = w.clamp_to_view(w.position)
 	w.raised.connect(bring_to_front.bind(w))
 	w.close_requested.connect(_close_window.bind(w))
 	changed.emit()
@@ -154,6 +156,11 @@ func _remove(w: UiWindow) -> void:
 		_positions[w.window_id] = w.position
 	remove_child(w)
 	w.queue_free()
+
+
+func _clamp_windows() -> void:
+	for w in windows():
+		w.position = w.clamp_to_view(w.position)
 
 
 func _view_size() -> Vector2:

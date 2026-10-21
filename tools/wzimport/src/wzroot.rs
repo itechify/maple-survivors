@@ -61,6 +61,7 @@ pub struct WzRoot {
     pub dir: PathBuf,
     archives: Mutex<HashMap<String, Arc<WzArchive>>>,
     sources: Option<NamedSources>,
+    version: Option<u32>,
     missing: Mutex<BTreeSet<String>>,
     failures: Mutex<BTreeSet<String>>,
 }
@@ -92,15 +93,22 @@ impl WzRoot {
             dir: dir.as_ref().to_path_buf(),
             archives: Mutex::new(HashMap::new()),
             sources: None,
+            version: None,
             missing: Mutex::new(BTreeSet::new()),
             failures: Mutex::new(BTreeSet::new()),
         }
+    }
+
+    /// The game's folder import boundary; diagnostic roots retain version autodetection.
+    pub(crate) fn v83_folder(dir: impl AsRef<Path>) -> Self {
+        Self { version: Some(83), ..Self::new(dir) }
     }
 
     /// Lazily open named positional readers, accepting any valid GMS v83 archive.
     pub fn from_sources(sources: NamedSources) -> Self {
         Self {
             sources: Some(sources),
+            version: Some(83),
             ..Self::new("")
         }
     }
@@ -187,8 +195,8 @@ impl WzRoot {
             return Err(WzError::NotFound(format!("{} (no such file)", path.display())));
         }
         let opened = match &self.sources {
-            Some(s) => WzArchive::from_reader(name, s[name].clone(), Some(83)),
-            None => WzArchive::open(&path),
+            Some(s) => WzArchive::from_reader(name, s[name].clone(), self.version),
+            None => WzArchive::open_with_version(&path, self.version),
         };
         let a = Arc::new(opened.inspect_err(|e| {
             self.failures.lock().unwrap().insert(format!("{name}: {e}"));

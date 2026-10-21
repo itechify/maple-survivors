@@ -140,9 +140,9 @@ impl Node {
 pub fn parse_img(path: String, bytes: Vec<u8>, file_offset: u64) -> Result<Img> {
     let name = path.rsplit('/').next().unwrap_or("").to_string();
     let root = {
-        let mut p = Parser { r: Reader::new(&bytes, file_offset), strings: HashMap::new() };
+        let mut p = Parser { r: Reader::new(&bytes, file_offset), strings: HashMap::new(), decoded_bytes: 0 };
         let end = bytes.len();
-        let mut root = p.object(name, end)?;
+        let mut root = p.object(name, end, 0)?;
         if root.value != Value::Sub {
             return Err(WzError::Other(format!("{path}: img root is not a Property")));
         }
@@ -169,7 +169,11 @@ fn fill_sound_origins(nodes: &mut [Node], stack: &mut Vec<String>) {
 struct Parser<'a> {
     r: Reader<'a>,
     strings: HashMap<usize, String>,
+    decoded_bytes: usize,
 }
+
+// tier C: hostile Property/Canvas/Convex nesting guard; original v83 margin in ASSET_PIPELINE 2.4.
+const MAX_PROPERTY_DEPTH: usize = 64;
 
 impl Parser<'_> {
     /// String block with a small cache for offset-form strings (property names repeat a lot).
@@ -194,7 +198,7 @@ impl Parser<'_> {
         self.r.string_block()
     }
 
-    fn prop_list(&mut self, out: &mut Vec<Node>, end: usize) -> Result<()> {
+    fn prop_list(&mut self, out: &mut Vec<Node>, end: usize, depth: usize) -> Result<()> {
         let at = self.r.abs_pos();
         let count = self.r.cint()?;
         if count < 0 || count as usize > end.saturating_sub(self.r.pos()) {
@@ -221,11 +225,12 @@ impl Parser<'_> {
                 }
                 9 => {
                     let size = self.r.u32()? as usize;
-                    let obj_end = self.r.pos() + size;
+                    let obj_end = self.r.pos().checked_add(size)
+                        .ok_or_else(|| WzError::ResourceLimit("extended property size overflow".into()))?;
                     if obj_end > end {
                         return Err(WzError::format(tat, format!("{name}: extended size {size} out of range")));
                     }
-                    let node = self.object(name, obj_end)?;
+                    let node = self.object(name, obj_end, depth + 1)?;
                     self.r.set_pos(obj_end);
                     node
                 }
@@ -237,7 +242,10 @@ impl Parser<'_> {
     }
 
     /// Extended object (type name string block, then its body); `end` bounds its data.
-    fn object(&mut self, name: String, end: usize) -> Result<Node> {
+    fn object(&mut self, name: String, end: usize, depth: usize) -> Result<Node> {
+        if depth > MAX_PROPERTY_DEPTH {
+            return Err(WzError::ResourceLimit("property nesting depth exceeds 64".into()));
+        }
         let at = self.r.abs_pos();
         let tname = self.string_block()?;
         let mut node = Node::leaf(name, Value::Null);
@@ -245,13 +253,13 @@ impl Parser<'_> {
             "Property" => {
                 self.r.skip(2)?;
                 node.value = Value::Sub;
-                self.prop_list(&mut node.children, end)?;
+                self.prop_list(&mut node.children, end, depth)?;
             }
             "Canvas" => {
                 self.r.skip(1)?;
                 if self.r.u8()? == 1 {
                     self.r.skip(2)?;
-                    self.prop_list(&mut node.children, end)?;
+                    self.prop_list(&mut node.children, end, depth)?;
                 }
                 let w = self.r.cint()?;
                 let h = self.r.cint()?;
@@ -262,6 +270,8 @@ impl Parser<'_> {
                 if w < 0 || h < 0 || len < 1 {
                     return Err(WzError::format(at, format!("{}: bad canvas header {w}x{h} len {len}", node.name)));
                 }
+                let rgba_bytes = crate::canvas::rgba_size(w as u32, h as u32)?;
+                crate::canvas::add_decode_bytes(&mut self.decoded_bytes, rgba_bytes)?;
                 self.r.skip(1)?;
                 let data_off = self.r.pos();
                 let data_len = (len - 1) as usize;
@@ -291,7 +301,7 @@ impl Parser<'_> {
                 }
                 node.value = Value::Convex;
                 for i in 0..count {
-                    let child = self.object(i.to_string(), end)?;
+                    let child = self.object(i.to_string(), end, depth + 1)?;
                     node.children.push(child);
                 }
             }

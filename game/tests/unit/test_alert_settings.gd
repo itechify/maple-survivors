@@ -27,8 +27,9 @@ func after_each() -> void:
 func _cfg(name: String) -> String:
 	var path := TestCase.test_dir(name)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(path + suffix))
 	return path
 
 

@@ -48,7 +48,7 @@ pub fn run_import(opts: &ImportOptions) -> Result<ImportReport> {
     // The main manifest plus the include fragments beside it (asset_manifest.d/*.json).
     let manifest = Manifest::load(&opts.manifest).map_err(WzError::Other)?;
     let wz = if opts.wz.is_dir() {
-        WzRoot::new(&opts.wz)
+        WzRoot::v83_folder(&opts.wz)
     } else if opts.wz.is_file() {
         let file = std::fs::File::open(&opts.wz).map_err(|e| WzError::io(&opts.wz, e))?;
         WzRoot::from_sources(crate::zip::zip_sources(std::sync::Arc::new(file))?)
@@ -198,6 +198,7 @@ fn execute(
                             paths: o.paths,
                             canvases: o.canvases,
                             sounds: o.sounds,
+                            sound_files: (!o.sound_files.is_empty()).then_some(o.sound_files),
                             bytes: o.bytes,
                         },
                     );
@@ -266,6 +267,12 @@ fn up_to_date(
     }
     if (0..entry.pages).any(|i| !out.join(format!("{img}.{i}.png")).is_file()) {
         return None;
+    }
+    if entry.sounds > 0 {
+        let files = entry.sound_files.as_ref()?;
+        if files.len() != entry.sounds as usize || files.iter().any(|f| !out.join(f).is_file()) {
+            return None;
+        }
     }
     Some(entry.clone())
 }

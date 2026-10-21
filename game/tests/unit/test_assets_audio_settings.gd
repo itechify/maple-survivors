@@ -6,8 +6,9 @@ var cfg_path := TestCase.test_dir("settings_test.cfg")
 
 func before_each() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(cfg_path):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(cfg_path + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg_path + suffix))
 
 
 func test_pick_voice_prefers_idle_then_oldest() -> void:

@@ -32,6 +32,21 @@ func test_format_one_converts_bests_and_counts_on_disk() -> void:
 	assert_eq(converted.runs, expected.runs)
 
 
+func test_format_one_ignores_unvalidated_fields_from_later_formats() -> void:
+	var legacy := {"format": 1, "best": {}, "runs": {"henesys_hg1": 3},
+		"slots": [{}], "history": 7, "account": 42}
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(legacy))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.last_error, OK)
+	assert_eq(loaded.slots, [null, null, null])
+	assert_eq(loaded.history, [])
+	assert_eq(loaded.account, Account.empty())
+	assert_eq(loaded.runs_for("henesys_hg1"), 3)
+	assert_eq(SaveData.new(save_path).slots, [null, null, null])
+
+
 func test_corrupt_files_survive_replacement_and_repeated_corruption() -> void:
 	for text: String in ["{broken first save", "{broken second save"]:
 		var file := FileAccess.open(save_path, FileAccess.WRITE)
@@ -98,6 +113,93 @@ func test_missing_primary_recovers_the_last_complete_save_after_interrupted_repl
 	assert_eq(recovered.last_error, OK)
 	assert_true(FileAccess.file_exists(save_path), "the primary is restored on recovery")
 	assert_eq(SaveData.new(save_path).slot(0), recovered.slot(0))
+
+
+func test_invalid_primary_recovers_backup_without_rotating_rejected_bytes() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	assert_eq(save.save_file(), OK)
+	var good := FileAccess.get_file_as_string(save_path)
+	assert_eq(DirAccess.copy_absolute(save_path, save_path + ".bak"), OK)
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_string('{"format":2,"best":{},"runs":{},"slots":[{},null,null],"history":[]}')
+	file.close()
+	var recovered := SaveData.new(save_path)
+	assert_eq(recovered.slot(0).get("name"), "Maple1")
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), good)
+	assert_eq(recovered.save_file(), OK)
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), good)
+	assert_eq(SaveData.new(save_path).slot(0).get("name"), "Maple1")
+
+
+func test_staged_invalid_imports_leave_both_committed_files_unchanged() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	assert_eq(save.set_account({"nx": 7, "owned": []}), OK)
+	var primary := FileAccess.get_file_as_string(save_path)
+	var backup := FileAccess.get_file_as_string(save_path + ".bak")
+	var candidates: Array = []
+	var base: Dictionary = JSON.parse_string(primary)
+	var bad := base.duplicate(true)
+	bad.slots[0] = {}
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.account = {"nx": -1, "owned": []}
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.history = [{}]
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.format = 999
+	candidates.append(bad)
+	for candidate: Dictionary in candidates:
+		var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+		file.store_string(JSON.stringify(candidate))
+		file.close()
+		var loaded := SaveData.new(save_path)
+		assert_eq(loaded.slot(0).get("name"), "Maple1")
+		assert_eq(FileAccess.get_file_as_string(save_path), primary)
+		assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), backup)
+		assert_false(FileAccess.file_exists(save_path + ".import"), "rejection is consumed, not retried next launch")
+		assert_eq(loaded.save_file(), OK)
+		assert_eq(FileAccess.get_file_as_string(save_path), primary)
+		assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), backup)
+
+
+func test_valid_staged_import_is_validated_and_promoted_once() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	var original := FileAccess.get_file_as_string(save_path)
+	var candidate: Dictionary = JSON.parse_string(original)
+	candidate.slots[0].name = "Import1"
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(candidate))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.slot(0).get("name"), "Import1")
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), original)
+	assert_false(FileAccess.file_exists(save_path + ".import"))
+	assert_eq(SaveData.new(save_path).slot(0), loaded.slot(0))
+
+
+func test_failed_import_promotion_blocks_mutations_until_the_candidate_is_consumed() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	var primary := FileAccess.get_file_as_string(save_path)
+	var candidate: Dictionary = JSON.parse_string(primary)
+	candidate.slots[0].name = "Import1"
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(candidate))
+	file.close()
+	assert_eq(DirAccess.make_dir_absolute(ProjectSettings.globalize_path(save_path + ".tmp")), OK)
+	var loaded := SaveData.new(save_path)
+	assert_ne(loaded.last_error, OK)
+	assert_eq(loaded.slot(0).get("name"), "Maple1")
+	assert_eq(FileAccess.get_file_as_string(save_path), primary)
+	assert_eq(DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path + ".tmp")), OK)
+	assert_ne(loaded.set_account({"nx": 12, "owned": []}), OK, "pending import must not replay over subsequent mutations")
+	assert_eq(FileAccess.get_file_as_string(save_path), primary)
+	assert_eq(SaveData.new(save_path).slot(0).get("name"), "Import1", "a restart can retry the promotion safely")
 
 
 static func snapshot(name: String = "Maple1") -> Dictionary:

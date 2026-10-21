@@ -77,6 +77,35 @@ var autoplay := false
 var hub_tool := false
 var last_summary: Dictionary = {}
 var last_new_best := false
+var _lease_timer: Timer
+
+
+func _ready() -> void:
+	_lease_timer = Timer.new()
+	_lease_timer.wait_time = SaveData.WriterLock.RENEW_SECONDS
+	_lease_timer.ignore_time_scale = true
+	_lease_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_lease_timer.timeout.connect(_renew_save_lease)
+	add_child(_lease_timer)
+	_lease_timer.start()
+
+
+func _exit_tree() -> void:
+	if save != null:
+		save.release_writer()
+
+
+func _renew_save_lease() -> void:
+	if save != null and save.renew_writer() != OK and not current is SaveBusyScreen:
+		active_slot = -1
+		_show_save_busy()
+
+
+func _show_save_busy() -> void:
+	var message := "Save open in another window. Close it, or wait 30 seconds if it stopped, then try again."
+	if save.writer_error != ERR_ALREADY_IN_USE:
+		message = "Could not renew the save lock. Check your save folder, then try again."
+	_swap_to(SaveBusyScreen.new(self, message), "error")
 
 
 ## Shows the title screen.
@@ -87,6 +116,12 @@ func goto_title() -> void:
 ## Shows the three living character slots. No round progress is saved here.
 func goto_character_select() -> void:
 	active_slot = -1
+	# Retrying after closing the other window must load fresh state, never promote this session's stale view.
+	if save != null and save.writer_error != OK:
+		save = save.reopen()
+	if save_data().writer_error != OK:
+		_show_save_busy()
+		return
 	var screen := _instance(CHARACTER_SELECT)
 	screen.configure(self)
 	_swap_to(screen, "character_select")
@@ -471,6 +506,36 @@ static func forced_job_error(options: Dictionary, data: Dictionary) -> String:
 ## A minimal screen with an error message and a way back to the title (used when the run scene is missing).
 static func error_screen(message: String) -> Control:
 	return ErrorScreen.new(message)
+
+
+## Persistent-save refusal uses the existing v83 Notice art and login backdrop; OK/Esc returns to the title.
+class SaveBusyScreen extends Control:
+	var message := ""
+	var flow: SceneFlow
+	var notice: ShopNotice
+
+	func _init(p_flow: SceneFlow, p_message: String) -> void:
+		flow = p_flow
+		message = p_message
+		name = "SaveBusy"
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	func _ready() -> void:
+		add_child(LoginBackdrop.new(LoginBackdrop.CHAR_SELECT))
+		notice = ShopNotice.new(message)
+		notice.close_requested.connect(flow.goto_title)
+		add_child(notice)
+		resized.connect(_place_notice)
+		_place_notice()
+
+	func _place_notice() -> void:
+		if notice != null:
+			notice.position = ((size - notice.size) * 0.5).floor()
+
+	func _unhandled_input(event: InputEvent) -> void:
+		if MapleWindow.is_cancel(event) or MapleWindow.is_confirm(event):
+			flow.goto_title()
+			get_viewport().set_input_as_handled()
 
 
 ## Black screen with a centred message; Esc or a click returns to the title.

@@ -7,7 +7,7 @@ extends UiWindow
 ##
 ## Mouse: drag an icon from the tray (a source: it stays there) or from a key onto another key to bind it there (from
 ## a key it moves); the key's previous action loses it (a key holds one action; an action may sit on several keys).
-## A drop on a fixed key (movement per the movement setting, Esc, the card keys 1-3; tinted and captioned) does
+## A drop on a fixed key (movement per the movement setting, Esc, F3 Perf, the card keys 1-3; tinted and captioned) does
 ## nothing. Dragging an icon off the keyboard (onto the tray or out of the window) unbinds it; a click outlines a key.
 ## BtDelete (its v83 art reads CLEAR ALL) unbinds every bindable action in the draft. BtDefault puts the project defaults into the draft (KeyBindings.reset_defaults),
 ## BtOK saves and applies the draft (KeyBindings.apply_to -> Settings.set_bindings) and closes, BtCancel / BtClose / Esc
@@ -155,6 +155,9 @@ func is_fixed_key(code: int) -> bool:
 func ok() -> void:
 	if settings != null:
 		draft.apply_to(settings)
+		if settings.last_error != OK:
+			queue_redraw()
+			return
 	saved.emit()
 	request_close()
 
@@ -265,7 +268,9 @@ func _draw() -> void:
 		UiArt.blit(self, bg, Vector2.ZERO)
 	else:
 		_draw_plain()
-	if WebProfile.is_web():
+	if settings != null and settings.last_error != OK:
+		MapleText.draw(self, Vector2(NOTE_X, BUTTON_Y + 3.0), "Not saved. Check your save folder.", MapleText.BLACK, NOTE_FONT_SIZE)
+	elif WebProfile.is_web():
 		MapleText.draw(self, Vector2(NOTE_X, BUTTON_Y + 3.0), WEB_NOTE, MapleText.BLACK, NOTE_FONT_SIZE)
 	var fixed := draft.fixed_keys()
 	for code: int in fixed:

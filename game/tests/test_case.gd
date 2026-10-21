@@ -90,12 +90,13 @@ func assert_ne(actual: Variant, unexpected: Variant, msg: String = "") -> void:
 
 
 func assert_near(actual: float, expected: float, eps: float = 1e-6, msg: String = "") -> void:
-	if absf(actual - expected) > eps:
+	if not is_finite(actual) or not is_finite(expected) or not is_finite(eps) or eps < 0.0 \
+			or absf(actual - expected) > eps:
 		fail("%s expected %s +/- %s got %s" % [msg, expected, eps, actual])
 
 
 func assert_between(actual: float, lo: float, hi: float, msg: String = "") -> void:
-	if actual < lo or actual > hi:
+	if not is_finite(actual) or not is_finite(lo) or not is_finite(hi) or lo > hi or actual < lo or actual > hi:
 		fail("%s expected in [%s, %s] got %s" % [msg, lo, hi, actual])
 
 

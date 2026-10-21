@@ -38,6 +38,9 @@ pub struct ImgEntry {
     pub canvases: u32,
     #[serde(default)]
     pub sounds: u32,
+    /// Exported audio payload paths. Legacy entries with sounds must refresh once to populate this list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_files: Option<Vec<String>>,
     #[serde(default)]
     pub bytes: u64,
 }

@@ -87,6 +87,36 @@ fn forced_v83_rejects_a_different_encrypted_version_even_with_no_imgs() {
 }
 
 #[test]
+fn imports_require_v83_for_folder_zip_and_injected_sources() {
+    use crate::import::{run_import, ImportOptions};
+    let manifest = r#"{"format":1,"imgs":[{"img":"Sound.wz/Test.img"}]}"#;
+    for version in [83, 95] {
+        let dir = TempDir::new(&format!("import-version-{version}"));
+        let bytes = write_archive(&[WEntry::Img("Test.img".into(), write_img(&[p("v", W::Int(1))], false))], version, false);
+        std::fs::write(dir.path().join("Sound.wz"), &bytes).unwrap();
+        std::fs::write(dir.path().join("manifest.json"), manifest).unwrap();
+        let opts = ImportOptions { wz: dir.path().into(), manifest: dir.path().join("manifest.json"), out: dir.path().join("out"), force: false };
+        let result = run_import(&opts);
+        if version == 83 { assert!(result.unwrap().errors.is_empty()); }
+        else { assert!(result.is_err(), "folder accepted v95"); assert!(!opts.out.join("cache.json").exists()); }
+        let sink = MemorySink::default();
+        let result = crate::import::import_sources(
+            [("Sound.wz".into(), Arc::new(Memory(bytes.clone())) as Arc<dyn ReadAt>)].into(),
+            manifest, &sink, &|_: &str, _, _| Ok(()));
+        if version == 83 { assert!(result.unwrap().errors.is_empty()); }
+        else { assert!(result.is_err()); assert!(sink.0.lock().unwrap().is_empty()); }
+        for deflated in [false, true] {
+            let zip = dir.path().join("source.zip");
+            std::fs::write(&zip, write_zip(&[("83/Sound.wz", &bytes, deflated)])).unwrap();
+            let zipped = ImportOptions { wz: zip, out: dir.path().join(format!("zip-{deflated}")), ..opts.clone() };
+            let result = run_import(&zipped);
+            if version == 83 { assert!(result.unwrap().errors.is_empty()); }
+            else { assert!(result.is_err()); assert!(!zipped.out.join("cache.json").exists()); }
+        }
+    }
+}
+
+#[test]
 fn named_sources_report_every_missing_required_archive() {
     let root = crate::wzroot::WzRoot::from_sources(Default::default());
     let manifest =

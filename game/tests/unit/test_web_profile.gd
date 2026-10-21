@@ -13,8 +13,9 @@ func before_each() -> void:
 	_env_cache = OS.get_environment(AssetCachePaths.CACHE_ENV)
 	_env_wz = OS.get_environment(AssetCachePaths.WZ_ENV)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(TestCase.test_dir()))
-	if FileAccess.file_exists(_cfg):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(_cfg))
+	for suffix: String in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(_cfg + suffix):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(_cfg + suffix))
 
 
 func after_each() -> void:

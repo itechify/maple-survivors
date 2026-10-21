@@ -45,8 +45,9 @@ The game can also run it: if the cache is missing, the first screen asks for the
 `wzimport` as a local child process. The cache location can be overridden with `MAPLE_SURVIVORS_CACHE`; the WZ folder
 with `MAPLE_WZ_ROOT` (also used by tests).
 
-Import is incremental: an img is rewritten only when its source archive (size + mtime) or the importer version changed,
-or `--force` is given.
+Import is incremental: an img is rewritten when its source archive (size + mtime), selection or importer version
+changed, its JSON/atlas/audio files are missing, or `--force` is given. Legacy index entries containing sounds but
+no payload list refresh once; complete unchanged entries still skip.
 
 ### 2.1 Portable importer and ZIP input (#132)
 
@@ -54,8 +55,9 @@ or `--force` is given.
 be nested (`83/Mob.wz`); archive basenames must be unique. ZIP and ZIP64 stored/deflated entries are supported.
 Encrypted entries, other compression methods and multi-disk ZIPs fail with readable errors. ZIP imports are fresh
 imports (no mtime-based skip); folder imports keep their existing incremental behaviour. Nothing changes the manifest
-or the cache format. Any PKG1 archive with the GMS v83 version hash is accepted, including edited archives; there
-is no known-file hash list. Native inspection commands retain version autodetection for other WZ versions.
+or the cache format. Folder, ZIP, injected-reader and wasm imports all require the GMS v83 version hash; edited v83
+PKG1 archives are accepted too. There is no known-file hash list. Native inspection commands retain version
+autodetection for other WZ versions.
 
 The public Rust boundaries are `ReadAt` (`len() -> u64`, `read_exact_at(offset, &mut [u8]) -> io::Result<()>`),
 `NamedSources` (`BTreeMap<String, Arc<dyn ReadAt>>`), and `Sink` (`create_dir(relative)`,
@@ -103,7 +105,11 @@ wasm target and the `wasm-bindgen-cli` version read from `Cargo.lock`, so the gl
 wasm-only crates (`wasm-bindgen`, `js-sys` and their build macros) are in `WZIMPORT_LICENSES.txt` beside the site, which
 `export.sh --web` refuses to finish without. No WZ data and no decoded cache is ever part of the export:
 `scripts/check_web_artifact.sh` fails the build on a `.wz`, `.img`, `*.img.json`, atlas `*.N.png`, `.mp3`/`.wav` or any
-file starting with the WZ signature.
+file starting with the WZ signature. It also requires an explicit top-level shipping-file allowlist derived from
+`export.sh --web` and Godot 4.7.2 (engine bundle/worklets/icons, web shell/branding, merged manifest, wasm importer
+and licences). Unexpected files, directories and symlinks fail; ZIP/gzip/7z/RAR signatures fail even under an
+approved filename. This is a loose-file guard: it does not inspect the Godot PCK or establish the provenance of
+approved branding assets; those still require source/provenance review.
 
 The ES module exports default async `init` and synchronous **`importWz`** (the JS name avoids the `import` keyword):
 
@@ -177,6 +183,38 @@ checks, not browser/storage/UI QA (owned by #133/#136).
 
 Rust synthetic tests compare complete caches from folder, stored-zip and deflated-zip sources and check the physical
 img traversal order.
+
+### 2.4 Decode limits and failure boundary
+
+Native and wasm use the same tier C defensive limits: each canvas edge at most 32,768 pixels, each decoded RGBA8
+canvas at most 128 MiB, and at most 512 MiB of decoded canvases per parsed img. The selected, UOL-expanded export
+is checked again against that aggregate before decoding; packed atlas pages also have a 512 MiB aggregate limit.
+These are per-img budgets, not a whole-process memory cap (native jobs may run in parallel). Pixel and offset
+arithmetic is checked before allocation; canvas buffer reservation is fallible. Rejections return
+`WzError::ResourceLimit` on native and wasm. Property/Canvas/Convex nesting is limited to 64 extended objects.
+
+Measured with `MAPLE_WZ_ROOT` on the owner's original v83 install on 2026-10-21: all 16,821 imgs in the PKG1
+archives parsed with zero errors (the separate, non-PKG1 `List.wz` is excluded). Largest canvas:
+`Effect.wz/Direction1.img/effect/aran/rien/0/0`, 2941 x 800 = 9,411,200 RGBA bytes; the 128 MiB budget is 14.26 times
+that size. Largest sum of canvas RGBA bytes in an img: `Mob.wz/8830007.img`, 300,091,076 bytes; 512 MiB is 1.79
+times that sum. Maximum property depth was 8, versus the limit of 64. Measurements read headers without decoding
+or exporting proprietary assets. Limits are importer safeguards, not canonical WZ facts or gameplay tuning.
+
+Native output replacement remains atomic per file, not per import: another img may already have been written when
+one fails. A failed img is not indexed and normal re-import retries it. Portable hosts must retain their staging /
+promotion boundary and discard a failed import; a successful index alone is not permission to ignore report errors.
+
+W5 validation (2026-10-21): fresh full-manifest imports into separate private scratch caches before/after these
+guards produced 2,408 payload files with identical SHA-256 hashes. `cache.json` matched after excluding `created`,
+`stats.seconds` and the ten new `sound_files` lists. Both imports reported zero errors; existing unresolved-UOL
+warnings were retained. The post-change header scan again parsed all 16,821 imgs without errors. Twelve Node-hosted
+wasm cases (injected readers and deflated ZIPs) checked overflow/oversize, aggregate budget, nesting, v95 rejection
+and normal v83 acceptance: readable errors, no traps, and at most 1,441,792 bytes of wasm memory for these tiny
+synthetic fixtures. These worker-API checks do not establish browser/storage/UI behaviour or real-import peak memory.
+The headless `export.sh --web` produced 27 allowlisted shipping files. On that actual export, a synthetic extra PNG,
+an extra ZIP containing a generated WZ entry, and that ZIP under an approved favicon filename were each rejected;
+the restored export passed again. The known audit MS-42 debug `character_driver.gd` parse error was still logged
+during export (outside the importer/guard changes); export/artifact success does not prove that debug scene runs.
 
 Follow-up #132b timing (2026-10-17, Ryzen 7 7800X3D, Windows, Node 24.21.0, release builds): the full current
 manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal compression (`-tzip -mm=Deflate -mx=5`),
@@ -432,6 +470,9 @@ Synthetic Rust import coverage checks Etc numeric columns and names; real-cache 
 ```
 
 Img entries also carry `sounds` and `bytes` (per-img totals behind `stats`); readers ignore keys they do not know.
+Entries containing audio also carry `sound_files`, an array of cache-relative MP3/WAV payload paths (including UOL
+targets). Native incremental import and web boot completeness check every listed file. Older entries with
+`sounds > 0` and no list are considered incomplete and need one re-import; zero-sound entries need no list.
 `stats.seconds` is the wall time of the run that wrote the index.
 
 ### 5.2 Img JSON trees

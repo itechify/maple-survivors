@@ -23,7 +23,9 @@ func _draw() -> void:
 
 ## Whether the persistent low-MP cue is visible in the current run snapshot.
 func low_mp_visible() -> bool:
-	return bool(player_state.get("mp_short", false))
+	return bool(player_state.get("mp_short", false)) and not bool(player_state.get("dead", false)) \
+		and not int(run_info.get("state", RunWorld.PLAYING)) in [RunWorld.DEAD, RunWorld.CLEARED] \
+		and not bool(run_info.get("ending", false))
 
 ## Adds a system message, evicting the oldest when the message area is full.
 func push_message(text: String, color: Color = SYSTEM_YELLOW) -> void:

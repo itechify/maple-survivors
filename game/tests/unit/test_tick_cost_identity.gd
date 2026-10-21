@@ -28,7 +28,10 @@ const MP_DRAIN := 60
 ## `end_hp_above`; the events and TOTALS are unchanged, only those bytes differ (previous digest cb554e31...).
 ## Re-captured for #228 (spec #225): no Magnet or potion-tier cards, so the bot draws other cards (previous digest ad5c2bc1...,
 ## previous totals exp 5133, kills 276, casts 249, level 14).
-const GOLDEN := "373bb381af9ad481c4519abc5b96c7b44fc007b35970125594703d4f37668da1"
+## Re-captured for MS-24: player_state.mp_short now checks current affordability after refills. Substituting only
+## runner.waiting_mp back into that snapshot field reproduces the previous 373bb381... digest exactly; all events,
+## other player-state fields, drop-pool bytes and TOTALS are unchanged.
+const GOLDEN := "f64baaaea14189efa70d9b1443c964e6655b35798de113fd659f2ff75cd8966d"
 const TOTALS := {"exp": 4196, "mesos": 88492, "pickup_mesos": 88492, "equips_collected": 24,
 	"equips_dropped": 30, "inventory": 24, "hp_potions": 12, "mp_potions": 0, "kills": 208, "casts": 183, "level": 13,
 	"pool": 6, "time": 59.999999999997875}

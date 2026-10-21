@@ -69,6 +69,20 @@ test('assessCache: none, invalid, ok and incomplete', () => {
 	assert.deepEqual(r.missing, [{ img: 'Mob.wz/0100100.img', reason: 'not in the cache index' }]);
 });
 
+test('assessCache: audio payloads and legacy sound entries need repair', () => {
+	const img = 'Sound.wz/Test.img';
+	const manifest = { format: 1, imgs: [{ img }] };
+	const sound_files = [`${img}/music.mp3`, `${img}/effect.wav`];
+	const entry = { json: img + '.json', sounds: 2, sound_files };
+	const assess = (entry, files) => lib.assessCache({ manifest, root: '/cache',
+		indexText: JSON.stringify({ format: 1, imgs: { [img]: entry } }),
+		keys: [entry.json, ...files].map((p) => '/cache/' + p) });
+	assert.equal(assess(entry, sound_files).state, 'ok');
+	for (const file of sound_files) assert.equal(assess(entry, sound_files.filter((p) => p !== file)).state, 'incomplete');
+	const { sound_files: _, ...legacy } = entry;
+	assert.equal(assess(legacy, sound_files).state, 'incomplete');
+});
+
 test('assessCache: a listed img whose files are gone is missing', () => {
 	const root = lib.CACHE_ROOT;
 	const text = indexFor({ 'Base.wz/zmap.img': 0, 'Mob.wz/0100100.img': 2, 'Sound.wz/Mob.img': 0 });
@@ -187,6 +201,45 @@ test('validateSaveText: accepts the SaveData shapes and refuses others before an
 
 test('saveFileName is timestamped in local time', () => {
 	assert.equal(lib.saveFileName(new Date(2026, 9, 7, 4, 5, 9)), 'maple-survivors-save-20261007-040509.json');
+});
+
+test('save import only stages candidates; primary and backup are left for game validation', async () => {
+	for (const patch of [{ slots: [{}, null, null] }, { account: { nx: -1 } }, { history: [{}] }]) {
+		const files = new Map([[lib.SAVE_PATH, 'healthy primary'], [lib.SAVE_PATH + '.bak', 'healthy backup']]);
+		const text = JSON.stringify({ format: 2, best: {}, runs: {}, slots: [null, null, null], history: [], ...patch });
+		const writes = [];
+		const result = await lib.stageSaveImport(text, async (path, bytes) => { writes.push(path); files.set(path, bytes); });
+		assert.equal(result.ok, true, 'nested validation belongs to SaveData');
+		assert.deepEqual(writes, [lib.SAVE_PATH + '.import']);
+		assert.equal(files.get(lib.SAVE_PATH), 'healthy primary');
+		assert.equal(files.get(lib.SAVE_PATH + '.bak'), 'healthy backup');
+		assert.equal(new TextDecoder().decode(files.get(lib.SAVE_PATH + '.import')), text);
+	}
+	let writes = 0;
+	assert.equal((await lib.stageSaveImport('{"format":999}', async () => { writes++; })).ok, false);
+	assert.equal(writes, 0);
+	await assert.rejects(lib.stageSaveImport('{"format":1,"best":{},"runs":{}}', async () => { throw new Error('quota'); }), /quota/);
+});
+
+test('tab ownership excludes another mount and permits takeover only after owner release or exit', async () => {
+	const owners = new Set();
+	const locks = { request: async (name, options, callback) => {
+		assert.deepEqual(options, { ifAvailable: true, mode: 'exclusive' });
+		if (owners.has(name)) return callback(null);
+		owners.add(name);
+		try { await callback({ name }); } finally { owners.delete(name); }
+	} };
+	const first = lib.createStoreOwnership(locks);
+	const second = lib.createStoreOwnership(locks);
+	assert.equal(await first.acquire(), true);
+	assert.equal(await second.acquire(), false);
+	assert.equal(await first.acquire(), true, 'reentry does not drop ownership');
+	await first.release();
+	assert.equal(await second.acquire(), true);
+	await second.release();
+	assert.equal(owners.size, 0);
+	await assert.rejects(lib.createStoreOwnership(undefined).acquire(), /Web Locks/);
+	await assert.rejects(lib.createStoreOwnership({ request: async () => { throw new Error('denied'); } }).acquire(), /denied/);
 });
 
 test('isAudioTeardownError recognises the Godot web shutdown TypeError', () => {

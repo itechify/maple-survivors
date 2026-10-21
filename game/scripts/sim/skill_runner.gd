@@ -466,7 +466,9 @@ func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int)
 		if side > 0:
 			path.end.x = minf(path.end.x, wall_x)
 		else:
-			path.position.x = maxf(path.position.x, wall_x)
+			var far_edge := path.end
+			path = Rect2(Vector2(maxf(path.position.x, wall_x), path.position.y), Vector2.ZERO)
+			path.end = far_edge
 	var swept := world.skill_rect_targets(path, start - Vector2(0.0, world.cast_height),
 		int(st.mob_count))
 	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
@@ -510,7 +512,8 @@ func _throw(world: RunWorld, key: String, st: Dictionary, plan: Dictionary) -> v
 	var aim: Vector2 = plan.aim
 	var from := world.shot_origin(aim)
 	var seconds := maxf(MIN_FLIGHT, from.distance_to(aim) / maxf(float(st.speed), 1.0))
-	_flights.append({"left": seconds, "st": st.duplicate(), "landing": plan.landing, "aim": aim})
+	_flights.append({"left": seconds, "st": st.duplicate(), "landing": plan.landing, "aim": aim,
+		"skill": key, "cast_time": world.time, "burst": String(world.book.def(key).get("burst", ""))})
 	world.emit("skill_thrown", {"skill": key, "skill_id": int(st.skill_id), "from": from, "to": aim, "seconds": seconds,
 		"ball": String(st.ball), "burst": String(world.book.def(key).get("burst", ""))})
 
@@ -527,6 +530,8 @@ func _land_flights(dt: float, world: RunWorld) -> void:
 			continue
 		_flights.remove_at(i)
 		var st: Dictionary = flight.st
+		world.emit("skill_landed", {"skill": String(flight.skill), "cast_time": float(flight.cast_time),
+			"pos": flight.aim, "effect": String(flight.burst)})
 		var hit := world.skill_rect_targets(blast_rect(st, flight.landing), flight.aim, int(st.mob_count))
 		_resolve_instant_targets(world, st, hit, int(st.mob_count), int(st.attack_count),
 			world.visual_index(String(st.hit)))

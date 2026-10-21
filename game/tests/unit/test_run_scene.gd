@@ -1090,8 +1090,18 @@ func test_boss_reward_window_is_a_bonus_choice_before_the_clear_sequence() -> vo
 		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE)
 		assert_eq(w.player_state.level, 1, "bonus does not grant a level")
 		assert_true(lw.choose(0))
+	var t := w.time
+	_frames(int(RunScene.WINDOW_DELAY / DT) + 2)
+	lw = scene.window as LevelUpWindow
+	assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "the swept boss EXP must also be answered")
+	assert_true(lw != null and not lw.bonus, "the normal gained-level window follows the boss reward")
+	assert_eq(w.time, t, "combat stays frozen through settlement windows")
+	scene._autopick = true
+	if lw != null:
+		assert_true(lw.choose(0)) # remaining queued settlement windows use the ordinary autopick service
 	_frames(1)
-	assert_eq(w.state, RunWorld.CLEARED, "clear begins only after the reward is answered")
+	assert_eq(w.state, RunWorld.CLEARED, "clear begins only after boss and swept-EXP rewards are answered")
+	assert_eq(w.time, t)
 	_assert_nothing_missing(scene, "boss reward")
 
 
@@ -1338,6 +1348,25 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 		"x": {"before": 4, "after": 8}, "cooltime": {"before": 120, "after": 120}})
 	assert_has(LevelUpWindow.change_lines(card), "HP / pulse: 4 → 8")
 	_assert_nothing_missing(scene, "Recovery")
+
+
+func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
+	if not require_cache():
+		return
+	assert_false((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "fresh in-memory library")
+	assert_false((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR))
+	scene = _make("henesys_hg1", 7, {})
+	assert_eq(scene.error, "")
+	assert_true((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "setup cached the victory animation")
+	assert_true((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR), "setup cached the victory sound")
+	var pages := lib.pages_loaded()
+	var sounds := (lib.get("_sounds") as Dictionary).size()
+	assert_true(lib.find_anim(RunScene.FX_CLEAR) != null, "the original clear art exists")
+	assert_true(lib.sound(RunScene.SND_CLEAR) != null, "the original clear sound exists")
+	scene._on_stage_cleared()
+	assert_eq(lib.pages_loaded(), pages, "the clear event decodes no new atlas page")
+	assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "the clear event decodes no new sound")
+	_assert_nothing_missing(scene, "clear warmup")
 
 
 func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:

@@ -13,10 +13,11 @@ extends RefCounted
 ## stage?, round_seed?}; tier indexes the next tier (0-based). phase is free_market/map_select/round;
 ## round requires stage and round_seed. Keep the last stage outside a round for deletion history.
 ## History: {name, job_id, job_name, level, tiers_cleared, rounds_played, ending, stage, date}; ending is
-## died/victory/deleted. Dates are nonempty caller-supplied strings; SaveData never reads the clock or picks seeds.
+## died/victory/deleted. Dates are nonempty caller-supplied strings; persistence never generates gameplay dates or seeds.
 ## A round summary's `nx_awarded` is added to the account inside the same write as update_slot (clear boundary) or
 ## end_run (death/victory); deletion never credits. set_account replaces the whole block (Cash Shop spending).
-## Corrupt/unsupported files are copied to .bad[.N]; .bak recovers a missing primary after interrupted replacement.
+## Corrupt/unsupported files are copied to .bad[.N]; valid .bak recovers a missing or rejected primary.
+## Web imports are staged at .import and fully validated here before promotion; rejection leaves committed files alone.
 ##
 ## Best result rule (tier C, ours): a clear beats a death; then the longer survival; then the higher level, more kills,
 ## more damage.
@@ -46,18 +47,32 @@ var account: Dictionary:
 ## Most recent persistence error; creation returns -1 on failure and other mutators return Error.
 var last_error: Error = OK
 var _preserve_error: Error = OK
+var _primary_valid := false
 var _slots: Array = [null, null, null]
 var _history: Array = []
 var _account: Dictionary = Account.empty()
+var _writer: WriterLock
+var _writer_required := false
+var _writer_clock: Callable
+## Lock acquisition error; tool paths opt out, while the default persistent save always opts in on desktop.
+var writer_error: Error = OK
 
 
-func _init(p_path: String = PATH) -> void:
+func _init(p_path: String = PATH, persistent: bool = false, clock: Callable = Callable()) -> void:
 	path = p_path
+	_writer_clock = clock
+	_writer_required = (persistent or path == PATH) and not OS.has_feature("web")
+	if _writer_required:
+		_writer = WriterLock.new(clock)
+		writer_error = _writer.acquire(ProjectSettings.globalize_path(path + ".lock"))
 	load_file()
 
 
-## Re-reads/converts the file; invalid files start empty and are preserved, missing primaries recover from .bak.
+## Re-reads/converts the file, recovers a valid backup, then validates any shell-staged import before promotion.
 func load_file() -> void:
+	if renew_writer() != OK:
+		last_error = writer_error
+		return
 	best = {}
 	runs = {}
 	_slots = [null, null, null]
@@ -65,58 +80,111 @@ func load_file() -> void:
 	_account = Account.empty()
 	last_error = OK
 	_preserve_error = OK
-	var source := path
-	if not FileAccess.file_exists(source):
-		source = path + ".bak"
-	if not FileAccess.file_exists(source):
-		return
+	_primary_valid = false
+	for source: String in [path, path + ".bak"]:
+		if not FileAccess.file_exists(source):
+			continue
+		var parsed := _read_valid_file(source)
+		if _preserve_error != OK:
+			return
+		if parsed.is_empty():
+			continue
+		_primary_valid = source == path
+		_apply_file(parsed)
+		last_error = OK
+		if source != path or int(parsed.format) == 1:
+			last_error = save_file()
+		break
+	_load_import()
+
+
+func _read_valid_file(source: String) -> Dictionary:
 	var file := FileAccess.open(source, FileAccess.READ)
 	if file == null:
 		_preserve_error = FileAccess.get_open_error()
 		last_error = _preserve_error
-		return
+		return {}
 	var text := file.get_as_text()
 	var read_error := file.get_error()
 	file.close()
 	if read_error != OK and read_error != ERR_FILE_EOF:
 		_preserve_error = read_error
 		last_error = read_error
-		return
+		return {}
 	var json := JSON.new()
-	if json.parse(text) != OK:
+	if json.parse(text) != OK or not _valid_file(json.data):
 		_preserve_bad_file(source)
-		return
-	var parsed: Variant = json.data
-	if not _valid_file(parsed):
-		_preserve_bad_file(source)
-		return
+		return {}
+	return json.data
+
+
+func _apply_file(parsed: Dictionary) -> void:
+	best = {}
+	runs = {}
 	var stage_data: Variant = DataRepo.load_json(DataRepo.DATA_ROOT.path_join(DataRepo.FILES.stages))
 	var stages: Dictionary = stage_data.get("stages", {}) if stage_data is Dictionary else {}
-	var b: Variant = parsed.get("best", {})
-	if b is Dictionary:
-		for k: Variant in b:
-			if stages.has(String(k)) and b[k] is Dictionary:
-				best[String(k)] = b[k]
-	var r: Variant = parsed.get("runs", {})
-	if r is Dictionary:
-		for k: Variant in r:
-			if stages.has(String(k)):
-				runs[String(k)] = int(r[k])
-	if int(parsed.format) == 1:
-		last_error = save_file()
+	for k: String in parsed.best:
+		if stages.has(k) and parsed.best[k] is Dictionary:
+			best[k] = parsed.best[k]
+	for k: String in parsed.runs:
+		if stages.has(k):
+			runs[k] = int(parsed.runs[k])
+	# Format 1 validates only bests/counts: later fields must be ignored, not adopted without validation.
+	var current := int(parsed.format) == FORMAT
+	_slots = parsed.get("slots", [null, null, null]) if current else [null, null, null]
+	_history = parsed.get("history", []) if current else []
+	_account = Account.normalized(parsed.get("account", Account.empty())) if current else Account.empty()
+
+
+func _load_import() -> void:
+	var source := path + ".import"
+	if not FileAccess.file_exists(source):
+		return
+	var parsed := _read_valid_file(source)
+	if _preserve_error != OK:
+		return
+	if parsed.is_empty():
+		# The rejected candidate is retained as .import.bad; do not retry it on every launch.
+		var error := DirAccess.remove_absolute(source)
+		if error != OK:
+			_preserve_error = error
+			last_error = error
+		return
+	var previous := _state()
+	_apply_file(parsed)
+	last_error = save_file()
+	if last_error == OK:
+		last_error = DirAccess.remove_absolute(source)
 	else:
-		_slots = parsed.get("slots", [null, null, null])
-		_history = parsed.get("history", [])
-		if parsed.has("account"):
-			_account = Account.normalized(parsed.account)
-		if source != path:
-			last_error = save_file()
+		_apply_file(previous)
+	if last_error != OK:
+		# Do not allow later mutations while an unconsumed candidate could replay over them on restart.
+		_preserve_error = last_error
 
 
 ## Writes through .tmp with a .bak recovery copy (creating its folder); returns any persistence error.
 func save_file() -> Error:
 	last_error = _write(_state())
 	return last_error
+
+
+## Renews desktop ownership; a lost lease permanently refuses writes until a fresh SaveData reloads committed state.
+func renew_writer() -> Error:
+	if _writer_required and writer_error == OK:
+		writer_error = _writer.renew()
+	return writer_error
+
+
+## A retry always reloads committed state in a fresh session, retaining an injected clock for deterministic tools.
+func reopen() -> SaveData:
+	return SaveData.new(path, _writer_required, _writer_clock)
+
+
+## Releases only this desktop lease on clean exit; tools and browser-owned stores have no desktop lease.
+func release_writer() -> void:
+	if _writer_required:
+		_writer.release()
+		writer_error = ERR_ALREADY_IN_USE
 
 
 ## The run snapshot in a slot, detached from the save; {} for an empty or out-of-range slot.
@@ -352,6 +420,8 @@ func _preserve_bad_file(source: String) -> void:
 
 
 func _write(data: Dictionary) -> Error:
+	if renew_writer() != OK:
+		return writer_error
 	if not _valid_file(data):
 		return ERR_INVALID_DATA
 	# Never overwrite a save whose bytes could not be read or preserved.
@@ -362,23 +432,151 @@ func _write(data: Dictionary) -> Error:
 		var error := DirAccess.make_dir_recursive_absolute(dir)
 		if error != OK:
 			return error
-	var temporary := path + ".tmp"
+	var text := JSON.stringify(data, "\t", true, true)
+	if _primary_valid and FileAccess.file_exists(path):
+		var previous := JSON.new()
+		if previous.parse(FileAccess.get_file_as_string(path)) == OK and previous.data == JSON.parse_string(text):
+			return OK # No state change: retain both committed byte sequences, including the older backup.
+	# An old owner waking mid-write must not truncate or remove its replacement's staging file.
+	var temporary := path + ".tmp" + ("." + _writer._session if _writer_required else "")
 	var f := FileAccess.open(temporary, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
-	f.store_string(JSON.stringify(data, "\t", true, true))
+	f.store_string(text)
 	f.flush()
 	var error := f.get_error()
 	f.close()
+	# A session may have slept while preparing the file. Check ownership again before touching committed bytes.
+	if error == OK:
+		error = renew_writer()
 	# Windows DirAccess.rename removes the destination before moving. Keep a complete previous save so
 	# load_file can recover if the process stops in that gap. Never move the only complete copy aside.
-	if error == OK and FileAccess.file_exists(path):
+	if error == OK and _primary_valid and FileAccess.file_exists(path):
 		error = DirAccess.copy_absolute(path, path + ".bak")
+	if error == OK:
+		error = renew_writer()
 	if error == OK:
 		error = DirAccess.rename_absolute(temporary, path)
 	if error != OK:
 		DirAccess.remove_absolute(temporary)
+	else:
+		_primary_valid = true
+		# Refresh after successful writes as well as before them (unchanged saves already renewed on entry).
+		# The bytes are already committed: keep the successful result even if renewal now fails; writer_error
+		# makes all later writes read-only and the flow shows the notice on its next heartbeat.
+		renew_writer()
 	return error
+
+
+## Atomic directory creation grants a renewable wall-clock lease without launching another process.
+## Only the real save uses it. No simulation, test/tool save, or web engine needs a desktop session lock.
+class WriterLock extends RefCounted:
+	# tier C: renew every five real seconds; thirty seconds without renewal permits crash/sleep takeover.
+	const RENEW_SECONDS := 5.0
+	const STALE_SECONDS := 30.0
+	var directory := ""
+	var owner := ""
+	# tier C: a random 128-bit session id keeps owner generations distinct across independent game processes.
+	var _session := Crypto.new().generate_random_bytes(16).hex_encode()
+	var _generation := 0
+	var _lost := false
+	var _clock: Callable
+
+	func _init(clock: Callable = Callable()) -> void:
+		_clock = clock if clock.is_valid() else func() -> float: return Time.get_unix_time_from_system()
+
+	## Claims an empty directory, or removes only expired owner generations before retrying exclusive mkdir.
+	func acquire(lock_path: String) -> Error:
+		directory = lock_path
+		var error := DirAccess.make_dir_recursive_absolute(directory.get_base_dir())
+		if error != OK:
+			return error
+		error = DirAccess.make_dir_absolute(directory)
+		if error != OK:
+			if not DirAccess.dir_exists_absolute(directory):
+				return error
+			var removed := false
+			for name: String in DirAccess.get_files_at(directory):
+				if name.ends_with(".owner") and _now() - _renewed_at(name) >= STALE_SECONDS:
+					# Renewal always uses a new filename, so this never deletes a concurrently renewed generation.
+					removed = DirAccess.remove_absolute(directory.path_join(name)) == OK or removed
+			var empty := DirAccess.get_files_at(directory).is_empty() and DirAccess.get_directories_at(directory).is_empty()
+			var expired := _now() - FileAccess.get_modified_time(directory) >= STALE_SECONDS
+			if empty and (removed or expired):
+				DirAccess.remove_absolute(directory)
+			error = DirAccess.make_dir_absolute(directory)
+			if error != OK:
+				return ERR_ALREADY_IN_USE
+		owner = _next_owner()
+		error = _publish(owner)
+		if error != OK:
+			return error
+		return OK if owns() else ERR_ALREADY_IN_USE
+
+	## True only while this marker is the sole owner; ambiguous initialization/recovery races refuse writes.
+	func owns() -> bool:
+		if _lost or owner.is_empty():
+			return false
+		if DirAccess.get_files_at(directory) != PackedStringArray([owner]) \
+				or not DirAccess.get_directories_at(directory).is_empty():
+			_lost = true
+		return not _lost
+
+	## Publishes a unique generation before retiring the old one; races fail closed instead of reviving a stale lease.
+	func renew() -> Error:
+		if not owns():
+			return ERR_ALREADY_IN_USE
+		var next := _next_owner()
+		var error := _publish(next)
+		if error == OK:
+			error = DirAccess.remove_absolute(directory.path_join(owner))
+		if error != OK:
+			DirAccess.remove_absolute(directory.path_join(next))
+			_lost = true
+			return error
+		owner = next
+		return OK if owns() else ERR_ALREADY_IN_USE
+
+	## Removes only this generation; an old session can never release its replacement's lease.
+	func release() -> void:
+		if not owner.is_empty():
+			DirAccess.remove_absolute(directory.path_join(owner))
+			DirAccess.remove_absolute(directory) # Removal succeeds only when empty.
+		owner = ""
+		_lost = true
+
+	func _next_owner() -> String:
+		_generation += 1
+		return "%s.%d.owner" % [_session, _generation]
+
+	func _publish(name: String) -> Error:
+		var file := FileAccess.open(directory.path_join(name), FileAccess.WRITE)
+		if file == null:
+			return FileAccess.get_open_error()
+		file.store_string(JSON.stringify({"owner": _session, "renewed_at": _now()}))
+		file.flush()
+		var error := file.get_error()
+		file.close()
+		return error
+
+	func _renewed_at(name: String) -> float:
+		var marker := directory.path_join(name)
+		var json := JSON.new()
+		if json.parse(FileAccess.get_file_as_string(marker)) == OK and json.data is Dictionary:
+			var value: Variant = json.data.get("renewed_at")
+			if json.data.get("owner") is String and (value is float or value is int) and is_finite(float(value)):
+				return float(value)
+		# Interrupted/legacy marker creation is recoverable too; malformed bytes never count as a fresh renewal.
+		return float(FileAccess.get_modified_time(marker))
+
+	func _now() -> float:
+		return float(_clock.call())
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_PREDELETE and not owner.is_empty():
+			# RefCounted is already at zero here; calling another instance method cannot retain self.
+			DirAccess.remove_absolute(directory.path_join(owner))
+			DirAccess.remove_absolute(directory)
 
 
 ## The best record of a stage ({} when none).
