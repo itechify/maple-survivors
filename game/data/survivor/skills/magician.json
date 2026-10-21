@@ -316,8 +316,8 @@
 			"kind": "buff",
 			"slot": "passive",
 			"name": "Bless",
-			"desc": "Temporarily increases defence, accuracy and avoid. Accuracy has no combat effect yet.",
-			"text": {"desc": "Temporarily increases your weapon def., magic def., accuracy and avoidability. Accuracy has no effect yet."},
+			"desc": "Temporarily increases defence, accuracy and avoid. Accuracy increases your critical hit chance.",
+			"text": {"desc": "Temporarily increases your weapon def., magic def., accuracy and avoidability. Accuracy increases your critical hit chance."},
 			"icon": "Skill.wz/230.img/skill/2301004/icon",
 			"damage": "none",
 			"ranks": [
