@@ -203,6 +203,24 @@ test('saveFileName is timestamped in local time', () => {
 	assert.equal(lib.saveFileName(new Date(2026, 9, 7, 4, 5, 9)), 'maple-survivors-save-20261007-040509.json');
 });
 
+test('save import only stages candidates; primary and backup are left for game validation', async () => {
+	for (const patch of [{ slots: [{}, null, null] }, { account: { nx: -1 } }, { history: [{}] }]) {
+		const files = new Map([[lib.SAVE_PATH, 'healthy primary'], [lib.SAVE_PATH + '.bak', 'healthy backup']]);
+		const text = JSON.stringify({ format: 2, best: {}, runs: {}, slots: [null, null, null], history: [], ...patch });
+		const writes = [];
+		const result = await lib.stageSaveImport(text, async (path, bytes) => { writes.push(path); files.set(path, bytes); });
+		assert.equal(result.ok, true, 'nested validation belongs to SaveData');
+		assert.deepEqual(writes, [lib.SAVE_PATH + '.import']);
+		assert.equal(files.get(lib.SAVE_PATH), 'healthy primary');
+		assert.equal(files.get(lib.SAVE_PATH + '.bak'), 'healthy backup');
+		assert.equal(new TextDecoder().decode(files.get(lib.SAVE_PATH + '.import')), text);
+	}
+	let writes = 0;
+	assert.equal((await lib.stageSaveImport('{"format":999}', async () => { writes++; })).ok, false);
+	assert.equal(writes, 0);
+	await assert.rejects(lib.stageSaveImport('{"format":1,"best":{},"runs":{}}', async () => { throw new Error('quota'); }), /quota/);
+});
+
 test('isAudioTeardownError recognises the Godot web shutdown TypeError', () => {
 	assert.ok(lib.isAudioTeardownError("TypeError: Cannot read properties of null (reading 'currentTime')"));
 	assert.ok(!lib.isAudioTeardownError('TypeError: x is not a function'));

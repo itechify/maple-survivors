@@ -100,6 +100,72 @@ func test_missing_primary_recovers_the_last_complete_save_after_interrupted_repl
 	assert_eq(SaveData.new(save_path).slot(0), recovered.slot(0))
 
 
+func test_invalid_primary_recovers_backup_without_rotating_rejected_bytes() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	assert_eq(save.save_file(), OK)
+	var good := FileAccess.get_file_as_string(save_path)
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	file.store_string('{"format":2,"best":{},"runs":{},"slots":[{},null,null],"history":[]}')
+	file.close()
+	var recovered := SaveData.new(save_path)
+	assert_eq(recovered.slot(0).get("name"), "Maple1")
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), good)
+	assert_eq(recovered.save_file(), OK)
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), good)
+	assert_eq(SaveData.new(save_path).slot(0).get("name"), "Maple1")
+
+
+func test_staged_invalid_imports_leave_both_committed_files_unchanged() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	assert_eq(save.set_account({"nx": 7, "owned": []}), OK)
+	var primary := FileAccess.get_file_as_string(save_path)
+	var backup := FileAccess.get_file_as_string(save_path + ".bak")
+	var candidates: Array = []
+	var base: Dictionary = JSON.parse_string(primary)
+	var bad := base.duplicate(true)
+	bad.slots[0] = {}
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.account = {"nx": -1, "owned": []}
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.history = [{}]
+	candidates.append(bad)
+	bad = base.duplicate(true)
+	bad.format = 999
+	candidates.append(bad)
+	for candidate: Dictionary in candidates:
+		var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+		file.store_string(JSON.stringify(candidate))
+		file.close()
+		var loaded := SaveData.new(save_path)
+		assert_eq(loaded.slot(0).get("name"), "Maple1")
+		assert_eq(FileAccess.get_file_as_string(save_path), primary)
+		assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), backup)
+		assert_false(FileAccess.file_exists(save_path + ".import"), "rejection is consumed, not retried next launch")
+		assert_eq(loaded.save_file(), OK)
+		assert_eq(FileAccess.get_file_as_string(save_path), primary)
+		assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), backup)
+
+
+func test_valid_staged_import_is_validated_and_promoted_once() -> void:
+	var save := SaveData.new(save_path)
+	assert_eq(save.create_slot(snapshot()), 0)
+	var original := FileAccess.get_file_as_string(save_path)
+	var candidate: Dictionary = JSON.parse_string(original)
+	candidate.slots[0].name = "Import1"
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(candidate))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.slot(0).get("name"), "Import1")
+	assert_eq(FileAccess.get_file_as_string(save_path + ".bak"), original)
+	assert_false(FileAccess.file_exists(save_path + ".import"))
+	assert_eq(SaveData.new(save_path).slot(0), loaded.slot(0))
+
+
 static func snapshot(name: String = "Maple1") -> Dictionary:
 	return {"name": name, "look": {"skin": 0, "face": 20000, "hair": 30030, "equips": [1040002]},
 		"created": "2026-10-16T12:00:00Z", "character": RF.quiet_world().character_snapshot(),
