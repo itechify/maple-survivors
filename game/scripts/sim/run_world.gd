@@ -1155,7 +1155,8 @@ func restore_player(stat: String, amount: int, skill: String) -> int:
 ## Recomputes max HP/MP, speed, magnet, regen, defence and the caster inputs from the base stats, job and upgrade
 ## modifiers. Granted MaxMP passive growth preserves the MP ratio; other explicit pool modifiers grant the
 ## difference. Equipment refreshes and ordinary level growth pass grant_growth=false and only clamp pools.
-func refresh_player_stats(grant_growth: bool = true) -> void:
+## `attribute_level` lets a batch EXP gain allocate AP for each intermediate level; -1 uses the current level.
+func refresh_player_stats(grant_growth: bool = true, attribute_level: int = -1) -> void:
 	var pb: Dictionary = balance.get("player", {})
 	var primary := String(_job_value(pb.get("ap_stat", {}), "str", true))
 	# Earned AP splits between the job line's secondary stat (AutoAp, ticket #106) and the primary stat.
@@ -1165,7 +1166,8 @@ func refresh_player_stats(grant_growth: bool = true) -> void:
 		secondary = ""
 	var secondary_ap := 0
 	if secondary != "":
-		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level, float(_base_stats[secondary]),
+		secondary_ap = AutoAp.secondary_ap(_earned_ap, progression.level if attribute_level < 0 else attribute_level,
+			float(_base_stats[secondary]),
 			secondary_cfg.get("keyframes", []))
 	for stat: String in _base_stats:
 		var ap := 0
@@ -2545,7 +2547,7 @@ func _on_level_up(level: int) -> void:
 	_earned_ap += int(balance.get("player", {}).get("ap_per_level", 5))
 	_level_ranks(level)
 	apply_potion_schedule(level, true)
-	refresh_player_stats(false)
+	refresh_player_stats(false, level)
 	var refill: Dictionary = balance.get("level_up_refill", DEFAULT_LEVEL_UP_REFILL)
 	_hp = minf(_max_hp, _hp + float(refill.get("hp", DEFAULT_LEVEL_UP_REFILL.hp)) * _max_hp)
 	_mp = minf(_max_mp, _mp + float(refill.get("mp", DEFAULT_LEVEL_UP_REFILL.mp)) * _max_mp)
