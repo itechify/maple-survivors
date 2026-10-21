@@ -791,8 +791,14 @@ function wire() {
 }
 
 const storeOwnership = lib.createStoreOwnership(navigator.locks);
+let bootPending = null;
 
-async function boot() {
+function boot() {
+	if (!bootPending) bootPending = bootOwned().finally(() => { bootPending = null; });
+	return bootPending;
+}
+
+async function bootOwned() {
 	setScreen('boot', 'Maple Survivors');
 	try {
 		if (!await storeOwnership.acquire()) {

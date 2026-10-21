@@ -1162,7 +1162,8 @@ picks the wasm build, default `_scratch/wasm/`); `web/dev/` is never copied (sec
 Web Lock named `maple-survivors-userfs` with `ifAvailable`. It holds that lock for the page lifetime, including
 engine quit/restart and shell import/export screens. A second tab shows "already open in another tab" and a
 Try again button. Close the owner tab, then retry: the browser releases ownership on exit/crash and the new tab
-loads current storage. There is no force-steal of a mounted engine, heartbeat expiry or network coordination.
+loads current storage. Overlapping retry clicks share one startup operation. There is no force-steal of a mounted
+engine, heartbeat expiry or network coordination.
 Browsers without Web Locks refuse to mount and explain the requirement (current browser on HTTPS/localhost).
 The shell never releases a running engine's lock on visibility change or `pagehide`.
 
