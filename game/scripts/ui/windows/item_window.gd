@@ -13,9 +13,9 @@ extends InventoryWindow
 ## dragging it onto the Equip window (RunWorld.equip_item: v83 requirements enforced, a refusal shows its message
 ## and changes nothing); a worn item dragged here from the Equip window is taken off. Dragging an item off the
 ## windows asks the v83 YesNo question (DropConfirm) and then destroys it (RunWorld.discard_item; it is not dropped
-## on the ground, the magnet would take it straight back: tier C). Use tab: the HP and MP potion stacks (read-only,
-## the potions keep their quickslot keys) and the scroll stacks (Basic.img/ItemNo counts); scrolls can be discarded
-## the same way, potions never. Set-up, Etc and Cash are empty. Hovering a slot shows the item's tooltip. Without the
+## on the ground, the magnet would take it straight back: tier C). Use tab: scroll stacks (Basic.img/ItemNo counts),
+## which can be discarded the same way. Potions live only in the quick slot. Set-up, Etc and Cash are empty.
+## Hovering a slot shows the item's tooltip. Without the
 ## cache the window keeps its layout and draws plain tabs and slots.
 
 const ART := "UI.wz/UIWindow.img/Item/"
@@ -88,7 +88,7 @@ func slot_at(p: Vector2) -> int:
 
 
 ## What the shown tab's slots hold, in slot order: Equip tab {"kind": "inventory", "index", "id"}, Use tab
-## InventoryModel.use_cells (potions, then scrolls), nothing on the other tabs.
+## InventoryModel.use_cells (scrolls only), nothing on the other tabs.
 func cells() -> Array:
 	if world == null:
 		return []
@@ -99,7 +99,7 @@ func cells() -> Array:
 				out.append({"kind": "inventory", "index": i, "id": int(world.equipment.inventory[i].id)})
 			return out
 		1:
-			return InventoryModel.use_cells(world.potions.snapshot(), world.scrolls)
+			return InventoryModel.use_cells(world.scrolls)
 	return []
 
 
@@ -140,7 +140,7 @@ func receive_drop(payload: Dictionary) -> bool:
 	return apply("unequip", world.unequip_item(String(payload.slot))) == ""
 
 
-## Equipment and scrolls dragged off the windows ask the v83 question first; potions are never discarded.
+## Equipment and scrolls dragged off the windows ask the v83 question first.
 func drop_outside(payload: Dictionary) -> void:
 	if not String(payload.get("kind", "")) in ["inventory", "scroll"]:
 		return
@@ -178,7 +178,7 @@ func tooltip_for(payload: Dictionary) -> Dictionary:
 			if world == null or index < 0 or index >= world.equipment.inventory.size():
 				return {}
 			return equip_tooltip(world.equipment.inventory[index])
-		"potion", "scroll":
+		"scroll":
 			return use_tooltip(int(payload.id))
 	return {}
 

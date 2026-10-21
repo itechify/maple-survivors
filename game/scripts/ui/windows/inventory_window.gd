@@ -10,8 +10,8 @@ extends UiWindow
 ##   - hover tooltips (ItemTooltip) of the item under the mouse, placed beside the cursor and kept above the bar;
 ##   - `apply(action, reason)`: emits `item_action` after a change, or `notice` with the message for a refusal.
 ## Subclasses implement payload_at(), activate(), receive_drop(), drop_outside() and tooltip_for(); a payload is the
-## plain item description of one slot: {"kind": "worn", "slot"} / {"kind": "inventory", "index"} / {"kind": "potion" |
-## "scroll"} plus "id" and, for stacks, "count".
+## plain item description of one slot: {"kind": "worn", "slot"} / {"kind": "inventory", "index"} / {"kind": "scroll"}
+## plus "id" and, for stacks, "count".
 
 ## Emitted after the world changed the character ("equip", "unequip", "discard", "scroll"); the host refreshes the
 ## drawn look and its other windows.
@@ -139,7 +139,7 @@ func equip_tooltip(instance: Dictionary) -> Dictionary:
 	return tip
 
 
-## The tooltip data of a Use item (potion, scroll): name, description, icon.
+## The tooltip data of a Use item (scroll): name, description, icon.
 func use_tooltip(id: int) -> Dictionary:
 	return {"name": item_name(id), "desc": InventoryModel.clean_desc(UiArt.text(InventoryModel.desc_path(id))),
 		"icon": InventoryModel.icon_path(id)}

@@ -100,10 +100,10 @@ window shows each worn item's icon in its v83 slot (CAP, CLOTHES for a top or an
 WEAPON); a double-click takes an item off into the inventory, as does dragging it onto the Item window. The Item
 window has the v83 tabs: Equip holds the 24 slots of spare equipment (a double-click, or a drag onto the Equip
 window, wears an item, swapping out what was in its slot; a refused v83 requirement shows a message and changes
-nothing), Use holds the HP and MP potion stacks (read-only, the potions keep their quickslot keys) and the scroll
-stacks, Set-up / Etc / Cash are empty, and the meso line shows the character's mesos. Dragging equipment or a scroll
+nothing), Use holds only scroll stacks in all 24 slots (potions live only in the quick slot), Set-up / Etc / Cash
+are empty, and the meso line shows the character's mesos. Dragging equipment or a scroll
 stack off the windows asks v83's YesNo question and then destroys the item (it is not dropped on the ground, the
-magnet would take it straight back; worn items have to be taken off first, potions are never discarded). Hovering
+magnet would take it straight back; worn items have to be taken off first). Hovering
 an item shows the v83 tooltip (name with "(+N)" after N successful scrolls, icon, REQ LEV / STR / DEX / INT / LUK
 with the unmet ones in red, the job row, CATEGORY, ATTACK SPEED, the stats, NUMBER OF UPGRADES AVAILABLE, the
 String.wz description). Every change goes through the character's RunWorld, so the derived stats, the drawn look
@@ -3278,8 +3278,8 @@ quantities per kind.
   and `cursed` are the WZ values unchanged. In the game: 100%, 60%, 10% and the dark 70% / 30% scrolls of the families
   below; event 65% / 15%, 50%, the "strong" 100%, Balrog's, Chaos, Clean Slate, White and other classes' weapon
   scrolls are out. Scroll stacks live in the character's `scrolls` map ({"<id>": count}); a stack holds at most
-  `info/slotMax` (100 when WZ names none, as for every 0204 scroll) and the Use tab has 24 slots, two of them the
-  potion stacks (tier A), so 22 scroll stacks. RunWorld adds `use_scroll(scroll_id, slot)` (the scroll is used up
+  `info/slotMax` (100 when WZ names none, as for every 0204 scroll) and the Use tab has 24 slots, all for scroll
+  stacks (#239; potions occupy none). RunWorld adds `use_scroll(scroll_id, slot)` (the scroll is used up
   whenever it was read, `scroll_used` carries the result), `grant_scrolls` and uses RNG stream 11; stats and drawn
   look refresh through `equipment_changed` (action `scroll`).
 
@@ -3294,11 +3294,11 @@ quantities per kind.
   | Wand, Staff | Magic Att. |
 
 - **Scroll shops (spec #33, #111)**: `Shop` (pure, static) works on a plain character state (`mesos`, `scrolls`,
-  `equipment`, `potions`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
+  `equipment`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
   `Shop.stock(npc, rules, scrolls.json, drop list, item info, job)`: the NPC's rates (shops.json) of every family whose
   item category (`(item id / 10000) % 100`, the scroll's `(id / 100) % 100`) some drop-list item the job can wear
   (`Equipment.job_allows`) belongs to, in file order, each priced by its slot. `buy` is all-or-nothing: `count` (below
-  1), `mesos`, `use_full` (a stack stops at slotMax, the tab holds 22 scroll stacks beside the potions; checked before
+  1), `mesos`, `use_full` (a stack stops at slotMax, the tab holds 24 scroll stacks; checked before
   any mesos are taken). `sell_equipment` / `sell_scrolls` pay `info/price` (`unsellable` without one, `no_item` for a bad
   index or too few scrolls); `sell_worn` is the refusal for a worn item (`worn`). RunWorld adds `shop_stock(npc_id)`,
   `buy_scroll(npc_id, scroll_id, count)` (also `not_sold` for a scroll outside the stock), `sell_item(index)` and
@@ -5227,7 +5227,8 @@ random policy shares the movement and the camper policies still override it afte
   `StatusBar.img/base/quickSlot`, 151 × 80, a 4 × 2 grid) stands above the bar's right end, display only. Its 8 cells are, in a fixed order, top row
   **HP potion, MP potion, movement skill, Jump** and bottom row **Equip, Item, Stat, Skill**; each shows the icon Key Config uses for that
   action (`KeyActionArt`) and a small caption of the **first key it is bound to** (nothing when unbound; web-reserved keys such as F11 are
-  captioned too); the potions show their current item's icon and stock (ItemNo digits, bottom-left of the cell); the movement cell shows Teleport
+  captioned too); the potions show their current item's icon without a stock number and share the skill icons' dark
+  clockwise cooldown sweep (`CooldownSweep`, 1/96 steps, redraw only when a step changes); the movement cell shows Teleport
   or Dash, whichever the character has learned, and stays empty until then. The v83 `QuickSlotD` arrow button (the `QuickSlot` up arrow while
   folded) hides and shows the panel; the state is kept in `settings.cfg` `[hud] quick_slot_collapsed` (default shown). Captions update at
   once after Key Config OK. Separate buff and boss widgets reserve space below the kill count and timer. Full-run pacing and structural checks cover progression, EXP collection, Magician
@@ -5664,7 +5665,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | MP Recovery auto-cast condition (#193, 7.16) | casts only while MP < 30% of MaxMP (`cast.mp_below` 0.30) and HP >= 75% of MaxHP before paying (`cast.hp_at_least` 0.75, about 65% after); no monster needed; never leaves 0 HP | C | owner decisions (#168 grilling); both thresholds in `skills/pirate.json` |
 | MP Recovery rounding and timing (#193, 7.16) | HP paid = max(1, round(MaxHP x 10%)); MP gained = floor(paid x y%), clamped to MaxMP; 0.6 s action hold; cards `mp_recovery_new`/`_rank` weight 2/2, `power` false, Brawler (510) only | C | ours; untuned |
 | Teleport autoplay and HUD | same-height threats (existing duel band, feet +/-40 px): blink within 60 px, or when mobs block both sides within existing 160 px flee distance. An edge within 60 px plus a threat within 60 px on the interior side escapes toward the interior; otherwise choose the safer side. Requires learned skill, reserve, interval and a destination. HUD: the shared blue waiting-for-MP tint (#82; was 0.35 grey); 80 ms evidence capture delay | C | ours; BotInput, HudSkills, RunScene |
-| HUD skill cooldown sweep and MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82); HudSkills (SWEEP_STEPS), RunWorld.skill_readiness / read_skill_cooldowns |
+| HUD skill and potion cooldown sweep, skill MP wait tint | a cooling skill icon is covered by a black 60% overlay wedge of (left / total set at the last cast) x 360 degrees ending at 12 o'clock, so it clears clockwise, moving in 1/96 steps of the cooldown (one per pixel of a 24 px icon's edge; the widget redraws only when a step or tint changes); not drawn below 0.2%; Teleport uses its repeat timer; a ready skill that would cast but lacks MP is modulated blue (0.35, 0.5, 1.0); no seconds text | C | ours (#82, #239); CooldownSweep (SWEEP_STEPS), HudSkills, HudQuickSlot; RunWorld.skill_readiness / read_skill_cooldowns |
 | Bot manual-skill MP reserve (Teleport, Dash) | after canonical cost, retain max(25% max MP, 2 x highest MP cost among learned automatic attacks); buffs, passives and manual skills excluded | C | a priori policy: preserve one attack plus an equal combat margin; the quarter-pool floor leaves MP for Magic Guard even with cheap attacks; `BotInput.MANUAL_SKILL_MP_RESERVE_FRACTION` / `MANUAL_SKILL_ATTACK_RESERVE_CASTS` |
 | Bot Teleport interval | at least 5 simulation seconds between valid-destination escape requests, recorded in bot memo | C | a priori policy: allow several auto-cast cycles and ordinary kiting before another emergency blink; independent of the player's 0.3 s repeat; `BotInput.TELEPORT_MIN_INTERVAL` |
 | Teleport card weights | new/rank weight 2, max rank 20; no behaviour modifiers | C | ours; upgrades.json |
@@ -5944,7 +5945,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Scroll rules (#110) | a scroll fits when `(scroll id / 100) % 100 == (item id / 10000) % 100` and the worn item has an upgrade slot; roll 0-99 below `info/success` adds the scroll's `inc*`, counts one scroll; every use spends one slot and the scroll; a failed scroll with `info/cursed` destroys the item at a 0-99 roll below it; only worn items can be scrolled, never inventory items | A (id convention, `success` / `cursed` / stats read from `Item.wz/Consume/0204.img`), C (roll order, nothing else) | v83 data; ticket #110 |
 | Scroll roster (#110) | `game/data/survivor/scrolls/<line>.json` (common = armour slots, magician = wand and staff): slot -> family -> `100` / `60` / `10` / `dark70` / `dark30` ids; the strong 100%, event 65% / 15%, 50% and other classes' scrolls are out; 2040016 (hat ACC 10%, WZ `success` is the string "10", cast by `DataRepo.scroll_info`) is in; two DEX / LUK series for hat, top and bottom are listed as separate families | C (selection), A (every id and its stats) | ours; `Item.wz/Consume/0204.img` |
 | Scroll RNG stream (#110) | RunWorld stream 11 (`scroll_rng`) rolls success and curse; the Free Market derives its seed from the saved round seed, equipment, scrolls and mesos, normalizing JSON numbers before hashing; construction and each saved inventory action use the same stream derivation, so Continue or Cash Shop return preserves the next roll | C | ours |
-| Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, two taken by the potion stacks, so 22 scroll stacks | A (24 Use slots, 100 stack), C (potions occupying two) | v83 inventory; ours |
+| Scroll stacks (#110) | a stack holds `info/slotMax` scrolls (100 when WZ names none: all of 0204 do); the Use tab has 24 slots, all for scroll stacks; potions occupy none (#239) | A (24 Use slots, 100 stack), C (scrolls only) | v83 inventory; ours |
 | Scroll effect (#110) | `EnchantFx` plays `BasicEff.img/Enchant/Success` (success) or `Enchant/Failure` (failure, destruction) anchored at the character's feet in a screen-space layer 12 above the in-run windows (the held world is frozen), with `Game.img/EnchantSuccess` / `EnchantFailure`; `EnchantSuccess_Delay` / `EnchantFailure_Delay` are unused | A (art, sounds), C (layer, anchor) | ours; `Effect.wz/BasicEff.img/Enchant`, `Sound.wz/Game.img` |
 | Scroll messages (#110) | "This scroll cannot be used on that item." / "That item has no upgrade slots left." as HUD notices; a drop on an empty cell or empty space of the Equip window does nothing | C (the v83 client's wording is unverified) | ours |
 | Scroll NPCs (#111) | El Moth 1032103 (100%), Barun 2022002 (60%), Tulcus 1052104 (10%), Vega 2041016 (dark 70% / 30%), standing on the Free Market floor at x -380, -280, -180 and 40 (`shops.json`); all four have art in v83 `Npc.wz`, so none is replaced; names from `String.wz/Npc.img` | A (ids, art, names; they are v83's own scroll sellers), C (which NPC sells which rate, the positions) | Owner #33; `Npc.wz`, `String.wz/Npc.img` |

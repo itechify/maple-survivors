@@ -4,7 +4,7 @@ extends HudWidget
 ## the status bar, showing in a fixed order the HP potion, the MP potion, the learned movement skill (Teleport or Dash,
 ## empty until learned) and Jump on the top row, and the Equip, Item, Stat and Skill windows on the bottom row. Each cell
 ## holds the icon Key Config uses for its action (KeyActionArt) and a small caption of the first key it is bound to,
-## wherever that is; the potions show their current item's icon and the stock in the ItemNo digits.
+## wherever that is; the potions show their current item's icon and a cooldown sweep.
 ##
 ## Display only: the widget takes no mouse (the collapse button is a Hud sibling) and nothing is clickable or draggable;
 ## rebinding stays in Key Config. The model (`cells`) is pure; captions are re-read from the live bindings on
@@ -17,8 +17,9 @@ const PANEL_SIZE := Vector2(151, 80)
 const COLUMNS := 4
 const MOVEMENT := "movement"
 const ORDER := ["drink_hp", "drink_mp", MOVEMENT, "jump", "equip_window", "item_window", "stat_window", "skill_window"]
-## Potion cell -> its stock kind.
+## Potion cell -> its kind (also the per-frame cooldown buffer order).
 const POTION_KINDS := {"drink_hp": "hp", "drink_mp": "mp"}
+const COOLDOWN_KINDS := ["hp", "mp"]
 ## tier C (measured on the v83 quickSlot canvas): the first cell's white interior and the pitch from cell to cell; the
 ## 32 px icon box that centres an icon on a cell's bevelled tile.
 const CELL_INTERIOR := Rect2(10, 9, 27, 25)
@@ -26,7 +27,7 @@ const CELL_PITCH := Vector2(35, 34)
 const ICON_POS := Vector2(7, 6)
 const ICON_BOX := Vector2(32, 32)
 ## tier C (ours): key captions are 9 px (the Key Config keycap size), white with a 1 px dark outline, at a cell's
-## top-left; a potion's stock stands at its bottom-left (as in the v83 quick slot).
+## top-left.
 const CAPTION_SIZE := 9
 const CAPTION_COLOR := Color8(255, 255, 255)
 const CAPTION_OUTLINE := Color8(40, 59, 76)
@@ -41,6 +42,9 @@ var collapsed: bool:
 var _potions: Dictionary = {}
 var _movement: Dictionary = {}
 var _cells: Array[Dictionary] = []
+## HP / MP overlay steps and reused draw polygon, independent of the slower snapshot feed.
+var _steps := PackedInt32Array([0, 0])
+var _sweep := PackedVector2Array()
 
 
 func _init() -> void:
@@ -48,13 +52,13 @@ func _init() -> void:
 	refresh_key_labels()
 
 
-## The 8 cell models in ORDER: [{action, icon_path, caption, count, item_id}]. `captions` maps an action to its key
-## caption ("" or absent = unbound), `potions` is the snapshot's {hp, mp: {item_id, count}} and `movement_skill` the
-## learned skill key `{action, name, icon}` ({} = none learned). `count` is -1 for a cell without stock. Pure.
+## The 8 cell models in ORDER: [{action, icon_path, caption, item_id}]. `captions` maps an action to its key
+## caption ("" or absent = unbound), `potions` is the snapshot's {hp, mp: {item_id, cooldown_left, cooldown_total}}
+## and `movement_skill` the learned skill key `{action, name, icon}` ({} = none learned). Pure.
 static func cells(captions: Dictionary, potions: Dictionary, movement_skill: Dictionary) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for slot: String in ORDER:
-		var cell := {"action": slot, "icon_path": "", "caption": "", "count": -1, "item_id": 0}
+		var cell := {"action": slot, "icon_path": "", "caption": "", "item_id": 0}
 		if slot == MOVEMENT:
 			if movement_skill.is_empty():
 				cell.action = ""
@@ -64,9 +68,8 @@ static func cells(captions: Dictionary, potions: Dictionary, movement_skill: Dic
 		else:
 			cell.icon_path = KeyActionArt.icon_path(slot)
 		if POTION_KINDS.has(slot):
-			var stock: Dictionary = potions.get(POTION_KINDS[slot], {})
-			cell.item_id = int(stock.get("item_id", 0))
-			cell.count = int(stock.get("count", 0))
+			var potion: Dictionary = potions.get(POTION_KINDS[slot], {})
+			cell.item_id = int(potion.get("item_id", 0))
 			if cell.item_id > 0:
 				cell.icon_path = AssetLibrary.item_icon_path(cell.item_id, false)
 		cell.caption = String(captions.get(cell.action, ""))
@@ -103,7 +106,25 @@ func update(ps: Dictionary, info: Dictionary) -> void:
 	super.update(ps, info)
 	_potions = ps.get("potions", {})
 	_movement = info.get("movement_skill", {})
+	for i in COOLDOWN_KINDS.size():
+		var potion: Dictionary = _potions.get(COOLDOWN_KINDS[i], {})
+		_steps[i] = CooldownSweep.sweep_step(float(potion.get("cooldown_left", 0.0)),
+			float(potion.get("cooldown_total", 0.0)))
 	_rebuild()
+
+
+## Takes per-frame HP / MP remaining and total seconds from reused buffers. Redraws and returns true only when
+## a potion's sweep step changes; builds no arrays or dictionaries.
+func set_cooldowns(left: PackedFloat32Array, total: PackedFloat32Array) -> bool:
+	var changed := false
+	for i in mini(COOLDOWN_KINDS.size(), mini(left.size(), total.size())):
+		var step := CooldownSweep.sweep_step(left[i], total[i])
+		if step != _steps[i]:
+			_steps[i] = step
+			changed = true
+	if changed:
+		queue_redraw()
+	return changed
 
 
 ## Re-reads the key captions from the live bindings and redraws with them.
@@ -124,14 +145,14 @@ func cell(action: String) -> Dictionary:
 	return {}
 
 
-## The potion cell of `kind` ("hp" / "mp") as {kind, item_id, count, key_label, icon: SpriteFrame}, or {} for an
+## The potion cell of `kind` ("hp" / "mp") as {kind, item_id, key_label, icon: SpriteFrame, sweep_step}, or {} for an
 ## unknown kind: the same snapshot and art _draw uses.
 func displayed(kind: String) -> Dictionary:
 	for action: String in POTION_KINDS:
 		if POTION_KINDS[action] == kind:
 			var c := cell(action)
-			return {"kind": kind, "item_id": c.item_id, "count": c.count, "key_label": c.caption,
-				"icon": _icon_of(c, true)}
+			return {"kind": kind, "item_id": c.item_id, "key_label": c.caption,
+				"icon": _icon_of(c, true), "sweep_step": _steps[COOLDOWN_KINDS.find(kind)]}
 	return {}
 
 
@@ -158,11 +179,11 @@ func _draw() -> void:
 		if panel == null:
 			draw_rect(inner, Color8(99, 147, 183))
 		var icon := _icon_of(c, true)
+		var icon_pos := ICON_POS + CELL_PITCH * Vector2(i % COLUMNS, i / COLUMNS)
 		if icon != null:
-			_blit(icon, ICON_POS + CELL_PITCH * Vector2(i % COLUMNS, i / COLUMNS)
-				+ ((ICON_BOX - icon.region.size) * 0.5).floor())
-		if int(c.count) >= 0:
-			_rank(Vector2(inner.position.x, inner.end.y), int(c.count), true, true)
+			_blit(icon, icon_pos + ((ICON_BOX - icon.region.size) * 0.5).floor())
+		if i < COOLDOWN_KINDS.size():
+			CooldownSweep.draw_overlay(self, _steps[i], Rect2(icon_pos, ICON_BOX), _sweep)
 		var caption := String(c.caption)
 		if caption != "":
 			caption = MapleText.ellipsize(caption, CAPTION_MAX_W, CAPTION_SIZE)

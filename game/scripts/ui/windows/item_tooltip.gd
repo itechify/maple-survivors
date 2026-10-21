@@ -6,7 +6,7 @@ extends Control
 ## INT / LUK, the `Cannot` red set for an unmet one), the job row (`beginner` .. `pirate`, lit for the lines the item
 ## allows), then one line per fact with the v83 label art (`Property`: CATEGORY, ATTACK SPEED, WEAPON ATTACK ..
 ## JUMP, NUMBER OF UPGRADES AVAILABLE) and the `ItemCategory` / `WeaponCategory` / `Speed` word art for its value;
-## STR / DEX / INT / LUK / MaxHP / MaxMP have no v83 label art and are drawn as text. A Use item (potion, scroll)
+## STR / DEX / INT / LUK / MaxHP / MaxMP have no v83 label art and are drawn as text. A Use item (scroll)
 ## shows its name, icon and String.wz description. v83 has no tooltip frame art (UI.wz holds no UIToolTip.img), so
 ## the box is drawn, like the Skill window's.
 ##

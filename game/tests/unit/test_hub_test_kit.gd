@@ -79,8 +79,8 @@ func test_the_kit_holds_every_rate_of_the_main_families_within_the_use_tab() -> 
 	assert_eq(held, want)
 	for id: int in KIT_SCROLL_IDS:
 		assert_true(int(character.scrolls[str(id)]) >= 5, "%d is stocked" % id)
-	assert_true(character.scrolls.size() <= Shop.use_stack_limit(character.potions),
-		"the stacks fit the Use tab beside the potion stacks")
+	assert_eq(Shop.use_stack_limit(), 24)
+	assert_true(character.scrolls.size() <= Shop.use_stack_limit(), "the stacks fit the Use tab")
 	var ids := Scrolls.ids(DataRepo.load_split("scrolls"))
 	for id: int in KIT_SCROLL_IDS:
 		assert_true(id in ids, "%d is a scroll of scrolls.json" % id)
@@ -91,7 +91,7 @@ func test_the_kit_keeps_scrolls_the_character_already_has_and_never_overfills_th
 	base.scrolls = {"2040000": 3}
 	var character := HubTestKit.apply(base, 1, _loader())
 	assert_eq(character.scrolls["2040000"], 3, "an existing stack stays")
-	assert_true(character.scrolls.size() <= Shop.use_stack_limit(character.potions))
+	assert_true(character.scrolls.size() <= Shop.use_stack_limit())
 	assert_eq(CharacterSnapshot.validation_error(character), "")
 
 

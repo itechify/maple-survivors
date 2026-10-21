@@ -109,14 +109,9 @@ static func meso_text(mesos: int) -> String:
 	return out
 
 
-## The Use tab's stacks: the HP and MP potion stacks (`potions`: {hp: {item_id, count}, mp: ...}), then the scroll
-## stacks (`scrolls`: {"<id>": count}) by id.
-static func use_cells(potions: Dictionary, scrolls: Dictionary) -> Array:
+## The Use tab's scroll stacks (`scrolls`: {"<id>": count}) by id. Potions live only in the quick slot.
+static func use_cells(scrolls: Dictionary) -> Array:
 	var out := []
-	for kind: String in ["hp", "mp"]:
-		var stock: Dictionary = potions.get(kind, {})
-		if int(stock.get("item_id", 0)) > 0:
-			out.append({"kind": "potion", "potion": kind, "id": int(stock.item_id), "count": int(stock.get("count", 0))})
 	var ids := []
 	for key: Variant in scrolls:
 		ids.append(int(key))
