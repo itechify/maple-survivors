@@ -221,6 +221,27 @@ test('save import only stages candidates; primary and backup are left for game v
 	await assert.rejects(lib.stageSaveImport('{"format":1,"best":{},"runs":{}}', async () => { throw new Error('quota'); }), /quota/);
 });
 
+test('tab ownership excludes another mount and permits takeover only after owner release or exit', async () => {
+	const owners = new Set();
+	const locks = { request: async (name, options, callback) => {
+		assert.deepEqual(options, { ifAvailable: true, mode: 'exclusive' });
+		if (owners.has(name)) return callback(null);
+		owners.add(name);
+		try { await callback({ name }); } finally { owners.delete(name); }
+	} };
+	const first = lib.createStoreOwnership(locks);
+	const second = lib.createStoreOwnership(locks);
+	assert.equal(await first.acquire(), true);
+	assert.equal(await second.acquire(), false);
+	assert.equal(await first.acquire(), true, 'reentry does not drop ownership');
+	await first.release();
+	assert.equal(await second.acquire(), true);
+	await second.release();
+	assert.equal(owners.size, 0);
+	await assert.rejects(lib.createStoreOwnership(undefined).acquire(), /Web Locks/);
+	await assert.rejects(lib.createStoreOwnership({ request: async () => { throw new Error('denied'); } }).acquire(), /denied/);
+});
+
 test('isAudioTeardownError recognises the Godot web shutdown TypeError', () => {
 	assert.ok(lib.isAudioTeardownError("TypeError: Cannot read properties of null (reading 'currentTime')"));
 	assert.ok(!lib.isAudioTeardownError('TypeError: x is not a function'));
