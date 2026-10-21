@@ -1993,8 +1993,17 @@ func _on_player_hit(slot: int, hit: Dictionary) -> void:
 
 
 func _stream(n: int) -> RandomNumberGenerator:
+	return _seeded_stream(seed_value, n)
+
+
+## Resets the scroll stream from a saved hub-state seed using the same derivation as world construction.
+func reseed_scroll_rng(p_seed: int) -> void:
+	scroll_rng = _seeded_stream(p_seed, 11)
+
+
+static func _seeded_stream(p_seed: int, n: int) -> RandomNumberGenerator:
 	var r := RandomNumberGenerator.new()
-	r.seed = seed_value * 1000003 + n * 7919
+	r.seed = p_seed * 1000003 + n * 7919
 	return r
 
 

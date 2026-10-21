@@ -72,7 +72,9 @@ func configure(p_snapshot: Dictionary, p_flow: SceneFlow, p_options: Dictionary 
 ## or pickup) changes the next seed, and quitting and continuing cannot reroll (tier C, review of spec #33).
 static func scroll_seed(p_snapshot: Dictionary) -> int:
 	var character: Dictionary = p_snapshot.get("character", {})
-	var state := {"equipment": character.get("equipment", {}), "scrolls": character.get("scrolls", {}),
+	# JSON parses numbers as floats; hash the same integer-valued state live and after a save/load.
+	var state := {"equipment": Equipment.normalized(character.get("equipment", Equipment.empty_state())),
+		"scrolls": CharacterSnapshot.integers(character.get("scrolls", {})),
 		"mesos": int(character.get("mesos", 0))}
 	return (int(p_snapshot.get("round_seed", 0)) * 1000003 + hash(JSON.stringify(state, "", true))) & 0x7FFFFFFF
 
@@ -408,7 +410,7 @@ func _on_item_action(_action: String) -> void:
 		if event.type == "scroll_used":
 			wiring.scroll_used(String(event.result), avatar.get_global_transform_with_canvas().origin)
 	snapshot.character = inventory.character_snapshot()
-	inventory.scroll_rng.seed = scroll_seed(snapshot) # the next scroll rolls from the state this action left
+	inventory.reseed_scroll_rng(scroll_seed(snapshot)) # the next scroll rolls from the state this action left
 	var owned: Array = flow.save_data().account.owned if flow != null else []
 	avatar.set_look(character_look(snapshot.character, _data, owned))
 	_sync_pet(owned)

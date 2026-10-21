@@ -169,6 +169,8 @@ func test_the_hub_seeds_scrolls_from_the_saved_state_so_reloading_cannot_reroll(
 		"equipment": {"worn": {"hat": {"id": 1002001, "stats": {"incPDD": 4}, "slots": 7, "scrolls": 0}}, "inventory": []}}}
 	var seed_a := FreeMarket.scroll_seed(base)
 	assert_eq(seed_a, FreeMarket.scroll_seed(base.duplicate(true)), "the same save always gives the same seed")
+	assert_eq(seed_a, FreeMarket.scroll_seed(JSON.parse_string(JSON.stringify(base))),
+		"JSON's float-valued numbers represent the same saved state")
 	var read := base.duplicate(true)
 	read.character.scrolls["2043700"] = 1
 	read.character.equipment.worn.hat.slots = 6
