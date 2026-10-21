@@ -166,4 +166,3 @@ class StageTimer extends RefCounted:
 		var now := Time.get_ticks_usec()
 		_acc[PARTS.find(part)] += now - _last
 		_last = now
-
