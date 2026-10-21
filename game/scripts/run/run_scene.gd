@@ -1376,15 +1376,18 @@ func _apply_look() -> void:
 func _warp(to: float) -> void:
 	while world.time < to - 1e-6:
 		BotInput.auto_choose(world, false, _forced_job(), _forced_job_path())
-		if world.state != RunWorld.PLAYING:
-			break
-		world.step(DT, BotInput.decide(world, _bot_memo))
+		if world.state in [RunWorld.CHOOSING_JOB, RunWorld.CHOOSING_UPGRADE]:
+			break # auto_choose's bounded batch left choices for the presentation; preserve their pending events
+		if world.state == RunWorld.PLAYING:
+			world.step(DT, BotInput.decide(world, _bot_memo))
 		_after_tick()
 		var drained := world.drain_events()
 		for e: Dictionary in drained:
 			if String(e.type) in ["player_died", "stage_cleared"]:
 				_warp_end_events.append(e)
 		BotShop.equip_after(world, drained)
+		if world.state in [RunWorld.DEAD, RunWorld.CLEARED]:
+			break # includes a clear emitted by the last auto-choice, with no further sim tick
 	_warped = world.time
 
 

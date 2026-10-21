@@ -33,18 +33,19 @@ func _run(w: RunWorld) -> Dictionary:
 	var alive: PackedInt32Array = st.alive
 	var last_skill := {}
 	var memo := {}
-	for t in ceili(cap / DT):
+	var ticks := ceili(cap / DT)
+	for t in ticks + 1: # the final choice-only pass must also drain settlement events
 		RF.auto_choose(w)
-		if w.state != RunWorld.PLAYING:
-			break
-		w.step(DT, RF.bot_input(w, memo))
-		if t % 60 == 0:
-			alive.append(w.swarm.alive_count())
-			if w.time >= 480.0:
-				st.near_after_8 = int(st.near_after_8) + _near(w)
-			if w.time >= 360.0 and w.time < 720.0:
-				st.engaged_6_12 = int(st.engaged_6_12) + _engaged(w)
-				st.alive_6_12 = int(st.alive_6_12) + w.swarm.alive_count()
+		var ticked := w.state == RunWorld.PLAYING and t < ticks
+		if ticked:
+			w.step(DT, RF.bot_input(w, memo))
+			if t % 60 == 0:
+				alive.append(w.swarm.alive_count())
+				if w.time >= 480.0:
+					st.near_after_8 = int(st.near_after_8) + _near(w)
+				if w.time >= 360.0 and w.time < 720.0:
+					st.engaged_6_12 = int(st.engaged_6_12) + _engaged(w)
+					st.alive_6_12 = int(st.alive_6_12) + w.swarm.alive_count()
 		for e: Dictionary in w.drain_events():
 			st.events += 1
 			match String(e.type):
@@ -77,7 +78,8 @@ func _run(w: RunWorld) -> Dictionary:
 					st.died = true
 				"stage_cleared":
 					st.cleared = true
-	RF.auto_choose(w)
+		if not ticked:
+			break
 	st["alive"] = alive
 	st["spawn_minutes"] = spawn_minutes
 	return st

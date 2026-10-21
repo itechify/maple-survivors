@@ -126,12 +126,14 @@ func test_every_event_matches_the_schema() -> void:
 		w.step(DT, RF.bot_input(w, memo))
 		for e: Dictionary in w.drain_events():
 			_check(e, seen)
+	RF.auto_choose(w)
 	if w.state == RunWorld.PLAYING:
 		w.duration = w.time
 		w.bosses = BossDirector.new() # The clear event's schema is independent of the boss clear gate.
 		w.step(DT, MoveInput.new())
-		for e: Dictionary in w.drain_events():
-			_check(e, seen)
+		RF.auto_choose(w) # settle swept EXP choices before expecting stage_cleared
+	for e: Dictionary in w.drain_events():
+		_check(e, seen)
 	# A death for player_died.
 	var d := RF.quiet_world(400.0)
 	RF.put_mob(d, 1110100, 430.0)

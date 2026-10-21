@@ -92,6 +92,10 @@ The outgoing CharacterSnapshot is required only on clears. Terminal death archiv
 character when no outgoing snapshot is supplied, even with unanswerable rewards/jobs/cards; results and stage
 bests use the actual round-end summary. `CharacterSnapshot.restore_loadout` decodes skills, ranks and modifiers
 for both RunWorld and the Free Market.
+On clear, RunWorld first settles every collectible ground drop and every resulting choice (4.4.2); `stage_cleared`
+is emitted only after that settlement. RunScene takes the outgoing snapshot after the clear presentation hold.
+Quit round during a settlement choice still leaves the starting round boundary unchanged. Continue either replays
+that original round or resumes the saved, fully settled hub character; no live pickups or settlement flags persist.
 `FreeMarket` uses `FreeMarketMotion` (PlayerMotion, FootholdMap, LadderSet and PortalSet) without a RunWorld;
 there are no combat, spawning, drop or round-clock systems. MapRenderer/CameraRig draw the map and AvatarRenderer
 draws CharacterSnapshot.look with the character's worn equipment. A status bar displays full HP/MP and identity, while
@@ -313,13 +317,25 @@ The presentation layer shows the windows and calls back:
 |---|---|
 | `apply_job(job_id, path := "")` | advance (emits `job_changed`; a path records `weapon_path`, #157; the job grant is worn), open an extra advancement draw, then the normal upgrade choice for that level |
 | `decline_job()` | stay, then continue to the upgrade choice |
-| `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else back to `PLAYING` |
+| `apply_choice(card_id)` | apply the card (emits `upgrade_applied`), then the next queued level, else settle a completed objective or return to `PLAYING` |
 
 Level-up effects and their short pause before the window are presentation-only. Boss bonus picks use
 `CHOOSING_UPGRADE` with `RunWorld.choice_bonus` and `pending_bonus_choices`; they take priority over the level queue.
 `apply_choice` consumes a bonus without changing the level or queue. Exhausted bonus draws offer Power Elixir
 and still require a choice before clear.
 The bonus window uses a "Boss Reward" title and omits the gained-level notice.
+
+Tier C owner finale policy (2026-10-21, MS-07/MS-08): after the last mandatory answer, an already completed objective
+settles synchronously, before any further `step()` can advance combat or time. `PickupSystem.collect_all(events,
+equip_room)` collects remaining drops in ascending pool-slot order without motion/expiry, using the same accounting,
+`pickup_collected` events and despawn path as `step()`. RunWorld credits them through its ordinary potion, meso,
+equipment and auto-wear paths, then feeds their EXP through `_gain_exp` and the existing choice queue.
+Auto-wear that frees inventory room triggers another sweep pass without advancing time. These choices
+keep the sim frozen; their final answer retries settlement (including equipment spilled by job grants), then enters
+`CLEARED` and emits one `stage_cleared`. Equipment without inventory room retains the ordinary blocked-on-ground
+rule and notice; it does not stall clear. Death during the active combat tick still takes priority over settlement.
+The duration fallback for bossless stages also waits for all choices. Warp mode drains terminal events emitted by
+auto-choice calls even when no subsequent sim step runs.
 
 ### 4.4.3 Event schema
 
@@ -350,8 +366,8 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `portal_used` | `portal` (source `pn`, String), `target` (destination `pn`, String), `pos` (arrival feet, Vector2) |
 | `player_died` | `pos` |
 | `pickup_spawned` | `pickup`, `item_id`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind` (hp/mp or empty), `count` (potion bundle or meso amount; 1 for equipment, whose `item_id` is the equipment id; 0 for EXP) |
-| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
-| `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): the player came within magnet range of an equipment drop while the Equip tab is full; once per approach, the drop stays on the ground |
+| `pickup_collected` | `pickup`, `item_id`, `exp`, `pos`, `kind` (exp/potion/meso/equip), `potion_kind`, `count` (potion bundle or meso amount; 1 for equipment), `collector` (`player`, including the finale sweep, or `pet` when the pet's pickup radius or VAC took it; credited the same, mesos and equipment included) |
+| `pickup_blocked` | `pickup`, `item_id`, `pos`, `reason` (`inventory_full`): an equipment drop meets a full Equip tab during magnet pickup or finale settlement; once per approach (or settlement attempt until room changes), the drop stays on the ground |
 | `potion_used` | `kind` (hp/mp), `item_id`, `restored` (actual integer gain after clamping), `count` (remaining stock) |
 | `pet_potion_used` | same fields as `potion_used`, for the pet's Auto HP/MP Potion Pouch drinks (counted apart from the player's) |
 | `pet_teleported` | `from`, `pos` (the pet's feet): it jumped to the player; a renderer snaps instead of interpolating |
@@ -368,7 +384,7 @@ the presentation after it drains them. `mob`, `proj`, `pickup` are **sim slot in
 | `upgrade_applied` | `id`, `rank`, `tier` (displayed Potential tier), `magnitude` (actual ranks/steps/starting rank) |
 | `skill_learned` | `skill`, `skill_id` |
 | `burst` | `count` (a spawn burst started) |
-| `stage_cleared` | `time` |
+| `stage_cleared` | `time`; emitted once after objective, sweep and all mandatory choices finish, possibly directly inside `apply_choice`; follows the sweep's ordinary pickup/level/job/card events and admits no later combat tick |
 | `boss_warning` | `boss_index` (schedule index), `mob_id`, `time` (warning tick) |
 | `boss_spawned` | `boss_index`, `mob` (slot), `mob_id`, `pos`, `time` (arrival tick); also emits the ordinary `mob_spawned` event for rendering |
 | `boss_died` | `boss_index`, `mob`, `mob_id`, `pos`, `time` (death tick); precedes the final clear decision |
@@ -396,7 +412,8 @@ and are exempt from ordinary recycling. Relocation preserves the schedule index 
 Every scheduled boss slot sets `MobSwarm.steady` (kept through relocation, cleared by a fresh spawn), which blocks
 stun/push whatever the kind's flags; canonical `MobKind.boss` and the survivor `no_flinch` override still block it for
 any mob of that kind. `RunWorld.can_clear()` waits for every scheduled boss death, with the
-duration rule retained for stages without bosses. Boss clears defer until all bonus and queued level choices finish.
+duration rule retained for stages without bosses. Clears defer until all bonus and queued level choices finish,
+then sweep ground drops and resolve any additional choices without another combat tick (4.4.2).
 
 
 

@@ -108,7 +108,8 @@ func test_sweep_collects_every_pickup_kind_once_and_conserves_capped_exp() -> vo
 	assert_eq(w.mesos, mesos + 123)
 	assert_eq(int(w.potions.stock.hp.count), hp + 2)
 	assert_eq(int(w.potions.stock.mp.count), mp + 3)
-	assert_true(w.equipment.inventory.has(item), "the exact equipment instance carries")
+	assert_true(w.equipment.inventory.has(item) or w.equipment.worn.get("hat", {}) == item,
+		"the exact equipment instance carries, with the ordinary auto-wear rule")
 	assert_eq(w.equips_collected, 1)
 	var settled := w.character_snapshot()
 	var events := w.drain_events()
@@ -172,6 +173,20 @@ func test_full_inventory_reuses_blocked_pickup_rule_without_stalling_clear() -> 
 		assert_eq(blocked[0].reason, "inventory_full")
 
 
+func test_sweep_reuses_room_freed_by_ordinary_equipment_auto_wear() -> void:
+	var w := _reward_world()
+	w.balance.player.inventory_slots = 1
+	w.equipment.inventory.clear()
+	w.equipment.worn.erase("hat")
+	w.spawn_equipment(Vector2(1300, -500), Equipment.create(1002001, {}))
+	w.spawn_equipment(Vector2(1400, -500), Equipment.create(1002002, {}))
+	_answer(w)
+	assert_eq(w.state, RunWorld.CLEARED)
+	assert_eq(w.equips_collected, 2, "auto-wear frees room for the second pickup without a combat tick")
+	assert_eq(w.pickups.active_count(), 0)
+	assert_eq(w.equipment.inventory.size(), 1)
+
+
 func test_distant_final_boss_shower_and_ordinary_drops_are_paid_together() -> void:
 	var data := RF.quiet_data()
 	data.balance.player.skills = []
@@ -215,3 +230,17 @@ func test_warp_keeps_clear_emitted_by_the_last_answer_before_another_tick() -> v
 	assert_eq(scene._warp_end_events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1,
 		"a clear emitted from auto_choose must still reach presentation")
 	scene.free()
+
+
+func test_balance_harness_observes_choice_only_settlement_without_counting_a_tick() -> void:
+	var w := _reward_world()
+	w.progression.level = 9
+	w.refresh_player_stats(false)
+	w.balance.run_time_cap = DT
+	w.pickups.spawn(Vector2(1300, -500), w.progression.exp_to_next(), 4000000, w.player.pos)
+	var report: Dictionary = preload("res://tools/balance_run.gd").run_one(w, "first", 71, -1.0, 60.0, 200)
+	assert_eq(report.state, "CLEARED")
+	assert_eq(report.time, 0.0)
+	assert_eq(report.reach.get("10"), 0.0, "the sweep's level event is observed")
+	assert_eq(report.job_times.get("200"), 0.0, "the sweep's job event is observed")
+	assert_eq(report.mp_short_seconds, 0.0, "a frozen choice is not an MP-wait tick")

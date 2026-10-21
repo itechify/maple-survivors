@@ -5,13 +5,13 @@ extends RefCounted
 ##
 ## Per PLAYING tick: drinks -> portals/movement -> view/timers (regen/buffs) -> swarm -> boss lifecycle,
 ## skills/attacks/monster balls -> ordinary spawns/hash -> SkillRunner/BasicAttack -> player shots/kills/rewards ->
-## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death takes priority; bonus choices precede clear,
-## and can_clear requires all bosses dead and all bonus/level choices resolved. Normal queued levels open last.
+## pickups -> touch -> collected EXP/level-ups -> state snapshot. Death during that tick takes priority. After all
+## bosses and choices finish, clear settlement sweeps drops and resolves their choices without another combat tick.
 ##
 ## Pause protocol (4.4.2): step() does nothing unless `state` is PLAYING. For each queued level the job tree is checked
 ## first (CHOOSING_JOB + job_advance_pending when JobTree.should_offer), then CHOOSING_UPGRADE + choice_pending with
 ## cards drawn when the window opens. apply_job(id) adds an advancement draw; decline_job() skips it;
-## apply_choice(id) applies the card and moves to the next queued level or back to PLAYING. They return false (and
+## apply_choice(id) applies the card and moves to the next queued level, clear settlement or PLAYING. They return false (and
 ## change nothing) when called in the wrong state or with an id that is not on offer.
 ##
 ## Events: every emitted Dictionary has `type` plus exactly the fields of EVENT_FIELDS[type]. `player_hit.damage` is the
@@ -549,12 +549,11 @@ func nx_awarded() -> int:
 		state == CLEARED, levels_gained(), bosses_killed())
 
 
-## Boss stages finish after every scheduled boss dies; unscheduled stages retain the duration clear.
-## Reward/choice tickets may defer this decision until their pending rewards have been answered.
+## The objective is complete only after all mandatory choices; settlement may queue more from swept EXP.
 func can_clear() -> bool:
-	if bosses.has_bosses():
-		return bosses.all_dead() and pending_bonus_choices == 0 and not choice_bonus and not progression.has_pending()
-	return time >= duration - 1e-6
+	var objective := bosses.all_dead() if bosses.has_bosses() else time >= duration - 1e-6
+	return objective and pending_bonus_choices == 0 and not choice_bonus and not choice_advancement \
+		and not progression.has_pending() and pending_cards.is_empty() and pending_jobs.is_empty()
 
 
 ## Drinks one HP or MP potion instantly while playing, including on ropes; false when stock or spec is unavailable.
@@ -700,6 +699,8 @@ func emit(type: String, fields: Dictionary) -> void:
 ## timing stays with the caller. Observers must not mutate the world or draw RNG.
 func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> void:
 	if state != PLAYING:
+		return
+	if _settle_clear():
 		return
 	time += dt
 	refresh_player_speed()
@@ -956,6 +957,11 @@ func _step_pickups(dt: float) -> int:
 		got = pickups.step(dt, player.pos, magnet_r, fhm, events, equip_room, pet_system.center(),
 			pet_system.pickup_radius(), pet_system.abilities.vac)
 		pet_system.pickups += pickups.pet_collected
+	_credit_pickups()
+	return got
+
+
+func _credit_pickups() -> void:
 	for kind: String in pickups.collected_potions:
 		potions.add(kind, int(pickups.collected_potions[kind]))
 	mesos += pickups.step_mesos
@@ -966,7 +972,6 @@ func _step_pickups(dt: float) -> int:
 		# tier C (ours, #222): an item for an empty slot that this character may wear is worn at once
 		if auto_wear_error(int(instance.id)) == "":
 			_wear(equipment.inventory.size() - 1, "auto_equip")
-	return got
 
 
 ## The pet's tick: movement, then its auto-potion drinks (below the ALERT level, from the shared stock).
@@ -990,7 +995,7 @@ func pet_has(ability: String) -> bool:
 	return pet_system != null and bool(pet_system.abilities.get(ability, false))
 
 
-## After a living tick: boss bonus choices first, then the clear, then queued level-ups.
+## After a living tick: boss bonus choices first, then clear settlement, then queued level-ups.
 func _end_tick() -> void:
 	if _dead:
 		return
@@ -998,12 +1003,35 @@ func _end_tick() -> void:
 		_advance_queue()
 		if state != PLAYING:
 			return
-	if can_clear():
-		state = CLEARED
-		emit("stage_cleared", {"time": time})
+	if _settle_clear():
 		return
 	if progression.has_pending():
 		_advance_queue()
+
+
+## tier C: owner choices (2026-10-21), clear wins after the last answer and sweeps all map loot before carry.
+## Same-tick combat death still wins. Full-tab equipment uses the ordinary blocked-on-ground pickup rule.
+func _settle_clear() -> bool:
+	if _dead or state == CLEARED or not can_clear():
+		return false
+	var got := 0
+	while true:
+		var before := pickups.active_count()
+		got += pickups.collect_all(events, maxi(0, inventory_slots() - equipment.inventory.size()))
+		_credit_pickups()
+		if pickups.active_count() == 0 or pickups.active_count() == before \
+				or equipment.inventory.size() >= inventory_slots():
+			break
+		# Auto-wear may free a slot for another drop; reuse it without admitting a combat tick.
+	if got > 0:
+		_gain_exp(got)
+	_write_player_state(0.0)
+	if progression.has_pending():
+		_advance_queue() # normal job/advancement/card flow; step stays frozen until every answer is in
+	else:
+		state = CLEARED
+		emit("stage_cleared", {"time": time})
+	return true
 
 
 ## Takes an available job and one of its path ids; an empty path defaults to its first page path.
@@ -2599,6 +2627,7 @@ func _advance_queue() -> void:
 		var bonus_cards := upgrades.roll_choices(self, card_rng, 3)
 		if bonus_cards.is_empty():
 			pending_bonus_choices -= 1 # no card at all (no filler in the data): never open an unanswerable window
+			choice_bonus = false
 			continue
 		pending_cards = bonus_cards
 		state = CHOOSING_UPGRADE
@@ -2624,6 +2653,7 @@ func _advance_queue() -> void:
 		emit("choice_pending", {"cards": cards.duplicate(true), "bonus": false, "advancement": false})
 		return
 	state = PLAYING
+	_settle_clear()
 
 
 func _write_player_state(dt: float) -> void:

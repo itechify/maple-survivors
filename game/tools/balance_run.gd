@@ -394,33 +394,33 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 	var ticks := maxi(0, ceili((cap - w.time) / DT - 1e-6))
 	var next_min := 60.0
 	var low_hp := 1.0
-	for t in ticks:
+	for t in ticks + 1: # drain the final choice-only settlement too, without adding a combat/measurement tick
 		choose(w, policy, rng, cards_taken, forced_job)
-		if w.state != RunWorld.PLAYING:
-			break
-		var idle := idle_after >= 0.0 and w.time >= idle_after
-		w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
-		var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
-		late_observed_seconds += late_dt
-		if bool(w.player_state.get("mp_short",false)):
-			mp_short_seconds += DT
-			late_mp_short_seconds += late_dt
-		var a := w.swarm.alive_count()
-		alive_sum += a
-		near_sum += _near(w)
-		var bk := mini(int(w.time / 30.0), nb - 1)
-		var ec := _engaged(w, seen)
-		eng_b[bk] += ec.x
-		stale_b[bk] += ec.y
-		live_b[bk] += a
-		drops_sum += w.pickups.exp_count()
-		alive_n += 1
-		hp_low = minf(hp_low, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
-		if a > max_alive:
-			max_alive = a
-			max_alive_t = w.time
-		if w.time > 60.0:
-			low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
+		var ticked := w.state == RunWorld.PLAYING and t < ticks
+		if ticked:
+			var idle := idle_after >= 0.0 and w.time >= idle_after
+			w.step(DT, MoveInput.new() if idle else movement(w, policy, memo, camp_after))
+			var late_dt := clampf(w.time - LATE_MP_START, 0.0, DT)
+			late_observed_seconds += late_dt
+			if bool(w.player_state.get("mp_short",false)):
+				mp_short_seconds += DT
+				late_mp_short_seconds += late_dt
+			var a := w.swarm.alive_count()
+			alive_sum += a
+			near_sum += _near(w)
+			var bk := mini(int(w.time / 30.0), nb - 1)
+			var ec := _engaged(w, seen)
+			eng_b[bk] += ec.x
+			stale_b[bk] += ec.y
+			live_b[bk] += a
+			drops_sum += w.pickups.exp_count()
+			alive_n += 1
+			hp_low = minf(hp_low, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
+			if a > max_alive:
+				max_alive = a
+				max_alive_t = w.time
+			if w.time > 60.0:
+				low_hp = minf(low_hp, float(w.player_state.hp) / maxf(1.0, float(w.player_state.max_hp)))
 		var events := w.drain_events()
 		# Mid-round equipping (spec #33, #112): not a decision point, no RNG; changes stats before the next tick.
 		equips_worn += BotShop.equip_after(w, events)
@@ -479,6 +479,8 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 						job_t = snappedf(w.time, 0.1)
 					if not job_times.has(str(int(e.job_id))):
 						job_times[str(int(e.job_id))] = snappedf(w.time, 0.1)
+		if not ticked:
+			break
 		if w.time >= next_min - 1e-6:
 			next_min += 60.0
 			var n := maxi(1, alive_n)
@@ -502,7 +504,6 @@ static func run_one(w: RunWorld, policy := "bot", seed_value := 0, idle_after :=
 			kills_min.append(w.kills)
 			hits = 0
 			taken = 0
-	choose(w, policy, rng, cards_taken, forced_job)
 	var eng_min: Array = []
 	var stale_min: Array = []
 	for m in range(1, int(w.time / 60.0) + 1):

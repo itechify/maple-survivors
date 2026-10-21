@@ -93,9 +93,12 @@ func test_cleared_round_award_uses_the_stage_tier_levels_and_bosses() -> void:
 	_kill_boss(w, 1)
 	for i in 3:
 		w.step(DT, MoveInput.new())
+	RF.auto_choose(w) # the finale sweep's EXP adds one level, whose card must finish before the clear bonus
 	assert_eq(w.state, RunWorld.CLEARED)
 	assert_eq(w.bosses_killed(), 2)
-	assert_eq(w.nx_awarded(), 250 + 4 * 5 + 2 * 40, "tier-2 stage: 250 + 20 + 80")
+	assert_eq(w.pickups.collected_exp, 240, "both canonical Mano EXP drops now settle")
+	assert_eq(w.levels_gained(), 5)
+	assert_eq(w.nx_awarded(), 250 + 5 * 5 + 2 * 40, "tier-2 stage: 250 + 25 + 80, including swept EXP")
 
 
 func test_death_still_counts_bosses_killed_in_that_round_but_no_clear_bonus() -> void:

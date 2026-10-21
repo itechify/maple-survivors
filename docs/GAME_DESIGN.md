@@ -22,7 +22,10 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    an empty pool opens no window.
 5. **Advance** to Warrior, Magician, Thief or Pirate at level 10 (survivor override). Further Explorer jobs are planned (section 9).
 6. **End.** Death (HP 0) shows the tombstone falling, then the results. A clear requires all three bosses dead and
-   their bonus reward choices answered. A non-final clear enters the Free Market; the final tier shows victory
+   all mandatory choices answered. The last answer settles the clear without another combat tick. All remaining
+   map drops are collected once, subject to the existing full Equip tab rule; any resulting level, job and card
+   choices finish with combat frozen before the character carries (tier C owner choices, 2026-10-21).
+   A non-final clear enters the Free Market; the final tier shows victory
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
 Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
@@ -2992,6 +2995,23 @@ consumption. Final clear waits for the choices to finish. The bonus window reads
 header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
 reward defaults for tuning.
 
+Finale settlement (MS-07/MS-08, tier C owner choices, 2026-10-21): **clear wins** once every scheduled boss is dead
+and all mandatory choices are answered. No subsequent monster, projectile or contact-damage tick runs. Death in
+the active tick that kills a boss still wins, including a kill that queues an unanswered reward; ordinary earlier
+deaths are unchanged. **Collect everything** then sweeps every remaining map pickup, ordinary and boss alike,
+independently of distance, height or current attraction: EXP, mesos, HP/MP potion bundles and equipment (the complete
+set of current pickup kinds). They use ordinary pickup accounting and equipment auto-wear, exactly once. Swept EXP
+opens the normal level/job/advancement/card queue; combat and simulation time remain frozen through those answers.
+Only then does the clear complete and produce the outgoing CharacterSnapshot. Job grants can spill equipment;
+settlement retries the remaining pickups after the resulting choices too. No live map or settlement state is saved.
+
+The existing full Equip tab rule remains the capacity exception: a blocked equipment instance stays on the ground,
+emits the usual `pickup_blocked` / `inventory_full` notice and is left behind when the clear finishes. Settlement
+does not overflow the tab, sell or replace equipment, or wait indefinitely for space. Other drops are still credited.
+EXP cap absorption continues to conserve the full value; settlement collects the merged value without expiry.
+Quit round during a settlement choice retains the original round-boundary character and seed; Continue replays
+that start. A completed non-final clear saves the fully settled character in the hub, so Continue never pays it twice.
+
 Presentation uses the original `UIWindow.img/MobGage` icon frame, gauge borders and colour strips, centred below
 the timer; multiple surviving bosses keep separate rows. Names come from `String.wz`, HP comes from the swarm,
 and colour indices come from canonical `info/hpTagColor` and `info/hpTagBgcolor`. Blue Mushmom lacks a v83 icon and
@@ -5211,6 +5231,8 @@ random policy shares the movement and the camper policies still override it afte
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
 | Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
+| Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
+| Finale collection (MS-08) | Sweep all remaining pickup kinds once using normal pickup accounting; resolve resulting level/job/card choices with combat frozen before carry. Full-tab equipment retains the existing blocked-on-ground rule and is left behind at clear | C | Owner decision, 2026-10-21; existing Equip pickup capacity rule |
 | Bot weapon choices (#232) | Uniform job-stream-8 family draw at each multi-family advancement unless that advancement offers the forced family; no implicit branch preference. BotShop upgrades the recorded family | C | Owner #226; binding decision 7 |
 | Weapon path migration and AP (#230) | Pathless saves use the held family at the deepest multi-path ancestor, else its first path; keep inventory. AP lookup falls back from job:path to plain job at each ancestor and re-splits earned AP on advancement | C | Owner #226 and binding implementation decisions |
 
