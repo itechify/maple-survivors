@@ -88,3 +88,44 @@ func test_committed_lv38_magician_snapshot_derives_the_split_on_load() -> void:
 	assert_eq(int(w.player_state.luk), 40, "base LUK 4 + 36 AP reaches the Lv38 target")
 	assert_eq(int(w.player_state.int), 153, "base INT 4 + 185 earned - 36 AP moved to LUK")
 	assert_eq(int(w.character_snapshot().earned_ap), 185, "the snapshot still stores only earned AP")
+
+
+func test_batch_exp_matches_stepwise_growth_and_keeps_level_and_potion_queue_order() -> void:
+	var initial := RF.quiet_world(400.0, 1)
+	initial.change_job(200)
+	initial.progression.level = 20
+	initial._earned_ap = 95
+	initial._base_mp = 400.0
+	initial.refresh_player_stats(false)
+	var setup := RF.setup("quiet", 1, RF.quiet_data())
+	setup.character = initial.character_snapshot()
+	# Include two synthetic potion schedule boundaries in the batch and check their event order.
+	setup.data.balance.potions.schedule = [{"level": 22, "kind": "mp", "item": 2022000},
+		{"level": 25, "kind": "hp", "item": 2000002}]
+	var batch := RunWorld.new(setup)
+	var stepwise := RunWorld.new(setup)
+	batch.drain_events()
+	stepwise.drain_events()
+	var total := 0
+	for level in range(20, 28):
+		var exp := stepwise.progression.curve.exp_to_next(level)
+		total += exp
+		stepwise._gain_exp(exp)
+	batch._gain_exp(total)
+	assert_eq(batch._base_mp, 648.0, "INT before each level's AP determines MP growth")
+	assert_eq(batch._base_mp, stepwise._base_mp, "EXP collection grouping must not change permanent MP")
+	assert_eq(batch._base_hp, stepwise._base_hp)
+	assert_eq(batch._earned_ap, stepwise._earned_ap)
+	assert_eq(batch._attributes, stepwise._attributes)
+	assert_eq(batch.player_state.int, 113)
+	assert_eq(batch.progression.level, 28)
+	assert_eq(batch.progression.exp, 0)
+	assert_eq(batch.progression.queue, PackedInt32Array([21, 22, 23, 24, 25, 26, 27, 28]))
+	assert_eq(batch.progression.queue, stepwise.progression.queue)
+	var events := batch.drain_events()
+	assert_eq(events, stepwise.drain_events(), "level-up and potion notices stay in intermediate-level order")
+	assert_eq(events.filter(func(e: Dictionary) -> bool: return e.type == "potion_tier_up")
+		.map(func(e: Dictionary) -> String: return String(e.kind)), ["mp", "hp"])
+	batch._advance_queue()
+	assert_eq(batch.state, RunWorld.CHOOSING_UPGRADE, "the first queued level opens its normal choice")
+	assert_eq(batch.progression.front(), 21)
