@@ -8,6 +8,7 @@
 #   bash scripts/playtest.sh --warp=600 --minutes=13 --speed=1 --vsync=off   # fast-forward to 10:00 (nothing drawn),
 #                                                             # then 3 real-time minutes with 200+ mobs, uncapped FPS
 #   bash scripts/playtest.sh --stage=tree_that_grew_1 --out=evidence/mytest
+#   bash scripts/playtest.sh --warp=600 --minutes=13 --require-window --min-frames-100=120 --min-frames-200=60
 #
 # Options (all optional): --stage=<key> (stages.json, default henesys_hg1), --seed=<n> (2026), --speed=<k> sim ticks
 # per 60 Hz frame (4), --minutes=<m> absolute run time to stop at (30; a death or clear ends earlier), --shot-every=<s> run
@@ -15,6 +16,10 @@
 # --job=<id>[:<family>] (force a job/family, e.g. 100:spear or 120:blunt; the game refuses one this build cannot offer; --branch=<id> is the deprecated alias), --vsync=off, --name=<character name>, --window-autopick=<s> (windows open and answer themselves instead of autopick).
 # --account=<abs JSON> (an account for the round, spec #34: owned cash items, worn cash equipment, pet, ALERT levels; see
 # scripts/balance.sh and game/scripts/core/account_file.gd; summary.json names the file).
+# --require-window opts into workload qualification: the requested --warp (default 0) must be reached, ticks must be
+# positive, and --min-frames-100=<N> / --min-frames-200=<N> frames must have 100+/200+ mobs (defaults 1 each).
+# A zero minimum disables that density check; at least one must be positive. Failure exits non-zero with UNQUALIFIED.
+# This checks coverage, not performance budgets; ordinary death playtests keep their existing success behavior.
 # Anything else is passed to the game unchanged. Screenshots of the running game stay in evidence/ (gitignored).
 #
 # Frame times: the game caps the frame rate at the display's refresh rate (Settings / GameSettings.apply_frame_cap), so
@@ -31,6 +36,10 @@ MINUTES="30"
 SHOT_EVERY="60"
 OUT=""
 AUTOPICK="--autopick"
+REQUIRE_WINDOW=0
+WARP="0"
+MIN_FRAMES_100="1"
+MIN_FRAMES_200="1"
 EXTRA=()
 for a in "$@"; do
   case "$a" in
@@ -45,10 +54,22 @@ for a in "$@"; do
     --minutes=*) MINUTES="${a#--minutes=}" ;;
     --shot-every=*) SHOT_EVERY="${a#--shot-every=}" ;;
     --out=*) OUT="${a#--out=}" ;;
+    --warp=*) WARP="${a#--warp=}"; EXTRA+=("$a") ;;
+    --require-window) REQUIRE_WINDOW=1 ;;
+    --min-frames-100=*) MIN_FRAMES_100="${a#--min-frames-100=}" ;;
+    --min-frames-200=*) MIN_FRAMES_200="${a#--min-frames-200=}" ;;
     --window-autopick=*) AUTOPICK=""; EXTRA+=("$a") ;;
     *) EXTRA+=("$a") ;;
   esac
 done
+if [[ "$REQUIRE_WINDOW" == 1 ]]; then
+  [[ "$MIN_FRAMES_100" =~ ^[0-9]+$ && "$MIN_FRAMES_200" =~ ^[0-9]+$ && "$WARP" =~ ^[0-9]+([.][0-9]+)?$ ]] || {
+    echo "[playtest] qualification needs non-negative integer frame minima and a non-negative numeric warp" >&2; exit 2;
+  }
+  [[ "$MIN_FRAMES_100" =~ [1-9] || "$MIN_FRAMES_200" =~ [1-9] ]] || {
+    echo "[playtest] qualification needs at least one positive density minimum" >&2; exit 2;
+  }
+fi
 if [[ -z "$OUT" ]]; then
   OUT="$REPO/evidence/playtest/${STAGE}_s${SEED}_x${SPEED}_$(date +%Y%m%d_%H%M%S)"
 elif [[ "$OUT" != /* && "$OUT" != ?:* ]]; then
@@ -73,6 +94,15 @@ if [[ ! -s "$OUT/summary.json" ]]; then
 fi
 cat "$OUT/summary.json"
 echo
+if [[ "$REQUIRE_WINDOW" == 1 ]]; then
+  if [[ "$RC" != 0 ]]; then
+    echo "[playtest] UNQUALIFIED: game exited $RC" >&2
+    exit 1
+  fi
+  bash "$REPO/scripts/run.sh" --headless --script res://tools/qualify_playtest.gd -- \
+    --summary="$OUT_ABS/summary.json" --warp="$WARP" \
+    --min-frames-100="$MIN_FRAMES_100" --min-frames-200="$MIN_FRAMES_200"
+fi
 # One-line digest (no JSON tool needed).
 awk 'BEGIN { RS = "\0" } {
   gsub(/[\r\n\t ]+/, " ")
