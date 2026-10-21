@@ -466,7 +466,9 @@ func _resolve_charge(world: RunWorld, st: Dictionary, start: Vector2, side: int)
 		if side > 0:
 			path.end.x = minf(path.end.x, wall_x)
 		else:
-			path.position.x = maxf(path.position.x, wall_x)
+			var far_edge := path.end
+			path = Rect2(Vector2(maxf(path.position.x, wall_x), path.position.y), Vector2.ZERO)
+			path.end = far_edge
 	var swept := world.skill_rect_targets(path, start - Vector2(0.0, world.cast_height),
 		int(st.mob_count))
 	_resolve_instant_targets(world, st, swept, int(st.mob_count), int(st.attack_count),
