@@ -204,6 +204,14 @@ Native output replacement remains atomic per file, not per import: another img m
 one fails. A failed img is not indexed and normal re-import retries it. Portable hosts must retain their staging /
 promotion boundary and discard a failed import; a successful index alone is not permission to ignore report errors.
 
+W5 validation (2026-10-21): fresh full-manifest imports into separate private scratch caches before/after these
+guards produced 2,408 payload files with identical SHA-256 hashes. `cache.json` matched after excluding `created`,
+`stats.seconds` and the ten new `sound_files` lists. Both imports reported zero errors; existing unresolved-UOL
+warnings were retained. The post-change header scan again parsed all 16,821 imgs without errors. Twelve Node-hosted
+wasm cases (injected readers and deflated ZIPs) checked overflow/oversize, aggregate budget, nesting, v95 rejection
+and normal v83 acceptance: readable errors, no traps, and at most 1,441,792 bytes of wasm memory for these tiny
+synthetic fixtures. These worker-API checks do not establish browser/storage/UI behaviour or real-import peak memory.
+
 Follow-up #132b timing (2026-10-17, Ryzen 7 7800X3D, Windows, Node 24.21.0, release builds): the full current
 manifest's 12 original v83 archives were packed with 7-Zip Deflate at normal compression (`-tzip -mm=Deflate -mx=5`),
 1,907,592,640 bytes uncompressed / 1,694,345,144 bytes zipped. Each run imports all 157 imgs, synchronously compares
