@@ -561,6 +561,48 @@ func test_death_and_final_clear_end_run_and_results_return_to_characters() -> vo
 	assert_eq(flow.current_name, "character_select")
 
 
+func test_finale_sweep_quit_replays_start_then_carries_settled_rewards_once() -> void:
+	if not require_cache():
+		return
+	var rf := preload("res://tests/fixtures/run_fixtures.gd")
+	var flow := _flow()
+	flow.create_character("Sweep71")
+	flow.start_round("henesys_hg1", 71)
+	var bytes := FileAccess.get_file_as_string(save_path)
+	var start: Dictionary = flow.save.slot(0).character
+	for attempt in 2:
+		var w: RunWorld = (flow.current as RunScene).world
+		w.bosses = BossDirector.new([{"mob_id": 2220000, "time": 0.0}])
+		w.bosses.records[0].dead = true
+		w.pending_bonus_choices = 1
+		w._advance_queue()
+		w.pickups.spawn(Vector2(10000, -10000), w.progression.exp_to_next(), 4000000, w.player.pos)
+		w.spawn_meso(Vector2(10000, -10000), 123)
+		w.apply_choice(String(w.pending_cards[0].id))
+		assert_eq(w.state, RunWorld.CHOOSING_UPGRADE, "sweep level choice precedes the outgoing snapshot")
+		assert_eq(w.progression.level, 2)
+		assert_eq(FileAccess.get_file_as_string(save_path), bytes, "settlement never writes mid-choice")
+		if attempt == 0:
+			flow.quit_round()
+			flow.save = SaveData.new(save_path)
+			flow.continue_character(0)
+			assert_eq((flow.current as RunScene).world.character_snapshot(), start, "Continue replays the saved start")
+		else:
+			if w.pending_cards.is_empty():
+				return
+			w.apply_choice(String(w.pending_cards[0].id))
+			assert_eq(w.state, RunWorld.CLEARED)
+			flow.finish_run(summary(true, w.time, w.progression.level, w.kills), w.character_snapshot())
+	var boundary := SaveData.new(save_path).slot(0)
+	assert_eq(boundary.phase, "free_market")
+	assert_eq(int(boundary.character.mesos), int(start.mesos) + 123, "only the completed attempt carries")
+	assert_eq(int(boundary.character.level), 2)
+	flow.save_and_quit()
+	flow.save = SaveData.new(save_path)
+	flow.continue_character(0)
+	assert_eq(flow.save.slot(0), boundary, "Continue at the hub never reapplies settlement")
+
+
 func test_same_tick_boss_projectile_kill_and_contact_death_ends_run_with_last_valid_character() -> void:
 	var rf := preload("res://tests/fixtures/run_fixtures.gd")
 	var data := rf.quiet_data()
