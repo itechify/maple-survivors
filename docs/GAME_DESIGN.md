@@ -70,7 +70,7 @@ opening Stat until it is rebound). The Options window (#87) exposes the toggle.
 Key Config (#87) is the v83 keyboard window: drag an action's icon from the tray (or from a key) onto a key to bind
 it; the key's previous action loses it. An action may sit on several keys. Bindable: jump, HP potion, MP potion,
 Equip, Item, Stat, Skill, NPC Chat and the **skill key** of each manual skill the character has learned (#188: Teleport
-or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc and the card keys 1-3. Dragging an icon off
+or Dash, never listed before it is learned; both default to X, and a character never learns both); fixed (tinted, refuse drops): the movement set, Esc, F3 (Perf overlay) and the card keys 1-3. Previously saved F3 bindings lose F3 and keep their other keys. Dragging an icon off
 the keyboard unbinds it; Clear All (v83's BtDelete) unbinds every action. Default puts every action back on its
 default keys (less the movement set: on WASD, S stays movement, so Stat has no key until bound); OK saves and applies
 at once, Cancel / Esc discard. Bindings are global (`user://settings.cfg`, not per save). Options holds BGM / SFX

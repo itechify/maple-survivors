@@ -220,6 +220,7 @@ func load_settings() -> void:
 				for k: Variant in v:
 					keys.append(int(k))
 				bindings[action] = keys
+	_drop_reserved_keys()
 	_yield_defaults()
 	_yield_skill_keys()
 
@@ -536,6 +537,7 @@ static func _live_keys(action: String) -> PackedInt32Array:
 ## Writes every rebound action into the InputMap (actions the project does not define are ignored, but kept in the
 ## file). Other actions keep their project events.
 func apply_bindings() -> void:
+	_drop_reserved_keys()
 	for action: String in bindings:
 		if not InputMap.has_action(action):
 			continue
@@ -546,6 +548,16 @@ func apply_bindings() -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = code as Key
 			InputMap.action_add_event(action, ev)
+
+
+## Reserved diagnostics cannot also trigger a rebound action, including bindings saved before the reservation.
+func _drop_reserved_keys() -> void:
+	for action: String in bindings:
+		var kept := PackedInt32Array()
+		for code: int in bindings[action]:
+			if not KeyBindings.RESERVED.has(code):
+				kept.append(code)
+		bindings[action] = kept
 
 
 func _restore_default(action: String) -> void:
