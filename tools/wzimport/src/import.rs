@@ -198,6 +198,7 @@ fn execute(
                             paths: o.paths,
                             canvases: o.canvases,
                             sounds: o.sounds,
+                            sound_files: (!o.sound_files.is_empty()).then_some(o.sound_files),
                             bytes: o.bytes,
                         },
                     );
@@ -266,6 +267,12 @@ fn up_to_date(
     }
     if (0..entry.pages).any(|i| !out.join(format!("{img}.{i}.png")).is_file()) {
         return None;
+    }
+    if entry.sounds > 0 {
+        let files = entry.sound_files.as_ref()?;
+        if files.len() != entry.sounds as usize || files.iter().any(|f| !out.join(f).is_file()) {
+            return None;
+        }
     }
     Some(entry.clone())
 }

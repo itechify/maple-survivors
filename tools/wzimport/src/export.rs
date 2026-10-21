@@ -32,6 +32,7 @@ pub struct ExportOutcome {
     pub pages: u32,
     pub canvases: u32,
     pub sounds: u32,
+    pub sound_files: Vec<String>,
     pub bytes: u64,
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
@@ -180,6 +181,7 @@ pub fn export_img_to(wz: &WzRoot, img_path: &str, request: &ImgRequest, sink: &d
         out.bytes += bytes.len() as u64;
         sink::write(sink, file, &bytes)?;
         out.sounds += 1;
+        out.sound_files.push(file.clone());
     }
 
     // JSON tree.

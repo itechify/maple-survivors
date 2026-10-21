@@ -45,8 +45,9 @@ The game can also run it: if the cache is missing, the first screen asks for the
 `wzimport` as a local child process. The cache location can be overridden with `MAPLE_SURVIVORS_CACHE`; the WZ folder
 with `MAPLE_WZ_ROOT` (also used by tests).
 
-Import is incremental: an img is rewritten only when its source archive (size + mtime) or the importer version changed,
-or `--force` is given.
+Import is incremental: an img is rewritten when its source archive (size + mtime), selection or importer version
+changed, its JSON/atlas/audio files are missing, or `--force` is given. Legacy index entries containing sounds but
+no payload list refresh once; complete unchanged entries still skip.
 
 ### 2.1 Portable importer and ZIP input (#132)
 
@@ -453,6 +454,9 @@ Synthetic Rust import coverage checks Etc numeric columns and names; real-cache 
 ```
 
 Img entries also carry `sounds` and `bytes` (per-img totals behind `stats`); readers ignore keys they do not know.
+Entries containing audio also carry `sound_files`, an array of cache-relative MP3/WAV payload paths (including UOL
+targets). Native incremental import and web boot completeness check every listed file. Older entries with
+`sounds > 0` and no list are considered incomplete and need one re-import; zero-sound entries need no list.
 `stats.seconds` is the wall time of the run that wrote the index.
 
 ### 5.2 Img JSON trees

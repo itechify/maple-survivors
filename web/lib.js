@@ -181,6 +181,10 @@ export function assessCache({ manifest, indexText, keys, root = CACHE_ROOT }) {
 			const json = `${root}/${entry.json || img + '.json'}`;
 			let bad = !present.has(json);
 			for (let i = 0; !bad && i < (entry.pages || 0); i++) bad = !present.has(`${root}/${img}.${i}.png`);
+			if (entry.sounds > 0) {
+				bad ||= !Array.isArray(entry.sound_files) || entry.sound_files.length !== entry.sounds
+					|| entry.sound_files.some((file) => typeof file !== 'string' || !present.has(`${root}/${file}`));
+			}
 			if (bad) missing.push({ img, reason: 'files missing' });
 		}
 	}
