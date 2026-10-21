@@ -22,13 +22,13 @@ const SKILL_KEYS := ["teleport", "dash"]
 ## project keys; movement uses the movement set (see fixed_keys()).
 const FIXED_LABELS := {"pause": "Menu", "choice_1": "Card 1", "choice_2": "Card 2", "choice_3": "Card 3"}
 const MOVE_LABEL := "Move"
-## Fixed diagnostic shortcut consumed by RunScene before window hotkeys, on desktop and web alike.
+## tier C: fixed diagnostic shortcut consumed by RunScene before window hotkeys, on desktop and web alike.
 const RESERVED := {KEY_F3: "Perf"}
 ## Web build: keys a page cannot reliably take from the browser, so they are fixed (not bindable) there. F11 is the
 ## browser's fullscreen and F12 its developer tools (the canvas preventDefault()s every key it gets, but browsers keep
 ## some shortcuts to themselves; tier C: conservative, checked only that the game still sees them). F5 and the other
-## F-keys are captured while the canvas has focus, so they stay bindable except RESERVED. Ctrl+W / Ctrl+T / Ctrl+N (and Alt+F4) always
-## reach the browser; those are chords, not keys, and are only mentioned in the Key Config window.
+## F-keys are captured while the canvas has focus, so they stay bindable except RESERVED. Ctrl+W / Ctrl+T / Ctrl+N
+## (and Alt+F4) always reach the browser; those are chords, not keys, and are only mentioned in the Key Config window.
 const WEB_RESERVED := [KEY_F11, KEY_F12]
 const WEB_LABEL := "Web"
 
@@ -152,7 +152,7 @@ func _drop_fixed() -> void:
 		keys[a] = kept
 
 
-## Fixed key -> its label: the movement set's keys ("Move"), Esc ("Menu") and the card keys 1-3 ("Card N").
+## Fixed key -> its label: movement ("Move"), Esc ("Menu"), F3 ("Perf") and the card keys 1-3 ("Card N").
 func fixed_keys() -> Dictionary:
 	var out := RESERVED.duplicate()
 	for a: String in FIXED_LABELS:
