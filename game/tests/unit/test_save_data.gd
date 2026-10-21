@@ -32,6 +32,21 @@ func test_format_one_converts_bests_and_counts_on_disk() -> void:
 	assert_eq(converted.runs, expected.runs)
 
 
+func test_format_one_ignores_unvalidated_fields_from_later_formats() -> void:
+	var legacy := {"format": 1, "best": {}, "runs": {"henesys_hg1": 3},
+		"slots": [{}], "history": 7, "account": 42}
+	var file := FileAccess.open(save_path + ".import", FileAccess.WRITE)
+	file.store_string(JSON.stringify(legacy))
+	file.close()
+	var loaded := SaveData.new(save_path)
+	assert_eq(loaded.last_error, OK)
+	assert_eq(loaded.slots, [null, null, null])
+	assert_eq(loaded.history, [])
+	assert_eq(loaded.account, Account.empty())
+	assert_eq(loaded.runs_for("henesys_hg1"), 3)
+	assert_eq(SaveData.new(save_path).slots, [null, null, null])
+
+
 func test_corrupt_files_survive_replacement_and_repeated_corruption() -> void:
 	for text: String in ["{broken first save", "{broken second save"]:
 		var file := FileAccess.open(save_path, FileAccess.WRITE)
