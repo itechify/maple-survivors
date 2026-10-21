@@ -84,6 +84,9 @@ const PLANTED = {
 	'an mp3': 'Sound.wz/Bgm00/FloralLife.mp3',
 	'a wav': 'Sound.wz/Mob.img/Attack.wav',
 	'the cache index': 'asset_cache/v83/cache.json',
+	'an unexpected decoded image': 'unlisted.png',
+	'an unexpected archive': 'unlisted.zip',
+	'an unexpected nested file': 'backup/readme.txt',
 };
 
 for (const [what, name] of Object.entries(PLANTED)) {
@@ -102,6 +105,29 @@ test('rejects a file with WZ magic bytes under an innocent name', () => {
 	assert.notEqual(r.code, 0);
 	assert.match(r.out, /notes\.txt/);
 	fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('rejects a ZIP containing synthetic WZ data, even with an allowed image name', () => {
+	// Valid stored ZIP: Mob.wz with the four bytes PKG1. All bytes are synthetic.
+	const name = Buffer.from('Mob.wz'), body = Buffer.from('PKG1');
+	let crc = 0xffffffff;
+	for (const b of body) {
+		crc ^= b;
+		for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+	}
+	crc = (crc ^ 0xffffffff) >>> 0;
+	const local = Buffer.alloc(30); local.writeUInt32LE(0x04034b50); local.writeUInt16LE(20, 4);
+	local.writeUInt32LE(crc, 14); local.writeUInt32LE(4, 18); local.writeUInt32LE(4, 22); local.writeUInt16LE(name.length, 26);
+	const central = Buffer.alloc(46); central.writeUInt32LE(0x02014b50); central.writeUInt16LE(20, 4); central.writeUInt16LE(20, 6);
+	central.writeUInt32LE(crc, 16); central.writeUInt32LE(4, 20); central.writeUInt32LE(4, 24); central.writeUInt16LE(name.length, 28);
+	const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10);
+	end.writeUInt32LE(central.length + name.length, 12); end.writeUInt32LE(local.length + name.length + body.length, 16);
+	const zip = Buffer.concat([local, name, body, central, name, end]);
+	for (const name of ['unlisted.zip', 'favicon-32x32.png']) {
+		const dir = makeDir({ [name]: zip });
+		assert.notEqual(run(dir).code, 0, name);
+		fs.rmSync(dir, { recursive: true, force: true });
+	}
 });
 
 test('fails when a required file is missing', () => {
