@@ -1340,6 +1340,25 @@ func test_recovery_cast_effect_buff_row_and_rank_preview_use_original_data() -> 
 	_assert_nothing_missing(scene, "Recovery")
 
 
+func test_setup_preloads_clear_art_and_sound_before_the_victory_event() -> void:
+	if not require_cache():
+		return
+	assert_false((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "fresh in-memory library")
+	assert_false((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR))
+	scene = _make("henesys_hg1", 7, {})
+	assert_eq(scene.error, "")
+	assert_true((lib.get("_anims") as Dictionary).has(RunScene.FX_CLEAR), "setup cached the victory animation")
+	assert_true((lib.get("_sounds") as Dictionary).has(RunScene.SND_CLEAR), "setup cached the victory sound")
+	var pages := lib.pages_loaded()
+	var sounds := (lib.get("_sounds") as Dictionary).size()
+	assert_true(lib.find_anim(RunScene.FX_CLEAR) != null, "the original clear art exists")
+	assert_true(lib.sound(RunScene.SND_CLEAR) != null, "the original clear sound exists")
+	scene._on_stage_cleared()
+	assert_eq(lib.pages_loaded(), pages, "the clear event decodes no new atlas page")
+	assert_eq((lib.get("_sounds") as Dictionary).size(), sounds, "the clear event decodes no new sound")
+	_assert_nothing_missing(scene, "clear warmup")
+
+
 func test_setup_preloads_boss_and_job_change_art_and_sounds() -> void:
 	if not require_cache():
 		return
