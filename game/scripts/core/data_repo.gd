@@ -272,11 +272,16 @@ static func stage_label_errors(stages_file: Dictionary) -> PackedStringArray:
 
 ## Every mob id a stage needs, ascending (StageRoster.mob_ids): pool and boss ids from stages.json, plus the summon and
 ## revive ids the bosses' canonical data lists when their imgs (`mob_imgs`, {id: img root}) and MobSkill.img root are
-## given. Without imgs only the ids stages.json names.
+## given. `map_imgs` is index-aligned with stage.maps and adds its resolved ordinary life pools.
 static func stage_mob_ids(data: Dictionary, stage_key: String, mob_imgs: Dictionary = {},
-		mob_skill_img: Dictionary = {}) -> PackedInt32Array:
+		mob_skill_img: Dictionary = {}, map_imgs: Array = []) -> PackedInt32Array:
 	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(stage_key, {})
-	return StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
+	var ids := StageRoster.mob_ids(stage, mob_imgs, mob_skill_img)
+	if stage.has("maps"):
+		for id: int in StagePools.stage_pool_ids(stage, map_imgs):
+			_add_id(ids, id)
+		ids.sort()
+	return ids
 
 
 ## Every item whose canonical info a setup loads, without duplicates: the default creation outfit
@@ -483,10 +488,14 @@ static func build_setup(data: Dictionary, stage_key: String, p_seed: int, view_s
 		missing.append(MOB_SKILL_IMG)
 		mob_skill = {}
 	# Two passes: the named pool/boss imgs first, then the summon/revive ids their canonical data lists.
+	var pool_map_imgs: Array = []
+	for entry: Dictionary in stage.get("maps", []):
+		var img: Variant = img_loader.call(map_img_path(int(entry.get("map_id", 0))))
+		pool_map_imgs.append(img if img is Dictionary else {})
 	var mob_imgs := {}
 	var tried := {}
 	for _pass in 2:
-		for id in stage_mob_ids(data, stage_key, mob_imgs, mob_skill):
+		for id in stage_mob_ids(data, stage_key, mob_imgs, mob_skill, pool_map_imgs):
 			if tried.has(id):
 				continue
 			tried[id] = true

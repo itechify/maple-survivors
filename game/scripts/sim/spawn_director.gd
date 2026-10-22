@@ -68,6 +68,21 @@ const DEFAULT_SPAWN := {
 const WALLED_HOPS := 8
 
 var stage: Dictionary
+var map_index := 0
+## Index-aligned mob-id weights from StagePools; {} selects the curve. Assign once at setup.
+var map_pools: Array = []:
+	set(value):
+		map_pools = value
+		_map_pool_data.clear()
+		for pool: Dictionary in value:
+			var kinds := PackedInt32Array()
+			var weights := PackedFloat32Array()
+			for id: Variant in pool:
+				var weight := float(pool[id])
+				if _kind_index.has(int(id)) and weight > 0.0:
+					kinds.append(int(_kind_index[int(id)]))
+					weights.append(weight)
+			_map_pool_data.append({"kinds": kinds, "weights": weights})
 var duration := 900.0
 var hard_cap := 400
 ## Parsed keyframes: {t, rate, max_alive, hp, speed, kinds: PackedInt32Array, weights: PackedFloat32Array}.
@@ -83,6 +98,8 @@ var next_burst := INF
 var next_elite := INF
 
 var _acc := 0.0
+var _kind_index: Dictionary = {}
+var _map_pool_data: Array = []
 ## Per mob slot: seconds far/unreachable in a row, seconds without coming closer, the shortest route_len seen and
 ## where the mob stood then.
 var _far_t := PackedFloat32Array()
@@ -105,6 +122,7 @@ var _ring_key: Array = [Vector4(-1, 0, 0, 0), Vector4(-1, 0, 0, 0), Vector4(-1, 
 static func create(p_stage: Dictionary, kind_index: Dictionary, spawn_params: Dictionary = {}) -> SpawnDirector:
 	var d := SpawnDirector.new()
 	d.stage = p_stage
+	d._kind_index = kind_index
 	d.duration = float(p_stage.get("duration", 900.0))
 	d.hard_cap = int(p_stage.get("hard_cap", 400))
 	d.params = DEFAULT_SPAWN.duplicate()
@@ -181,13 +199,19 @@ func max_alive_at(t: float) -> int:
 	return roundi(value_at("max_alive", t))
 
 
-## The keyframe whose pool is active at t ({} when none).
+## The active pool at curve time t; a curve map holds its last pool before the next map boundary.
 func pool_at(t: float) -> Dictionary:
+	if stage.has("maps") and map_index < map_pools.size() and not map_pools[map_index].is_empty():
+		return _map_pool_data[map_index]
 	var cur: Dictionary = {}
+	# tier C: owner #241, each map's curve pools stop before its next scheduled 300 s segment.
+	var end := (map_index + 1) * float(stage.get("map_seconds", 300.0)) if stage.has("maps") else INF
 	for kf: Dictionary in keyframes:
+		if float(kf.t) >= end:
+			continue
 		if float(kf.t) <= t:
 			cur = kf
-	if cur.is_empty() and not keyframes.is_empty():
+	if cur.is_empty() and not keyframes.is_empty() and float(keyframes[0].t) < end:
 		cur = keyframes[0]
 	return cur
 
