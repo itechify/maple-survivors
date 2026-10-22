@@ -363,7 +363,7 @@ casts a mob skill. Cross-map exits west00/east00 and NPC
 9201133 use the existing drawn, inert handling. The original spawn list is 9 Horny Mushrooms, 7 Zombie Mushrooms
 and 35 Stirges (tier A, original Map.wz).
 
-| Time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
+| Curve time | Rate/s | Max alive | Pool (mob ID:weight) | HP × | Speed × |
 |---|---|---|---|---|---|
 | 0:00 | 3 | 50 | 2110200:4, 2230101:4, 2300100:1 | 1 | 1 |
 | 2:00 | 4.5 | 80 | 2110200:3, 2230101:3, 2300100:1, 2230100:3 | 1 | 1.05 |
@@ -384,7 +384,7 @@ map's pool by weight. Values interpolate linearly between keyframes. Henesys Hun
 the coarse #30 C46 numeric curve (2026-10-15), with the owner's #241 opening-density changes. Later pool
 selection follows the per-map rules above; further tuning waits for the dedicated balance pass (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
+| Curve time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
 |---|---|---|---|---|---|
 | 0:00 | 0.25 | 6 | Snail 4, Blue Snail 3 | 1 | 1 |
 | 2:00 | 0.55 | 11 | Red Snail, Shroom | 1 | 1 |
@@ -397,7 +397,7 @@ selection follows the per-map rules above; further tuning waits for the dedicate
 | 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 |
 | 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 |
 | 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 |
-| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 |
+| 15:00 | 20 | 330 | full pool | 8.25 | 1.4 |
 
 Pool additions at 5:00 and later in the table are retained data, not active pool changes (#241).
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
@@ -552,6 +552,35 @@ chains and character one-offs, and the executed maps scenario. The post-#247-mer
 118 tests, 0 failed, 0 skipped. The full suite before the #247 merge passed 2151 tests, 0 failed, 0 skipped
 (207 files, 906 s); the affected suite above rechecked the merged code. The full process exited 0 but Godot
 reported two RendererDummy texture RID allocations leaked at exit; their source was not investigated here.
+
+#### Spec #241 review fixes: transfer state and regression smoke (2026-10-22)
+
+Cache `s241`, explicit Git Bash, `trev*` isolates; seeds 1 / 2 / 2026, unforced jobs, no PATCH or balance edits.
+All 12 tier-1 bot/random runs have `warnings: []` and `missing: []`. Death times and ending maps match the #246
+integrated smoke below to the recorded 0.1 s precision. Henesys still reaches the Lv10 jobs and Mano; Ellinia's
+early seed-2/2026 deaths remain recorded for the owner, with no tuning.
+
+| Region / policy | Death seconds (seeds 1 / 2 / 2026) | Ending map number |
+|---|---|---|
+| Henesys / bot | 308.3 / 451.8 / 310.0 | 1 / 2 / 1 |
+| Henesys / random | 435.4 / 383.9 / 413.3 | 2 / 2 / 2 |
+| Ellinia / bot | 632.7 / 39.1 / 34.7 | 2 / 1 / 1 |
+| Ellinia / random | 697.5 / 39.1 / 34.7 | 2 / 1 / 1 |
+
+The transfer/metrics baseline passed 40 tests; the refactor checks passed 72 (both 0 failed / 0 skipped).
+A new fixed-tick transfer test first reproduced a grenade landing and damaging a new map's mob, then passed with
+the queued flight cleared and cooldowns retained (40 transfer/Gunslinger tests, 0 failed / 0 skipped).
+Audited Final Attack queues, basic windups, summons, mob attacks/projectiles, delayed boss heals/statuses, pet fetch
+targets and bot routes: their existing transfer resets already discard map-space state; player poison mists and
+persistent damage zones are not implemented. A seeded three-map event/state replay has identical byte hashes
+before/after the refactors (`9dd41de` versus the review branch, two runs each).
+
+Removed all interim missing-asset exemptions. Against incomplete `s237`, balance/profile/character tools now exit 1
+and name missing later-map imgs; an existing real-cache assertion fails on those paths. Against `s241`, each region's
+setup, profiler and character fixture run cleanly. The diagnostic maps scenario again PASSED with no missing assets
+or failed checks, replaying map 1 after quitting map 2 and then clearing into the Free Market.
+Opened all three compact map-select cards under `evidence/spec241/review/cards/` in the integration worktree:
+every map/boss name fits, row groups are close together, and no text overlaps. These are diagnostic UI/flow checks.
 
 #### Spec #241 (#246): integrated presentation smoke (2026-10-21)
 
@@ -5834,7 +5863,7 @@ the round from its beginning." Victory results show the tiers cleared and return
 
 | Dark Cave bosses (#73) | Values | Tier | Evidence / rationale |
 |---|---|---|---|
-| Schedule / first-pass HP | Zombie Mushmom 6300005 at 300 s, HP x0.8 (28000); Snack Bar 8220009 at 600 s, HP x1 (110000); Jr. Balrog 8130100 at 900 s, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
+| Schedule / first-pass HP | Each boss arrives 300 s after entering its map: Zombie Mushmom 6300005 in Dark Cave, HP x0.8 (28000); Snack Bar 8220009 in Drake Area, HP x1 (110000); Jr. Balrog 8130100 in The Cursed Sanctuary, HP x3 (150000) | C | Owner schedule; scales chosen before measuring, no tuning; final boss has greatest multiplier and effective HP |
 | Contact / attack scales, cadence, rewards | Contact and attack x0.8 / x1 / x1.25; each attack 8 s start-to-start; each death 3 HP / 3 MP plus existing global EXP and choice rewards | C | First-pass survivor encounter data in stages.json; final boss has greatest damage multipliers |
 | Boss canonical facts | HP 35000 / 110000 / 50000; all seven attacks and delays/ranges/damage/element flags; no mob skills; Balrog S1H3 | A | Original v83 Mob.wz; [field inventory](research/dark-cave-boss-attacks.md), real-cache tests |
 | Type-1 targeted direct rule | Admit body centre within r250 of mirrored sp(-28,-69); locked character takes magic hit at 1300 ms even after moving/jumping; effect at caster 700 ms, hit art at character; death/fade cancels | C | Later-client HaCreator targeted-direct description; **not verified v83 RE**, lead must flag this caveat on #73; research note above |
@@ -5981,7 +6010,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Monster ball flight / collision | bulletSpeed×1000/600 px/s, range/r lifetime, straight aimed launch;8 px contact radius | C | later-client reference comment inspires interpretation; original v83 values A |
 | Mob heal arithmetic / timing / art anchor | each mob in the canonical area regains exactly canonical x, clamped to max HP; y unused; no RNG; effectAfter application; mob0 starts at cast, pos0 at feet | C (interpretation/anchor), A (fields/art) | spec "canonical amount"; original v83 WZ |
 | Slam evidence screenshots | windup at 0.85 s; ground wave 0.12 s after impact | C | presentation capture timings only |
-| Post-finale ramp / harness cap | final keyframe slopes ×0.25 after 15:00; burst size slope ×0.25 past the duration; elite interval × rate(last keyframe) / rate(t); 30:00 cap reported as timeout | C | survivor stage/balance data |
+| Post-duration ramp / harness cap | final keyframe slopes ×0.25 after curve time 15:00; burst size slope ×0.25 past the curve duration; elite interval × rate(last keyframe) / rate(t); 30:00 total-round cap reported as timeout | C | survivor stage/balance data |
 | First MISS screenshot | 0.05 presentation seconds after the first miss, only when screenshots are enabled | C | evidence capture timing |
 | Projectile speeds/ranges | §7 | C | ours |
 | Projectile hit exclusion identity | packed 64-bit run-local spawn identity; fresh spawns differ, relocation preserves it | C | our pool bookkeeping; no canonical or balance values changed |
