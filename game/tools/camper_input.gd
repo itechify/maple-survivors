@@ -4,7 +4,8 @@ const STAGES := {"camper_henesys_top": "henesys_hg1", "camper_henesys_rope": "he
 
 
 ## tier C: the default 60 s warmup is a controlled camper measurement policy.
-## Movement after a normal warmup, preserving normal potion decisions; no rescue teleport after a camper is displaced.
+## Movement after a normal warmup, preserving BotInput's per-kind cooldown and waste-guard potion decisions;
+## no rescue teleport after a camper is displaced.
 
 
 static func decide(world: RunWorld, policy: String, memo: Dictionary, after: float = 60.0) -> MoveInput:

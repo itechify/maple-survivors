@@ -99,7 +99,7 @@ func _init() -> void:
 		ticks += 1
 		var m := int(w.time / 60.0)
 		var row: Dictionary = minute.get(m, {"n": 0, "alive": 0, "drops": 0, "exp": 0, "meso": 0, "equip": 0,
-			"potion": 0, "rest": 0, "magnet": 0, "air": 0, "hi": 0})
+			"rest": 0, "magnet": 0, "air": 0, "hi": 0})
 		row.n += 1
 		row.alive += w.swarm.alive_count()
 		var pk := w.pickups
@@ -112,7 +112,6 @@ func _init() -> void:
 				PickupSystem.EXP: row.exp += 1
 				PickupSystem.MESO: row.meso += 1
 				PickupSystem.EQUIP: row.equip += 1
-				_: row.potion += 1
 			match int(pk.state[i]):
 				PickupSystem.REST: row.rest += 1
 				PickupSystem.MAGNET: row.magnet += 1
@@ -133,14 +132,14 @@ func _init() -> void:
 	order.sort_custom(func(a: int, b: int) -> bool: return acc[a] > acc[b])
 	for k: int in order:
 		print("  %-16s %8.1f us/tick  %5.1f%%" % [PARTS[k], float(acc[k]) / ticks, 100.0 * acc[k] / maxf(1.0, parts_sum)])
-	print("minute  alive   drops (exp meso equip potion | rest air magnet)  slots walked")
+	print("minute  alive   drops (exp meso equip | rest air magnet)  slots walked")
 	var keys := minute.keys()
 	keys.sort()
 	for m: int in keys:
 		var r: Dictionary = minute[m]
 		var n := float(r.n)
-		print("%4d:00 %6.1f %7.1f (%5.1f %6.1f %4.1f %4.1f | %6.1f %4.1f %4.1f) %7.1f" % [m, r.alive / n, r.drops / n,
-			r.exp / n, r.meso / n, r.equip / n, r.potion / n, r.rest / n, r.air / n, r.magnet / n, r.hi / n])
+		print("%4d:00 %6.1f %7.1f (%5.1f %6.1f %4.1f | %6.1f %4.1f %4.1f) %7.1f" % [m, r.alive / n, r.drops / n,
+			r.exp / n, r.meso / n, r.equip / n, r.rest / n, r.air / n, r.magnet / n, r.hi / n])
 	print("job %d, level %d, skills %s; MP-short ticks %d of %d, player attacks %.1f us/tick in them, %.1f in the others" % [
 		w.progression.job_id, w.progression.level, w.loadout.order, wait_ticks, ticks,
 		float(wait_us) / maxf(1.0, wait_ticks),
