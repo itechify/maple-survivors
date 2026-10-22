@@ -533,6 +533,16 @@ Tree remains 0/3 clears for each policy: bot deaths change from 9:04/16:10/0:48 
 two-item boss rewards; they are recorded without tuning or a population-balance claim. Raw records and console/
 SYSTEMS summaries remain ignored under `_scratch/t240/smoke/`.
 
+Validation: **2,104 tests, 0 failed, 0 skipped** in the full suite; focused `balance_metrics`: **23, 0, 0**.
+The requested default-seed Henesys playtest used an 8-minute cap and died naturally at 306.517 s after Mano's
+arrival (`missing: []`). Occlusion prevented the first launch's screenshots. Always-on-top/window-position flags
+and a capture retry with `--warp=290` produced Mano arrival, combat and death frames; the natural and warped runs
+match on state, job, kills, potion uses, end time and maximum crowd. A supplemental seed-1 capture with the same
+warp reached the 8-minute cap, Lv23, with Mano dead and `missing: []`. Opening/2-minute, boss/death and post-boss
+6-minute screenshots were checked by eye: avatar/map layering, monsters, spells, notices, boss bar, tombstone and
+potion icons render correctly, with no potion quantities. Evidence stays ignored under `evidence/t240/`;
+render-window flags and the diagnostic warp change no gameplay data. This does not assess #239's pending sweep UI.
+
 #### Audit follow-up (MS-04..MS-42): regression smoke (2026-10-21)
 
 Feature smoke only, no tuning or data changes: `bash scripts/balance.sh 1 2 2026` on both tier-1 stages and both
