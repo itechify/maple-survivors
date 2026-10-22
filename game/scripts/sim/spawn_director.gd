@@ -173,7 +173,7 @@ func rate_at(t: float) -> float:
 
 ## Actual ordinary spawn rate, reduced while a scheduled boss remains alive.
 func effective_rate(world: RunWorld) -> float:
-	return rate_at(world.time) * world.bosses.normal_spawn_multiplier()
+	return rate_at(world.curve_time()) * world.bosses.normal_spawn_multiplier()
 
 
 ## Alive target at t (rounded).
@@ -243,7 +243,7 @@ func elite_interval_at(t: float) -> float:
 
 ## One director tick: recycling, steady spawns, bursts, elites (RunWorld.spawn_mob does the spawning and events).
 func step(dt: float, world: RunWorld) -> void:
-	var t := world.time
+	var t := world.curve_time()
 	var swarm := world.swarm
 	if not world.is_hidden():
 		_recycle(dt, world)  # Hidden (#194): no mob has a route to the character, so none is "gone" or stalled.

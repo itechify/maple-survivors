@@ -82,6 +82,7 @@ var magic_defense_k := CombatMath.MAGIC_DEFENSE_K
 var pierce_floor := 0.0
 ## Mob slots killed during the last step() (cleared at the start of each step).
 var kills := PackedInt32Array()
+var _halted := false
 ## Total damage dealt by every hit so far.
 var dealt := 0
 
@@ -179,10 +180,12 @@ func despawn(i: int) -> void:
 ## Moves every shot by dt, resolves hits against `swarm` through `grid` (rebuilt this tick from swarm.x/y/active),
 ## appends mob_hit events and fills `kills`. Optional defense/immunity arrays describe this impact tick.
 ## on_hit(slot, hit) runs once per damaging contact before apply_hit, with skill/level/magic/damage/element.
+## Optional on_kill(slot) resolves a kill immediately; returning true stops all remaining damage this step.
 func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd: PackedFloat32Array = PackedFloat32Array(),
 		physical_allowed: PackedByteArray = PackedByteArray(), on_hit: Callable = Callable(),
-		live_pdd: PackedFloat32Array = PackedFloat32Array()) -> void:
+		live_pdd: PackedFloat32Array = PackedFloat32Array(), on_kill: Callable = Callable()) -> void:
 	kills.resize(0)
+	_halted = false
 	var kinds: Array = swarm.kinds
 	var pad := max_body_extent(kinds)
 	var check_bounds := bounds.has_area()
@@ -221,9 +224,11 @@ func step(dt: float, swarm: MobSwarm, grid: SpatialHash, events: Array, live_mdd
 			if swarm.active[m] == 0:
 				continue
 			if blast_count[i] > 0:
-				_blast(i, m, swarm, grid, events, live_mdd, physical_allowed, on_hit, live_pdd)
+				_blast(i, m, swarm, grid, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill)
 			else:
-				_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+				_hit(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill)
+			if _halted:
+				return
 			if hits_left[i] <= 0:
 				break
 		if hits_left[i] <= 0:
@@ -293,12 +298,12 @@ static func roll_damage(lo: float, hi: float, is_magic: bool, defense: float, k:
 
 
 func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray,
-		on_hit: Callable, live_pdd: PackedFloat32Array) -> void:
+		on_hit: Callable, live_pdd: PackedFloat32Array, on_kill: Callable) -> void:
 	if hit_count[i] < MAX_HITS:
 		hit_list[i * MAX_HITS + hit_count[i]] = swarm.identity[m]
 		hit_count[i] += 1
 	hits_left[i] -= 1
-	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd,
+	_damage(i, m, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill,
 		maxf(pierce_floor, 1.0 - pierce_falloff[i] * (hit_count[i] - 1)))
 
 
@@ -306,7 +311,7 @@ func _hit(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat3
 ## tier C: the primary always takes one slot; splash is nearest to its body, then slot. No recursive blasts.
 func _blast(i: int, primary: int, swarm: MobSwarm, grid: SpatialHash, events: Array,
 		live_mdd: PackedFloat32Array, physical_allowed: PackedByteArray, on_hit: Callable,
-		live_pdd: PackedFloat32Array) -> void:
+		live_pdd: PackedFloat32Array, on_kill: Callable) -> void:
 	var anchor := Vector2(swarm.x[primary], swarm.y[primary])
 	var box := Rect2(blast_position[i] + anchor, blast_size[i])
 	var n := grid.query_radius(box.get_center(), box.size.length() * 0.5 + max_body_extent(swarm.kinds), _buf)
@@ -341,15 +346,17 @@ func _blast(i: int, primary: int, swarm: MobSwarm, grid: SpatialHash, events: Ar
 		count = mini(count + 1, limit)
 	events.append({"type": "skill_impact", "skill": skill_names[skill[i]], "pos": anchor,
 		"effect": blast_visual[i]})
-	_damage(i, primary, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+	_damage(i, primary, swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill)
 	for k in count:
-		_damage(i, _blast_targets[k], swarm, events, live_mdd, physical_allowed, on_hit, live_pdd)
+		_damage(i, _blast_targets[k], swarm, events, live_mdd, physical_allowed, on_hit, live_pdd, on_kill)
 	hits_left[i] = 0
 
 
 func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFloat32Array,
-		physical_allowed: PackedByteArray, on_hit: Callable, live_pdd: PackedFloat32Array,
+		physical_allowed: PackedByteArray, on_hit: Callable, live_pdd: PackedFloat32Array, on_kill: Callable,
 		multiplier: float = 1.0) -> void:
+	if _halted:
+		return
 	# tier C: immune contact consumes a shell/pierce hit, without a damage roll or mob_hit event.
 	var kind := damage_kind[i]
 	var is_magic := kind == CombatMath.DAMAGE_MAGIC
@@ -376,6 +383,8 @@ func _damage(i: int, m: int, swarm: MobSwarm, events: Array, live_mdd: PackedFlo
 			"damage": roll.x, "element": element[i], "damage_type": CombatMath.DAMAGE_TYPE_NAMES[kind]})
 	if swarm.apply_hit(m, roll.x, dir):
 		kills.append(m)
+		if on_kill.is_valid():
+			_halted = bool(on_kill.call(m))
 
 
 func _already_hit(base: int, n: int, identity: int) -> bool:
