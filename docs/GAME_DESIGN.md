@@ -29,8 +29,8 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    results. Results show time, level, job, kills, damage dealt and owned skills, then return to character select.
 
 Runs carry one named character through one stage per tier ([ADR 0001](adr/0001-run-of-rounds-with-one-character.md)).
-Level, partial EXP, job/branch, AP, skill ranks/mods, potions, Fortune, look and weapon carry; HP/MP refill and
-buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
+Level, partial EXP, job/branch, AP, skill ranks/mods, Fortune, look and weapon carry. Potion tiers derive from level;
+HP/MP refill and buffs, cooldowns, auto-cast timers, statuses and map entities reset. Saves are at round boundaries only.
 Quit round leaves the stored stage, seed and starting character unchanged; Continue replays that round.
 Death, victory and confirmed deletion end the run, free its slot and enter history; results have no Retry.
 A non-final clear autosaves the carried
@@ -359,7 +359,7 @@ and 35 Stirges (tier A, original Map.wz).
 
 All curve values/weights are tier C. The hard cap is 400; bursts start at 90 s, repeat every 90 s and grow from
 10 to 40 mobs; elites start at 75 s, repeat every 60 s and use HP/EXP/contact multipliers 8/5/1.5 (tier C,
-existing stage conventions). Global potion chances apply. All three bosses and every reward choice must finish
+existing stage conventions). All three bosses and every reward choice must finish
 before the round clears (#73). These values are not a balance calibration.
 
 The director keeps spawning until `alive >= max_alive(t)`, at `spawn_rate(t)` mobs/s, choosing from the pool active at
@@ -368,33 +368,31 @@ the coarse #30 C46 stage data (2026-10-15). It preserves the spec #29
 tuning waits for the dedicated balance pass (section 4.2).
 for now; balance will be revisited after more features (section 4.2).
 
-| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × | Normal HP chance |
-|---|---|---|---|---|---|---|
-| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 | 8% |
-| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 | 5% |
-| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 | 4% |
-| 4:00 | 1 | 20 | Slime | 1 | 1.05 | 3% |
-| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 | 1.2% |
-| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 | 0.8% |
-| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 | 0.8% |
-| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 | 0.7% |
-| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 | 0.7% |
-| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 | 0.805% |
-| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 | 1.035% |
-| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 | 1.2075% |
+| Time | Rate (mobs/s) | Max alive | Pool additions | HP × | Speed × |
+|---|---|---|---|---|---|
+| 0:00 | 0.15 | 3 | Snail 4, Blue Snail 3 | 1 | 1 |
+| 2:00 | 0.4 | 8 | Red Snail, Shroom | 1 | 1 |
+| 3:00 | 0.6 | 12 | PQ Stirge | 1 | 1.025 |
+| 4:00 | 1 | 20 | Slime | 1 | 1.05 |
+| 5:00 | 2.5 | 50 | Flyeye | 1.25 | 1.075 |
+| 6:00 | 4.5 | 85 | Pig, Orange Mushroom | 1.75 | 1.1 |
+| 8:00 | 8.2667 | 143.3333 | Goblin Fire | 3.84 | 1.1533 |
+| 9:00 | 9.4 | 165 | Green Mushroom | 3.9 | 1.18 |
+| 11:00 | 12.1333 | 215 | Stirge | 4.7 | 1.2467 |
+| 12:00 | 13.5 | 240 | full pool | 6.375 | 1.28 |
+| 13:00 | 15.6667 | 270 | full pool | 7.6875 | 1.32 |
+| 15:00 | 20 | 330 | final boss | 8.25 | 1.4 |
 
 The Beginner phase is sword-paced: a v83 Beginner (5 MP, one Three Snails shell at canonical 3 MP) kills mostly with
-the basic attack, so until 4:00 only a few mobs are alive, ordinary HP drops are generous (8% falling to 3%), no
+the basic attack, so until 4:00 only a few mobs are alive, no
 elite appears before 4:00 and no burst before 5:00, and ordinary kills pay 2.5x EXP so Magician arrives near 4:40.
 Density and HP then ramp from 5:00 into the calibrated mid/late curve. Canonical mob HP and skill damage/costs remain
 unchanged. Tree stage data are unchanged.
 
-The changed 8:00 HP endpoint interpolates from the unchanged 6:00 point; the extra late HP support begins after
-11:00. The HP potion curve holds after 15:00, independent of the spawn ramp. Ordinary/elite HP continues after 15:00 at
+The changed 8:00 mob HP endpoint interpolates from the unchanged 6:00 point. Ordinary/elite HP continues after 15:00 at
 0.25 × (8.25−7.6875)/120 = 0.001171875 per second; other pacing fields retain their existing quarter-slope
-extrapolation. Normal-mob MP is 3% flat on every stage, with no per-map values (owner, 2026-10-16, #80; Henesys's
-earlier 10% -> 4% curve is removed). Elite MP stays 60%, and elite HP/boss bundles are
-unchanged. Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
+extrapolation. Potion availability follows the per-kind cooldowns in section 5 on every stage (spec #237).
+Stage EXP remains a constant 2.5; the rejected optional EXP-keyframe experiment is removed.
 
 The earlier difficulty overhaul removed the time-based touch-damage column and the hidden 0.55 attack scale. Section 6.2
 defines current monster damage. The tuning history below and section 4.2 describe the former damage model;
@@ -430,13 +428,13 @@ monster HP or redesigning the roster. It has no flyers, and its portals connect 
 
 ### 4.1.1 New-system measurements
 
-The balance harness records completed boss spawn-to-death times per encounter, HP/MP potion collection and use,
+The balance harness records completed boss spawn-to-death times per encounter, HP/MP potions used,
 MP-short waiting seconds, and whole boss-hit damage divided by max HP at the hit (before Magic Guard's split).
 Aggregates report completed fight samples separately from unfinished, unspawned or skipped encounters, print the
 completed/spawned count beside each median and a censored median over all spawned fights (an unfinished fight counts
 as at least its elapsed seconds; `>=` marks a lower bound), and retain the boss-hit source kind. A cap ends the measurement as TIMEOUT; reaching 15:00 alone cannot clear a run.
-The per-policy `SYSTEMS` report also divides total MP potions collected by total MP potions used (not a mean of
-per-run ratios). `mp_collected_used_ratio` is JSON null, printed as `undefined (no MP used)`, when use totals zero.
+The per-policy `SYSTEMS` report sums player `potions_used` for HP and MP. `potion_uses` retains each player's drink
+time, level, kind, item ID, restored amount and capacity waste; `pet.potions_used` counts pet drinks separately.
 
 The #42 harness also reports `ordinary_kill_hits_by_min` for the first five run minutes: each bucket contains
 landed lifetime damage-line hits, ordinary kills and their ratio (null without kills). The death minute receives
@@ -446,8 +444,7 @@ canonical boss kinds are excluded; ordinary summons/offspring are included. Magi
 basic attacks count, and immune contacts do not. Aggregation divides summed hits by summed kills.
 `late_mp_short_seconds` measures ticks after 8:00 when an eligible ready skill fails affordability during the cast
 scan; a later affordable skill or basic attack may still act. `late_observed_seconds` and reached/waiting run counts
-distinguish unobserved late time from observed zero shortage. Final `potions_left` includes starting stock,
-recorded separately in `potions_start`; collection totals exclude starters. `outcomes` keeps timeouts separate
+distinguish unobserved late time from observed zero shortage. `outcomes` keeps timeouts separate
 from clears and deaths, and `death_seconds` samples deaths alone. Run records retain simulation warnings.
 Boss diagnostic snapshots use JSON null for an unobserved/nonfinite `best_distance`; the live simulation retains
 its infinity sentinel. The report reader normalizes that field in preserved legacy `1e99999` records before parsing,
@@ -469,20 +466,12 @@ CLI, record fields, aggregate semantics and seed separation are documented in AG
 core measurements without changing balance data; #27 adds the cast snapshot trace. Training and held-out results
 remain separate.
 
-Issue #37's initial MP scarcity pass uses normal/elite MP chances 2%/30% and boss MP bundles of 3,
-with HP supply unchanged (tier C). Before integrating the subsequent #48/#49/#50 changes, HG training seeds 1..12
-showed sensible collected/used falling from
-1.917 to 1.064 and median leftover from 85 to 0; random falls from 2.275 to 1.034, with median leftover
-59.5 to 0. Sensible clears fall from 4/12 to 0/12; random remains 0/12. Median MP-short seconds become
-116.884 (sensible) and 54.367 (random), from zero. This overshoots the 1.2-1.5 target; final calibration
-belongs to the balance pass. No held-out seeds were run. Configuration and exact training output:
-[issue37-mp-drops.md](research/issue37-mp-drops.md).
-
 Spec #29 replaces #1/#27's “most runs clear” target (including the historical 22/30 result) with **40–50% sensible
 clears and 5–15% careless clears** in Henesys. Death-only median time should fall between the first and third boss
-arrivals, **300–900 s**. Sensible MP collection/use should be **1.2–1.5**, with final stock far below the former 117;
-careless runs must actually observe some MP waiting after 8:00. First-five-minute ordinary lifetime hits/kill and
-their denominators report whether early durability is meaningful; mid-game mobs should typically need 2–3 hits.
+arrivals, **300–900 s**. Potion usage now measures the cooldown model (#237); its starting values await the owner's
+playtesting and the dedicated balance pass. Careless runs must actually observe some MP waiting after 8:00.
+First-five-minute ordinary lifetime hits/kill and their denominators report whether early durability is meaningful;
+mid-game mobs should typically need 2–3 hits.
 
 The full-run regression uses predetermined training seeds 1/2/2026 on both stages, separate from population
 acceptance. Henesys retains Mage/Lv10 median **180–330 s**, individual 150–360 s. The coarse owner-review pass
@@ -514,6 +503,45 @@ survivor score overrides, then the existing attack, shot, damage, pierce and def
 `bot.gain_step_score` per step an offer grants beyond its first (#63); `random` is a careless player who takes a random
 card of the three (the old `--first-card` policy is no longer a careless proxy: it always takes the
 guaranteed card, which UpgradePool puts first). `--idle-after=300` takes the hands off the keys at 5:00.
+
+#### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
+
+Feature smoke only: `bash scripts/balance.sh 1 2 2026 --stage=<key> --policy=<policy>` for `henesys_hg1` and
+`tree_that_grew_1`, `bot` and `random` (12 runs), harness `f924b1e` on sim base `521c0ef`. Every Godot command
+used `ISOLATE=t240` and `MAPLE_SURVIVORS_CACHE=C:/Users/itech/Coding/maple-survivors-refs/caches/s237`.
+No PATCH, balance-data edits, tuning candidates or held-out seeds. All records have `warnings: []` and `missing: []`;
+logs contain no crash, script error or engine warning. C = CLEARED, D = DEAD; values are seeds **1 / 2 / 2026**,
+times in seconds, drinks as **(HP, MP)** per run:
+
+| Stage / policy | Outcome and end seconds | First job seconds (id) | Potions used (HP, MP) |
+|---|---|---|---|
+| Henesys / bot | C 936.8 / D 309.4 / D 306.5 | 279.8 (200) / 277.2 (200) / 266.6 (100) | (17, 78) / (1, 18) / (1, 18) |
+| Henesys / random | D 917.4 / D 423.4 / C 951.3 | 267.1 (200) / 278.8 (200) / 278.8 (100) | (22, 73) / (1, 28) / (31, 78) |
+| Tree / bot | D 491.1 / D 39.1 / D 34.7 | 209.2 (200) / — / — | (5, 42) / (1, 0) / (1, 0) |
+| Tree / random | D 443.5 / D 39.1 / D 34.7 | 208.0 (200) / — / — | (5, 37) / (1, 0) / (1, 0) |
+
+Lv10 times equal the listed first-job times except Henesys random seed 1: Lv10 at 267.0, Magician at 267.1.
+Second jobs: Henesys bot seed 1 becomes F/P (210) at 595.8; random seed 1 becomes F/P at 581.0 and seed 2026
+becomes Page (120) at 562.8. Every Henesys run reaches Mano; both Tree seed-1 runs kill Stumpy. Neither stop
+condition is met: there are both deaths and clears, and first bosses are reached and killed.
+
+Compared with the preceding audit smoke (`66a798e`, below), Henesys bot retains 1/3 clears, with seed 1 clearing
+at 15:36 (Lv49) instead of 15:58 (Lv50); seeds 2/2026 now survive to 5:09/5:06 instead of 4:34/4:19.
+Henesys random changes from 0/3 to 1/3 clears (seed 2026); its seed-1/2 deaths move from 9:16/10:02 to 15:17/7:03.
+Tree remains 0/3 clears for each policy: bot deaths change from 9:04/16:10/0:48 to 8:11/0:39/0:34, random from
+9:29/2:56/0:48 to 7:23/0:39/0:34. These seeded shifts are expected from #237's changed potion availability and
+two-item boss rewards; they are recorded without tuning or a population-balance claim. Raw records and console/
+SYSTEMS summaries remain ignored under `_scratch/t240/smoke/`.
+
+Validation: **2,104 tests, 0 failed, 0 skipped** in the full suite; focused `balance_metrics`: **23, 0, 0**.
+The requested default-seed Henesys playtest used an 8-minute cap and died naturally at 306.517 s after Mano's
+arrival (`missing: []`). Occlusion prevented the first launch's screenshots. Always-on-top/window-position flags
+and a capture retry with `--warp=290` produced Mano arrival, combat and death frames; the natural and warped runs
+match on state, job, kills, potion uses, end time and maximum crowd. A supplemental seed-1 capture with the same
+warp reached the 8-minute cap, Lv23, with Mano dead and `missing: []`. Opening/2-minute, boss/death and post-boss
+6-minute screenshots were checked by eye: avatar/map layering, monsters, spells, notices, boss bar, tombstone and
+potion icons render correctly, with no potion quantities. Evidence stays ignored under `evidence/t240/`;
+render-window flags and the diagnostic warp change no gameplay data. This does not assess #239's pending sweep UI.
 
 #### Audit follow-up (MS-04..MS-42): regression smoke (2026-10-21)
 
@@ -2438,6 +2466,17 @@ screenshots and engine log. The late after-process sample and wrapper issue are 
 `evidence/acceptance/density_hg_final/completion-context.json`; full hardware/background context is in the
 Implementation Plan. Earlier visual/performance evidence remains separate below.
 
+#### Historical #37 initial MP scarcity pass (2026-10-14)
+
+Issue #37's initial MP scarcity pass uses normal/elite MP chances 2%/30% and boss MP bundles of 3,
+with HP supply unchanged (tier C). Before integrating the subsequent #48/#49/#50 changes, HG training seeds 1..12
+showed sensible collected/used falling from
+1.917 to 1.064 and median leftover from 85 to 0; random falls from 2.275 to 1.034, with median leftover
+59.5 to 0. Sensible clears fall from 4/12 to 0/12; random remains 0/12. Median MP-short seconds become
+116.884 (sensible) and 54.367 (random), from zero. This overshoots the 1.2-1.5 target; final calibration
+belongs to the balance pass. No held-out seeds were run. Configuration and exact training output:
+[issue37-mp-drops.md](research/issue37-mp-drops.md). Superseded by spec #237's cooldown model.
+
 #### Historical review-fix pass 3: Henesys 9:00 HP trickle (2026-10-15)
 
 Giving potion drop rolls their own RNG stream 7 (they had shared stream 5 with basic-attack stance rolls) reshuffled
@@ -3004,10 +3043,9 @@ still and cannot touch during fade-out or the normal 300 ms arrival fade. Progre
 by at least 1 px through its own movement; a boss already at the player does not relocate.
 
 Boss deaths replace ordinary drops with a shower totaling rounded canonical boss EXP × survivor reward multiplier
-(×5), split into 12 drops with no remainder lost, spread ±120 px. Default HP/MP bundles hold 3/3 potions of the
-stock's current tier, separated by ±30 px. Mano overrides these to 6 HP/3 MP; Stumpy keeps 3 HP/3 MP, supporting
-early builds. Both second bosses give 1 HP/3 MP, limiting later stock while ordinary HP supply stays scarce. The nested override includes
-MP explicitly; EXP and reward geometry retain the global defaults. Ordinary potion rolls do not add to bundles. Each death
+(×5), split into 12 drops with no remainder lost, spread ±120 px. Every scheduled boss also drops exactly two
+equipment items (`equipment_drops.boss_drops`, tier C, owner 2026-10-21, spec #237), selected with the unchanged
+`boss_top` rule on stream 10. Boss rewards contain no potions. Each death
 also grants one bonus upgrade pick, before any queued normal level pick, with no level gain or queued-level
 consumption. Final clear waits for the choices to finish. The bonus window reads "Boss Reward" and has no gained-level
 header. All reward and relocation values are tier C in `balance.bosses`; a schedule entry's `rewards` may override
@@ -3017,7 +3055,7 @@ Finale settlement (MS-07/MS-08, tier C owner choices, 2026-10-21): **clear wins*
 and all mandatory choices are answered. No subsequent monster, projectile or contact-damage tick runs. Death in
 the active tick that kills a boss still wins, including a kill that queues an unanswered reward; ordinary earlier
 deaths are unchanged. **Collect everything** then sweeps every remaining map pickup, ordinary and boss alike,
-independently of distance, height or current attraction: EXP, mesos, HP/MP potion bundles and equipment (the complete
+independently of distance, height or current attraction: EXP, mesos and equipment (the complete
 set of current pickup kinds). They use ordinary pickup accounting and equipment auto-wear, exactly once. Swept EXP
 opens the normal level/job/advancement/card queue; combat and simulation time remain frozen through those answers.
 Only then does the clear complete and produce the outgoing CharacterSnapshot. Job grants can spill equipment;
@@ -3108,12 +3146,9 @@ follows from the calibration table alone.
 
 The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and recorded here with its reason.
 
-- **Time-varying ordinary HP potion chance** (`normal_hp_drop_chance` keyframes, tier C): early supply bridges weak
-  Red-potion builds and late scarcity limits banking (section 5).
 - **Per-boss `attack_interval`, `attack_dmg_mult` and `rewards` overrides** (tier C): WZ attack nodes carry no
   interval, so the 8 s cadence is ours; a slam's PAD differs from the contact PAD (300 against 200/450), so it needs
-  its own scale to land in the 40-50% band; reward overrides support early builds (Mano 6 HP / 6 MP, Stumpy 3 HP / 6 MP) and
-  limit later stock (second bosses 1 HP).
+  its own scale to land in the 40-50% band; reward overrides can change EXP and its shower geometry.
 - **`balance.bot.card_scores`** (tier C): the sensible bot learns and ranks Magic Guard before another attack (scores
   110/109), as a sensible player facing 40-50% boss hits would; the careless policy stays uniform. Since #63 the
   override replaces only the base score: the sensible bot adds `bot.gain_step_score` per step an offered card grants beyond
@@ -3131,8 +3166,9 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 
 ## 5. Experience and levels
 
-Potions are unlimited (spec #237): Delete/Q drinks HP and End/E drinks MP, instantly even on a rope.
-Each kind has its own shared player/pet cooldown in sim seconds: HP 20, MP 10 (balance.potions.cooldown, tier C).
+Potions are unlimited (spec #237): Delete/Q drinks HP and End drinks MP by default, instantly even on a rope.
+Each kind has an independent cooldown shared by the player and pet: `balance.potions.cooldown: {"hp": 20, "mp": 10}`
+seconds (tier C, owner starting values, 2026-10-21). Drinking HP never delays MP, and drinking MP never delays HP.
 Presses while cooling down do nothing and emit nothing. Windows pause the sim and freeze cooldowns; tier upgrades
 keep the remaining time. No potion pickups or starter stock exist; RNG stream 7 stays reserved. Canonical
 spec.hp/spec.mp restoration and the level schedule are unchanged. Cooldowns are never saved: each round,
@@ -3179,25 +3215,14 @@ The opening pool is the v83 Beginner's 50 HP / 5 MP (owner decision). Each level
 Snails at its canonical 3 MP casts about once per 10 s regeneration pulse, and the Beginner phase is
 sword-paced: the basic attack does most of the killing until Magician. Real-run sip restoration/waste is recorded
 per event.
-The optional stage-keyframe `normal_hp_drop_chance` field is tier C survivor supply tuning: clamp each endpoint to
-[0, 1], interpolate linearly, hold the nearest endpoint outside the range, and substitute the global normal HP chance
-for missing endpoints. Elite rolls and fixed boss bundles keep their existing settings, and the curve is independent
-of card policy. Normal MP has no stage field (owner, 2026-10-16, #80: 3% flat, no per-map values; the earlier
-`normal_mp_drop_chance` curve and its reader are removed). Changing the global MP chance also changes which ground
-pickups the bot approaches during the opening.
 
 (The old potion-tier card score 112 is gone with the cards, spec #225.) Learning a new
 attack remains score 100; attack ranks/modifiers have maximum 87. The fallback 52 preserves callers without this field.
 Only sensible choices use these scores; careless choices use their separate seeded card RNG.
 Optional final card-score overrides set Guard learning to 110 and ranks to 109, without adding a job bonus. Missing
-entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability; Orange/White offer
-weights 30 make their eligible upgrades likely to appear. Snail count/cooldown/pierce weights 12/8/8 support the
+entries preserve legacy scoring. Guard learn/rank offer weights 8/8 improve availability.
+Snail count/cooldown/pierce weights 12/8/8 support the
 Beginner; these are survivor choices, and the random policy still chooses uniformly among offered cards.
-Current Henesys normal HP supply follows the C46 endpoint table in section 4.1; the curve interpolates and holds.
-Normal MP is 3% flat on every stage (owner, 2026-10-16, #80), elite MP 60%, with scheduled boss bundles unchanged. Tree's HP curve retains its earlier 3% through 4:00, 0.6% at 6:00, 0% at 9:00/12:00,
-0.6% at 13:00 and 0.8% at 15:00. These ordinary-drop
-chances do not suppress elite or boss-bundle HP drops. Elite chances remain
-global. Early supply bridges weak Red-potion builds; later scarcity limits banking without policy adaptation.
 The quick slot (HUD, below) shows each kind's current icon and stock count with its first key; balance/perf records report collected and used
 quantities per kind.
 
@@ -3290,7 +3315,7 @@ quantities per kind.
   | Wand, Staff | Magic Att. |
 
 - **Scroll shops (spec #33, #111)**: `Shop` (pure, static) works on a plain character state (`mesos`, `scrolls`,
-  `equipment`, `potions`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
+  `equipment`: the keys of a CharacterSnapshot) and returns "" or a reason, changing nothing on a reason.
   `Shop.stock(npc, rules, scrolls.json, drop list, item info, job)`: the NPC's rates (shops.json) of every family whose
   item category (`(item id / 10000) % 100`, the scroll's `(id / 100) % 100`) some drop-list item the job can wear
   (`Equipment.job_allows`) belongs to, in file order, each priced by its slot. `buy` is all-or-nothing: `count` (below
@@ -5039,7 +5064,9 @@ character (no compounding), and changes card rarity only (section 8.1). Cash ite
 **Pet.** The Pet page of the Equip window (PET EQUIP.) brings one owned pet out (Brown Kitty, Brown Puppy or Pink Bunny).
 It follows the character on the same platforms, teleports when left behind, and picks up every drop kind near it (Item
 Pouch and Meso Magnet are built in); it has no hunger, lifetime or commands. Upgrades belong to the account and apply to
-whichever pet is out: Auto HP / MP Potion Pouch drink on the character's shared per-kind cooldown below the HP / MP ALERT levels set in
+whichever pet is out: Auto HP / MP Potion Pouch drink below the HP / MP ALERT levels as soon as the character's shared
+per-kind cooldown is ready (spec #237). A pet drink starts the same timer as a manual drink, adding convenience without
+extra healing. The ALERT levels are set in
 Options (defaults 30 % / 20 %), Wing Boots fetch resting drops, Binocular doubles the pickup radius, and VAC pulls every
 drop on the map to the pet. Since spec #225 these are the only pickup-range upgrades (no card raises the radius).
 
@@ -5244,9 +5271,9 @@ random policy shares the movement and the camper policies still override it afte
 
 | Constant / choice | Value | Tier | Source |
 |---|---|---|---|
-| Potion model (#238) | Unlimited HP/MP; no stock, starters or drops; old snapshot stock ignored and cooldowns never saved | C | Owner spec #237 |
-| Potion cooldowns (#238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), fixed sim time; tier-ups preserve the timer | C | Owner spec #237 starting values; no tuning |
-| Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner spec #237 convenience rule |
+| Potion model (#237, #238) | Unlimited HP/MP; no stock, starters or drops; old snapshot counts ignored without a format bump; tiers derive from starter items plus level; every round including Continue starts ready, cooldowns never saved | C | Owner 2026-10-21, spec #237 |
+| Potion cooldowns (#237, #238) | HP 20 s / MP 10 s (`balance.potions.cooldown`), independent kinds in fixed sim time; paused windows freeze the timers, tier-ups preserve them, presses during cooldown silently do nothing | C | Owner 2026-10-21, spec #237 starting values; no tuning |
+| Pet pouches (#238) | Below ALERT and ready: share the player's per-kind cooldown, without a separate delay | C | Owner 2026-10-21, spec #237 convenience rule |
 | Desktop save lease (MS-02) | Renew every 5 real seconds and on successful writes; takeover after 30 seconds without renewal; lost owners refuse writes until a fresh committed-state reload | C | Persistence safety policy, not gameplay tuning; `SaveData.WriterLock`, `SceneFlow`, ARCHITECTURE 4.2 |
 | Reserved performance key (MS-10) | F3 is fixed on desktop and web, captioned Perf in Key Config; old saved action bindings drop F3 and retain their other keys | C | Existing RunScene diagnostic shortcut; `KeyBindings.RESERVED` |
 | Finale precedence (MS-07) | Last mandatory answer after all scheduled bosses die settles without another damaging tick; active-tick death still wins | C | Owner decision, 2026-10-21 |
@@ -5518,8 +5545,8 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 | Job filter | Only items whose `reqJob` is 0 or has the bit of the character's current job branch (`Equipment.job_allows`); a Beginner only gets all-job items, every playable Magician job gets Magician and all-job items | A | v83 `reqJob` bits (owner #33: current job only) |
 | Level window | reqLevel in [level - 10, level + 5] (`equipment_drops.below`, `above`) | C | Owner #33 |
 | Weighting | Weight 1 / (1 + 0.25 x abs(reqLevel - level)), so items nearer the character's level drop more often (`equipment_drops.falloff`) | C | Ours |
-| Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), sized once from an estimate: about 3,300 kills in a full Henesys round and about 8-12 items a round including the 3 boss drops. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
-| Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`, owner #237), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Ours (ticket #109) |
+| Drop chance | 0.002 per ordinary kill (`equipment_drops.chance`), unchanged by #237's two-item boss rewards; originally sized from an estimate of about 3,300 kills in a full Henesys round. v83 mobs gave equipment on about 0.7-2% of kills | C | Ours (ticket #109) |
+| Boss drop | Each scheduled boss death drops exactly 2 items (`equipment_drops.boss_drops`), no chance roll, uniform among the window's items with reqLevel in [level + 5 - 5, level + 5] (`boss_top`); the highest reqLevel in the window when none is that high, the nearest-level job-eligible item when the window is empty | C | Owner 2026-10-21, spec #237 (count); ours #109 (selection) |
 | Random stats | Every non-zero `inc*` stat of a drop varies by a whole number up to 10% of its base (rounded up) either side, capped at 5 for STR DEX INT LUK PAD MAD ACC EVA Speed Jump and at 10 for PDD MDD MHP MMP, uniform, never below 0; upgrade slots (`tuc`) never vary; other `inc*` keys keep their base (`Equipment.create_drop`) | B | The v83 server rule as the ticket #109 states it (implemented from that prose) |
 | RNG | Chance, item pick, stat rolls and boss scatter use RNG stream 10 (`equip_rng`), so no other stream moves; the pop of the drop uses stream 4 like every drop | C | Ours |
 | Lifetime and pickup | Equipment never expires, merges or counts toward the EXP-drop cap; magnet and collect radius like EXP drops; with a full Equip tab (`balance.player.inventory_slots`) it is not magnetised, stays on the ground, and is picked up once there is room | C | Owner #33 |
@@ -5530,7 +5557,7 @@ Beginner, otherwise 1302000 / 1372005 by job line) become worn instances when th
 |---|---|---|---|
 | Equipment value | An instance scores the sum of weight x value over its `inc*` stats (`balance.bot.equipment_weights`, keyed by job id, `"0"` Beginner and `"200"` Magician; a job uses its nearest ancestor's entry through `JobTree.lineage`). Magician: M.ATT 10, INT 6, M.DEF 2, W.DEF 1.5, LUK 1, Speed 0.5, then ACC/EVA/Jump/pools; Beginner: W.ATT 10, STR 6, DEX 3, W.DEF 1.5. Scrolls already read are part of the stats | C | Owner brief (#112: Magicians want M.ATT, INT, then defences); the numbers are ours |
 | Equip rule | At each equipment pickup, level-up and job change a bot wears, repeatedly, the highest-gain inventory item that scores above what it replaces (an overall against the top and bottom it displaces; an empty slot against 0) and that the v83 requirements and the Equip tab's room allow. Not a decision point, no RNG | C | Owner brief (#112); the job-change trigger is ours (a new job unlocks items) |
-| Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP, potion and meso drops are unchanged | C | Follow-up of #109 (lead) |
+| Pickups it cannot take | Bots ignore equipment drops while the Equip tab is full (no walking to them, no camping on them); EXP and meso drops are unchanged | C | Follow-up of #109 (lead) |
 | Sensible plan | At a Free Market visit: sell the spare equipment it will not wear (everything except a better item that only fails the level requirement); then for each worn item with upgrade slots in the order weapon, overall, gloves, hat, top, bottom, shoes, read the 100% or 60% scroll of its item type with the best expected score (success chance x stat score; the 60% INT/M.ATT scrolls beat the 100% ones at equal price), using held scrolls first and buying one per upgrade slot while mesos (plus the sales) last. Never dark scrolls | C | Owner brief (#112 baseline); expected-value choice between 100% and 60% is ours |
 | Careless plan | Sells nothing; while a worn item has an upgrade slot and an affordable scroll of its type exists (any rate, dark ones included) it picks a random (item, scroll) pair, buys and reads it. Its stream: `hash("careless-shop-<run seed>-<tier index>")` | C | Owner brief (#112) |
 | Plan application | Only through `RunWorld.sell_item`, `buy_scroll`, `use_scroll`; a dark scroll that destroys an item ends the pass and the plan is redone from the live state (at most 8 passes). Scroll rolls use the next round's `scroll_rng` (stream 11) | C | Ours |
@@ -5626,7 +5653,7 @@ living names compare without case (our interpretation of uniqueness). Dates and 
 These are persistence/creation rules, with no balance or canonical-data changes.
 
 The spec #32 round-boundary contract (#67, tier C owner decision) carries character progression and permanent
-growth/modifiers, ordered skills/card limits, potion counts and tier IDs, Fortune and creation fields. HP and MP
+growth/modifiers, ordered skills/card limits, Fortune and creation fields; potion tiers derive from level (#237). HP and MP
 refill to computed maxima; all buffs, cooldowns (including manual Teleport), auto-cast/action/regen clocks,
 player statuses and map entities restart. Format 1 is a serialization version, not balance tuning. Fixture float
 fields round to six decimal places for readable committed JSON; generation never changes the survivor data.
@@ -5640,7 +5667,7 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Map and original spawns | 105050400; Horny 2110200 ×9, Zombie 2230101 ×7, Stirge 2300100 ×35; 14 ladders; NPC 9201133; exits 105050300/105060000 | A | Original v83 Map.wz/Map/Map1/105050400.img; loaded through the normal cache |
 | Stage roster/order | Horny/Zombie/Stirge → Evil Eye 2230100 → Curse Eye 3230100/Jr. Boogie 3230300 → Tauromacis 7130100 → Taurospear 7130101 | C | Owner #72 roster; Tauro attacks from #76 (table below); Jr. Boogie contact only |
 | First-pass pacing | 900 s; keyframes at 0/120/300/480/600/780/900 s, rates 3/4.5/7/10/12/15/18, caps 50/80/130/180/220/280/330, HP 1/1/1.15/1.3/1.4/1.5/1.6, speed 1/1.05/1.1/1.15/1.2/1.25/1.3; pool weights in 4.1 | C | Chosen before measurement for second-job arrivals; no tuning candidates |
-| Supplies / elites / bursts / ending | Stage EXP 1x, global potions; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle |
+| Supplies / elites / bursts / ending | Stage EXP 1x, shared per-kind potion cooldowns; hard cap 400; bursts first/every 90/90 s, size 10–40; elites first/every 75/60 s, HP/EXP/contact 8/5/1.5x; bosses and rewards gate clear | C | Existing stage conventions; #73 supplies the final-fight lifecycle; owner #237 cooldown model |
 | Signature EXP pickups | Horny 4000015, Zombie 4000008, Stirge 4000042, Evil Eye 4000007, Curse Eye 4000013, Jr. Boogie 4000067, Tauromacis 4000028, Taurospear 4000046 | A IDs/names; C association | Original v83 String.wz/Etc.img names and Item.wz art; signature icon association is survivor data, not a WZ drop-table claim |
 
 | Ordinary mob attacks (#76) | Value / behavior | Tier | Source |
@@ -5672,7 +5699,6 @@ items) reaches a round as the setup key `account`, never inside the character.
 | Bot Dash flee rule (#188) | press when HP < 50% with a mob within 160 px, or when 3+ same-level mobs are within 120 px; requires ready, usable, affordable and the Teleport MP reserve | C | ours; `skills/pirate.json` `dash.manual` (`bot_flee_hp`, `bot_surround_count`, `bot_surround_distance`); `BotInput._flee_buff` |
 | Physics.img values | see `docs/research/wz-inventory.md` §2 | A | v83 Map.wz |
 | Potion restore amounts and icons | Red 50 HP, Orange 150 HP, White 300 HP, Blue 100 MP, Mana Elixir 300 MP | A | Item.wz/Consume/0200.img, unchanged spec/info |
-| Ordinary HP supply curve | Optional stage-keyframe chance, endpoint clamping, linear interpolation, global fallback per missing endpoint and endpoint holding outside the range | C | ours; SpawnDirector.normal_hp_drop_chance_at |
 | Quick slot cell geometry (#220) | white cell interiors 27 × 25 at (10, 9) of the 151 × 80 `base/quickSlot` canvas, pitch (35, 34); 32 px icon box at (7, 6); 9 px key caption at the cell's top-left, potion stock at its bottom-left | C (measured on the art) | ours; HudQuickSlot |
 | Walk/jump/air/down-jump/landing model | §3 | B | NoLifeStory physics description |
 | Player sub-step | 2 per 1/60 s tick | C | ours |
@@ -5808,8 +5834,8 @@ items) reaches a round as the setup key `account`, never inside the character.
 | vslot hiding | a layer is hidden when one other drawn item's `info/vslot` codes cover every code of the layer's `Base.wz/smap.img` entry (hat CpH1H5 hides hairOverHead, a full-head hat the head, hair and accessories); face accessories follow the face expression; hats, eye accessories and earrings use their `default` frame for stances they lack | C | codes are tier A (smap.img, `info/vslot`); the all-codes-of-one-item reading is ours (any-code or pooled readings hide the sleeves, pants and shoes wrongly) |
 | VAC | survivor-only pet upgrade, id 9990000 (reserved), placeholder price 20,000 NX, needs Wing Boots + Binocular and a pet: every drop on the map that is outside the player's magnet radius flies to the pet at the drop magnet's speed and acceleration (#119); with the Magnet card removed (#225) VAC and Binocular are the only pickup-range upgrades | C | spec #34, ADR 0003; our design |
 | Pet in the round (#119) | `PetSystem`, only with an owned pet out (`character.pet` + `account.owned`); none otherwise and the round is byte-identical to before. Moves with the player's own physics (a second `PlayerMotion`) driven by a follow controller: walks toward the player (stops within `follow_gap` 40 px, walks at 1.1x the player's speed), hops up when the player's feet are 20-70 px above and within 80 px sideways, drops through the floor when the player is 20+ px below and within 60 px, jumps after 0.3 s pressed against a wall, hangs on the player's rope (action `hang`) while the player climbs. Teleports to the player when farther than 600 px, or farther than 280 px for 3 s (`pet_teleported` event). A pet brought out (round start, the Pet page, the Free Market) stands `beside_offset` 30 px behind the way the player faces, else in front, on the same flat floor, else on the player (#126: on the player it was hidden behind or over the avatar while the player stood still; a teleport still lands on the player and the pet walks off) Three more constants live in the same `pet` block rather than in code: `speed_stat_floor` 100 (the pet's speed stat is the player's but never below the 100 % base), `stuck_move_px` 0.2 (it counts as pushing against a wall when it moved less than this in a tick) and `floor_tolerance` 2 px (a floor within this of the player's feet is the same floor, for standing beside). `cash_items.json` `pet` is the only place the numbers live; `PetSystem` has no defaults. The pet upgrade item ids in `PetSystem` are tier A (1812002-1812005 are v83 items) except VAC 9990000 (tier C, survivor-only). A drop flying to the pet when it is dismissed falls and lands as an ordinary drop. State for drawing and telemetry: `RunWorld.pet_state()` = {species, pos (feet), facing, action stand/move/jump/hang, fetching, abilities} | C | ours; the numbers are in `cash_items.json` `pet` |
-| Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, potions; mesos with B2) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
-| Pet auto potions (#119) | Auto HP / Auto MP Potion Pouch: below the HP / MP ALERT fraction (strictly below; 0 = do not alert; the round setup's `alert`) the pet drinks the character's current potion of that kind from the shared stock, at most once per kind per 1.0 s, never with an empty stock. Counted in `potions.pet_used` and the `pet_potion_used` event, not in `potions_used`/`potion_used`. The bot's own drinking rule is unchanged | C | ours; the ALERT sliders are v83 Options |
+| Pet pickup (#119) | the base pet (Item Pouch and Meso Magnet included) collects every drop kind (EXP, mesos, equipment) within `pickup_radius` 60 px of its centre (15 px above its feet), on top of the player's magnet; Binocular x2 (120 px). What it collects is credited exactly as the player's, and `pickup_collected.collector` is `pet`. Wing Boots: it runs (1.5x) to the nearest resting drop within 220 px sideways and 80 px vertically of the player, walks to within 6 px of it, gives up after 2.5 s on one drop (then 2 s without fetching), and comes back | C | ours; v83 `PetEquip` flags (`pickupItem`, `pickupMeso`, `sweepForDrop`, `longRange`) are the idea only |
+| Pet auto potions (#119, #237) | Auto HP / Auto MP Potion Pouch: strictly below the HP / MP ALERT fraction (0 disables; round setup `alert`), drink the current potion when its shared per-kind cooldown is ready; pet and player start the same timer, with no additional pet delay. Counted in `potions.pet_used`, record `pet.potions_used` and `pet_potion_used`, separately from player `potions_used`/`potion_used`. The bot's waste guard is unchanged | C | Owner 2026-10-21, spec #237; ALERT sliders are v83 Options |
 | Pet drawing (#120) | `PetRenderer` draws `RunWorld.pet_state()` (and the Free Market's `FreeMarketMotion.pet_state()`, the same `PetSystem` follower with no drops) from `Item.wz/Pet/<species>.img` (`stand0 stand1 move jump hang fly` and `info/icon`, `info/iconRaw` in the manifest; no `Pet.wz` in v83) at the real frame delays and origins; the art faces left so facing right mirrors; no name tag or chat balloon. Action to animation: stand -> `stand0`, move -> `move`, jump -> `jump`, hang -> `hang` (tier A: the WZ names); a pet running to a drop in the air (Wing Boots, `fetching` and `jump`) uses `fly`, and a hanging pet is drawn 22 px beside the climber instead of exactly behind (C: ours, the sim keeps it on the player's position). Drawn in the actor layer of the foothold it stands on, just behind the avatar when that is the avatar's layer. `stand1` is imported but not used | A (animations) / C (mapping, offset) | v83 `Item.wz/Pet`; ours |
 | HP / MP ALERT defaults (#121) | HP ALERT 30 %, MP ALERT 20 % of max (`Settings` `[alert]` hp/mp; 0 = do not alert; 5 % steps on the Options sliders). A persistent round takes them from the settings at launch and follows changes at once; tool rounds ignore the settings and take `--account`'s `alert` (default 0) | C | ours, low enough to be safe and on so a new pouch works at once; the v83 SysOpt rows are the slider style |
 | Card tier magnitudes | rank +1/+2/+3/+5/+8; stacking +1/+2/+3/+4/+5; new skill 1/2/3/4/5; per-card overrides; Legendary clamps to ranks/steps left | C | spec #30, each tier above the last (owner 2026-10-15); upgrades.magnitudes; fixed Legendary gains and data-driven clamp: owner decision #173, 2026-10-18 |

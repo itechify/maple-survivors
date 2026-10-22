@@ -43,8 +43,10 @@
 # swarm engagement at 6/9/12 min (live mobs within 400 x 200 px of the player over the minute centred there, see
 # balance_run.gd), the stale share at 6/9/12 min (live mobs outside that box for 20 s or more in a row; a relocated
 # mob keeps its time), recycled mobs per spawn and relocated mobs per spawn) and a summary, and writes every run's
-# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. SYSTEMS reports potion totals, MP collected/used, MP wait, completed boss
-# fight times, time to Magician, final potion stock, late MP waits with observation counts, first-five-minute
+# full record to $BALANCE_OUT/<stage>_<policy>_<seed>.json. Potion fields: potions_used {hp, mp} counts player drinks;
+# potion_uses [{time, level, kind, item_id, restored, capacity_waste}] records each player drink; pet.potions_used {hp, mp}
+# counts pet drinks separately when a pet is out. Unlimited potions have no collection/stock metrics or collection/use ratio.
+# SYSTEMS reports player potions used, MP wait, completed boss fight times, time to Magician, late MP waits with observation counts, first-five-minute
 # lifetime hits per ordinary kill, death-only times and whole boss-hit HP fractions; *_summary.json/log preserve the aggregate.
 # Per-run card_tiers_offered/picked count the displayed Potential tiers; SYSTEMS totals include an observed-run count.
 # Chain files use <stage>_chain_tier<N>_<policy>_<seed>.json and retain rounds[]; summaries group by tier,
