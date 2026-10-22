@@ -10,6 +10,96 @@ extends TestCase
 const DT := 1.0 / 60.0
 
 
+func test_map_clear_holds_then_reloads_art_music_camera_and_pooled_actors() -> void:
+	if not require_cache():
+		return
+	for id: int in [104010001, 100030001]:
+		if lib.img(AssetLibrary.map_img_path(id)) == null:
+			skip("three-map cache is missing map %d" % id)
+			return
+	scene = _make("henesys_hg1", 246, {"autopick": true})
+	# Adapt the real setup explicitly; this does not depend on the interim MAP_CHAINS fixture.
+	var setup := scene.world.setup.duplicate(true)
+	var stage: Dictionary = setup.data.stages.stages[scene.stage_key]
+	var maps: Array = []
+	setup.map_imgs = []
+	for id: int in [104040000, 104010001, 100030001]:
+		maps.append({"map_id": id, "pool": "curve", "boss": {"mob_id": 2220000, "time": 0.1,
+			"rewards": {"bonus_choices": 0, "exp_mult": 0.0}}})
+		setup.map_imgs.append(lib.img(AssetLibrary.map_img_path(id)).root)
+	stage.maps = maps
+	stage.map_seconds = 300.0
+	scene.world = RunWorld.new(setup)
+	scene.world.god = true
+	_frames(8)
+	var old_mobs: Array[WeakRef] = []
+	for mr in scene.mob_renderers:
+		old_mobs.append(weakref(mr))
+	var old_shots: WeakRef = weakref(scene.shots)
+	var old_drops: WeakRef = weakref(scene.drops)
+	var sfx := scene.get_node("/root/Sfx") as AudioService
+	var old_bgm := sfx.current_bgm
+	var w := scene.world
+	var slot := int(w.bosses.records[0].slot)
+	assert_true(slot >= 0)
+	w.hit_mob(slot, {"damage_min": 1e9, "damage_max": 1e9, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(2)
+	assert_true(w.transfer_pending, "the clear notice holds the deterministic sim boundary")
+	assert_eq(scene.map.map_id, 104040000, "the old map stays visible for the notice")
+	var time := w.time
+	_frames(190)
+	var fade := scene.get_node("MapTransfer/Fade") as ColorRect
+	assert_true(fade.color.a > 0.0 and fade.color.a < 1.0, "fade out is visible before the reload")
+	scene.open_pause()
+	var opacity := fade.color.a
+	_frames(120)
+	assert_eq(w.time, time, "pause holds both simulation and the fade")
+	assert_eq(fade.color.a, opacity)
+	assert_eq(scene.map.map_id, 104040000)
+	scene.resume()
+	_frames(14)
+	assert_eq(fade.color.a, 1.0, "one fully black frame precedes the reload")
+	_frames(1)
+	assert_eq(w.time, time, "advance_map and reload admit no combat tick")
+	assert_eq(scene.map.map_id, 104010001)
+	assert_eq(fade.color.a, 1.0, "destination loads behind black")
+	assert_true(scene.toggle_window("stat"), "in-run windows remain usable during transfer")
+	_frames(120)
+	assert_eq(w.time, time)
+	assert_eq(fade.color.a, 1.0)
+	scene.toggle_window("stat")
+	_frames(90)
+	assert_eq(w.map_index, 1)
+	assert_eq(scene.map.map_id, 104010001)
+	assert_eq(scene.map_id, 104010001)
+	assert_eq(scene.cam.bounds, w.bounds)
+	assert_eq(sfx.current_bgm, AssetLibrary.bgm_path(String(scene.map.map_root.info.bgm)))
+	assert_true(sfx.current_bgm != old_bgm, "the destination's own music starts")
+	for mr in old_mobs:
+		assert_true(mr.get_ref() == null, "old mob canvas pools have been freed")
+	assert_true(old_shots.get_ref() == null)
+	assert_true(old_drops.get_ref() == null)
+	assert_eq(scene.build_summary().map_name, "The Pig Beach")
+	assert_eq(scene.build_summary().region, "Henesys")
+	assert_eq(scene.build_summary().street_name, lib.string_name("Street", 104010001))
+	assert_true(w.time >= time)
+	assert_eq(scene._title, PackedStringArray(["Hidden Street", "The Pig Beach"]), "arrival uses the round title style")
+	# A second transfer must release the replacement pools too, and report the third map if the round ends there.
+	var second_mobs: Array[WeakRef] = []
+	for mr in scene.mob_renderers:
+		second_mobs.append(weakref(mr))
+	w.hit_mob(int(w.bosses.records[1].slot), {"damage_min": 1e9, "damage_max": 1e9, "magic": false,
+		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
+	_frames(300)
+	assert_eq(scene.map.map_id, 100030001)
+	assert_eq(scene.build_summary().map_id, 100030001)
+	assert_eq(scene.build_summary().map_name, "The Blue Mushroom Forest")
+	for mr in second_mobs:
+		assert_true(mr.get_ref() == null, "the second transfer also frees the old mob pools")
+	_assert_nothing_missing(scene, "map transfer")
+
+
 func test_round_keeps_selected_appearance_when_job_weapon_changes() -> void:
 	if not require_cache():
 		return
