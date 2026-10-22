@@ -180,11 +180,10 @@ func test_granting_scrolls_respects_slot_max_and_the_use_tab() -> void:
 	assert_eq(world.grant_scrolls(2040400, 1), 0)
 	assert_eq(world.grant_scrolls(2043700, 0), 0)
 	assert_eq(world.grant_scrolls(2043700, -3), 0)
-	var cap := Scrolls.USE_SLOTS - 2
-	for i in cap - 1:
+	for i in 23:
 		world.scrolls[str(2049000 + i)] = 1
-	assert_eq(world.scrolls.size(), cap, "the two potion stacks leave 22 slots for scrolls")
-	assert_eq(world.grant_scrolls(2043700, 5), 0, "the Use tab is full")
+	assert_eq(world.scrolls.size(), 24, "all 24 Use slots hold scroll stacks")
+	assert_eq(world.grant_scrolls(2043700, 5), 0, "a 25th stack has no free slot")
 	assert_eq(world.grant_scrolls(2040400, 5), 0, "that stack is full too")
 	world.scrolls["2049000"] = 3
 	assert_eq(world.grant_scrolls(2049000, 4), 4, "an existing stack needs no free slot")
