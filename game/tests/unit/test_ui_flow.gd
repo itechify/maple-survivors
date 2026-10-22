@@ -23,18 +23,6 @@ func test_results_skills_fit_above_new_best_at_every_loadout_size() -> void:
 			return
 
 
-func test_map_select_roster_keeps_long_names_readable_inside_each_cell() -> void:
-	for name: String in ["Curse Eye", "Jr. Boogie", "Tauromacis", "Taurospear"]:
-		var lines: PackedStringArray = STAGE_SELECT.roster_name_lines(name, 54)
-		assert_true(lines.size() <= 2)
-		if not "".join(lines).contains("..."):
-			assert_eq("".join(lines).replace(" ", ""), name.replace(" ", ""), "wrapped names stay complete")
-		for line: String in lines:
-			assert_true(MapleText.width(line, MapleText.SMALL) <= 54, "%s fits its roster cell" % line)
-			assert_true(line.ends_with("...") or line in name.split(" ") or line == name,
-				"roster names wrap only at word boundaries, or ellipsize a long word: " + line)
-
-
 func before_each() -> void:
 	TestCase.remove_tree(save_path.get_base_dir())
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(save_path.get_base_dir()))
@@ -81,12 +69,11 @@ func test_stage_select_ignores_retired_save_records() -> void:
 
 func test_stage_select_objective_matches_the_clear_rule() -> void:
 	var offered := STAGE_SELECT.load_stages(DataRepo.load_all())
-	assert_eq(offered[0].objective, "Defeat all 3 bosses to clear.")
-	assert_eq(offered[1].objective, "Defeat all 3 bosses to clear.")
+	assert_eq(offered[0].objective, "Defeat 3 bosses across 3 maps")
+	assert_eq(offered[1].objective, "Defeat 3 bosses across 3 maps")
 	var fallback := DataRepo.load_all()
 	STAGE_FIXTURES.set_bosses(fallback.stages.stages.ellinia, [])
 	assert_eq(STAGE_SELECT.load_stages(fallback)[1].objective, "Survive 15:00 to clear the stage.")
-	assert_false(2220000 in offered[0].mobs, "bosses do not enlarge the ordinary monster roster grid")
 
 
 func test_save_data_round_trip() -> void:

@@ -1,7 +1,7 @@
 extends Node2D
 ## Results screen (docs/ARCHITECTURE.md 4.1, GAME_DESIGN section 1 step 6): the same world-select scroll as the stage
 ## select, unrolled with the run's results. Left: the headline ("Stage Clear!" or "You died", with the v83 tombstone
-## Effect.wz/Tomb.img/land/0), the region and continent, time survived, level, job, kills, damage dealt and a NEW BEST marker; right: the
+## Effect.wz/Tomb.img/land/0), the region, continent and ending map, time survived, level, job, kills, damage dealt and a NEW BEST marker; right: the
 ## skills owned (Skill.wz icons with Basic.img/ItemNo rank digits, as on the HUD) and the previous best.
 ## The single Back button returns to character select; Enter and Esc do the same. Persistent last-tier clears
 ## say Victory and show tiers cleared; tool-only clears still say Stage Clear. No retry creates a parallel run.
@@ -29,8 +29,8 @@ var summary: Dictionary = {}
 var new_best := false
 ## The stage's best before this run ({} when none).
 var previous_best: Dictionary = {}
-## DataRepo.summary_stage_lines(summary), read once on the first draw.
-var _stage_text: Array[String] = []
+## Ending location, read once on the first draw.
+var _location: Dictionary = {}
 
 var backdrop: LoginBackdrop
 var scroll: ParchmentScroll
@@ -44,6 +44,19 @@ func configure(p_summary: Dictionary, p_new_best: bool, p_previous_best: Diction
 	new_best = p_new_best
 	previous_best = p_previous_best
 	flow = p_flow
+	_location = {}
+
+
+## The region and ending map shown on results, with that map's WZ mark (also for older saved summaries).
+static func location(p_summary: Dictionary) -> Dictionary:
+	var id := int(p_summary.get("map_id", 0))
+	var map_name := String(p_summary.get("map_name", ""))
+	var library := UiArt.lib()
+	if map_name.is_empty() and library != null:
+		map_name = library.string_name("Map", id)
+	var mark: Variant = UiArt.node(AssetLibrary.map_img_path(id) + "/info/mapMark")
+	return {"region": DataRepo.summary_stage_lines(p_summary)[0], "map_name": map_name.strip_edges(),
+		"mark": String(mark) if mark is String else ""}
 
 
 func _ready() -> void:
@@ -150,22 +163,25 @@ func _draw_left(ci: Control, r: Rect2) -> void:
 	MapleText.draw(ci, Vector2(hx, y + 10.0), headline(summary), CLEAR_COLOR if cleared else INK_RED, 18, true, 2,
 		HEAD_OUTLINE if cleared else Color8(255, 238, 204))
 	y += 48.0
-	var mark := UiArt.frame(MARK + _map_mark())
+	if _location.is_empty():
+		_location = location(summary)
+	var mark := UiArt.frame(MARK + String(_location.mark))
 	var tx := x
 	if mark != null:
 		UiArt.blit(ci, mark, Vector2(x, y))
 		tx += 44.0
-	if _stage_text.is_empty():
-		_stage_text = DataRepo.summary_stage_lines(summary)
-	var stage_text := _stage_text
-	var lines := MapleText.wrap(stage_text[0], LEFT_W - (tx - x),
+	var lines := MapleText.wrap(String(_location.region), LEFT_W - (tx - x),
 		MapleText.SMALL, true)
 	var ly := y + (4.0 if lines.size() > 1 else 6.0)
 	for k in mini(2, lines.size()):
 		MapleText.draw(ci, Vector2(tx, ly), lines[k], INK, MapleText.SMALL, true)
 		ly += MapleText.LINE_SMALL
-	MapleText.draw(ci, Vector2(tx, ly), stage_text[1], INK_SOFT, MapleText.SMALL)
+	MapleText.draw(ci, Vector2(tx, ly), DataRepo.summary_stage_lines(summary)[1], INK_SOFT, MapleText.SMALL)
 	y += 46.0
+	for line: String in MapleText.wrap(String(_location.map_name), LEFT_W - 4.0, MapleText.SMALL):
+		MapleText.draw(ci, Vector2(x, y), line, INK, MapleText.SMALL)
+		y += MapleText.LINE_SMALL
+	y += 6.0 # tier C: #247, separate the ending map from the result stats inside the parchment.
 	for row: Array in stat_rows(summary):
 		MapleText.draw(ci, Vector2(x, y), String(row[0]), INK_SOFT, MapleText.SMALL)
 		var v := String(row[1])
@@ -237,8 +253,3 @@ func _draw_skill(ci: Control, s: Dictionary, cell: Rect2, names: bool, icon_size
 	for line in MapleText.wrap(String(s.get("name", "")), cell.size.x - 8.0, MapleText.SMALL).slice(0, 2):
 		MapleText.draw_centered(ci, cell.position.x, y, cell.size.x, line, INK, MapleText.SMALL)
 		y += MapleText.LINE_SMALL - 1.0
-
-
-func _map_mark() -> String:
-	var v: Variant = UiArt.node(AssetLibrary.map_img_path(int(summary.get("map_id", 0))) + "/info/mapMark")
-	return String(v) if v is String else ""
