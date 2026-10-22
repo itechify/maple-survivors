@@ -1113,7 +1113,8 @@ func handle_events(events: Array) -> void:
 			"boss_skill":
 				_on_boss_skill(e)
 			"mob_projectile_spawned":
-				_event_shot("mob_projectile.png", 0.55) # tier C: capture the ball clearly separated from its caster.
+				# tier C: capture the first ball clearly separated from its caster; swarms must not encode a PNG per ball.
+				_first_event_shot("mob_projectile", "mob_projectile.png", 0.55)
 			"mob_projectile_hit":
 				if String(e.hit) != "":
 					fx.play(String(e.hit), e.pos, int(e.facing) > 0)
