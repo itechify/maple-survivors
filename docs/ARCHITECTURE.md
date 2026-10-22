@@ -915,7 +915,7 @@ among offered cards with its own seeded RNG and never reads the score setting. T
 
 `RunScene` holds `map_cleared` at the sim's `transfer_pending` boundary while the original party-quest CLEAR effect
 plays, then fades out. After one fully black frame it calls `advance_map()`, replaces the map-owned world subtree
-(freeing the old mob/drop/projectile/effect canvas pools), snaps a new bounded camera to the arrival portal and
+(freeing the old mob/drop/projectile/effect canvas pools), updates and snaps the existing camera to the arrival portal and
 starts the destination BGM. Fade-in completes before another simulation tick; the destination's street/map name
 uses the round title style. HUD and window layers survive. Pause and in-run windows hold the entire presentation
 clock and Resume continues the same phase, including at black; choices during the frozen sweep work as before.

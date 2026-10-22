@@ -24,6 +24,8 @@ extends Node2D
 ## every tick (slot indices are only valid right after the step that emitted them), then updates the renderers from
 ## the sim state. The tick loop stops while the world is not PLAYING (level-up / job windows, death, clear) and while
 ## the pause menu is open.
+## Intermediate map clears hold the sim through CLEAR, fade-out, a black-frame reload and fade-in. Pause/in-run
+## windows hold that presentation clock too; Resume continues the same phase. Only map-owned renderers are replaced.
 ##
 ## Windows (LevelUpWindow, JobAdvanceWindow, PauseMenu: game/scripts/ui/windows/) are hosted in a CanvasLayer (layer
 ## 10); while one is open the fixed-tick loop holds (the sim is also held by its CHOOSING_* state). The level-up window
@@ -619,9 +621,12 @@ func _build_map_and_camera() -> void:
 	world_root.add_child(map)
 	if not map.load_map(map_id):
 		push_warning("RunScene: map %d not in the cache" % map_id)
-	cam = CameraRig.new()
+	# Keep the viewport's active camera alive across map reloads. Destroying/recreating it inside _process can
+	# leave the viewport without a current camera after the old camera's frame callbacks finish.
+	if cam == null:
+		cam = CameraRig.new()
+		add_child(cam)
 	cam.bounds = world.bounds
-	world_root.add_child(cam)
 	cam.make_current()
 	map.camera = cam
 
@@ -705,7 +710,7 @@ func _build_overlays() -> void:
 	# Below notices/windows so pause and inventory remain usable over a partly faded world.
 	var fade_layer := CanvasLayer.new()
 	fade_layer.name = "MapTransfer"
-	fade_layer.layer = 9 # tier C: above the HUD/world, below modal windows at layer 10
+	fade_layer.layer = hud.layer # tier C: created after HUD, before notices/windows on the same canvas layer
 	add_child(fade_layer)
 	_transfer_fade = ColorRect.new()
 	_transfer_fade.name = "Fade"
@@ -1704,6 +1709,8 @@ func _freeze(on: bool) -> void:
 	var mode := Node.PROCESS_MODE_DISABLED if on else Node.PROCESS_MODE_INHERIT
 	if world_root != null:
 		world_root.process_mode = mode
+	if cam != null:
+		cam.process_mode = mode
 	if hud != null:
 		hud.process_mode = mode
 	if notice_fx != null:

@@ -74,6 +74,8 @@ func test_map_clear_holds_then_reloads_art_music_camera_and_pooled_actors() -> v
 	assert_eq(scene.map.map_id, 104010001)
 	assert_eq(scene.map_id, 104010001)
 	assert_eq(scene.cam.bounds, w.bounds)
+	assert_true(scene.cam.is_current(), "the viewport keeps an active arrival camera")
+	assert_true(scene.cam.view_rect().has_point(w.player.pos), "arrival is framed inside the new bounds")
 	assert_eq(sfx.current_bgm, AssetLibrary.bgm_path(String(scene.map.map_root.info.bgm)))
 	assert_true(sfx.current_bgm != old_bgm, "the destination's own music starts")
 	for mr in old_mobs:
@@ -93,6 +95,8 @@ func test_map_clear_holds_then_reloads_art_music_camera_and_pooled_actors() -> v
 		"crit": 0.0, "crit_mult": 1.5, "skill": "three_snails"}, -1)
 	_frames(300)
 	assert_eq(scene.map.map_id, 100030001)
+	assert_true(scene.cam.is_current())
+	assert_true(scene.cam.view_rect().has_point(w.player.pos))
 	assert_eq(scene.build_summary().map_id, 100030001)
 	assert_eq(scene.build_summary().map_name, "The Blue Mushroom Forest")
 	for mr in second_mobs:
