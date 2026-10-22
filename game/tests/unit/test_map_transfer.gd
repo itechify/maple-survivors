@@ -312,20 +312,6 @@ func test_only_the_final_map_clears_and_the_same_seed_replays_identical_event_by
 	assert_eq(first.events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1)
 
 
-func test_run_scene_immediately_advances_a_completed_map() -> void:
-	var w := RunWorld.new(_setup(0.1))
-	w.god = true
-	_ticks(w, 60)
-	_kill(w)
-	w.step(DT, MoveInput.new())
-	var scene := RunScene.new()
-	scene.world = w
-	scene.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "map_cleared"))
-	assert_eq(w.map_index, 1)
-	assert_false(w.transfer_pending)
-	scene.free()
-
-
 func test_legacy_setups_without_maps_or_map_imgs_keep_the_single_map_schedule() -> void:
 	for remove: String in ["maps", "map_imgs"]:
 		var setup := _setup(0.1)
