@@ -302,7 +302,7 @@ static func stage_map_errors(stages_file: Dictionary) -> PackedStringArray:
 	return errors
 
 
-## Detached boss schedule with map provenance and absolute times for the interim single-map round.
+## Detached boss schedule with map provenance and curve offsets; live map arrivals are entry-relative.
 static func stage_bosses(stage: Dictionary) -> Array:
 	var bosses: Array = []
 	for i in stage.get("maps", []).size():

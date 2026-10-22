@@ -90,6 +90,6 @@ func test_a_one_off_round_restores_each_fixture_without_warnings() -> void:
 		assert_eq(int(record.job), job)
 		assert_eq(int(record.level), int(character.level))
 		assert_eq(record.missing, [])
-		assert_eq(interim_warnings(PackedStringArray(record.warnings), DataRepo.load_all(), "sleepywood"), PackedStringArray())
+		assert_eq(PackedStringArray(record.warnings), PackedStringArray())
 		for key: String in character.skills:
 			assert_eq(int(record.skills.get(key, 0)), int(character.skills[key].rank), "%s rank restored" % key)

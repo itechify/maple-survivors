@@ -127,7 +127,7 @@ func test_real_starter_outfit_defense() -> void:
 	var missing := PackedStringArray()
 	var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 504, Vector2(800, 600), loader,
 		lib.mob_root, missing)
-	assert_true(interim_missing(missing, setup.data, setup.stage).is_empty(), "canonical run setup is present: %s" % [missing])
+	assert_true(missing.is_empty(), "canonical run setup is present: %s" % [missing])
 	var w := RunWorld.new(setup)
 	assert_eq(w.player_state.pdd, 7.0, "real outfit 3 + 2 + 2 W.DEF")
 	assert_eq(w.player_state.mdd, 0.0, "real starter equipment has no M.DEF")

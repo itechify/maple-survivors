@@ -66,48 +66,6 @@ func require_cache() -> bool:
 	return true
 
 
-## Interim #243 runs map 0: tolerate only absent assets belonging to later maps until the #242 cache is imported.
-static func interim_missing(missing: PackedStringArray, data: Dictionary, stage_key: String = "") -> PackedStringArray:
-	if stage_key.is_empty():
-		var across_stages := missing
-		for key: String in data.get("stages", {}).get("stages", {}):
-			across_stages = interim_missing(across_stages, data, key)
-		return across_stages
-	var later := PackedStringArray()
-	var maps := DataRepo.stage_maps(data, stage_key)
-	var stage: Dictionary = data.get("stages", {}).get("stages", {}).get(DataRepo.canonical_stage_key(stage_key), {})
-	var active := PackedInt32Array()
-	for frame: Dictionary in stage.get("keyframes", []):
-		for id: Variant in frame.get("pool", {}):
-			active.append(int(id))
-	for boss: Dictionary in DataRepo.stage_bosses(stage):
-		active.append(int(boss.get("mob_id", 0)))
-	for i in range(1, maps.size()):
-		later.append(DataRepo.map_img_path(int(maps[i].map_id)))
-		if maps[i].get("pool") is Dictionary:
-			for id: Variant in maps[i].pool:
-				if not int(id) in active:
-					later.append("Mob.wz/%07d.img" % int(id))
-	var remaining := PackedStringArray()
-	for path in missing:
-		if not path in later:
-			remaining.append(path)
-	return remaining
-
-
-## Unavailable future-only ordinary mobs may warn during interim preloading; active mobs and boss warnings stay strict.
-static func interim_warnings(warnings: PackedStringArray, data: Dictionary, stage_key: String) -> PackedStringArray:
-	var remaining := PackedStringArray()
-	var pattern := RegEx.create_from_string("^no mob img for ([0-9]+): dropped from the pools$")
-	for warning in warnings:
-		var found := pattern.search(warning)
-		if found != null and interim_missing(PackedStringArray(["Mob.wz/%07d.img" % int(found.get_string(1))]),
-				data, stage_key).is_empty():
-			continue
-		remaining.append(warning)
-	return remaining
-
-
 func assert_true(cond: bool, msg: String = "expected true") -> void:
 	if not cond:
 		fail(msg)

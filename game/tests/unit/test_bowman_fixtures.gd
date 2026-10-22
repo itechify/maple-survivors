@@ -56,7 +56,7 @@ func test_fixtures_restore_skills_weapons_and_arrow_tier_and_play_without_warnin
 		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 2, Vector2(800, 600),
 			func(path: String) -> Dictionary: return lib.img(path).root if lib.img(path) != null else {},
 			func(id: int) -> Dictionary: return lib.mob_root(id), missing, character)
-		assert_eq(interim_missing(missing, setup.data, setup.stage), PackedStringArray())
+		assert_eq(missing, PackedStringArray())
 		var w := RunWorld.new(setup)
 		assert_eq(w.progression.job_id, job)
 		assert_eq(w.progression.level, int(character.level))

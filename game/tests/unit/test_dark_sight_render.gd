@@ -42,5 +42,5 @@ func test_hidden_avatar_is_translucent_and_recovery_restores_opacity() -> void:
 	assert_false(w.is_hidden())
 	assert_near(scene.player_group.self_modulate.a, 1.0)
 	assert_true(w.warnings.is_empty())
-	assert_eq(interim_missing(scene.library.missing, w.data, w.stage_key), PackedStringArray(), "no missing skill art")
+	assert_eq(scene.library.missing, PackedStringArray(), "no missing skill art")
 	assert_eq(scene.avatar.missing, PackedStringArray(), "no missing avatar art")

@@ -49,7 +49,6 @@ func _init() -> void:
 	var setup := DataRepo.build_setup(data, stage, seed_value, Vector2(800, 600),
 		func(p: String) -> Dictionary: return BR._json(root, p),
 		func(id: int) -> Dictionary: return BR._json(root, "Mob.wz/%07d.img" % id), missing, {})
-	missing = BR.map_zero_missing(setup, missing)
 	if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 		print("profile_run: the asset cache lacks %s for %s (root %s)" % [missing, stage, root])
 		quit(1)

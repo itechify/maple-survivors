@@ -49,7 +49,7 @@ func test_fixtures_restore_all_skills_and_play_without_warnings() -> void:
 		var setup := DataRepo.build_setup(DataRepo.load_all(), "henesys", 215, Vector2(800, 600),
 			func(img: String) -> Dictionary: return lib.img(img).root if lib.img(img) != null else {},
 			func(id: int) -> Dictionary: return lib.mob_root(id), missing, character)
-		assert_eq(interim_missing(missing, setup.data, setup.stage), PackedStringArray())
+		assert_eq(missing, PackedStringArray())
 		var w := RunWorld.new(setup)
 		assert_eq(w.progression.job_id, int(character.job_id))
 		assert_eq(w.progression.level, int(character.level))

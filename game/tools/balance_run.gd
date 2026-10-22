@@ -241,7 +241,6 @@ func _init() -> void:
 		var setup := DataRepo.build_setup(data, stage_key, 0, Vector2(800, 600),
 			func(p: String) -> Dictionary: return _json(root, p),
 			func(id: int) -> Dictionary: return _json(root, "Mob.wz/%07d.img" % id), missing, character)
-		missing = map_zero_missing(setup, missing)
 		if not missing.is_empty() or setup.get("map_img", {}).is_empty():
 			print("balance_run: the asset cache lacks %s for %s (root %s)" % [missing, stage_key, root])
 			quit(1)
@@ -270,27 +269,6 @@ func _init() -> void:
 		print("BALANCE " + JSON.stringify(r))
 		print(describe(r))
 	quit()
-
-
-## Interim #243 runs map 0 only; unavailable later-map assets still appear in build_setup's original missing list.
-static func map_zero_missing(setup: Dictionary, missing: PackedStringArray) -> PackedStringArray:
-	var later := PackedStringArray()
-	var maps := DataRepo.stage_maps(setup.data, String(setup.stage))
-	var stage: Dictionary = setup.data.get("stages", {}).get("stages", {}).get(setup.stage, {}).duplicate(true)
-	# Keep every curve mob, boss, summon and revive required; only unused explicit-pool ids are optional here.
-	stage.maps = maps.map(func(entry: Dictionary) -> Dictionary: return {"boss": entry.get("boss", {})})
-	var active := StageRoster.mob_ids(stage, setup.get("mob_imgs", {}), setup.get("mob_skill_img", {}))
-	for i in range(1, maps.size()):
-		later.append(DataRepo.map_img_path(int(maps[i].map_id)))
-		if maps[i].get("pool") is Dictionary:
-			for id: Variant in maps[i].pool:
-				if not int(id) in active:
-					later.append("Mob.wz/%07d.img" % int(id))
-	var required := PackedStringArray()
-	for path in missing:
-		if not path in later:
-			required.append(path)
-	return required
 
 
 ## Puts a normalised tool account (AccountFile) on every prepared round setup. The worn cash equipment and pet go on

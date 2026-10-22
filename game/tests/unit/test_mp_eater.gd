@@ -357,6 +357,6 @@ func test_real_hit_presents_each_branch_effect_and_mp_gain_without_missing_sound
 		assert_true(absorbed, "seeded real-cache magic hit procs branch MP Eater")
 		assert_eq(scene.fx.active_count(), effects + 1, "canonical absorb effect is pooled")
 		assert_eq(scene.numbers.active_count(), numbers + 2, "hit damage plus actual MP gain")
-		assert_eq(interim_missing(library.missing, w.data, w.stage_key), PackedStringArray(), "no lookup for the absent optional Sound.wz entry")
+		assert_eq(library.missing, PackedStringArray(), "no lookup for the absent optional Sound.wz entry")
 		scene.free()
 		library.free()
