@@ -526,6 +526,9 @@ these are recorded without tuning. Raw records and console/SYSTEMS summaries rem
 This smoke predates #243: the real stage data still has no `maps`, so it proves no three-map pacing or balance.
 The cache-backed RunScene tests use an explicit adapted three-map setup instead; synthetic windowed captures of
 both transfers were checked by eye in `evidence/spec241/t246/synthetic/` in the integration checkout.
+Validation before #243: full suite **2,140 passed, 0 failed, 0 skipped**; focused RunScene/transfer/clock suite
+**68 passed, 0 failed, 0 skipped**. The full runner logs two dummy-texture RID allocations at shutdown; focused
+transfer and asset/UI/render/font checks and native transfer captures do not reproduce that diagnostic.
 
 #### Spec #237 (#240): potion cooldowns: regression smoke (2026-10-21)
 
