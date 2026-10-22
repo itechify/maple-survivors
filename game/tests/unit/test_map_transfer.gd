@@ -377,6 +377,28 @@ func test_a_later_maps_boss_is_loaded_even_when_no_keyframe_pool_names_it() -> v
 	assert_eq(w.bosses.live_count(), 1)
 
 
+func test_transfer_selects_the_next_maps_pool_for_its_first_ordinary_spawn() -> void:
+	var setup := _setup(0.1)
+	var stage: Dictionary = setup.data.stages.stages.quiet
+	stage.keyframes[0].rate = 60.0
+	stage.keyframes[0].max_alive = 1
+	stage.keyframes[0].pool = {"100100": 1.0}
+	stage.maps[1].pool = {"1110100": 1.0}
+	var w := RunWorld.new(setup)
+	w.god = true
+	_ticks(w, 60)
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	w.advance_map()
+	w.drain_events()
+	w.step(DT, MoveInput.new())
+	var spawns := w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "mob_spawned")
+	assert_eq(spawns.size(), 1)
+	if spawns.size() == 1:
+		assert_eq(spawns[0].mob_id, 1110100, "the first spawn already uses map 1's preserved pool")
+		assert_eq(spawns[0].pos.y, 200.0, "placement uses the rebuilt footholds")
+
+
 func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -> void:
 	if not require_cache():
 		return

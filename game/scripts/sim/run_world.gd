@@ -483,7 +483,7 @@ func _init_skills_and_progression() -> void:
 ## Ordinary spawning, the boss schedule and the bosses' canonical skills.
 func _init_directors() -> void:
 	var spawn_stage := stage
-	if not map_sequence_enabled() and stage.has("maps"):
+	if not _map_images_available() and stage.has("maps"):
 		spawn_stage = stage.duplicate()
 		spawn_stage.erase("maps") # no map_imgs: preserve legacy curve pools and the absolute boss schedule
 	director = SpawnDirector.create(spawn_stage, kind_of_id, balance.get("spawn", {}))
@@ -523,23 +523,36 @@ func curve_time() -> float:
 ## Original MapleStory id of the current map; legacy stages retain their single map.
 func current_map_id() -> int:
 	var maps: Array = stage.get("maps", [])
-	return int(maps[map_index].map_id) if not maps.is_empty() else int(stage.get("map_id", 0))
+	return int(maps[map_index].get("map_id", stage.get("map_id", 0))) if not maps.is_empty() \
+		else int(stage.get("map_id", 0))
 
 
-## Transfers require aligned map images; legacy setups retain their absolute boss schedule and single map.
+## Transfers require complete map entries and aligned images; pool-only fixtures retain their legacy boss schedule.
 func map_sequence_enabled() -> bool:
+	if not _map_images_available():
+		return false
+	for entry: Dictionary in stage.maps:
+		if not entry.has("map_id") or entry.get("boss", {}).is_empty():
+			return false
+	return true
+
+
+func _map_images_available() -> bool:
 	return not stage.get("maps", []).is_empty() and setup.has("map_imgs") \
 		and setup.map_imgs.size() == stage.maps.size()
 
 
 func _current_map_img() -> Dictionary:
-	return setup.map_imgs[map_index] if map_sequence_enabled() else setup.get("map_img", {})
+	return setup.map_imgs[map_index] if _map_images_available() else setup.get("map_img", {})
 
 
 func _stage_bosses() -> Array:
 	# Interim contract adapter until #243 supplies DataRepo.stage_bosses.
-	if not stage.has("maps"):
+	if stage.get("maps", []).is_empty():
 		return stage.get("bosses", [])
+	for entry: Dictionary in stage.maps:
+		if entry.get("boss", {}).is_empty():
+			return stage.get("bosses", [])
 	var entries: Array = []
 	for i in stage.maps.size():
 		var entry: Dictionary = stage.maps[i].boss.duplicate(true)
@@ -2189,7 +2202,7 @@ func _build_mob_kinds() -> void:
 	# The flattened schedule also supports #243's maps schema before its StageRoster helper is integrated.
 	var roster := stage.merged({"bosses": _stage_bosses()}, true)
 	var ids := StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {}))
-	for id: int in StagePools.stage_pool_ids(stage, setup.get("map_imgs", [])):
+	for id: int in StagePools.stage_pool_ids(stage, setup.map_imgs) if _map_images_available() else []:
 		if id not in ids:
 			ids.append(id)
 	ids.sort()
