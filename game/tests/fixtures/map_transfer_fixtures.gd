@@ -24,4 +24,3 @@ static func setup(seconds := 300.0) -> Dictionary:
 			[Vector2(-500, i * 200 - 10), Vector2(500, i * 200 - 10)]))
 	setup.map_img = setup.map_imgs[0]
 	return setup
-
