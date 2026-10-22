@@ -18,7 +18,7 @@ All tuning numbers below live in `game/data/survivor/*.json`; this document expl
    character with full HP/MP. The map's own BGM plays.
 3. **Survive** the growing swarms. Each map's boss arrives 300 seconds after entering it. Defeat it, collect all
    drops and finish every pending choice with combat frozen, then transfer automatically to the next map. HP, MP,
-   buffs, cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the
+   buffs, Hidden, cooldowns, kills and damage carry; map entities and boss-inflicted statuses clear. Only map 3 clears the
    round. Slow boss fights extend total round time; reaching a timer alone never clears a map or stage.
 4. **Level up** by collecting EXP drops. An eligible upgrade choice pauses the game and offers up to three cards;
    an empty pool opens no window.
@@ -549,7 +549,9 @@ clear effects so the screenshot captures their real hold. Summary has no missing
 Confirmed test seams: balance records/SUMMARY through `run_one`/`aggregate`/`describe_metrics`, public camper
 movement on a synthetic transferred world, RunScene summary/performance JSON producers, canonical/legacy CLI
 chains and character one-offs, and the executed maps scenario. The post-#247-merge affected suite passed
-118 tests, 0 failed, 0 skipped; the full-suite result is recorded with the final implementation report.
+118 tests, 0 failed, 0 skipped. The full suite before the #247 merge passed 2151 tests, 0 failed, 0 skipped
+(207 files, 906 s); the affected suite above rechecked the merged code. The full process exited 0 but Godot
+reported two RendererDummy texture RID allocations leaked at exit; their source was not investigated here.
 
 #### Spec #241 (#246): integrated presentation smoke (2026-10-21)
 
@@ -5462,7 +5464,7 @@ random policy shares the movement and the camper policies still override it afte
 | Region map order and pool declarations (#241, #243) | Henesys: 104040000 / 104010001 / 100030001; Ellinia: 101010100 / 100040100 / 100040105; Sleepywood: 105050400 / 105090310 / 105090900. Map 1 declares `pool: "curve"`; later maps declare life-list pools, except Sanctuary's explicit Cold Eye 4230100 ×5, Tauromacis 7130100 ×2, Taurospear 7130101 ×5; Pig Beach excludes Iron Hook 4090000 | C | Owner #241 Implementation Decisions; owner pool policy; StagePools resolves canonical life lists |
 | Map boss delay and curve offset (#241) | `map_seconds = 300`; boss relative `time = 300`; curve time = zero-based map index x 300 + time since entry. Entry uses spawn stream 2; existing streams, including reserved 7, retain their numbers | C | Owner #241; deterministic map transfer |
 | Map-1 pool cutoff (#241) | Last curve pool at or before curve time, considering only keyframes with `t < 300`; life pools count ordinary entries, skip hidden/event variants; exclusions and Sanctuary override are in the map-order row | C | Owner #241; no other pool tuning |
-| Map transfer carry and settlement (#241) | Freeze on map boss death; sweep all pickups once, resolve choices, discard ordinary mobs without drops/kills; preserve HP/MP, buffs, cooldowns, kills and damage; clear boss statuses; random destination `sp` on stream 2; no mid-round save | C | Owner #241 |
+| Map transfer carry and settlement (#241) | Freeze on map boss death; sweep all pickups once, resolve choices, discard ordinary mobs without drops/kills; preserve HP/MP, buffs, Hidden, cooldowns, kills and damage; clear boss statuses; random destination `sp` on stream 2; no mid-round save | C | Owner #241 |
 | Camper map ownership (#241, #248) | Henesys top/rope park only on map 1 id 104040000; Tree top only on Ellinia map 1 id 101010100. Later maps use the sensible bot; camper activation/arrival/portal metrics refer to map 1 | C policy, A map ids | Owner #241; no placement rescue after knockback |
 | Maps flow diagnostic (#248) | Training seed 1, invulnerability, EXP drops for the Lv10 Warrior/Sword pages, diagnostic lethal boss hits only after each map's 300 s timer; fixed-tick warp with 600-tick yields and 1800 s cap | C | Tool-only flow evidence; no survival/balance claim |
 | Henesys opening (#241, #243) | t0 rate 0.25 / alive cap 6; t120 0.55 / 11; t180 0.75 / 15; t240 onward and all keyframe pools unchanged | C | Owner #241; the spec's only balance change |

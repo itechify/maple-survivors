@@ -272,7 +272,7 @@ finale settlement. No stream is renumbered; stream 7 stays reserved.
 
 | Per-round state retained at transfer | Per-map state rebuilt or cleared |
 |---|---|
-| HP/MP, level/EXP/job/AP, loadout, buffs, skill/basic-attack/manual and potion cooldowns, equipment/inventory, mesos, pet, RNG streams, time, kills/damage, boss history and aggregate counters | Footholds, bounds, ladders, navigation, portals, spatial hash, mobs, projectiles (player and monster), pickups, attacks/actions, per-slot statuses and motion; boss-inflicted player statuses clear |
+| HP/MP, level/EXP/job/AP, loadout, buffs, Hidden, auto-cast timers, skill/basic-attack/manual and potion cooldowns, equipment/inventory, mesos, pet, RNG streams, time, kills/damage, boss history and aggregate counters | Footholds, bounds, ladders, navigation, portals, spatial hash, mobs, projectiles (player and monster), pickups, attacks/actions, per-slot statuses and motion; boss-inflicted player statuses clear |
 
 SpawnDirector retains round counters and scheduling clocks while selecting the new map's pool. Cooldowns and buffs
 remain on their deterministic clocks through the frozen transfer; HP/MP do not refill. Headless drivers advance
