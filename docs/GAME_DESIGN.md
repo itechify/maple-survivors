@@ -3285,7 +3285,8 @@ calibrated against actual training HP pools. No attack-local canonical value is 
 The `player_hit.source_kind` field distinguishes contact (`touch`) from these attack (`attack`) hits for metrics.
 The handler is reusable for later Stumpy and King Slime type-0 attacks selected in their stage data.
 
-The Tree That Grew I adds Stumpy (3220000) at 5:00, King Slime (9300003) at 10:00 and Dyle (6220000) at 15:00.
+Ellinia schedules Stumpy (3220000) in The Tree That Grew I, King Slime (9300003) in The Forest of Wisdom and
+Dyle (6220000) in The Forest of Evil I, each 300 s after entering its map. Earlier fights extend total round time.
 Stumpy uses HP ×0.45 (3,150), touch ×0.83 and attack ×0.77. Its selected attacks share an 8 s start-to-start cadence. The type-0 slam
 keeps the 543×172 box and 1,500 ms attackAfter, including the same airborne dodge.
 The type-2 ball keeps attack135, bulletSpeed140, range/r200, muzzle(6,-60) and 1,320 ms attackAfter. We adopt
@@ -3350,8 +3351,8 @@ The spec (issue #1, tickets #3-#27) does not ask for these; each is kept and rec
 - **Extra events** (`boss_attack`, `mob_projectile_spawned`/`_hit`, `mob_healed`, `mob_revives_spawned`,
   `boss_teleported`, `potion_tier_up`, `mp_short`, `buff_cast`/`_expired`/`_pulse`): presentation and metrics seams of
   the specced systems with no gameplay effect of their own (schema in ARCHITECTURE.md 4.4.3).
-- **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` runs through the post-15:00 finale until a
-  death or clear; documented in AGENTS.md and the script header.
+- **Playtest default length 30:00** (tier C tooling): `scripts/playtest.sh` allows time for the three entry-relative
+  boss waits and their fights, ending at death, clear or the cap; documented in AGENTS.md and the script header.
 
 ## 5. Experience and levels
 

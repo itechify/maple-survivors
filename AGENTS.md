@@ -285,7 +285,8 @@ and `boss_fights` (per encounter, `map_index`/`map_id`, spawn/death timestamps, 
 max HP at that hit, fraction, MP absorbed and `source_kind`). Fractions use damage before Magic Guard's MP split.
 An affordable later skill may still cast in a tick counted as MP-short; eligible targetless buffs can wait too.
 `--minutes` in playtests is an absolute simulation-time limit, including `--warp`; the default 30:00 is a safety cap.
-A 15:00 limit stops just as the third boss arrives. Claim a clear only from CLEARED with every scheduled boss dead
+A 15:00 limit may stop before the third boss arrives: each boss waits 300 s after its own map's entry, and earlier
+fights extend total round time. Claim a clear only from CLEARED with every scheduled boss dead
 and the final reward choice finished.
 `camper` records activation/arrival times, arrival success and portal names. At the cap a living run is
 `TIMEOUT`, never a clear; only defeating the scheduled bosses clears a stage.
