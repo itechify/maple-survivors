@@ -608,6 +608,27 @@ history load under canonical keys; migration is idempotent; real Continue retain
 character and starts Henesys map 1 at 00:00. The screenshot was checked by eye. Historical fixture `_doc` provenance
 is intentionally retained, so the disk-key assertion checks operational data rather than rewriting that history.
 
+The original #246 **4,079.620 ms** minute-14 outlier remains non-reproduced. Three uncapped seed-1 Lv38 F/P
+Henesys traversals match its ending exactly (930.667 s, Lv66, 4,281 kills, three bosses dead, `missing: []`).
+The normal capture's max is 112.371 ms. Two further runs suppress all event/periodic PNG encoding and retain
+process/draw phase markers: p95/p99/max are 10.112/16.320/69.336 ms and 10.280/17.139/75.588 ms, with
+4,230/4,161 drawn 200+ mob frames. Both pass the 120-frame 100+ / 60-frame 200+ workload qualification.
+Neither has a phase gap over 1 s; their largest gaps (128/130 ms) follow final.png encoding after the clear.
+The historical trace covers transfers only and cannot attribute the old frame's work. Its cause is tracked in
+[#252](https://github.com/itechify/maple-survivors/issues/252); the confirmed Ice Drake PNG fix is **not** proof of
+that no-capture outlier's cause. No speculative runtime fix or steady-60-FPS claim is made for x8. Evidence:
+`outlier-repeats.json`, `perf_no_shots_s1_x8_{1,2}/`, `diagnostic-sources/` under the same ignored QA directory.
+
+Before handoff, merged integration review tip `e532412` as `8395b96`. Repeated all eight smoke commands on the
+combined branch (`t249-smoke-merged`, cache `s241`): **all 24 complete JSON records are deeply identical** to the
+pre-merge matrix above, including map entries, per-map boss timings, advancement, warnings and missing lists.
+Raw records and console/SYSTEMS summaries are in `smoke-merged/`; `pre-merge-comparison.json` records the comparison.
+The final merged full suite passes **2,155 tests, 0 failed, 0 skipped** (210 files, 792.948 s, exit 0), with the
+same intentional corrupt-settings diagnostics and two baseline dummy texture RID shutdown allocations.
+All three native flow drivers pass again under `flow_merged_{maps,rounds,economy}/`; the fresh synthetic old-key
+Continue check again passes all 13 assertions under `migration-merged/`. Their key frames were checked by eye,
+including the review's compact map-select rows. No tuning or speculative fix for #252 was made.
+
 #### Spec #241 (#248): tooling and diagnostic map flow (2026-10-22)
 
 Cache `s241`, Git Bash, separate `t248` isolates. This ticket ran only the permitted seed-1 Henesys bot record
