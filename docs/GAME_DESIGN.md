@@ -524,13 +524,28 @@ changes differ from the legacy baseline below; Henesys bot seed 1 exactly matche
 Fresh starts have no clears in this small sample; record for the owner's #249 playtests, without tuning.
 Raw records and console/SYSTEMS summaries remain ignored in `_scratch/t246-smoke-integrated/`.
 
-Integrated scene/schema/transfer/clock checks pass **74 tests, 0 failed, 0 skipped**. The requested fresh-character
+Integrated validation: full suite **2,147 tests, 0 failed, 0 skipped** (207 files, 864 s), Git Bash,
+`ISOLATE=t246`, `TEST_TIMEOUT_S=3000`, cache `s241`; scene/schema/transfer/clock checks pass **74 tests, 0 failed,
+0 skipped**. The two dummy-renderer texture RID shutdown warnings match #243's baseline; focused transfer tests
+and native captures remain clean. The requested fresh-character
 windowed Henesys seed-2026 x8 run dies on map 1 at 310.033 s. A supplemental seed-1 x8 run with the existing Lv38
 F/P fixture clears all three real maps at 930.667 s, Lv66, all three bosses dead, `missing: []`, without invulnerability
 or diagnostic hits. Both clear/fade/black/arrival sequences and the final CLEAR were checked by eye under
 `evidence/spec241/t246/carried_s1_x8/` in the integration checkout: original CLEAR art, destination art/names, correctly
 framed avatar and native destination mobs, no old-map mobs on arrival. The ending summary names map 100030001,
 The Blue Mushroom Forest, Hidden Street, region Henesys.
+
+Uncapped transfer evidence uses the same fixture/seed at x1 with `--warp=290 --minutes=5.2` and
+`--warp=590 --minutes=10.3`, plus an x8 full traversal. An ignored performance mirror buffers per-frame phase/time/
+work samples to `transfer_frames.json` at the end and suppresses event screenshot encoding (final.png remains).
+The two x1 fade-ins have 274 / 200 samples: p95 1.596 / 2.173 ms, p99 1.900 / 2.591 ms, max 49.920 / 67.251 ms,
+exactly one interval above 16.7 ms in each fade-in. There are additional isolated notice/arrival outliers:
+26.383 ms during map 1's notice, 43.682 ms during map 2's notice, and 33.840 ms 1.53 sim seconds after map 3 entry.
+Thus one main reload hitch per boundary is observed, but a strict no-other-spike claim for the entire sequence is
+not verified. Raw frames, configuration and final captures remain under `evidence/spec241/t246/perf_buffered_transfer{1,2}_x1/`.
+The uncapped x8 traversal matches the captured run's ending time/level/kills/bosses; its whole-run p95/p99 is
+13.602 / 27.390 ms, with an unexplained 4,079.620 ms outlier in minute 14, outside the transfer windows.
+No overall steady-60-FPS claim is made at x8; a full headless suite was active on this shared machine.
 
 #### Spec #241 (#246): presentation regression before the stage schema (2026-10-21)
 
