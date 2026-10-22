@@ -311,6 +311,20 @@ func test_only_the_final_map_clears_and_the_same_seed_replays_identical_event_by
 	assert_eq(first.events.filter(func(e: Dictionary) -> bool: return e.type == "stage_cleared").size(), 1)
 
 
+func test_run_scene_immediately_advances_a_completed_map() -> void:
+	var w := RunWorld.new(_setup(0.1))
+	w.god = true
+	_ticks(w, 60)
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	var scene := RunScene.new()
+	scene.world = w
+	scene.handle_events(w.drain_events().filter(func(e: Dictionary) -> bool: return e.type == "map_cleared"))
+	assert_eq(w.map_index, 1)
+	assert_false(w.transfer_pending)
+	scene.free()
+
+
 func test_legacy_setups_without_maps_or_map_imgs_keep_the_single_map_schedule() -> void:
 	for remove: String in ["maps", "map_imgs"]:
 		var setup := _setup(0.1)
@@ -330,6 +344,36 @@ func test_legacy_setups_without_maps_or_map_imgs_keep_the_single_map_schedule() 
 		assert_false(w.transfer_pending)
 		assert_eq(w.map_index, 0)
 		assert_eq(w.state, RunWorld.CLEARED if remove == "maps" else RunWorld.PLAYING)
+
+
+func test_missing_current_boss_retains_the_existing_skip_rule_without_stranding_the_round() -> void:
+	var setup := _setup(0.1)
+	setup.data.stages.stages.quiet.maps[0].boss.mob_id = 9999999
+	var w := RunWorld.new(setup)
+	w.god = true
+	_ticks(w, 6)
+	assert_true(bool(w.bosses.records[0].skipped))
+	assert_true(w.transfer_pending, "the existing missing-boss rule also completes an intermediate map")
+	w.advance_map()
+	assert_eq(w.map_index, 1)
+
+
+func test_a_later_maps_boss_is_loaded_even_when_no_keyframe_pool_names_it() -> void:
+	var setup := _setup(0.1)
+	setup.mob_imgs[2220000] = MF.setup().mob_imgs[2220000]
+	setup.data.stages.stages.quiet.maps[1].boss.mob_id = 2220000
+	for frame: Dictionary in setup.data.stages.stages.quiet.keyframes:
+		frame.pool.erase("2220000")
+	var w := RunWorld.new(setup)
+	w.god = true
+	assert_true(w.kind_of_id.has(2220000), "the whole map boss roster is available before the first transfer")
+	_ticks(w, 60)
+	_kill(w)
+	w.step(DT, MoveInput.new())
+	w.advance_map()
+	_ticks(w, 60)
+	assert_false(bool(w.bosses.records[1].skipped))
+	assert_eq(w.bosses.live_count(), 1)
 
 
 func test_real_cache_transfers_through_each_regions_maps_with_valid_arrivals() -> void:

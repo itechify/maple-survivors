@@ -575,9 +575,15 @@ func advance_map() -> void:
 	var fresh := SpawnDirector.create(stage, kind_of_id, balance.get("spawn", {}))
 	for field: String in ["spawned", "bursts", "elites", "recycled", "relocated"]:
 		fresh.set(field, director.get(field))
+	# #245 owns these fields and lands independently. Preserve its pools and select the entered map when available.
+	for property: Dictionary in director.get_property_list():
+		var field := String(property.name)
+		if field == "map_index":
+			fresh.set(field, map_index)
+		elif field == "map_pools":
+			fresh.set(field, director.get(field))
 	fresh.seek_curve(curve_time())
 	director = fresh
-	# #245 adds map_index/map_pools; use the contract fields once its pool implementation lands.
 	player.place(PortalSet.start_point(_current_map_img(), fhm, bounds, spawn_rng), fhm)
 	if pet_system != null:
 		pet_system.place_beside(player, fhm)
@@ -794,6 +800,8 @@ func step(dt: float, input: MoveInput, after_stage: Callable = Callable()) -> vo
 	_step_monsters(dt)
 	if after_stage.is_valid():
 		after_stage.call("monsters")
+	if _settle_map():
+		return
 	_step_player_attacks(dt)
 	if _settle_map():
 		return
@@ -998,6 +1006,8 @@ func _step_monsters(dt: float) -> void:
 	_ctx["events"] = events
 	swarm.step(dt, _ctx)
 	bosses.step(self, dt)
+	if map_sequence_enabled() and map_index < stage.maps.size() - 1 and bosses.map_done(map_index):
+		return # a missing-image skip completes this map without admitting attacks/spawns
 	mob_skills.step(self)
 	boss_attacks.step(self)
 	mob_attacks.step(self, dt)
@@ -1137,6 +1147,10 @@ func _settle_clear() -> bool:
 
 ## Frozen intermediate-map settlement: sweep once before choices, then discard mobs and await presentation.
 func _settle_map() -> bool:
+	if not _map_clearing and map_sequence_enabled() and map_index < stage.maps.size() - 1 \
+			and bosses.map_done(map_index):
+		_map_clearing = true
+		_map_swept = false
 	if not _map_clearing or _dead:
 		return false
 	if not _map_swept:
@@ -2168,7 +2182,9 @@ func _build_mob_kinds() -> void:
 	var imgs: Dictionary = setup.get("mob_imgs", {})
 	var overrides: Dictionary = data.get("mobs", {}).get("mobs", {})
 	var speed_mult := float(balance.get("mob_speed_factor", MobKind.SPEED_SCALE)) / MobKind.SPEED_SCALE
-	for id in StageRoster.mob_ids(stage, imgs, setup.get("mob_skill_img", {})):
+	# The flattened schedule also supports #243's maps schema before its StageRoster helper is integrated.
+	var roster := stage.merged({"bosses": _stage_bosses()}, true)
+	for id in StageRoster.mob_ids(roster, imgs, setup.get("mob_skill_img", {})):
 		var img: Variant = imgs.get(id, imgs.get(str(id)))
 		if not (img is Dictionary) or img.is_empty():
 			warnings.append("no mob img for %d: dropped from the pools" % id)

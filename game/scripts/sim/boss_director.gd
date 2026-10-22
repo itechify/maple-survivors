@@ -105,6 +105,18 @@ func has_bosses() -> bool:
 	return not entries.is_empty()
 
 
+## Whether the entered map's encounters finished, retaining the missing-image skip rule of all_dead().
+func map_done(map_index: int) -> bool:
+	var found := false
+	for record: Dictionary in records:
+		if int(record.get("map_index", -1)) != map_index:
+			continue
+		found = true
+		if not bool(record.dead) and not bool(record.skipped):
+			return false
+	return found
+
+
 ## Fires each warning and places each due boss on the player's reachable platform, with regen fade-in. A boss whose
 ## mob img is missing is skipped at its arrival time with a run warning (it never blocks the clear); when no arrival
 ## point exists on the arrival tick, the arrival is postponed by the warning lead and a fresh warning fires at once,
